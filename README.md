@@ -1,51 +1,111 @@
-# Spec Intake Formatter — Agente
+# Spec Intake Formatter — Agente crítico
 
 Carpeta lista para abrir directamente en VS Code. Al abrirla, GitHub Copilot Chat detecta
-automáticamente el custom chat mode definido en `.github/chatmodes/spec_intake_formatter.chatmode.md`
-y lo ofrece en el selector de modos del chat (icono de modo, junto a Ask/Edit/Agent).
+automáticamente la configuración del agente y la instrucción general del proyecto.
+
+## Qué hace este agente
+
+Este agente no se limita a resumir documentación ni a producir una respuesta rápida. Su objetivo
+principal es ser exigente y crítico con la documentación de entrada.
+
+Debe:
+- analizar exhaustivamente los documentos de origen
+- detectar gaps, ambigüedades, requisitos faltantes y condiciones incompletas
+- hacer preguntas claras al usuario antes de generar la especificación
+- exigir evidencia antes de cerrar una solución
+- generar requisitos, prerrequisitos y casos de prueba con validaciones reales
+- contemplar escenarios de error, duplicidad, conflicto de datos y fallos funcionales
+- manejar explícitamente casos de datos sintéticos repetidos cuando el flujo lo requiera
 
 ## Estructura
 
 ```
 Spec Intake Formatter Agent/
 ├── .github/
+│   ├── copilot-instructions.md                 <- Instrucciones generales del agente
 │   └── chatmodes/
-│       └── spec_intake_formatter.chatmode.md   <- Definición del agente (custom chat mode)
+│       └── spec_intake_formatter.chatmode.md   <- Modo custom de chat para este agente
 ├── .vscode/
-│   └── settings.json                            <- Asegura que VS Code localice el chat mode
-├── documentos_fuente/                            <- Coloca aquí los documentos técnicos a analizar
+│   └── settings.json                            <- Ajustes para detectar y activar el flujo del agente
+├── documentos_fuente/                           <- Documentos técnicos a analizar
 ├── memoria/
-│   └── memoria_spec_intake_formatter.md          <- Memoria persistente entre sesiones del agente
-├── salidas/                                      <- Aquí se genera el documento markdown de salida
-└── README.md
+│   └── memoria_spec_intake_formatter.md         <- Memoria persistente entre sesiones
+├── salidas/                                     <- Salida final en markdown
+├── README.md
+└── ...
 ```
+
+## Comportamiento esperado del agente
+
+El agente debe seguir este flujo:
+
+1. Leer íntegramente la documentación disponible en `documentos_fuente/`.
+2. Detectar requisitos, reglas, dependencias y validaciones implícitas.
+3. Identificar gaps y preguntas necesarias antes de generar cualquier salida.
+4. Pedir al usuario la información faltante y no crear una especificación incompleta.
+5. Generar la especificación final con estas partes:
+   - requisitos funcionales
+   - prerequisitos
+   - especificación técnica
+   - especificación de testing
+   - casos de prueba
+   - validaciones de casos de prueba
+   - control de duplicidades y errores
+6. Validar que cada requisito tiene un caso de prueba asociado y que el caso tiene resultado esperado.
+7. Incluir escenarios de fallo, duplicidad, datos sintéticos repetidos y casos límite si aplican.
+
+## Regla crítica
+
+Si falta información relevante, el agente debe detenerse, preguntar al usuario y continuar solo cuando tenga evidencia suficiente.
+
+No debe asumir:
+- reglas no documentadas
+- resultados esperados sin confirmación
+- comportamiento frente a duplicidad sin definirlo
+- caso de prueba sin validación
+- decisiones de negocio sin evidencia ni confirmación del usuario
+
+## Reglas reforzadas del agente
+
+- Cuando detecte un gap, debe explicárselo al usuario y pedir que complete la información antes de seguir.
+- Debe evitar cerrar la especificación si hay requisitos sin validación o casos sin resultado esperado.
+- Debe exigir al menos una prueba end-to-end por proceso.
+- Debe cubrir explicitamente errores, duplicidades, datos sintéticos repetidos y casos límite.
+- Debe usar memoria por usuario para no mezclar contexto entre compañeros.
+
+## Memoria por usuario
+
+La primera vez que se use el agente, debe pedir el ID del usuario y crear un archivo de memoria asociado. Ese archivo será el que se use para mantener el contexto del usuario, evitando conflictos entre varios compañeros que trabajan con el mismo proyecto.
+
+Ejemplo de convención recomendada:
+- `memoria/memoria_spec_intake_formatter_<usuario>.md`
+- o `memoria/<usuario>_spec_intake_formatter.md`
+
+La clave es que cada usuario tenga su propio contexto y que el push/pull no mezcle memorias entre compañeros.
 
 ## Cómo usarlo
 
-1. Abre esta carpeta como workspace en VS Code (`File > Open Folder...`).
-2. Copia los documentos técnicos a analizar dentro de `documentos_fuente/`.
-3. Abre el panel de Copilot Chat (icono de Copilot o `Ctrl+Alt+I`) y escribe directamente tu
-   petición — **no hace falta seleccionar ningún modo**: Copilot carga automáticamente
-   `.github/copilot-instructions.md` y se comporta como el agente Spec Intake Formatter en
-   cualquier modo (Ask, Edit o Agent).
-   - Si tu versión de VS Code sí soporta "custom chat modes" y quieres usarlo explícitamente,
-     también existe `.github/chatmodes/spec_intake_formatter.chatmode.md`, seleccionable en el
-     desplegable de modos del chat. Es opcional: el mecanismo principal es el fichero de
-     instrucciones anterior.
-4. Indica al agente:
-   - Los documentos fuente a procesar (puedes referenciarlos con `#file` o arrastrarlos al chat).
-   - La ruta de salida deseada (por defecto, usa `salidas/`).
-   - La ruta de memoria: `memoria/memoria_spec_intake_formatter.md` (o confirma trabajar sin
-     memoria).
-5. El agente analizará exhaustivamente la documentación, preguntará por cualquier gap, prerrequisito
-   o caso de prueba (incluido control de duplicidades) que falte, y solo entonces generará el
-   documento único de entrada para la herramienta corporativa con las tres especificaciones
-   (FUNCIONAL / TECNICO / TESTING) por proceso.
+1. Abre esta carpeta como workspace en VS Code.
+2. Añade los documentos a analizar dentro de `documentos_fuente/`.
+3. Abre Copilot Chat y escribe la petición.
+4. El agente cargará la instrucción general desde `.github/copilot-instructions.md`.
+5. Si tu versión lo soporta, puedes usar también el modo custom desde `.github/chatmodes/spec_intake_formatter.chatmode.md`.
+6. Cuando haga falta, responde a las preguntas del agente antes de generar la salida final.
+
+## Casos de prueba que debe considerar
+
+El agente debe generar, como mínimo, pruebas de:
+- flujo principal / happy path
+- validación negativa
+- error funcional
+- caso límite / dato extremo
+- duplicidad / dato repetido
+- fallo de integridad o conflicto de datos
+- datos sintéticos repetidos para validar el control de duplicidades
 
 ## Notas
 
-- El agente nunca hace commits ni toca el repositorio remoto: todos los cambios quedan como
-  ficheros locales sin versionar en `salidas/` y `memoria/`.
-- Si `.github/chatmodes` no aparece en el selector de modos, comprueba que tu versión de VS Code y
-  la extensión GitHub Copilot Chat soportan "custom chat modes" (recarga la ventana tras abrir la
-  carpeta).
+- El agente nunca hace commits ni toca el repositorio remoto.
+- Todos los cambios quedan como artefactos locales en `memoria/` y `salidas/`.
+- La prioridad es la corrección, la exigencia y la detección de gaps sobre la velocidad.
+- Este proyecto ha sido reforzado para actuar como analista crítico y QA, no solo como generador superficial de texto.

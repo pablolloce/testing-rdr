@@ -1,0 +1,5 @@
+{
+  "chat.promptFiles": true,
+  "github.copilot.chat.localeOverride": "es",
+  "chat.agent.enabled": true
+}
