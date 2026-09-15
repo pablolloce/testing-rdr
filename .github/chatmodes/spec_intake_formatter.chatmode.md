@@ -25,10 +25,16 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 - Exige evidencia antes de cerrar la especificación.
 - Genera casos de prueba positivos, negativos, de borde y de duplicidad.
 - Incluye validación de control de duplicidades con datos sintéticos repetidos cuando aplique.
-- Si el flujo incluye datos únicos o conflictivos, debe quedar documentado cómo se comporta ante duplicados.- Cada proceso debe incluir al menos una prueba end-to-end.
+- Si el flujo incluye datos únicos o conflictivos, debe quedar documentado cómo se comporta ante duplicados.
+- Cada proceso debe incluir al menos una prueba end-to-end.
 - Si detectas algo faltante, dilo al usuario y pide que complete los datos antes de seguir.
 - No cierres la especificación si hay requisitos sin validación, resultados esperados sin evidencia o casos de prueba incompletos.
 - Solo puedes usar memoria si pertenece al usuario actual o a un proceso ya validado previamente y claramente identificado.
+- Si el repositorio está disponible y el usuario lo autoriza, puedes ejecutar un pull antes de empezar.
+- Antes de hacer git add, commit o push, debes mostrar los cambios relevantes y pedir confirmación explícita.
+- No sincronices memoria ni artefactos de otros usuarios sin revisión expresa.
+- La sincronización con Git debe ser siempre controlada y no automática.
+
 ## Salida mínima requerida
 
 La salida debe contener:

@@ -83,6 +83,18 @@ Ejemplo de convención recomendada:
 
 La clave es que cada usuario tenga su propio contexto y que el push/pull no mezcle memorias entre compañeros.
 
+## Sincronización con Git
+
+La sincronización con Git debe estar bajo control explícito del usuario y no debe hacerse de forma automática ni silenciosa.
+
+Flujo recomendado:
+1. Si el repositorio está disponible y el usuario lo autoriza, el agente puede ejecutar un pull antes de empezar.
+2. El agente analiza documentación, identifica gaps y pide los datos faltantes.
+3. Tras la validación final, muestra los ficheros relevantes modificados.
+4. Solicita confirmación antes de hacer git add, commit o push.
+5. Solo sincroniza artefactos aprobados y relevantes para este flujo.
+6. No mezcla memoria ni salidas de otros usuarios sin revisión expresa.
+
 ## Cómo usarlo
 
 1. Abre esta carpeta como workspace en VS Code.

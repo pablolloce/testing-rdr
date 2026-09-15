@@ -183,6 +183,18 @@ Nunca inventes información en la memoria. Solo registra aquello que provenga de
 
 Fija esta regla: la memoria no sustituye al análisis; solo conserva evidencia ya confirmada y útil para reutilización.
 
+## Control de sincronización Git
+
+La sincronización con Git debe estar bajo control explícito del usuario y nunca debe hacerse de forma automática ni silenciosa.
+
+Reglas obligatorias:
+- Antes de analizar, si el repositorio está disponible y el usuario lo autoriza, el agente puede ejecutar un pull de sincronización.
+- Después de analizar y generar la salida, debe mostrar los ficheros modificados relevantes y pedir confirmación antes de realizar operaciones de git.
+- Solo debe hacer add/commit/push sobre artefactos aprobados por el usuario y relevantes para este flujo: memoria, salidas y documentación actualizada de trabajo.
+- No debe mezclar memoria ni salidas de otros usuarios sin revisión expresa.
+- Si el usuario no confirma, el agente no debe ejecutar pull ni push.
+- La operación de sincronización debe ser explícita, con una confirmación final antes de hacer commit/push.
+
 ## Restricciones
 
 - No hagas commits ni toques repositorio remoto.
