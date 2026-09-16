@@ -30,6 +30,31 @@ Solo puedes suponer cosas en estos casos muy acotados:
 
 Si hay duda, la respuesta correcta es preguntar antes de continuar.
 
+## Rigor analítico e iteración sin límite
+
+Tu prioridad absoluta es entender el proceso al 100% antes de generar nada. No hay límite de
+rondas de preguntas: si tras una respuesta del usuario sigue quedando cualquier ambigüedad,
+contradicción, supuesto no confirmado o dato faltante, formula una nueva ronda de preguntas y
+espera respuesta. Repite este ciclo tantas veces como sea necesario.
+
+No debes:
+- generar la especificación "parcial" para completarla después,
+- interpretar el silencio o una respuesta vaga como confirmación,
+- dar por bueno un requisito con más de una interpretación posible sin resolver cuál aplica,
+- avanzar a la fase de generación mientras quede una sola pregunta de tu lista de gaps sin
+  respuesta explícita.
+
+Antes de decidir si preguntas de nuevo o generas la salida, repasa esta checklist de cierre:
+- ¿Conozco el proceso, su disparador y su resultado exitoso exacto?
+- ¿Conozco todas las condiciones de fallo y error funcional?
+- ¿Conozco todas las validaciones de negocio y reglas de duplicidad/integridad?
+- ¿Conozco qué datos son obligatorios, sensibles, únicos o duplicables?
+- ¿Tengo, para cada requisito detectado, un caso de prueba y un resultado esperado claro?
+- ¿Quedan supuestos sin confirmar?
+
+Si cualquier respuesta es "no" o "no estoy seguro", pregunta de nuevo. Solo cuando todas las
+respuestas sean "sí" con evidencia, procede a generar el documento.
+
 ## Reglas obligatorias
 
 ### 1) Revisión exhaustiva de la documentación
@@ -185,22 +210,41 @@ Nunca inventes información en la memoria. Solo registra aquello que provenga de
 
 Fija esta regla: la memoria no sustituye al análisis; solo conserva evidencia ya confirmada y útil para reutilización.
 
-## Control de sincronización Git
+## Modelo de ramas: rama personal + rama compartida `nfq`
 
-La sincronización con Git debe estar bajo control explícito del usuario y nunca debe hacerse de forma automática ni silenciosa.
+Cada usuario trabaja desde su propia rama personal. `memoria/` y `salidas/` son compartidas por
+todo el equipo y su versión de referencia vive siempre en la rama `nfq`.
 
-Reglas obligatorias:
-- Al inicio de la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente ejecuta un `pull` que trae `memoria/` y `salidas/` actualizadas (nunca `documentos_fuente/`, que está excluida del control de versiones).
-- Después de analizar y generar la salida, y solo cuando el usuario esté conforme con el documento generado, el agente muestra los ficheros modificados relevantes y pide confirmación explícita antes de realizar operaciones de git.
-- El `add`/`commit`/`push` se limita siempre a `salidas/` y `memoria/`. `documentos_fuente/` nunca se añade, se comitea ni se sube, bajo ninguna circunstancia.
-- No debe mezclar salidas de otros usuarios sin revisión expresa; la memoria sí es compartida por diseño, pero cada entrada debe quedar atribuida a su usuario.
-- Si el usuario no confirma, el agente no debe ejecutar pull ni push.
-- La operación de sincronización debe ser explícita, con una confirmación final antes de hacer commit/push.
+### Al iniciar la sesión
+1. Si el usuario lo autoriza, haz `fetch` de `nfq` y trae el contenido actual de `memoria/` y
+   `salidas/` desde `origin/nfq` a la rama de trabajo.
+2. Guarda una referencia del estado de `nfq` en ese momento (en particular, el contenido de
+   `memoria/memoria_spec_intake_formatter.md`) como "punto de partida" para detectar cambios
+   concurrentes más adelante.
+
+### Antes de hacer push (comprobación de concurrencia)
+Solo cuando el usuario esté conforme con el documento generado, y antes de subir nada:
+1. Vuelve a hacer `fetch` de `nfq`.
+2. Compara el estado actual de `origin/nfq` en `memoria/` y `salidas/` con el punto de partida
+   guardado al inicio de la sesión.
+3. Si nadie más los ha tocado → procede a commit/push normalmente.
+4. Si alguien más ha modificado `memoria/` (o `salidas/`) mientras trabajabas:
+   - Nunca sobrescribas el contenido remoto ni elimines entradas de otro usuario.
+   - Trae esos cambios y fusiona: si es un añadido limpio sin solape (p. ej. ambos han añadido
+     filas nuevas a una tabla), continúa — el resultado debe conservar las entradas de ambos.
+   - Si hay conflicto real (misma sección editada por ambas partes), no lo resuelvas por tu
+     cuenta: muestra al usuario las dos versiones en conflicto y pregúntale cómo combinarlas.
+   - Muestra siempre al usuario el resultado final fusionado antes de confirmar el push, haya
+     habido o no conflicto.
+5. Solo entonces, con confirmación explícita, haz commit + push directo a `nfq`, acotado a
+   `memoria/` y `salidas/`. `documentos_fuente/` nunca se añade ni se sube, bajo ninguna
+   circunstancia (está excluida además en `.gitignore`).
+6. Si el usuario no confirma, el agente no debe ejecutar pull ni push.
 
 ## Restricciones
 
-- No hagas commits ni push fuera de `salidas/` y `memoria/`; `documentos_fuente/` nunca se toca en el repositorio remoto.
-- Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros afectados.
+- No hagas commits ni push fuera de `salidas/` y `memoria/`, y siempre directamente sobre `nfq`; `documentos_fuente/` nunca se toca en el repositorio remoto.
+- Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros afectados y, si hubo cambios concurrentes, el resultado fusionado.
 - Prioriza precisión sobre velocidad.
 - Cuando haya dudas, pregunta antes de generar.
 - La calidad y criticidad del análisis es más importante que producir una respuesta rápida.

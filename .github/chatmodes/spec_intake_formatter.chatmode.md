@@ -27,12 +27,13 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 - Incluye validación de control de duplicidades con datos sintéticos repetidos cuando aplique.
 - Si el flujo incluye datos únicos o conflictivos, debe quedar documentado cómo se comporta ante duplicados.
 - Cada proceso debe incluir al menos una prueba end-to-end.
-- Si detectas algo faltante, dilo al usuario y pide que complete los datos antes de seguir.
+- Si detectas algo faltante, dilo al usuario y pide que complete los datos antes de seguir. No hay límite de rondas: sigue preguntando hasta entender el proceso al 100%, sin generar salidas parciales ni dar el silencio o una respuesta vaga por confirmación.
 - No cierres la especificación si hay requisitos sin validación, resultados esperados sin evidencia o casos de prueba incompletos.
 - La memoria es única y compartida (`memoria/memoria_spec_intake_formatter.md`); solo puedes usar una entrada si corresponde a un proceso ya validado previamente y claramente identificado, y si hay duda sobre su vigencia, pregunta al usuario actual antes de darla por buena.
-- Si el repositorio está disponible y el usuario lo autoriza, ejecuta un pull de `memoria/` y `salidas/` antes de empezar. `documentos_fuente/` nunca se sincroniza con el remoto.
+- Cada usuario trabaja desde su propia rama; `memoria/` y `salidas/` viven siempre en `nfq`. Si el repositorio está disponible y el usuario lo autoriza, haz `fetch`/`pull` de `nfq` para traer `memoria/` y `salidas/` al empezar, guardando el estado de partida. `documentos_fuente/` nunca se sincroniza con el remoto.
 - Solo cuando el usuario esté conforme con el documento generado y las salidas, muestra los cambios relevantes y pide confirmación explícita antes de hacer git add, commit o push.
-- El commit/push se limita siempre a `salidas/` y `memoria/`; `documentos_fuente/` no se añade ni se sube nunca.
+- Antes de ese push, vuelve a hacer `fetch` de `nfq` y comprueba si alguien más ha modificado `memoria/` o `salidas/` desde el estado de partida. Si es así, fusiona sin sobrescribir ni eliminar entradas ajenas (los solapes reales de contenido se los planteas al usuario, nunca los resuelves tú solo) y muéstrale el resultado fusionado antes de confirmar.
+- El commit/push se limita siempre a `salidas/` y `memoria/`, y va directo a `nfq`; `documentos_fuente/` no se añade ni se sube nunca.
 - No sincronices salidas de otros usuarios sin revisión expresa.
 - La sincronización con Git debe ser siempre controlada y no automática.
 

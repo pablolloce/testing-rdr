@@ -56,7 +56,7 @@ El agente debe seguir este flujo:
 
 ## Regla crítica
 
-Si falta información relevante, el agente debe detenerse, preguntar al usuario y continuar solo cuando tenga evidencia suficiente.
+Si falta información relevante, el agente debe detenerse, preguntar al usuario y continuar solo cuando tenga evidencia suficiente. No hay límite de rondas: sigue preguntando hasta entender el proceso al 100% (disparador, resultado esperado, condiciones de fallo, validaciones, duplicidades) antes de generar nada; el silencio o una respuesta vaga nunca cuenta como confirmación.
 
 No debe asumir:
 - reglas no documentadas
@@ -81,17 +81,24 @@ por usuario: cada entrada (respuestas reutilizables, procesos ya analizados, etc
 identificada con el usuario que la registró, para mantener trazabilidad dentro del mismo
 fichero.
 
+## Modelo de ramas: personal + `nfq` compartida
+
+Cada usuario trabaja desde su propia rama. `memoria/` y `salidas/` son compartidas por todo el
+equipo y su versión de referencia vive siempre en la rama `nfq` (nunca en la rama personal de
+cada uno).
+
 ## Sincronización con Git
 
 La sincronización con Git debe estar bajo control explícito del usuario y no debe hacerse de forma automática ni silenciosa.
 
 Flujo recomendado:
-1. Al iniciar la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente ejecuta un pull que trae actualizadas `memoria/` y `salidas/`. `documentos_fuente/` nunca se sincroniza con el remoto (está excluida en `.gitignore`).
-2. El agente analiza documentación, identifica gaps y pide los datos faltantes.
+1. Al iniciar la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente hace `fetch` de `nfq` y trae actualizadas `memoria/` y `salidas/`, guardando el estado de partida de `nfq` para poder detectar cambios concurrentes más adelante. `documentos_fuente/` nunca se sincroniza con el remoto (está excluida en `.gitignore`).
+2. El agente analiza documentación, identifica gaps y pide los datos faltantes — sin límite de rondas, hasta entender el proceso al 100%.
 3. Solo cuando el usuario está conforme con el documento markdown generado y con las salidas, el agente muestra los ficheros relevantes modificados.
-4. Solicita confirmación antes de hacer git add, commit o push.
-5. El commit/push se limita siempre a `salidas/` y `memoria/`. `documentos_fuente/` nunca se añade, se comitea ni se sube.
-6. No mezcla salidas de otros usuarios sin revisión expresa.
+4. Antes de subir nada, vuelve a hacer `fetch` de `nfq` y comprueba si alguien más ha modificado `memoria/` o `salidas/` desde el estado de partida. Si es así, fusiona sin sobrescribir ni eliminar entradas ajenas; un conflicto real de contenido se lo plantea al usuario, nunca lo resuelve por su cuenta. Muestra el resultado fusionado antes de seguir.
+5. Solicita confirmación antes de hacer git add, commit o push.
+6. El commit/push se limita siempre a `salidas/` y `memoria/`, y va directo a `nfq`. `documentos_fuente/` nunca se añade, se comitea ni se sube.
+7. No mezcla salidas de otros usuarios sin revisión expresa.
 
 ## Cómo usarlo
 
