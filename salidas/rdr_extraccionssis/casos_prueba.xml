@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_extraccionssis" fecha="2026-09-16" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-01" tipo="e2e">
+    <nombre>Flujo completo E2E</nombre>
+    <objetivo>Validar que un SSI activo válido recorre toda la cadena, desde su selección en FT_T_SSIS hasta el XML final en backup y su purga posterior.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_SSIS contiene al menos 1 SSI con DATA_STAT_TYP='ACTIVE', END_TMS nulo, sin fila BRANCH/A15 en FT_T_SSIA.</precondicion>
+      <precondicion>Directorios de origen y backup vacíos o limpios de ejecuciones previas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI sintético" valor="1 registro completo, con todas las tablas de detalle pobladas (FT_T_SAT1, FT_T_SSIR, FT_T_SAI1, etc.)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Disparar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Esperar los eventos _OK de toda la cadena.</paso>
+      <paso numero="3">Verificar la ejecución de MEKYTL1024.</paso>
+      <paso numero="4">Verificar el XML resultante en backup.</paso>
+      <paso numero="5">Forzar el avance de fecha 8 días.</paso>
+      <paso numero="6">Disparar MANT_RDR_EXTRACCION_SSIS y verificar la purga.</paso>
+    </pasos>
+    <resultadoEsperado>XML válido en backup con 1 bloque SettInstruction con todos los campos correctos; tras 8 días el fichero se purga automáticamente.</resultadoEsperado>
+    <tipoValidacion>Funcional + integración (Control-M) + diff de fichero</tipoValidacion>
+    <criterioAceptacion>0 discrepancias campo a campo contra el XML de referencia; eventos _OK generados en el orden correcto; fichero purgado tras +7 días.</criterioAceptacion>
+    <posibilidadFallo>N/A (camino feliz).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-02" tipo="borde">
+    <nombre>Extracción sin resultados</nombre>
+    <objetivo>Validar el comportamiento cuando la query maestra no devuelve ningún SSI elegible.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_SSIS de test sin ninguna fila que cumpla el filtro de la query maestra.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSIs elegibles" valor="0 filas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar el dataset de test sin ningún SSI elegible.</paso>
+      <paso numero="2">Disparar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Verificar el XML y el log generados.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK; se genera un XML válido con 0 bloques SettInstruction; el log indica "0 registros procesados".</resultadoEsperado>
+    <tipoValidacion>Funcional</tipoValidacion>
+    <criterioAceptacion>Código de retorno OK; XML bien formado con 0 instrucciones; evento _OK emitido normalmente.</criterioAceptacion>
+    <posibilidadFallo>Ninguno — se valida explícitamente que esto NO es un error.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-03" tipo="error_funcional">
+    <nombre>Fallo del script de extracción</nombre>
+    <objetivo>Validar que un fallo del jar de extracción detiene la cadena y dispara la notificación de incidencia.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test con el jar ExtraccionGenericaOtherEntities.jar forzado a lanzar excepción (p. ej. credencial de BD inválida).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fallo forzado" valor="credencial de base de datos inválida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar el fallo forzado en el entorno de test.</paso>
+      <paso numero="2">Disparar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Verificar estado del job, ausencia de XML válido y notificación emitida.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina NOTOK; no se genera un .xml.tmp válido; no se emite el evento _OK; se dispara la notificación a ANS RDR (grupo + email + Remedy).</resultadoEsperado>
+    <tipoValidacion>Funcional + notificación</tipoValidacion>
+    <criterioAceptacion>Cadena detenida (el job siguiente nunca se dispara); ticket Remedy generado; email recibido en ans_rdr.es@bbva.com.</criterioAceptacion>
+    <posibilidadFallo>Sí — es el escenario a validar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-04" tipo="borde">
+    <nombre>SSI sin datos de detalle</nombre>
+    <objetivo>Validar la generación del bloque SettInstruction cuando el SSI no tiene filas en las tablas de detalle relacionadas.</objetivo>
+    <precondiciones>
+      <precondicion>SSI elegible por la query maestra, sin filas relacionadas en FT_T_SAT1/FT_T_SSIR/etc.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI huérfano de detalle" valor="1 registro elegible sin filas de detalle asociadas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sembrar el SSI huérfano de detalle en el dataset de test.</paso>
+      <paso numero="2">Ejecutar la extracción incluyendo ese SSI.</paso>
+      <paso numero="3">Inspeccionar el bloque SettInstruction generado para ese SSI_OID.</paso>
+    </pasos>
+    <resultadoEsperado>Se genera el bloque SettInstruction para ese SSI_OID con los campos derivados de detalle vacíos/nulos, sin excluir el SSI del XML.</resultadoEsperado>
+    <tipoValidacion>Funcional + estructura XML</tipoValidacion>
+    <criterioAceptacion>El bloque existe, es XML válido, y los campos sin fuente de datos aparecen vacíos (no un null que rompa el esquema).</criterioAceptacion>
+    <posibilidadFallo>Ninguno funcionalmente, pero debe quedar como advertencia en el log.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-05" tipo="duplicidad">
+    <nombre>SSI_OID duplicado (dato sintético)</nombre>
+    <objetivo>Validar la detección y el rechazo controlado de SSI_OID duplicados dentro del mismo lote de extracción.</objetivo>
+    <precondiciones>
+      <precondicion>El entorno de test permite insertar varias filas con el mismo SSI_OID (bypass de restricción de clave primaria).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="999001"/>
+      <dato campo="Repeticiones" valor="3 filas activas simultáneas (DATA_STAT_TYP='ACTIVE'), distinto LAST_CHG_TMS en cada una"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las 3 filas duplicadas de SSI_OID=999001 en el dataset de test.</paso>
+      <paso numero="2">Ejecutar la extracción con este dataset sintético.</paso>
+      <paso numero="3">Revisar el log y confirmar que no se generó el XML final.</paso>
+    </pasos>
+    <resultadoEsperado>El job detecta el conflicto (más de una fila activa para el mismo SSI_OID), no genera el XML final, registra en el log los SSI_OID en conflicto y notifica a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Control de duplicidades</tipoValidacion>
+    <criterioAceptacion>El job termina en error controlado (no en éxito silencioso ni en un XML con SettID repetido); el log identifica exactamente SSI_OID=999001 y el número de repeticiones (3).</criterioAceptacion>
+    <posibilidadFallo>Sí — la detección correcta del conflicto es justamente lo que hace pasar la prueba.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-06" tipo="conflicto_integridad">
+    <nombre>Backup ya existente (reintento mismo día)</nombre>
+    <objetivo>Validar el comportamiento cuando ya existe un fichero de backup del día en curso al reintentar la ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Ya existe ExtraccionContingenciaSSIS_YYYYMMDD.xml en backup del día en curso, de una ejecución previa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero .xml.tmp nuevo" valor="contenido distinto al backup ya existente del mismo día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la existencia previa del backup del día en curso.</paso>
+      <paso numero="2">Forzar una nueva ejecución de MEKYTL1024 el mismo día.</paso>
+      <paso numero="3">Comparar el fichero final en backup contra el .tmp de la segunda ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>El backup existente se sobrescribe con el nuevo contenido; se registra un warning de sobrescritura en el log.</resultadoEsperado>
+    <tipoValidacion>Conflicto de integridad de fichero</tipoValidacion>
+    <criterioAceptacion>El fichero final en backup coincide con el .tmp de la segunda ejecución; el log contiene el warning de sobrescritura.</criterioAceptacion>
+    <posibilidadFallo>Ninguno (comportamiento validado, no un error).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-07" tipo="datos_sinteticos">
+    <nombre>Múltiples ficheros temporales pendientes</nombre>
+    <objetivo>Validar la selección determinista del fichero correcto cuando hay varios temporales pendientes de mover a backup.</objetivo>
+    <precondiciones>
+      <precondicion>Dos ficheros en origen que cumplen la máscara ExtraccionContingenciaSSIs*.xml, con distinto mtime.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ExtraccionContingenciaSSIs.xml.tmp" valor="fichero más reciente (mtime actual)"/>
+      <dato campo="ExtraccionContingenciaSSIs_old.xml.tmp" valor="fichero más antiguo, simulando residuo de una ejecución previa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sembrar los dos ficheros temporales con mtime distinto en el directorio de origen.</paso>
+      <paso numero="2">Disparar MEKYTL1024 con ambos ficheros presentes.</paso>
+      <paso numero="3">Verificar cuál de los dos se movió a backup y revisar el log.</paso>
+    </pasos>
+    <resultadoEsperado>Se procesa el fichero de mtime más reciente; el otro permanece sin mover y se registra un warning de fichero huérfano.</resultadoEsperado>
+    <tipoValidacion>Datos sintéticos repetidos / determinismo</tipoValidacion>
+    <criterioAceptacion>El backup contiene el contenido del fichero más reciente; el log advierte sobre el fichero sobrante.</criterioAceptacion>
+    <posibilidadFallo>Ninguno funcionalmente, pero se espera la advertencia en el log.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-08" tipo="regresion">
+    <nombre>Temporal residual de ejecución fallida</nombre>
+    <objetivo>Validar que un temporal incompleto de una ejecución previa fallida no contamina la ejecución actual.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un .xml.tmp incompleto/truncado de una ejecución previa que falló a mitad de proceso.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo=".xml.tmp residual" valor="fichero truncado/corrupto de una ejecución anterior fallida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sembrar el .xml.tmp residual truncado en el directorio de origen.</paso>
+      <paso numero="2">Disparar GS_EXTRACCION_CONT de nuevo.</paso>
+      <paso numero="3">Verificar que el .tmp final no contiene residuos del intento anterior.</paso>
+    </pasos>
+    <resultadoEsperado>El script regenera el temporal desde cero (sobrescribe), sin mezclar contenido del intento fallido anterior.</resultadoEsperado>
+    <tipoValidacion>Regresión / integridad</tipoValidacion>
+    <criterioAceptacion>El .tmp final es válido y coincide exactamente con los datos de la ejecución actual (0 residuos del intento anterior).</criterioAceptacion>
+    <posibilidadFallo>Ninguno (el comportamiento correcto es lo que hace pasar la prueba).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-09" tipo="happy_path">
+    <nombre>Purga de backups antiguos</nombre>
+    <objetivo>Validar el borrado correcto de ficheros de backup con más de 7 días de antigüedad.</objetivo>
+    <precondiciones>
+      <precondicion>Backup con ficheros de 5, 7 y 10 días de antigüedad (mtime controlado).</precondicion>
+      <precondicion>Ambos predecesores (MEKYTL1025_OK y MEKYTL1047_OK) han emitido su evento.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros de backup" valor="3 ficheros con mtime de 5, 7 y 10 días"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sembrar los 3 ficheros con el mtime controlado en backup.</paso>
+      <paso numero="2">Disparar MANT_RDR_EXTRACCION_SSIS.</paso>
+      <paso numero="3">Verificar qué ficheros permanecen y cuáles se han borrado.</paso>
+    </pasos>
+    <resultadoEsperado>Se borra el fichero de 10 días (mtime +7); se conservan los de 5 y 7 días (el filtro es estrictamente mayor a 7).</resultadoEsperado>
+    <tipoValidacion>Funcional</tipoValidacion>
+    <criterioAceptacion>Exactamente el fichero de 10 días desaparece; los otros dos permanecen.</criterioAceptacion>
+    <posibilidadFallo>N/A (camino feliz).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-10" tipo="error_funcional">
+    <nombre>Fallo de purga</nombre>
+    <objetivo>Validar la notificación de incidencia cuando el borrado de un fichero de backup falla.</objetivo>
+    <precondiciones>
+      <precondicion>Un fichero en backup con permisos/ACL que impiden su borrado, forzado en el entorno de test.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero no borrable" valor="&gt;7 días, con protección forzada (p. ej. chattr +i o ACL restrictiva)"/>
+      <dato campo="Fichero borrable" valor="&gt;7 días, sin protección"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar el fichero protegido y el fichero borrable en backup.</paso>
+      <paso numero="2">Disparar MANT_RDR_EXTRACCION_SSIS.</paso>
+      <paso numero="3">Verificar el estado del job, qué ficheros permanecen y la notificación emitida.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina NOTOK y notifica a ANS RDR; el fichero borrable sí se elimina (comportamiento de find -exec por fichero); el fichero del día en curso permanece intacto.</resultadoEsperado>
+    <tipoValidacion>Error funcional</tipoValidacion>
+    <criterioAceptacion>Notificación generada; fichero protegido permanece; fichero del día en curso no afectado.</criterioAceptacion>
+    <posibilidadFallo>Sí — es el escenario a validar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-11" tipo="regresion">
+    <nombre>Regresión de mapeo de campos</nombre>
+    <objetivo>Validar que un cambio en la query de extracción o en el jar no rompe el mapeo de campos ya validado.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un XML de referencia (baseline) validado previamente para un SSI conocido.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI de baseline" valor="mismo SSI usado para generar el XML de referencia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Aplicar el cambio en ExtraccionContingenciaSSIs.sql o en el jar.</paso>
+      <paso numero="2">Re-ejecutar la extracción para el SSI de baseline.</paso>
+      <paso numero="3">Comparar el resultado contra el XML de referencia (diff campo a campo).</paso>
+    </pasos>
+    <resultadoEsperado>Sin diferencias no esperadas; cualquier cambio de campo debe estar justificado por el changelog del cambio.</resultadoEsperado>
+    <tipoValidacion>Regresión (diff automatizado)</tipoValidacion>
+    <criterioAceptacion>0 diferencias no documentadas contra el baseline.</criterioAceptacion>
+    <posibilidadFallo>Solo si el cambio introduce una regresión no prevista.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-12" tipo="negativo">
+    <nombre>Calendario de disparo</nombre>
+    <objetivo>Validar que la cadena NO se dispara en fin de semana.</objetivo>
+    <precondiciones>
+      <precondicion>Programación de Control-M configurada según lo confirmado (Lunes–Viernes).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Periodo de observación" valor="2 semanas en Control-M/logs"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar en Control-M/logs las ejecuciones de la cadena durante 2 semanas.</paso>
+      <paso numero="2">Confirmar la ausencia de disparos en sábado y domingo.</paso>
+    </pasos>
+    <resultadoEsperado>Sin ejecuciones en fin de semana durante el periodo observado.</resultadoEsperado>
+    <tipoValidacion>Configuración / negativo</tipoValidacion>
+    <criterioAceptacion>0 ejecuciones en sábado/domingo en el periodo observado.</criterioAceptacion>
+    <posibilidadFallo>Si aparece una ejecución en fin de semana, se considera defecto de configuración (relacionado con el gap del calendario, ver spec.md §4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-13" tipo="regresion">
+    <nombre>Jobs Dummy inactivos</nombre>
+    <objetivo>Validar que los jobs desactivados permanecen inactivos y no ejecutan script físico.</objetivo>
+    <precondiciones>
+      <precondicion>Configuración activa de Control-M para KYTL003D_MEKYTL1025 y KYTL003D_MEKYTL1047.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs a revisar" valor="KYTL003D_MEKYTL1025, KYTL003D_MEKYTL1047"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar el tipo de job configurado en Control-M para ambos jobs.</paso>
+      <paso numero="2">Repetir la revisión tras cada cambio/despliegue de la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs siguen tipificados como Dummy, sin script ni comando de sistema operativo asociado.</resultadoEsperado>
+    <tipoValidacion>Control / regresión de configuración</tipoValidacion>
+    <criterioAceptacion>Tipo de job = Dummy en ambos; 0 invocaciones a sistema operativo registradas.</criterioAceptacion>
+    <posibilidadFallo>Cualquier cambio a tipo OS sin autorización se considera defecto crítico (reactivación accidental de un proceso sin diccionario de campos validado).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
