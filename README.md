@@ -96,12 +96,12 @@ cada uno).
 La sincronización con Git debe estar bajo control explícito del usuario y no debe hacerse de forma automática ni silenciosa.
 
 Flujo recomendado:
-1. Al iniciar la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente hace `fetch` de `nfq` y trae actualizadas `memoria/` y `salidas/`, guardando el estado de partida de `nfq` para poder detectar cambios concurrentes más adelante. `documentos_fuente/` nunca se sincroniza con el remoto (está excluida en `.gitignore`).
+1. Al iniciar la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente hace `fetch` de `nfq` y trae actualizadas `memoria/` y `salidas/`, guardando el estado de partida de `nfq` para poder detectar cambios concurrentes más adelante. `documentos_fuente/` puede versionarse en la rama personal, pero nunca debe llegar a `nfq`.
 2. El agente analiza documentación, identifica gaps y pide los datos faltantes — sin límite de rondas, hasta entender el proceso al 100%.
 3. Solo cuando el usuario está conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`, `casos_prueba.xml`), el agente muestra los ficheros relevantes modificados.
 4. Antes de subir nada, vuelve a hacer `fetch` de `nfq` y comprueba si alguien más ha modificado `memoria/` o `salidas/` desde el estado de partida. Si es así, fusiona sin sobrescribir ni eliminar entradas ajenas; un conflicto real de contenido se lo plantea al usuario, nunca lo resuelve por su cuenta. Muestra el resultado fusionado antes de seguir.
 5. Solicita confirmación antes de hacer git add, commit o push.
-6. El commit/push se limita siempre a `salidas/` y `memoria/`, y va directo a `nfq`. `documentos_fuente/` nunca se añade, se comitea ni se sube.
+6. La sincronización a `nfq` se hace siempre por ruta explícita (`salidas/` y `memoria/`), nunca con un merge de la rama personal completa, para que `documentos_fuente/` quede excluido aunque esté commiteada en la rama personal.
 7. No mezcla salidas de otros usuarios sin revisión expresa.
 
 ## Cómo usarlo
@@ -126,6 +126,6 @@ El agente debe generar, como mínimo, pruebas de:
 
 ## Notas
 
-- El agente solo hace commit/push sobre `memoria/` y `salidas/`, y siempre con confirmación explícita del usuario tras mostrarle los ficheros afectados. `documentos_fuente/` nunca se sube al repositorio remoto.
+- El agente solo hace commit/push sobre `memoria/` y `salidas/`, y siempre con confirmación explícita del usuario tras mostrarle los ficheros afectados. `documentos_fuente/` puede commitearse en la rama personal, pero nunca llega a `nfq` (la sincronización es siempre por ruta explícita, no un merge de rama completa).
 - La prioridad es la corrección, la exigencia y la detección de gaps sobre la velocidad.
 - Este proyecto ha sido reforzado para actuar como analista crítico y QA, no solo como generador superficial de texto.
