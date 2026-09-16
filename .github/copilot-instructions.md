@@ -10,14 +10,13 @@ La salida solo se puede cerrar con evidencia documental o con información confi
 
 ## Objetivo principal
 
-Generar, por proceso, un único documento que incluya:
-- especificación funcional
-- especificación técnica
-- especificación de testing
-- prerrequisitos
-- casos de prueba
-- validaciones de los casos de prueba
-- manejo explícito de errores, duplicidades y datos sintéticos repetidos
+Generar, por proceso, una carpeta de salida `salidas/<nombre_proceso>/` con tres artefactos:
+- `spec.md` — especificación funcional, técnica, de testing y demás contenido narrativo
+- `prerrequisitos.md` — documento explicativo, solo de prerrequisitos y condiciones previas
+- `casos_prueba.xml` — matriz de casos de prueba en XML, con manejo explícito de errores,
+  duplicidades y datos sintéticos repetidos
+
+Ver la sección "Estructura de salida esperada" para el detalle de cada fichero.
 
 ## Regla de no suposición
 
@@ -133,6 +132,8 @@ Cada caso de prueba debe incluir:
 - criterio de aceptación
 - posibilidad de error o fallo esperado
 
+Estos casos se entregan en `casos_prueba.xml` (ver "Estructura de salida esperada"), no en `spec.md`.
+
 ### 6) Control de duplicidades y datos sintéticos
 Si el flujo incluye gestión de registros, validaciones de integridad o datos únicos, debes incluir explícitamente pruebas para:
 - datos repetidos
@@ -165,20 +166,58 @@ Si alguno de estos puntos no está cubierto, debes volver al usuario y pedir la 
 
 ## Estructura de salida esperada
 
-Genera un único documento markdown con esta estructura:
+Por cada proceso analizado, crea la carpeta `salidas/<nombre_proceso>/` (nombre en minúsculas,
+con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 
+### `spec.md`
 1. Resumen ejecutivo
 2. Alcance del proceso
 3. Requisitos detectados
-4. Prerrequisitos y condiciones previas
-5. Gaps identificados y preguntas pendientes
-6. Especificación funcional
-7. Especificación técnica
-8. Especificación de testing
-9. Matriz de casos de prueba
-10. Validaciones de casos de prueba
-11. Riesgos, duplicidades y escenarios de fallo
-12. Conclusión y requisitos de cierre
+4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
+5. Especificación funcional
+6. Especificación técnica
+7. Especificación de testing (enfoque, cobertura, tipos de caso incluidos en `casos_prueba.xml`)
+8. Validaciones de casos de prueba (resumen: qué garantiza cada tipo de caso, trazabilidad requisito ↔ caso)
+9. Riesgos, duplicidades y escenarios de fallo
+10. Conclusión y requisitos de cierre
+
+### `prerrequisitos.md`
+Documento explicativo, en prosa, exclusivamente de prerrequisitos y condiciones previas: qué
+debe existir, qué configuración o datos previos hacen falta, qué roles o permisos se requieren
+y qué flujos previos deben haberse completado antes de ejecutar el proceso.
+
+### `casos_prueba.xml`
+La matriz de casos de prueba en XML, un elemento `<casoDePrueba>` por caso, con los mismos diez
+campos exigidos en la sección "Reglas para casos de prueba" y el atributo `tipo` (`happy_path`,
+`negativo`, `error_funcional`, `borde`, `duplicidad`, `conflicto_integridad`, `datos_sinteticos`,
+`regresion`, `e2e`). Esquema de referencia:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="<nombre_proceso>" fecha="AAAA-MM-DD" usuario="<usuario>">
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>...</nombre>
+    <objetivo>...</objetivo>
+    <precondiciones>
+      <precondicion>...</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="..." valor="..."/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">...</paso>
+    </pasos>
+    <resultadoEsperado>...</resultadoEsperado>
+    <tipoValidacion>...</tipoValidacion>
+    <criterioAceptacion>...</criterioAceptacion>
+    <posibilidadFallo>...</posibilidadFallo>
+  </casoDePrueba>
+</casosDePrueba>
+```
+
+Si el usuario aporta en algún momento el esquema de una herramienta concreta de gestión de
+pruebas (Azure DevOps, qTest, Zephyr, HP ALM, TestLink...), usa esa estructura de campos en vez
+de la genérica anterior.
 
 ## Criterio de cierre
 
@@ -223,7 +262,7 @@ todo el equipo y su versión de referencia vive siempre en la rama `nfq`.
    concurrentes más adelante.
 
 ### Antes de hacer push (comprobación de concurrencia)
-Solo cuando el usuario esté conforme con el documento generado, y antes de subir nada:
+Solo cuando el usuario esté conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`, `casos_prueba.xml`), y antes de subir nada:
 1. Vuelve a hacer `fetch` de `nfq`.
 2. Compara el estado actual de `origin/nfq` en `memoria/` y `salidas/` con el punto de partida
    guardado al inicio de la sesión.

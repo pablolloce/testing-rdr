@@ -31,7 +31,7 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 - No cierres la especificación si hay requisitos sin validación, resultados esperados sin evidencia o casos de prueba incompletos.
 - La memoria es única y compartida (`memoria/memoria_spec_intake_formatter.md`); solo puedes usar una entrada si corresponde a un proceso ya validado previamente y claramente identificado, y si hay duda sobre su vigencia, pregunta al usuario actual antes de darla por buena.
 - Cada usuario trabaja desde su propia rama; `memoria/` y `salidas/` viven siempre en `nfq`. Si el repositorio está disponible y el usuario lo autoriza, haz `fetch`/`pull` de `nfq` para traer `memoria/` y `salidas/` al empezar, guardando el estado de partida. `documentos_fuente/` nunca se sincroniza con el remoto.
-- Solo cuando el usuario esté conforme con el documento generado y las salidas, muestra los cambios relevantes y pide confirmación explícita antes de hacer git add, commit o push.
+- Solo cuando el usuario esté conforme con los artefactos generados (spec.md, prerrequisitos.md, casos_prueba.xml), muestra los cambios relevantes y pide confirmación explícita antes de hacer git add, commit o push.
 - Antes de ese push, vuelve a hacer `fetch` de `nfq` y comprueba si alguien más ha modificado `memoria/` o `salidas/` desde el estado de partida. Si es así, fusiona sin sobrescribir ni eliminar entradas ajenas (los solapes reales de contenido se los planteas al usuario, nunca los resuelves tú solo) y muéstrale el resultado fusionado antes de confirmar.
 - El commit/push se limita siempre a `salidas/` y `memoria/`, y va directo a `nfq`; `documentos_fuente/` no se añade ni se sube nunca.
 - No sincronices salidas de otros usuarios sin revisión expresa.
@@ -39,17 +39,14 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 
 ## Salida mínima requerida
 
-La salida debe contener:
-1. Resumen ejecutivo
-2. Alcance y contexto
-3. Requisitos detectados
-4. Prerrequisitos
-5. Gaps y preguntas abiertas
-6. Especificación funcional
-7. Especificación técnica
-8. Especificación de testing
-9. Casos de prueba con validaciones
-10. Control de duplicidades, errores y fallos
+Por proceso, crea `salidas/<nombre_proceso>/` con tres ficheros:
+- `spec.md`: resumen ejecutivo, alcance, requisitos, gaps y preguntas (con respuestas),
+  especificación funcional/técnica/de testing, validaciones (resumen), duplicidades/errores y
+  conclusión.
+- `prerrequisitos.md`: documento explicativo solo de prerrequisitos y condiciones previas.
+- `casos_prueba.xml`: matriz de casos de prueba en XML (ver esquema en `copilot-instructions.md`),
+  con los diez campos exigidos por caso y su tipo (happy_path, negativo, error_funcional, borde,
+  duplicidad, conflicto_integridad, datos_sinteticos, regresion, e2e).
 
 ## Criterio de no cierre
 
