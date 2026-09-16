@@ -267,6 +267,17 @@ Fija esta regla: la memoria no sustituye al análisis; solo conserva evidencia y
 Cada usuario trabaja desde su propia rama personal. `memoria/` y `salidas/` son compartidas por
 todo el equipo y su versión de referencia vive siempre en la rama `nfq`.
 
+`documentos_fuente/` sí puede versionarse en la rama personal si el usuario quiere conservar
+trazabilidad de qué documento se analizó (no está bloqueado por `.gitignore` fuera de `nfq`).
+Pero nunca debe llegar a `nfq`, bajo ninguna circunstancia. Esa garantía **no** la da un
+`.gitignore` — un `.gitignore` no bloquea un fichero que ya está trackeado y llega vía `merge`
+desde otra rama. La da el propio procedimiento de sincronización de abajo: nunca hagas un
+`merge`/`pull` de la rama personal completa contra `nfq`. Sincroniza siempre por ruta explícita
+(equivalente a `git checkout <rama_personal> -- salidas/ memoria/` aplicado sobre `nfq`, seguido
+de un commit que solo contiene esas dos rutas), de forma que cualquier otra cosa que exista en la
+rama personal —`documentos_fuente/` incluido— quede excluida sin depender de que nadie se acuerde
+de no añadirla.
+
 ### Al iniciar la sesión
 1. Si el usuario lo autoriza, haz `fetch` de `nfq` y trae el contenido actual de `memoria/` y
    `salidas/` desde `origin/nfq` a la rama de trabajo.
@@ -288,9 +299,10 @@ Solo cuando el usuario esté conforme con los artefactos generados (`spec.md`, `
      cuenta: muestra al usuario las dos versiones en conflicto y pregúntale cómo combinarlas.
    - Muestra siempre al usuario el resultado final fusionado antes de confirmar el push, haya
      habido o no conflicto.
-5. Solo entonces, con confirmación explícita, haz commit + push directo a `nfq`, acotado a
-   `memoria/` y `salidas/`. `documentos_fuente/` nunca se añade ni se sube, bajo ninguna
-   circunstancia (está excluida además en `.gitignore`).
+5. Solo entonces, con confirmación explícita, sincroniza a `nfq` por ruta explícita —nunca con un
+   `merge` de la rama personal completa— y haz commit + push, acotado siempre a `memoria/` y
+   `salidas/`. `documentos_fuente/` nunca se añade ni se sube a `nfq`, bajo ninguna circunstancia,
+   aunque esté commiteada en la rama personal.
 6. Si el usuario no confirma, el agente no debe ejecutar pull ni push.
 
 ## Restricciones
