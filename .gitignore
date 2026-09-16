@@ -1,0 +1,4 @@
+# Los documentos de entrada nunca se versionan ni se suben al remoto.
+# Solo se conserva el README que explica qué va en esta carpeta.
+documentos_fuente/*
+!documentos_fuente/README.md

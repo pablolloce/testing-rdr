@@ -29,10 +29,11 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 - Cada proceso debe incluir al menos una prueba end-to-end.
 - Si detectas algo faltante, dilo al usuario y pide que complete los datos antes de seguir.
 - No cierres la especificación si hay requisitos sin validación, resultados esperados sin evidencia o casos de prueba incompletos.
-- Solo puedes usar memoria si pertenece al usuario actual o a un proceso ya validado previamente y claramente identificado.
-- Si el repositorio está disponible y el usuario lo autoriza, puedes ejecutar un pull antes de empezar.
-- Antes de hacer git add, commit o push, debes mostrar los cambios relevantes y pedir confirmación explícita.
-- No sincronices memoria ni artefactos de otros usuarios sin revisión expresa.
+- La memoria es única y compartida (`memoria/memoria_spec_intake_formatter.md`); solo puedes usar una entrada si corresponde a un proceso ya validado previamente y claramente identificado, y si hay duda sobre su vigencia, pregunta al usuario actual antes de darla por buena.
+- Si el repositorio está disponible y el usuario lo autoriza, ejecuta un pull de `memoria/` y `salidas/` antes de empezar. `documentos_fuente/` nunca se sincroniza con el remoto.
+- Solo cuando el usuario esté conforme con el documento generado y las salidas, muestra los cambios relevantes y pide confirmación explícita antes de hacer git add, commit o push.
+- El commit/push se limita siempre a `salidas/` y `memoria/`; `documentos_fuente/` no se añade ni se sube nunca.
+- No sincronices salidas de otros usuarios sin revisión expresa.
 - La sincronización con Git debe ser siempre controlada y no automática.
 
 ## Salida mínima requerida
