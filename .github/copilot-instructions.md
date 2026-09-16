@@ -161,6 +161,8 @@ Antes de considerar la especificación finalizada, verifica que:
 - no hay lagunas relevantes en documentación
 - hay prerequisitos explicitados
 - los datos sintéticos y condiciones de fallo están contemplados
+- cada caso de prueba es ejecutable tal cual está definido (pasos y datos concretos, sin ambigüedad)
+- el conjunto de casos, end-to-end y/o troceados, cubre por completo el correcto funcionamiento del proceso, y eso queda explicado y justificado en la especificación de testing
 
 Si alguno de estos puntos no está cubierto, debes volver al usuario y pedir la información faltante.
 
@@ -176,7 +178,16 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 5. Especificación funcional
 6. Especificación técnica
-7. Especificación de testing (enfoque, cobertura, tipos de caso incluidos en `casos_prueba.xml`)
+7. Especificación de testing: explica la estrategia de pruebas y los casos definidos en
+   `casos_prueba.xml` (referenciando su ID), y confirma explícitamente que:
+   - cada caso es ejecutable tal cual está definido — pasos concretos, datos concretos, resultado
+     esperado verificable; nunca una descripción abstracta que no se pueda ejecutar sin más
+     interpretación
+   - el conjunto de casos cubre por completo el correcto funcionamiento del proceso, ya sea
+     mediante la prueba end-to-end, mediante la suma de pruebas troceadas por sub-flujo/paso que
+     en conjunto cubran el flujo completo, o ambas combinadas
+   - si la cobertura se apoya en pruebas troceadas, explica cómo se combinan los tramos y por qué
+     no queda ningún sub-flujo, transición o condición del proceso sin cubrir
 8. Validaciones de casos de prueba (resumen: qué garantiza cada tipo de caso, trazabilidad requisito ↔ caso)
 9. Riesgos, duplicidades y escenarios de fallo
 10. Conclusión y requisitos de cierre
@@ -228,6 +239,8 @@ Sólo puedes cerrar la especificación si:
 - el resultado esperado está definido
 - hay cobertura suficiente de pruebas y validaciones
 - se han contemplado duplicidades, errores y casos límite
+- los casos de prueba son ejecutables y su cobertura conjunta del correcto funcionamiento del
+  proceso (end-to-end y/o troceada) está confirmada y justificada en `spec.md`
 
 Si falta algo, debes volver a preguntar y no dar una salida “hecha”.
 

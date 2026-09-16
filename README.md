@@ -49,11 +49,14 @@ El agente debe seguir este flujo:
 4. Pedir al usuario la información faltante y no crear una especificación incompleta.
 5. Generar, en `salidas/<nombre_proceso>/`, tres artefactos:
    - `spec.md`: requisitos funcionales, especificación técnica, especificación de testing,
-     validaciones (resumen), control de duplicidades y errores
+     validaciones (resumen), control de duplicidades y errores. La especificación de testing
+     explica los casos de `casos_prueba.xml` y confirma que son ejecutables y que, en conjunto
+     (end-to-end y/o troceados), cubren por completo el correcto funcionamiento del proceso.
    - `prerrequisitos.md`: documento explicativo solo de prerrequisitos
    - `casos_prueba.xml`: matriz de casos de prueba en XML
 6. Validar que cada requisito tiene un caso de prueba asociado y que el caso tiene resultado esperado.
 7. Incluir escenarios de fallo, duplicidad, datos sintéticos repetidos y casos límite si aplican.
+8. Confirmar que los casos de prueba son ejecutables y que su cobertura conjunta del proceso está justificada en `spec.md`.
 
 ## Regla crítica
 

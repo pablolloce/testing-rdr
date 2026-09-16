@@ -42,7 +42,10 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 Por proceso, crea `salidas/<nombre_proceso>/` con tres ficheros:
 - `spec.md`: resumen ejecutivo, alcance, requisitos, gaps y preguntas (con respuestas),
   especificación funcional/técnica/de testing, validaciones (resumen), duplicidades/errores y
-  conclusión.
+  conclusión. La especificación de testing debe explicar los casos (referenciando su ID en
+  `casos_prueba.xml`) y confirmar explícitamente que son ejecutables tal cual están definidos y
+  que, entre todos (end-to-end y/o troceados), cubren por completo el correcto funcionamiento
+  del proceso — justificando cómo se combinan si la cobertura es troceada.
 - `prerrequisitos.md`: documento explicativo solo de prerrequisitos y condiciones previas.
 - `casos_prueba.xml`: matriz de casos de prueba en XML (ver esquema en `copilot-instructions.md`),
   con los diez campos exigidos por caso y su tipo (happy_path, negativo, error_funcional, borde,
@@ -56,5 +59,7 @@ No cierres la especificación si:
 - no se han definido validaciones esperadas
 - no se contemplan errores, borde o duplicidades
 - hay supuestos no confirmados
+- los casos de prueba no son ejecutables, o su cobertura conjunta del proceso (end-to-end y/o
+  troceada) no está confirmada y explicada
 
 Cuando detectes un gap, pregunta al usuario y espera su respuesta antes de seguir.
