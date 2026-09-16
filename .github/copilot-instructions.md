@@ -167,17 +167,19 @@ Sólo puedes cerrar la especificación si:
 
 Si falta algo, debes volver a preguntar y no dar una salida “hecha”.
 
-## Memoria por usuario
+## Memoria única y compartida
 
-Cada usuario debe tener su propio archivo de memoria para evitar pisar el contexto de otros compañeros.
+La memoria vive en un único fichero, `memoria/memoria_spec_intake_formatter.md`, compartido por
+todos los compañeros que usan el agente en este proyecto. No hay un archivo de memoria por
+usuario.
 
 Flujo recomendado:
-1. Al primera ejecución, pide al usuario su identificador o ID de usuario.
-2. Si no existe el archivo de memoria para ese usuario, créalo bajo `memoria/` con un nombre único, por ejemplo:
-   - `memoria/memoria_spec_intake_formatter_<usuario>.md`
-   - o `memoria/<usuario>_spec_intake_formatter.md`
-3. Guarda ahí términos, acrónimos, respuestas reutilizables, patrones de estructuración y procesos ya analizados.
-4. Cuando varios usuarios trabajen en el mismo proyecto, cada uno usará su archivo y se hará push solo con su memoria asociada.
+1. Al inicio de la sesión, tras el `pull` de sincronización, lee el fichero de memoria completo.
+2. Guarda ahí términos, acrónimos, respuestas reutilizables, patrones de estructuración y
+   procesos ya analizados, identificando en cada entrada qué usuario la registró y en qué fecha.
+3. Antes de usar una entrada de memoria de otro usuario como evidencia, confirma con el usuario
+   actual que sigue siendo válida para el proceso que se está analizando; si hay duda, trátala
+   como hipótesis pendiente y pregunta.
 
 Nunca inventes información en la memoria. Solo registra aquello que provenga de la documentación fuente o de respuestas literales del usuario.
 
@@ -188,17 +190,17 @@ Fija esta regla: la memoria no sustituye al análisis; solo conserva evidencia y
 La sincronización con Git debe estar bajo control explícito del usuario y nunca debe hacerse de forma automática ni silenciosa.
 
 Reglas obligatorias:
-- Antes de analizar, si el repositorio está disponible y el usuario lo autoriza, el agente puede ejecutar un pull de sincronización.
-- Después de analizar y generar la salida, debe mostrar los ficheros modificados relevantes y pedir confirmación antes de realizar operaciones de git.
-- Solo debe hacer add/commit/push sobre artefactos aprobados por el usuario y relevantes para este flujo: memoria, salidas y documentación actualizada de trabajo.
-- No debe mezclar memoria ni salidas de otros usuarios sin revisión expresa.
+- Al inicio de la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente ejecuta un `pull` que trae `memoria/` y `salidas/` actualizadas (nunca `documentos_fuente/`, que está excluida del control de versiones).
+- Después de analizar y generar la salida, y solo cuando el usuario esté conforme con el documento generado, el agente muestra los ficheros modificados relevantes y pide confirmación explícita antes de realizar operaciones de git.
+- El `add`/`commit`/`push` se limita siempre a `salidas/` y `memoria/`. `documentos_fuente/` nunca se añade, se comitea ni se sube, bajo ninguna circunstancia.
+- No debe mezclar salidas de otros usuarios sin revisión expresa; la memoria sí es compartida por diseño, pero cada entrada debe quedar atribuida a su usuario.
 - Si el usuario no confirma, el agente no debe ejecutar pull ni push.
 - La operación de sincronización debe ser explícita, con una confirmación final antes de hacer commit/push.
 
 ## Restricciones
 
-- No hagas commits ni toques repositorio remoto.
-- Los cambios quedan como archivos locales en `memoria/` y `salidas/`.
+- No hagas commits ni push fuera de `salidas/` y `memoria/`; `documentos_fuente/` nunca se toca en el repositorio remoto.
+- Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros afectados.
 - Prioriza precisión sobre velocidad.
 - Cuando haya dudas, pregunta antes de generar.
 - La calidad y criticidad del análisis es más importante que producir una respuesta rápida.
