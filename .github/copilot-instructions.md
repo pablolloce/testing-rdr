@@ -285,13 +285,29 @@ de no añadirla.
    `memoria/memoria_spec_intake_formatter.md`) como "punto de partida" para detectar cambios
    concurrentes más adelante.
 
-### Antes de hacer push (comprobación de concurrencia)
-Solo cuando el usuario esté conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`, `casos_prueba.xml`), y antes de subir nada:
-1. Vuelve a hacer `fetch` de `nfq`.
+### Documentos de entrada adjuntados en la conversación
+Si el usuario adjunta un documento directamente en la conversación (en vez de haberlo colocado
+ya en `documentos_fuente/`), guárdalo primero en `documentos_fuente/` de la rama personal antes
+de analizarlo, para que quede trazabilidad de qué se analizó exactamente. Ese fichero sigue las
+mismas reglas que cualquier otro de `documentos_fuente/`: puede commitearse en la rama personal,
+pero nunca debe llegar a `nfq`.
+
+### Paso 1 — Generar y confirmar en la rama personal
+Cuando el usuario esté conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`,
+`casos_prueba.xml`), muéstrale los ficheros relevantes y pide confirmación antes de hacer commit.
+Con esa confirmación, haz commit + push normal a la **rama personal** — nunca a `nfq` en este
+paso. Al ser una rama que solo usa este usuario, no hace falta comprobación de concurrencia aquí.
+
+### Paso 2 — Sincronizar a `nfq` (solo si el usuario lo pide explícitamente)
+El agente **nunca** sincroniza a `nfq` como continuación automática del paso 1. Lo hace
+únicamente cuando el usuario lo pide explícitamente (p. ej. "mergea esto a nfq"), después de que
+haya podido revisar lo que quedó commiteado en su rama personal. En ese momento:
+1. Haz `fetch` de `nfq`.
 2. Compara el estado actual de `origin/nfq` en `memoria/` y `salidas/` con el punto de partida
-   guardado al inicio de la sesión.
-3. Si nadie más los ha tocado → procede a commit/push normalmente.
-4. Si alguien más ha modificado `memoria/` (o `salidas/`) mientras trabajabas:
+   guardado al inicio de la sesión (si ha pasado mucho tiempo, vuelve a comprobar contra el
+   `nfq` actual justo antes de fusionar).
+3. Si nadie más los ha tocado → sincroniza directamente.
+4. Si alguien más ha modificado `memoria/` (o `salidas/`) mientras tanto:
    - Nunca sobrescribas el contenido remoto ni elimines entradas de otro usuario.
    - Trae esos cambios y fusiona: si es un añadido limpio sin solape (p. ej. ambos han añadido
      filas nuevas a una tabla), continúa — el resultado debe conservar las entradas de ambos.
@@ -303,12 +319,12 @@ Solo cuando el usuario esté conforme con los artefactos generados (`spec.md`, `
    `merge` de la rama personal completa— y haz commit + push, acotado siempre a `memoria/` y
    `salidas/`. `documentos_fuente/` nunca se añade ni se sube a `nfq`, bajo ninguna circunstancia,
    aunque esté commiteada en la rama personal.
-6. Si el usuario no confirma, el agente no debe ejecutar pull ni push.
+6. Si el usuario no confirma, el agente no debe ejecutar el push a `nfq`.
 
 ## Restricciones
 
-- No hagas commits ni push fuera de `salidas/` y `memoria/`, y siempre directamente sobre `nfq`; `documentos_fuente/` nunca se toca en el repositorio remoto.
-- Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros afectados y, si hubo cambios concurrentes, el resultado fusionado.
+- El push a la rama personal (paso 1) es normal; el push a `nfq` (paso 2) solo ocurre si el usuario lo pide explícitamente, nunca como continuación automática del paso 1, y siempre acotado a `salidas/` y `memoria/`. `documentos_fuente/` nunca se toca en `nfq`.
+- Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros afectados y, si hubo cambios concurrentes en el paso 2, el resultado fusionado.
 - Prioriza precisión sobre velocidad.
 - Cuando haya dudas, pregunta antes de generar.
 - La calidad y criticidad del análisis es más importante que producir una respuesta rápida.
