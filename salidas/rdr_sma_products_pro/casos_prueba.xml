@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_sma_products_pro" fecha="2026-09-17" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-PROD-001" tipo="e2e">
+    <nombre>Flujo completo happy path — deteccion, transformacion, 3 envios secuenciales e historificacion con compresion</nombre>
+    <objetivo>Validar que la cadena completa se ejecuta correctamente de extremo a extremo: desde la deteccion del fichero productossinfiltrar.xml hasta su compresion y archivado en /Backup/</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productossinfiltrar.xml existe en /fichtemcomp/pr/descargas/kytl/productos/ con contenido valido (XML bien formado con al menos 1 tipo de instrumento canonico)</precondicion>
+      <precondicion>Es un dia laborable (lunes a viernes)</precondicion>
+      <precondicion>Son las 23:00 o posterior</precondicion>
+      <precondicion>Los 3 servidores destino estan accesibles (Big Data, Informacional CIB, Cloud/Datio)</precondicion>
+      <precondicion>Los ficheros .idx de backup existen para cada job de envio (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx)</precondicion>
+      <precondicion>El directorio /Backup/ existe y tiene permisos de escritura</precondicion>
+      <precondicion>El fichero credentials.xml es accesible y contiene credenciales validas</precondicion>
+      <precondicion>No existe un fichero productos_DDMMYYYY.xml previo del mismo dia en el directorio de trabajo ni en /Backup/</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_fuente" valor="productossinfiltrar.xml (con al menos 3 tipos de instrumento canonico, campos Canonico_Value, Canonico_Description, System_Name, System_Value, System_Description poblados)"/>
+      <dato campo="fecha_ejecucion" valor="17092026 (DDMMYYYY)"/>
+      <dato campo="hora_inicio" valor="23:00"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar productossinfiltrar.xml en /fichtemcomp/pr/descargas/kytl/productos/</paso>
+      <paso numero="2">Esperar a que el job Dummy IN se dispare a las 23:00 y emita su evento _IN_OK_new</paso>
+      <paso numero="3">Verificar que FW_RDR_SMA_PRODUCTS_PRO detecta el fichero (evento _FW_OK_new emitido)</paso>
+      <paso numero="4">Verificar que RDR_Transformacion_PRODUCTOS genera productos_17092026.xml en el mismo directorio</paso>
+      <paso numero="5">Verificar envio secuencial 1: MEKYTL0404 envia a Big Data como productos_17092026p1.xml</paso>
+      <paso numero="6">Verificar envio secuencial 2: MEKYTL0405 envia a Informacional CIB como ESKYTLENDS_RDRPRODUCTOS_20260917_001.dat</paso>
+      <paso numero="7">Verificar envio secuencial 3: MEKYTL1030 envia a Cloud/Datio como EKYTL_D02_20260917_productos_rdr.xml</paso>
+      <paso numero="8">Verificar que MEKYTL0406 mueve productos_17092026.xml a /Backup/ y lo comprime a productos_17092026.xml.tar.gz</paso>
+      <paso numero="9">Verificar que el fichero ya no existe en el directorio de trabajo</paso>
+      <paso numero="10">Verificar que el job Dummy OUT emite el evento _OUT_OK_new</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa finaliza con exito. El fichero productos_17092026.xml.tar.gz esta en /Backup/ y se ha distribuido correctamente a los 3 destinos con los nombres esperados. Todos los jobs en Control-M muestran estado OK.</resultadoEsperado>
+    <tipoValidacion>Funcional end-to-end</tipoValidacion>
+    <criterioAceptacion>Los 8 jobs finalizan en OK. El fichero comprimido existe en /Backup/ con el nombre correcto. Cada destino contiene el fichero con el nombre y formato esperado.</criterioAceptacion>
+    <posibilidadFallo>Fallo de red hacia alguno de los 3 destinos; credenciales invalidas en transformacion; fichero fuente corrupto; disco lleno en destino o en /Backup/; permisos insuficientes.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-002" tipo="happy_path">
+    <nombre>FileWatcher detecta productossinfiltrar.xml correctamente</nombre>
+    <objetivo>Validar que FW_RDR_SMA_PRODUCTS_PRO detecta la creacion de productossinfiltrar.xml y emite el evento de salida</objetivo>
+    <precondiciones>
+      <precondicion>El job Dummy IN ha emitido su evento _IN_OK_new</precondicion>
+      <precondicion>El fichero productossinfiltrar.xml NO existe aun en la ruta de escucha</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="productossinfiltrar.xml (fichero XML valido de al menos 1 KB)"/>
+      <dato campo="ruta_escucha" valor="/fichtemcomp/pr/descargas/kytl/productos/"/>
+      <dato campo="parametros_ctmfw" valor="CREATE 0 60 10 3 30"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job FW_RDR_SMA_PRODUCTS_PRO (queda en estado de espera ctmfw)</paso>
+      <paso numero="2">Depositar productossinfiltrar.xml en /fichtemcomp/pr/descargas/kytl/productos/</paso>
+      <paso numero="3">Esperar al menos 60 segundos (intervalo de polling del ctmfw)</paso>
+      <paso numero="4">Verificar que el fichero supera la comprobacion de estabilidad (3 segundos sin cambios)</paso>
+      <paso numero="5">Verificar que el job emite el evento RDR_SMA_PRODUCTS_PRO_FW_RDR_SMA_PRODUCTS_PRO_OK_new</paso>
+    </pasos>
+    <resultadoEsperado>El FileWatcher detecta productossinfiltrar.xml, verifica su estabilidad y finaliza con codigo 0, emitiendo el evento de salida.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>El job FW_RDR_SMA_PRODUCTS_PRO finaliza en OK. El evento _FW_OK_new aparece registrado en Control-M.</criterioAceptacion>
+    <posibilidadFallo>El fichero no se deposita dentro del timeout de 30 minutos; el fichero esta siendo escrito y no se estabiliza; el FileWatcher no ejecuta sobre la VIPA.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-003" tipo="happy_path">
+    <nombre>Transformacion genera productos_ddmmyyyy.xml a partir de productossinfiltrar.xml</nombre>
+    <objetivo>Validar que RDR_Transformacion_PRODUCTOS.sh transforma el fichero fuente y genera el fichero con fecha en el nombre</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productossinfiltrar.xml existe en /fichtemcomp/pr/descargas/kytl/productos/</precondicion>
+      <precondicion>El FileWatcher ha emitido su evento _FW_OK_new</precondicion>
+      <precondicion>El fichero credentials.xml es accesible en /pr/kytl/online/multipais/multicanal/cfg/entorno/</precondicion>
+      <precondicion>El usuario xakytl1p tiene permisos sobre el script y el directorio de trabajo</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_entrada" valor="productossinfiltrar.xml"/>
+      <dato campo="fichero_salida_esperado" valor="productos_17092026.xml"/>
+      <dato campo="parm1" valor="fileloading"/>
+      <dato campo="parm2" valor="/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que el script RDR_Transformacion_PRODUCTOS.sh arranca con PARM1=fileloading y PARM2=credentials.xml</paso>
+      <paso numero="2">Verificar que el script finaliza con codigo 0</paso>
+      <paso numero="3">Verificar que se ha generado el fichero productos_17092026.xml en /fichtemcomp/pr/descargas/kytl/productos/</paso>
+      <paso numero="4">Verificar que el fichero generado es un XML valido y bien formado</paso>
+      <paso numero="5">Verificar que el evento RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new se emite</paso>
+    </pasos>
+    <resultadoEsperado>El fichero productos_17092026.xml existe en el directorio de trabajo con contenido XML valido. El job finaliza con codigo 0.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>El fichero productos_DDMMYYYY.xml existe con tamano mayor que 0. El job termina en OK.</criterioAceptacion>
+    <posibilidadFallo>Credenciales invalidas o caducadas; base de datos o servicio externo inaccesible; permisos insuficientes del usuario xakytl1p; disco lleno.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-004" tipo="happy_path">
+    <nombre>Envio correcto a los 3 destinos en secuencia</nombre>
+    <objetivo>Validar que los 3 jobs de envio transfieren el fichero al destino correcto con el nombre correcto, en orden secuencial</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en /fichtemcomp/pr/descargas/kytl/productos/</precondicion>
+      <precondicion>La transformacion ha emitido su evento _OK_new</precondicion>
+      <precondicion>Los 3 servidores destino estan accesibles</precondicion>
+      <precondicion>Los ficheros .idx de backup existen (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx)</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen" valor="productos_17092026.xml"/>
+      <dato campo="destino_1_bigdata" valor="pr-bigdata-cib.igrupobbva -> productos_17092026p1.xml"/>
+      <dato campo="destino_2_informacional" valor="INFORMACIONAL_CIB_XCOM_PROD -> ESKYTLENDS_RDRPRODUCTOS_20260917_001.dat"/>
+      <dato campo="destino_3_cloud" valor="filex-cloud-cib.live.es.nextgen.igrupobbva -> EKYTL_D02_20260917_productos_rdr.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL0404 arranca tras el evento de la transformacion (no tras MEKYTL0403, que esta decomisado)</paso>
+      <paso numero="2">Verificar que MEKYTL0404 envia a Big Data con nombre productos_17092026p1.xml (sufijo p1)</paso>
+      <paso numero="3">Verificar que MEKYTL0405 arranca SOLO despues de que MEKYTL0404 finalice (secuencialidad)</paso>
+      <paso numero="4">Verificar que MEKYTL0405 envia a Informacional CIB con nombre ESKYTLENDS_RDRPRODUCTOS_20260917_001.dat (fecha invertida, extension .dat)</paso>
+      <paso numero="5">Verificar que MEKYTL1030 arranca SOLO despues de que MEKYTL0405 finalice (secuencialidad)</paso>
+      <paso numero="6">Verificar que MEKYTL1030 envia a Cloud/Datio S3 con nombre EKYTL_D02_20260917_productos_rdr.xml (fecha invertida, prefijo EKYTL_D02)</paso>
+      <paso numero="7">Verificar que los 3 jobs terminan con codigo 0</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 destinos reciben el fichero con el nombre correcto. Los envios se ejecutan en secuencia estricta: 0404 -> 0405 -> 1030. Todos los jobs finalizan en OK.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>Fichero presente en los 3 destinos con los nombres correctos. Orden de ejecucion verificado por timestamps de eventos.</criterioAceptacion>
+    <posibilidadFallo>Fallo de red o protocolo; .idx con configuracion incorrecta; regla de renombrado mal aplicada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-005" tipo="happy_path">
+    <nombre>Historificacion con compresion tar.gz correcta</nombre>
+    <objetivo>Validar que MEKYTL0406 mueve el fichero a /Backup/ y lo comprime a .tar.gz</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en /fichtemcomp/pr/descargas/kytl/productos/</precondicion>
+      <precondicion>El envio a Cloud (MEKYTL1030) ha emitido su evento _OK</precondicion>
+      <precondicion>El directorio /Backup/ existe y tiene espacio y permisos suficientes</precondicion>
+      <precondicion>La entrada MEKYTL0406 existe en INFORMACION_HISTORIFICACIONES.IDX</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen" valor="productos_17092026.xml"/>
+      <dato campo="fichero_destino_esperado" valor="/fichtemcomp/pr/descargas/kytl/productos/Backup/productos_17092026.xml.tar.gz"/>
+      <dato campo="parm1" valor="MEKYTL0406"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL0406 arranca tras el evento de MEKYTL1030</paso>
+      <paso numero="2">Verificar que ejecuta RAMERC0068.sh con PARM1=MEKYTL0406</paso>
+      <paso numero="3">Verificar que el fichero productos_17092026.xml ya no existe en el directorio de trabajo</paso>
+      <paso numero="4">Verificar que el fichero productos_17092026.xml.tar.gz existe en /Backup/</paso>
+      <paso numero="5">Verificar que el fichero comprimido se puede descomprimir correctamente y el contenido coincide con el original</paso>
+      <paso numero="6">Verificar que el job emite el evento RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new</paso>
+    </pasos>
+    <resultadoEsperado>El fichero productos_17092026.xml.tar.gz existe en /Backup/ con contenido valido. El fichero original ya no existe en el directorio de trabajo. El job finaliza con codigo 0.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>El fichero comprimido existe en /Backup/ con el nombre correcto. El fichero original se ha eliminado del directorio de trabajo. La descompresion produce un fichero identico al original.</criterioAceptacion>
+    <posibilidadFallo>Disco lleno; permisos insuficientes en /Backup/; RAMERC0068.sh genera .gz en lugar de .tar.gz (ver GAP-PROD-006).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-006" tipo="error_funcional">
+    <nombre>Soft failure — Fallo en envio a Big Data (MEKYTL0404), cadena continua</nombre>
+    <objetivo>Validar que si el envio a Big Data falla, Control-M fuerza el estado a OK y la cadena continua con el envio a Informacional</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>La transformacion ha completado correctamente</precondicion>
+      <precondicion>El servidor pr-bigdata-cib.igrupobbva NO es accesible (simulado: cortar red, parar servicio, o usar .idx con destino invalido)</precondicion>
+      <precondicion>Los servidores Informacional CIB y Cloud/Datio SI son accesibles</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_forzado_a_fallo" valor="MEKYTL0404"/>
+      <dato campo="accion_on_do" valor="Cuando Job completado No OK -> Marcar como OK"/>
+      <dato campo="envios_posteriores_esperados" valor="MEKYTL0405 (Informacional), MEKYTL1030 (Cloud)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la inaccesibilidad del servidor Big Data (pr-bigdata-cib.igrupobbva)</paso>
+      <paso numero="2">Ejecutar la cadena desde el punto posterior a la transformacion</paso>
+      <paso numero="3">Verificar que MEKYTL0404 intenta el envio y falla (codigo de retorno distinto de 0 en MEGENV0001.sh)</paso>
+      <paso numero="4">Verificar que Control-M aplica la accion On-Do y fuerza el estado del job a OK</paso>
+      <paso numero="5">Verificar que se emite el evento _MEKYTL0404_OK_new a pesar del fallo</paso>
+      <paso numero="6">Verificar que MEKYTL0405 arranca normalmente y envia a Informacional CIB con exito</paso>
+      <paso numero="7">Verificar que MEKYTL1030 arranca y envia a Cloud/Datio con exito</paso>
+      <paso numero="8">Verificar que MEKYTL0406 historifica y comprime correctamente</paso>
+      <paso numero="9">Verificar que la cadena finaliza con OK global (Dummy OUT emite evento)</paso>
+    </pasos>
+    <resultadoEsperado>La cadena finaliza en OK global. El fichero NO llega a Big Data. Los destinos Informacional y Cloud SI reciben el fichero. La historificacion se completa. El fallo queda registrado en los logs de MEGENV0001.sh pero no genera alerta de Control-M.</resultadoEsperado>
+    <tipoValidacion>Funcional — tolerancia a fallos</tipoValidacion>
+    <criterioAceptacion>Estado global de la cadena: OK. MEKYTL0404 marcado como OK por On-Do. MEKYTL0405 y MEKYTL1030 finalizados en OK real. Fichero archivado en /Backup/.</criterioAceptacion>
+    <posibilidadFallo>La accion On-Do no esta correctamente configurada en Control-M; el evento _OK_new no se emite tras el forzado a OK.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-007" tipo="error_funcional">
+    <nombre>Soft failure — Fallo en envio a Informacional CIB (MEKYTL0405), cadena continua</nombre>
+    <objetivo>Validar que si el envio a Informacional CIB falla, Control-M fuerza el estado a OK y la cadena continua con el envio a Cloud</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>MEKYTL0404 ha finalizado (con exito real o forzado a OK)</precondicion>
+      <precondicion>El servidor INFORMACIONAL_CIB_XCOM_PROD NO es accesible (simulado)</precondicion>
+      <precondicion>El servidor Cloud/Datio SI es accesible</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_forzado_a_fallo" valor="MEKYTL0405"/>
+      <dato campo="accion_on_do" valor="Cuando Job completado No OK -> Marcar como OK"/>
+      <dato campo="envios_posteriores_esperados" valor="MEKYTL1030 (Cloud)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la inaccesibilidad de INFORMACIONAL_CIB_XCOM_PROD</paso>
+      <paso numero="2">Ejecutar MEKYTL0405 (despues de que MEKYTL0404 haya finalizado)</paso>
+      <paso numero="3">Verificar que MEKYTL0405 intenta el envio XCOM y falla</paso>
+      <paso numero="4">Verificar que Control-M aplica la accion On-Do y fuerza el estado a OK</paso>
+      <paso numero="5">Verificar que se emite el evento _MEKYTL0405_OK_new a pesar del fallo</paso>
+      <paso numero="6">Verificar que MEKYTL1030 arranca normalmente y envia a Cloud/Datio con exito</paso>
+      <paso numero="7">Verificar que MEKYTL0406 historifica y comprime correctamente</paso>
+      <paso numero="8">Verificar que la cadena finaliza con OK global</paso>
+    </pasos>
+    <resultadoEsperado>La cadena finaliza en OK global. El fichero NO llega a Informacional CIB. El destino Cloud SI recibe el fichero. La historificacion se completa. El fallo queda registrado en los logs.</resultadoEsperado>
+    <tipoValidacion>Funcional — tolerancia a fallos</tipoValidacion>
+    <criterioAceptacion>Estado global de la cadena: OK. MEKYTL0405 marcado como OK por On-Do. MEKYTL1030 finalizado en OK real. Fichero archivado en /Backup/.</criterioAceptacion>
+    <posibilidadFallo>La accion On-Do no esta correctamente configurada; protocolo XCOM no registra el fallo en los logs.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-008" tipo="error_funcional">
+    <nombre>Soft failure — Fallo en envio a Cloud/Datio S3 (MEKYTL1030), cadena continua</nombre>
+    <objetivo>Validar que si el envio a Cloud falla, Control-M fuerza el estado a OK y la cadena continua con la historificacion</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>MEKYTL0405 ha finalizado (con exito real o forzado a OK)</precondicion>
+      <precondicion>La pasarela filex-cloud-cib.live.es.nextgen.igrupobbva NO es accesible o el bucket S3 no responde (simulado)</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_forzado_a_fallo" valor="MEKYTL1030"/>
+      <dato campo="accion_on_do" valor="Cuando Job completado No OK -> Marcar como OK"/>
+      <dato campo="parm1_con_sufijo" valor="MEKYTL1030_CLOUD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la inaccesibilidad de la pasarela Cloud o del bucket S3</paso>
+      <paso numero="2">Ejecutar MEKYTL1030 (despues de que MEKYTL0405 haya finalizado)</paso>
+      <paso numero="3">Verificar que MEKYTL1030 intenta el envio y falla</paso>
+      <paso numero="4">Verificar que Control-M aplica la accion On-Do y fuerza el estado a OK</paso>
+      <paso numero="5">Verificar que se emite el evento RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK a pesar del fallo</paso>
+      <paso numero="6">Verificar que MEKYTL0406 arranca normalmente y historifica con compresion</paso>
+      <paso numero="7">Verificar que la cadena finaliza con OK global</paso>
+    </pasos>
+    <resultadoEsperado>La cadena finaliza en OK global. El fichero NO llega a Cloud/Datio. La historificacion se completa correctamente. El fallo queda registrado en los logs de MEGENV0001.sh.</resultadoEsperado>
+    <tipoValidacion>Funcional — tolerancia a fallos</tipoValidacion>
+    <criterioAceptacion>Estado global de la cadena: OK. MEKYTL1030 marcado como OK por On-Do. Fichero comprimido en /Backup/.</criterioAceptacion>
+    <posibilidadFallo>El evento de salida de MEKYTL1030 tiene patron de nomenclatura diferente (_new_MEKYTL1030_OK en vez de _MEKYTL1030_OK_new); verificar que MEKYTL0406 espera el patron correcto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-009" tipo="error_funcional">
+    <nombre>Soft failure — Los 3 envios fallan, la historificacion tiene exito</nombre>
+    <objetivo>Validar el escenario critico donde ninguno de los 3 destinos recibe el fichero pero la cadena finaliza en OK global gracias al soft failure en los 3 jobs de envio</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productos_17092026.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>La transformacion ha completado correctamente</precondicion>
+      <precondicion>Los 3 servidores destino NO son accesibles (simulado: cortar red a Big Data, Informacional y Cloud)</precondicion>
+      <precondicion>El directorio /Backup/ y la infraestructura local SI funcionan correctamente</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="jobs_forzados_a_fallo" valor="MEKYTL0404, MEKYTL0405, MEKYTL1030 (los 3)"/>
+      <dato campo="accion_on_do_en_todos" valor="Cuando Job completado No OK -> Marcar como OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la inaccesibilidad simultanea de los 3 servidores destino</paso>
+      <paso numero="2">Ejecutar la cadena completa desde el Dummy IN</paso>
+      <paso numero="3">Verificar que MEKYTL0404 falla y Control-M lo fuerza a OK</paso>
+      <paso numero="4">Verificar que MEKYTL0405 falla y Control-M lo fuerza a OK</paso>
+      <paso numero="5">Verificar que MEKYTL1030 falla y Control-M lo fuerza a OK</paso>
+      <paso numero="6">Verificar que MEKYTL0406 ejecuta la historificacion con compresion correctamente</paso>
+      <paso numero="7">Verificar que la cadena finaliza con OK global (Dummy OUT emite evento)</paso>
+      <paso numero="8">Verificar que NO se genera alerta de Control-M (los 3 fallos son silenciosos)</paso>
+      <paso numero="9">Verificar que los logs de MEGENV0001.sh registran los 3 fallos</paso>
+    </pasos>
+    <resultadoEsperado>La cadena finaliza en OK global aunque ningun destino recibio el fichero. El fichero se comprime y archiva en /Backup/. Los 3 fallos quedan registrados solo en los logs operativos de MEGENV0001.sh, sin alerta en Control-M. Este escenario es un riesgo critico (RISK-PROD-001).</resultadoEsperado>
+    <tipoValidacion>Funcional — tolerancia a fallos extrema</tipoValidacion>
+    <criterioAceptacion>Estado global de la cadena: OK. Los 3 jobs de envio marcados como OK por On-Do. Ningun destino tiene el fichero. Fichero comprimido en /Backup/. Logs de MEGENV0001.sh contienen registros de error para los 3 envios.</criterioAceptacion>
+    <posibilidadFallo>Si no hay mecanismo de alerta secundario, este fallo puede pasar desapercibido hasta que los consumidores detecten la ausencia de datos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-010" tipo="negativo">
+    <nombre>Historificacion falla — Cadena se detiene en rojo (sin soft failure)</nombre>
+    <objetivo>Validar que si MEKYTL0406 falla, la cadena se detiene en NO OK porque este job NO tiene configurado soft failure</objetivo>
+    <precondiciones>
+      <precondicion>Los 3 envios han completado (con exito real o forzado a OK)</precondicion>
+      <precondicion>Provocar fallo en la historificacion (disco lleno en /Backup/, permisos revocados, o fichero bloqueado)</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_sin_soft_failure" valor="MEKYTL0406"/>
+      <dato campo="causa_de_fallo" valor="Disco lleno en /Backup/ (simulado con dd o chmod 000 en /Backup/)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Llenar el disco de /Backup/ o revocar permisos de escritura</paso>
+      <paso numero="2">Ejecutar MEKYTL0406 (tras completar los envios)</paso>
+      <paso numero="3">Verificar que RAMERC0068.sh falla con codigo de retorno distinto de 0</paso>
+      <paso numero="4">Verificar que Control-M NO fuerza el estado a OK (panel On-Do vacio para este job)</paso>
+      <paso numero="5">Verificar que el job queda en estado NO OK en Control-M</paso>
+      <paso numero="6">Verificar que el job Dummy OUT NO se ejecuta (no recibe el evento _MEKYTL0406_OK_new)</paso>
+      <paso numero="7">Verificar que se activan las alertas del grupo de soporte ANS RDR</paso>
+      <paso numero="8">Verificar que el fichero productos_17092026.xml permanece sin comprimir en el directorio de trabajo</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se detiene en rojo en MEKYTL0406. El Dummy OUT no se ejecuta. Se activan alertas. El fichero permanece sin comprimir ni archivar en el directorio de trabajo.</resultadoEsperado>
+    <tipoValidacion>Funcional — negativo</tipoValidacion>
+    <criterioAceptacion>Estado de MEKYTL0406: NO OK. Estado global de la cadena: NO terminada. Alertas activadas. Fichero original intacto en directorio de trabajo.</criterioAceptacion>
+    <posibilidadFallo>Que el IDX de MEKYTL0406 tenga configuracion inesperada que oculte el error.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-011" tipo="borde">
+    <nombre>Fichero productossinfiltrar.xml de tamano 0 bytes</nombre>
+    <objetivo>Validar el comportamiento de la cadena cuando el fichero fuente existe pero esta vacio (0 bytes)</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productossinfiltrar.xml existe en la ruta pero tiene 0 bytes</precondicion>
+      <precondicion>El job Dummy IN ha emitido su evento</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="productossinfiltrar.xml (0 bytes, creado con touch)"/>
+      <dato campo="tamano" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Crear un fichero vacio: touch /fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml</paso>
+      <paso numero="2">Verificar si el FileWatcher detecta un fichero de 0 bytes (ctmfw con parametro CREATE y tamano minimo 0)</paso>
+      <paso numero="3">Si el FileWatcher lo detecta, verificar el comportamiento de RDR_Transformacion_PRODUCTOS.sh con entrada vacia</paso>
+      <paso numero="4">Registrar si el script de transformacion falla o genera un fichero de salida vacio</paso>
+      <paso numero="5">Si la transformacion genera salida, verificar el comportamiento de los envios con fichero vacio</paso>
+    </pasos>
+    <resultadoEsperado>El FileWatcher detecta el fichero (ctmfw no valida tamano minimo con parametro 0). El comportamiento posterior depende del script de transformacion: si valida contenido, deberia fallar con error descriptivo. Si no valida, se propagara un fichero vacio a los destinos.</resultadoEsperado>
+    <tipoValidacion>Condicion limite</tipoValidacion>
+    <criterioAceptacion>Identificar en que punto de la cadena se detiene el flujo (o si no se detiene). Documentar el comportamiento real.</criterioAceptacion>
+    <posibilidadFallo>El ctmfw tiene minsize=0, por lo que un fichero vacio pasara la deteccion; el comportamiento depende enteramente del script de transformacion (GAP-PROD-001).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-012" tipo="borde">
+    <nombre>FileWatcher agota timeout de 30 minutos sin detectar fichero</nombre>
+    <objetivo>Validar que el FileWatcher finaliza en NO OK cuando el fichero no aparece dentro del periodo de 30 minutos</objetivo>
+    <precondiciones>
+      <precondicion>El fichero productossinfiltrar.xml NO existe en la ruta de escucha</precondicion>
+      <precondicion>El job Dummy IN ha emitido su evento _IN_OK_new</precondicion>
+      <precondicion>No se deposita ningun fichero durante la prueba</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="parametros_ctmfw" valor="CREATE 0 60 10 3 30 (timeout: 30 minutos)"/>
+      <dato campo="fichero_ausente" valor="productossinfiltrar.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar FW_RDR_SMA_PRODUCTS_PRO sin depositar el fichero</paso>
+      <paso numero="2">Esperar 30 minutos (timeout del ctmfw)</paso>
+      <paso numero="3">Verificar que el ctmfw finaliza con codigo de error por timeout</paso>
+      <paso numero="4">Verificar que el job queda en estado NO OK en Control-M</paso>
+      <paso numero="5">Verificar que NO se emite el evento _FW_OK_new</paso>
+      <paso numero="6">Verificar que ningun job posterior de la cadena se ejecuta</paso>
+    </pasos>
+    <resultadoEsperado>El FileWatcher agota su timeout de 30 minutos y finaliza en NO OK. La cadena se detiene. No se emite evento de salida y ningun job posterior arranca.</resultadoEsperado>
+    <tipoValidacion>Condicion limite — timeout</tipoValidacion>
+    <criterioAceptacion>El job FW_RDR_SMA_PRODUCTS_PRO esta en estado NO OK tras 30 minutos. Ningun job posterior al FileWatcher se ha ejecutado.</criterioAceptacion>
+    <posibilidadFallo>El timeout real difiere del configurado; el ctmfw se queda en espera indefinida por un bug.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-013" tipo="duplicidad">
+    <nombre>Re-ejecucion de la cadena el mismo dia — fichero ya comprimido en /Backup/</nombre>
+    <objetivo>Validar el comportamiento cuando se re-ejecuta la cadena y ya existe un fichero productos_ddmmyyyy.xml.tar.gz en /Backup/ del mismo dia</objetivo>
+    <precondiciones>
+      <precondicion>La cadena ya se ejecuto con exito hoy: productos_17092026.xml.tar.gz existe en /Backup/</precondicion>
+      <precondicion>Un nuevo fichero productossinfiltrar.xml se deposita en el directorio de trabajo</precondicion>
+      <precondicion>Todos los servidores destino estan accesibles</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_existente_backup" valor="/fichtemcomp/pr/descargas/kytl/productos/Backup/productos_17092026.xml.tar.gz"/>
+      <dato campo="fichero_nuevo" valor="productossinfiltrar.xml (segunda ejecucion del dia)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que la cadena arranca normalmente con el nuevo fichero</paso>
+      <paso numero="2">Verificar que la transformacion genera productos_17092026.xml (mismo nombre que la ejecucion anterior)</paso>
+      <paso numero="3">Verificar el comportamiento de los envios: sobreescriben los ficheros en destino o fallan</paso>
+      <paso numero="4">Verificar que MEKYTL0406 intenta comprimir y mover a /Backup/ donde ya existe el .tar.gz</paso>
+      <paso numero="5">Registrar si RAMERC0068.sh sobreescribe el fichero existente en /Backup/ o falla</paso>
+    </pasos>
+    <resultadoEsperado>El comportamiento depende de RAMERC0068.sh: puede sobreescribir el fichero existente en /Backup/ (perdida del primer envio del dia) o fallar al encontrar un fichero con el mismo nombre. Los envios pueden sobreescribir los ficheros en destino si la fecha es la misma.</resultadoEsperado>
+    <tipoValidacion>Integridad ante re-ejecucion</tipoValidacion>
+    <criterioAceptacion>Documentar el comportamiento real: sobreescritura o error. Si sobreescribe, documentar la perdida del primer archivado. Si falla, verificar que la cadena se detiene correctamente.</criterioAceptacion>
+    <posibilidadFallo>Sobreescritura silenciosa del primer fichero archivado sin traza; o fallo inesperado en la historificacion que deja la cadena en estado inconsistente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PROD-014" tipo="regresion">
+    <nombre>Regresion — El decomiso de MEKYTL0403 no deja residuos en la cadena</nombre>
+    <objetivo>Validar que tras el decomiso del job MEKYTL0403, la cadena funciona correctamente sin dejar artefactos residuales que interfieran con el flujo actual</objetivo>
+    <precondiciones>
+      <precondicion>La cadena esta configurada con el flujo actual (sin MEKYTL0403)</precondicion>
+      <precondicion>No existen eventos ni dependencias residuales que hagan referencia a MEKYTL0403 en Control-M</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_decomisado" valor="MEKYTL0403 (decomisado 27/05/2023)"/>
+      <dato campo="flujo_actual" valor="RDR_Transformacion_PRODUCTOS -> MEKYTL0404 (sin paso intermedio por 0403)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa en happy path</paso>
+      <paso numero="2">Verificar que MEKYTL0404 espera el evento de RDR_Transformacion_PRODUCTOS (no de MEKYTL0403)</paso>
+      <paso numero="3">Buscar en la configuracion de Control-M cualquier referencia residual al job MEKYTL0403 (eventos, dependencias, recursos)</paso>
+      <paso numero="4">Verificar que la documentacion del FileWatcher que aun menciona MEKYTL0403 como sucesor no genera confusion operativa</paso>
+      <paso numero="5">Verificar que no existe ninguna definicion de job MEKYTL0403 en el folder de la cadena</paso>
+    </pasos>
+    <resultadoEsperado>La cadena funciona correctamente sin MEKYTL0403. El evento de la transformacion enlaza directamente con MEKYTL0404. No existen artefactos residuales del decomiso en Control-M.</resultadoEsperado>
+    <tipoValidacion>Regresion</tipoValidacion>
+    <criterioAceptacion>Flujo verificado sin interrupciones. Ninguna referencia activa a MEKYTL0403 en la configuracion de Control-M. Texto legacy en la documentacion del FileWatcher identificado como residuo documental.</criterioAceptacion>
+    <posibilidadFallo>Evento o dependencia residual del MEKYTL0403 que genere un deadlock en la cadena; definicion del job deshabilitada pero presente que cause conflicto de recursos.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

@@ -1,0 +1,282 @@
+# Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
+
+**Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391)
+**Fecha de generacion:** 2026-09-17
+**Usuario:** pablo.llorente@nfq.es
+
+---
+
+## 1. Resumen ejecutivo
+
+La cadena RDR_SMA_PRODUCTS_PRO_new es un proceso batch diario orquestado por Control-M que transforma y distribuye el fichero `productossinfiltrar.xml` (catalogo maestro de tipos de instrumento canonicos y sus equivalencias por sistema origen) desde el servidor central RDR hacia 3 destinos de forma secuencial: Big Data/Cloudera, Informacional CIB (XCOM) y Cloud/Datio S3. Tras la distribucion, el fichero se comprime (`.tar.gz`) y se archiva en una carpeta de backup. A diferencia de la cadena de Portfolios (topologia fan-out/fan-in), esta cadena sigue una topologia de pipeline secuencial con tolerancia a fallos (soft failure) en los tres jobs de envio.
+
+## 2. Alcance del proceso
+
+- **Ambito funcional:** Distribucion diaria del fichero de productos (tipos de instrumento canonicos) generado por el Planificador Generico RDR a tres sistemas consumidores dentro de BBVA CIB, con transformacion previa del fichero.
+- **Ambito tecnico:** Cadena Control-M con 8 jobs (2 Dummy, 1 FileWatcher, 1 transformacion, 3 envios secuenciales con soft failure, 1 historificacion con compresion). Se ejecuta sobre el servidor `pr-rdr.igrupobbva` (MERCADOS-4).
+- **Fuera de alcance:** La generacion del fichero `productossinfiltrar.xml` (responsabilidad del Planificador Generico RDR). El contenido del script `RDR_Transformacion_PRODUCTOS.sh`. Los ficheros `.idx` de configuracion de cada envio. El job decomisado MEKYTL0403.
+
+## 3. Requisitos detectados
+
+### REQ-PROD-001: Generacion previa del fichero fuente
+El fichero `productossinfiltrar.xml` debe existir en `/fichtemcomp/pr/descargas/kytl/productos/` antes de las 23:00. Lo genera el Planificador Generico RDR mediante otra consulta SQL registrada en FT_T_ATE1. La query extrae tipos de instrumento canonicos activos (FT_T_ISTY, filtro `data_stat_typ = 'ACTIVE'` y `iss_typ_nme LIKE 'CANONICO:%'`) con sus equivalencias por sistema origen (FT_T_ISCD/FT_T_EIST). Extraccion mas simple que Portfolios: 3 tablas, sin patron EAV.
+
+### REQ-PROD-002: Gatillo temporal (job Dummy IN)
+El job `RDR_SMA_PRODUCTS_PRO_IN` (tipo Dummy con casilla "Ejecutar como Dummy" marcada) se dispara a las 23:00 de lunes a viernes. Emite el evento `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new`.
+
+### REQ-PROD-003: Deteccion del fichero (FileWatcher)
+El job `FW_RDR_SMA_PRODUCTS_PRO` ejecuta `ctmfw '/fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml' CREATE 0 60 10 3 30`. Parametros: polling 60 s, 10 reintentos, estabilidad 3 s, timeout 30 min.
+
+**Discrepancia resuelta:** La ficha funcional individual del FileWatcher indicaba erronamente que el fichero a detectar era `productos.xml`. El comando `ctmfw` real confirma que es `productossinfiltrar.xml` (consistente con el documento maestro de la cadena).
+
+**Requisito de Alta Disponibilidad:** La ejecucion debe realizarse sobre la VIPA `pr-rdr.igrupobbva` para balancear entre los nodos fisicos LPRDR503 y LPRDR504. Este requisito esta marcado como error critico en el documento funcional (mayusculas).
+
+### REQ-PROD-004: Transformacion del fichero
+El job `RDR_Transformacion_PRODUCTOS` ejecuta el script `RDR_Transformacion_PRODUCTOS.sh` con parametros:
+- PARM1: `fileloading`
+- PARM2: `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`
+
+Ejecuta con usuario `xakytl1p` (diferente al resto de la cadena que usa `xsramer1`). El script recibe un fichero de credenciales XML como parametro, lo que sugiere conexion a base de datos u otros servicios durante la transformacion. El resultado es el fichero `productos_ddmmyyyy.xml` en el mismo directorio.
+
+### REQ-PROD-005: Envio secuencial a 3 destinos con tolerancia a fallos
+
+| Orden | Job | Destino | Maquina destino | Nombre destino | Regla de renombrado | Soft failure |
+|-------|-----|---------|-----------------|----------------|---------------------|-------------|
+| 1 | MEKYTL0404 | Big Data/Cloudera | pr-bigdata-cib.igrupobbva | productos_ddmmyyyyp1.xml | Anade sufijo "p1" (dia siguiente) | SI |
+| 2 | MEKYTL0405 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y ext | SI |
+| 3 | MEKYTL1030 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | EKYTL_D02_YYYYMMDD_productos_rdr.xml | Invierte fecha, anade prefijo | SI |
+
+**Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
+
+**Regla de renombrado especial para Big Data:** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa "el dia siguiente al del envio", segun el documento funcional.
+
+### REQ-PROD-006: Alta disponibilidad obligatoria
+Todos los jobs de la cadena (FileWatcher, transformacion, envios, historificacion) deben ejecutarse sobre la VIPA `pr-rdr.igrupobbva`. El documento funcional lo exige explicitamente en mayusculas para el FileWatcher (LPRDR503/LPRDR504), los envios y la historificacion. Para el job MEKYTL1030, se mencionan las maquinas LPRDR501 y LPRDR602 (distintas a las del FileWatcher).
+
+### REQ-PROD-007: Historificacion con compresion
+El job `MEKYTL0406` (ejecuta `RAMERC0068.sh` con PARM1=`MEKYTL0406`) mueve el fichero a `/fichtemcomp/pr/descargas/kytl/productos/Backup/` y lo comprime a `productos_ddmmyyyy.xml.tar.gz`. La directiva funcional dice explicitamente: "Por favor es importante comprimir el fichero tras su historificacion". Este job NO tiene tolerancia a fallos: si falla, la cadena se detiene.
+
+### REQ-PROD-008: Cierre logico de la cadena (job Dummy OUT)
+El job `RDR_SMA_PRODUCTS_PRO_OUT` (tipo Dummy) espera el evento _OK_new de MEKYTL0406 y emite el evento global `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new`. Es el cierre formal de la cadena.
+
+### REQ-PROD-009: Periodicidad y criticidad
+- **Periodicidad:** Diaria, LMXJV (Lunes a Viernes), 23:00.
+- **Criticidad global de la cadena:** A (la mas alta documentada).
+- **Criticidad individual de los jobs:** W para la mayoria.
+- **Relanzamientos maximos:** 0 para todos los jobs.
+- **Retencion en entorno activo:** 3 dias.
+
+### REQ-PROD-010: Decomiso del job MEKYTL0403
+El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hace que MEKYTL0404 engancha directamente tras RDR_Transformacion_PRODUCTOS. El texto legacy del FileWatcher aun menciona que "el siguiente JOB (MEKYTL0403) no arrancara", pero las dependencias reales ya reflejan el nuevo flujo.
+
+### REQ-PROD-011: Usuarios de ejecucion
+
+| Usuario | Jobs | Rol |
+|---------|------|-----|
+| `xsramer1` | RDR_SMA_PRODUCTS_PRO_IN (Dummy), MEKYTL0404, MEKYTL0405, MEKYTL1030, MEKYTL0406, RDR_SMA_PRODUCTS_PRO_OUT | Ejecucion general |
+| `xpctma1` | FW_RDR_SMA_PRODUCTS_PRO | FileWatcher |
+| `xakytl1p` | RDR_Transformacion_PRODUCTOS | Transformacion (requiere credenciales) |
+
+## 4. Gaps identificados y preguntas pendientes
+
+### GAP-PROD-001: Logica interna del script de transformacion
+No se dispone del codigo fuente de `RDR_Transformacion_PRODUCTOS.sh`. Se desconoce que transformacion exacta aplica al fichero (renombrado, filtrado, enriquecimiento, etc.) y como genera `productos_ddmmyyyy.xml` a partir de `productossinfiltrar.xml`.
+**Estado:** Pendiente de obtencion del script o documentacion funcional.
+
+### GAP-PROD-002: Contenido de ficheros .idx
+No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx. La logica de renombrado compleja (sufijo p1, inversion de fecha, cambio de extension) reside en estos ficheros.
+**Estado:** Pendiente de obtencion.
+
+### GAP-PROD-003: Credenciales XML
+El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`. No se conoce a que servicios conecta ni que credenciales contiene.
+**Estado:** Dato sensible. Documentar existencia sin exponer contenido.
+
+### GAP-PROD-004: Significado exacto del sufijo "p1"
+El documento indica que "p1 es el dia siguiente al del envio" en el nombre del fichero destino de Big Data. No esta claro si es un dia calendario fijo (+1) o un dia habil.
+**Estado:** Pendiente de confirmacion.
+
+### GAP-PROD-005: Criticidad del FileWatcher
+La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C). Se presume W o S segun el estandar de la cadena.
+**Estado:** Pendiente de confirmacion en Control-M.
+
+### GAP-PROD-006: Comportamiento de RAMERC0068.sh con compresion tar.gz
+El documento funcional pide compresion `tar.gz`, pero RAMERC0068.sh solo documenta operaciones con `gzip` (operacion G/GM/MG). No queda claro si la operacion configurada en el IDX produce `.tar.gz` o solo `.gz`.
+**Estado:** Pendiente de verificacion del IDX y del comportamiento real del script.
+
+## 5. Especificacion funcional
+
+### 5.1 Flujo funcional completo
+
+```
+23:00 LMXJV
+    |
+    v
+[RDR_SMA_PRODUCTS_PRO_IN] (Dummy, gatillo temporal)
+    |  evento: ..._IN_OK_new
+    v
+[FW_RDR_SMA_PRODUCTS_PRO] (FileWatcher: detecta productossinfiltrar.xml)
+    |  evento: ..._FW_OK_new
+    v
+[RDR_Transformacion_PRODUCTOS] (Transforma con credentials.xml)
+    |  evento: ..._Transformacion_PRODUCTOS_OK_new
+    v
+[MEKYTL0404] Big Data/Cloudera — Soft Failure (fallo no detiene cadena)
+    |  evento: ..._0404_OK_new (siempre, incluso en fallo)
+    v
+[MEKYTL0405] Informacional CIB/XCOM — Soft Failure
+    |  evento: ..._0405_OK_new (siempre)
+    v
+[MEKYTL1030] Cloud/Datio S3 — Soft Failure
+    |  evento: ..._1030_OK (siempre)
+    v
+[MEKYTL0406] Historificacion + compresion tar.gz — SIN Soft Failure
+    |  evento: ..._0406_OK_new
+    v
+[RDR_SMA_PRODUCTS_PRO_OUT] (Dummy, cierre logico)
+    |  evento: ..._OUT_OK_new
+    v
+FIN
+```
+
+### 5.2 Datos del fichero fuente (productossinfiltrar.xml)
+
+El fichero contiene 2 campos a nivel de producto canonico + 3 campos repetibles por sistema origen:
+
+**Campos de producto canonico:**
+- Canonico_Value: Valor del producto canonico (FT_T_ISTY)
+- Canonico_Description: Descripcion del producto canonico (FT_T_ISTY)
+
+**Bloque repetible por sistema origen:**
+- System_Name: Nombre del sistema origen
+- System_Value: Valor del subproducto en ese sistema
+- System_Description: Descripcion del subproducto
+
+Filtro de la query: `data_stat_typ = 'ACTIVE'` AND `iss_typ_nme LIKE 'CANONICO:%'`
+
+### 5.3 Reglas de negocio de renombrado en destino
+
+| Destino | Formato origen (post-transformacion) | Formato destino | Transformacion |
+|---------|--------------------------------------|-----------------|----------------|
+| Big Data/Cloudera | productos_ddmmyyyy.xml | productos_ddmmyyyyp1.xml | Anade sufijo "p1" (dia siguiente) |
+| Informacional CIB | productos_ddmmyyyy.xml | ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y extension |
+| Cloud/Datio S3 | productos_ddmmyyyy.xml | EKYTL_D02_YYYYMMDD_productos_rdr.xml | Invierte fecha, anade prefijo tecnico |
+
+### 5.4 Tolerancia a fallos (Soft Failure)
+
+Mecanismo en Control-M: Acciones Si (On-Do) -> "Cuando Job completado No OK -> Marcar como OK".
+
+| Job | Soft Failure | Efecto si falla |
+|-----|-------------|-----------------|
+| MEKYTL0404 | SI | Control-M fuerza OK. El envio a Big Data no se realiza, pero la cadena continua al envio a Informacional. |
+| MEKYTL0405 | SI | Control-M fuerza OK. El envio a Informacional no se realiza, pero la cadena continua al envio a Cloud. |
+| MEKYTL1030 | SI | Control-M fuerza OK. El envio a Cloud no se realiza, pero la cadena continua a la historificacion. |
+| MEKYTL0406 | NO | Si la historificacion/compresion falla, la cadena se detiene en rojo. Se activan alertas. |
+
+Consecuencia: es posible que la cadena finalice en OK global aunque los tres envios hayan fallado individualmente, siempre que la historificacion funcione. Los fallos de envio quedan registrados en los logs operativos de MEGENV0001.sh pero no generan alerta de Control-M.
+
+## 6. Especificacion tecnica
+
+### 6.1 Infraestructura
+
+| Componente | Valor |
+|-----------|-------|
+| Servidor de ejecucion | MERCADOS-4 |
+| Host (VIPA) | pr-rdr.igrupobbva |
+| IP de servicio | 22.156.148.85 |
+| Nodos fisicos HA (FileWatcher) | LPRDR503, LPRDR504 |
+| Nodos fisicos HA (envios/cloud) | LPRDR501, LPRDR602 |
+| Aplicacion Control-M | KYTL |
+| Folder Control-M | KYTL0000-RDR_SMA_PRODUCTS_PRO_new |
+| Sub-aplicacion | RDR_SMA_PRODUCTS_PRO_new |
+| Site Standard Principal | KYTL0000_SS_PR_HR |
+
+### 6.2 Scripts utilizados
+
+| Script | Ruta | Proposito | Usuario |
+|--------|------|-----------|---------|
+| RDR_Transformacion_PRODUCTOS.sh | /pr/kytl/online/multipais/multicanal/scrt/ | Transformacion del fichero fuente | xakytl1p |
+| MEGENV0001.sh | /pr/pl/envioweb/scrt/ | Transferencia universal | xsramer1 |
+| RAMERC0068.sh | /pr/pl/scrt/ | Historificacion con compresion | xsramer1 |
+
+### 6.3 Eventos Control-M
+
+| Job | Evento de entrada | Evento de salida |
+|-----|-------------------|-----------------|
+| RDR_SMA_PRODUCTS_PRO_IN | (23:00, gatillo temporal) | RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new |
+| FW_RDR_SMA_PRODUCTS_PRO | ..._IN_OK_new | RDR_SMA_PRODUCTS_PRO_FW_RDR_SMA_PRODUCTS_PRO_OK_new |
+| RDR_Transformacion_PRODUCTOS | ..._FW_OK_new | RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new |
+| MEKYTL0404 | ..._Transformacion_PRODUCTOS_OK_new | RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new |
+| MEKYTL0405 | ..._MEKYTL0404_OK_new | RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new |
+| MEKYTL1030 | ..._MEKYTL0405_OK_new | RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK |
+| MEKYTL0406 | ..._new_MEKYTL1030_OK | RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new |
+| RDR_SMA_PRODUCTS_PRO_OUT | ..._MEKYTL0406_OK_new | RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new |
+
+Nota: el evento de salida de MEKYTL1030 tiene un patron de nomenclatura ligeramente diferente (`..._new_MEKYTL1030_OK` en vez de `..._MEKYTL1030_OK_new`).
+
+## 7. Especificacion de testing
+
+### 7.1 Estrategia de pruebas
+
+La estrategia combina pruebas end-to-end con pruebas unitarias por fase, prestando atencion especial al mecanismo de soft failure que es el rasgo distintivo de esta cadena:
+
+1. **Prueba E2E (TC-PROD-001):** Flujo completo happy path desde deteccion hasta compresion y cierre.
+2. **Pruebas de soft failure (TC-PROD-006, TC-PROD-007, TC-PROD-008):** Un caso por cada job de envio que falla, verificando que la cadena continua.
+3. **Prueba de todos los envios fallidos (TC-PROD-009):** Escenario critico donde los 3 envios fallan y la historificacion tiene exito.
+4. **Pruebas de borde:** Fichero de tamano 0, caracteres especiales, doble ejecucion.
+5. **Pruebas de duplicidad:** Re-envio, fichero ya comprimido en Backup.
+6. **Prueba de regresion:** Verificar que el decomiso de MEKYTL0403 no deja residuos.
+
+### 7.2 Confirmacion de ejecutabilidad y cobertura
+
+- Cada caso de prueba en `casos_prueba.xml` es ejecutable: pasos concretos, datos concretos y resultado esperado verificable.
+- El flujo completo queda cubierto por la combinacion de:
+  - TC-PROD-001 (E2E happy path): cubre la ejecucion lineal completa.
+  - TC-PROD-002 a TC-PROD-005 (unitarios por fase): cubren deteccion, transformacion, envio y historificacion.
+  - TC-PROD-006 a TC-PROD-009 (soft failure): cubren la tolerancia a fallos, que es la caracteristica diferencial de esta cadena.
+  - TC-PROD-010 a TC-PROD-012 (borde): cubren condiciones limite.
+  - TC-PROD-013 a TC-PROD-014 (duplicidad y regresion): cubren integridad y estabilidad.
+- Las pruebas troceadas cubren cada transicion: IN -> FileWatcher -> Transformacion -> Envio1 -> Envio2 -> Envio3 -> Historificacion -> OUT. Cada transicion tiene al menos un caso positivo y uno de fallo.
+
+## 8. Validaciones de casos de prueba
+
+| Tipo de caso | Garantiza | Casos | Requisitos trazados |
+|-------------|-----------|-------|---------------------|
+| E2E / Happy path | Flujo completo funciona | TC-PROD-001 | REQ-PROD-001 a REQ-PROD-011 |
+| Positivo por sub-flujo | Cada fase funciona aisladamente | TC-PROD-002, TC-PROD-003, TC-PROD-004, TC-PROD-005 | REQ-PROD-003, REQ-PROD-004, REQ-PROD-005, REQ-PROD-007 |
+| Error funcional / Soft failure | Los fallos de envio no detienen la cadena | TC-PROD-006, TC-PROD-007, TC-PROD-008, TC-PROD-009 | REQ-PROD-005 (soft failure) |
+| Negativo | La historificacion sin soft failure detiene la cadena | TC-PROD-010 | REQ-PROD-007 |
+| Borde | Condiciones limite | TC-PROD-011, TC-PROD-012 | REQ-PROD-001, REQ-PROD-003 |
+| Duplicidad | Control ante re-ejecuciones | TC-PROD-013 | REQ-PROD-005, REQ-PROD-007 |
+| Regresion | Estabilidad tras decomiso de MEKYTL0403 | TC-PROD-014 | REQ-PROD-010 |
+
+## 9. Riesgos, duplicidades y escenarios de fallo
+
+### 9.1 Riesgos identificados
+
+| ID | Riesgo | Probabilidad | Impacto | Mitigacion |
+|----|--------|-------------|---------|------------|
+| RISK-PROD-001 | Los 3 envios fallan silenciosamente por soft failure | Baja | Critico (ningun destino recibe datos y no hay alerta) | Monitorizar logs operativos de MEGENV0001.sh. Implementar alerta secundaria por ausencia de fichero en destinos. |
+| RISK-PROD-002 | Discrepancia de nombre de fichero en FileWatcher | Resuelto | N/A | Confirmado que ctmfw busca `productossinfiltrar.xml` (el documento funcional individual era erroneo). |
+| RISK-PROD-003 | Credenciales XML expuestas o caducadas | Media | Alto (transformacion falla) | El fichero credentials.xml no debe ser accesible a usuarios no autorizados. Monitorizar caducidad. |
+| RISK-PROD-004 | Compresion tar.gz vs gzip | Media | Bajo (archivo en formato incorrecto) | Verificar si RAMERC0068.sh realmente produce .tar.gz o solo .gz. |
+| RISK-PROD-005 | Texto legacy del decomiso de MEKYTL0403 en documentacion | Confirmado | Bajo (confusion documental) | La documentacion funcional del FileWatcher aun menciona MEKYTL0403 como sucesor. Actualizar documentacion. |
+
+### 9.2 Escenarios de fallo
+
+1. **Fichero no detectado:** El FileWatcher agota los 30 minutos sin detectar `productossinfiltrar.xml`. La cadena queda en NO OK.
+2. **Transformacion falla:** El script `RDR_Transformacion_PRODUCTOS.sh` falla (credenciales invalidas, BD inaccesible). La cadena se detiene. No hay soft failure en la transformacion.
+3. **Todos los envios fallan:** Soft failure permite que la cadena llegue a la historificacion. El fichero se comprime y archiva correctamente, pero ningun destino recibe los datos. La cadena termina en OK global a pesar de que los datos no se distribuyeron.
+4. **Historificacion falla (disco lleno, permisos):** La cadena se detiene en rojo. Se activan alertas ANS RDR. El fichero de trabajo permanece sin comprimir ni archivar.
+
+## 10. Conclusion y requisitos de cierre
+
+La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional y tecnico. Los 8 jobs, la topologia secuencial, los mecanismos de soft failure en los envios, el requisito de alta disponibilidad y la historificacion con compresion estan documentados.
+
+**Requisitos de cierre pendientes:**
+1. Obtener el codigo fuente o documentacion funcional del script `RDR_Transformacion_PRODUCTOS.sh` para entender la transformacion exacta.
+2. Obtener los ficheros .idx de los jobs de envio (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx).
+3. Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.
+4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406.
+5. Confirmar la criticidad exacta del FileWatcher en Control-M.
+6. Implementar mecanismo de alerta secundario para detectar fallos silenciosos en los envios (RISK-PROD-001).
