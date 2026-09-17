@@ -9,8 +9,7 @@
 >   - `c8181f48-Cesion_de_diccionarios_de_mercados_e_indices_cadena_viva.docx` (análisis Fase 1)
 >   - `cf814fd3-Analisis_Planificador_Generico_RDR.docx` (motor upstream)
 >   - `684efc40-RDR_FIC_DAT_DICT_WEEKLY_SEND_new.zip` (fichas cadena semanal)
-> - Gaps confirmados por el usuario el 2026-09-17 en sesión (sin supuestos pendientes significativos;
->   los puntos P3 y P4 de la cadena semanal han sido descartados por el usuario como no relevantes)
+> - Única cuestión abierta: protocolo de fallo de `RDRKYTL001` (gap B5, sin confirmar por ANS RDR — ver §10)
 
 ---
 
@@ -88,33 +87,9 @@ nunca lo detecta y la cadena para sin error.
 
 ---
 
-## 5. Gaps identificados y su resolución
+## 5. Especificación funcional
 
-| # | Gap | Estado tras respuestas del usuario |
-|---|-----|------------------------------------|
-| A1 | Quién genera `DictionaryIndex_TOTAL.csv` | **Resuelto**: Planificador Genérico (`DictionaryIndex.sql`, L-V 15:00, ACT1_OID `0322050B4`) |
-| A2 | Discrepancia criticidad W vs "Alta" en ficha cesión | **Descartado** por el usuario (no relevante) |
-| A3 | Diferencia entre `DictionaryIndex.csv` y `DictionaryIndex_TOTAL.csv` | **Resuelto**: `_TOTAL` = salida completa del Planificador; `DictionaryIndex.csv` = recorte columnas 1-4 via script `Cortar` (`ArgScri3=1-4`) ejecutado por `RDRKYTL001` |
-| B4 | Timeout FW a las 17:00 | **Resuelto**: cadena falla y se detiene |
-| B5 | Protocolo de fallo de `RDRKYTL001` | **Gap documentado**: no hay protocolo definido. Se recomienda aplicar el mismo circuito ANS RDR que el resto de la cadena, pero no está confirmado |
-| B6 | Fallo de `MEKYTL0860` | **Resuelto**: el envío no puede fallar; los problemas son de recepción/consumo en Calypso |
-| B7 | Fallo de `MEKYTL0861` | **Resuelto**: los ficheros quedan en origen, el FW los detecta al día siguiente → fallo en cascada. Requiere intervención manual |
-| B8 | Resultado vacío de la query | **Resuelto**: imposible en condiciones normales (la BD siempre tiene datos de diccionario); 0 resultados indicaría error en la query |
-| C9 | JOIN INNER excluyendo índices sin `pref_iss_id` | **Resuelto**: comportamiento intencionado |
-| C10 | DISTINCT y duplicados | **Resuelto**: el DISTINCT es la salvaguarda; no puede fallar por diseño |
-| C11 | Umbrales de volumen | **Resuelto**: no hay umbrales definidos |
-| D12 | Alcance cadena semanal | **Resuelto**: incluida en spec; `RDR_FICHERO_DICCIONARIO_SEM` excluida (obsoleta) |
-| D13 | Cadena semanal comparte ficheros | **Resuelto**: usa fichero completamente distinto, no hay interferencia |
-| P2 | Quién genera el fichero semanal | **Resuelto**: probablemente el Planificador (extracción INACTIVA). Cadena dormida por diseño |
-| P3 | Sistema destino cadena semanal (`lpops302`) | **Descartado** por el usuario |
-| P4 | Criticidad cadena semanal | **Descartado** por el usuario |
-| **B5** | Protocolo de fallo de `RDRKYTL001` | **GAP ABIERTO** — único punto sin confirmar. Documentado como riesgo en §11 |
-
----
-
-## 6. Especificación funcional
-
-### 6.1 Arquitectura del proceso (dos capas)
+### 5.1 Arquitectura del proceso (dos capas)
 
 ```
 [Planificador Genérico — RDR_SW_PLANIFICADOR_new]
@@ -134,7 +109,7 @@ nunca lo detecta y la cadena para sin error.
   Job 4: MEKYTL0861 → historifica DictionaryIndex*.csv → /old/_YYYYMMDD
 ```
 
-### 6.2 Generación por el Planificador (`DictionaryIndex_TOTAL.csv`)
+### 5.2 Generación por el Planificador (`DictionaryIndex_TOTAL.csv`)
 
 `DictionaryIndex.sql` ejecuta:
 ```sql
@@ -152,9 +127,13 @@ WHERE isid.iss_usage_typ = 'INDEX'
 
 El resultado es una tabla de traducción `(SYSNAME, SYSVAL) → CANVAL` para todos los
 instrumentos activos tipificados como índice. El JOIN es INNER: índices sin `pref_iss_id`
-en `FT_T_ISSU` quedan excluidos por diseño.
+en `FT_T_ISSU` quedan excluidos por diseño (comportamiento intencionado, ver TC-09).
 
-### 6.3 Recorte y generación de `DictionaryIndex.csv`
+Un resultado vacío (0 filas) no está previsto en condiciones normales dado que GoldenSource
+siempre contiene datos de diccionario; si se produjera indicaría un error en la query o en
+los filtros, no un resultado válido (ver TC-11 para el caso de extracción INACTIVE).
+
+### 5.3 Recorte y generación de `DictionaryIndex.csv`
 
 `RDRKYTL001` en la cadena ejecuta `GSProcess.sh dictionaryIndex`, cuyo properties define
 una acción `Script` con el script `Cortar`:
@@ -165,7 +144,13 @@ una acción `Script` con el script `Cortar`:
 `DictionaryIndex.csv` es el fichero enviado a Calypso. `DictionaryIndex_TOTAL.csv` permanece
 en el directorio origen hasta que `MEKYTL0861` lo historifica.
 
-### 6.4 Envío a Calypso (`MEKYTL0860`)
+> **Protocolo de fallo no definido (gap abierto):** Si `RDRKYTL001` (script `Cortar` /
+> `GSProcess.sh dictionaryIndex`) falla, no hay instrucciones documentadas sobre qué hacer.
+> Los ficheros `_TOTAL.csv` y `DictionaryIndex.csv` pueden quedar en estados inconsistentes.
+> Recomendación: confirmar con ANS RDR (BZG03906) el circuito de actuación antes del paso
+> a producción (ver §10 — Riesgos).
+
+### 5.4 Envío a Calypso (`MEKYTL0860`)
 
 Transferencia nativa (no script): envía `DictionaryIndex.csv` desde
 `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/index/` hacia
@@ -173,13 +158,23 @@ Transferencia nativa (no script): envía `DictionaryIndex.csv` desde
 Calypso usa este fichero como diccionario de traducción de códigos de índice para el cierre
 diario. Contacto destino: `madre-soporte@bbva.com`.
 
-### 6.5 Historificación (`MEKYTL0861`)
+El envío en sí no puede fallar desde el lado de RDR; cualquier problema de recepción o
+procesamiento es responsabilidad del sistema destino (MADRE/Calypso). Si el job termina
+NOTOK, la causa estará en la conectividad o permisos en `lpemd501`, no en la integridad
+del fichero enviado (ver TC-07).
+
+### 5.5 Historificación (`MEKYTL0861`)
 
 Mueve (no copia) ambos ficheros (`DictionaryIndex*.csv`) desde el directorio origen hacia
 `/fichtemcomp/pr/descargas/kytl/index/old/`, renombrando con sufijo `_YYYYMMDD` (ODATE).
 Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
-### 6.6 Cadena semanal (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`) — estado dormido
+Si este job falla y los ficheros quedan en `/index/`, el FW del día siguiente los detectará
+nada más abrirse la ventana y lanzará la cadena con datos del día anterior — antes de que el
+Planificador genere el fichero actualizado. Este escenario requiere intervención manual
+antes del siguiente ciclo (ver TC-08 y §10 — Riesgos).
+
+### 5.6 Cadena semanal (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`) — estado dormido
 
 - `FIC_DAT_DICT_WEEKLY_SEND_FW`: filewatcher sobre `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario`,
   espera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`, ventana semanal 06:00-06:30.
@@ -190,7 +185,7 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 7. Especificación técnica
+## 6. Especificación técnica
 
 | Elemento | Cadena diaria | Cadena semanal |
 |---|---|---|
@@ -209,7 +204,7 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 8. Especificación de testing
+## 7. Especificación de testing
 
 - Entorno de pruebas en entornos previos existentes (DE/PP) con réplica de las tablas
   `FT_T_ISID`, `FT_T_ISSU` y las tablas de configuración del Planificador (`FT_T_ATE1`,
@@ -224,7 +219,7 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 9. Matriz de casos de prueba
+## 8. Matriz de casos de prueba
 
 | ID | Nombre | Tipo | Job(s) afectado(s) |
 |----|--------|------|---------------------|
@@ -244,7 +239,7 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 10. Validaciones de casos de prueba (detalle)
+## 9. Validaciones de casos de prueba (detalle)
 
 ### TC-01 — Flujo completo E2E diario
 - **Precondiciones:** `FT_T_ISID` y `FT_T_ISSU` con ≥1 índice activo; extracción `DictionaryIndex.sql`
@@ -378,7 +373,7 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 11. Riesgos, duplicidades y escenarios de fallo
+## 10. Riesgos, duplicidades y escenarios de fallo
 
 - **Riesgo alto — Fallo de `MEKYTL0861` con efecto en D+1:** Si la historificación falla y los
   ficheros quedan en `/index/`, el FW del día siguiente los detecta inmediatamente al abrirse la
@@ -405,15 +400,15 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 
 ---
 
-## 12. Conclusión y requisitos de cierre
+## 11. Conclusión y requisitos de cierre
 
 Esta especificación **puede considerarse cerrada** salvo el único gap abierto confirmado:
 
-> **B5 — Protocolo de fallo de `RDRKYTL001` (script Cortar / dictionaryIndex):**
-> No está documentado qué hacer si este job falla. La recomendación del agente es adoptar
-> el mismo circuito que los jobs bien documentados de la cadena (notificar ANS RDR BZG03906 +
-> email `ans_rdr.es@bbva.com` + ticket Remedy ANS RDR), pero debe ser confirmado explícitamente
-> por el grupo de soporte antes de usarse como referencia operativa.
+> **Protocolo de fallo de `RDRKYTL001` (script Cortar / dictionaryIndex) — pendiente de confirmar:**
+> No está documentado qué hacer si este job falla. La recomendación es adoptar el mismo
+> circuito que los jobs bien documentados de la cadena (notificar ANS RDR BZG03906 +
+> `ans_rdr.es@bbva.com` + ticket Remedy ANS RDR), pero debe confirmarse explícitamente
+> con el grupo de soporte antes de usarse como referencia operativa (ver §5.3 y §10).
 
 Todos los demás requisitos tienen validación asociada, casos de prueba definidos con resultado
 esperado, y los comportamientos de error/duplicidad/borde están cubiertos. La cadena semanal
