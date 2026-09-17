@@ -18,7 +18,7 @@
 ## Roles y permisos
 
 - Usuarios de ejecución (Run As) diferenciados por job: `xakytl1p` (extracción), `xpctma1` (filewatcher), `xsramer1` (ambos saltos de transmisión e historificación).
-- El relanzamiento manual en caso de KO se asume, como hipótesis no confirmada, centralizado en ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`) por analogía con el proceso de Calendarios. **Esta asunción debe verificarse con el equipo real antes de asumir cualquier procedimiento de escalado**, ya que la única fuente que describía una estructura de escalado por niveles (ANS RDR / Technical Support / Arquitectura) citaba un documento que se comprobó que no existe en el repositorio.
+- El relanzamiento manual en caso de KO recae en ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`), según la norma de rearranque documentada para los 5 jobs.
 
 ## Flujos previos que deben haberse completado
 
