@@ -30,7 +30,11 @@ Spec Intake Formatter Agent/
 ├── documentos_fuente/                           <- Documentos técnicos a analizar
 ├── memoria/
 │   └── memoria_spec_intake_formatter.md         <- Memoria persistente entre sesiones
-├── salidas/                                     <- Salida final en markdown
+├── salidas/
+│   └── <nombre_proceso>/                        <- Una carpeta por proceso analizado
+│       ├── spec.md                              <- Especificación funcional/técnica/testing
+│       ├── prerrequisitos.md                    <- Documento explicativo de prerrequisitos
+│       └── casos_prueba.xml                     <- Matriz de casos de prueba en XML
 ├── README.md
 └── ...
 ```
@@ -43,20 +47,20 @@ El agente debe seguir este flujo:
 2. Detectar requisitos, reglas, dependencias y validaciones implícitas.
 3. Identificar gaps y preguntas necesarias antes de generar cualquier salida.
 4. Pedir al usuario la información faltante y no crear una especificación incompleta.
-5. Generar la especificación final con estas partes:
-   - requisitos funcionales
-   - prerequisitos
-   - especificación técnica
-   - especificación de testing
-   - casos de prueba
-   - validaciones de casos de prueba
-   - control de duplicidades y errores
+5. Generar, en `salidas/<nombre_proceso>/`, tres artefactos:
+   - `spec.md`: requisitos funcionales, especificación técnica, especificación de testing,
+     validaciones (resumen), control de duplicidades y errores. La especificación de testing
+     explica los casos de `casos_prueba.xml` y confirma que son ejecutables y que, en conjunto
+     (end-to-end y/o troceados), cubren por completo el correcto funcionamiento del proceso.
+   - `prerrequisitos.md`: documento explicativo solo de prerrequisitos
+   - `casos_prueba.xml`: matriz de casos de prueba en XML
 6. Validar que cada requisito tiene un caso de prueba asociado y que el caso tiene resultado esperado.
 7. Incluir escenarios de fallo, duplicidad, datos sintéticos repetidos y casos límite si aplican.
+8. Confirmar que los casos de prueba son ejecutables y que su cobertura conjunta del proceso está justificada en `spec.md`.
 
 ## Regla crítica
 
-Si falta información relevante, el agente debe detenerse, preguntar al usuario y continuar solo cuando tenga evidencia suficiente.
+Si falta información relevante, el agente debe detenerse, preguntar al usuario y continuar solo cuando tenga evidencia suficiente. No hay límite de rondas: sigue preguntando hasta entender el proceso al 100% (disparador, resultado esperado, condiciones de fallo, validaciones, duplicidades) antes de generar nada; el silencio o una respuesta vaga nunca cuenta como confirmación.
 
 No debe asumir:
 - reglas no documentadas
@@ -71,29 +75,33 @@ No debe asumir:
 - Debe evitar cerrar la especificación si hay requisitos sin validación o casos sin resultado esperado.
 - Debe exigir al menos una prueba end-to-end por proceso.
 - Debe cubrir explicitamente errores, duplicidades, datos sintéticos repetidos y casos límite.
-- Debe usar memoria por usuario para no mezclar contexto entre compañeros.
+- Debe usar la memoria compartida sin mezclar salidas de otros usuarios sin revisión expresa.
 
-## Memoria por usuario
+## Memoria única y compartida
 
-La primera vez que se use el agente, debe pedir el ID del usuario y crear un archivo de memoria asociado. Ese archivo será el que se use para mantener el contexto del usuario, evitando conflictos entre varios compañeros que trabajan con el mismo proyecto.
+La memoria vive en un único fichero, `memoria/memoria_spec_intake_formatter.md`, compartido por
+todos los compañeros que trabajan con este agente en el proyecto. No hay un archivo de memoria
+por usuario: cada entrada (respuestas reutilizables, procesos ya analizados, etc.) queda
+identificada con el usuario que la registró, para mantener trazabilidad dentro del mismo
+fichero.
 
-Ejemplo de convención recomendada:
-- `memoria/memoria_spec_intake_formatter_<usuario>.md`
-- o `memoria/<usuario>_spec_intake_formatter.md`
+## Modelo de ramas: personal + `nfq` compartida
 
-La clave es que cada usuario tenga su propio contexto y que el push/pull no mezcle memorias entre compañeros.
+Cada usuario trabaja desde su propia rama. `memoria/` y `salidas/` son compartidas por todo el
+equipo y su versión de referencia vive siempre en la rama `nfq` (nunca en la rama personal de
+cada uno).
 
 ## Sincronización con Git
 
 La sincronización con Git debe estar bajo control explícito del usuario y no debe hacerse de forma automática ni silenciosa.
 
 Flujo recomendado:
-1. Si el repositorio está disponible y el usuario lo autoriza, el agente puede ejecutar un pull antes de empezar.
-2. El agente analiza documentación, identifica gaps y pide los datos faltantes.
-3. Tras la validación final, muestra los ficheros relevantes modificados.
-4. Solicita confirmación antes de hacer git add, commit o push.
-5. Solo sincroniza artefactos aprobados y relevantes para este flujo.
-6. No mezcla memoria ni salidas de otros usuarios sin revisión expresa.
+1. Al iniciar la sesión, si el repositorio está disponible y el usuario lo autoriza, el agente hace `fetch` de `nfq` y trae actualizadas `memoria/` y `salidas/`, guardando el estado de partida de `nfq` para poder detectar cambios concurrentes más adelante. `documentos_fuente/` puede versionarse en la rama personal, pero nunca debe llegar a `nfq`. Si el usuario adjunta un documento directamente en la conversación, el agente lo guarda primero en `documentos_fuente/` de la rama personal.
+2. El agente analiza documentación, identifica gaps y pide los datos faltantes — sin límite de rondas, hasta entender el proceso al 100%.
+3. Solo cuando el usuario está conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`, `casos_prueba.xml`), el agente muestra los ficheros relevantes modificados y pide confirmación.
+4. **Paso 1 — rama personal:** con esa confirmación, el agente hace commit + push normal a la rama personal. Nunca sincroniza a `nfq` como continuación automática de este paso.
+5. **Paso 2 — `nfq`, solo si el usuario lo pide explícitamente:** el usuario revisa lo commiteado en su rama personal y, si le vale, pide expresamente el merge a `nfq`. Entonces el agente vuelve a hacer `fetch` de `nfq` y comprueba si alguien más ha modificado `memoria/` o `salidas/` desde el estado de partida. Si es así, fusiona sin sobrescribir ni eliminar entradas ajenas; un conflicto real de contenido se lo plantea al usuario, nunca lo resuelve por su cuenta. Muestra el resultado fusionado, pide confirmación, y sincroniza a `nfq` siempre por ruta explícita (`salidas/` y `memoria/`), nunca con un merge de la rama personal completa, para que `documentos_fuente/` quede excluido aunque esté commiteada en la rama personal.
+6. No mezcla salidas de otros usuarios sin revisión expresa.
 
 ## Cómo usarlo
 
@@ -117,7 +125,6 @@ El agente debe generar, como mínimo, pruebas de:
 
 ## Notas
 
-- El agente nunca hace commits ni toca el repositorio remoto.
-- Todos los cambios quedan como artefactos locales en `memoria/` y `salidas/`.
+- El agente solo hace commit/push sobre `memoria/` y `salidas/`, y siempre con confirmación explícita del usuario tras mostrarle los ficheros afectados. `documentos_fuente/` puede commitearse en la rama personal, pero nunca llega a `nfq` (la sincronización es siempre por ruta explícita, no un merge de rama completa).
 - La prioridad es la corrección, la exigencia y la detección de gaps sobre la velocidad.
 - Este proyecto ha sido reforzado para actuar como analista crítico y QA, no solo como generador superficial de texto.

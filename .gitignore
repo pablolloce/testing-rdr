@@ -1,0 +1,6 @@
+# documentos_fuente/ se puede versionar en la rama personal de cada usuario (para
+# trazabilidad de esa sesión de trabajo), pero nunca debe llegar a la rama nfq.
+# Esa garantía no la da este fichero (un .gitignore no bloquea contenido ya trackeado que
+# llega vía merge desde otra rama) — la da el mecanismo de sincronización con nfq, que solo
+# transplanta las rutas salidas/ y memoria/, nunca la rama completa. Ver "Modelo de ramas" en
+# .github/copilot-instructions.md.
