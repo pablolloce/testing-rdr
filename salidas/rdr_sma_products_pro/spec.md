@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
 
 **Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -70,11 +70,19 @@ El script es un wrapper bash que invoca la clase Java `BatchProductos.Transforma
 - MEKYTL1030 usa PARM1=`MEKYTL1030_CLOUD` (sufijo _CLOUD confirmado) y tiene tiempo de ejecucion significativamente mayor (~8s vs ~1s para los otros dos).
 - Ninguno tiene ejecucion ciclica ni relanzamientos automaticos (max relaunch = 0).
 
+**Estadisticas de ejecucion (confirmadas por capturas v2, GAP-PROD-002):**
+Los 3 jobs ejecutan diariamente con exito desde al menos 20/08/2026:
+- MEKYTL0404: inicio ~23:00:37, duracion 1-2s
+- MEKYTL0405: inicio ~23:00:39, duracion 1-2s
+- MEKYTL1030: inicio ~23:00:41, duracion ~8s (transferencia Cloud/S3 mas lenta)
+
+El pipeline secuencial se confirma tambien por las horas de inicio consecutivas. La cadena activa desde 06/06/2020 (dato de la vista Planning de MEKYTL1030, creador `algocmd`).
+
 **Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
 
 **Regla de renombrado especial para Big Data (GAP-PROD-004 resuelto):** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa el dia siguiente al del envio. El mecanismo concreto depende de la variable configurada en el .idx: si usa `%%NEXTCANDATE` (variable de sistema Control-M), es dia calendario +1 (dia natural); si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh), es dia habil +1. La verificacion definitiva queda vinculada a la inspeccion del .idx en ejecucion real (GAP-PROD-002 pendiente).
 
-**Nota:** Las reglas de renombrado y los servidores destino documentados arriba provienen del documento funcional. Los ficheros .idx reales (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) no han sido verificados en ejecucion real (los jobs estaban en estado "Esperar a Evento" en las capturas), a diferencia de la cadena de Portfolios donde se verificaron con capturas de ejecucion completa.
+**Nota:** Las reglas de renombrado y los servidores destino documentados arriba provienen del documento funcional. Los ficheros .idx reales (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) no han sido verificados en ejecucion real, a diferencia de la cadena de Portfolios donde se verificaron con capturas de ejecucion completa (GAP-PORT-001). Las capturas v2 confirman que los jobs ejecutan diariamente con exito, por lo que deberia ser posible obtener capturas de salida con los parametros .idx parseados por MEGENV0001.sh.
 
 ### REQ-PROD-006: Alta disponibilidad obligatoria
 Todos los jobs de la cadena (FileWatcher, transformacion, envios, historificacion) deben ejecutarse sobre la VIPA `pr-rdr.igrupobbva`. El documento funcional lo exige explicitamente en mayusculas para el FileWatcher (LPRDR503/LPRDR504), los envios y la historificacion. Para el job MEKYTL1030, se mencionan las maquinas LPRDR501 y LPRDR602 (distintas a las del FileWatcher).
@@ -113,11 +121,10 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 
 ### GAP-PROD-002: Contenido de ficheros .idx ~~(PARCIALMENTE RESUELTO)~~
 ~~No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx.~~
-**Estado:** PARCIALMENTE RESUELTO. Capturas de Control-M (documento GAP-PROD-002_Contenido_de_ficheros_idx.docx) confirman la configuracion completa de los 3 jobs de envio:
-- Los 3 ejecutan MEGENV0001.sh con PARM1 = clave .idx (MEKYTL0404, MEKYTL0405, MEKYTL1030_CLOUD).
-- Pipeline secuencial, soft failure en los 3, recurso MAX-LPRDR501 (1/100).
-- Detalles integrados en REQ-PROD-005.
-**Pendiente:** Los ficheros .idx reales no se han verificado en ejecucion (los jobs estaban en "Esperar a Evento"). Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001).
+**Estado:** PARCIALMENTE RESUELTO. Dos entregas de capturas de Control-M:
+- **v1** (GAP-PROD-002_Contenido_de_ficheros_idx.docx): Configuracion completa de los 3 jobs de envio — MEGENV0001.sh con PARM1 = clave .idx, pipeline secuencial, soft failure, recurso MAX-LPRDR501 (1/100). Detalles integrados en REQ-PROD-005.
+- **v2** (GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx): Estadisticas de ejecucion confirmadas — los 3 jobs ejecutan diariamente desde al menos 20/08/2026 con exito. Vista Planning de MEKYTL1030: activo desde 06/06/2020, creador `algocmd`. Evento de salida confirmado con patron inconsistente: `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`.
+**Pendiente:** Los ficheros .idx reales no se han verificado en ejecucion. Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001). Los jobs ya ejecutan diariamente, por lo que deberia ser posible obtener capturas con los parametros .idx parseados.
 
 ### GAP-PROD-003: Credenciales XML ~~(PARCIALMENTE RESUELTO)~~
 El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.
