@@ -35,7 +35,7 @@
 | Proceso | Usuario | Fecha | Documento de salida generado |
 |---------|---------|-------|-------------------------------|
 | RDR_EXTRACCIONSSIS (Extracción genérica de SSIs) | pablo.llorente | 2026-09-16 | `salidas/spec_RDR_EXTRACCIONSSIS_SIMULACRO.md` — SIMULACRO con 13 supuestos sin confirmar (eliminado en V1.8 de la rama) |
-| RDR_DICTIONARY_INDEX_new + RDR_FIC_DAT_DICT_WEEKLY_SEND_new | pablo.llorente | 2026-09-17 | `salidas/spec_RDR_DICTIONARY_INDEX_y_WEEKLY.md` — Spec real; 13 TC; gap abierto B5 (reinicio RDRKYTL001); cadena semanal DORMIDA (Planificador INACTIVO) |
+| RDR_DICTIONARY_INDEX_new + RDR_FIC_DAT_DICT_WEEKLY_SEND_new | pablo.llorente | 2026-09-17 | `salidas/rdr_dictionary_index_y_weekly/` → `spec.md` + `prerrequisitos.md` + `casos_prueba.xml` (13 TC); gap abierto: protocolo fallo RDRKYTL001 pendiente ANS RDR; cadena semanal DORMIDA (Planificador INACTIVO) |
 
 ## 5. Supuestos y decisiones pendientes de confirmación
 > Hipótesis de simulacro o pendientes de confirmar por un usuario. No deben usarse como
