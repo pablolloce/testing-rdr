@@ -34,9 +34,11 @@ Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` media
 
 | Servidor destino | Ruta destino | Protocolo esperado |
 |-----------------|-------------|-------------------|
-| pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/ | Configurado en .idx |
+| pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario | Configurado en .idx |
 | INFORMACIONAL_CIB_XCOM_PROD | /infa_shared/srcfiles/enso/stag/ | XCOM |
-| filex-cloud-cib.live.es.nextgen.igrupobbva | ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | Configurado en .idx (Datio/S3) |
+| filex-cloud-cib.live.es.nextgen.igrupobbva | s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | Configurado en .idx (Datio/S3) |
+
+Rutas confirmadas por las fichas funcionales EX-005-03 de cada job. La ruta de MEKYTL1030 lleva prefijo `s3://` explicito en su ficha.
 
 ## 3. Scripts y configuraciones
 

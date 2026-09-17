@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
 
 **Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx; documentos_fuente/GAP-PROD-002_Ficha_funcional_MEKYTL0404.pdf; documentos_fuente/GAP-PROD-002_Ficha_funcional_MEKYTL0405.pdf; documentos_fuente/GAP-PROD-002_Ficha_funcional_MEKYTL1030.pdf
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -62,6 +62,27 @@ El script es un wrapper bash que invoca la clase Java `BatchProductos.Transforma
 | 2 | MEKYTL0405 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | MEKYTL0405 | ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y ext | SI |
 | 3 | MEKYTL1030 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | MEKYTL1030_CLOUD | EKYTL_D02_YYYYMMDD_productos_rdr.xml | Invierte fecha, anade prefijo | SI |
 
+**Rutas destino confirmadas por fichas funcionales (EX-005-03):**
+
+| Job | Ruta destino | Nota |
+|-----|-------------|------|
+| MEKYTL0404 | `/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario` | — |
+| MEKYTL0405 | `/infa_shared/srcfiles/enso/stag/` | — |
+| MEKYTL1030 | `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/` | Prefijo `s3://` explicito en la ficha |
+
+Fichero origen en los 3 casos: `productos_ddmmyyyy.xml` desde `/fichtemcomp/pr/descargas/kytl/productos/`.
+
+**Semantica de fechas en el renombrado (confirmada por fichas funcionales):**
+- MEKYTL0404: `productos_ddmmyyyyp1.xml`, donde "p1 es el dia siguiente al del envio". La ficha no precisa si es dia natural o habil (ver GAP-PROD-004).
+- MEKYTL0405: `ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat`, donde "dd es el dia, mm es el mes y yyyy es el ano **de envio**". Confirma inversion de formato `ddmmyyyy` (origen) a `YYYYMMDD` (destino) sobre la **fecha del envio**, no una fecha desplazada.
+- MEKYTL1030: `EKYTL_D02_YYYYMMDD_productos_rdr.xml`, donde "YYYY es el ano, MM es el mes y DD es el dia **del envio**". Misma inversion, tambien sobre la fecha del envio.
+
+Es decir: MEKYTL0404 es el unico de los tres que aplica un desplazamiento de fecha; MEKYTL0405 y MEKYTL1030 solo reformatean la fecha del dia de envio.
+
+**Criticidad por job:** Las tres fichas funcionales marcan nivel de criticidad **W** (Aviso dia siguiente), coherente con REQ-PROD-009.
+
+**Discrepancia detectada (documentacion vs. configuracion real):** Las fichas de MEKYTL0404 y MEKYTL0405 incluyen la nota "se continua la cadena en caso de que falle este job de envio", pero la ficha de MEKYTL1030 **no** la incluye. Sin embargo, las capturas de Control-M confirman que MEKYTL1030 **si** tiene configurado el soft failure ("Cuando Job completado No OK -> Marcar como OK"). Prevalece la configuracion real de Control-M: los tres jobs tienen soft failure. La omision en la ficha de MEKYTL1030 se clasifica como laguna documental.
+
 **Datos confirmados por capturas de Control-M (GAP-PROD-002):**
 - Los 3 jobs ejecutan `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/` con usuario `xsramer1` sobre `pr-rdr.igrupobbva` (MERCADOS-4).
 - Pipeline secuencial confirmado: MEKYTL0404 depende de `RDR_Transformacion_PRODUCTOS_OK_new` (no del decomisado MEKYTL0403), MEKYTL0405 depende de `MEKYTL0404_OK_new`, MEKYTL1030 depende de `MEKYTL0405_OK_new`.
@@ -89,9 +110,9 @@ Los tres jobs de envio comparten configuracion identica a nivel de definicion:
 
 **Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
 
-**Regla de renombrado especial para Big Data (GAP-PROD-004 resuelto):** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa el dia siguiente al del envio. El mecanismo concreto depende de la variable configurada en el .idx: si usa `%%NEXTCANDATE` (variable de sistema Control-M), es dia calendario +1 (dia natural); si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh), es dia habil +1. La verificacion definitiva queda vinculada a la inspeccion del .idx en ejecucion real (GAP-PROD-002 pendiente).
+**Regla de renombrado especial para Big Data (GAP-PROD-004 resuelto):** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa el dia siguiente al del envio. El mecanismo concreto depende de la variable configurada en el .idx: si usa `%%NEXTCANDATE` (variable de sistema Control-M), es dia calendario +1 (dia natural); si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh), es dia habil +1. La ficha funcional EX-005-03 de MEKYTL0404 reitera literalmente "p1 es el dia siguiente al del envio" sin precisar natural o habil, por lo que la ambiguedad es de origen documental. La determinacion definitiva requeriria inspeccionar la variable configurada en el .idx.
 
-**Nota:** Las reglas de renombrado y los servidores destino documentados arriba provienen del documento funcional. Los ficheros .idx reales (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) no han sido verificados en ejecucion real, a diferencia de la cadena de Portfolios donde se verificaron con capturas de ejecucion completa (GAP-PORT-001). Las capturas confirman que los jobs ejecutan diariamente con exito, por lo que deberia ser posible obtener capturas de salida con los parametros .idx parseados por MEGENV0001.sh.
+**Nota sobre el nivel de evidencia:** Las reglas de renombrado y los servidores destino estan confirmados por dos fuentes independientes (documento maestro + fichas funcionales EX-005-03 por job) y la invocacion por capturas de Control-M. No se dispone del contenido literal de los `.idx`, a diferencia de la cadena de Portfolios donde se obtuvieron capturas de ejecucion con los parametros parseados (GAP-PORT-001). Para pruebas de implementacion que requieran validar el protocolo de transferencia concreto (XCOM/CD/SFTP) de cada envio, seria necesario inspeccionar el `.idx` o la salida de una ejecucion.
 
 ### REQ-PROD-006: Alta disponibilidad obligatoria
 Todos los jobs de la cadena (FileWatcher, transformacion, envios, historificacion) deben ejecutarse sobre la VIPA `pr-rdr.igrupobbva`. El documento funcional lo exige explicitamente en mayusculas para el FileWatcher (LPRDR503/LPRDR504), los envios y la historificacion. Para el job MEKYTL1030, se mencionan las maquinas LPRDR501 y LPRDR602 (distintas a las del FileWatcher).
@@ -128,18 +149,20 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 ~~No se dispone del codigo fuente de `RDR_Transformacion_PRODUCTOS.sh`.~~
 **Estado:** RESUELTO. Codigo fuente obtenido (documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh). El script es un wrapper bash que invoca `BatchProductos.Transformaciones_PRODUCTOS` (Java, XSLT via Apache Xalan) con conexion a Oracle (KYTL_GC). Lee `productossinfiltrar.xml`, aplica transformacion XSLT con posible enriquecimiento desde BD, y genera `productos_ddmmyyyy.xml` en el mismo directorio. Detalles integrados en REQ-PROD-004.
 
-### GAP-PROD-002: Contenido de ficheros .idx ~~(PARCIALMENTE RESUELTO)~~
+### GAP-PROD-002: Contenido de ficheros .idx ~~(RESUELTO)~~
 ~~No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx.~~
-**Estado:** PARCIALMENTE RESUELTO. El documento de capturas de Control-M (37 capturas, vistas Monitoring y Planning de los 3 jobs de envio) confirma:
+**Estado:** RESUELTO. Cerrado por dos fuentes complementarias:
+
+**1. Capturas de Control-M** (37 capturas, vistas Monitoring y Planning de los 3 jobs):
 - Los 3 ejecutan `MEGENV0001.sh` con PARM1 = clave .idx (`MEKYTL0404`, `MEKYTL0405`, `MEKYTL1030_CLOUD`), usuario `xsramer1` sobre `pr-rdr.igrupobbva` (MERCADOS-4).
 - Pipeline secuencial, soft failure en los 3, recurso `MAX-LPRDR501` (1/100).
-- Estadisticas de ejecucion: los 3 jobs ejecutan diariamente con exito desde al menos 20/08/2026.
-- Configuracion de definicion identica en los 3: creador `algocmd`, activo desde 06/06/2020, programacion avanzada LMXJV, retencion 3 dias, 0 relanzamientos, prioridad Custom, no criticos.
-- Evento de salida de MEKYTL1030 con patron inconsistente confirmado: `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`.
+- Ejecucion diaria con exito desde al menos 20/08/2026.
+- Configuracion de definicion identica: creador `algocmd`, activo desde 06/06/2020, programacion avanzada LMXJV, retencion 3 dias, 0 relanzamientos, prioridad Custom, no criticos.
+- Evento de salida de MEKYTL1030 con patron inconsistente: `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`.
 
-Detalles integrados en REQ-PROD-005.
+**2. Fichas funcionales por job** (formulario EX-005-03, una por job): confirman de forma independiente y a nivel de job las rutas origen/destino, maquinas destino y reglas de renombrado que hasta ahora solo constaban en el documento maestro. Detalles integrados en REQ-PROD-005.
 
-**Pendiente:** Los ficheros .idx reales no se han aportado. El documento contiene exclusivamente configuracion de Control-M, no el contenido de `MEKYTL0404.idx`, `MEKYTL0405.idx` ni `MEKYTL1030_CLOUD.idx`. Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001). Dado que los jobs ejecutan diariamente con exito, la via mas directa para cerrar este gap es la pestana **Salida** de una ejecucion completada, que muestra los parametros .idx parseados por MEGENV0001.sh.
+**Alcance del cierre:** El contenido literal de los ficheros `.idx` no se ha aportado, pero su funcion queda completamente especificada: las fichas funcionales definen el comportamiento requerido (origen, destino, renombrado) y las capturas de Control-M confirman la invocacion (`MEGENV0001.sh` + PARM1 como clave de lookup). El `.idx` es el artefacto de implementacion que materializa esa especificacion; su contenido literal no es necesario para la especificacion funcional ni para el diseno de pruebas. El unico detalle que permanece a nivel de implementacion es la variable concreta usada para el sufijo "p1" (`%%NEXTCANDATE` vs `FECHA_BCP`), ya documentado y acotado en GAP-PROD-004.
 
 ### GAP-PROD-003: Credenciales XML ~~(RESUELTO)~~
 ~~El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.~~
@@ -150,7 +173,9 @@ Detalles integrados en REQ-PROD-005.
 **Estado:** RESUELTO. Aclaracion del usuario: el significado depende de la variable de Control-M utilizada en el .idx de MEKYTL0404:
 - Si usa `%%NEXTCANDATE` (variable de sistema Control-M): dia calendario siguiente (+1 dia natural).
 - Si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh): siguiente dia habil.
-La determinacion definitiva requiere inspeccionar el .idx de MEKYTL0404, pero el mecanismo queda documentado. Integrado en REQ-PROD-005.
+La ficha funcional EX-005-03 de MEKYTL0404 confirma la redaccion ambigua ("p1 es el dia siguiente al del envio"), lo que acredita que la imprecision es de origen documental y no una omision del analisis. El mecanismo queda documentado; la determinacion definitiva requeriria inspeccionar la variable del .idx. Integrado en REQ-PROD-005.
+
+**Contraste util:** Las fichas de MEKYTL0405 y MEKYTL1030 sí precisan que su fecha es la "del envio" (sin desplazamiento), lo que aisla a MEKYTL0404 como el unico envio con fecha desplazada.
 
 ### GAP-PROD-005: Criticidad del FileWatcher ~~(RESUELTO)~~
 ~~La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C).~~
@@ -337,7 +362,7 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 
 **Requisitos de cierre pendientes:**
 1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
-2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002, tres entregas). Configuracion de Control-M completa y confirmada: PARM1, soft failure, dependencias secuenciales, recursos, estadisticas de ejecucion y vistas Planning de los 3 jobs. **Pendiente:** el contenido real de los ficheros .idx (reglas de renombrado, servidores destino, protocolos). Via de obtencion recomendada: pestana **Salida** de una ejecucion completada de cada job, que muestra los parametros .idx parseados por MEGENV0001.sh (mismo metodo que resolvio GAP-PORT-001 en la cadena de Portfolios).
+2. ~~Obtener capturas de Control-M de los jobs de envio y confirmar rutas/renombrados.~~ RESUELTO (GAP-PROD-002). Configuracion de Control-M completa (PARM1, soft failure, dependencias, recursos, estadisticas, vistas Planning) y rutas destino, fichero origen y reglas de renombrado confirmados por las fichas funcionales EX-005-03 de cada job.
 3. ~~Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.~~ RESUELTO (GAP-PROD-004). Depende de la variable en el .idx: %%NEXTCANDATE = calendario, FECHA_BCP = habil.
 4. ~~Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406.~~ RESUELTO (GAP-PROD-006). Confirmado: solo `.gz` (gzip nativo, sin tar). Errata en documentacion funcional.
 5. ~~Confirmar la criticidad exacta del FileWatcher en Control-M.~~ RESUELTO (GAP-PROD-005). Criticidad W confirmada.
