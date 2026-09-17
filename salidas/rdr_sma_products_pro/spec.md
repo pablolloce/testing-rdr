@@ -88,7 +88,7 @@ El job `RDR_SMA_PRODUCTS_PRO_OUT` (tipo Dummy) espera el evento _OK_new de MEKYT
 ### REQ-PROD-009: Periodicidad y criticidad
 - **Periodicidad:** Diaria, LMXJV (Lunes a Viernes), 23:00.
 - **Criticidad global de la cadena:** A (la mas alta documentada).
-- **Criticidad individual de los jobs:** W para la mayoria.
+- **Criticidad individual de los jobs:** W para la mayoria, incluyendo el FileWatcher (confirmado por el usuario, GAP-PROD-005).
 - **Relanzamientos maximos:** 0 para todos los jobs.
 - **Retencion en entorno activo:** 3 dias.
 
@@ -128,9 +128,9 @@ El script de transformacion recibe como parametro `/pr/kytl/online/multipais/mul
 - Si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh): siguiente dia habil.
 La determinacion definitiva requiere inspeccionar el .idx de MEKYTL0404, pero el mecanismo queda documentado. Integrado en REQ-PROD-005.
 
-### GAP-PROD-005: Criticidad del FileWatcher
-La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C). Se presume W o S segun el estandar de la cadena.
-**Estado:** Pendiente de confirmacion en Control-M.
+### GAP-PROD-005: Criticidad del FileWatcher ~~(RESUELTO)~~
+~~La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C).~~
+**Estado:** RESUELTO. Confirmado por el usuario: criticidad **W** (Aviso dia siguiente) para `FW_RDR_SMA_PRODUCTS_PRO`, manteniendo homogeneidad con la normativa de la carpeta KYTL0000-RDR_SMA_PRODUCTS_PRO_new y los estandares del equipo RDR.
 
 ### GAP-PROD-006: Comportamiento de RAMERC0068.sh con compresion tar.gz
 El documento funcional pide compresion `tar.gz`, pero RAMERC0068.sh solo documenta operaciones con `gzip` (operacion G/GM/MG). No queda claro si la operacion configurada en el IDX produce `.tar.gz` o solo `.gz`.
@@ -316,5 +316,5 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002). Configuracion de Control-M confirmada (PARM1, soft failure, dependencias secuenciales, recursos). Pendiente: verificar contenido real de .idx con capturas de ejecucion completa (renaming rules, servidores, protocolos).
 3. ~~Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.~~ RESUELTO (GAP-PROD-004). Depende de la variable en el .idx: %%NEXTCANDATE = calendario, FECHA_BCP = habil.
 4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406 (GAP-PROD-006).
-5. Confirmar la criticidad exacta del FileWatcher en Control-M (GAP-PROD-005).
+5. ~~Confirmar la criticidad exacta del FileWatcher en Control-M.~~ RESUELTO (GAP-PROD-005). Criticidad W confirmada.
 6. Implementar mecanismo de alerta secundario para detectar fallos silenciosos en los envios (RISK-PROD-001).
