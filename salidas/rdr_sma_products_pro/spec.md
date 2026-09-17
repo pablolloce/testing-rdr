@@ -49,53 +49,485 @@ productos_ddmmyyyy.xml.gz
 
 ### 1.2 Ejecucion paso a paso
 
-A continuacion se describe que ocurre cuando la cadena se ejecuta, como si se estuviera observando en el monitor de Control-M. Todos los jobs se ejecutan sobre la VIPA `pr-rdr.igrupobbva` (servidor MERCADOS-4).
+A continuacion se describe que ocurre cuando la cadena se ejecuta, con el maximo nivel de detalle: cada job con su configuracion Control-M, la logica interna de los scripts que ejecuta, los eventos que recibe y emite (nombres completos), el estado del sistema de ficheros antes y despues, y el comportamiento ante fallos. Todos los jobs se ejecutan sobre la VIPA `pr-rdr.igrupobbva` (servidor MERCADOS-4, aplicacion KYTL, sub-aplicacion RDR_SMA_PRODUCTS_PRO_new, folder KYTL0000-RDR_SMA_PRODUCTS_PRO_new).
 
-**Paso 1 — Disparo (23:00, lunes a viernes)**
-El job Dummy `RDR_SMA_PRODUCTS_PRO_IN` se activa automaticamente a las 23:00. No ejecuta logica alguna; su unica funcion es emitir el evento `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new` que arranca la cadena. Usuario de ejecucion: `xsramer1`.
+---
 
-**Paso 2 — Deteccion del fichero fuente (FW_RDR_SMA_PRODUCTS_PRO)**
-El FileWatcher arranca al recibir el evento del Dummy IN. Ejecuta el comando:
+#### Paso 1 — Disparo (23:00, lunes a viernes)
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `RDR_SMA_PRODUCTS_PRO_IN` |
+| Tipo | Dummy (casilla "Ejecutar como Dummy" marcada) |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Servidor | MERCADOS-4 |
+| Programacion | Avanzado: dias de la semana 1-5 (LMXJV), meses ALL, hora 23:00 |
+| Prerequisito | Ninguno (gatillo temporal) |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new` |
+| Soft failure | No |
+| Recurso | Ninguno |
+| Criticidad | W (Aviso dia siguiente) |
+| Retencion | 3 dias en entorno activo |
+
+**Que hace:** No ejecuta ningun script ni comando. Control-M lo marca como completado inmediatamente al llegar las 23:00 y emite el evento de salida. Su unica funcion es servir de punto de inicio temporal de la cadena y proporcionar un evento que el FileWatcher pueda usar como prerequisito.
+
+**Estado del directorio de trabajo despues de este paso:**
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  └── productossinfiltrar.xml     (generado por el Planificador Generico RDR)
+/fichtemcomp/pr/descargas/kytl/productos/Backup/
+  └── (vacio o con ficheros .gz de dias anteriores)
+```
+
+---
+
+#### Paso 2 — Deteccion del fichero fuente
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `FW_RDR_SMA_PRODUCTS_PRO` |
+| Tipo | FileWatcher |
+| Usuario | `xpctma1` (distinto al resto de la cadena) |
+| Host | `pr-rdr.igrupobbva` |
+| Nodos HA | LPRDR503, LPRDR504 |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_FW_RDR_SMA_PRODUCTS_PRO_OK_new` |
+| Soft failure | No |
+| Recurso | Ninguno |
+| Criticidad | W (confirmado por el usuario, GAP-PROD-005) |
+
+**Comando ejecutado por Control-M:**
 ```
 ctmfw '/fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml' CREATE 0 60 10 3 30
 ```
-Busca la creacion del fichero `productossinfiltrar.xml` en la carpeta de trabajo. Comprueba cada 60 segundos, con estabilidad de 3 segundos, durante un maximo de 30 minutos. Si el fichero no aparece en ese plazo, el job termina en error y la cadena se detiene. Usuario: `xpctma1`. Nodos HA: LPRDR503/LPRDR504.
 
-**Paso 3 — Transformacion (RDR_Transformacion_PRODUCTOS)**
-El job ejecuta el script bash `/pr/kytl/online/multipais/multicanal/scrt/RDR_Transformacion_PRODUCTOS.sh` con dos parametros: `fileloading` (dominio) y la ruta al fichero de credenciales Oracle. El script:
-1. Valida el entorno de ejecucion (produccion = `pr`) y el usuario (`xakytl1p`)
-2. Lee `credentials.xml` para obtener credenciales del esquema Oracle KYTL_GC
-3. Lanza la JVM (Java 64-bit, -Xms128M -Xmx8G) con la clase `BatchProductos.Transformaciones_PRODUCTOS`
-4. La clase Java lee `productossinfiltrar.xml`, aplica una hoja de estilo XSLT (motor Apache Xalan) y genera `productos_ddmmyyyy.xml` en el mismo directorio
+**Desglose de los parametros del ctmfw:**
 
-Tras este paso conviven ambos ficheros en el directorio: el fuente (`productossinfiltrar.xml`) y el transformado (`productos_ddmmyyyy.xml`). El fichero transformado es el que se distribuira en los pasos siguientes.
+| Parametro | Valor | Significado |
+|-----------|-------|-------------|
+| Ruta | `/fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml` | Fichero a detectar |
+| Condicion | `CREATE` | Espera la creacion del fichero (no la modificacion) |
+| Tamano minimo | `0` | Acepta fichero de cualquier tamano (incluso vacio) |
+| Intervalo de polling | `60` | Comprueba cada 60 segundos si el fichero existe |
+| Numero de reintentos | `10` | Reintenta el ciclo completo hasta 10 veces |
+| Estabilidad | `3` | El fichero debe existir de forma estable durante 3 segundos (evita detectar ficheros a medio escribir) |
+| Timeout global | `30` | Maximo 30 minutos de espera total |
 
-**Paso 4 — Envio 1: Big Data/Cloudera (MEKYTL0404)**
-Primer envio del pipeline secuencial. Ejecuta `/pr/pl/envioweb/scrt/MEGENV0001.sh` con PARM1=`MEKYTL0404`. El script lee la configuracion del fichero `/pr/pl/envioweb/idx/bck/MEKYTL0404.idx` y envia `productos_ddmmyyyy.xml` al servidor `pr-bigdata-cib.igrupobbva`, renombrandolo como `productos_ddmmyyyyp1.xml` (el sufijo "p1" representa el dia siguiente). Ruta destino: `/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario`. Duracion tipica: 1-2 segundos. Usuario: `xsramer1`. Recurso: MAX-LPRDR501 (1/100).
-**Soft failure activo:** si el envio falla, Control-M marca el job como OK y emite el evento de salida para que el siguiente envio arranque. El fallo queda solo en los logs de MEGENV0001.sh.
+**Que hace paso a paso:**
+1. Recibe el evento del Dummy IN y arranca.
+2. Comienza a monitorizar la ruta `/fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml`.
+3. Cada 60 segundos, verifica si el fichero existe.
+4. Cuando lo detecta, espera 3 segundos adicionales y vuelve a comprobar que sigue existiendo (control de estabilidad — evita capturar un fichero que aun esta siendo escrito por el Planificador).
+5. Si el fichero existe y es estable: el job completa en OK y emite el evento de salida.
+6. Si el fichero no aparece en 30 minutos: el job completa en NO OK. La cadena se detiene. Se activa el protocolo de fallo ANS RDR (correo a ans_rdr.es@bbva.com).
 
-**Paso 5 — Envio 2: Informacional CIB (MEKYTL0405)**
-Arranca **solo** tras completar MEKYTL0404 (pipeline secuencial). Ejecuta `MEGENV0001.sh` con PARM1=`MEKYTL0405`. Envia `productos_ddmmyyyy.xml` a `INFORMACIONAL_CIB_XCOM_PROD` renombrandolo como `ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat` (invierte formato de fecha ddmmyyyy a YYYYMMDD, cambia nombre base y extension). Ruta destino: `/infa_shared/srcfiles/enso/stag/`. Duracion tipica: 1-2 segundos.
-**Soft failure activo.**
+**Discrepancia documental resuelta:** La ficha funcional individual del FileWatcher indicaba erronamente que el fichero a detectar era `productos.xml`. El comando ctmfw real (capturado en Control-M) confirma que es `productossinfiltrar.xml`, consistente con el documento maestro de la cadena.
 
-**Paso 6 — Envio 3: Cloud/Datio S3 (MEKYTL1030)**
-Arranca **solo** tras completar MEKYTL0405. Ejecuta `MEGENV0001.sh` con PARM1=`MEKYTL1030_CLOUD` (atencion al sufijo `_CLOUD` en la clave del .idx). Envia a la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva` que deposita el fichero en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`. Fichero destino: `EKYTL_D02_YYYYMMDD_productos_rdr.xml`. Duracion tipica: ~8 segundos (mas lento por la pasarela Cloud).
-**Soft failure activo.** Nota: el evento de salida de este job tiene un patron de nomenclatura inconsistente con el resto de la cadena (`..._new_MEKYTL1030_OK` en lugar de `..._MEKYTL1030_OK_new`).
+**Requisito critico de Alta Disponibilidad:** El documento funcional exige en mayusculas que la ejecucion se realice sobre la VIPA para balancear entre los nodos fisicos LPRDR503 y LPRDR504. No ejecutar directamente contra un nodo.
 
-**Paso 7 — Historificacion y compresion (MEKYTL0406)**
-Arranca tras MEKYTL1030. Ejecuta `/pr/pl/scrt/RAMERC0068.sh` con PARM1=`MEKYTL0406`. El script busca la clave `MEKYTL0406` en el fichero de configuracion `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` y ejecuta dos operaciones: (1) mover `productos_ddmmyyyy.xml` desde la carpeta de trabajo a `/fichtemcomp/pr/descargas/kytl/productos/Backup/`, y (2) comprimirlo a `productos_ddmmyyyy.xml.gz` mediante gzip nativo (sin tar).
-**Este job NO tiene soft failure:** si falla, la cadena se detiene en rojo y se activan las alertas ANS RDR.
+**Estado del directorio de trabajo — sin cambios:**
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  └── productossinfiltrar.xml
+```
 
-**Paso 8 — Cierre logico (RDR_SMA_PRODUCTS_PRO_OUT)**
-El job Dummy `RDR_SMA_PRODUCTS_PRO_OUT` recibe el evento de MEKYTL0406 y emite el evento final `..._OUT_OK_new`. Marca el fin formal de la cadena. La carpeta de trabajo queda limpia (el fichero transformado ya esta en Backup comprimido; el fichero fuente `productossinfiltrar.xml` permanece hasta la siguiente ejecucion del Planificador).
+---
 
-**Duracion total tipica:** menos de 1 minuto. Basado en las estadisticas de produccion: el primer envio arranca a las ~23:00:37, el ultimo envio (Cloud) finaliza a las ~23:00:49, y la historificacion y cierre completan en segundos adicionales.
+#### Paso 3 — Transformacion del fichero
 
-**Comportamiento ante fallos:**
-- Si un envio falla: soft failure garantiza que la cadena continua. Es posible que los tres envios fallen y la cadena termine en OK global (la historificacion se ejecuta igualmente). Los fallos solo constan en los logs operativos de MEGENV0001.sh.
-- Si la transformacion falla: la cadena se detiene (no hay soft failure).
-- Si la historificacion falla: la cadena se detiene en rojo. El fichero queda sin comprimir ni archivar.
-- Si el fichero fuente no aparece en 30 minutos: el FileWatcher expira y la cadena se detiene.
+| Atributo | Valor |
+|----------|-------|
+| Job | `RDR_Transformacion_PRODUCTOS` |
+| Tipo | Job estandar (script bash + Java) |
+| Usuario | `xakytl1p` (distinto al resto; requiere acceso a credentials.xml) |
+| Host | `pr-rdr.igrupobbva` |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_FW_RDR_SMA_PRODUCTS_PRO_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new` |
+| Soft failure | No |
+| Recurso | Ninguno |
+
+**Comando ejecutado por Control-M:**
+```
+/pr/kytl/online/multipais/multicanal/scrt/RDR_Transformacion_PRODUCTOS.sh fileloading /pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+```
+
+**Que hace el script bash (RDR_Transformacion_PRODUCTOS.sh) paso a paso:**
+
+1. **Validacion de argumentos:** Comprueba que recibe exactamente 2 parametros. Si no, termina con error.
+2. **Validacion de dominio:** Comprueba que PARM1 sea `fileloading` o `publishing`. En esta cadena siempre es `fileloading`.
+3. **Deteccion de entorno:** Determina el entorno (de/ei/pp/pr) verificando la existencia de `/fichtemcomp/$env`. En produccion, detecta `pr`.
+4. **Validacion de usuario:** Comprueba que el usuario del proceso sea el esperado para el entorno. En produccion: `xakytl1p`. Si el usuario no coincide, termina con error.
+5. **Parsing de credentials.xml:** Lee el fichero `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` usando `awk`. Extrae:
+   - Bloque `<environment>`: `<javahome>` (ruta de la JVM), `<logs>` (directorio de logs)
+   - Bloque `<database>`: `<gcuser>` (usuario Oracle del esquema KYTL_GC), `<gcpassapp>` (password), `<port>` (puerto Oracle), `<alias>` (alias de BD), `<host>` (servidor Oracle)
+6. **Construccion del classpath:** Compone el classpath con:
+   - `/pr/kytl/online/multipais/multicanal/jar/RDR_Transformacion_PRODUCTOS.jar` (JAR principal)
+   - `/pr/kytl/online/multipais/multicanal/jar/RDRCommon.jar` (libreria comun RDR)
+   - `/pr/kytl/online/multipais/multicanal/lib/ojdbc8.jar` (Oracle JDBC)
+   - `/pr/kytl/online/multipais/multicanal/lib/xalan-2.7.1.jar` (Apache Xalan, motor XSLT)
+   - `/pr/kytl/online/multipais/multicanal/lib/serializer-2.7.2.jar` (dependencia de Xalan)
+   - `/pr/kytl/online/multipais/multicanal/lib/ucp.jar` (Oracle Universal Connection Pool)
+7. **Invocacion Java:** Ejecuta la JVM con los parametros extraidos:
+   ```
+   $JAVAHOME/bin/java -Xms128M -Xmx8G -cp $CLASSPATH \
+     BatchProductos.Transformaciones_PRODUCTOS \
+     /fichtemcomp/pr/descargas/kytl/productos/ \
+     /fichtemcomp/pr/descargas/kytl/productos/ \
+     $LOGS \
+     /pr/kytl/online/multipais/multicanal/dat/properties/ \
+     $GCUSER $GCPASSAPP $PORT $ALIAS $HOST
+   ```
+   La clase Java:
+   - Lee `productossinfiltrar.xml` del directorio fuente
+   - Carga las hojas de estilo XSLT desde `/pr/kytl/online/multipais/multicanal/dat/properties/`
+   - Se conecta a Oracle (esquema KYTL_GC) usando las credenciales extraidas
+   - Aplica la transformacion XSLT con Apache Xalan, potencialmente enriqueciendo con datos de la BD
+   - Genera `productos_ddmmyyyy.xml` (donde ddmmyyyy es la fecha del dia) en el directorio de salida
+8. **Control de retorno:** El script captura el codigo de salida de Java. Si es distinto de 0, el job termina en NO OK.
+
+**Conexion de red requerida en este paso:**
+```
+pr-rdr.igrupobbva ──(Oracle JDBC, puerto definido en credentials.xml)──> host Oracle KYTL_GC
+```
+
+**Estado del directorio de trabajo despues de este paso:**
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  ├── productossinfiltrar.xml     (fichero fuente original, sin modificar)
+  └── productos_ddmmyyyy.xml      (fichero transformado, NUEVO)
+```
+
+**Si falla:** La cadena se detiene. No hay soft failure. El fichero `productos_ddmmyyyy.xml` no se genera. Posibles causas: credenciales Oracle invalidas o caducadas (RISK-PROD-003), BD inaccesible, error en la transformacion XSLT, JVM sin memoria (-Xmx8G insuficiente para el volumen de datos), usuario de ejecucion incorrecto.
+
+---
+
+#### Paso 4 — Envio 1: Big Data/Cloudera (MEKYTL0404)
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `MEKYTL0404` |
+| Tipo | Job estandar (script ksh) |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Nodos HA | LPRDR501, LPRDR602 |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new` |
+| Soft failure | **SI** — On-Do: "Cuando Job completado No OK -> Marcar como OK" |
+| Recurso | MAX-LPRDR501 (Cantidad: 1, Total: 100) |
+| Criticidad | W (Aviso dia siguiente) |
+| Creador | `algocmd` |
+| Activo desde | 06/06/2020 |
+| Programacion | Avanzado, dias 1-5 (LMXJV), meses ALL |
+| Relanzamientos | 0 |
+| Retencion | 3 dias |
+| Prioridad | Custom |
+| Duracion tipica | 1-2 segundos (inicio ~23:00:37) |
+
+**Comando ejecutado por Control-M:**
+```
+/pr/pl/envioweb/scrt/MEGENV0001.sh MEKYTL0404
+```
+
+**Que hace MEGENV0001.sh internamente para este envio:**
+
+1. **Recepcion de PARM1:** Recibe `MEKYTL0404` como clave de configuracion.
+2. **Busqueda del .idx:** Intenta primero generar el fichero .idx dinamicamente via Java. Como la generacion Java esta desactivada (confirmado — RISK-PROD-004), cae al **fallback**: lee el fichero estatico `/pr/pl/envioweb/idx/bck/MEKYTL0404.idx`.
+3. **Parsing del .idx:** Extrae los parametros de configuracion del envio:
+   - FICHERO LOCAL: `productos_ddmmyyyy.xml` desde `/fichtemcomp/pr/descargas/kytl/productos/`
+   - SERVIDOR DESTINO: `pr-bigdata-cib.igrupobbva`
+   - RUTA DESTINO: `/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario`
+   - NOMBRE DESTINO: `productos_ddmmyyyyp1.xml` (anade sufijo "p1" = dia siguiente)
+   - TIPO ENVIO: TIPO (transferencia directa)
+   - SENTIDO: PUT
+   - FORMATO: BINARY
+   - ACCION REMOTA: new
+   - PROTOCOLO: el configurado en el .idx (no confirmado literalmente; la ficha funcional no lo precisa)
+4. **Carga del modulo .mod:** Segun el protocolo configurado en el .idx, MEGENV0001.sh carga el modulo correspondiente de `/pr/pl/envioweb/scrt/`:
+   - `SF_MEGENV0001_XCOM.mod` si es XCOM
+   - `SF_MEGENV0001_CD.mod` si es Connect:Direct
+   - `SF_MEGENV0001_SFTP.mod` si es SFTP/FTP
+   - `SF_MEGENV0001_PARAMS.mod` (siempre se carga; parametros comunes)
+5. **Resolucion de la fecha "p1":** El sufijo "p1" en el nombre destino representa el dia siguiente al del envio. La variable que calcula esta fecha depende de la configuracion del .idx:
+   - Si usa `%%NEXTCANDATE` (variable de sistema Control-M): dia calendario +1 (dia natural)
+   - Si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh): dia habil +1
+6. **Ejecucion de la transferencia:** Envia el fichero al destino con las reglas de renombrado configuradas.
+7. **Control de retorno:** Retorna codigo de salida al job de Control-M.
+
+**Conexion de red:**
+```
+pr-rdr.igrupobbva ──(protocolo .idx)──> pr-bigdata-cib.igrupobbva
+                                         Ruta: /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario
+```
+
+**Semantica de la fecha "p1":** Si la cadena se ejecuta el lunes 16/09/2026, el fichero origen es `productos_16092026.xml` y el destino es `productos_16092026p1.xml` donde "p1" corresponde al 17/09/2026 (si dia natural) o al 17/09/2026 (si dia habil, asumiendo que martes es habil). La diferencia solo es relevante alrededor de fines de semana y festivos.
+
+**Si falla (soft failure activo):**
+1. MEGENV0001.sh retorna codigo de error.
+2. Control-M detecta job NO OK.
+3. Se ejecuta la accion On-Do: Control-M **fuerza** el estado del job a OK.
+4. Control-M emite el evento `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new` como si hubiera funcionado.
+5. El siguiente job (MEKYTL0405) arranca normalmente.
+6. El fallo queda registrado unicamente en los logs operativos de MEGENV0001.sh — no genera alerta de Control-M.
+7. El destino Big Data/Cloudera **no recibe** los datos de ese dia.
+
+**Estado del directorio de trabajo — sin cambios (el envio no modifica el fichero local):**
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  ├── productossinfiltrar.xml
+  └── productos_ddmmyyyy.xml
+```
+
+---
+
+#### Paso 5 — Envio 2: Informacional CIB (MEKYTL0405)
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `MEKYTL0405` |
+| Tipo | Job estandar (script ksh) |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new` |
+| Soft failure | **SI** |
+| Recurso | MAX-LPRDR501 (1/100) |
+| Criticidad | W |
+| Duracion tipica | 1-2 segundos (inicio ~23:00:39) |
+
+**Comando ejecutado por Control-M:**
+```
+/pr/pl/envioweb/scrt/MEGENV0001.sh MEKYTL0405
+```
+
+**Logica interna de MEGENV0001.sh para este envio:**
+1. Lee `/pr/pl/envioweb/idx/bck/MEKYTL0405.idx` (fallback, generacion Java desactivada).
+2. Parametros extraidos del .idx:
+   - FICHERO LOCAL: `productos_ddmmyyyy.xml` desde `/fichtemcomp/pr/descargas/kytl/productos/`
+   - SERVIDOR DESTINO: `INFORMACIONAL_CIB_XCOM_PROD`
+   - RUTA DESTINO: `/infa_shared/srcfiles/enso/stag/`
+   - NOMBRE DESTINO: `ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat`
+   - SENTIDO: PUT, FORMATO: BINARY, ACCION REMOTA: new
+3. **Regla de renombrado:** Invierte la fecha del formato `ddmmyyyy` (origen) a `YYYYMMDD` (destino), usando la fecha del dia de envio (no del dia siguiente; confirmado por la ficha funcional: "dd es el dia, mm es el mes y yyyy es el ano **de envio**"). Cambia el nombre base completo y la extension de `.xml` a `.dat`.
+4. Carga el modulo .mod correspondiente y ejecuta la transferencia.
+
+**Conexion de red:**
+```
+pr-rdr.igrupobbva ──(XCOM, segun nombre del servidor)──> INFORMACIONAL_CIB_XCOM_PROD
+                                                           Ruta: /infa_shared/srcfiles/enso/stag/
+```
+
+**Si falla:** Mismo comportamiento que MEKYTL0404 — soft failure fuerza OK, cadena continua, el destino Informacional no recibe datos.
+
+**Estado del directorio de trabajo — sin cambios.**
+
+---
+
+#### Paso 6 — Envio 3: Cloud/Datio S3 (MEKYTL1030)
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `MEKYTL1030` |
+| Tipo | Job estandar (script ksh) |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` (**atencion: patron inconsistente**) |
+| Soft failure | **SI** |
+| Recurso | MAX-LPRDR501 (1/100) |
+| Criticidad | W |
+| Duracion tipica | ~8 segundos (inicio ~23:00:41, significativamente mas lento) |
+
+**Comando ejecutado por Control-M:**
+```
+/pr/pl/envioweb/scrt/MEGENV0001.sh MEKYTL1030_CLOUD
+```
+
+**Nota sobre el PARM1:** La clave es `MEKYTL1030_CLOUD` (con sufijo `_CLOUD`), no `MEKYTL1030`. Esto hace que MEGENV0001.sh busque el fichero `/pr/pl/envioweb/idx/bck/MEKYTL1030_CLOUD.idx`.
+
+**Logica interna de MEGENV0001.sh para este envio:**
+1. Lee `/pr/pl/envioweb/idx/bck/MEKYTL1030_CLOUD.idx`.
+2. Parametros extraidos del .idx:
+   - FICHERO LOCAL: `productos_ddmmyyyy.xml` desde `/fichtemcomp/pr/descargas/kytl/productos/`
+   - SERVIDOR DESTINO: `filex-cloud-cib.live.es.nextgen.igrupobbva` (pasarela Cloud)
+   - RUTA DESTINO: `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/`
+   - NOMBRE DESTINO: `EKYTL_D02_YYYYMMDD_productos_rdr.xml`
+   - SENTIDO: PUT, FORMATO: BINARY, ACCION REMOTA: new
+   - Variables de fecha adicionales: `%%ODATE`, `%%ODATE_DES` (variables de Control-M inyectadas)
+3. **Regla de renombrado:** Invierte la fecha `ddmmyyyy` a `YYYYMMDD` usando la fecha del dia de envio (confirmado por ficha: "YYYY es el ano, MM es el mes y DD es el dia **del envio**"). Anade prefijo tecnico `EKYTL_D02_` y sufijo `_productos_rdr`.
+4. La transferencia pasa por la pasarela Cloud que traduce la operacion a un deposito en el bucket S3.
+
+**Conexion de red:**
+```
+pr-rdr.igrupobbva ──(protocolo .idx)──> filex-cloud-cib.live.es.nextgen.igrupobbva (pasarela)
+                                           ──> s3://ada-eu-south-2-data-live-ho-staging-in/
+                                                  in/staging/ratransmit/rdr/kytl/
+```
+
+**Por que tarda mas (~8s vs ~1-2s):** La transferencia pasa por una pasarela Cloud intermedia (filex-cloud) que debe depositar el fichero en un bucket S3 de AWS (ada-eu-south-2), lo que implica un salto de red adicional y latencia del almacenamiento en la nube.
+
+**Patron de evento inconsistente:** El evento de salida de este job es `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` (el sufijo `_new` aparece antes del nombre del job), mientras que todos los demas jobs de la cadena usan el patron `RDR_SMA_PRODUCTS_PRO_<NOMBRE_JOB>_OK_new` (con `_new` al final). Esta inconsistencia esta confirmada por las capturas de Control-M (vista Planning, pestana Acciones) y es potencial fuente de errores si se modifican dependencias manualmente.
+
+**Discrepancia documental:** La ficha funcional EX-005-03 de MEKYTL1030 **omite** la nota "se continua la cadena en caso de que falle este job de envio" que si aparece en las fichas de MEKYTL0404 y MEKYTL0405. Sin embargo, Control-M confirma que los tres tienen soft failure configurado. La omision en la ficha se clasifica como laguna documental; prevalece la configuracion real.
+
+**Si falla:** Soft failure fuerza OK, la cadena continua a la historificacion. El destino Cloud/S3 no recibe datos.
+
+**Estado del directorio de trabajo — sin cambios.**
+
+---
+
+#### Paso 7 — Historificacion y compresion (MEKYTL0406)
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `MEKYTL0406` |
+| Tipo | Job estandar (script ksh) |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` (atencion al patron inconsistente) |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new` |
+| Soft failure | **NO** — si falla, la cadena se detiene |
+| Recurso | Ninguno |
+| Criticidad | W |
+
+**Comando ejecutado por Control-M:**
+```
+/pr/pl/scrt/RAMERC0068.sh MEKYTL0406
+```
+
+**Que hace RAMERC0068.sh internamente para este job:**
+
+1. **Recepcion de PARM1:** Recibe `MEKYTL0406` como clave de lookup.
+2. **Lectura del IDX de historificacion:** Busca la entrada `MEKYTL0406` en el fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`. Este fichero (distinto a los .idx de MEGENV0001.sh) contiene la configuracion de operaciones de archivado.
+3. **Operacion configurada:** La entrada define:
+   - DIRECTORIO ORIGEN: `/fichtemcomp/pr/descargas/kytl/productos/`
+   - FICHERO: `productos_ddmmyyyy.xml`
+   - DIRECTORIO DESTINO: `/fichtemcomp/pr/descargas/kytl/productos/Backup/`
+   - OPERACION: Mover + comprimir con gzip (operacion G del script — gzip nativo)
+4. **Ejecucion — mover:** `mv /fichtemcomp/pr/descargas/kytl/productos/productos_ddmmyyyy.xml /fichtemcomp/pr/descargas/kytl/productos/Backup/productos_ddmmyyyy.xml`
+5. **Ejecucion — comprimir:** `gzip /fichtemcomp/pr/descargas/kytl/productos/Backup/productos_ddmmyyyy.xml` — esto genera `productos_ddmmyyyy.xml.gz` y elimina el fichero sin comprimir.
+6. **Nota sobre tar:** RAMERC0068.sh soporta 12 operaciones (M, B, BD, C, G, GM, MG, CG, etc.) pero **ninguna incluye empaquetado tar**. Solo gzip nativo. La referencia a `.tar.gz` en la documentacion funcional es una errata confirmada (GAP-PROD-006).
+
+**Si falla (NO hay soft failure):**
+1. RAMERC0068.sh retorna codigo de error.
+2. Control-M marca el job como NO OK.
+3. La cadena **se detiene en rojo** — el job Dummy OUT no arranca.
+4. Se activa el protocolo de fallo: alerta ANS RDR (BZG03906), correo a ans_rdr.es@bbva.com.
+5. El fichero `productos_ddmmyyyy.xml` puede quedar en el directorio de trabajo o parcialmente en Backup, dependiendo de en que operacion fallo (mv o gzip).
+6. Posibles causas: disco lleno en Backup, permisos insuficientes, fichero ya existente en Backup con el mismo nombre.
+
+**Estado del directorio de trabajo despues de este paso (exito):**
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  └── productossinfiltrar.xml     (permanece; sera sobreescrito en la siguiente ejecucion)
+/fichtemcomp/pr/descargas/kytl/productos/Backup/
+  └── productos_ddmmyyyy.xml.gz   (fichero comprimido, NUEVO)
+```
+
+---
+
+#### Paso 8 — Cierre logico
+
+| Atributo | Valor |
+|----------|-------|
+| Job | `RDR_SMA_PRODUCTS_PRO_OUT` |
+| Tipo | Dummy |
+| Usuario | `xsramer1` |
+| Host | `pr-rdr.igrupobbva` |
+| Prerequisito | `RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new` |
+| Evento emitido | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new` |
+| Soft failure | No |
+| Recurso | Ninguno |
+
+**Que hace:** No ejecuta ningun script. Control-M lo marca como completado y emite el evento final de la cadena. Las cadenas externas que dependan de esta cadena (si las hay) pueden usar este evento como prerequisito.
+
+---
+
+### 1.3 Estado final del sistema de ficheros
+
+Tras la ejecucion completa exitosa:
+
+```
+/fichtemcomp/pr/descargas/kytl/productos/
+  └── productossinfiltrar.xml              (permanece hasta la siguiente ejecucion del Planificador)
+
+/fichtemcomp/pr/descargas/kytl/productos/Backup/
+  └── productos_ddmmyyyy.xml.gz            (fichero del dia, comprimido con gzip)
+  └── productos_ddmmyyyy-1.xml.gz          (fichero del dia anterior, si no se ha purgado)
+  └── ...                                  (historico de dias anteriores)
+```
+
+El fichero transformado `productos_ddmmyyyy.xml` ya no existe en ninguna ubicacion — fue movido a Backup y comprimido. El fichero fuente `productossinfiltrar.xml` permanece y sera sobreescrito por el Planificador Generico RDR en la siguiente ejecucion.
+
+### 1.4 Mapa de conexiones de red
+
+```
+                                    ┌─────────────────────────────────────┐
+                                    │  Oracle KYTL_GC                     │
+                                    │  (host/puerto en credentials.xml)   │
+                                    └────────────────▲────────────────────┘
+                                                     │ JDBC (Paso 3)
+                                                     │
+┌──────────────────────────────────────────────────────────────────────────────┐
+│  pr-rdr.igrupobbva (VIPA)                                                  │
+│  IP: 22.156.148.85                                                         │
+│  Servidor: MERCADOS-4                                                      │
+│  Nodos: LPRDR501, LPRDR602 (envios) / LPRDR503, LPRDR504 (FileWatcher)    │
+│                                                                            │
+│  Directorio: /fichtemcomp/pr/descargas/kytl/productos/                     │
+│  Scripts:    /pr/pl/envioweb/scrt/MEGENV0001.sh                            │
+│              /pr/pl/scrt/RAMERC0068.sh                                     │
+│              /pr/kytl/online/multipais/multicanal/scrt/RDR_Transformacion.. │
+└──────┬───────────────┬───────────────┬───────────────────────────────────────┘
+       │               │               │
+       │ Paso 4        │ Paso 5        │ Paso 6
+       │               │               │
+       ▼               ▼               ▼
+┌──────────────┐ ┌──────────────┐ ┌───────────────────────────────────────┐
+│ pr-bigdata-  │ │INFORMACIONAL │ │filex-cloud-cib.live.es.nextgen       │
+│ cib.igrupo   │ │_CIB_XCOM_   │ │.igrupobbva                           │
+│ bbva         │ │PROD          │ │    │                                  │
+│              │ │              │ │    ▼                                  │
+│ Ruta:        │ │ Ruta:        │ │ s3://ada-eu-south-2-data-live-ho-    │
+│ /usr/local/  │ │ /infa_shared/│ │ staging-in/in/staging/ratransmit/    │
+│ pr/cloudera/ │ │ srcfiles/    │ │ rdr/kytl/                            │
+│ staging/01/  │ │ enso/stag/   │ │                                      │
+│ rdr/sta_gsr/ │ │              │ │                                      │
+│ diario       │ │              │ │                                      │
+└──────────────┘ └──────────────┘ └───────────────────────────────────────┘
+```
+
+### 1.5 Cadena de eventos completa
+
+Secuencia temporal de eventos tal como se verian en la vista de Eventos del servidor Control-M MERCADOS-4:
+
+| Orden | Hora aprox. | Evento emitido (nombre completo) | Emitido por | Consumido por |
+|-------|-------------|----------------------------------|-------------|---------------|
+| 1 | 23:00:00 | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new` | RDR_SMA_PRODUCTS_PRO_IN | FW_RDR_SMA_PRODUCTS_PRO |
+| 2 | 23:00:03* | `RDR_SMA_PRODUCTS_PRO_FW_RDR_SMA_PRODUCTS_PRO_OK_new` | FW_RDR_SMA_PRODUCTS_PRO | RDR_Transformacion_PRODUCTOS |
+| 3 | 23:00:35* | `RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new` | RDR_Transformacion_PRODUCTOS | MEKYTL0404 |
+| 4 | 23:00:37 | `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new` | MEKYTL0404 | MEKYTL0405 |
+| 5 | 23:00:39 | `RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new` | MEKYTL0405 | MEKYTL1030 |
+| 6 | 23:00:49 | `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` | MEKYTL1030 | MEKYTL0406 |
+| 7 | 23:00:50* | `RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new` | MEKYTL0406 | RDR_SMA_PRODUCTS_PRO_OUT |
+| 8 | 23:00:50* | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new` | RDR_SMA_PRODUCTS_PRO_OUT | (ninguno — fin de cadena) |
+
+*Las horas de los pasos 2, 3, 7 y 8 son aproximadas; las horas de los envios (pasos 4-6) estan confirmadas por estadisticas de produccion.
+
+Nota: el evento 6 tiene patron distinto al resto (`_new_MEKYTL1030_OK` vs `_MEKYTL1030_OK_new`).
+
+### 1.6 Comportamiento ante fallos — escenarios detallados
+
+| Escenario | Paso donde falla | Soft failure | Que pasa | Estado final de la cadena | Alerta |
+|-----------|------------------|-------------|----------|---------------------------|--------|
+| Fichero fuente no aparece | Paso 2 (FileWatcher) | No | FileWatcher expira tras 30 min. Ningun paso posterior se ejecuta. | NO OK (rojo) | ANS RDR |
+| Transformacion Java falla | Paso 3 | No | Error de script (BD, XSLT, memoria). No se genera `productos_ddmmyyyy.xml`. | NO OK (rojo) | ANS RDR |
+| Envio a Big Data falla | Paso 4 | **SI** | Control-M fuerza OK. MEKYTL0405 arranca normalmente. Big Data no recibe datos. | OK (verde) | Solo logs de MEGENV0001.sh |
+| Envio a Informacional falla | Paso 5 | **SI** | Control-M fuerza OK. MEKYTL1030 arranca normalmente. Informacional no recibe datos. | OK (verde) | Solo logs |
+| Envio a Cloud falla | Paso 6 | **SI** | Control-M fuerza OK. MEKYTL0406 arranca normalmente. Cloud/S3 no recibe datos. | OK (verde) | Solo logs |
+| Los 3 envios fallan | Pasos 4+5+6 | SI los 3 | La historificacion se ejecuta igualmente. Ningun destino recibe datos. | **OK (verde)** | **Ninguna en Control-M** — RISK-PROD-001 |
+| Historificacion falla | Paso 7 | **NO** | mv o gzip fallan. El fichero queda en el directorio de trabajo. Dummy OUT no arranca. | NO OK (rojo) | ANS RDR |
+| Envio 1 OK + Envio 2 falla + Envio 3 OK | Paso 5 | SI | Big Data y Cloud reciben datos. Informacional no. Historificacion se ejecuta. | OK (verde) | Solo logs para Informacional |
 
 ## 2. Alcance del proceso
 
