@@ -59,7 +59,8 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 - Separador: `;` (cabecera `CURRENCY;CAL_DAY;HOLIDAY;RNUM;`).
 - Volumen de referencia observado: 251.874 filas, 87 divisas.
 - No se valida continuidad secuencial de fechas: el salto natural entre registros consecutivos de una misma divisa es de 5–6 días (fin de semana), salvo festivos intermedios.
-- Criterio de completitud correcto: (a) fechas dentro del rango temporal esperado (desde la fecha actual hasta N años vista — **N no está definido, pendiente de fijar como parámetro operativo si se requiere test de rango exacto**), (b) presencia de las 87 divisas esperadas, (c) las fechas presentes corresponden efectivamente a fines de semana o festivos catalogados.
+- Criterio de completitud correcto: (a) fechas dentro del rango temporal esperado, (b) presencia de las 87 divisas esperadas, (c) las fechas presentes corresponden efectivamente a fines de semana o festivos catalogados.
+- **Rango temporal (evidencia de muestra, no regla de negocio confirmada):** el parámetro operativo "N años vista" no está definido como regla documentada. Se analizó un fichero real de producción (2026-09-17, 251.874 filas) que cubre `CAL_DAY` desde `2022-09-21` hasta `2049-12-31` (~27 años y 3 meses), con festivos reales (no solo `WEEKEND` calculado) poblados en profundidad (~770-1020 por año) durante todo ese rango. No se ha confirmado si `2049-12-31` es un límite fijo en el sistema origen o una ventana relativa a la fecha de generación del fichero — ver riesgo 7 en la sección 9.
 
 **Flujo funcional (router):** un único fichero de entrada se distribuye en 5 ramas independientes de salida más una historificación final, con nombres de fichero y rutas propios por destino.
 
@@ -87,7 +88,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (distribución diaria básica), TC-012 (cobertura de las 87 divisas).
 - `negativo`: TC-002 (filewatcher KO por timeout).
 - `error_funcional`: TC-003 (fallo de transferencia a destino).
-- `borde`: TC-004 (valor fuera de dominio en `HOLIDAY`), TC-008 (viernes festivo).
+- `borde`: TC-004 (valor fuera de dominio en `HOLIDAY`), TC-008 (viernes festivo), TC-013 (rango temporal de cobertura, evidencia de muestra).
 - `duplicidad`: TC-005 (conflicto de clave `CURRENCY+CAL_DAY` en la extracción).
 - `datos_sinteticos`: TC-006 (repetición legítima de divisa vs. repetición de clave completa).
 - `conflicto_integridad`: TC-007 (checksum origen vs. destino).
@@ -111,7 +112,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R7 (historificación) | TC-011 | Se ejecuta como paso final tras los envíos |
 | R8 (alertas) | TC-002, TC-003 | Alerta al buzón correcto según destino, con código de error |
 | R9 (integridad) | TC-007 | Checksum idéntico origen/destino |
-| R10 (contenido: solo días no hábiles) | TC-004, TC-012 | Dominio cerrado de `HOLIDAY`; cobertura de las 87 divisas |
+| R10 (contenido: solo días no hábiles) | TC-004, TC-012, TC-013 | Dominio cerrado de `HOLIDAY`; cobertura de las 87 divisas; rango temporal de cobertura (evidencia de muestra) |
 | Clave de negocio / duplicidad | TC-005, TC-006 | Detección de conflicto de clave en el punto de extracción; distinción entre repetición legítima y conflicto |
 | Riesgos de diseño (concurrencia, fichero vacío) | TC-009, TC-010 | Documentan el comportamiento actual (sin control) como caso de regresión a vigilar |
 
@@ -123,7 +124,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 4. **Historificación incondicional** (`MEKYTL0863`): se ejecuta aunque algún envío intermedio haya fallado, lo que podría enmascarar un fallo parcial si no se revisan las alertas de los jobs de envío específicos.
 5. **Criticidad W (aviso al día siguiente) frente a impacto downstream crítico**: P-001 (alertas SSI/FX/Calypso), P-028 (SWIFT) y P-061 (liquidaciones) dependen de estos calendarios, pero no están referenciados en la documentación técnica de este flujo. **Riesgo de negocio abierto, pendiente de validación explícita con los responsables de negocio** — no se puede cerrar como asumido.
 6. **Fallback de viernes festivo no verificado contra sistemas destino**: se envía igual el viernes festivo bajo la asunción de que "se verá en el próximo día lectivo"; esta asunción no ha sido confirmada contra el comportamiento real de XERG/BONT/CSCF/Mentor/TFIT al recibir un envío en fecha no laborable para ellos.
-7. **Rango temporal de vigencia del calendario (parámetro N años) no definido**: el criterio de completitud menciona "desde la fecha actual hasta N años en el futuro" sin fijar el valor de N; no se puede construir un test exacto de rango sin ese dato.
+7. **Rango temporal de vigencia del calendario (parámetro N años) no definido como regla de negocio**: se dispone de evidencia empírica de una muestra real (fichero de producción analizado 2026-09-17: rango `2022-09-21` a `2049-12-31`, ~27 años y 3 meses, con festivos reales poblados en profundidad todo ese rango), pero no se ha confirmado si `2049-12-31` es un límite fijo en el sistema origen o una ventana relativa a la fecha de generación (TC-013 usa esta muestra como referencia, no como regla validada).
 8. **Topología exacta del árbol de jobs no confirmada**: el documento solo indica que el sucesor directo del filewatcher es `MEKYTL1113`; no se especifica si `MEKYTL1090`, `MEKYTL1184_DUMMY`, `MEKYTL1266` y `MEKYTL1311` cuelgan en paralelo del filewatcher o en cadena tras `MEKYTL1113`. Esto afecta si un fallo en XERG bloquea o no el resto de destinos — recomendable confirmar contra la definición real en Control-M antes de ejecutar TC-003 en un entorno real.
 
 ## 10. Conclusión y requisitos de cierre
