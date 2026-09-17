@@ -11,6 +11,92 @@
 
 La cadena RDR_SMA_PRODUCTS_PRO_new es un proceso batch diario orquestado por Control-M que transforma y distribuye el fichero `productossinfiltrar.xml` (catalogo maestro de tipos de instrumento canonicos y sus equivalencias por sistema origen) desde el servidor central RDR hacia 3 destinos de forma secuencial: Big Data/Cloudera, Informacional CIB (XCOM) y Cloud/Datio S3. Tras la distribucion, el fichero se comprime (`.gz` via gzip) y se archiva en una carpeta de backup. A diferencia de la cadena de Portfolios (topologia fan-out/fan-in), esta cadena sigue una topologia de pipeline secuencial con tolerancia a fallos (soft failure) en los tres jobs de envio.
 
+### 1.1 Ciclo de vida del dato
+
+El siguiente diagrama muestra como se transforma y distribuye el fichero a lo largo de la cadena, incluyendo rutas fisicas, nombres en destino y el estado final del dato:
+
+```
+[Planificador Generico RDR — fuera de esta cadena]
+  |  Query SQL contra FT_T_ATE1 (Oracle, esquema KYTL_GC)
+  |  Extrae tipos de instrumento canonicos activos + equivalencias por sistema origen
+  v
+productossinfiltrar.xml
+  Ruta: /fichtemcomp/pr/descargas/kytl/productos/
+  |
+  |  FileWatcher detecta creacion (polling 60s, timeout 30 min)
+  |  Job RDR_Transformacion_PRODUCTOS: Java (XSLT + Oracle) genera fichero transformado
+  v
+productos_ddmmyyyy.xml
+  Ruta: /fichtemcomp/pr/descargas/kytl/productos/   (mismo directorio)
+  |
+  |--- ENVIO 1 [MEKYTL0404] -------> pr-bigdata-cib.igrupobbva
+  |      Destino: /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario
+  |      Fichero: productos_ddmmyyyyp1.xml  (sufijo p1 = dia siguiente)
+  |
+  |--- ENVIO 2 [MEKYTL0405] -------> INFORMACIONAL_CIB_XCOM_PROD
+  |      Destino: /infa_shared/srcfiles/enso/stag/
+  |      Fichero: ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat
+  |
+  |--- ENVIO 3 [MEKYTL1030] -------> filex-cloud-cib.live.es.nextgen.igrupobbva
+  |      Destino: s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/
+  |      Fichero: EKYTL_D02_YYYYMMDD_productos_rdr.xml
+  |
+  |  [MEKYTL0406] Mueve a Backup/ y comprime con gzip
+  v
+productos_ddmmyyyy.xml.gz
+  Ruta: /fichtemcomp/pr/descargas/kytl/productos/Backup/
+```
+
+### 1.2 Ejecucion paso a paso
+
+A continuacion se describe que ocurre cuando la cadena se ejecuta, como si se estuviera observando en el monitor de Control-M. Todos los jobs se ejecutan sobre la VIPA `pr-rdr.igrupobbva` (servidor MERCADOS-4).
+
+**Paso 1 — Disparo (23:00, lunes a viernes)**
+El job Dummy `RDR_SMA_PRODUCTS_PRO_IN` se activa automaticamente a las 23:00. No ejecuta logica alguna; su unica funcion es emitir el evento `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_IN_OK_new` que arranca la cadena. Usuario de ejecucion: `xsramer1`.
+
+**Paso 2 — Deteccion del fichero fuente (FW_RDR_SMA_PRODUCTS_PRO)**
+El FileWatcher arranca al recibir el evento del Dummy IN. Ejecuta el comando:
+```
+ctmfw '/fichtemcomp/pr/descargas/kytl/productos/productossinfiltrar.xml' CREATE 0 60 10 3 30
+```
+Busca la creacion del fichero `productossinfiltrar.xml` en la carpeta de trabajo. Comprueba cada 60 segundos, con estabilidad de 3 segundos, durante un maximo de 30 minutos. Si el fichero no aparece en ese plazo, el job termina en error y la cadena se detiene. Usuario: `xpctma1`. Nodos HA: LPRDR503/LPRDR504.
+
+**Paso 3 — Transformacion (RDR_Transformacion_PRODUCTOS)**
+El job ejecuta el script bash `/pr/kytl/online/multipais/multicanal/scrt/RDR_Transformacion_PRODUCTOS.sh` con dos parametros: `fileloading` (dominio) y la ruta al fichero de credenciales Oracle. El script:
+1. Valida el entorno de ejecucion (produccion = `pr`) y el usuario (`xakytl1p`)
+2. Lee `credentials.xml` para obtener credenciales del esquema Oracle KYTL_GC
+3. Lanza la JVM (Java 64-bit, -Xms128M -Xmx8G) con la clase `BatchProductos.Transformaciones_PRODUCTOS`
+4. La clase Java lee `productossinfiltrar.xml`, aplica una hoja de estilo XSLT (motor Apache Xalan) y genera `productos_ddmmyyyy.xml` en el mismo directorio
+
+Tras este paso conviven ambos ficheros en el directorio: el fuente (`productossinfiltrar.xml`) y el transformado (`productos_ddmmyyyy.xml`). El fichero transformado es el que se distribuira en los pasos siguientes.
+
+**Paso 4 — Envio 1: Big Data/Cloudera (MEKYTL0404)**
+Primer envio del pipeline secuencial. Ejecuta `/pr/pl/envioweb/scrt/MEGENV0001.sh` con PARM1=`MEKYTL0404`. El script lee la configuracion del fichero `/pr/pl/envioweb/idx/bck/MEKYTL0404.idx` y envia `productos_ddmmyyyy.xml` al servidor `pr-bigdata-cib.igrupobbva`, renombrandolo como `productos_ddmmyyyyp1.xml` (el sufijo "p1" representa el dia siguiente). Ruta destino: `/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario`. Duracion tipica: 1-2 segundos. Usuario: `xsramer1`. Recurso: MAX-LPRDR501 (1/100).
+**Soft failure activo:** si el envio falla, Control-M marca el job como OK y emite el evento de salida para que el siguiente envio arranque. El fallo queda solo en los logs de MEGENV0001.sh.
+
+**Paso 5 — Envio 2: Informacional CIB (MEKYTL0405)**
+Arranca **solo** tras completar MEKYTL0404 (pipeline secuencial). Ejecuta `MEGENV0001.sh` con PARM1=`MEKYTL0405`. Envia `productos_ddmmyyyy.xml` a `INFORMACIONAL_CIB_XCOM_PROD` renombrandolo como `ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat` (invierte formato de fecha ddmmyyyy a YYYYMMDD, cambia nombre base y extension). Ruta destino: `/infa_shared/srcfiles/enso/stag/`. Duracion tipica: 1-2 segundos.
+**Soft failure activo.**
+
+**Paso 6 — Envio 3: Cloud/Datio S3 (MEKYTL1030)**
+Arranca **solo** tras completar MEKYTL0405. Ejecuta `MEGENV0001.sh` con PARM1=`MEKYTL1030_CLOUD` (atencion al sufijo `_CLOUD` en la clave del .idx). Envia a la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva` que deposita el fichero en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`. Fichero destino: `EKYTL_D02_YYYYMMDD_productos_rdr.xml`. Duracion tipica: ~8 segundos (mas lento por la pasarela Cloud).
+**Soft failure activo.** Nota: el evento de salida de este job tiene un patron de nomenclatura inconsistente con el resto de la cadena (`..._new_MEKYTL1030_OK` en lugar de `..._MEKYTL1030_OK_new`).
+
+**Paso 7 — Historificacion y compresion (MEKYTL0406)**
+Arranca tras MEKYTL1030. Ejecuta `/pr/pl/scrt/RAMERC0068.sh` con PARM1=`MEKYTL0406`. El script busca la clave `MEKYTL0406` en el fichero de configuracion `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` y ejecuta dos operaciones: (1) mover `productos_ddmmyyyy.xml` desde la carpeta de trabajo a `/fichtemcomp/pr/descargas/kytl/productos/Backup/`, y (2) comprimirlo a `productos_ddmmyyyy.xml.gz` mediante gzip nativo (sin tar).
+**Este job NO tiene soft failure:** si falla, la cadena se detiene en rojo y se activan las alertas ANS RDR.
+
+**Paso 8 — Cierre logico (RDR_SMA_PRODUCTS_PRO_OUT)**
+El job Dummy `RDR_SMA_PRODUCTS_PRO_OUT` recibe el evento de MEKYTL0406 y emite el evento final `..._OUT_OK_new`. Marca el fin formal de la cadena. La carpeta de trabajo queda limpia (el fichero transformado ya esta en Backup comprimido; el fichero fuente `productossinfiltrar.xml` permanece hasta la siguiente ejecucion del Planificador).
+
+**Duracion total tipica:** menos de 1 minuto. Basado en las estadisticas de produccion: el primer envio arranca a las ~23:00:37, el ultimo envio (Cloud) finaliza a las ~23:00:49, y la historificacion y cierre completan en segundos adicionales.
+
+**Comportamiento ante fallos:**
+- Si un envio falla: soft failure garantiza que la cadena continua. Es posible que los tres envios fallen y la cadena termine en OK global (la historificacion se ejecuta igualmente). Los fallos solo constan en los logs operativos de MEGENV0001.sh.
+- Si la transformacion falla: la cadena se detiene (no hay soft failure).
+- Si la historificacion falla: la cadena se detiene en rojo. El fichero queda sin comprimir ni archivar.
+- Si el fichero fuente no aparece en 30 minutos: el FileWatcher expira y la cadena se detiene.
+
 ## 2. Alcance del proceso
 
 - **Ambito funcional:** Distribucion diaria del fichero de productos (tipos de instrumento canonicos) generado por el Planificador Generico RDR a tres sistemas consumidores dentro de BBVA CIB, con transformacion previa del fichero.
