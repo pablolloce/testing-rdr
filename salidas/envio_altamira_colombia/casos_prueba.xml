@@ -171,24 +171,25 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="borde">
-    <nombre>Verificación de la ruta origen real del Salto 2</nombre>
-    <objetivo>Determinar cuál es la ruta origen efectiva que usa MEKYTL1044_SND en lpftp503, dada la discrepancia entre la documentación de MEKYTL1044 (ruta destino /unload/transmisiones/KYTL/) y MEKYTL1044_SND (ruta origen declarada /fichtemcomp/.../send/).</objetivo>
+    <nombre>Confirmación de la réplica de directorios usada como ruta origen del Salto 2</nombre>
+    <objetivo>Validar que MEKYTL1044_SND lee correctamente de la réplica real /fichtemcomp/.../send/ en lpftp503 (confirmada contra Control-M), independiente de la ruta /unload/transmisiones/KYTL/ donde deposita MEKYTL1044.</objetivo>
     <precondiciones>
       <precondicion>Acceso a lpftp503 para inspección directa del sistema de ficheros.</precondicion>
+      <precondicion>Réplica de /fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/ operativa en lpftp503.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ruta_a_verificar_1" valor="/unload/transmisiones/KYTL/"/>
-      <dato campo="ruta_a_verificar_2" valor="/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/"/>
+      <dato campo="ruta_destino_MEKYTL1044" valor="/unload/transmisiones/KYTL/"/>
+      <dato campo="ruta_origen_MEKYTL1044_SND" valor="/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/ (réplica en lpftp503)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Tras una ejecución completa de MEKYTL1044, inspeccionar ambas rutas en lpftp503.</paso>
-      <paso numero="2">Determinar en cuál de las dos rutas queda efectivamente depositado el fichero.</paso>
-      <paso numero="3">Confirmar cuál de ellas lee realmente MEKYTL1044_SND en su ejecución.</paso>
+      <paso numero="1">Tras una ejecución completa de MEKYTL1044, inspeccionar la réplica /fichtemcomp/.../send/ en lpftp503.</paso>
+      <paso numero="2">Confirmar que el fichero CONCILIA_AAAAMMDD.txt está presente y actualizado en esa réplica.</paso>
+      <paso numero="3">Verificar que MEKYTL1044_SND lee de esa réplica y transmite correctamente el contenido a 82.255.60.120.</paso>
     </pasos>
-    <resultadoEsperado>Se identifica la ruta real usada por MEKYTL1044_SND, resolviendo la discrepancia documental (riesgo 1 de la especificación).</resultadoEsperado>
-    <tipoValidacion>Inspección directa del sistema de ficheros en lpftp503 durante una ejecución real o de preproducción.</tipoValidacion>
-    <criterioAceptacion>Una única ruta queda confirmada como la efectivamente usada; se actualiza la documentación fuente con el resultado.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si ninguna de las dos rutas contiene el fichero esperado en el momento de ejecución de MEKYTL1044_SND, lo que indicaría un fallo silencioso no cubierto por esta especificación.</posibilidadFallo>
+    <resultadoEsperado>La réplica en lpftp503 contiene el fichero correcto y MEKYTL1044_SND lo transmite sin incidencias al destino final.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del sistema de ficheros en lpftp503 + verificación de contenido en destino final.</tipoValidacion>
+    <criterioAceptacion>El fichero en la réplica coincide con el generado por la extracción, y llega íntegro a 82.255.60.120.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si la réplica no se actualiza correctamente (desincronización entre la ruta de depósito de MEKYTL1044 y la réplica leída por MEKYTL1044_SND), lo que provocaría el envío de un fichero desactualizado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="regresion">

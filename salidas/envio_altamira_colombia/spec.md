@@ -38,7 +38,7 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 - **Manejo de duplicados dentro del JAR:** no verificable con la evidencia disponible (solo se dispone del índice comprimido del JAR, sin código fuente descompilado) — limitación de evidencia, no gap de diseño confirmado.
 - **Relanzamiento cíclico "Máximo: 0":** en Control-M, dentro de un bloque de relanzamiento cíclico, `0` significa *sin límite* de relanzamientos, no "cero reintentos"; el sondeo cada 5 minutos es la frecuencia normal del filewatcher.
 - **Fichero no recibido:** si no llega, el resto de la cadena no se ejecuta (confirmado a nivel funcional; la hora exacta de corte de la ventana no está documentada).
-- **Riesgo de ruta origen del Salto 2 (`MEKYTL1044_SND`):** **no resuelto por el usuario ni por la documentación** — existe una incoherencia directa entre lo que deposita `MEKYTL1044` (`/unload/transmisiones/KYTL/` en `lpftp503`) y lo que declara leer `MEKYTL1044_SND` (`/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/`, la misma ruta absoluta que en `pr-rdr.igrupobbva`). Se registra como **riesgo/discrepancia documental abierta**, pendiente de verificación directa en la infraestructura real.
+- **Ruta origen del Salto 2 (`MEKYTL1044_SND`):** confirmado por el usuario contra la definición real en Control-M — `MEKYTL1044_SND` efectivamente lee de `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` en `lpftp503`. No es un error de documentación: existe una réplica real de esa estructura de directorios en `lpftp503`, independiente de la ruta `/unload/transmisiones/KYTL/` donde `MEKYTL1044` deposita el fichero.
 - **Concurrencia:** mismo gap ya confirmado en Calendarios (sin lock/PID/semáforo).
 - **Fichero vacío/parcial:** mismo gap ya confirmado en Calendarios (el filewatcher solo controla presencia, no contenido).
 
@@ -66,7 +66,7 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 - **Servidor destino final:** `82.255.60.120` (ruta UNC `\\co.igrupobbva\svrfilesystem\TX\ENVIO_HOST\FINANCIERA\CDD\CONCILIACION\`).
 - **Ruta de recepción (origen):** `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/`, patrón `CONCILIA_*.txt`.
 - **Ruta intermedia real (Salto 1 → destino):** `lpftp503:/unload/transmisiones/KYTL/`.
-- **Ruta origen declarada del Salto 2:** `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` (en `lpftp503`) — **discrepancia documental abierta**, ver sección 9, riesgo 1.
+- **Ruta origen del Salto 2:** `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` en `lpftp503` — confirmado contra la definición real en Control-M: existe una réplica real de esa estructura de directorios en `lpftp503`, independiente de la ruta `/unload/transmisiones/KYTL/`.
 - **Filewatcher:** `FW_RDR_ALTAMIRA_COLOMBIA_SEND`, herramienta nativa Control-M (no Java), activa tras el evento de `EXTRACCION_ALTAMIRA_SEND`, sondeo cada 5 minutos, sin hora de corte exacta documentada ("hasta el final del día"); si no llega el fichero, el resto de la cadena no se ejecuta.
 - **Script de transmisión (ambos saltos):** `MEGENV0001.sh`, `PARM1=MEKYTL1044` (compartido, confirmado correcto en ambos jobs), formato ASCII, acción `REPLACE`.
 - **Script de historificación:** `RAMERC0068.sh`, mueve de `/send/` a `/send/backup/`.
@@ -83,7 +83,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (ciclo diario completo).
 - `negativo`: TC-002 (fichero no llega, cadena no se ejecuta).
 - `error_funcional`: TC-003 (fallo de transmisión en Salto 1 con precaución de reproceso), TC-004 (saturación/permisos de `/backup/`).
-- `borde`: TC-005 (desfase NTP > 200ms), TC-009 (verificación de la ruta origen real del Salto 2).
+- `borde`: TC-005 (desfase NTP > 200ms), TC-009 (confirmación de la réplica de directorios usada como ruta origen del Salto 2).
 - `duplicidad`: TC-006 (identificador de 8 dígitos repetido, exploratorio/caja negra).
 - `datos_sinteticos`: TC-007 (repetición legítima entre ficheros de días distintos vs. duplicado dentro del mismo fichero).
 - `conflicto_integridad`: TC-008 (ausencia de validación de integridad más allá de `REPLACE`).
@@ -96,7 +96,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - El camino feliz completo de los 5 jobs (TC-001, ampliado por TC-013 como E2E con verificación de historificación).
 - Cada condición de fallo documentada (fichero no recibido, fallo de transmisión, saturación de backup) con su propio caso troceado (TC-002, TC-003, TC-004).
 - Los 2 riesgos de diseño confirmados como gaps (concurrencia, fichero vacío/parcial) replican los mismos casos de regresión ya definidos para Calendarios, adaptados a esta cadena (TC-010, TC-012).
-- El riesgo documental no resuelto (ruta origen del Salto 2) tiene un caso dedicado de verificación en infraestructura real (TC-009), en vez de asumir cuál de las dos rutas es la correcta.
+- La réplica de directorios usada como ruta origen del Salto 2 (confirmada contra Control-M) tiene un caso dedicado (TC-009) que valida su presencia y contenido, en vez de asumirla sin comprobación.
 - No queda ningún job, ruta o condición de negocio de las secciones 3, 5 y 6 sin un caso de prueba asociado (ver trazabilidad en la sección 8).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
@@ -106,25 +106,24 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R1 (extracción) | TC-001, TC-013 | Genera `CONCILIA_AAAAMMDD.txt` con identificadores de 8 dígitos válidos |
 | R2 (filewatcher) | TC-002, TC-010 | Detecta la llegada; documenta que no detecta fichero vacío/parcial (gap confirmado) |
 | R3 (Salto 1) | TC-001, TC-003, TC-013 | Transmisión correcta a `lpftp503`; comportamiento ante fallo de transmisión |
-| R4 (Salto 2) | TC-001, TC-005, TC-009, TC-013 | Transmisión correcta al destino final; desfase NTP; verificación de la ruta origen real |
+| R4 (Salto 2) | TC-001, TC-005, TC-009, TC-013 | Transmisión correcta al destino final; desfase NTP; confirmación de la réplica de directorios usada como ruta origen |
 | R5 (historificación) | TC-004, TC-013 | Backup correcto; comportamiento ante saturación/permisos |
 | R6 (alertas) | TC-002, TC-003, TC-004 | Notificación a ANS RDR con criticidad W ante cualquier fallo |
 | R7 (clave/duplicidad) | TC-006, TC-007 | Comportamiento observado ante identificador repetido (caja negra) |
 | R8 (NTP) | TC-005 | Verifica el control documentado de desfase horario |
-| Riesgos de diseño (concurrencia, integridad, ruta Salto 2) | TC-008, TC-009, TC-011, TC-012 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
+| Riesgos de diseño (concurrencia, integridad) | TC-008, TC-011, TC-012 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-1. **Discrepancia documental en la ruta origen del Salto 2** (`MEKYTL1044_SND`): declara leer de `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` en `lpftp503`, cuando `MEKYTL1044` deposita el fichero en `/unload/transmisiones/KYTL/` de ese mismo servidor. Ni la documentación ni el usuario han podido resolverlo. **Riesgo abierto, pendiente de verificación directa en la infraestructura real** (TC-009).
-2. **Naming documentado incorrectamente en el PDF de especificación** (`CONCILIA_YYYDDMM.txt`, con solo 3 "Y") frente al patrón real en ejecución (`CONCILIA_AAAAMMDD.txt`, confirmado por `.properties` y por el fichero real de producción). Riesgo documental, no de ejecución.
-3. **Manejo de duplicados del identificador de 8 dígitos dentro de `RDR_ConciliaColombia.jar` no verificable**: solo se dispone del JAR compilado, sin código fuente. El comportamiento ante duplicados debe tratarse como observación de caja negra (TC-006), no como validación de un comportamiento ya conocido.
-4. **Sin validación de integridad de copia más allá de `REPLACE`** en ninguno de los dos saltos (mismo patrón de gap que en Calendarios).
-5. **Filewatcher sin hora de corte exacta documentada**: solo se sabe que si el fichero no llega, el resto de la cadena no se ejecuta; la hora exacta de fin de ventana no está documentada.
-6. **Mitigación NTP documentada mediante respuesta del usuario, no verificada directamente por el agente** — se registra como control documentado, pendiente de evidencia operacional en vivo.
-7. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
-8. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
-9. **Sin protección de concurrencia** (mismo gap que Calendarios).
+1. **Naming documentado incorrectamente en el PDF de especificación** (`CONCILIA_YYYDDMM.txt`, con solo 3 "Y") frente al patrón real en ejecución (`CONCILIA_AAAAMMDD.txt`, confirmado por `.properties` y por el fichero real de producción). Riesgo documental, no de ejecución.
+2. **Manejo de duplicados del identificador de 8 dígitos dentro de `RDR_ConciliaColombia.jar` no verificable**: solo se dispone del JAR compilado, sin código fuente. El comportamiento ante duplicados debe tratarse como observación de caja negra (TC-006), no como validación de un comportamiento ya conocido.
+3. **Sin validación de integridad de copia más allá de `REPLACE`** en ninguno de los dos saltos (mismo patrón de gap que en Calendarios).
+4. **Filewatcher sin hora de corte exacta documentada**: solo se sabe que si el fichero no llega, el resto de la cadena no se ejecuta; la hora exacta de fin de ventana no está documentada.
+5. **Mitigación NTP documentada mediante respuesta del usuario, no verificada directamente por el agente** — se registra como control documentado, pendiente de evidencia operacional en vivo.
+6. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
+7. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
+8. **Sin protección de concurrencia** (mismo gap que Calendarios).
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para los puntos resolubles. Un punto queda explícitamente como **no resuelto, registrado como riesgo abierto** en vez de cerrado por suposición: la discrepancia de ruta del Salto 2 (riesgo 1), pendiente de resolverse contra la infraestructura real antes de dar por válido el comportamiento operativo en producción. No impide ejecutar la matriz de pruebas definida.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos, incluida la ruta origen del Salto 2 (confirmada contra la definición real en Control-M). No quedan riesgos de ruta/topología sin resolver; los riesgos restantes (documentales, de evidencia limitada sobre el JAR, o de diseño ya confirmados por analogía con Calendarios) están descritos en la sección 9 y no impiden ejecutar la matriz de pruebas definida.
