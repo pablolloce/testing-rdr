@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_PRO_SMA_PORTFOLIOS_new
 
 **Proceso:** Cesion de Portfolios a SMA (distribucion de fichero de carteras)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 1 (lineas 1-828)
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 1 (lineas 1-828); documentos_fuente/GAP-PORT-001_Contenido_ficheros_idx.docx
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -15,7 +15,7 @@ La cadena RDR_PRO_SMA_PORTFOLIOS_new es un proceso batch diario orquestado por C
 
 - **Ambito funcional:** Distribucion diaria del fichero de carteras (portfolios) generado por el Planificador Generico RDR a multiples sistemas consumidores dentro de BBVA CIB.
 - **Ambito tecnico:** Cadena Control-M con 10 jobs (1 Dummy, 1 FileWatcher, 1 renombrado, 7 envios paralelos, 1 historificacion). Se ejecuta sobre el servidor `pr-rdr.igrupobbva` (MERCADOS-4).
-- **Fuera de alcance:** La generacion del fichero `portfolios.xml` (responsabilidad del Planificador Generico RDR, motor Java ProjectMain/ProjectSQL). El contenido de los ficheros `.idx` de configuracion de cada envio. Los scripts `.mod` (modulos de MEGENV0001.sh).
+- **Fuera de alcance:** La generacion del fichero `portfolios.xml` (responsabilidad del Planificador Generico RDR, motor Java ProjectMain/ProjectSQL). Los scripts `.mod` (modulos de MEGENV0001.sh).
 
 ## 3. Requisitos detectados
 
@@ -34,17 +34,29 @@ El job `MEKYTL0517` ejecuta `RAMERC0068.sh` con parametro `MEKYTL0517`. Renombra
 ### REQ-PORT-005: Distribucion paralela (fan-out) a 7 destinos
 Tras el renombrado, se lanzan en paralelo 7 jobs de envio. Cada uno espera el evento `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0517_OK_new`:
 
-| Job | Destino | Maquina destino | Protocolo | Nombre destino | Regla de renombrado |
-|-----|---------|-----------------|-----------|----------------|---------------------|
-| MEKYTL0511 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | XCOM | ESKYTLENDS_RDRPORTFOLIO_YYYYMMDD_001.dat | Invierte fecha DDMMYYYY->YYYYMMDD, cambia ext .xml->.dat |
-| MEKYTL0512 | Big Data/Cloudera | pr-bigdata-cib.igrupobbva | MEGENV0001 | portfolios_DDMMYYYY.xml | Sin cambio (transferencia directa) |
-| MEKYTL0513 | Star Europa | hpstrha01_europa | MEGENV0001 | portfolios_DDMMYYYY.xml | Sin cambio |
-| MEKYTL0514 | Star LATAM | hpstrha02_latam | MEGENV0001 | portfolios_DDMMYYYY.xml | Sin cambio |
-| MEKYTL0515 | Market Data | Ipemd501 | MEGENV0001 | portfolios_DDMMYYYY.xml | Sin cambio |
-| MEKYTL0826 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | MEGENV0001 | EKYTL_D02_YYYYMMDD_portfolios_rdr_xml.xml | Invierte fecha, anade prefijo/sufijo tecnico |
-| MEKYTL0891 | Market Data 2 | Ipapp501 | MEGENV0001 | portfolios_DDMMYYYY.xml | Sin cambio |
+| Job | Destino | Servidor remoto | Protocolo | Usuario transmision | Nodo local | Nombre destino | Regla de renombrado |
+|-----|---------|-----------------|-----------|---------------------|------------|----------------|---------------------|
+| MEKYTL0511 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | CD | xtcibt1 | lprdr501 | ESKYTLENDS_RDRPORTFOLIO_YYYYMMDD_001.dat | Invierte fecha DDMMYYYY->YYYYMMDD, cambia nombre y ext .xml->.dat |
+| MEKYTL0512 | Big Data/Cloudera | pr-bigdata-cib.igrupobbva | CD | xtcibt1p | lprdr501 | portfolios_DDMMYYYY.xml | Sin cambio |
+| MEKYTL0513 | Star Europa | hpstrha01_europa | CD | xcomunix | lprdr602 | portfolios_DDMMYYYY.xml | Sin cambio |
+| MEKYTL0514 | Star LATAM | hpstrha02_latam | CD | xcomunix | lprdr602 | portfolios_DDMMYYYY.xml | Sin cambio |
+| MEKYTL0515 | Market Data | lpend501 | CD | (vacio) | lprdr501 | portfolios_DDMMYYYY.xml | Sin cambio |
+| MEKYTL0826 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | CD | transmidas | lprdr602 | EKYTL_D82_YYYYMMDD_pcr_xml.xml | Invierte fecha, anade prefijo tecnico |
+| MEKYTL0891 | Market Data 2 | lpapp501 | CD | xrcibtip | lprdr501 | rdr_portfolios_DDMMYYYY.xml | Anade prefijo "rdr_" |
 
-Todos los jobs de envio usan `MEGENV0001.sh` con su respectivo PARM1. El job MEKYTL0826 usa PARM1=`MEKYTL0826_CLOUD` (sufijo _CLOUD) e inyecta variables de fecha adicionales (%%ODATE, %%ODATE_DES).
+**Datos confirmados por los ficheros .idx (GAP-PORT-001 resuelto):**
+- Todos los envios usan protocolo **Connect:Direct (CD)**, TIPO ENVIO = TIPO, SENTIDO = PUT, ACCION REMOTA = new, FORMATO = BINARY.
+- La ruta local de todos los envios es `/fichtemcomp/pr/descargas/kytl/portfolios/`.
+- Ningun envio tiene RUTA HISTORIFICACION configurada (la historificacion la realiza MEKYTL0518 aparte).
+- El job MEKYTL0826 usa PARM1=`MEKYTL0826_CLOUD` (sufijo _CLOUD) e inyecta variables de fecha adicionales (%%ODATE, %%ODATE_DES).
+- **Tolerancia a fallos (Soft Failure):** Los 7 jobs de envio tienen configurado On-Do: "Cuando Job completado No OK -> Marcar como OK". Un fallo en un envio NO bloquea la cadena.
+
+**Correcciones respecto al documento funcional original:**
+- MEKYTL0511: El protocolo real es CD (Connect:Direct), no XCOM como sugeria el nombre del servidor destino.
+- MEKYTL0515: El servidor destino real es `lpend501`, no `Ipemd501`.
+- MEKYTL0826: El nombre destino real es `EKYTL_D82_YYYYMMDD_pcr_xml.xml`, no `EKYTL_D02_YYYYMMDD_portfolios_rdr_xml.xml`.
+- MEKYTL0891: SI tiene renombrado (prefijo `rdr_`); la ruta destino contiene `21_PORTOLIO` (sin F, posible error tipografico en la configuracion).
+- Distribucion de nodos: lprdr501 ejecuta MEKYTL0511, 0512, 0515, 0891; lprdr602 ejecuta MEKYTL0513, 0514, 0826.
 
 ### REQ-PORT-006: Historificacion (fan-in)
 El job `MEKYTL0518` (ejecuta `RAMERC0068.sh` con PARM1=`MEKYTL0518`) espera a que los 8 eventos _OK_new de los jobs anteriores (7 envios + renombrado 0517) se emitan. Mueve `portfolios_DDMMYYYY.xml` a `/fichtemcomp/pr/descargas/kytl/portfolios/Backup/` conservando el nombre.
@@ -65,9 +77,9 @@ Todos los jobs consumen el recurso cuantitativo `MAX-LPRDR501` (Cantidad: 1, Tot
 
 ## 4. Gaps identificados y preguntas pendientes
 
-### GAP-PORT-001: Contenido de ficheros .idx de configuracion de envios
-No se dispone del contenido de los ficheros .idx que parametrizan cada envio via MEGENV0001.sh (MEKYTL0511.idx, MEKYTL0512.idx, etc.). La logica de renombrado en destino, protocolo exacto y credenciales residen ahi.
-**Estado:** Pendiente de obtencion.
+### GAP-PORT-001: Contenido de ficheros .idx de configuracion de envios ~~(RESUELTO)~~
+~~No se dispone del contenido de los ficheros .idx que parametrizan cada envio via MEGENV0001.sh.~~
+**Estado:** RESUELTO. Datos obtenidos de capturas de ejecucion real en produccion (documento GAP-PORT-001_Contenido_ficheros_idx.docx). Los 7 ficheros .idx confirmados: todos usan protocolo CD (Connect:Direct), sentido PUT, formato BINARY, accion remota new. Los detalles de cada envio (servidor, ruta, usuario, renombrado) estan integrados en REQ-PORT-005 y seccion 5.3.
 
 ### GAP-PORT-002: Libreria Origen "A definir por RA"
 Varios jobs (0511, 0512, 0513, 0514, 0515, 0826, 0891) indican "A definir por RA" en la Libreria Origen del documento funcional. Control-M resuelve esto apuntando a `/pr/pl/envioweb/scrt/MEGENV0001.sh`.
@@ -81,9 +93,9 @@ La ficha individual del job 0518 solo lista MEKYTL0891 como predecesor, pero el 
 No se dispone del contenido exacto de la entrada en `INFORMACION_HISTORIFICACIONES.IDX` para estas dos claves. Se infiere que MEKYTL0517 opera como "M" (mover/renombrar) y MEKYTL0518 tambien como "M" (mover a Backup).
 **Estado:** Pendiente de confirmacion.
 
-### GAP-PORT-005: Comportamiento ante fallo parcial en envios paralelos
-Si uno de los 7 envios falla, los demas continuan (son paralelos e independientes). El job final 0518 NO se ejecutara hasta que todos terminen. No hay tolerancia a fallos (soft failure) documentada en la cadena de Portfolios (a diferencia de la cadena de Products).
-**Estado:** Confirmado por el documento. Un fallo en cualquier envio bloquea la cadena hasta rearranque manual.
+### GAP-PORT-005: Comportamiento ante fallo parcial en envios paralelos ~~(RESUELTO)~~
+~~No hay tolerancia a fallos (soft failure) documentada en la cadena de Portfolios.~~
+**Estado:** RESUELTO. Las capturas de Control-M confirman que los 7 jobs de envio SI tienen soft failure configurado (On-Do: "Cuando Job completado No OK -> Marcar como OK"). Un fallo en un envio individual NO bloquea la cadena: Control-M fuerza el estado a OK y emite el evento de salida. MEKYTL0518 recibe todos los eventos y procede a la historificacion. El comportamiento es analogo al de la cadena de Products, aunque el documento funcional original no lo mencionaba explicitamente para Portfolios.
 
 ## 5. Especificacion funcional
 
@@ -102,13 +114,13 @@ Si uno de los 7 envios falla, los demas continuan (son paralelos e independiente
 [MEKYTL0517] (Renombra: portfolios.xml -> portfolios_DDMMYYYY.xml)
     |  evento: ..._MEKYTL0517_OK_new
     |
-    +---> [MEKYTL0511] Informacional CIB (XCOM) --------+
-    +---> [MEKYTL0512] Big Data/Cloudera ----------------+
-    +---> [MEKYTL0513] Star Europa ----------------------+
-    +---> [MEKYTL0514] Star LATAM -----------------------+---> [MEKYTL0518] Backup
-    +---> [MEKYTL0515] Market Data (Ipemd501) -----------+    (fan-in: espera 8 eventos)
-    +---> [MEKYTL0826] Cloud/Datio S3 ------------------+
-    +---> [MEKYTL0891] Market Data (Ipapp501) -----------+
+    +---> [MEKYTL0511] Informacional CIB (CD) — Soft Failure ---+
+    +---> [MEKYTL0512] Big Data/Cloudera (CD) — Soft Failure --+
+    +---> [MEKYTL0513] Star Europa (CD) — Soft Failure --------+
+    +---> [MEKYTL0514] Star LATAM (CD) — Soft Failure ---------+---> [MEKYTL0518] Backup
+    +---> [MEKYTL0515] Market Data/lpend501 (CD) — Soft Failure+    (fan-in: espera 8 eventos)
+    +---> [MEKYTL0826] Cloud/Datio S3 (CD) — Soft Failure ----+
+    +---> [MEKYTL0891] Market Data/lpapp501 (CD) — Soft Failure+
 ```
 
 ### 5.2 Datos del fichero fuente (portfolios.xml)
@@ -121,17 +133,17 @@ El fichero contiene 25 campos de negocio + bloque repetible de identificadores e
 
 **Patron EAV:** PortfolioID, TradingDesk, BackOffSystem, Perimeter, TradingFlag, BtoBFlag se extraen de FT_T_AIT1 (columna STAT_DEF_ID indica el atributo, FLD_VAL su valor).
 
-### 5.3 Reglas de negocio de renombrado en destino
+### 5.3 Reglas de negocio de renombrado en destino (confirmado por .idx)
 
 | Destino | Formato origen | Formato destino | Transformacion |
 |---------|---------------|-----------------|----------------|
-| Informacional CIB | portfolios_DDMMYYYY.xml | ESKYTLENDS_RDRPORTFOLIO_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y extension |
-| Big Data | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
-| Star Europa | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
-| Star LATAM | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
-| Market Data (Ipemd501) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
-| Cloud/Datio S3 | portfolios_DDMMYYYY.xml | EKYTL_D02_YYYYMMDD_portfolios_rdr_xml.xml | Invierte fecha, anade prefijo/sufijo |
-| Market Data (Ipapp501) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
+| Informacional CIB (MEKYTL0511) | portfolios_DDMMYYYY.xml | ESKYTLENDS_RDRPORTFOLIO_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y extension |
+| Big Data (MEKYTL0512) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
+| Star Europa (MEKYTL0513) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
+| Star LATAM (MEKYTL0514) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
+| Market Data (MEKYTL0515) | portfolios_DDMMYYYY.xml | portfolios_DDMMYYYY.xml | Ninguna |
+| Cloud/Datio S3 (MEKYTL0826) | portfolios_DDMMYYYY.xml | EKYTL_D82_YYYYMMDD_pcr_xml.xml | Invierte fecha, anade prefijo tecnico |
+| Market Data 2 (MEKYTL0891) | portfolios_DDMMYYYY.xml | rdr_portfolios_DDMMYYYY.xml | Anade prefijo "rdr_" |
 
 ### 5.4 Periodicidad y ventana de ejecucion
 
@@ -226,7 +238,7 @@ La estrategia de testing se basa en una combinacion de pruebas end-to-end y prue
 | ID | Riesgo | Probabilidad | Impacto | Mitigacion |
 |----|--------|-------------|---------|------------|
 | RISK-PORT-001 | El Planificador Generico RDR no genera portfolios.xml a tiempo | Media | Alto (cadena no arranca) | Timeout del FileWatcher de 120 min; alertas ANS RDR |
-| RISK-PORT-002 | Fallo en un envio bloquea la historificacion | Media | Alto (fichero no se archiva) | Requiere rearranque manual; no hay soft-failure en esta cadena |
+| RISK-PORT-002 | Todos los envios fallan silenciosamente por soft failure | Baja | Critico (ningun destino recibe datos y no hay alerta) | Analogo a RISK-PROD-001 de Products. Monitorizar logs operativos de MEGENV0001.sh. Implementar alerta secundaria. |
 | RISK-PORT-003 | Fichero corrupto o incompleto | Baja | Alto (datos erroneos en 7 destinos) | No hay validacion de integridad del fichero antes de la distribucion |
 | RISK-PORT-004 | Java de generacion IDX desactivado (siempre usa backup) | Confirmado | Bajo (funcional, pero riesgo de IDX desactualizado) | MEGENV0001.sh usa fallback a idx/bck/ |
 | RISK-PORT-005 | MGET+XCOM no verifica ESTADO por iteracion (bug documentado MEGENV0001.sh) | Confirmado | Medio (ficheros fallidos se ignoran en MGET) | No aplica directamente a esta cadena (usa PUT, no MGET) |
@@ -234,7 +246,7 @@ La estrategia de testing se basa en una combinacion de pruebas end-to-end y prue
 ### 9.2 Escenarios de fallo
 
 1. **Fichero no detectado en timeout:** El FileWatcher agota los 120 minutos sin detectar portfolios.xml. El job queda en estado NO OK, se activa protocolo de fallo ANS RDR.
-2. **Fallo en envio individual (ej. MEKYTL0511):** MEGENV0001.sh termina con codigo de error. El evento _OK_new de ese job no se emite. MEKYTL0518 nunca recibe todos los eventos y no arranca. La cadena queda bloqueada.
+2. **Fallo en envio individual (ej. MEKYTL0511):** MEGENV0001.sh termina con codigo de error. Control-M aplica soft failure (On-Do: Marcar como OK) y emite el evento _OK_new igualmente. La cadena continua. El fallo queda registrado solo en los logs operativos de MEGENV0001.sh. Si todos los envios fallan, la cadena finaliza en OK global pero ningun destino recibe los datos (RISK-PORT-002).
 3. **Fallo en historificacion (MEKYTL0518):** El fichero no se mueve a Backup. Al dia siguiente, el FileWatcher detecta el fichero viejo (portfolios.xml no existe, pero portfolios_DDMMYYYY.xml si) — depende de si el renombrado ya se ejecuto.
 4. **Disco lleno en destino:** La transferencia falla con error del protocolo. El job queda en NO OK, se activa protocolo de fallo.
 
@@ -243,6 +255,7 @@ La estrategia de testing se basa en una combinacion de pruebas end-to-end y prue
 La cadena RDR_PRO_SMA_PORTFOLIOS_new esta completamente mapeada a nivel funcional y tecnico. Los 10 jobs, sus dependencias, eventos de Control-M, scripts ejecutados, destinos y reglas de renombrado estan documentados. La topologia fan-out/fan-in esta confirmada tanto por el documento de diseno como por la configuracion tecnica de Control-M.
 
 **Requisitos de cierre pendientes:**
-1. Obtener el contenido de los ficheros .idx de cada job de envio para confirmar protocolo, credenciales y logica de renombrado exacta.
-2. Confirmar el contenido de la entrada MEKYTL0517 y MEKYTL0518 en INFORMACION_HISTORIFICACIONES.IDX.
+1. ~~Obtener el contenido de los ficheros .idx de cada job de envio.~~ RESUELTO (GAP-PORT-001).
+2. Confirmar el contenido de la entrada MEKYTL0517 y MEKYTL0518 en INFORMACION_HISTORIFICACIONES.IDX (GAP-PORT-004).
 3. Validar que no existe una validacion de integridad del fichero portfolios.xml previa a la distribucion (riesgo RISK-PORT-003).
+4. Confirmar si `21_PORTOLIO` (sin F) en la ruta destino de MEKYTL0891 es un error tipografico o el nombre real del directorio.

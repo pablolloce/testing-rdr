@@ -14,7 +14,7 @@
 
 | Término | Significado | Fuente |
 |---------|------------|--------|
-| Soft Failure | Acción On-Do en Control-M: "Cuando Job completado No OK -> Marcar como OK". Permite que la cadena continúe ante fallos en jobs no críticos. | Cesiones_SMA.md — Cadena 2 |
+| Soft Failure | Acción On-Do en Control-M: "Cuando Job completado No OK -> Marcar como OK". Permite que la cadena continúe ante fallos en jobs no críticos. | Cesiones_SMA.md — ambas cadenas (confirmado por .idx para Cadena 1) |
 | VIPA | Virtual IP Address. Dirección de servicio que balancea entre nodos físicos para Alta Disponibilidad. | Cesiones_SMA.md — ambas cadenas |
 | Fan-out/Fan-in | Topología donde múltiples jobs se ejecutan en paralelo tras un punto de divergencia y convergen en un punto de sincronización. | Cesiones_SMA.md — Cadena 1 |
 | Pipeline secuencial | Topología donde los jobs se ejecutan uno tras otro en secuencia estricta. | Cesiones_SMA.md — Cadena 2 |
@@ -31,8 +31,9 @@
 ## 3. Lecciones de estructuración
 <!-- Patrones de los documentos, preguntas que resultaron útiles para detectar gaps, etc. -->
 
-- Las dos cadenas del documento Cesiones_SMA comparten infraestructura (scripts, servidor, usuarios) pero difieren en topología (fan-out vs pipeline) y en comportamiento ante fallos (sin soft failure vs con soft failure).
-- Los ficheros .idx de configuración son clave para entender la lógica de renombrado en destino, pero no están disponibles en el documento fuente — generan GAPs documentados.
+- Las dos cadenas del documento Cesiones_SMA comparten infraestructura (scripts, servidor, usuarios) pero difieren en topología (fan-out vs pipeline). Ambas tienen soft failure en todos los jobs de envío (confirmado por capturas de Control-M).
+- Los ficheros .idx de configuración son clave para entender la lógica de renombrado en destino. GAP-PORT-001 se resolvió con capturas de ejecución real que muestran los parámetros parseados por MEGENV0001.sh.
+- Los datos reales de los .idx pueden contradecir el documento funcional: todos los envíos de Portfolios usan CD (Connect:Direct), no XCOM; MEKYTL0891 sí renombra (prefijo rdr_); los nombres de servidor difieren (lpend501 vs Ipemd501, lpapp501 vs Ipapp501).
 - La discrepancia entre fichas funcionales individuales y el documento maestro es frecuente (ej: nombre de fichero en FileWatcher de Cadena 2). Siempre prevalece el comando ctmfw real sobre la ficha funcional.
 - El patrón de nomenclatura de eventos no es consistente: MEKYTL1030 usa `_new_MEKYTL1030_OK` mientras que los demás usan `_MEKYTL1030_OK_new`. Esto debe documentarse como posible fuente de errores.
 
@@ -48,6 +49,7 @@
 
 | Supuesto | Proceso | Usuario | Estado | Comentario |
 |----------|---------|---------|--------|------------|
+| 21_PORTOLIO (sin F) en ruta destino de MEKYTL0891 — ¿error tipográfico o nombre real del directorio? | RDR_PRO_SMA_PORTFOLIOS_new | pablo.llorente@nfq.es | Pendiente | Detectado en capturas .idx |
 | El sufijo "p1" en el envío a Big Data es día calendario +1, no día hábil +1 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-004 |
 | RAMERC0068.sh produce .tar.gz (no solo .gz) para la operación de MEKYTL0406 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-006 |
 | La criticidad del FileWatcher de Productos es W (no confirmada en Control-M) | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-005 |

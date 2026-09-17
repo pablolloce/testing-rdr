@@ -20,18 +20,18 @@ Todos los jobs de la cadena se ejecutan en el servidor `MERCADOS-4` sobre el Hos
 
 Ambos directorios deben existir y tener permisos de lectura/escritura para los usuarios de ejecucion.
 
-### 2.3 Servidores destino
-Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` mediante el protocolo correspondiente:
+### 2.3 Servidores destino (confirmados por ficheros .idx)
+Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` mediante protocolo Connect:Direct (CD):
 
-| Servidor destino | Ruta destino | Protocolo esperado |
-|-----------------|-------------|-------------------|
-| INFORMACIONAL_CIB_XCOM_PROD | /infa_shared/srcfiles/enso/stag/ | XCOM |
-| pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/ | Configurado en .idx |
-| hpstrha01_europa | /appl/ftpbbva/ | Configurado en .idx |
-| hpstrha02_latam | /applbc/ftpbbva/ | Configurado en .idx |
-| Ipemd501 | /fichtemcomp/pr/descargas/emar/piva/ | Configurado en .idx |
-| filex-cloud-cib.live.es.nextgen.igrupobbva | ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | Configurado en .idx (Datio/S3) |
-| Ipapp501 | /fichtemcomp/pr/descargas/kyrj/pr/in/kyrjp012/procesamiento/21_PORTOLIO/ | Configurado en .idx |
+| Job | Servidor destino | Ruta destino | Usuario transmision | Nodo local |
+|-----|-----------------|-------------|---------------------|------------|
+| MEKYTL0511 | INFORMACIONAL_CIB_XCOM_PROD | /infa_shared/srcfiles/enso/stag/ | xtcibt1 | lprdr501 |
+| MEKYTL0512 | pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/ | xtcibt1p | lprdr501 |
+| MEKYTL0513 | hpstrha01_europa | /appl/ftpbbva/ | xcomunix | lprdr602 |
+| MEKYTL0514 | hpstrha02_latam | /applbc/ftpbbva/ | xcomunix | lprdr602 |
+| MEKYTL0515 | lpend501 | /fichtemcomp/pr/descargas/emar/piva/ | (vacio) | lprdr501 |
+| MEKYTL0826 | filex-cloud-cib.live.es.nextgen.igrupobbva | s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | transmidas | lprdr602 |
+| MEKYTL0891 | lpapp501 | /fichtemcomp/pr/descargas/kyrj/pr/in/kyrjp012/procesamiento/21_PORTOLIO/ | xrcibtip | lprdr501 |
 
 ## 3. Scripts y configuraciones
 
@@ -82,12 +82,19 @@ El recurso `MAX-LPRDR501` debe estar configurado con un total de 100. Cada job c
 ### 5.3 Eventos
 Todos los eventos de la cadena (listados en la seccion 6.4 de spec.md) deben estar registrados en la configuracion de Control-M. El evento de entrada del Dummy IN no tiene prerrequisitos externos; se basa unicamente en la condicion horaria (23:00).
 
+### 5.4 Tolerancia a fallos (Soft Failure)
+Los 7 jobs de envio (MEKYTL0511-0515, MEKYTL0826, MEKYTL0891) tienen configurada la accion On-Do: "Cuando Job completado No OK -> Marcar como OK". Un fallo en un envio individual no detiene la cadena.
+
 ## 6. Conectividad de red
 
-La maquina `pr-rdr.igrupobbva` debe tener conectividad de red con todos los servidores destino. En particular:
-- Protocolo XCOM habilitado hacia INFORMACIONAL_CIB_XCOM_PROD.
-- Protocolo SFTP/FTP o el que defina el .idx habilitado hacia las maquinas de Big Data, Star, Market Data y Cloud.
-- La pasarela Cloud (`filex-cloud-cib.live.es.nextgen.igrupobbva`) debe poder depositar ficheros en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`.
+La maquina `pr-rdr.igrupobbva` (nodos lprdr501 y lprdr602) debe tener conectividad de red via protocolo Connect:Direct (CD) con todos los servidores destino:
+- INFORMACIONAL_CIB_XCOM_PROD (desde lprdr501)
+- pr-bigdata-cib.igrupobbva (desde lprdr501)
+- hpstrha01_europa (desde lprdr602)
+- hpstrha02_latam (desde lprdr602)
+- lpend501 (desde lprdr501)
+- filex-cloud-cib.live.es.nextgen.igrupobbva (desde lprdr602) — debe poder depositar ficheros en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`.
+- lpapp501 (desde lprdr501)
 
 ## 7. Flujos previos
 
