@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
 
 **Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx_v3.docx
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -76,7 +76,16 @@ Los 3 jobs ejecutan diariamente con exito desde al menos 20/08/2026:
 - MEKYTL0405: inicio ~23:00:39, duracion 1-2s
 - MEKYTL1030: inicio ~23:00:41, duracion ~8s (transferencia Cloud/S3 mas lenta)
 
-El pipeline secuencial se confirma tambien por las horas de inicio consecutivas. La cadena activa desde 06/06/2020 (dato de la vista Planning de MEKYTL1030, creador `algocmd`).
+El pipeline secuencial se confirma tambien por las horas de inicio consecutivas.
+
+**Configuracion de definicion (vista Planning, confirmada por capturas v3 para los 3 jobs):**
+Los tres jobs de envio comparten configuracion identica a nivel de definicion:
+- Creador: `algocmd`. Periodo de actividad: Activo desde 06/06/2020 (sin fecha de fin).
+- Programacion: Avanzado, dias de la semana 1-5 (LMXJV), meses ALL, dias del mes Ninguno.
+- Configuracion horaria: Sin hora de inicio -> Final del dia (hora del nuevo dia). Sin ventana de lanzamiento restrictiva.
+- Sin ejecucion ciclica, maximo de relanzamientos 0, sin ejecucion retroactiva.
+- Retencion en entorno activo: 3 dias.
+- Prioridad: Custom. Critico (reservar recursos): No.
 
 **Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
 
@@ -124,7 +133,8 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 **Estado:** PARCIALMENTE RESUELTO. Dos entregas de capturas de Control-M:
 - **v1** (GAP-PROD-002_Contenido_de_ficheros_idx.docx): Configuracion completa de los 3 jobs de envio — MEGENV0001.sh con PARM1 = clave .idx, pipeline secuencial, soft failure, recurso MAX-LPRDR501 (1/100). Detalles integrados en REQ-PROD-005.
 - **v2** (GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx): Estadisticas de ejecucion confirmadas — los 3 jobs ejecutan diariamente desde al menos 20/08/2026 con exito. Vista Planning de MEKYTL1030: activo desde 06/06/2020, creador `algocmd`. Evento de salida confirmado con patron inconsistente: `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`.
-**Pendiente:** Los ficheros .idx reales no se han verificado en ejecucion. Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001). Los jobs ya ejecutan diariamente, por lo que deberia ser posible obtener capturas con los parametros .idx parseados.
+- **v3** (GAP-PROD-002_Contenido_de_ficheros_idx_v3.docx): Vistas Planning de MEKYTL0404 y MEKYTL0405 (completando la de MEKYTL1030 ya aportada en v2). Confirman que los 3 jobs comparten configuracion de definicion identica: creador `algocmd`, activo desde 06/06/2020, programacion avanzada LMXJV, retencion 3 dias, 0 relanzamientos, prioridad Custom, no criticos. Detalles integrados en REQ-PROD-005.
+**Pendiente:** Los ficheros .idx reales siguen sin aportarse. Las tres entregas contienen exclusivamente configuracion de Control-M (vistas Monitoring y Planning), no el contenido de MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx. Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001). Dado que los jobs ejecutan diariamente con exito, la via mas directa para cerrar este gap es la pestana **Salida** de una ejecucion completada, que muestra los parametros .idx parseados por MEGENV0001.sh.
 
 ### GAP-PROD-003: Credenciales XML ~~(RESUELTO)~~
 ~~El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.~~
@@ -322,7 +332,7 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 
 **Requisitos de cierre pendientes:**
 1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
-2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002). Configuracion de Control-M confirmada (PARM1, soft failure, dependencias secuenciales, recursos). Pendiente: verificar contenido real de .idx con capturas de ejecucion completa (renaming rules, servidores, protocolos).
+2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002, tres entregas). Configuracion de Control-M completa y confirmada: PARM1, soft failure, dependencias secuenciales, recursos, estadisticas de ejecucion y vistas Planning de los 3 jobs. **Pendiente:** el contenido real de los ficheros .idx (reglas de renombrado, servidores destino, protocolos). Via de obtencion recomendada: pestana **Salida** de una ejecucion completada de cada job, que muestra los parametros .idx parseados por MEGENV0001.sh (mismo metodo que resolvio GAP-PORT-001 en la cadena de Portfolios).
 3. ~~Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.~~ RESUELTO (GAP-PROD-004). Depende de la variable en el .idx: %%NEXTCANDATE = calendario, FECHA_BCP = habil.
 4. ~~Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406.~~ RESUELTO (GAP-PROD-006). Confirmado: solo `.gz` (gzip nativo, sin tar). Errata en documentacion funcional.
 5. ~~Confirmar la criticidad exacta del FileWatcher en Control-M.~~ RESUELTO (GAP-PROD-005). Criticidad W confirmada.
