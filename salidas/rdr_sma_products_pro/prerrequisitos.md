@@ -112,9 +112,15 @@ El recurso `MAX-LPRDR501` debe estar configurado con un total de 100. Cada job c
 Todos los eventos de la cadena (listados en la seccion 6.3 de spec.md) deben estar registrados en la configuracion de Control-M. El evento de entrada del Dummy IN no tiene prerrequisitos externos; se basa unicamente en la condicion horaria (23:00).
 
 ### 5.4 Tolerancia a fallos (Soft Failure)
-Los tres jobs de envio (MEKYTL0404, MEKYTL0405, MEKYTL1030) deben tener configurada la accion On-Do: "Cuando Job completado No OK -> Marcar como OK". El job de historificacion (MEKYTL0406) NO debe tener esta configuracion.
+Los tres jobs de envio (MEKYTL0404, MEKYTL0405, MEKYTL1030) deben tener configurada la accion On-Do: "Cuando Job completado No OK -> Marcar como OK" — **confirmado por capturas de Control-M** (documento GAP-PROD-002). El job de historificacion (MEKYTL0406) NO debe tener esta configuracion.
 
-### 5.5 Site Standards
+### 5.5 Dependencias secuenciales confirmadas
+Pipeline secuencial confirmado por capturas de Control-M:
+- MEKYTL0404 depende de `RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new`
+- MEKYTL0405 depende de `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new`
+- MEKYTL1030 depende de `RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new`
+
+### 5.6 Site Standards
 - Site Standard Principal: `KYTL0000_SS_PR_HR`
 - Directiva 1: `KYTL0000_DIRECTIVA_RE...` vinculada a `KYTL0000_SS_PR_HR`
 - Directiva 2: `KYTL0000_DIRECTIVA_IN...` vinculada a `KYTL0000_SS_PR_HI`

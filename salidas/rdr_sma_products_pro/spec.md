@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
 
 **Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh; documentos_fuente/GAP-PROD-002_Contenido_de_ficheros_idx.docx
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -56,15 +56,25 @@ El script es un wrapper bash que invoca la clase Java `BatchProductos.Transforma
 
 ### REQ-PROD-005: Envio secuencial a 3 destinos con tolerancia a fallos
 
-| Orden | Job | Destino | Maquina destino | Nombre destino | Regla de renombrado | Soft failure |
-|-------|-----|---------|-----------------|----------------|---------------------|-------------|
-| 1 | MEKYTL0404 | Big Data/Cloudera | pr-bigdata-cib.igrupobbva | productos_ddmmyyyyp1.xml | Anade sufijo "p1" (dia siguiente) | SI |
-| 2 | MEKYTL0405 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y ext | SI |
-| 3 | MEKYTL1030 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | EKYTL_D02_YYYYMMDD_productos_rdr.xml | Invierte fecha, anade prefijo | SI |
+| Orden | Job | Destino | Maquina destino | PARM1 (.idx key) | Nombre destino | Regla de renombrado | Soft failure |
+|-------|-----|---------|-----------------|-------------------|----------------|---------------------|-------------|
+| 1 | MEKYTL0404 | Big Data/Cloudera | pr-bigdata-cib.igrupobbva | MEKYTL0404 | productos_ddmmyyyyp1.xml | Anade sufijo "p1" (dia siguiente) | SI |
+| 2 | MEKYTL0405 | Informacional CIB | INFORMACIONAL_CIB_XCOM_PROD | MEKYTL0405 | ESKYTLENDS_RDRPRODUCTOS_YYYYMMDD_001.dat | Invierte fecha, cambia nombre y ext | SI |
+| 3 | MEKYTL1030 | Cloud/Datio S3 | filex-cloud-cib.live.es.nextgen.igrupobbva | MEKYTL1030_CLOUD | EKYTL_D02_YYYYMMDD_productos_rdr.xml | Invierte fecha, anade prefijo | SI |
+
+**Datos confirmados por capturas de Control-M (GAP-PROD-002):**
+- Los 3 jobs ejecutan `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/` con usuario `xsramer1` sobre `pr-rdr.igrupobbva` (MERCADOS-4).
+- Pipeline secuencial confirmado: MEKYTL0404 depende de `RDR_Transformacion_PRODUCTOS_OK_new` (no del decomisado MEKYTL0403), MEKYTL0405 depende de `MEKYTL0404_OK_new`, MEKYTL1030 depende de `MEKYTL0405_OK_new`.
+- **Soft failure confirmado en los 3 jobs** (Acciones Si: "Cuando Job completado No OK -> Marcar como OK").
+- Los 3 consumen recurso `MAX-LPRDR501` (Cantidad 1, Total 100).
+- MEKYTL1030 usa PARM1=`MEKYTL1030_CLOUD` (sufijo _CLOUD confirmado) y tiene tiempo de ejecucion significativamente mayor (~8s vs ~1s para los otros dos).
+- Ninguno tiene ejecucion ciclica ni relanzamientos automaticos (max relaunch = 0).
 
 **Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
 
 **Regla de renombrado especial para Big Data:** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa "el dia siguiente al del envio", segun el documento funcional.
+
+**Nota:** Las reglas de renombrado y los servidores destino documentados arriba provienen del documento funcional. Los ficheros .idx reales (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) no han sido verificados en ejecucion real (los jobs estaban en estado "Esperar a Evento" en las capturas), a diferencia de la cadena de Portfolios donde se verificaron con capturas de ejecucion completa.
 
 ### REQ-PROD-006: Alta disponibilidad obligatoria
 Todos los jobs de la cadena (FileWatcher, transformacion, envios, historificacion) deben ejecutarse sobre la VIPA `pr-rdr.igrupobbva`. El documento funcional lo exige explicitamente en mayusculas para el FileWatcher (LPRDR503/LPRDR504), los envios y la historificacion. Para el job MEKYTL1030, se mencionan las maquinas LPRDR501 y LPRDR602 (distintas a las del FileWatcher).
@@ -99,9 +109,13 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 ~~No se dispone del codigo fuente de `RDR_Transformacion_PRODUCTOS.sh`.~~
 **Estado:** RESUELTO. Codigo fuente obtenido (documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh). El script es un wrapper bash que invoca `BatchProductos.Transformaciones_PRODUCTOS` (Java, XSLT via Apache Xalan) con conexion a Oracle (KYTL_GC). Lee `productossinfiltrar.xml`, aplica transformacion XSLT con posible enriquecimiento desde BD, y genera `productos_ddmmyyyy.xml` en el mismo directorio. Detalles integrados en REQ-PROD-004.
 
-### GAP-PROD-002: Contenido de ficheros .idx
-No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx. La logica de renombrado compleja (sufijo p1, inversion de fecha, cambio de extension) reside en estos ficheros.
-**Estado:** Pendiente de obtencion.
+### GAP-PROD-002: Contenido de ficheros .idx ~~(PARCIALMENTE RESUELTO)~~
+~~No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx.~~
+**Estado:** PARCIALMENTE RESUELTO. Capturas de Control-M (documento GAP-PROD-002_Contenido_de_ficheros_idx.docx) confirman la configuracion completa de los 3 jobs de envio:
+- Los 3 ejecutan MEGENV0001.sh con PARM1 = clave .idx (MEKYTL0404, MEKYTL0405, MEKYTL1030_CLOUD).
+- Pipeline secuencial, soft failure en los 3, recurso MAX-LPRDR501 (1/100).
+- Detalles integrados en REQ-PROD-005.
+**Pendiente:** Los ficheros .idx reales no se han verificado en ejecucion (los jobs estaban en "Esperar a Evento"). Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001).
 
 ### GAP-PROD-003: Credenciales XML ~~(PARCIALMENTE RESUELTO)~~
 El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.
@@ -296,7 +310,7 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 
 **Requisitos de cierre pendientes:**
 1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
-2. Obtener los ficheros .idx de los jobs de envio (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) (GAP-PROD-002).
+2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002). Configuracion de Control-M confirmada (PARM1, soft failure, dependencias secuenciales, recursos). Pendiente: verificar contenido real de .idx con capturas de ejecucion completa (renaming rules, servidores, protocolos).
 3. Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1 (GAP-PROD-004).
 4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406 (GAP-PROD-006).
 5. Confirmar la criticidad exacta del FileWatcher en Control-M (GAP-PROD-005).

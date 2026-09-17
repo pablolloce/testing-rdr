@@ -39,6 +39,7 @@
 - El patrón de nomenclatura de eventos no es consistente: MEKYTL1030 usa `_new_MEKYTL1030_OK` mientras que los demás usan `_MEKYTL1030_OK_new`. Esto debe documentarse como posible fuente de errores.
 - Las capturas de Control-M para MEKYTL0517 y MEKYTL0518 confirman que RAMERC0068.sh se invoca con PARM1=nombre_job como clave de lookup en INFORMACION_HISTORIFICACIONES.IDX. MEKYTL0517 no tiene recurso cuantitativo; MEKYTL0518 sí (MAX-LPRDR501, 1/100). Ninguno tiene soft failure. MEKYTL0518 es el punto fan-in real (8 eventos AND).
 - RDR_Transformacion_PRODUCTOS.sh es un wrapper bash, no un script de transformación directa. La lógica real está en Java (BatchProductos.Transformaciones_PRODUCTOS) usando XSLT (Apache Xalan) y Oracle JDBC. El credentials.xml contiene bloques `<environment>` y `<database>` con parámetros de conexión Oracle. El script valida entorno y usuario antes de ejecutar.
+- Las capturas de Control-M para los envíos de Productos (MEKYTL0404, 0405, 1030) confirman el pipeline secuencial, soft failure en los 3, PARM1=clave .idx, y recurso MAX-LPRDR501. MEKYTL1030 tarda ~8s (los otros ~1s). A diferencia de Portfolios, los jobs no habían ejecutado, así que no hay capturas de ejecución real con parámetros .idx parseados.
 
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |
