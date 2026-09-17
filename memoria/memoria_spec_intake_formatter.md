@@ -36,6 +36,7 @@
 - Los datos reales de los .idx pueden contradecir el documento funcional: todos los envíos de Portfolios usan CD (Connect:Direct), no XCOM; MEKYTL0891 sí renombra (prefijo rdr_); los nombres de servidor difieren (lpend501 vs Ipemd501, lpapp501 vs Ipapp501).
 - La discrepancia entre fichas funcionales individuales y el documento maestro es frecuente (ej: nombre de fichero en FileWatcher de Cadena 2). Siempre prevalece el comando ctmfw real sobre la ficha funcional.
 - El patrón de nomenclatura de eventos no es consistente: MEKYTL1030 usa `_new_MEKYTL1030_OK` mientras que los demás usan `_MEKYTL1030_OK_new`. Esto debe documentarse como posible fuente de errores.
+- Las capturas de Control-M para MEKYTL0517 y MEKYTL0518 confirman que RAMERC0068.sh se invoca con PARM1=nombre_job como clave de lookup en INFORMACION_HISTORIFICACIONES.IDX. MEKYTL0517 no tiene recurso cuantitativo; MEKYTL0518 sí (MAX-LPRDR501, 1/100). Ninguno tiene soft failure. MEKYTL0518 es el punto fan-in real (8 eventos AND).
 
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |

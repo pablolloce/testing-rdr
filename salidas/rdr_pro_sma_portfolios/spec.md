@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_PRO_SMA_PORTFOLIOS_new
 
 **Proceso:** Cesion de Portfolios a SMA (distribucion de fichero de carteras)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 1 (lineas 1-828); documentos_fuente/GAP-PORT-001_Contenido_ficheros_idx.docx
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 1 (lineas 1-828); documentos_fuente/GAP-PORT-001_Contenido_ficheros_idx.docx; documentos_fuente/GAP-PORT-004_Fichero_IDX_de_RAMERC0068.sh_para_MEKYTL0517_y_MEKYTL0518.docx
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -29,7 +29,7 @@ El job `RDR_PRO_SMA_PORTFOLIOS_IN` (tipo Dummy) se dispara a las 23:00 de lunes 
 El job `MEKYTL0516_FW` ejecuta `ctmfw '/fichtemcomp/pr/descargas/kytl/portfolios/portfolios.xml' CREATE 0 60 10 3 120`. Parametros del ctmfw: espera creacion (CREATE), polling cada 60 segundos, 10 reintentos, minimo 3 segundos de estabilidad, timeout global de 120 minutos.
 
 ### REQ-PORT-004: Renombrado del fichero
-El job `MEKYTL0517` ejecuta `RAMERC0068.sh` con parametro `MEKYTL0517`. Renombra `portfolios.xml` a `portfolios_DDMMYYYY.xml` (fecha de ejecucion).
+El job `MEKYTL0517` ejecuta `RAMERC0068.sh` (ruta `/pr/pl/scrt/`) con PARM1=`MEKYTL0517`. Renombra `portfolios.xml` a `portfolios_DDMMYYYY.xml` (fecha de ejecucion). Confirmado por capturas de Control-M: usuario `xsramer1`, host `pr-rdr.igrupobbva`, servidor MERCADOS-4. No tiene soft failure ni recurso cuantitativo. Depende unicamente del evento del FileWatcher (`..._MEKYTL0516_FW_OK_new`) y se ejecuta en paralelo con los 7 jobs de envio.
 
 ### REQ-PORT-005: Distribucion paralela (fan-out) a 7 destinos
 Tras el renombrado, se lanzan en paralelo 7 jobs de envio. Cada uno espera el evento `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0517_OK_new`:
@@ -59,7 +59,17 @@ Tras el renombrado, se lanzan en paralelo 7 jobs de envio. Cada uno espera el ev
 - Distribucion de nodos: lprdr501 ejecuta MEKYTL0511, 0512, 0515, 0891; lprdr602 ejecuta MEKYTL0513, 0514, 0826.
 
 ### REQ-PORT-006: Historificacion (fan-in)
-El job `MEKYTL0518` (ejecuta `RAMERC0068.sh` con PARM1=`MEKYTL0518`) espera a que los 8 eventos _OK_new de los jobs anteriores (7 envios + renombrado 0517) se emitan. Mueve `portfolios_DDMMYYYY.xml` a `/fichtemcomp/pr/descargas/kytl/portfolios/Backup/` conservando el nombre.
+El job `MEKYTL0518` ejecuta `RAMERC0068.sh` (ruta `/pr/pl/scrt/`) con PARM1=`MEKYTL0518`. Es el punto de sincronizacion fan-in de la cadena: espera a que los 8 eventos _OK_new se emitan (confirmado en capturas de Control-M con condicion AND):
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0511_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0512_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0513_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0514_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0515_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0517_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0826_OK_new`
+- `RDR_PRO_SMA_PORTFOLIOS_MEKYTL0891_OK_new`
+
+Mueve `portfolios_DDMMYYYY.xml` a `/fichtemcomp/pr/descargas/kytl/portfolios/Backup/` conservando el nombre. Confirmado: usuario `xsramer1`, host `pr-rdr.igrupobbva`, servidor MERCADOS-4. Consume recurso `MAX-LPRDR501` (Cantidad 1, Total 100). No tiene soft failure. No emite evento de salida (es el ultimo job de la cadena).
 
 ### REQ-PORT-007: Criticidad y protocolo de fallo
 Criticidad W (Aviso dia siguiente) para todos los jobs excepto MEKYTL0891 que tiene criticidad S (Aviso dia siguiente incluso festivo). En caso de fallo: avisar a ANS RDR (BZG03906), correo a ans_rdr.es@bbva.com, contactar grupo soporte remedy ANS RDR. Relanzamientos maximos: 0 para todos los jobs.
@@ -89,9 +99,12 @@ Varios jobs (0511, 0512, 0513, 0514, 0515, 0826, 0891) indican "A definir por RA
 La ficha individual del job 0518 solo lista MEKYTL0891 como predecesor, pero el bloque de dependencias tecnicas de Control-M confirma que espera los 8 eventos _OK_new. El documento maestro de la cadena tambien confirma que debe esperar a TODOS.
 **Estado:** Resuelto (la configuracion real en Control-M es la correcta, la ficha funcional esta incompleta).
 
-### GAP-PORT-004: Fichero IDX de RAMERC0068.sh para MEKYTL0517 y MEKYTL0518
-No se dispone del contenido exacto de la entrada en `INFORMACION_HISTORIFICACIONES.IDX` para estas dos claves. Se infiere que MEKYTL0517 opera como "M" (mover/renombrar) y MEKYTL0518 tambien como "M" (mover a Backup).
-**Estado:** Pendiente de confirmacion.
+### GAP-PORT-004: Fichero IDX de RAMERC0068.sh para MEKYTL0517 y MEKYTL0518 ~~(RESUELTO)~~
+~~No se dispone del contenido exacto de la entrada en `INFORMACION_HISTORIFICACIONES.IDX` para estas dos claves.~~
+**Estado:** RESUELTO. Capturas de Control-M (documento GAP-PORT-004_Fichero_IDX_de_RAMERC0068.sh_para_MEKYTL0517_y_MEKYTL0518.docx) confirman la configuracion completa de ambos jobs:
+- **MEKYTL0517** (renombrado): RAMERC0068.sh con PARM1=MEKYTL0517, usuario xsramer1, sin soft failure, sin recurso cuantitativo. Depende solo del FileWatcher (se ejecuta en paralelo con los envios). Emite evento `..._MEKYTL0517_OK_new`.
+- **MEKYTL0518** (historificacion): RAMERC0068.sh con PARM1=MEKYTL0518, usuario xsramer1, sin soft failure, recurso MAX-LPRDR501 (1/100). Punto fan-in: espera 8 eventos (7 envios + renombrado) con condicion AND. No emite evento de salida (fin de cadena).
+- Ambos confirmados en servidor MERCADOS-4, host pr-rdr.igrupobbva, aplicacion KYTL, sub-aplicacion RDR_PRO_SMA_PORTFOLIOS_new.
 
 ### GAP-PORT-005: Comportamiento ante fallo parcial en envios paralelos ~~(RESUELTO)~~
 ~~No hay tolerancia a fallos (soft failure) documentada en la cadena de Portfolios.~~
@@ -256,6 +269,6 @@ La cadena RDR_PRO_SMA_PORTFOLIOS_new esta completamente mapeada a nivel funciona
 
 **Requisitos de cierre pendientes:**
 1. ~~Obtener el contenido de los ficheros .idx de cada job de envio.~~ RESUELTO (GAP-PORT-001).
-2. Confirmar el contenido de la entrada MEKYTL0517 y MEKYTL0518 en INFORMACION_HISTORIFICACIONES.IDX (GAP-PORT-004).
+2. ~~Confirmar la configuracion de MEKYTL0517 y MEKYTL0518 en Control-M y su relacion con INFORMACION_HISTORIFICACIONES.IDX.~~ RESUELTO (GAP-PORT-004).
 3. Validar que no existe una validacion de integridad del fichero portfolios.xml previa a la distribucion (riesgo RISK-PORT-003).
 4. Confirmar si `21_PORTOLIO` (sin F) en la ruta destino de MEKYTL0891 es un error tipografico o el nombre real del directorio.
