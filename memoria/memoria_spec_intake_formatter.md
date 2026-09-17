@@ -11,6 +11,15 @@
 
 ## 1. Glosario y convenciones de la aplicación
 <!-- Términos, acrónimos y convenciones recurrentes detectados en los documentos fuente. -->
+| Término | Definición | Usuario | Fecha |
+|---------|------------|---------|-------|
+| SSI | Standing Settlement Instruction — instrucción de liquidación estándar | pablo.llorente | 2026-09-16 |
+| RDR | Sub-aplicación propietaria de las cadenas analizadas | pablo.llorente | 2026-09-16 |
+| ANS RDR | Grupo de soporte responsable (BZG03906, ans_rdr.es@bbva.com) | pablo.llorente | 2026-09-16 |
+| UUAA | Código de aplicación BBVA (p.ej. KYTL0000) | pablo.llorente | 2026-09-16 |
+| Control-M | Herramienta de orquestación de cadenas (Server MERCADOS-4) | pablo.llorente | 2026-09-16 |
+| Planificador Genérico | Motor Java (ProjectMain.jar) que ejecuta SQL y genera ficheros CSV/TXT/XML según tablas FT_T_ATE1/QPF1/PAR1 | pablo.llorente | 2026-09-17 |
+| GoldenSource | Base de datos Oracle (BKYTL003 @ LDORA605:1525, usuario KYTL_GC) con tablas maestras ft_t_* | pablo.llorente | 2026-09-17 |
 
 | Término | Significado | Fuente |
 |---------|------------|--------|
@@ -31,6 +40,9 @@
 | Sufijo "p1" en productos Big Data | "La definición del sufijo depende de la variable configurada en Control-M para MEKYTL0404: al utilizar %%NEXTCANDATE, corresponde al día calendario siguiente (+1 día natural). Si se apoya en FECHA_BCP de MEGENV0001.sh, representa el siguiente día hábil." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
 | Criticidad FileWatcher Productos | "Criticidad W (Aviso día siguiente) para FW_RDR_SMA_PRODUCTS_PRO, manteniendo homogeneidad con la normativa de la carpeta KYTL0000-RDR_SMA_PRODUCTS_PRO_new y los estándares del equipo RDR." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
 | Compresión RAMERC0068.sh (MEKYTL0406) | "El script de historificación /pr/pl/scrt/RAMERC0068.sh solo ejecuta compresión nativa mediante gzip (operaciones G, GM, MG, CG) y no dispone de rutinas de empaquetado tar. Por tanto, el fichero generado en la carpeta /Backup/ es estrictamente .gz (productos_ddmmyyyy.xml.gz). La referencia a .tar.gz en la documentación funcional se clasifica como una errata de redacción." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
+| Protocolo ante fallo de cadena | "La cadena falla y se para" | pablo.llorente | 2026-09-17 | RDR_DICTIONARY_INDEX_new |
+| Envío a destino (MEKYTL0860) | "El envío no puede fallar; en todo caso fallará su recepción" | pablo.llorente | 2026-09-17 | RDR_DICTIONARY_INDEX_new |
+| Ficha semanal DORMIDA | "Seguramente lo haga el planificador genérico, lo que pasa que estará inactivo y no se esté generando" | pablo.llorente | 2026-09-17 | RDR_FIC_DAT_DICT_WEEKLY_SEND_new |
 
 ## 3. Lecciones de estructuración
 <!-- Patrones de los documentos, preguntas que resultaron útiles para detectar gaps, etc. -->
@@ -53,8 +65,10 @@
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |
 |---------|---------|-------|-------------------------------|
+| RDR_EXTRACCIONSSIS (Extracción genérica de SSIs) | pablo.llorente | 2026-09-16 | `salidas/spec_RDR_EXTRACCIONSSIS_SIMULACRO.md` — SIMULACRO con 13 supuestos sin confirmar (eliminado en V1.8 de la rama) |
 | RDR_PRO_SMA_PORTFOLIOS_new (Cesión de Portfolios a SMA) | pablo.llorente@nfq.es | 2026-09-17 | salidas/rdr_pro_sma_portfolios/spec.md, prerrequisitos.md, casos_prueba.xml |
 | RDR_SMA_PRODUCTS_PRO_new (Cesión de Productos a SMA) | pablo.llorente@nfq.es | 2026-09-17 | salidas/rdr_sma_products_pro/spec.md, prerrequisitos.md, casos_prueba.xml |
+| RDR_DICTIONARY_INDEX_new + RDR_FIC_DAT_DICT_WEEKLY_SEND_new | pablo.llorente | 2026-09-17 | `salidas/rdr_dictionary_index_y_weekly/` → `spec.md` + `prerrequisitos.md` + `casos_prueba.xml` (13 TC); gap abierto: protocolo fallo RDRKYTL001 pendiente ANS RDR; cadena semanal DORMIDA (Planificador INACTIVO) |
 
 ## 5. Supuestos y decisiones pendientes de confirmación
 > Hipótesis de simulacro o pendientes de confirmar por un usuario. No deben usarse como
