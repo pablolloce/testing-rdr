@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_dictionary_index_y_weekly" fecha="2026-09-17" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-01" tipo="e2e">
+    <nombre>Flujo completo E2E diario</nombre>
+    <objetivo>Verificar que el ciclo completo —Planificador genera _TOTAL.csv, FW arranca la cadena, RDRKYTL001 recorta columnas, MEKYTL0860 envía a Calypso y MEKYTL0861 historifica— se ejecuta correctamente de principio a fin.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_ISID y FT_T_ISSU contienen al menos 1 índice activo (iss_usage_typ='INDEX', data_stat_typ='ACTIVE' en ambas tablas, pref_iss_id definido).</precondicion>
+      <precondicion>Extracción DictionaryIndex.sql ACTIVE en Planificador (FT_T_ATE1 + FT_T_QPF1, L-V 15:00).</precondicion>
+      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/index/ vacío (sin ficheros DictionaryIndex* residuales).</precondicion>
+      <precondicion>Subdirectorio /old/ existente y con permisos de escritura.</precondicion>
+      <precondicion>lpemd501 accesible y /fichtemcomp/pr/descargas/emar/calypso/ con permisos de escritura.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="iss_usage_typ" valor="INDEX"/>
+      <dato campo="data_stat_typ" valor="ACTIVE"/>
+      <dato campo="pref_iss_id" valor="IDX_SINTÉTICO_001"/>
+      <dato campo="QPF1_HOUR" valor="15:00:00"/>
+      <dato campo="QPF1_DAY" valor="12345"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar o disparar el ciclo del Planificador en el entorno de test.</paso>
+      <paso numero="2">Verificar que DictionaryIndex_TOTAL.csv aparece en /fichtemcomp/pr/descargas/kytl/index/ antes de las 17:00.</paso>
+      <paso numero="3">Verificar que el FW (RDR_DICTIONARY_INDEX_FW) detecta el fichero y genera el evento OK.</paso>
+      <paso numero="4">Verificar que RDRKYTL001 ejecuta GSProcess.sh dictionaryIndex y genera DictionaryIndex.csv.</paso>
+      <paso numero="5">Verificar que MEKYTL0860 envía DictionaryIndex.csv a lpemd501:/fichtemcomp/pr/descargas/emar/calypso/DictionaryIndex_YYYYMMDD.csv.</paso>
+      <paso numero="6">Verificar que MEKYTL0861 mueve DictionaryIndex*.csv a /old/ con sufijo _YYYYMMDD y el directorio origen queda vacío.</paso>
+    </pasos>
+    <resultadoEsperado>CSV enviado a Calypso con el mapeo correcto (IDENTIFIER_TYPE, SYSVAL, SYSNAME, CANVAL); directorio origen vacío; fichero en /old/ con nombre DictionaryIndex_YYYYMMDD.csv; evento _OK generado por cada job en secuencia.</resultadoEsperado>
+    <tipoValidacion>Diff entre CSV enviado y datos en GoldenSource; verificación de eventos Control-M; comprobación de existencia y contenido del fichero en destino y en /old/.</tipoValidacion>
+    <criterioAceptacion>Diff CSV enviado vs datos GoldenSource = 0 discrepancias; los 4 jobs terminan OK en secuencia; directorio /index/ vacío; fichero en /old/ con nombre correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguno en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-02" tipo="negativo">
+    <nombre>Planificador no genera _TOTAL.csv (extracción INACTIVE)</nombre>
+    <objetivo>Verificar que cuando la extracción DictionaryIndex.sql está INACTIVE en el Planificador, no se genera el fichero trigger y la cadena diaria no arranca.</objetivo>
+    <precondiciones>
+      <precondicion>Extracción DictionaryIndex.sql marcada INACTIVE en FT_T_ATE1 o FT_T_QPF1 en el entorno de test.</precondicion>
+      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/index/ vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="DATA_STAT_TYP (FT_T_ATE1)" valor="INACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Marcar INACTIVE la entrada de DictionaryIndex.sql en FT_T_ATE1 o FT_T_QPF1.</paso>
+      <paso numero="2">Lanzar ciclo del Planificador.</paso>
+      <paso numero="3">Observar el directorio /fichtemcomp/pr/descargas/kytl/index/ durante la ventana del FW (14:00–17:00).</paso>
+      <paso numero="4">Verificar que el FW expira a las 17:00 sin haber detectado fichero.</paso>
+    </pasos>
+    <resultadoEsperado>No aparece DictionaryIndex_TOTAL.csv en el directorio; el FW expira a las 17:00 y la cadena termina NOTOK; ningún job posterior (RDRKYTL001, MEKYTL0860, MEKYTL0861) se ejecuta; ningún CSV llega a Calypso.</resultadoEsperado>
+    <tipoValidacion>Verificación de ausencia del fichero trigger; log del FW con estado NOTOK; ausencia de ejecución de jobs sucesores.</tipoValidacion>
+    <criterioAceptacion>FW termina NOTOK; directorio /index/ vacío; cero ejecuciones de RDRKYTL001, MEKYTL0860 y MEKYTL0861.</criterioAceptacion>
+    <posibilidadFallo>Sí — se valida la detección del fallo en origen.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-03" tipo="error_funcional">
+    <nombre>Timeout del FW a las 17:00</nombre>
+    <objetivo>Verificar que si el fichero trigger no llega antes de las 17:00, el FW termina NOTOK y la cadena se detiene sin ejecutar los jobs siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Planificador configurado para no depositar el fichero antes de las 17:00 (p. ej. detenido temporalmente en el entorno de test, o lanzado a las 17:01).</precondicion>
+      <precondicion>FW activo desde las 14:00.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana_FW" valor="14:00–17:00"/>
+      <dato campo="hora_depósito_fichero" valor="ausente (no depositado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Asegurarse de que el directorio /index/ está vacío a las 14:00.</paso>
+      <paso numero="2">Dejar transcurrir la ventana sin depositar el fichero.</paso>
+      <paso numero="3">A las 17:00, verificar el estado del job FW en Control-M.</paso>
+      <paso numero="4">Comprobar que los jobs RDRKYTL001, MEKYTL0860 y MEKYTL0861 no se han ejecutado.</paso>
+    </pasos>
+    <resultadoEsperado>El job RDR_DICTIONARY_INDEX_FW termina NOTOK a las 17:00; los tres jobs sucesores nunca se lanzan; se genera alerta/notificación al circuito ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Log de Control-M del job FW; verificación de ausencia de ejecución de sucesores; verificación de alerta generada.</tipoValidacion>
+    <criterioAceptacion>FW termina NOTOK; ningún job sucesor ejecutado; alerta generada en el circuito ANS RDR.</criterioAceptacion>
+    <posibilidadFallo>Sí.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-04" tipo="happy_path">
+    <nombre>Script Cortar genera DictionaryIndex.csv correcto</nombre>
+    <objetivo>Verificar que RDRKYTL001 (GSProcess.sh dictionaryIndex, script Cortar, ArgScri3=1-4) produce DictionaryIndex.csv con exactamente las columnas 1-4 de DictionaryIndex_TOTAL.csv.</objetivo>
+    <precondiciones>
+      <precondicion>DictionaryIndex_TOTAL.csv con contenido conocido y controlado presente en /fichtemcomp/pr/descargas/kytl/index/.</precondicion>
+      <precondicion>RDRKYTL001 configurado con parámetro dictionaryIndex.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="DictionaryIndex_TOTAL.csv" valor="10 filas de referencia con columnas IDENTIFIER_TYPE, SYSVAL, SYSNAME, CANVAL (y posibles columnas adicionales si las hubiera)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el DictionaryIndex_TOTAL.csv de referencia en /fichtemcomp/pr/descargas/kytl/index/.</paso>
+      <paso numero="2">Ejecutar RDRKYTL001 (dictionaryIndex / Cortar).</paso>
+      <paso numero="3">Verificar que DictionaryIndex.csv ha sido generado en el mismo directorio.</paso>
+      <paso numero="4">Hacer diff campo a campo entre DictionaryIndex.csv generado y el subconjunto columnas 1-4 del TOTAL de referencia.</paso>
+    </pasos>
+    <resultadoEsperado>DictionaryIndex.csv contiene exactamente las columnas IDENTIFIER_TYPE, SYSVAL, SYSNAME y CANVAL con las mismas filas que el TOTAL (columnas 1-4); ninguna columna extra ni faltante.</resultadoEsperado>
+    <tipoValidacion>Diff campo a campo entre CSV generado y subconjunto esperado.</tipoValidacion>
+    <criterioAceptacion>Diff = 0 diferencias; DictionaryIndex.csv tiene exactamente 4 columnas.</criterioAceptacion>
+    <posibilidadFallo>Ninguno.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-05" tipo="duplicidad">
+    <nombre>Duplicados en GoldenSource eliminados por DISTINCT</nombre>
+    <objetivo>Verificar que la cláusula DISTINCT de DictionaryIndex.sql elimina correctamente las filas duplicadas antes de escribir DictionaryIndex_TOTAL.csv.</objetivo>
+    <precondiciones>
+      <precondicion>Insertar en FT_T_ISID (entorno test) 3 filas con la misma combinación (instr_id, id_ctxt_typ, iss_id, data_src_id) pero distinto atributo no clave (p. ej. distinto timestamp de auditoría). Si la tabla tiene restricción de unicidad que lo impida, simular vía mock de la query.</precondicion>
+      <precondicion>FT_T_ISSU con fila correspondiente y pref_iss_id definido para ese instr_id.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="instr_id" valor="IDX_DUP_001"/>
+      <dato campo="iss_usage_typ" valor="INDEX"/>
+      <dato campo="data_stat_typ" valor="ACTIVE"/>
+      <dato campo="filas_insertadas" valor="3 (mismo (instr_id, id_ctxt_typ, iss_id, data_src_id), distinto atributo no clave)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las 3 filas duplicadas en FT_T_ISID del entorno test.</paso>
+      <paso numero="2">Ejecutar el Planificador (extracción DictionaryIndex.sql).</paso>
+      <paso numero="3">Abrir DictionaryIndex_TOTAL.csv y contar las filas correspondientes a IDX_DUP_001.</paso>
+      <paso numero="4">Verificar que solo aparece 1 fila para esa combinación.</paso>
+    </pasos>
+    <resultadoEsperado>DictionaryIndex_TOTAL.csv contiene exactamente 1 fila para IDX_DUP_001 (el DISTINCT elimina las 3 filas originales dejando solo una); DictionaryIndex.csv (tras el Cortar) también contiene 1 fila para ese índice.</resultadoEsperado>
+    <tipoValidacion>Conteo de filas por instr_id en CSV resultante; comparación con número de filas insertadas.</tipoValidacion>
+    <criterioAceptacion>Número de filas para IDX_DUP_001 en CSV = 1; cero duplicados detectados en el fichero enviado a Calypso.</criterioAceptacion>
+    <posibilidadFallo>Ninguno (comportamiento correcto = pasa).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-06" tipo="negativo">
+    <nombre>Instrumento con iss_usage_typ distinto de INDEX excluido del fichero</nombre>
+    <objetivo>Verificar que el filtro iss_usage_typ='INDEX' excluye correctamente instrumentos de otros tipos (SHARE, BOND, etc.).</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_ISID con al menos 1 registro activo de tipo distinto (p. ej. iss_usage_typ='SHARE') y al menos 1 índice activo de referencia.</precondicion>
+      <precondicion>FT_T_ISSU con fila para el índice de referencia.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="instr_id_share" valor="SHARE_SINTÉTICO_001"/>
+      <dato campo="iss_usage_typ_share" valor="SHARE"/>
+      <dato campo="instr_id_index" valor="IDX_SINTÉTICO_001"/>
+      <dato campo="iss_usage_typ_index" valor="INDEX"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar en FT_T_ISID el instrumento SHARE activo y el índice activo de referencia.</paso>
+      <paso numero="2">Ejecutar el Planificador (DictionaryIndex.sql).</paso>
+      <paso numero="3">Abrir DictionaryIndex_TOTAL.csv y buscar el SHARE_SINTÉTICO_001.</paso>
+    </pasos>
+    <resultadoEsperado>DictionaryIndex_TOTAL.csv no contiene ninguna fila con SHARE_SINTÉTICO_001; el IDX_SINTÉTICO_001 sí aparece correctamente.</resultadoEsperado>
+    <tipoValidacion>Búsqueda del identificador SHARE en el CSV; verificación de presencia del índice de referencia.</tipoValidacion>
+    <criterioAceptacion>0 filas con iss_usage_typ distinto de INDEX en el CSV; el índice de referencia está presente.</criterioAceptacion>
+    <posibilidadFallo>Ninguno.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-07" tipo="happy_path">
+    <nombre>Envío a Calypso por MEKYTL0860</nombre>
+    <objetivo>Verificar que MEKYTL0860 transfiere DictionaryIndex.csv íntegramente a lpemd501:/fichtemcomp/pr/descargas/emar/calypso/DictionaryIndex_YYYYMMDD.csv.</objetivo>
+    <precondiciones>
+      <precondicion>DictionaryIndex.csv generado (por TC-04 o TC-01) con contenido conocido en /fichtemcomp/pr/descargas/kytl/index/.</precondicion>
+      <precondicion>lpemd501 accesible y directorio destino con permisos de escritura.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen" valor="DictionaryIndex.csv (contenido conocido de referencia)"/>
+      <dato campo="ruta_destino" valor="lpemd501:/fichtemcomp/pr/descargas/emar/calypso/DictionaryIndex_YYYYMMDD.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0860 con el DictionaryIndex.csv de referencia en origen.</paso>
+      <paso numero="2">Verificar en lpemd501 que el fichero DictionaryIndex_YYYYMMDD.csv ha sido creado.</paso>
+      <paso numero="3">Comparar checksum o contenido del fichero en destino con el fichero de referencia en origen.</paso>
+    </pasos>
+    <resultadoEsperado>Fichero DictionaryIndex_YYYYMMDD.csv presente en lpemd501 con el mismo contenido que el fichero origen; timestamp de creación en destino correspondiente al día ODATE.</resultadoEsperado>
+    <tipoValidacion>Checksum o diff origen/destino; verificación de timestamp.</tipoValidacion>
+    <criterioAceptacion>Diff origen/destino = 0 diferencias; fichero presente en destino con nombre correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguno funcionalmente; si hay error de red o permisos, MEKYTL0860 termina NOTOK.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-08" tipo="error_funcional">
+    <nombre>Fallo de historificación (MEKYTL0861) y efecto en siguiente ciclo</nombre>
+    <objetivo>Verificar que si MEKYTL0861 falla y deja los ficheros en /index/, el FW del día siguiente los detecta inmediatamente, causando una ejecución con datos del día anterior.</objetivo>
+    <precondiciones>
+      <precondicion>DictionaryIndex.csv y DictionaryIndex_TOTAL.csv presentes en /fichtemcomp/pr/descargas/kytl/index/.</precondicion>
+      <precondicion>Simular fallo de MEKYTL0861 (p. ej. revocar permisos de escritura en /old/ o simular error de transferencia).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="permisos_old" valor="sin escritura (fallo simulado)"/>
+      <dato campo="ficheros_presentes" valor="DictionaryIndex.csv y DictionaryIndex_TOTAL.csv del día anterior"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Con ambos ficheros en /index/, forzar el fallo de MEKYTL0861.</paso>
+      <paso numero="2">Verificar que MEKYTL0861 termina NOTOK y los ficheros permanecen en /index/.</paso>
+      <paso numero="3">Al día siguiente (o simulando la apertura de la ventana del FW), verificar que el FW detecta inmediatamente el DictionaryIndex_TOTAL.csv residual.</paso>
+      <paso numero="4">Confirmar que la cadena se lanza con datos del día anterior antes de que el Planificador genere el fichero actualizado.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0861 termina NOTOK; ficheros quedan en /index/; el FW del ciclo siguiente detecta el fichero residual y la cadena se lanza con datos obsoletos. Este comportamiento documenta el riesgo: requiere intervención manual antes del siguiente ciclo.</resultadoEsperado>
+    <tipoValidacion>Log de MEKYTL0861 con NOTOK; verificación de presencia de ficheros en /index/ tras el fallo; verificación de arranque anticipado del FW en el ciclo siguiente.</tipoValidacion>
+    <criterioAceptacion>El fallo del job es visible en Control-M; el comportamiento del ciclo siguiente es predecible y documentado como riesgo operativo.</criterioAceptacion>
+    <posibilidadFallo>Sí — es el escenario de riesgo a validar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-09" tipo="borde">
+    <nombre>Instrumento activo en FT_T_ISID sin fila en FT_T_ISSU (JOIN INNER)</nombre>
+    <objetivo>Verificar que un índice activo en FT_T_ISID que no tiene fila correspondiente en FT_T_ISSU queda excluido del fichero de salida por el JOIN INNER (comportamiento intencionado).</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_ISID con 1 índice "huérfano" activo (instr_id sin fila en FT_T_ISSU) y 1 índice completo de referencia con fila en FT_T_ISSU.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="instr_id_huerfano" valor="IDX_HUERFANO_001 (sin fila en FT_T_ISSU)"/>
+      <dato campo="instr_id_completo" valor="IDX_SINTÉTICO_001 (con pref_iss_id en FT_T_ISSU)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar IDX_HUERFANO_001 en FT_T_ISID (activo, iss_usage_typ='INDEX') sin fila correspondiente en FT_T_ISSU.</paso>
+      <paso numero="2">Ejecutar el Planificador (DictionaryIndex.sql).</paso>
+      <paso numero="3">Verificar que IDX_HUERFANO_001 no aparece en DictionaryIndex_TOTAL.csv.</paso>
+      <paso numero="4">Verificar que IDX_SINTÉTICO_001 sí aparece correctamente.</paso>
+    </pasos>
+    <resultadoEsperado>IDX_HUERFANO_001 no aparece en el CSV (excluido por JOIN INNER); IDX_SINTÉTICO_001 sí aparece. Comportamiento correcto e intencionado.</resultadoEsperado>
+    <tipoValidacion>Búsqueda de IDX_HUERFANO_001 en el CSV resultante; verificación de IDX_SINTÉTICO_001.</tipoValidacion>
+    <criterioAceptacion>0 filas con IDX_HUERFANO_001 en el CSV; IDX_SINTÉTICO_001 presente con CANVAL correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguno.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-10" tipo="regresion">
+    <nombre>Regresión de columnas tras cambio en DictionaryIndex.sql o script Cortar</nombre>
+    <objetivo>Verificar que tras cualquier modificación en DictionaryIndex.sql o en el script Cortar, el fichero resultante sigue siendo idéntico al baseline de referencia (o las diferencias están documentadas).</objetivo>
+    <precondiciones>
+      <precondicion>CSV de referencia validado (baseline establecido en TC-01 o TC-04) disponible.</precondicion>
+      <precondicion>Cambio posterior en DictionaryIndex.sql o en el script Cortar aplicado en el entorno.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="baseline_csv" valor="CSV de referencia de TC-01 o TC-04"/>
+      <dato campo="dataset" valor="Mismo conjunto de datos que el baseline"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Re-ejecutar la extracción completa (Planificador + RDRKYTL001) con el mismo dataset del baseline.</paso>
+      <paso numero="2">Hacer diff entre el CSV resultante y el CSV de referencia del baseline.</paso>
+      <paso numero="3">Verificar que todas las diferencias (si las hay) están documentadas en el changelog del cambio.</paso>
+    </pasos>
+    <resultadoEsperado>0 diferencias no documentadas entre el CSV resultante y el baseline.</resultadoEsperado>
+    <tipoValidacion>Diff CSV resultante vs CSV baseline.</tipoValidacion>
+    <criterioAceptacion>Diff = 0 diferencias inesperadas; cualquier diferencia está justificada en el changelog.</criterioAceptacion>
+    <posibilidadFallo>Solo si el cambio introduce una regresión.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-11" tipo="negativo">
+    <nombre>Extracción INACTIVE en Planificador no se ejecuta</nombre>
+    <objetivo>Verificar que el Planificador no ejecuta una extracción marcada INACTIVE en FT_T_ATE1 o FT_T_QPF1, y por tanto no genera el fichero.</objetivo>
+    <precondiciones>
+      <precondicion>Entrada DictionaryIndex.sql marcada INACTIVE en FT_T_ATE1 o FT_T_QPF1 en el entorno de test.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="DATA_STAT_TYP" valor="INACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Marcar INACTIVE la entrada en FT_T_ATE1 o FT_T_QPF1.</paso>
+      <paso numero="2">Lanzar ciclo del Planificador.</paso>
+      <paso numero="3">Verificar directorio /fichtemcomp/pr/descargas/kytl/index/ durante la ventana del FW.</paso>
+    </pasos>
+    <resultadoEsperado>El Planificador no ejecuta la query DictionaryIndex.sql; directorio /index/ permanece vacío; la cadena diaria no arranca.</resultadoEsperado>
+    <tipoValidacion>Verificación de ausencia del fichero DictionaryIndex_TOTAL.csv; log del Planificador sin ejecución de la extracción.</tipoValidacion>
+    <criterioAceptacion>No aparece DictionaryIndex_TOTAL.csv en la ventana del FW; la cadena RDR_DICTIONARY_INDEX_new no se ejecuta.</criterioAceptacion>
+    <posibilidadFallo>Ninguno (comportamiento correcto = pasa).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-12" tipo="borde">
+    <nombre>Cadena semanal dormida: FW para sin error</nombre>
+    <objetivo>Verificar que cuando la extracción semanal en el Planificador está INACTIVA y no se genera el fichero, el FW semanal expira sin error (cadena dormida por diseño).</objetivo>
+    <precondiciones>
+      <precondicion>Extracción semanal en Planificador INACTIVA (estado actual del sistema).</precondicion>
+      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/FicheroDiccionario/ sin FicheroDiccionarioRDR_semanal_yyyyMMdd.csv.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana_FW_semanal" valor="06:00–06:30"/>
+      <dato campo="fichero_esperado" valor="FicheroDiccionarioRDR_semanal_yyyyMMdd.csv (ausente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que el directorio /kytl/FicheroDiccionario/ no tiene el fichero semanal.</paso>
+      <paso numero="2">Observar el job FIC_DAT_DICT_WEEKLY_SEND_FW durante su ventana semanal (06:00-06:30).</paso>
+      <paso numero="3">Verificar el estado del job al cierre de la ventana.</paso>
+      <paso numero="4">Comprobar que MEKYTL0876 no se ha ejecutado.</paso>
+    </pasos>
+    <resultadoEsperado>El FW semanal expira sin error (cadena para limpiamente, sin generar alerta NOTOK); MEKYTL0876 no se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Log del job FW semanal; verificación de ausencia de ejecución de MEKYTL0876.</tipoValidacion>
+    <criterioAceptacion>Job FW termina OK (no NOTOK) con "fichero no encontrado, cadena detenida"; cero ejecuciones de MEKYTL0876.</criterioAceptacion>
+    <posibilidadFallo>Ninguno (comportamiento esperado para cadena dormida).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-13" tipo="negativo">
+    <nombre>No ejecución del FW diario en fin de semana</nombre>
+    <objetivo>Verificar que la cadena RDR_DICTIONARY_INDEX_new no se ejecuta en sábado ni domingo, conforme a la programación L-V (QPF1_DAY=12345).</objetivo>
+    <precondiciones>
+      <precondicion>Programación L-V verificada en Control-M (Server MERCADOS-4).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dias_observacion" valor="sábado y domingo de 2 semanas consecutivas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar logs de Control-M para el job RDR_DICTIONARY_INDEX_FW durante dos fines de semana consecutivos.</paso>
+      <paso numero="2">Verificar que no aparece ninguna ejecución en sábado ni domingo.</paso>
+    </pasos>
+    <resultadoEsperado>0 ejecuciones del FW diario en sábado y domingo durante el periodo observado.</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de Control-M para el job FW en los días de fin de semana.</tipoValidacion>
+    <criterioAceptacion>Cero ejecuciones en fin de semana en el periodo observado.</criterioAceptacion>
+    <posibilidadFallo>Si aparece ejecución en fin de semana, es defecto de configuración del calendario en Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
