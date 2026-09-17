@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="envio_altamira_colombia" fecha="2026-09-17" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Distribución diaria completa (happy path)</nombre>
+    <objetivo>Verificar que un ciclo diario normal extrae, transmite en dos saltos e historifica correctamente el fichero de conciliación.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_ALTAMIRA_COLOMBIA_SEND activa y programada para el día de ejecución.</precondicion>
+      <precondicion>Entidad FINS con datos válidos disponibles en RDR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINS" valor="conjunto de registros válidos que generan N identificadores de 8 dígitos únicos"/>
+      <dato campo="fecha_ejecucion" valor="martes (día laborable)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar EXTRACCION_ALTAMIRA_SEND a las 23:00 y verificar la generación de CONCILIA_AAAAMMDD.txt.</paso>
+      <paso numero="2">Verificar que FW_RDR_ALTAMIRA_COLOMBIA_SEND detecta el fichero.</paso>
+      <paso numero="3">Verificar que MEKYTL1044 transmite el fichero a lpftp503:/unload/transmisiones/KYTL/.</paso>
+      <paso numero="4">Verificar que MEKYTL1044_SND transmite el fichero a 82.255.60.120 (ruta UNC de Colombia).</paso>
+      <paso numero="5">Verificar que MEKYTL1045 mueve el fichero a /send/backup/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan en OK; el fichero CONCILIA_AAAAMMDD.txt llega íntegro a 82.255.60.120 y queda historificado en /backup/.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 5 jobs en Control-M + comparación de contenido (número de líneas e identificadores) entre origen y destino final.</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs en OK, contenido idéntico en destino final, fichero presente en /backup/.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO o contenido distinto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fichero no recibido por el filewatcher</nombre>
+    <objetivo>Verificar que si el fichero no llega, el resto de la cadena no se ejecuta.</objetivo>
+    <precondiciones>
+      <precondicion>EXTRACCION_ALTAMIRA_SEND falla o no genera el fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CONCILIA_AAAAMMDD.txt" valor="no se genera / no se deposita en la ruta de origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Impedir la generación del fichero (simular fallo de extracción o no depositarlo).</paso>
+      <paso numero="2">Esperar hasta el cierre del día operativo.</paso>
+      <paso numero="3">Verificar el estado de FW_RDR_ALTAMIRA_COLOMBIA_SEND y de MEKYTL1044.</paso>
+    </pasos>
+    <resultadoEsperado>El resto de la cadena (MEKYTL1044, MEKYTL1044_SND, MEKYTL1045) no se ejecuta; se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al filewatcher se ejecuta; alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: la no ejecución es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo de transmisión en el Salto 1 (MEKYTL1044)</nombre>
+    <objetivo>Verificar el comportamiento ante un fallo de transmisión hacia lpftp503 y la precaución de reproceso documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero generado y detectado correctamente por el filewatcher.</precondicion>
+      <precondicion>lpftp503 simulado como inaccesible durante la ejecución de MEKYTL1044.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CONCILIA_AAAAMMDD.txt" valor="fichero válido"/>
+      <dato campo="lpftp503" valor="inaccesible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de lpftp503 antes de que arranque MEKYTL1044.</paso>
+      <paso numero="2">Ejecutar la cadena con el fichero detectado a tiempo.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL1044 y la alerta emitida.</paso>
+      <paso numero="4">Antes de relanzar MEKYTL1044, comprobar si el fichero origen sigue disponible y no ha sido sustituido por una ejecución posterior.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1044 finaliza en error sin reintento automático; se notifica a ans_rdr.es@bbva.com con criticidad W; el relanzamiento manual solo procede tras verificar el fichero origen (no hay control automático que lo garantice).</resultadoEsperado>
+    <tipoValidacion>Estado del job + correo de alerta + verificación manual del fichero origen antes del relanzamiento.</tipoValidacion>
+    <criterioAceptacion>Job en error, alerta recibida, y evidencia de que la verificación manual del fichero se realizó antes de cualquier relanzamiento.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: si se relanza sin verificar, podría transmitirse un fichero de un día distinto al esperado (mismo naming por REPLACE).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Saturación o pérdida de permisos en /backup/</nombre>
+    <objetivo>Verificar el comportamiento cuando MEKYTL1045 no puede escribir en el subdirectorio de historificación.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito hasta el Salto 2.</precondicion>
+      <precondicion>Subdirectorio /send/backup/ simulado como lleno o sin permisos de escritura para xsramer1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="/send/backup/" valor="disco lleno o permisos revocados para xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Saturar o revocar permisos en /send/backup/ antes de que arranque MEKYTL1045.</paso>
+      <paso numero="2">Ejecutar la cadena hasta el Salto 2 completado con éxito.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL1045.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1045 finaliza en error; se notifica a ans_rdr.es@bbva.com con criticidad W; el fichero queda en /send/ sin historificar hasta liberar espacio o restaurar permisos.</resultadoEsperado>
+    <tipoValidacion>Estado del job + correo de alerta + verificación de que el fichero permanece en /send/.</tipoValidacion>
+    <criterioAceptacion>Job en error, alerta recibida, fichero no perdido (permanece en /send/).</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Desfase horario NTP superior a 200 ms</nombre>
+    <objetivo>Verificar el control de mitigación de desfase horario documentado entre pr-rdr.igrupobbva y lpftp503.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda simular un desfase de reloj superior a 200 ms en lpftp503.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="desfase_simulado" valor="> 200 ms respecto a pr-rdr.igrupobbva"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular un desfase de reloj superior a 200 ms en lpftp503.</paso>
+      <paso numero="2">Ejecutar el Salto 2 (MEKYTL1044_SND).</paso>
+      <paso numero="3">Verificar si la transferencia se aborta.</paso>
+    </pasos>
+    <resultadoEsperado>La transferencia se aborta según el control NTP documentado (validación previa que impide continuar si el desfase supera 200 ms).</resultadoEsperado>
+    <tipoValidacion>Estado del job + verificación de la hora efectiva de sincronización.</tipoValidacion>
+    <criterioAceptacion>Transferencia abortada ante desfase > 200 ms.</criterioAceptacion>
+    <posibilidadFallo>Riesgo: este control fue documentado por el usuario pero no verificado directamente por el agente contra una fuente independiente; el caso sirve también para confirmar en producción que el control existe realmente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="duplicidad">
+    <nombre>Identificador de 8 dígitos repetido dentro del fichero (exploratorio)</nombre>
+    <objetivo>Observar el comportamiento real del proceso ante un identificador duplicado, dado que la lógica interna del JAR no es verificable con la evidencia disponible.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda inyectar un fichero sintético o datos de origen controlados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="identificador_duplicado" valor="mismo identificador de 8 dígitos repetido dos veces en el mismo fichero/extracción"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar en el origen de datos de FINS dos registros que generen el mismo identificador de 8 dígitos.</paso>
+      <paso numero="2">Ejecutar EXTRACCION_ALTAMIRA_SEND.</paso>
+      <paso numero="3">Inspeccionar el fichero CONCILIA_AAAAMMDD.txt generado.</paso>
+    </pasos>
+    <resultadoEsperado>Documentar el comportamiento observado (caja negra): puede que el duplicado se filtre, se mantenga, o la extracción falle. No se valida contra un resultado esperado predefinido, ya que el comportamiento interno del JAR no está documentado ni es verificable.</resultadoEsperado>
+    <tipoValidacion>Inspección manual del fichero generado y del resultado de ejecución de EXTRACCION_ALTAMIRA_SEND.</tipoValidacion>
+    <criterioAceptacion>El comportamiento observado queda registrado como evidencia para futuras ejecuciones; no hay criterio de aceptación de pase/fallo hasta que se confirme el comportamiento esperado con el equipo propietario del JAR.</criterioAceptacion>
+    <posibilidadFallo>Riesgo: si el duplicado se propaga sin control hasta Altamira Colombia, podría generar un conflicto de conciliación en destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Repetición legítima entre días vs. duplicado dentro del mismo fichero</nombre>
+    <objetivo>Distinguir entre la repetición esperada de un mismo identificador en ficheros de días distintos (normal) y su repetición dentro del mismo fichero (caso de duplicidad, ver TC-006).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con capacidad de ejecutar la extracción en dos días distintos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="escenario_legitimo" valor="identificador 12345678 presente en CONCILIA_20260907.txt y de nuevo en CONCILIA_20260908.txt"/>
+      <dato campo="escenario_duplicado" valor="identificador 12345678 repetido dos veces dentro de CONCILIA_20260907.txt (ver TC-006)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la extracción dos días consecutivos con el mismo identificador presente en ambos ficheros.</paso>
+      <paso numero="2">Confirmar que ambos ficheros se generan y transmiten sin incidencias.</paso>
+      <paso numero="3">Comparar con el resultado de TC-006 (mismo identificador repetido dentro de un único fichero).</paso>
+    </pasos>
+    <resultadoEsperado>La repetición del identificador entre ficheros de días distintos es normal y no genera ninguna incidencia; solo la repetición dentro del mismo fichero se trata como caso a observar (TC-006).</resultadoEsperado>
+    <tipoValidacion>Verificación de ejecución sin incidencias en ambos días.</tipoValidacion>
+    <criterioAceptacion>Ambas ejecuciones diarias terminan en OK; ningún control bloquea el identificador por aparecer en un día anterior.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si la lógica de negocio tratara erróneamente la reaparición del identificador en días distintos como un conflicto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Ausencia de validación de integridad más allá de REPLACE</nombre>
+    <objetivo>Confirmar que no existe checksum ni conteo de líneas entre el fichero origen y el fichero en cada destino.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito hasta el destino final.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CONCILIA_AAAAMMDD.txt" valor="fichero real con N líneas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular manualmente el número de líneas y un checksum del fichero origen.</paso>
+      <paso numero="2">Tras la distribución completa, calcular el mismo checksum sobre el fichero recibido en 82.255.60.120.</paso>
+      <paso numero="3">Verificar si Control-M ejecuta alguna validación equivalente de forma automática.</paso>
+    </pasos>
+    <resultadoEsperado>No existe ningún paso automático de checksum o conteo de líneas en la cadena; la verificación de integridad, si se realiza, es manual y externa al proceso.</resultadoEsperado>
+    <tipoValidacion>Comparación manual de checksum/conteo de líneas + revisión de la definición de los jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control automático; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: una corrupción de fichero en cualquiera de los dos saltos no sería detectada automáticamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>Confirmación de la réplica de directorios usada como ruta origen del Salto 2</nombre>
+    <objetivo>Validar que MEKYTL1044_SND lee correctamente de la réplica real /fichtemcomp/.../send/ en lpftp503 (confirmada contra Control-M), independiente de la ruta /unload/transmisiones/KYTL/ donde deposita MEKYTL1044.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a lpftp503 para inspección directa del sistema de ficheros.</precondicion>
+      <precondicion>Réplica de /fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/ operativa en lpftp503.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ruta_destino_MEKYTL1044" valor="/unload/transmisiones/KYTL/"/>
+      <dato campo="ruta_origen_MEKYTL1044_SND" valor="/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/ (réplica en lpftp503)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras una ejecución completa de MEKYTL1044, inspeccionar la réplica /fichtemcomp/.../send/ en lpftp503.</paso>
+      <paso numero="2">Confirmar que el fichero CONCILIA_AAAAMMDD.txt está presente y actualizado en esa réplica.</paso>
+      <paso numero="3">Verificar que MEKYTL1044_SND lee de esa réplica y transmite correctamente el contenido a 82.255.60.120.</paso>
+    </pasos>
+    <resultadoEsperado>La réplica en lpftp503 contiene el fichero correcto y MEKYTL1044_SND lo transmite sin incidencias al destino final.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del sistema de ficheros en lpftp503 + verificación de contenido en destino final.</tipoValidacion>
+    <criterioAceptacion>El fichero en la réplica coincide con el generado por la extracción, y llega íntegro a 82.255.60.120.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si la réplica no se actualiza correctamente (desincronización entre la ruta de depósito de MEKYTL1044 y la réplica leída por MEKYTL1044_SND), lo que provocaría el envío de un fichero desactualizado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Fichero vacío o parcialmente escrito no detectado</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: el filewatcher no detecta ficheros vacíos o incompletos (mismo gap que Calendarios).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda depositar un fichero controlado en la ruta monitoreada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CONCILIA_AAAAMMDD.txt" valor="fichero de 0 bytes, o truncado a mitad de escritura"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero vacío/truncado en la ruta monitoreada por el filewatcher.</paso>
+      <paso numero="2">Verificar el estado de FW_RDR_ALTAMIRA_COLOMBIA_SEND.</paso>
+      <paso numero="3">Verificar si la cadena distribuye el fichero igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>El filewatcher no detecta el problema (solo controla presencia); la cadena distribuye el fichero vacío/incompleto a los destinos.</resultadoEsperado>
+    <tipoValidacion>Verificación manual del contenido en los ficheros de destino tras la distribución.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de negocio: Altamira Colombia podría recibir un fichero de conciliación vacío o incompleto sin alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="regresion">
+    <nombre>Relanzamiento de MEKYTL1044 sin verificar el fichero tras abend de MEKYTL1044_SND</nombre>
+    <objetivo>Verificar que no existe ningún control automático que impida el relanzamiento de MEKYTL1044 sin comprobar si el fichero origen cambió.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1044_SND simulado en abend tras una ejecución exitosa de MEKYTL1044.</precondicion>
+      <precondicion>Una nueva ejecución de EXTRACCION_ALTAMIRA_SEND ha sustituido el fichero origen (REPLACE) antes del relanzamiento.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_original" valor="CONCILIA_20260907.txt con el contenido del día 7"/>
+      <dato campo="fichero_sustituido" valor="CONCILIA_20260908.txt generado por una ejecución posterior, mismo naming lógico por REPLACE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1044 con éxito y provocar el abend de MEKYTL1044_SND.</paso>
+      <paso numero="2">Simular que una ejecución posterior sustituye el fichero origen antes de relanzar.</paso>
+      <paso numero="3">Relanzar MEKYTL1044 sin verificación previa (comportamiento por defecto, sin control automático).</paso>
+    </pasos>
+    <resultadoEsperado>No existe ningún control automático que impida el relanzamiento con el fichero sustituido; el procedimiento de verificación depende enteramente de que el operador lo recuerde (la ficha de rearranque documentada está sin completar).</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de ambas ejecuciones y comparación del contenido transmitido.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control automático; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: podría transmitirse a Colombia un fichero de conciliación de una fecha distinta a la esperada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="regresion">
+    <nombre>Ejecuciones concurrentes de la cadena</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas (mismo gap que Calendarios).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda relanzar manualmente la cadena mientras otra instancia sigue activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_1" valor="disparo programado a las 23:00"/>
+      <dato campo="ejecucion_2" valor="relanzamiento manual mientras la ejecucion_1 sigue en curso"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena a la hora programada.</paso>
+      <paso numero="2">Relanzar manualmente la misma cadena mientras la primera ejecución sigue activa.</paso>
+      <paso numero="3">Revisar los logs de ambas ejecuciones.</paso>
+    </pasos>
+    <resultadoEsperado>No existe mecanismo de lock/PID/semáforo que impida la ejecución concurrente; riesgo de condición de carrera o doble transmisión.</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de ambas ejecuciones para detectar solapamiento.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de protección; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: doble transmisión a Colombia o corrupción de la historificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="e2e">
+    <nombre>Ciclo diario completo end-to-end</nombre>
+    <objetivo>Validar el flujo completo desde la extracción de FINS hasta la historificación, pasando por los dos saltos de transmisión.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno disponible para ejecutar la cadena completa en condiciones normales.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINS" valor="conjunto de datos real o réplica fiel de producción"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar EXTRACCION_ALTAMIRA_SEND y verificar la generación del fichero con naming AAAAMMDD.</paso>
+      <paso numero="2">Verificar la detección por el filewatcher.</paso>
+      <paso numero="3">Verificar la transmisión a lpftp503 (Salto 1).</paso>
+      <paso numero="4">Verificar la transmisión a 82.255.60.120 (Salto 2).</paso>
+      <paso numero="5">Verificar la historificación a /backup/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan en OK, el fichero llega íntegro al destino final con el naming real `AAAAMMDD`, y queda historificado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 5 jobs + comparación de contenido origen/destino + verificación de naming.</tipoValidacion>
+    <criterioAceptacion>Cadena completa ejecutada sin KOs, contenido íntegro en destino final, historificación confirmada.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o naming incorrecto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
