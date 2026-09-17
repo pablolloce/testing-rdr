@@ -31,6 +31,7 @@
 | Proceso | Fecha | Documento de salida generado |
 |---------|-------|-------------------------------|
 | RDR_EXTRACCIONSSIS (Extracción genérica de SSIs) | 2026-09-16 | `salidas/spec_RDR_EXTRACCIONSSIS_SIMULACRO.md` — SIMULACRO, generado con 13 supuestos sin confirmar por negocio (ver §6) |
+| RDR_DICTIONARY_INDEX_new + RDR_FIC_DAT_DICT_WEEKLY_SEND_new (Extracción y Envío de Diccionarios) | 2026-09-17 | `salidas/spec_RDR_DICTIONARY_INDEX_y_WEEKLY.md` — Spec real; 13 casos de prueba TC-01 a TC-13; gap abierto B5 (protocolo de reinicio de RDRKYTL001, pendiente de ANS RDR); cadena semanal documentada como DORMIDA (Planificador INACTIVO) |
 
 ## 6. Supuestos y decisiones pendientes
 | Supuesto | Estado | Confirmado por usuario | Comentario |
