@@ -10,9 +10,9 @@ El proceso P-035 extrae datos de la entidad `FINS` en RDR y los transforma en un
 
 ## 2. Alcance del proceso
 
-**Incluye:** extracción Java del dato `FINS`, generación del fichero, filewatcher, transmisión en dos saltos e historificación/backup.
-
-**No incluye:** el consumo del fichero por el sistema Altamira en Colombia, ni el detalle interno de la lógica de negocio Java empaquetada en `RDR_ConciliaColombia.jar` (solo se dispone del JAR compilado, sin código fuente).
+* **Ámbito funcional:** Distribución diaria del fichero de conciliación (`CONCILIA_*.txt`) generado a partir de la entidad `FINS` en RDR hacia el sistema Altamira de la franquicia BBVA Colombia, para el cuadre contable/operacional de dicha entidad.
+* **Ámbito técnico:** Cadena Control-M `RDR_ALTAMIRA_COLOMBIA_SEND` con 5 jobs (1 extracción Java, 1 filewatcher, 2 saltos de transmisión, 1 historificación). Se ejecuta sobre `pr-rdr.igrupobbva` (extracción, filewatcher, Salto 1 e historificación) y `lpftp503` (Salto 2), con destino final `82.255.60.120`, servidor Control-M `MERCADOS-4`.
+* **Fuera de alcance:** El consumo del fichero por el sistema Altamira en Colombia. El detalle interno de la lógica de negocio Java empaquetada en `RDR_ConciliaColombia.jar` (solo se dispone del JAR compilado, sin código fuente descompilado).
 
 ## 3. Requisitos detectados
 

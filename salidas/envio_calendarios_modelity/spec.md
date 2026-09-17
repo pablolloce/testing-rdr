@@ -11,11 +11,9 @@ El proceso `ENVIO_CAL_MODELITY_new` detecta, captura y distribuye el fichero mae
 
 ## 2. Alcance del proceso
 
-**Incluye:** recepción vigilada del fichero origen, distribución diferenciada por destino (diaria para XERG/BONT/Mentor, semanal-viernes para CSCF/TFIT) e historificación final.
-
-**No incluye** (fuera de alcance de esta cadena Control-M, aunque condiciona sus datos de entrada):
-- La generación del propio `Calendarios.csv` (query/ETL de extracción sobre GoldenSource, tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`).
-- El consumo/interpretación del fichero en cada plataforma destino.
+* **Ámbito funcional:** Distribución diaria del fichero maestro de calendarios (`Calendarios.csv`) generado en RDR hacia la plataforma Modelity y las unidades de negocio XERG, BONT, CSCF, Mentor y TFIT, garantizando la alineación de días hábiles y festivos (*bank holidays*) por divisa en sus sistemas.
+* **Ámbito técnico:** Cadena Control-M `ENVIO_CAL_MODELITY_new` con 9 jobs (1 disparador, 1 filewatcher, 5 envíos por destino — XERG, BONT, CSCF vía dummy + principal, Mentor, TFIT —, 1 historificación). Se ejecuta sobre los nodos `lprdr501`/`lprdr602` (VIPA `pr-rdr.igrupobbva`), con destinos en `LPNOV503`, `pr-mentor.igrupobbva` y Nova Transfer (`novatransferbatch.igrupobbva`).
+* **Fuera de alcance:** La generación del propio `Calendarios.csv` (query/ETL de extracción sobre GoldenSource, tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`). El consumo/interpretación del fichero en cada plataforma destino (XERG, BONT, CSCF, Mentor, TFIT).
 
 ## 3. Requisitos detectados
 

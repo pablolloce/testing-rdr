@@ -182,7 +182,10 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 
 ### `spec.md`
 1. Resumen ejecutivo
-2. Alcance del proceso
+2. Alcance del proceso — usa siempre esta estructura de 3 puntos, no un "incluye/no incluye" libre:
+   * **Ámbito funcional:** qué hace el proceso en términos de negocio (qué se distribuye/transforma, desde dónde, hacia dónde, para qué).
+   * **Ámbito técnico:** cadena(s) Control-M involucradas, número y tipo de jobs (p. ej. "9 jobs: 1 disparador, 1 filewatcher, 5 envíos, 1 historificación"), servidores/nodos donde se ejecuta.
+   * **Fuera de alcance:** qué queda explícitamente fuera de esta cadena/proceso, aunque condicione sus datos de entrada o consuma su salida (p. ej. la generación del fichero de origen, o su consumo en destino).
 3. Requisitos detectados
 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 5. Especificación funcional
