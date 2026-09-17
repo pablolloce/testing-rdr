@@ -30,6 +30,7 @@
 |------|--------------------|---------|-------|---------|
 | Sufijo "p1" en productos Big Data | "La definición del sufijo depende de la variable configurada en Control-M para MEKYTL0404: al utilizar %%NEXTCANDATE, corresponde al día calendario siguiente (+1 día natural). Si se apoya en FECHA_BCP de MEGENV0001.sh, representa el siguiente día hábil." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
 | Criticidad FileWatcher Productos | "Criticidad W (Aviso día siguiente) para FW_RDR_SMA_PRODUCTS_PRO, manteniendo homogeneidad con la normativa de la carpeta KYTL0000-RDR_SMA_PRODUCTS_PRO_new y los estándares del equipo RDR." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
+| Compresión RAMERC0068.sh (MEKYTL0406) | "El script de historificación /pr/pl/scrt/RAMERC0068.sh solo ejecuta compresión nativa mediante gzip (operaciones G, GM, MG, CG) y no dispone de rutinas de empaquetado tar. Por tanto, el fichero generado en la carpeta /Backup/ es estrictamente .gz (productos_ddmmyyyy.xml.gz). La referencia a .tar.gz en la documentación funcional se clasifica como una errata de redacción." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
 
 ## 3. Lecciones de estructuración
 <!-- Patrones de los documentos, preguntas que resultaron útiles para detectar gaps, etc. -->
@@ -57,5 +58,5 @@
 |----------|---------|---------|--------|------------|
 | 21_PORTOLIO (sin F) en ruta destino de MEKYTL0891 — ¿error tipográfico o nombre real del directorio? | RDR_PRO_SMA_PORTFOLIOS_new | pablo.llorente@nfq.es | Pendiente | Detectado en capturas .idx |
 | El sufijo "p1" en el envío a Big Data depende de la variable: %%NEXTCANDATE = día calendario +1, FECHA_BCP = día hábil +1 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Resuelto | GAP-PROD-004 |
-| RAMERC0068.sh produce .tar.gz (no solo .gz) para la operación de MEKYTL0406 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-006 |
+| RAMERC0068.sh produce solo .gz (gzip nativo, sin tar) para MEKYTL0406. La referencia a .tar.gz es errata documental. | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Resuelto | GAP-PROD-006 |
 | La criticidad del FileWatcher de Productos es W (confirmada por el usuario) | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Resuelto | GAP-PROD-005 |

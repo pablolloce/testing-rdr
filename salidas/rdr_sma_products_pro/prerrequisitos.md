@@ -88,7 +88,7 @@ Para cada job de envio, debe existir el fichero .idx correspondiente en `/pr/pl/
 - `MEKYTL1030_CLOUD.idx` (envio a Cloud/Datio S3 — atencion al sufijo _CLOUD)
 
 ### 3.6 Fichero IDX de RAMERC0068.sh
-El fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` debe contener la entrada para la clave `MEKYTL0406` con la configuracion de mover a `/Backup/` y comprimir a `.tar.gz`.
+El fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` debe contener la entrada para la clave `MEKYTL0406` con la configuracion de mover a `/Backup/` y comprimir a `.gz` (gzip nativo; RAMERC0068.sh no dispone de rutinas tar).
 
 ## 4. Usuarios y permisos
 

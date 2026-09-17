@@ -9,7 +9,7 @@
 
 ## 1. Resumen ejecutivo
 
-La cadena RDR_SMA_PRODUCTS_PRO_new es un proceso batch diario orquestado por Control-M que transforma y distribuye el fichero `productossinfiltrar.xml` (catalogo maestro de tipos de instrumento canonicos y sus equivalencias por sistema origen) desde el servidor central RDR hacia 3 destinos de forma secuencial: Big Data/Cloudera, Informacional CIB (XCOM) y Cloud/Datio S3. Tras la distribucion, el fichero se comprime (`.tar.gz`) y se archiva en una carpeta de backup. A diferencia de la cadena de Portfolios (topologia fan-out/fan-in), esta cadena sigue una topologia de pipeline secuencial con tolerancia a fallos (soft failure) en los tres jobs de envio.
+La cadena RDR_SMA_PRODUCTS_PRO_new es un proceso batch diario orquestado por Control-M que transforma y distribuye el fichero `productossinfiltrar.xml` (catalogo maestro de tipos de instrumento canonicos y sus equivalencias por sistema origen) desde el servidor central RDR hacia 3 destinos de forma secuencial: Big Data/Cloudera, Informacional CIB (XCOM) y Cloud/Datio S3. Tras la distribucion, el fichero se comprime (`.gz` via gzip) y se archiva en una carpeta de backup. A diferencia de la cadena de Portfolios (topologia fan-out/fan-in), esta cadena sigue una topologia de pipeline secuencial con tolerancia a fallos (soft failure) en los tres jobs de envio.
 
 ## 2. Alcance del proceso
 
@@ -80,7 +80,9 @@ El script es un wrapper bash que invoca la clase Java `BatchProductos.Transforma
 Todos los jobs de la cadena (FileWatcher, transformacion, envios, historificacion) deben ejecutarse sobre la VIPA `pr-rdr.igrupobbva`. El documento funcional lo exige explicitamente en mayusculas para el FileWatcher (LPRDR503/LPRDR504), los envios y la historificacion. Para el job MEKYTL1030, se mencionan las maquinas LPRDR501 y LPRDR602 (distintas a las del FileWatcher).
 
 ### REQ-PROD-007: Historificacion con compresion
-El job `MEKYTL0406` (ejecuta `RAMERC0068.sh` con PARM1=`MEKYTL0406`) mueve el fichero a `/fichtemcomp/pr/descargas/kytl/productos/Backup/` y lo comprime a `productos_ddmmyyyy.xml.tar.gz`. La directiva funcional dice explicitamente: "Por favor es importante comprimir el fichero tras su historificacion". Este job NO tiene tolerancia a fallos: si falla, la cadena se detiene.
+El job `MEKYTL0406` (ejecuta `RAMERC0068.sh` con PARM1=`MEKYTL0406`) mueve el fichero a `/fichtemcomp/pr/descargas/kytl/productos/Backup/` y lo comprime a `productos_ddmmyyyy.xml.gz` (compresion gzip nativa; el script no dispone de rutinas tar). La directiva funcional dice explicitamente: "Por favor es importante comprimir el fichero tras su historificacion". Este job NO tiene tolerancia a fallos: si falla, la cadena se detiene.
+
+**Nota:** La documentacion funcional original indicaba `.tar.gz`, pero se ha confirmado como errata (GAP-PROD-006 resuelto). El formato real es `.gz`.
 
 ### REQ-PROD-008: Cierre logico de la cadena (job Dummy OUT)
 El job `RDR_SMA_PRODUCTS_PRO_OUT` (tipo Dummy) espera el evento _OK_new de MEKYTL0406 y emite el evento global `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new`. Es el cierre formal de la cadena.
@@ -132,9 +134,9 @@ La determinacion definitiva requiere inspeccionar el .idx de MEKYTL0404, pero el
 ~~La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C).~~
 **Estado:** RESUELTO. Confirmado por el usuario: criticidad **W** (Aviso dia siguiente) para `FW_RDR_SMA_PRODUCTS_PRO`, manteniendo homogeneidad con la normativa de la carpeta KYTL0000-RDR_SMA_PRODUCTS_PRO_new y los estandares del equipo RDR.
 
-### GAP-PROD-006: Comportamiento de RAMERC0068.sh con compresion tar.gz
-El documento funcional pide compresion `tar.gz`, pero RAMERC0068.sh solo documenta operaciones con `gzip` (operacion G/GM/MG). No queda claro si la operacion configurada en el IDX produce `.tar.gz` o solo `.gz`.
-**Estado:** Pendiente de verificacion del IDX y del comportamiento real del script.
+### GAP-PROD-006: Comportamiento de RAMERC0068.sh con compresion ~~tar.gz~~ ~~(RESUELTO)~~
+~~El documento funcional pide compresion `tar.gz`, pero RAMERC0068.sh solo documenta operaciones con `gzip` (operacion G/GM/MG). No queda claro si la operacion configurada en el IDX produce `.tar.gz` o solo `.gz`.~~
+**Estado:** RESUELTO. Confirmado por el usuario: RAMERC0068.sh solo ejecuta compresion nativa mediante gzip (operaciones G, GM, MG, CG) y no dispone de rutinas de empaquetado tar. El fichero generado en `/Backup/` es estrictamente `.gz` (`productos_ddmmyyyy.xml.gz`). La referencia a `.tar.gz` en la documentacion funcional se clasifica como errata de redaccion.
 
 ## 5. Especificacion funcional
 
@@ -162,7 +164,7 @@ El documento funcional pide compresion `tar.gz`, pero RAMERC0068.sh solo documen
 [MEKYTL1030] Cloud/Datio S3 — Soft Failure
     |  evento: ..._1030_OK (siempre)
     v
-[MEKYTL0406] Historificacion + compresion tar.gz — SIN Soft Failure
+[MEKYTL0406] Historificacion + compresion gzip (.gz) — SIN Soft Failure
     |  evento: ..._0406_OK_new
     v
 [RDR_SMA_PRODUCTS_PRO_OUT] (Dummy, cierre logico)
@@ -297,7 +299,7 @@ La estrategia combina pruebas end-to-end con pruebas unitarias por fase, prestan
 | RISK-PROD-001 | Los 3 envios fallan silenciosamente por soft failure | Baja | Critico (ningun destino recibe datos y no hay alerta) | Monitorizar logs operativos de MEGENV0001.sh. Implementar alerta secundaria por ausencia de fichero en destinos. |
 | RISK-PROD-002 | Discrepancia de nombre de fichero en FileWatcher | Resuelto | N/A | Confirmado que ctmfw busca `productossinfiltrar.xml` (el documento funcional individual era erroneo). |
 | RISK-PROD-003 | Credenciales XML expuestas o caducadas | Media | Alto (transformacion falla) | El fichero credentials.xml no debe ser accesible a usuarios no autorizados. Monitorizar caducidad. |
-| RISK-PROD-004 | Compresion tar.gz vs gzip | Media | Bajo (archivo en formato incorrecto) | Verificar si RAMERC0068.sh realmente produce .tar.gz o solo .gz. |
+| RISK-PROD-004 | ~~Compresion tar.gz vs gzip~~ | Resuelto | N/A | Confirmado: RAMERC0068.sh solo produce `.gz` (gzip nativo, sin tar). La referencia a `.tar.gz` en la documentacion funcional es una errata. |
 | RISK-PROD-005 | Texto legacy del decomiso de MEKYTL0403 en documentacion | Confirmado | Bajo (confusion documental) | La documentacion funcional del FileWatcher aun menciona MEKYTL0403 como sucesor. Actualizar documentacion. |
 
 ### 9.2 Escenarios de fallo
@@ -315,6 +317,6 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
 2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002). Configuracion de Control-M confirmada (PARM1, soft failure, dependencias secuenciales, recursos). Pendiente: verificar contenido real de .idx con capturas de ejecucion completa (renaming rules, servidores, protocolos).
 3. ~~Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.~~ RESUELTO (GAP-PROD-004). Depende de la variable en el .idx: %%NEXTCANDATE = calendario, FECHA_BCP = habil.
-4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406 (GAP-PROD-006).
+4. ~~Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406.~~ RESUELTO (GAP-PROD-006). Confirmado: solo `.gz` (gzip nativo, sin tar). Errata en documentacion funcional.
 5. ~~Confirmar la criticidad exacta del FileWatcher en Control-M.~~ RESUELTO (GAP-PROD-005). Criticidad W confirmada.
 6. Implementar mecanismo de alerta secundario para detectar fallos silenciosos en los envios (RISK-PROD-001).
