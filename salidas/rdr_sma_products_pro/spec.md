@@ -126,9 +126,9 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 - **v2** (GAP-PROD-002_Contenido_de_ficheros_idx_v2.docx): Estadisticas de ejecucion confirmadas — los 3 jobs ejecutan diariamente desde al menos 20/08/2026 con exito. Vista Planning de MEKYTL1030: activo desde 06/06/2020, creador `algocmd`. Evento de salida confirmado con patron inconsistente: `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`.
 **Pendiente:** Los ficheros .idx reales no se han verificado en ejecucion. Las reglas de renombrado y servidores destino documentados provienen del documento funcional, no de capturas de ejecucion real como en la cadena de Portfolios (GAP-PORT-001). Los jobs ya ejecutan diariamente, por lo que deberia ser posible obtener capturas con los parametros .idx parseados.
 
-### GAP-PROD-003: Credenciales XML ~~(PARCIALMENTE RESUELTO)~~
-El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.
-**Estado:** PARCIALMENTE RESUELTO. El analisis del script confirma que credentials.xml contiene: bloque `<environment>` (javahome, logs) y bloque `<database>` (gcuser, gcpassapp, port, alias, host) para conexion Oracle al esquema KYTL_GC. No se expone contenido real (dato sensible). La estructura del fichero esta documentada.
+### GAP-PROD-003: Credenciales XML ~~(RESUELTO)~~
+~~El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.~~
+**Estado:** RESUELTO. El analisis del script confirma que credentials.xml contiene: bloque `<environment>` (javahome, logs) y bloque `<database>` (gcuser, gcpassapp, port, alias, host) para conexion Oracle al esquema KYTL_GC. La estructura del fichero esta documentada y es suficiente para la especificacion. El contenido real no se expone por ser dato sensible.
 
 ### GAP-PROD-004: Significado exacto del sufijo "p1" ~~(RESUELTO)~~
 ~~El documento indica que "p1 es el dia siguiente al del envio" en el nombre del fichero destino de Big Data. No esta claro si es un dia calendario fijo (+1) o un dia habil.~~
