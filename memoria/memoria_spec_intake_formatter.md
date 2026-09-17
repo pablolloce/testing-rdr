@@ -19,6 +19,7 @@
 | Fan-out/Fan-in | Topología donde múltiples jobs se ejecutan en paralelo tras un punto de divergencia y convergen en un punto de sincronización. | Cesiones_SMA.md — Cadena 1 |
 | Pipeline secuencial | Topología donde los jobs se ejecutan uno tras otro en secuencia estricta. | Cesiones_SMA.md — Cadena 2 |
 | Planificador Genérico RDR | Motor Java (ProjectMain/ProjectSQL) que ejecuta queries SQL de FT_T_ATE1 y genera ficheros XML. | Cesiones_SMA.md — ambas cadenas |
+| BatchProductos.Transformaciones_PRODUCTOS | Clase Java que transforma productossinfiltrar.xml en productos_ddmmyyyy.xml usando XSLT (Xalan) y conexión Oracle (KYTL_GC). | RDR_Transformacion_PRODUCTOS.sh |
 | MEGENV0001.sh | Script ksh universal de transferencias. Soporta XCOM, Connect Direct, SFTP/FTP vía ficheros .idx. | Cesiones_SMA.md |
 | RAMERC0068.sh | Script ksh de historificación/archivado. Soporta 12 operaciones (M, B, BD, C, G, etc.) configuradas vía IDX. | Cesiones_SMA.md |
 | Patrón EAV | Entity-Attribute-Value. Patrón de base de datos usado en FT_T_AIT1 para campos de Portfolio (PortfolioID, TradingDesk, etc.). | Cesiones_SMA.md — Cadena 1 |
@@ -37,6 +38,7 @@
 - La discrepancia entre fichas funcionales individuales y el documento maestro es frecuente (ej: nombre de fichero en FileWatcher de Cadena 2). Siempre prevalece el comando ctmfw real sobre la ficha funcional.
 - El patrón de nomenclatura de eventos no es consistente: MEKYTL1030 usa `_new_MEKYTL1030_OK` mientras que los demás usan `_MEKYTL1030_OK_new`. Esto debe documentarse como posible fuente de errores.
 - Las capturas de Control-M para MEKYTL0517 y MEKYTL0518 confirman que RAMERC0068.sh se invoca con PARM1=nombre_job como clave de lookup en INFORMACION_HISTORIFICACIONES.IDX. MEKYTL0517 no tiene recurso cuantitativo; MEKYTL0518 sí (MAX-LPRDR501, 1/100). Ninguno tiene soft failure. MEKYTL0518 es el punto fan-in real (8 eventos AND).
+- RDR_Transformacion_PRODUCTOS.sh es un wrapper bash, no un script de transformación directa. La lógica real está en Java (BatchProductos.Transformaciones_PRODUCTOS) usando XSLT (Apache Xalan) y Oracle JDBC. El credentials.xml contiene bloques `<environment>` y `<database>` con parámetros de conexión Oracle. El script valida entorno y usuario antes de ejecutar.
 
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |

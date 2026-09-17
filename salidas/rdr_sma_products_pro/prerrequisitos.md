@@ -44,29 +44,50 @@ Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` media
 
 | Script | Ruta | Proposito | Notas |
 |--------|------|-----------|-------|
-| `RDR_Transformacion_PRODUCTOS.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | Transformacion del fichero fuente | Requiere fichero de credenciales XML |
+| `RDR_Transformacion_PRODUCTOS.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | Wrapper bash: invoca Java XSLT + Oracle | Requiere credenciales XML, JARs, librerias y hojas XSLT |
 | `MEGENV0001.sh` | `/pr/pl/envioweb/scrt/` | Transferencia universal | Debe estar desplegado con permisos de ejecucion |
 | `RAMERC0068.sh` | `/pr/pl/scrt/` | Historificacion con compresion | Debe estar desplegado con permisos de ejecucion |
 
 Todos los scripts deben tener permisos de ejecucion para los usuarios correspondientes.
 
-### 3.2 Fichero de credenciales
-El fichero `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` debe existir y contener credenciales validas. Es el segundo parametro (PARM2) del script de transformacion. No debe ser accesible a usuarios no autorizados.
+### 3.2 Dependencias Java del script de transformacion
 
-### 3.3 Modulos .mod de MEGENV0001.sh
+**JARs** (en `/pr/kytl/online/multipais/multicanal/jar/`):
+- `RDR_Transformacion_PRODUCTOS.jar` — JAR principal con clase `BatchProductos.Transformaciones_PRODUCTOS`
+- `RDRCommon.jar` — Libreria comun RDR
+
+**Librerias externas** (en `/pr/kytl/online/multipais/multicanal/lib/`):
+- `ojdbc8.jar` — Oracle JDBC driver (conexion a BD)
+- `xalan-2.7.1.jar` — Apache Xalan (motor XSLT)
+- `serializer-2.7.2.jar` — Apache Serializer (dependencia de Xalan)
+- `ucp.jar` — Oracle Universal Connection Pool
+
+**Hojas de estilo XSLT** (en `/pr/kytl/online/multipais/multicanal/dat/properties/`):
+- Ficheros XSLT utilizados por la transformacion Java. Deben existir y ser accesibles por el usuario `xakytl1p`.
+
+**JVM requerida:** Java 64-bit, ruta definida en credentials.xml (`<javahome>`). Parametros JVM: -Xms128M -Xmx8G.
+
+### 3.3 Fichero de credenciales y conectividad Oracle
+El fichero `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` debe existir y contener credenciales validas. Estructura confirmada:
+- Bloque `<environment>`: `<javahome>` (ruta JVM), `<logs>` (directorio de logs)
+- Bloque `<database>`: `<gcuser>` (usuario Oracle KYTL_GC), `<gcpassapp>` (password), `<port>`, `<alias>`, `<host>`
+
+No debe ser accesible a usuarios no autorizados. Solo el usuario `xakytl1p` debe tener acceso de lectura. El servidor `pr-rdr.igrupobbva` debe tener conectividad de red al host/puerto Oracle definidos en este fichero.
+
+### 3.4 Modulos .mod de MEGENV0001.sh
 Los cuatro modulos deben existir en `/pr/pl/envioweb/scrt/`:
 - `SF_MEGENV0001_XCOM.mod`
 - `SF_MEGENV0001_CD.mod`
 - `SF_MEGENV0001_SFTP.mod`
 - `SF_MEGENV0001_PARAMS.mod`
 
-### 3.4 Ficheros .idx de configuracion de envios
+### 3.5 Ficheros .idx de configuracion de envios
 Para cada job de envio, debe existir el fichero .idx correspondiente en `/pr/pl/envioweb/idx/bck/` (dado que la generacion Java esta desactivada y siempre se usa el backup):
 - `MEKYTL0404.idx` (envio a Big Data/Cloudera)
 - `MEKYTL0405.idx` (envio a Informacional CIB via XCOM)
 - `MEKYTL1030_CLOUD.idx` (envio a Cloud/Datio S3 — atencion al sufijo _CLOUD)
 
-### 3.5 Fichero IDX de RAMERC0068.sh
+### 3.6 Fichero IDX de RAMERC0068.sh
 El fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` debe contener la entrada para la clave `MEKYTL0406` con la configuracion de mover a `/Backup/` y comprimir a `.tar.gz`.
 
 ## 4. Usuarios y permisos

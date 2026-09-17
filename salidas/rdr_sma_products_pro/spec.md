@@ -1,7 +1,7 @@
 # Especificacion — Cadena RDR_SMA_PRODUCTS_PRO_new
 
 **Proceso:** Cesion de Productos a SMA (distribucion de fichero de tipos de instrumento)
-**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391)
+**Documento fuente:** documentos_fuente/Cesiones_SMA.md — Seccion CADENA 2 (lineas 829-1391); documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh
 **Fecha de generacion:** 2026-09-17
 **Usuario:** pablo.llorente@nfq.es
 
@@ -15,7 +15,7 @@ La cadena RDR_SMA_PRODUCTS_PRO_new es un proceso batch diario orquestado por Con
 
 - **Ambito funcional:** Distribucion diaria del fichero de productos (tipos de instrumento canonicos) generado por el Planificador Generico RDR a tres sistemas consumidores dentro de BBVA CIB, con transformacion previa del fichero.
 - **Ambito tecnico:** Cadena Control-M con 8 jobs (2 Dummy, 1 FileWatcher, 1 transformacion, 3 envios secuenciales con soft failure, 1 historificacion con compresion). Se ejecuta sobre el servidor `pr-rdr.igrupobbva` (MERCADOS-4).
-- **Fuera de alcance:** La generacion del fichero `productossinfiltrar.xml` (responsabilidad del Planificador Generico RDR). El contenido del script `RDR_Transformacion_PRODUCTOS.sh`. Los ficheros `.idx` de configuracion de cada envio. El job decomisado MEKYTL0403.
+- **Fuera de alcance:** La generacion del fichero `productossinfiltrar.xml` (responsabilidad del Planificador Generico RDR). Los ficheros `.idx` de configuracion de cada envio. El job decomisado MEKYTL0403. El codigo Java interno de `BatchProductos.Transformaciones_PRODUCTOS` (clase compilada en JAR).
 
 ## 3. Requisitos detectados
 
@@ -34,10 +34,25 @@ El job `FW_RDR_SMA_PRODUCTS_PRO` ejecuta `ctmfw '/fichtemcomp/pr/descargas/kytl/
 
 ### REQ-PROD-004: Transformacion del fichero
 El job `RDR_Transformacion_PRODUCTOS` ejecuta el script `RDR_Transformacion_PRODUCTOS.sh` con parametros:
-- PARM1: `fileloading`
+- PARM1: `fileloading` (dominio de ejecucion; el script tambien acepta `publishing`)
 - PARM2: `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`
 
-Ejecuta con usuario `xakytl1p` (diferente al resto de la cadena que usa `xsramer1`). El script recibe un fichero de credenciales XML como parametro, lo que sugiere conexion a base de datos u otros servicios durante la transformacion. El resultado es el fichero `productos_ddmmyyyy.xml` en el mismo directorio.
+Ejecuta con usuario `xakytl1p` (diferente al resto de la cadena que usa `xsramer1`).
+
+**Analisis del script (GAP-PROD-001 resuelto):**
+El script es un wrapper bash que invoca la clase Java `BatchProductos.Transformaciones_PRODUCTOS` con transformacion XSLT. Detalle:
+
+1. **Validaciones previas:** Comprueba numero de argumentos (exactamente 2), valor del dominio (`fileloading` o `publishing`), deteccion automatica del entorno (de/ei/pp/pr) por existencia de `/fichtemcomp/$env`, y validacion del usuario de ejecucion (`xakytl1p` para produccion).
+2. **Parsing de credentials.xml:** Extrae via awk los bloques `<environment>` (javahome, logs) y `<database>` (gcuser, gcpassapp, port, alias, host) — confirma conexion a Oracle (esquema KYTL_GC).
+3. **Invocacion Java:** `BatchProductos.Transformaciones_PRODUCTOS` con JVM -Xms128M -Xmx8G. Classpath: `RDR_Transformacion_PRODUCTOS.jar`, `RDRCommon.jar`, `ojdbc8.jar` (Oracle JDBC), `xalan-2.7.1.jar` + `serializer-2.7.2.jar` (Apache Xalan XSLT), `ucp.jar` (Oracle UCP).
+4. **Parametros Java:** directorio fuente (`/fichtemcomp/pr/descargas/kytl/productos/`), directorio salida (mismo), directorio logs, ruta XSLT (`/pr/kytl/online/multipais/multicanal/dat/properties/`).
+5. **Resultado:** genera `productos_ddmmyyyy.xml` en el mismo directorio a partir de `productossinfiltrar.xml`, aplicando transformacion XSLT y potencialmente enriquecimiento desde la base de datos Oracle.
+
+**Dependencias adicionales confirmadas por el script:**
+- JARs en `/pr/kytl/online/multipais/multicanal/jar/`: `RDR_Transformacion_PRODUCTOS.jar`, `RDRCommon.jar`
+- Librerias en `/pr/kytl/online/multipais/multicanal/lib/`: `ojdbc8.jar`, `xalan-2.7.1.jar`, `serializer-2.7.2.jar`, `ucp.jar`
+- Hojas XSLT en `/pr/kytl/online/multipais/multicanal/dat/properties/`
+- Conectividad Oracle desde `pr-rdr.igrupobbva` al host/puerto/alias definidos en credentials.xml
 
 ### REQ-PROD-005: Envio secuencial a 3 destinos con tolerancia a fallos
 
@@ -80,17 +95,17 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 
 ## 4. Gaps identificados y preguntas pendientes
 
-### GAP-PROD-001: Logica interna del script de transformacion
-No se dispone del codigo fuente de `RDR_Transformacion_PRODUCTOS.sh`. Se desconoce que transformacion exacta aplica al fichero (renombrado, filtrado, enriquecimiento, etc.) y como genera `productos_ddmmyyyy.xml` a partir de `productossinfiltrar.xml`.
-**Estado:** Pendiente de obtencion del script o documentacion funcional.
+### GAP-PROD-001: Logica interna del script de transformacion ~~(RESUELTO)~~
+~~No se dispone del codigo fuente de `RDR_Transformacion_PRODUCTOS.sh`.~~
+**Estado:** RESUELTO. Codigo fuente obtenido (documentos_fuente/GAP-PROD-001_RDR_Transformacion_PRODUCTOS.sh). El script es un wrapper bash que invoca `BatchProductos.Transformaciones_PRODUCTOS` (Java, XSLT via Apache Xalan) con conexion a Oracle (KYTL_GC). Lee `productossinfiltrar.xml`, aplica transformacion XSLT con posible enriquecimiento desde BD, y genera `productos_ddmmyyyy.xml` en el mismo directorio. Detalles integrados en REQ-PROD-004.
 
 ### GAP-PROD-002: Contenido de ficheros .idx
 No se dispone de los ficheros MEKYTL0404.idx, MEKYTL0405.idx ni MEKYTL1030_CLOUD.idx. La logica de renombrado compleja (sufijo p1, inversion de fecha, cambio de extension) reside en estos ficheros.
 **Estado:** Pendiente de obtencion.
 
-### GAP-PROD-003: Credenciales XML
-El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`. No se conoce a que servicios conecta ni que credenciales contiene.
-**Estado:** Dato sensible. Documentar existencia sin exponer contenido.
+### GAP-PROD-003: Credenciales XML ~~(PARCIALMENTE RESUELTO)~~
+El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.
+**Estado:** PARCIALMENTE RESUELTO. El analisis del script confirma que credentials.xml contiene: bloque `<environment>` (javahome, logs) y bloque `<database>` (gcuser, gcpassapp, port, alias, host) para conexion Oracle al esquema KYTL_GC. No se expone contenido real (dato sensible). La estructura del fichero esta documentada.
 
 ### GAP-PROD-004: Significado exacto del sufijo "p1"
 El documento indica que "p1 es el dia siguiente al del envio" en el nombre del fichero destino de Big Data. No esta claro si es un dia calendario fijo (+1) o un dia habil.
@@ -195,9 +210,15 @@ Consecuencia: es posible que la cadena finalice en OK global aunque los tres env
 
 | Script | Ruta | Proposito | Usuario |
 |--------|------|-----------|---------|
-| RDR_Transformacion_PRODUCTOS.sh | /pr/kytl/online/multipais/multicanal/scrt/ | Transformacion del fichero fuente | xakytl1p |
+| RDR_Transformacion_PRODUCTOS.sh | /pr/kytl/online/multipais/multicanal/scrt/ | Wrapper bash: invoca Java BatchProductos.Transformaciones_PRODUCTOS (XSLT + Oracle) | xakytl1p |
+| RDR_Transformacion_PRODUCTOS.jar | /pr/kytl/online/multipais/multicanal/jar/ | JAR principal con clase BatchProductos.Transformaciones_PRODUCTOS | xakytl1p |
+| RDRCommon.jar | /pr/kytl/online/multipais/multicanal/jar/ | Libreria comun RDR | xakytl1p |
 | MEGENV0001.sh | /pr/pl/envioweb/scrt/ | Transferencia universal | xsramer1 |
 | RAMERC0068.sh | /pr/pl/scrt/ | Historificacion con compresion | xsramer1 |
+
+**Librerias externas** (en `/pr/kytl/online/multipais/multicanal/lib/`): `ojdbc8.jar` (Oracle JDBC), `xalan-2.7.1.jar` (Apache Xalan XSLT), `serializer-2.7.2.jar`, `ucp.jar` (Oracle UCP).
+
+**Hojas de estilo XSLT** (en `/pr/kytl/online/multipais/multicanal/dat/properties/`): Utilizadas por la transformacion Java para convertir `productossinfiltrar.xml` en `productos_ddmmyyyy.xml`.
 
 ### 6.3 Eventos Control-M
 
@@ -274,9 +295,9 @@ La estrategia combina pruebas end-to-end con pruebas unitarias por fase, prestan
 La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional y tecnico. Los 8 jobs, la topologia secuencial, los mecanismos de soft failure en los envios, el requisito de alta disponibilidad y la historificacion con compresion estan documentados.
 
 **Requisitos de cierre pendientes:**
-1. Obtener el codigo fuente o documentacion funcional del script `RDR_Transformacion_PRODUCTOS.sh` para entender la transformacion exacta.
-2. Obtener los ficheros .idx de los jobs de envio (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx).
-3. Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.
-4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406.
-5. Confirmar la criticidad exacta del FileWatcher en Control-M.
+1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
+2. Obtener los ficheros .idx de los jobs de envio (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) (GAP-PROD-002).
+3. Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1 (GAP-PROD-004).
+4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406 (GAP-PROD-006).
+5. Confirmar la criticidad exacta del FileWatcher en Control-M (GAP-PROD-005).
 6. Implementar mecanismo de alerta secundario para detectar fallos silenciosos en los envios (RISK-PROD-001).
