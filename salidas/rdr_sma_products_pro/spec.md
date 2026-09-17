@@ -72,7 +72,7 @@ El script es un wrapper bash que invoca la clase Java `BatchProductos.Transforma
 
 **Tolerancia a fallos (Soft Failure):** Los tres jobs de envio tienen configurado en Control-M: "Cuando Job completado No OK -> Marcar como OK". Esto significa que si un envio falla, Control-M fuerza el estado a verde y la cadena continua. Este es un comportamiento de diseno documentado en el documento funcional ("se continua la cadena en caso de que falle este job de envio").
 
-**Regla de renombrado especial para Big Data:** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa "el dia siguiente al del envio", segun el documento funcional.
+**Regla de renombrado especial para Big Data (GAP-PROD-004 resuelto):** El sufijo "p1" en `productos_ddmmyyyyp1.xml` representa el dia siguiente al del envio. El mecanismo concreto depende de la variable configurada en el .idx: si usa `%%NEXTCANDATE` (variable de sistema Control-M), es dia calendario +1 (dia natural); si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh), es dia habil +1. La verificacion definitiva queda vinculada a la inspeccion del .idx en ejecucion real (GAP-PROD-002 pendiente).
 
 **Nota:** Las reglas de renombrado y los servidores destino documentados arriba provienen del documento funcional. Los ficheros .idx reales (MEKYTL0404.idx, MEKYTL0405.idx, MEKYTL1030_CLOUD.idx) no han sido verificados en ejecucion real (los jobs estaban en estado "Esperar a Evento" en las capturas), a diferencia de la cadena de Portfolios donde se verificaron con capturas de ejecucion completa.
 
@@ -121,9 +121,12 @@ El 27/05/2023 se decommisiono el job MEKYTL0403. El recosido de dependencias hac
 El script de transformacion recibe como parametro `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`.
 **Estado:** PARCIALMENTE RESUELTO. El analisis del script confirma que credentials.xml contiene: bloque `<environment>` (javahome, logs) y bloque `<database>` (gcuser, gcpassapp, port, alias, host) para conexion Oracle al esquema KYTL_GC. No se expone contenido real (dato sensible). La estructura del fichero esta documentada.
 
-### GAP-PROD-004: Significado exacto del sufijo "p1"
-El documento indica que "p1 es el dia siguiente al del envio" en el nombre del fichero destino de Big Data. No esta claro si es un dia calendario fijo (+1) o un dia habil.
-**Estado:** Pendiente de confirmacion.
+### GAP-PROD-004: Significado exacto del sufijo "p1" ~~(RESUELTO)~~
+~~El documento indica que "p1 es el dia siguiente al del envio" en el nombre del fichero destino de Big Data. No esta claro si es un dia calendario fijo (+1) o un dia habil.~~
+**Estado:** RESUELTO. Aclaracion del usuario: el significado depende de la variable de Control-M utilizada en el .idx de MEKYTL0404:
+- Si usa `%%NEXTCANDATE` (variable de sistema Control-M): dia calendario siguiente (+1 dia natural).
+- Si usa `FECHA_BCP` (motor de fecha de negocio de MEGENV0001.sh): siguiente dia habil.
+La determinacion definitiva requiere inspeccionar el .idx de MEKYTL0404, pero el mecanismo queda documentado. Integrado en REQ-PROD-005.
 
 ### GAP-PROD-005: Criticidad del FileWatcher
 La ficha funcional del FileWatcher no tiene una marca clara de criticidad (W, S o C). Se presume W o S segun el estandar de la cadena.
@@ -311,7 +314,7 @@ La cadena RDR_SMA_PRODUCTS_PRO_new esta completamente mapeada a nivel funcional 
 **Requisitos de cierre pendientes:**
 1. ~~Obtener el codigo fuente del script `RDR_Transformacion_PRODUCTOS.sh`.~~ RESUELTO (GAP-PROD-001).
 2. ~~Obtener capturas de Control-M de los jobs de envio.~~ PARCIALMENTE RESUELTO (GAP-PROD-002). Configuracion de Control-M confirmada (PARM1, soft failure, dependencias secuenciales, recursos). Pendiente: verificar contenido real de .idx con capturas de ejecucion completa (renaming rules, servidores, protocolos).
-3. Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1 (GAP-PROD-004).
+3. ~~Confirmar si el sufijo "p1" en el envio a Big Data es dia calendario +1 o dia habil +1.~~ RESUELTO (GAP-PROD-004). Depende de la variable en el .idx: %%NEXTCANDATE = calendario, FECHA_BCP = habil.
 4. Verificar si RAMERC0068.sh produce `.tar.gz` o solo `.gz` con la configuracion de MEKYTL0406 (GAP-PROD-006).
 5. Confirmar la criticidad exacta del FileWatcher en Control-M (GAP-PROD-005).
 6. Implementar mecanismo de alerta secundario para detectar fallos silenciosos en los envios (RISK-PROD-001).

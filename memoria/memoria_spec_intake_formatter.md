@@ -28,6 +28,7 @@
 ## 2. Respuestas reutilizables del usuario
 | Tema | Respuesta literal | Usuario | Fecha | Proceso |
 |------|--------------------|---------|-------|---------|
+| Sufijo "p1" en productos Big Data | "La definición del sufijo depende de la variable configurada en Control-M para MEKYTL0404: al utilizar %%NEXTCANDATE, corresponde al día calendario siguiente (+1 día natural). Si se apoya en FECHA_BCP de MEGENV0001.sh, representa el siguiente día hábil." | pablo.llorente@nfq.es | 2026-09-17 | RDR_SMA_PRODUCTS_PRO_new |
 
 ## 3. Lecciones de estructuración
 <!-- Patrones de los documentos, preguntas que resultaron útiles para detectar gaps, etc. -->
@@ -54,6 +55,6 @@
 | Supuesto | Proceso | Usuario | Estado | Comentario |
 |----------|---------|---------|--------|------------|
 | 21_PORTOLIO (sin F) en ruta destino de MEKYTL0891 — ¿error tipográfico o nombre real del directorio? | RDR_PRO_SMA_PORTFOLIOS_new | pablo.llorente@nfq.es | Pendiente | Detectado en capturas .idx |
-| El sufijo "p1" en el envío a Big Data es día calendario +1, no día hábil +1 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-004 |
+| El sufijo "p1" en el envío a Big Data depende de la variable: %%NEXTCANDATE = día calendario +1, FECHA_BCP = día hábil +1 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Resuelto | GAP-PROD-004 |
 | RAMERC0068.sh produce .tar.gz (no solo .gz) para la operación de MEKYTL0406 | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-006 |
 | La criticidad del FileWatcher de Productos es W (no confirmada en Control-M) | RDR_SMA_PRODUCTS_PRO_new | pablo.llorente@nfq.es | Pendiente | GAP-PROD-005 |
