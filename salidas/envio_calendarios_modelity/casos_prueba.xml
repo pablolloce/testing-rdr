@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="envio_calendarios_modelity" fecha="2026-09-17" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Distribución diaria completa (happy path)</nombre>
+    <objetivo>Verificar que un fichero válido se distribuye correctamente a los destinos diarios en un día laborable no viernes.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ENVIO_CAL_MODELITY_new activa y programada para el día de ejecución.</precondicion>
+      <precondicion>Ningún fichero previo pendiente de procesar en la ruta de origen.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="Fichero real: 251874 filas, 87 divisas, cabecera CURRENCY;CAL_DAY;HOLIDAY;RNUM;"/>
+      <dato campo="fecha_ejecucion" valor="martes (día laborable, no viernes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Calendarios.csv en /fichtemcomp/pr/descargas/kytl/Modelity/ a las 22:10.</paso>
+      <paso numero="2">Esperar a que KYTL_CAL_MODELITY_FW detecte el fichero.</paso>
+      <paso numero="3">Verificar la ejecución de MEKYTL1113 (XERG), MEKYTL1090 (BONT) y MEKYTL1266 (Mentor).</paso>
+      <paso numero="4">Verificar que MEKYTL1184 y MEKYTL1311 no se ejecutan (no es viernes).</paso>
+    </pasos>
+    <resultadoEsperado>Calendars_AAAAMMDD.csv presente en LPNOV503/PXVA y en bonotasfs/incoming/; fichero presente en pr-mentor:/fichtemcomp/pr/descargas/eezt/; los tres jobs terminan en OK.</resultadoEsperado>
+    <tipoValidacion>Comparación de checksum origen/destino + verificación de presencia y naming de fichero en cada ruta destino.</tipoValidacion>
+    <criterioAceptacion>Los 3 ficheros destino existen, con el naming correcto y checksum idéntico al origen.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO o checksum distinto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Filewatcher KO por timeout</nombre>
+    <objetivo>Verificar que si el fichero no llega antes de las 23:00, el filewatcher finaliza en KO y no se ejecutan los envíos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena programada para el día de ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="no se deposita en la ruta de origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar ningún fichero en /fichtemcomp/pr/descargas/kytl/Modelity/.</paso>
+      <paso numero="2">Esperar hasta las 23:00.</paso>
+      <paso numero="3">Verificar el estado de KYTL_CAL_MODELITY_FW y de MEKYTL1113.</paso>
+    </pasos>
+    <resultadoEsperado>KYTL_CAL_MODELITY_FW termina en KO a las 23:00; MEKYTL1113 y sucesores no se ejecutan; se emite correo a ans_rdr.es@bbva.com.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M + verificación de recepción del correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Job en KO, ningún envío ejecutado, correo de alerta recibido con criticidad W.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el KO es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo de transferencia a destino no disponible</nombre>
+    <objetivo>Verificar el comportamiento cuando el destino de una transferencia no está disponible a mitad de proceso.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero recibido correctamente por el filewatcher.</precondicion>
+      <precondicion>Servidor LPNOV503 simulado como inaccesible durante la ejecución de MEKYTL1113.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="fichero válido"/>
+      <dato campo="LPNOV503" valor="inaccesible (simulado, ej. bloqueo de red o servicio caído)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de LPNOV503 antes de que arranque MEKYTL1113.</paso>
+      <paso numero="2">Ejecutar la cadena con el fichero depositado a tiempo.</paso>
+      <paso numero="3">Verificar el estado y el código de salida de MEKYTL1113.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1113 finaliza con código de error específico (7, 11 o 68) capturado por RAMERC0068.sh; se emite correo a ans_rdr.es@bbva.com; no hay reintento automático.</resultadoEsperado>
+    <tipoValidacion>Código de salida del script + verificación de correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Código de salida documentado presente, correo de alerta recibido, sin reintento espontáneo del job.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Valor fuera de dominio en el campo HOLIDAY</nombre>
+    <objetivo>Confirmar que la cadena de distribución no valida el dominio del campo HOLIDAY y documentar que el rechazo, si existe, depende del sistema destino.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con un Calendarios.csv sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="HOLIDAY" valor="'' (vacío)"/>
+      <dato campo="HOLIDAY" valor="WORKDAY"/>
+      <dato campo="HOLIDAY" valor="HALF_DAY"/>
+      <dato campo="HOLIDAY" valor="UNKNOWN"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un Calendarios.csv sintético con una fila EUR;2026-11-13;WORKDAY;99999.</paso>
+      <paso numero="2">Depositar el fichero y ejecutar la cadena completa.</paso>
+      <paso numero="3">Verificar el contenido recibido en cada destino.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena Control-M distribuye el fichero sin bloquear ni filtrar la fila inválida (no hay validación de contenido en este flujo); el rechazo, si ocurre, se produce en el validador de interfaz del sistema destino.</resultadoEsperado>
+    <tipoValidacion>Revisión manual del contenido transferido en cada destino + comprobación del comportamiento del validador de interfaz destino (si existe).</tipoValidacion>
+    <criterioAceptacion>Se documenta explícitamente que RDR no bloquea el valor fuera de dominio; el caso queda registrado como comportamiento esperado del diseño actual, no como fallo de esta cadena.</criterioAceptacion>
+    <posibilidadFallo>Riesgo: si algún sistema destino tampoco valida el dominio, el dato inválido podría propagarse sin control.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Conflicto de clave CURRENCY+CAL_DAY en la extracción</nombre>
+    <objetivo>Verificar que un duplicado de la clave de negocio real (CURRENCY + CAL_DAY) es detenido en la extracción de GoldenSource antes de generar el fichero.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de extracción de prueba (réplica de FT_T_CADF/FT_T_CADP/FT_T_MRKT) disponible, aislado de producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CURRENCY" valor="EUR"/>
+      <dato campo="CAL_DAY" valor="2026-12-25"/>
+      <dato campo="fila_1" valor="EUR;2026-12-25;HOLIDAY;1"/>
+      <dato campo="fila_2 (duplicado de clave)" valor="EUR;2026-12-25;HOLIDAY;2"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar en el entorno de prueba dos registros con la misma clave CURRENCY=EUR + CAL_DAY=2026-12-25.</paso>
+      <paso numero="2">Ejecutar la query/ETL de extracción que genera Calendarios.csv.</paso>
+      <paso numero="3">Verificar el resultado de la ejecución de la query y si se generó fichero.</paso>
+    </pasos>
+    <resultadoEsperado>La query de extracción falla o filtra el duplicado; no se genera un Calendarios.csv con la clave CURRENCY+CAL_DAY repetida.</resultadoEsperado>
+    <tipoValidacion>Log/resultado de ejecución de la query de extracción + inspección del fichero generado (si lo hay).</tipoValidacion>
+    <criterioAceptacion>El fichero final, si se genera, no contiene ninguna fila con clave CURRENCY+CAL_DAY repetida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: la query debe fallar o filtrar; si genera un fichero con el duplicado, el caso se considera no superado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="datos_sinteticos">
+    <nombre>Repetición legítima de divisa vs. conflicto de clave completa</nombre>
+    <objetivo>Distinguir entre la repetición esperada de CURRENCY en múltiples fechas (comportamiento normal) y la repetición de la clave completa CURRENCY+CAL_DAY (conflicto).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de extracción de prueba disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="escenario_legitimo" valor="USD;2026-01-03;WEEKEND;10 y USD;2026-01-04;WEEKEND;11 (mismo CURRENCY, distinto CAL_DAY)"/>
+      <dato campo="escenario_conflicto" valor="USD;2026-01-01;HOLIDAY;20 y USD;2026-01-01;HOLIDAY;21 (mismo CURRENCY y CAL_DAY)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la extracción con el escenario_legitimo insertado.</paso>
+      <paso numero="2">Confirmar que ambas filas se generan sin error.</paso>
+      <paso numero="3">Ejecutar la extracción con el escenario_conflicto insertado (ver TC-005 para el detalle de detección).</paso>
+    </pasos>
+    <resultadoEsperado>El escenario_legitimo se procesa sin incidencias (dos filas válidas); el escenario_conflicto es detectado como duplicado según TC-005.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero/resultado de la query en ambos escenarios.</tipoValidacion>
+    <criterioAceptacion>Solo la repetición de la clave completa CURRENCY+CAL_DAY se trata como error; la repetición de CURRENCY por sí sola nunca se marca como conflicto.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si la lógica de detección de duplicados fuese demasiado amplia y rechazara divisas repetidas con fechas distintas.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Verificación de checksum tras cada transferencia</nombre>
+    <objetivo>Confirmar que ninguna de las copias (XERG, BONT, CSCF, Mentor, TFIT) corrompe el contenido del fichero origen.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito hasta la distribución a los 5 destinos (día viernes para cubrir todos).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="checksum_origen" valor="calculado sobre Calendarios.csv antes de la distribución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular el checksum del fichero origen antes de que arranque MEKYTL1113.</paso>
+      <paso numero="2">Tras completarse los 5 envíos, calcular el checksum del fichero recibido en cada destino.</paso>
+      <paso numero="3">Comparar cada checksum destino contra el checksum origen.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 checksums de destino coinciden exactamente con el checksum origen.</resultadoEsperado>
+    <tipoValidacion>Comparación de hash (checksum).</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de checksum en los 5 destinos.</criterioAceptacion>
+    <posibilidadFallo>Cualquier discrepancia de checksum se considera corrupción de copia y hace fallar el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="borde">
+    <nombre>Envío a CSCF/TFIT cuando el viernes es festivo</nombre>
+    <objetivo>Verificar que el envío semanal se realiza igualmente cuando el viernes programado coincide con un festivo corporativo.</objetivo>
+    <precondiciones>
+      <precondicion>Calendario corporativo de festivos disponible, con un viernes marcado como festivo dentro de la ventana de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fecha_ejecucion" valor="viernes marcado como festivo corporativo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena un viernes que coincide con festivo corporativo.</paso>
+      <paso numero="2">Verificar el estado de MEKYTL1184_DUMMY, MEKYTL1184 y MEKYTL1311.</paso>
+    </pasos>
+    <resultadoEsperado>El envío a CSCF y TFIT se realiza igualmente ese viernes, sin posponerse ni adelantarse.</resultadoEsperado>
+    <tipoValidacion>Registro de ejecución de Control-M (histórico de jobs).</tipoValidacion>
+    <criterioAceptacion>Los jobs MEKYTL1184 y MEKYTL1311 aparecen ejecutados en la fecha programada, sin excepción de calendario aplicada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo documentado: no se ha verificado si el sistema destino interpreta correctamente un envío en fecha no laborable para él.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="regresion">
+    <nombre>Fichero vacío o parcialmente escrito no detectado</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: el filewatcher no detecta ficheros vacíos o incompletos.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda depositar un fichero controlado dentro de la ventana 22:00–23:00.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="fichero de 0 bytes, o truncado a mitad de escritura (ej. cabecera + 10 filas de las 251874 esperadas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero vacío/truncado dentro de la ventana del filewatcher.</paso>
+      <paso numero="2">Verificar el estado de KYTL_CAL_MODELITY_FW.</paso>
+      <paso numero="3">Verificar si la cadena distribuye el fichero igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>El filewatcher no detecta el problema (solo controla presencia por horario vía FALLASINOFICHS); la cadena distribuye el fichero vacío/incompleto a los destinos.</resultadoEsperado>
+    <tipoValidacion>Verificación manual de contenido en los ficheros de destino tras la distribución.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control: el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de negocio: los destinos podrían operar con un calendario vacío o incompleto sin alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Ejecuciones concurrentes de la cadena</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda relanzar manualmente la cadena mientras otra instancia sigue activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_1" valor="disparo programado a las 22:00"/>
+      <dato campo="ejecucion_2" valor="relanzamiento manual a las 22:15, mientras la ejecucion_1 sigue en curso"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena a la hora programada.</paso>
+      <paso numero="2">Relanzar manualmente la misma cadena mientras la primera ejecución sigue activa.</paso>
+      <paso numero="3">Revisar los logs de ambas ejecuciones.</paso>
+    </pasos>
+    <resultadoEsperado>No existe mecanismo de lock/PID/semáforo que impida la ejecución concurrente; riesgo de condición de carrera o doble distribución.</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de ambas ejecuciones para detectar solapamiento o doble procesamiento.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de protección: el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: doble envío a destinos o corrupción de la historificación si ambas ejecuciones compiten por el mismo fichero.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="e2e">
+    <nombre>Ciclo semanal completo end-to-end</nombre>
+    <objetivo>Validar el flujo completo desde la recepción del fichero hasta la historificación, cubriendo tanto los destinos diarios como los semanales.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno disponible para ejecutar la cadena en dos días consecutivos: un jueves y el viernes siguiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="fichero real o réplica fiel (251874 filas, 87 divisas)"/>
+      <dato campo="dia_1" valor="jueves"/>
+      <dato campo="dia_2" valor="viernes"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena un jueves: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor e historificación.</paso>
+      <paso numero="2">Ejecutar la cadena el viernes siguiente: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor/CSCF/TFIT e historificación.</paso>
+      <paso numero="3">Verificar checksum y naming en todos los destinos de ambos días.</paso>
+    </pasos>
+    <resultadoEsperado>El jueves se distribuye a 3 destinos y se historifica; el viernes se distribuye a los 5 destinos y se historifica; todos los checksums coinciden con el origen correspondiente.</resultadoEsperado>
+    <tipoValidacion>Checksum + verificación de naming y rutas + estado final de todos los jobs en Control-M en ambos días.</tipoValidacion>
+    <criterioAceptacion>Cadena completa ejecutada sin KOs en ambos días, todos los destinos aplicables cubiertos, historificación confirmada en ambos casos.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO no esperado, checksum distinto, o destino faltante invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="happy_path">
+    <nombre>Cobertura completa de divisas</nombre>
+    <objetivo>Confirmar que el fichero de producción contiene las 87 divisas esperadas.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero Calendarios.csv de producción disponible para análisis.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendarios.csv" valor="fichero real de producción"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Extraer los valores únicos del campo CURRENCY del fichero.</paso>
+      <paso numero="2">Contar el número de divisas únicas.</paso>
+      <paso numero="3">Comparar contra el listado de 87 divisas esperadas.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero contiene exactamente las 87 divisas esperadas, sin faltantes ni divisas inesperadas no catalogadas.</resultadoEsperado>
+    <tipoValidacion>Conteo de valores únicos + comparación contra catálogo de referencia.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de 87 divisas únicas presentes en el fichero.</criterioAceptacion>
+    <posibilidadFallo>Fallo si faltan divisas esperadas o aparecen divisas no catalogadas (podría indicar un problema en la extracción de origen).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
