@@ -35,11 +35,14 @@
 - Pregunta clave para detectar gaps: "¿el campo X que mencionas en la clave de negocio realmente viaja en el fichero físico, o es solo un campo interno de la base de datos de origen?" — permitió destapar que MARKET_CODE/CAL_ID no existen en el CSV real. _(pablo.llorente, 2026-09-17)_
 - Pregunta clave para detectar gaps: "¿el fichero contiene una fila por cada día, o solo las excepciones (no-hábiles)?" — crítica para no asumir la semántica de un campo tipo flag/enum. _(pablo.llorente, 2026-09-17)_
 - Regla documentada: cuando un job de distribución no valida contenido (solo presencia/timing), no asumir que hay control de calidad aguas abajo dentro de la misma cadena — documentarlo como riesgo/gap de diseño explícito, no como comportamiento validado. _(pablo.llorente, 2026-09-17)_
+- **KYTL** también es la aplicación asociada al proceso de Envío a Altamira Colombia (P-035), no solo a Calendarios — es una app compartida por varias cadenas RDR. _(pablo.llorente, 2026-09-17, Envío a Altamira Colombia)_
+- Regla documentada: cuando una respuesta del usuario cita como evidencia un documento o fichero por nombre/ruta, y ese documento resulta relevante para cerrar un gap bloqueante (roles, SLAs, permisos...), **verificar directamente contra el repositorio real** (working tree + todas las ramas remotas) antes de aceptarlo como evidencia, en vez de asumir que existe solo porque se cita con detalle. En el proceso de Altamira Colombia, una cita a `DOC-ALT-002-perfiles-roles-permisos.md` resultó ser un documento inexistente en el repositorio. _(pablo.llorente, 2026-09-17, Envío a Altamira Colombia)_
 
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |
 |---------|---------|-------|-------------------------------|
 | Envío de Calendarios a Modelity (ENVIO_CAL_MODELITY_new) | pablo.llorente | 2026-09-17 | salidas/envio_calendarios_modelity/ |
+| Envío a Altamira Colombia (P-035 / RDR_ALTAMIRA_COLOMBIA_SEND) | pablo.llorente | 2026-09-17 | salidas/envio_altamira_colombia/ |
 
 ## 5. Supuestos y decisiones pendientes de confirmación
 > Hipótesis de simulacro o pendientes de confirmar por un usuario. No deben usarse como
@@ -51,3 +54,7 @@
 | El fallback de "enviar igual en viernes festivo" es correctamente interpretado por los sistemas destino | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Confirmada la decisión de envío, no verificado el comportamiento de recepción en XERG/BONT/CSCF/Mentor/TFIT |
 | Rango temporal exacto (N años) de vigencia del calendario para el criterio de completitud | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Falta fijar el valor de N para poder construir un test de rango exacto |
 | Topología exacta del árbol de jobs (paralelo vs. en cadena tras MEKYTL1113) | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Afecta si un fallo en un destino bloquea a los demás; recomendable confirmar en la definición real de Control-M |
+| Ruta origen real de MEKYTL1044_SND en lpftp503 | Envío a Altamira Colombia | pablo.llorente | Pendiente | Discrepancia documental entre la ruta destino de MEKYTL1044 (`/unload/transmisiones/KYTL/`) y la ruta origen declarada de MEKYTL1044_SND (`/fichtemcomp/.../send/`); ni el usuario ni la documentación lo aclaran, pendiente de verificación en infraestructura real |
+| Estructura de escalado de soporte (ANS RDR / Technical Support / Arquitectura, SLAs 30min/1h) | Envío a Altamira Colombia | pablo.llorente | Rechazada como evidencia | Citaba `DOC-ALT-002-perfiles-roles-permisos.md`, verificado por el agente como inexistente en el repositorio (working tree y las 7 ramas remotas). Se asume por defecto, como hipótesis no confirmada, que el relanzamiento recae únicamente en ANS RDR (por analogía con Calendarios), pendiente de confirmación real |
+| Manejo de identificadores duplicados dentro de RDR_ConciliaColombia.jar | Envío a Altamira Colombia | pablo.llorente | Pendiente | Solo se dispone del JAR compilado, sin código fuente; comportamiento no verificable, tratado como observación de caja negra en el caso de prueba TC-006 |
+| Mitigación NTP (< 200 ms) entre pr-rdr.igrupobbva y lpftp503 | Envío a Altamira Colombia | pablo.llorente | Pendiente de evidencia en vivo | Documentado por el usuario en sesión, no verificado por el agente contra una fuente independiente (a diferencia del caso de DOC-ALT-002, no se pudo refutar) |
