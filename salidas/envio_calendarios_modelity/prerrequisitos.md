@@ -1,0 +1,24 @@
+# Prerrequisitos — Envío de Calendarios a Modelity (ENVIO_CAL_MODELITY_new)
+
+## Datos y ficheros previos
+
+- El fichero `Calendarios.csv` debe existir en el servidor origen (`pr-rdr.igrupobbva`, nodos `lprdr501`/`lprdr602`) en la ruta `/fichtemcomp/pr/descargas/kytl/Modelity/`, depositado antes de las 23:00, para que el filewatcher `KYTL_CAL_MODELITY_FW` lo detecte dentro de su ventana de vigilancia (22:00–23:00).
+- La extracción previa desde GoldenSource (tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`) debe haberse completado sin fallos de la query/ETL. El control de duplicados de clave (`CURRENCY + CAL_DAY`) se resuelve en ese punto, no en la cadena Control-M de distribución: si la query de extracción detecta un conflicto de clave, no debe generarse el fichero.
+- El fichero debe cumplir la estructura real esperada: cabecera `CURRENCY;CAL_DAY;HOLIDAY;RNUM;`, separador `;`, fechas en formato `YYYY-MM-DD`, y el campo `HOLIDAY` restringido al enum `{WEEKEND, HOLIDAY}`.
+
+## Configuración e infraestructura
+
+- Cadena Control-M `ENVIO_CAL_MODELITY_new` dada de alta y activa de lunes a viernes; las ramas de `MEKYTL1184` (CSCF) y `MEKYTL1311` (TFIT) deben estar programadas exclusivamente para el viernes.
+- Conectividad de red operativa entre el origen (`pr-rdr.igrupobbva`) y todos los destinos: `LPNOV503` (ruta `PXVA`), la landing zone de BONT (`bonotasfs/incoming/`), `pr-mentor.igrupobbva` (ruta `/fichtemcomp/pr/descargas/eezt/`) y los nodos de Nova Transfer (`novatransferbatch.igrupobbva`, rutas de CSCF y `bankholidays_rdr` para TFIT).
+- Script `RAMERC0068.sh` desplegado y operativo en el entorno de ejecución de KYTL, con capacidad de capturar errores de transferencia y finalizar con los códigos de salida definidos (7, 11, 68).
+- Carpeta de historificación `/old/` disponible y con permisos de escritura para el job `MEKYTL0863`.
+
+## Roles y permisos
+
+- El relanzamiento manual de la cadena o de un job individual en caso de KO está centralizado en el grupo ANS RDR (`BZG03906`); no hay diferenciación de permisos por destino.
+- Los buzones de alerta deben estar operativos y monitorizados: `ans_rdr.es@bbva.com` (general), `scff_ans@bbva.com` (excepción CSCF), y los buzones de soporte downstream por destino (XVA, Onboarding/Fenergo, Calypso/MSC, Mentor, SACCR, Datahub CIB/DATIO) para la resolución de incidencias en el sistema receptor.
+
+## Flujos previos que deben haberse completado
+
+- El catálogo de festivos corporativos (bank holidays) usado para poblar `CADF`/GoldenSource debe estar actualizado antes de la ejecución, ya que el proceso de envío no genera ni valida el contenido del calendario, solo lo distribuye.
+- No existe protección de concurrencia entre ejecuciones: como prerrequisito operativo, no debe relanzarse manualmente la cadena mientras una ejecución programada siga en curso, dado que no hay lock/PID/semáforo que lo impida (ver riesgos en `spec.md`, sección 9).
