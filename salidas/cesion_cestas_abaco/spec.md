@@ -172,6 +172,113 @@ Patrón de nomenclatura: `RDR_<CADENA>_<JOB>_OK_new`. Un ciclo completo emite y 
 
 Todos los KO reales (no soft-failure) generan alerta de criticidad **W** al grupo ANS RDR (`ans_rdr.es@bbva.com`).
 
+### 1.7 Atributos completos de definición Control-M (los 8 jobs)
+
+Todos los jobs: `Server=MERCADOS-4`, `Host=pr-rdr.igrupobbva`, `Aplicación=KYTL`, activos desde `6/6/2020`, sin retención especial documentada, criticidad **W**.
+
+| Job | Tipo | Ejecutar como | Sub-Aplicación | Creado por | Programación | Relanzamiento | Máx. relanz. | Prioridad | Crítico (recursos) | Recurso cuantitativo |
+|-----|------|----------------|------------------|------------|----------------|-----------------|----------------|-----------|----------------------|------------------------|
+| `RDR_BASKETS_ABACO_NOCTURNA_IN` | Dummy | — | `RDR_BASKETS_ABACO_NOCTURNA_new` | algocmd | Cada día | — | — | — | — | — |
+| `RDR_BASKETS_ABACO_NOC_FW` | OS (Comando) | `xpctlma1` | `RDR_BASKETS_ABACO_NOCTURNA_new` | algocmd | Avanzado: días 1-5; horario 12:10 AM–02:30 AM | Cíclico, cada 10 min, desde **Fin** del job | 0 | — | No | `MAX-LPRDR501` (1/100) |
+| `RDR_ABACO_GSPROCESS` | OS (Script) | `xakytl1p` | `RDR_BASKETS_ABACO_NOCTURNA_new` | algocmd | Avanzado: días 1-5 | Cíclico, cada **1 min**, desde Iniciar | 0 | — | No | `MAX-LPRDR501` (1/100) |
+| `RDR_BASKETS_ABACO_IN` | Dummy | — | `RDR_BASKETS_ABACO_new` | algocmd | Cada día | — | — | — | — | — |
+| `RDR_BASKETS_ABACO_FW` | OS (Comando) | `xpctlma1` | `RDR_BASKETS_ABACO_new` | algocmd | Cada día; horario hasta las 11:40 AM | Cíclico, cada 10 min, desde Iniciar | 0 | — | No | `MAX-LPRDR501` (1/100) |
+| `UNIFICACION_FICHEROS_ABACO` | OS (Script) | `xakytl1p` | `RDR_BASKETS_ABACO_new` | algocmd | Cada día | Cíclico, cada 10 min, desde Iniciar | 0 | Custom | No | `MAX-LPRDR501` (1/100) |
+| `MEKYTL0851` | OS (Script) | `xsramer1` | `RDR_BASKETS_ABACO_new` | **xe30690** | Cada día | Cíclico, cada 10 min, desde Iniciar | 0 | Very Low ("AA") | No | `MAX-LPAPP501` (1/160) |
+| `MEKYTL0855` | OS (Script) | `xsramer1` | `RDR_BASKETS_ABACO_new` | algocmd | Cada día | Cíclico, cada 10 min, desde Iniciar | 0 | — | No | `MAX-LPRDR501` (1/100) |
+
+Nótese que `MEKYTL0851` es el único job **creado por un usuario distinto** (`xe30690`) del resto de la cadena (`algocmd`) — dato observado tal cual en Control-M, sin explicación documentada; no afecta al comportamiento funcional.
+
+### 1.8 Lógica interna exacta de cada script (comandos literales)
+
+**`RDR_ABACO_GSPROCESS` → `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh cortarFicheroCestasAbaco`**
+Motor `GSProcess.sh`: lee `$CONF/cortarFicheroCestasAbaco.properties` línea a línea, acumula pares clave=valor hasta encontrar `Accion=`, y despacha según los 4 primeros caracteres del valor. Con el contenido real del `.properties` (ver `documentos_fuente/GAP-BASK-003_cortarFicheroCestasAbaco.properties`), el despacho es:
+```
+Accion=VariablesGlobales  → Vari()   → MOD_EJECUCION=cortarFicheroCestasAbaco ; Servicio=cortarFicheroCestasAbaco
+Accion=Script (Cortar)    → Scripts() → Generico.sh Cortar \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv \
+    1-11
+Accion=Script (MoverFichero) → Scripts() → Generico.sh MoverFichero \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv
+Accion=Script (MoverFichero) → Scripts() → Generico.sh MoverFichero \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv \
+    /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.txt
+```
+Como `NomScript` nunca vale `Delta`, los 3 pasos `Script` se enrutan siempre a `Generico.sh` (no a `Delta.sh`). Al no existir `Stop`/`StopScr` en el `.properties`, cada paso que falla solo incrementa `$Errores`, sin frenar el siguiente; al final, `GSProcess.sh` sale con `exit 0` si `$Errores=0` o `exit 1` en caso contrario (esto último se traduce en KO real del job en Control-M, ya que no tiene On-Do).
+
+**`UNIFICACION_FICHEROS_ABACO` → `/pr/kytl/online/multipais/multicanal/scrt/UnificacionFicherosAbaco.sh`** (sin argumentos)
+```
+cd /fichtemcomp/pr/descargas/kytl/issues/Baskets
+for fichero in Baskets_to_ABACO*.txt; do
+    cat "$fichero" \
+      | sed '2,9999999999999999999999s/BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME;//' \
+      | sed '/^ *$/d' \
+      >> FicheroPrevio.txt
+    mv "$fichero" Backup/Abaco/
+done
+cat FicheroPrevio.txt | sed '<misma regla de cabecera>' | sed '/^ *$/d' >> FicheroUnificado.txt
+rm FicheroPrevio.txt
+```
+Nótese: (a) el rango `2,9999999999999999999999` de `sed` es un hardcode no estándar equivalente a `2,$`; (b) tanto `FicheroPrevio.txt` como `FicheroUnificado.txt` se abren siempre en modo anexado (`>>`), **sin `rm -f` previo** — de ahí RISK-BASK-001.
+
+**`MEKYTL0851` → `/pr/pl/envioweb/scrt/MEGENV0001.sh MEKYTL0851`**
+```
+ficheroIDX=/pr/pl/envioweb/idx/MEKYTL0851.idx        # generación Java (binJava comentado en el código real)
+  → [ -f $binJava ] es siempre falso → ESTADO_JAVA=34
+  → ficheroIDX=/pr/pl/envioweb/idx/bck/MEKYTL0851.idx   # SIEMPRE usa este backup
+# valores reales parseados de ese .idx (confirmados en Salida real):
+PROTOCOLO=CD ; SENTIDO_ENVIO=PUT ; TIPO_ENVIO=TIPO ; ACCION_REMOTO=new ; FORMATO_ENVIO=EBCDIC
+MAQUINA_DESTINO=vdrcdexp-anycast.igrupobbva ; RUTA_DESTINO(renomb)=TE.BDTRE100.DG0TC2.TEBDJCES
+RUTA_HISTORIFICACION=""   # vacía → no se invoca HISTORIFICACION() al final del envío
+# envío real vía Connect:Direct CLI (banner IBM(R) Connect:Direct(R) for UNIX 6.3.0.3_iFix017):
+TRANSFERENCIA: lprdr602:/fichtemcomp/pr/descargas/kytl/issues/Baskets/FicheroUnificado.txt
+  -> vdrcdexp-anycast.igrupobbva:TE.BDTRE100.DG0TC2.TEBDJCES --> OK   (Return code 0)
+# tras el envío, ejecución de JCL remoto:
+Ejecucion de JCL TEBDJCES en vdrcdexp-anycast.igrupobbva --> OK   (Return code 0)
+```
+
+**`MEKYTL0855` → `/pr/pl/scrt/RAMERC0068.sh MEKYTL0855`**
+```
+FICH_CONF=/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX
+grep ^MEKYTL0855@ $FICH_CONF   # exactamente 1 coincidencia esperada, si no: exit 2
+# campos parseados (separador @): DIR_ORI, FICH_ORI, DIR_DESTIN, FALLASINOFICHS, TIPO_RENOMBRADO, NUM_DIAS, OPERACION
+# OPERACION real = M (deducción lógica, sección 6.2):
+case OPERACION in
+  m|M) HISTORIFICA_FICH FicheroUnificado.txt <tipo_renomb> <renomb>
+       # internamente: mv ${DIR_ORI}FicheroUnificado.txt ${DIR_DESTIN}FicheroUnificadoDDMMYYYY_hh:mm:ss.txt
+       ;;
+esac
+```
+Tabla de exit codes reales del script (cabecera + `case` de operaciones, código fuente completo en `documentos_fuente/GAP-BASK-002_RAMERC0068.sh`):
+
+| Código | Causa |
+|--------|-------|
+| 0 | Salida normal |
+| 1 | Número de parámetros incorrecto |
+| 2 | Clave no configurada en el `.IDX`, o duplicada |
+| 3 | Máscara de ficheros (`FICH_ORI`) vacía |
+| 4 | No existe `DIR_ORI` (excepción: si `OPERACION=BD`, borra el directorio y sale 0) |
+| 5 | No existe `DIR_DESTIN` |
+| 6 | No hay ficheros que cumplan la máscara y `FALLASINOFICHS` lo exige |
+| 7 | Error en `m`/`M` (mover) — **el que aplicaría a un fallo real de `MEKYTL0855`** |
+| 8 | Error en `b`/`B` (borrar) |
+| 9 | Tipo de renombrado no válido, u operación no definida (mismo código para dos causas distintas) |
+| 11–20 | Errores específicos de `c`/`C`, `g`/`G`, `u`/`U`, `z`/`Z` y las 5 operaciones compuestas (`gm`, `mg`, `cg`, `mu`, `cu`), más `bcp`/`BCP` |
+
+### 1.9 Evidencia de ejecución real observada (cadencia de producción)
+
+Capturado del **Log** real de `MEKYTL0851` (18/09/2026), confirma la cadencia cíclica de 10 minutos en producción, con la duración real de cada ejecución:
+
+| Ciclo | Inicio real (`lprdr602`) | Fin real | Código retorno | Run count |
+|-------|---------------------------|----------|------------------|-----------|
+| 1 | 12:01:45 PM | 12:01:49 PM (≈4s) | 0 | 1 |
+| 2 | 12:11:02 PM | 12:11:05 PM (≈3s) | 0 | 2 |
+| 3 | 12:21:01 PM | 12:21:04 PM (≈3s) | 0 | 3 |
+
+La pestaña **Estadísticas** de ese mismo job confirma ejecuciones sucesivas ininterrumpidas el día anterior (9/17) y ese mismo día desde primera hora (12:42, 1:11, 2:11, 2:21, 2:31, 3:01, 8:51, 9:31, 9:41, 10:11, 10:21, 10:31...), todas con duración de 2 a 4 segundos — evidencia de que la cadencia de 10 minutos declarada en la programación se cumple de forma estable en producción, no solo en la configuración.
+
 ## 2. Alcance del proceso
 
 * **Ámbito funcional:** distribución del catálogo de cestas (`BASKET`) y sus componentes (`COMPONENT`) desde Murex3 hacia ABACO (Mainframe), tanto en modo alta/modificación (on-line, cíclico) como en modo revisión de bajas (batch, nocturno).
