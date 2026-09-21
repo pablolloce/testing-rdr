@@ -11,6 +11,167 @@
 
 El proceso `RDR_BASKETS_ABACO` recibe el catálogo de cestas financieras (*Baskets*) y sus componentes desde **Murex3**, y lo publica en la cola `ABACO.SECURITIES` del Mainframe (`vdrcdexp-anycast.igrupobbva`) para que el sistema ABACO pueda hacer *asset allocation* con los pesos porcentuales exactos de los activos subyacentes. El proceso combina dos cadenas Control-M complementarias: una **nocturna** que revisa el estado de las cestas para procesar bajas, y una **cíclica** (cada 10 min) que inserta o actualiza cestas ante altas/modificaciones, y que además es el mecanismo físico de envío usado por la propia cadena nocturna.
 
+Las secciones 1.1 a 1.6 siguientes explican la ejecución completa del proceso, de principio a fin, sin necesidad de cruzar con otras secciones del documento.
+
+### 1.1 Ciclo de vida del dato (de Murex3 a ABACO)
+
+```
+ MUREX3 (fuera de alcance)
+      │  deja el fichero antes de las 00:10
+      ▼
+ Baskets_to_ABACO_Extr_Generica_Nocturna.csv   (crudo, ≥11 columnas)
+      │  ruta: /fichtemcomp/pr/descargas/kytl/issues/Baskets/
+      │
+      │  ── CADENA NOCTURNA (00:10-02:30) ──
+      │  RDR_BASKETS_ABACO_NOC_FW detecta el fichero
+      │  RDR_ABACO_GSPROCESS (GSProcess.sh cortarFicheroCestasAbaco):
+      │    1) Cortar        → recorta a columnas 1-11
+      │    2) MoverFichero  → sustituye el .csv original por el recortado
+      │    3) MoverFichero  → renombra .csv → .txt
+      ▼
+ Baskets_to_ABACO_Extr_Generica_Nocturna.txt   (recortado, exactamente 11 columnas)
+      │  mismo directorio — ahora cumple el patrón Baskets_to_ABACO_*.txt
+      │
+      │  ── CADENA CÍCLICA (cada 10 min, hasta las 11:40) ──
+      │  RDR_BASKETS_ABACO_FW detecta cualquier Baskets_to_ABACO_*.txt pendiente
+      │  (el .txt nocturno, y/o cualquier fichero ad-hoc de alta/modificación
+      │   depositado directamente en esa ruta durante el día)
+      │  UNIFICACION_FICHEROS_ABACO purga cabeceras y concatena todos en:
+      ▼
+ FicheroUnificado.txt                           (sin cabecera, todas las filas concatenadas)
+      │  mismo directorio
+      │  MEKYTL0851 (MEGENV0001.sh) envía por Connect:Direct
+      ▼
+ vdrcdexp-anycast.igrupobbva : TE.BDTRE100.DG0TC2.TEBDJCES   (Mainframe, cola ABACO.SECURITIES)
+      │  tras el envío OK, se ejecuta un JCL remoto (TEBDJCES.JCL)
+      │
+      │  en paralelo, en origen:
+      │  MEKYTL0855 (RAMERC0068.sh) mueve FicheroUnificado.txt a:
+      ▼
+ /fichtemcomp/pr/descargas/kytl/issues/Baskets/Backup/Abaco/FicheroUnificadoDDMMYYYY_hh:mm:ss.txt
+```
+
+Los ficheros originales `Baskets_to_ABACO_*.txt` consumidos por `UNIFICACION_FICHEROS_ABACO` también quedan movidos a `Backup/Abaco/` (sin renombrar) en el mismo paso.
+
+### 1.2 Narrativa de ejecución paso a paso
+
+**Tramo A — Cadena nocturna (`KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new`), ventana 00:10-02:30, L-V**
+
+**Paso A0 (fuera de alcance).** Antes de las 00:10, Murex3 deposita `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` (servidor `pr-rdr.igrupobbva`). El mecanismo exacto de esa extracción no está documentado (ver riesgo 5, sección 9).
+
+**Paso A1 — `RDR_BASKETS_ABACO_NOCTURNA_IN`.**
+- Control-M: job Dummy, sin script, disparador inicial del día.
+- Al completarse, emite el evento `RDR_BASKETS_ABACO_NOCTURNA_IN_OK_new`.
+
+**Paso A2 — `RDR_BASKETS_ABACO_NOC_FW`.**
+- Control-M: `ctmfw`, usuario `xpctlma1`, ventana "Lanzado entre 12:10 AM y 02:30 AM", relanzamiento cíclico cada 10 min "desde Fin del job". Prerrequisito: `RDR_BASKETS_ABACO_NOCTURNA_IN_OK_new` **O** `RDR_BASKETS_ABACO_NOCTURNA_RDR_MV_FICH_ABACO_OK_new` (este segundo evento lo emite el propio Paso A3 al terminar, permitiendo un nuevo barrido dentro de la ventana). Recurso: `MAX-LPRDR501` (1/100).
+- Comando exacto: `ctmfw '/fichtemcomp/pr/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv' CREATE 0 60 10 5 1`.
+- **Si detecta el fichero (código de retorno OS = 0):** agrega el evento `..._NOC_FW_OK_new`; elimina `..._NOCTURNA_IN_OK_new` y `..._RDR_MV_FICH_ABACO_OK_new`. Continúa al Paso A3.
+- **Si no lo detecta dentro del timeout (código de retorno OS = 7):** Control-M lo **marca como OK igualmente** (soft-failure específico de este código) y la cadena **continúa** hacia el Paso A3, aunque no haya fichero nuevo que procesar — comportamiento As-Is que contradice el requisito funcional de "parar la cadena" (ver DEF-BASK-001, sección 9).
+
+**Paso A3 — `RDR_ABACO_GSPROCESS`.**
+- Control-M: `GSProcess.sh cortarFicheroCestasAbaco` (PARM1), usuario `xakytl1p`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`. Prerrequisito: `..._NOC_FW_OK_new`. Recurso: `MAX-LPRDR501` (1/100). Sin acción On-Do (un fallo real produce un KO real del job).
+- Lógica interna, según el `.properties cortarFicheroCestasAbaco` real:
+  1. `Accion=VariablesGlobales`: fija `MOD_EJECUCION=cortarFicheroCestasAbaco`, `Servicio=cortarFicheroCestasAbaco`.
+  2. `Accion=Script` (`NomScript=Cortar`): `Generico.sh Cortar /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv /fichtemcomp/<env>/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv 1-11` — recorta el fichero a las columnas 1-11 (los 11 campos del diccionario, sección 5) y escribe el resultado en `..._2.csv`.
+  3. `Accion=Script` (`NomScript=MoverFichero`): mueve `..._2.csv` sobre `Baskets_to_ABACO_Extr_Generica_Nocturna.csv`, sustituyendo el crudo por la versión recortada bajo el mismo nombre.
+  4. `Accion=Script` (`NomScript=MoverFichero`): renombra `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` a `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`.
+  - El `.properties` no define `Stop`/`StopScr`: un fallo en el paso 2 no impediría que se intenten los pasos 3 y 4, pero el job termina en `exit 1` si `$Errores > 0` al final (ver riesgo 8, sección 9).
+- Al finalizar OK, emite `RDR_BASKETS_ABACO_NOCTURNA_RDR_MV_FICH_ABACO_OK_new` (que también re-arma el prerrequisito OR del Paso A2).
+- **Estado del fichero tras este paso:** `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`, con exactamente 11 columnas, presente en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` — cumple el patrón `Baskets_to_ABACO_*.txt`, quedando disponible para la cadena cíclica.
+
+**Tramo B — Cadena cíclica (`KYTL0000-RDR_BASKETS_ABACO_new`), sin hora de inicio, hasta las 11:40 AM, cada 10 min, L-V**
+
+**Paso B1 — `RDR_BASKETS_ABACO_IN`.**
+- Control-M: Dummy, disparador inicial del día. Emite `RDR_BASKETS_ABACO_IN_OK_new`. A partir de la primera vuelta del ciclo, es el Paso B5 (`MEKYTL0855`) el que re-emite este mismo evento para cerrar el bucle cada 10 minutos (no vuelve a ejecutarse `RDR_BASKETS_ABACO_IN` como job).
+
+**Paso B2 — `RDR_BASKETS_ABACO_FW`.**
+- Control-M: `ctmfw`, usuario `xpctlma1`, ventana hasta las 11:40 AM, relanzamiento cíclico cada 10 min "desde Iniciar del job". Prerrequisito: `RDR_BASKETS_ABACO_IN_OK_new`. Recurso: `MAX-LPRDR501` (1/100).
+- Comando exacto: `ctmfw '/fichtemcomp/pr/descargas/kytl/issues/Baskets/Baskets_to_ABACO_*.txt' CREATE 0 60 10 5 1`.
+- **Con fichero(s) pendientes (código 0):** agrega `..._RDR_BASKETS_ABACO_FW_OK_new`; elimina `IN_OK_new`. Continúa al Paso B3.
+- **Sin ficheros pendientes (código 7):** Control-M lo marca como OK (soft-failure); no se dispara `UNIFICACION_FICHEROS_ABACO` en este ciclo; se repite 10 minutos después.
+
+**Paso B3 — `UNIFICACION_FICHEROS_ABACO`.**
+- Control-M: `UnificacionFicherosAbaco.sh`, usuario `xakytl1p`. Prerrequisito: `..._FW_OK_new`. Recurso: `MAX-LPRDR501` (1/100). Sin On-Do (fallo real detiene la cadena).
+- Lógica interna: por cada fichero que cumple `Baskets_to_ABACO*.txt` en la ruta, purga la cabecera técnica (`BASKET_CODE;...;FULL_NAME;`) y las líneas en blanco con `sed`, anexa (`>>`) el resultado a `FicheroPrevio.txt`, y mueve el original a `Backup/Abaco/`. Al terminar el bucle, vuelve a aplicar el mismo filtro sobre `FicheroPrevio.txt`, lo anexa (`>>`) a `FicheroUnificado.txt`, y borra `FicheroPrevio.txt`.
+- **`FicheroUnificado.txt` no se trunca al inicio del script** (ver RISK-BASK-001, sección 9).
+- Al finalizar OK: agrega `..._UNIFICACION_FICHEROS_ABACO_OK_new`; elimina `..._FW_OK_new`.
+- **Estado del fichero tras este paso:** `FicheroUnificado.txt` contiene todas las filas de datos (sin cabecera) de los ficheros procesados en este ciclo; los `Baskets_to_ABACO_*.txt` originales ya no están en la ruta de origen (movidos a `Backup/Abaco/`).
+
+**Paso B4 — `MEKYTL0851`.**
+- Control-M: `MEGENV0001.sh` (PARM1=`MEKYTL0851`), usuario `xsramer1`, ruta `/pr/pl/envioweb/scrt/`. Prerrequisito: `..._UNIFICACION_FICHEROS_ABACO_OK_new`. Recurso: `MAX-LPAPP501` (1/160). Sin On-Do.
+- La generación del `.idx` vía Java está deshabilitada en el código real (`binJava` comentado); siempre usa el `.idx` de backup en `/pr/pl/envioweb/idx/bck/MEKYTL0851.idx`.
+- Parámetros reales confirmados (captura de Salida): `PROTOCOLO=CD` (Connect:Direct), `SENTIDO_ENVIO=PUT`, `FORMATO_ENVIO=EBCDIC`, `SERVIDOR_REMOTO=vdrcdexp-anycast.igrupobbva`, `RUTA_REMOTA=TE.BDTRE100.DG0TC2.TEBDJCES`, `FICHEROS=FicheroUnificado.txt`, `RUTA_HISTORIFICACION` **vacía** (no archiva internamente).
+- Envía `FicheroUnificado.txt` por Connect:Direct al Mainframe. Tras la confirmación de la transferencia (Return code 0), ejecuta un JCL remoto (`TEBDJCES.JCL`) en `vdrcdexp-anycast.igrupobbva`.
+- Defecto menor no bloqueante observado en la Salida real: `MEGENV0001.sh[879]: [: ']' missing` (no impide que el job finalice OK).
+- Al finalizar OK: agrega `..._MEKYTL0851_OK_new`; elimina `..._UNIFICACION_FICHEROS_ABACO_OK_new`.
+- **Estado del fichero tras este paso:** `FicheroUnificado.txt` sigue en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` (no se ha movido ni borrado); la copia ya reside también en el Mainframe.
+
+**Paso B5 — `MEKYTL0855`.**
+- Control-M: `RAMERC0068.sh` (PARM1=`MEKYTL0855`), usuario `xsramer1`, ruta `/pr/pl/scrt/`. Prerrequisito: `..._MEKYTL0851_OK_new`. Recurso: `MAX-LPRDR501` (1/100). Sin On-Do.
+- Busca la clave `MEKYTL0855` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`; ejecuta la operación configurada, que es **`M` (mover)** — confirmado por deducción lógica a partir del propio código de `RAMERC0068.sh` (`HISTORIFICA_FICH` usa `mv`; es la única operación que evita que el `>>` de `UnificacionFicherosAbaco.sh` duplique datos en el siguiente ciclo).
+- Mueve `FicheroUnificado.txt` de `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` a `/fichtemcomp/pr/descargas/kytl/issues/Baskets/Backup/Abaco/`, renombrado `FicheroUnificadoDDMMYYYY_hh:mm:ss.txt` (fecha y hora del sistema en el momento de la ejecución).
+- Al finalizar OK: agrega `RDR_BASKETS_ABACO_IN_OK_new` (re-arma el ciclo para el siguiente barrido de 10 minutos); elimina `..._MEKYTL0851_OK_new`.
+- **Estado del fichero tras este paso:** `FicheroUnificado.txt` ya no existe en la ruta de origen; el ciclo vuelve al Paso B2 diez minutos después.
+
+### 1.3 Estado del sistema de ficheros tras una ejecución completa
+
+Al cierre de un día operativo (después de las 11:40 AM, sin más ciclos hasta el día siguiente):
+
+```
+/fichtemcomp/pr/descargas/kytl/issues/Baskets/
+├── (vacío de ficheros Baskets_to_ABACO_*.txt pendientes — todos consumidos)
+└── Backup/Abaco/
+    ├── Baskets_to_ABACO_Extr_Generica_Nocturna.txt          ← original nocturno, movido sin renombrar
+    ├── Baskets_to_ABACO_<ad-hoc-N>.txt                       ← cualquier fichero ad-hoc del día, movido sin renombrar
+    └── FicheroUnificadoDDMMYYYY_hh:mm:ss.txt (× N ciclos)    ← una entrada por cada ciclo con datos que envió correctamente
+```
+
+### 1.4 Mapa de red
+
+```
+                 pr-rdr.igrupobbva (VIPA, server MERCADOS-4)
+                 ├─ lprdr501 / lprdr602  (ejecución balanceada)
+                 │
+   Murex3 ───────┤  (origen del fichero nocturno/ad-hoc; fuera de alcance)
+                 │
+                 ├── MEGENV0001.sh (MEKYTL0851) ── Connect:Direct ──▶ vdrcdexp-anycast.igrupobbva
+                 │                                                    dataset TE.BDTRE100.DG0TC2.TEBDJCES
+                 │                                                    (Mainframe, cola ABACO.SECURITIES)
+                 │                                                    + ejecución de JCL remoto tras el envío
+                 │
+                 └── ANS RDR (BZG03906, ans_rdr.es@bbva.com) ◀── alertas de criticidad W ante cualquier KO real
+```
+
+### 1.5 Cadena de eventos completa
+
+| # | Evento | Emisor | Consumidor |
+|---|--------|--------|------------|
+| 1 | `RDR_BASKETS_ABACO_NOCTURNA_IN_OK_new` | `RDR_BASKETS_ABACO_NOCTURNA_IN` | `RDR_BASKETS_ABACO_NOC_FW` (OR) |
+| 2 | `RDR_BASKETS_ABACO_NOCTURNA_RDR_BASKETS_ABACO_NOC_FW_OK_new` | `RDR_BASKETS_ABACO_NOC_FW` | `RDR_ABACO_GSPROCESS` |
+| 3 | `RDR_BASKETS_ABACO_NOCTURNA_RDR_MV_FICH_ABACO_OK_new` | `RDR_ABACO_GSPROCESS` | `RDR_BASKETS_ABACO_NOC_FW` (OR, re-arme dentro de ventana) |
+| — | *(enlace entre cadenas: fichero, no evento — ver 1.1/6.3)* | `RDR_ABACO_GSPROCESS` (fichero `.txt`) | `RDR_BASKETS_ABACO_FW` (vigila el patrón) |
+| 4 | `RDR_BASKETS_ABACO_IN_OK_new` | `RDR_BASKETS_ABACO_IN` (1ª vez) / `MEKYTL0855` (re-arme) | `RDR_BASKETS_ABACO_FW` |
+| 5 | `RDR_BASKETS_ABACO_RDR_BASKETS_ABACO_FW_OK_new` | `RDR_BASKETS_ABACO_FW` | `UNIFICACION_FICHEROS_ABACO` |
+| 6 | `RDR_BASKETS_ABACO_UNIFICACION_FICHEROS_ABACO_OK_new` | `UNIFICACION_FICHEROS_ABACO` | `MEKYTL0851` |
+| 7 | `RDR_BASKETS_ABACO_MEKYTL0851_OK_new` | `MEKYTL0851` | `MEKYTL0855` |
+
+Patrón de nomenclatura: `RDR_<CADENA>_<JOB>_OK_new`. Un ciclo completo emite y consume los eventos 4→5→6→7 y vuelve a emitir el 4 al cerrar.
+
+### 1.6 Escenarios de fallo
+
+| Paso | Escenario | Comportamiento real | Efecto en la cadena |
+|------|-----------|----------------------|----------------------|
+| A2 (`NOC_FW`) | Fichero nocturno no llega a las 02:30 | Código OS 7 → **Marcar como OK** (soft-failure) | La cadena **continúa** hacia `RDR_ABACO_GSPROCESS` (DEF-BASK-001) pese al requisito de "parar la cadena" |
+| A3 (`GSPROCESS`) | Fallo real en `Cortar`/`MoverFichero` | Sin On-Do; `.properties` sin `Stop` — los pasos siguientes no se frenan automáticamente, pero el job termina en KO si `$Errores>0` | Cadena nocturna se detiene realmente; no se genera el `.txt` para la cíclica |
+| B2 (`FW` cíclico) | Sin ficheros `Baskets_to_ABACO_*.txt` pendientes | Código OS 7 → Marcar como OK (soft-failure) | Ciclo vacío, normal; no hay unificación ni envío ese ciclo |
+| B3 (`UNIFICACION`) | Fallo real (p. ej. permisos en `Backup/Abaco/`) | Sin On-Do | Cadena se detiene realmente; `MEKYTL0851`/`MEKYTL0855` no se ejecutan |
+| B3 (`UNIFICACION`) | Relanzamiento a medias tras un fallo | `FicheroUnificado.txt` no se trunca al inicio | Riesgo de duplicación de datos (RISK-BASK-001) |
+| B4 (`MEKYTL0851`) | Fallo real de envío (Connect:Direct no disponible) | Sin On-Do | Cadena se detiene; `FicheroUnificado.txt` permanece en origen sin historificar; `MEKYTL0855` no se ejecuta |
+| B5 (`MEKYTL0855`) | Fallo real de historificación | Sin On-Do | Cadena se detiene; el fichero ya fue enviado a ABACO pero no se archiva ni se re-arma el ciclo (`IN_OK_new` no se emite) |
+
+Todos los KO reales (no soft-failure) generan alerta de criticidad **W** al grupo ANS RDR (`ans_rdr.es@bbva.com`).
+
 ## 2. Alcance del proceso
 
 * **Ámbito funcional:** distribución del catálogo de cestas (`BASKET`) y sus componentes (`COMPONENT`) desde Murex3 hacia ABACO (Mainframe), tanto en modo alta/modificación (on-line, cíclico) como en modo revisión de bajas (batch, nocturno).
