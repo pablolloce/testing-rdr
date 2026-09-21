@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_sendbbg_asset" fecha="2026-09-21" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Empaquetado y envío correcto de las 4 categorías</nombre>
+    <objetivo>Validar el camino feliz completo: las 4 categorías tienen .req, se generan los 4 .tar y se envían sin error a Asset Control.</objetivo>
+    <precondiciones>
+      <precondicion>Los 4 directorios origen (BATCHISSUES, ONLINEISSUES, BATCHISSUER, ONLINEISSUER) existen y son escribibles, con sus subcarpetas /old.</precondicion>
+      <precondicion>Los ficheros idx/{CLAVE}.idx o idx/bck/{CLAVE}.idx existen y son válidos para MEKYTL0967-0970.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BATCHISSUES" valor="BBVA_ASSET_BI_001.req (fichero de solicitud válido)"/>
+      <dato campo="ONLINEISSUES" valor="BBVA_ASSET_OI_001.req (fichero de solicitud válido)"/>
+      <dato campo="BATCHISSUER" valor="BBVA_ASSET_BU_001.req (fichero de solicitud válido)"/>
+      <dato campo="ONLINEISSUER" valor="BBVA_ASSET_OU_001.req (fichero de solicitud válido)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar un .req válido en cada uno de los 4 directorios origen antes de las 00:30.</paso>
+      <paso numero="2">Esperar a que Control-M dispare KYTL_SENDBBG_ASSET a las 00:30.</paso>
+      <paso numero="3">Verificar en el log RDR_salidaScriptAsset_&lt;fecha&gt;.log que las 4 categorías generaron su .tar (emisionesBatch_&lt;fecha&gt;.tar, emisionesOnline_&lt;fecha&gt;.tar, emisoresBatch_&lt;fecha&gt;.tar, emisoresOnline_&lt;fecha&gt;.tar).</paso>
+      <paso numero="4">Verificar que los .req originales se movieron a su /old correspondiente y que no quedan .zip intermedios.</paso>
+      <paso numero="5">Verificar en Control-M que MEKYTL0967, MEKYTL0968, MEKYTL0969 y MEKYTL0970 terminaron con estado OK (sin código de error de MEGENV0001.sh).</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 .tar se generan con el fichero correspondiente comprimido dentro, los .req originales quedan historificados en /old, no quedan .zip intermedios, y los 4 jobs de envío terminan OK.</resultadoEsperado>
+    <tipoValidacion>Verificación de log de aplicación + estado de ejecución en Control-M + inspección de filesystem</tipoValidacion>
+    <criterioAceptacion>Los 4 .tar existen con contenido correcto, /old contiene los 4 .req originales, y los 4 jobs MEKYTL09xx están en estado "Ended OK".</criterioAceptacion>
+    <posibilidadFallo>Si algún .idx no está correctamente configurado, el envío correspondiente fallará con código 110 (IDX no existe) aunque el empaquetado haya sido correcto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Categoría sin ficheros .req no genera error</nombre>
+    <objetivo>Confirmar que una categoría sin ningún .req no produce ningún .tar ni ningún error, solo un mensaje informativo en el log (requisito R5).</objetivo>
+    <precondiciones>
+      <precondicion>El directorio BATCHISSUER está vacío de ficheros .req (sin dejar ningún .req ni .zip residual).</precondicion>
+      <precondicion>Las otras 3 categorías tienen al menos un .req válido (para aislar el efecto de la categoría vacía).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BATCHISSUER" valor="directorio vacío, 0 ficheros .req"/>
+      <dato campo="BATCHISSUES/ONLINEISSUES/ONLINEISSUER" valor="1 fichero .req válido en cada una"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Vaciar el directorio BATCHISSUER de cualquier .req antes de las 00:30.</paso>
+      <paso numero="2">Esperar a que se ejecute KYTL_SENDBBG_ASSET.</paso>
+      <paso numero="3">Revisar el log de aplicación en la sección "Proceso: BATCHISSUER".</paso>
+      <paso numero="4">Verificar que no existe el fichero emisoresBatch_&lt;fecha&gt;.tar.</paso>
+      <paso numero="5">Verificar el código de salida/estado final del job KYTL_SENDBBG_ASSET en Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>El log muestra "No se ha generado archivo .tar al no haber ficheros .req" para BATCHISSUER; no se genera emisoresBatch_&lt;fecha&gt;.tar; el job KYTL_SENDBBG_ASSET termina en estado OK (0 fallos), sin que la ausencia de datos se trate como error.</resultadoEsperado>
+    <tipoValidacion>Verificación de log de aplicación + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>Mensaje exacto presente en el log, ausencia confirmada del .tar, y job KYTL_SENDBBG_ASSET en "Ended OK".</criterioAceptacion>
+    <posibilidadFallo>Riesgo conocido (Hallazgo A, ver spec.md §4/§9): si la causa real de la ausencia de .req fuera un fallo de acceso al directorio (no una ausencia real de datos), el log mostraría el mismo mensaje sin distinguirlo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Envío falla cuando el .tar origen no existe</nombre>
+    <objetivo>Validar la reacción del job de envío correspondiente cuando el .tar que debería enviar no fue generado (consecuencia directa de TC-002).</objetivo>
+    <precondiciones>
+      <precondicion>La categoría BATCHISSUER no generó emisoresBatch_&lt;fecha&gt;.tar (partir del estado final de TC-002).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen_esperado" valor="emisoresBatch_&lt;fecha&gt;.tar (inexistente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar que la cadena continúe hasta el job de envío correspondiente a la categoría Batch Issuer (previsiblemente MEKYTL0969, según inferencia documentada en spec.md §6, pendiente de confirmación exacta).</paso>
+      <paso numero="2">Verificar el estado final de ese job en Control-M.</paso>
+      <paso numero="3">Abrir su log y anotar el código de error devuelto por MEGENV0001.sh.</paso>
+    </pasos>
+    <resultadoEsperado>El job de envío termina en error (no en OK) al no encontrar el fichero origen configurado en su .idx.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de ejecución y log de Control-M</tipoValidacion>
+    <criterioAceptacion>El job queda en estado de fallo, con un código de error de MEGENV0001.sh registrado en su log.</criterioAceptacion>
+    <posibilidadFallo>El código exacto (105, 110, 301 u otro) no está confirmado documentalmente para este escenario concreto ("fichero origen no encontrado") — este caso sirve también para determinar y documentar dicho código la primera vez que se ejecute.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Categoría con exactamente 1 fichero .req</nombre>
+    <objetivo>Validar el caso límite de una categoría con el mínimo de datos posible distinto de cero: un único .req.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio ONLINEISSUES contiene exactamente 1 fichero .req válido y ningún otro fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ONLINEISSUES" valor="BBVA_ASSET_OI_BORDE.req (único fichero en el directorio)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar únicamente ese fichero en ONLINEISSUES antes de las 00:30.</paso>
+      <paso numero="2">Esperar la ejecución de KYTL_SENDBBG_ASSET.</paso>
+      <paso numero="3">Verificar que se genera un único .zip y que emisionesOnline_&lt;fecha&gt;.tar contiene exactamente ese .zip.</paso>
+      <paso numero="4">Verificar que BBVA_ASSET_OI_BORDE.req se movió a /old.</paso>
+    </pasos>
+    <resultadoEsperado>Se genera correctamente el .tar con el único fichero comprimido dentro, sin errores por tratarse de un único elemento.</resultadoEsperado>
+    <tipoValidacion>Inspección de filesystem + log de aplicación</tipoValidacion>
+    <criterioAceptacion>emisionesOnline_&lt;fecha&gt;.tar existe y contiene exactamente 1 fichero comprimido; el .req original está en /old.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según el código analizado; caso incluido para confirmar que la lógica de "if existe algún .zip" no requiere un mínimo mayor a 1.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>Reejecución el mismo día sobrescribe el .tar sin aviso</nombre>
+    <objetivo>Confirmar el riesgo documentado: si la cadena se relanza el mismo día tras una ejecución previa completa, el segundo .tar sobrescribe al primero sin ningún aviso ni error, aunque el primero no hubiera sido enviado todavía.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL_SENDBBG_ASSET ya se ejecutó hoy y generó emisionesBatch_&lt;fecha&gt;.tar con contenido A.</precondicion>
+      <precondicion>Ese .tar de contenido A todavía no ha sido enviado por MEKYTL0967 (job en espera o retenido).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Primera ejecución - BATCHISSUES" valor="BBVA_ASSET_BI_A.req (contenido A)"/>
+      <dato campo="Segunda ejecución (relanzamiento manual) - BATCHISSUES" valor="BBVA_ASSET_BI_B.req (contenido B, nuevo fichero llegado entre ambas ejecuciones)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_SENDBBG_ASSET una primera vez con BBVA_ASSET_BI_A.req presente en BATCHISSUES. Confirmar generación de emisionesBatch_&lt;fecha&gt;.tar con ese contenido.</paso>
+      <paso numero="2">Antes de que MEKYTL0967 envíe ese .tar, colocar un nuevo fichero BBVA_ASSET_BI_B.req en BATCHISSUES.</paso>
+      <paso numero="3">Relanzar manualmente KYTL_SENDBBG_ASSET (rearranque) el mismo día.</paso>
+      <paso numero="4">Verificar el contenido de emisionesBatch_&lt;fecha&gt;.tar tras la segunda ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>El .tar resultante contiene únicamente el fichero B (el contenido A de la primera ejecución se pierde, sobrescrito sin ningún aviso ni error del script).</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido del .tar tras cada ejecución</tipoValidacion>
+    <criterioAceptacion>El .tar tras la segunda ejecución no contiene el fichero A comprimido de la primera pasada; no se genera ningún mensaje de aviso o error por la sobrescritura.</criterioAceptacion>
+    <posibilidadFallo>Este es el comportamiento esperado (y aceptado como riesgo conocido, ver spec.md §9); el test falla si en algún momento el comportamiento cambia (por ejemplo, si empezara a fallar por fichero ya existente), lo cual habría que investigar como regresión no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="datos_sinteticos">
+    <nombre>Dos .req sintéticos con contenido idéntico y nombre distinto</nombre>
+    <objetivo>Confirmar que no existe control de duplicidad por contenido: dos ficheros .req con contenido de negocio idéntico pero nombre de fichero distinto se procesan y envían ambos, sin ninguna detección ni aviso. Campo que se repite: el contenido íntegro del fichero .req. Por qué provoca duplicidad: ambos representan, en la práctica, la misma solicitud de negocio a Bloomberg, pero el proceso los trata como independientes porque solo distingue por nombre de fichero, nunca por contenido.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio ONLINEISSUER está vacío antes de la prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BBVA_ASSET_OU_DUP1.req" valor="contenido sintético idéntico: 'ISSUER=TESTCORP;REQ=VALIDATE;REF=SYN-0001'"/>
+      <dato campo="BBVA_ASSET_OU_DUP2.req" valor="contenido sintético idéntico: 'ISSUER=TESTCORP;REQ=VALIDATE;REF=SYN-0001' (mismo contenido exacto que DUP1, nombre de fichero distinto)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar ambos ficheros sintéticos (contenido idéntico, nombre distinto) en ONLINEISSUER antes de las 00:30.</paso>
+      <paso numero="2">Esperar la ejecución de KYTL_SENDBBG_ASSET.</paso>
+      <paso numero="3">Abrir emisoresOnline_&lt;fecha&gt;.tar generado y listar su contenido.</paso>
+      <paso numero="4">Verificar en el log si se emitió algún aviso relacionado con contenido repetido.</paso>
+    </pasos>
+    <resultadoEsperado>El .tar contiene los 2 .zip (uno por cada .req), ambos con el mismo contenido de negocio; no se emite ningún aviso ni se descarta ninguno de los dos — comportamiento esperado dado que el proceso no implementa control de duplicidad por contenido.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido del .tar + revisión del log de aplicación</tipoValidacion>
+    <criterioAceptacion>El .tar contiene exactamente 2 ficheros comprimidos correspondientes a DUP1 y DUP2, sin ningún mensaje de control de duplicidad en el log (confirma la ausencia de dicho control, documentada como riesgo en spec.md §9).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de script (fallaría solo si en el futuro se introdujera lógica de deduplicación no documentada, lo cual habría que tratar como cambio de comportamiento a validar aparte).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Estabilidad de los riesgos aceptados (Hallazgos A y C)</nombre>
+    <objetivo>Confirmar que el comportamiento documentado y aceptado como riesgo conocido (fallo silencioso de cd ante directorio inaccesible; .zip huérfanos si falla el último fichero de la lista) se mantiene igual tras cualquier cambio futuro del script, para detectar cualquier modificación no documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Se dispone de un entorno de test/preproducción donde se puede simular de forma controlada la falta de acceso a un directorio y un fallo de compresión del último fichero de una lista, sin afectar producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Escenario A" valor="directorio BATCHISSUES sin permisos de lectura para el usuario de ejecución"/>
+      <dato campo="Escenario C" valor="lista de 3 .req en un directorio, donde el último (por orden de find) es forzado a fallar en el comando zip (por ejemplo, fichero bloqueado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, quitar permisos de lectura a BATCHISSUES y ejecutar el script manualmente. Verificar que el log registra el mismo mensaje que un día sin .req, sin distinguir el motivo real.</paso>
+      <paso numero="2">Restaurar el escenario. En otro directorio, colocar 3 .req y forzar que el último (según el orden que devuelva find *.req) no pueda comprimirse. Ejecutar el script.</paso>
+      <paso numero="3">Verificar que no se genera ningún .tar para esa categoría, y que los .zip de los otros 2 ficheros (si se generaron antes del fallo) quedan sin eliminar en el directorio.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos comportamientos (Hallazgo A y Hallazgo C) se reproducen exactamente como están documentados en spec.md §4/§9, sin cambios respecto a lo aceptado como riesgo conocido.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + inspección de filesystem y log</tipoValidacion>
+    <criterioAceptacion>El log del escenario A no distingue el fallo de acceso de un día vacío; en el escenario C no se genera .tar y quedan .zip huérfanos sin eliminar.</criterioAceptacion>
+    <posibilidadFallo>Si algún día el resultado difiere de lo aquí descrito, debe tratarse como una regresión (o una corrección no documentada) del script y actualizarse tanto este caso como spec.md §4/§9.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Flujo completo de un día laborable típico</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo: desde la existencia de .req en las 4 categorías hasta la finalización de los 4 envíos a Asset Control.</objetivo>
+    <precondiciones>
+      <precondicion>Las 4 categorías tienen al menos un .req válido antes de las 00:30 de un día laborable.</precondicion>
+      <precondicion>Los 4 ficheros .idx/.idx.bck están correctamente configurados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BATCHISSUES" valor="1 .req válido"/>
+      <dato campo="ONLINEISSUES" valor="1 .req válido"/>
+      <dato campo="BATCHISSUER" valor="1 .req válido"/>
+      <dato campo="ONLINEISSUER" valor="1 .req válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la presencia de los 4 .req antes de las 00:30.</paso>
+      <paso numero="2">Esperar el disparo automático de KYTL_SENDBBG_ASSET a las 00:30.</paso>
+      <paso numero="3">Verificar la generación de los 4 .tar y la historificación de los 4 .req en sus /old respectivos.</paso>
+      <paso numero="4">Verificar que MEKYTL0967, MEKYTL0968, MEKYTL0969 y MEKYTL0970 se disparan en orden y terminan OK.</paso>
+      <paso numero="5">Confirmar en el log de cada job de envío que no aparece ningún código de error de MEGENV0001.sh.</paso>
+    </pasos>
+    <resultadoEsperado>Las 4 categorías se procesan y envían correctamente en una única pasada, sin intervención manual, desde el disparo automático a las 00:30 hasta el fin del último job de envío.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado de los 5 jobs) + inspección de filesystem y logs</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs de la cadena terminan en estado "Ended OK"; los 4 .tar se generaron y los 4 .req originales quedaron historificados.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo puntual de red/protocolo (XCOM/CD/SFTP) en el envío haría fallar el job correspondiente sin afectar a los demás (ver R7), pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
