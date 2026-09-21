@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="cesion_cestas_abaco" fecha="2026-09-21" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo intradía de alta/modificación (happy path)</nombre>
+    <objetivo>Verificar que un fichero ad-hoc válido depositado durante la ventana cíclica se unifica, envía e historifica correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena KYTL0000-RDR_BASKETS_ABACO_new activa, dentro de su ventana (antes de las 11:40 AM).</precondicion>
+      <precondicion>Ruta /fichtemcomp/pr/descargas/kytl/issues/Baskets/ sin ficheros Baskets_to_ABACO_*.txt pendientes de un ciclo anterior.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_alta1.txt" valor="cabecera BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME; + fila BSK001;ACTIVE;EQUITY;MADX;ES;COD1;CMP001;ACTIVE;60.00;STOCK;Componente Uno;"/>
+      <dato campo="fila_2" valor="BSK001;ACTIVE;EQUITY;MADX;ES;COD2;CMP002;ACTIVE;40.00;STOCK;Componente Dos;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Baskets_to_ABACO_alta1.txt en /fichtemcomp/pr/descargas/kytl/issues/Baskets/.</paso>
+      <paso numero="2">Esperar a que RDR_BASKETS_ABACO_FW detecte el fichero en su siguiente ciclo de 10 min.</paso>
+      <paso numero="3">Verificar la ejecución de UNIFICACION_FICHEROS_ABACO, MEKYTL0851 y MEKYTL0855.</paso>
+      <paso numero="4">Verificar el contenido de FicheroUnificado.txt antes del envío.</paso>
+    </pasos>
+    <resultadoEsperado>FicheroUnificado.txt contiene las 2 filas purgadas de cabecera; se envía OK por Connect:Direct a vdrcdexp-anycast.igrupobbva (dataset TE.BDTRE100.DG0TC2.TEBDJCES); se ejecuta el JCL remoto; MEKYTL0855 archiva el fichero como FicheroUnificadoDDMMYYYY_hh:mm:ss.txt en Backup/Abaco/; el original Baskets_to_ABACO_alta1.txt queda movido a Backup/Abaco/.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 5 jobs en Control-M + inspección del contenido de FicheroUnificado.txt + verificación de presencia del fichero histórico renombrado.</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs terminan OK, el contenido transferido coincide con las 2 filas de entrada, y el fichero queda historificado con el naming correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO o contenido distinto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Ciclo nocturno completo (baja/revisión de estado)</nombre>
+    <objetivo>Verificar que el fichero nocturno se detecta, se recorta y se deja disponible para que el ciclo intradía lo recoja.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new activa, ventana 00:10-02:30.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.csv" valor="fichero con registros de revisión de estado, incluyendo al menos un componente con COMPONENT_STATUS=INACTIVE"/>
+      <dato campo="hora_deposito" valor="00:20"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero nocturno a las 00:20.</paso>
+      <paso numero="2">Esperar a que RDR_BASKETS_ABACO_NOC_FW lo detecte.</paso>
+      <paso numero="3">Verificar la ejecución de RDR_ABACO_GSPROCESS (cortarFicheroCestasAbaco).</paso>
+      <paso numero="4">Verificar que aparece un fichero Baskets_to_ABACO_*.txt en la ruta de origen tras la ejecución.</paso>
+      <paso numero="5">Verificar que el siguiente ciclo de RDR_BASKETS_ABACO_FW recoge ese fichero.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW y RDR_ABACO_GSPROCESS terminan OK; se genera un fichero con patrón Baskets_to_ABACO_*.txt; el ciclo intradía lo procesa en su siguiente ejecución (unificación, envío, historificación).</resultadoEsperado>
+    <tipoValidacion>Estado OK de los jobs de la cadena nocturna + verificación de presencia del fichero resultante + seguimiento de su procesamiento en el ciclo intradía siguiente.</tipoValidacion>
+    <criterioAceptacion>El fichero nocturno se recorta y es recogido y distribuido correctamente por el ciclo intradía en el siguiente barrido de 10 minutos.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el contenido exacto de Script(Cortar)/Script(MoverFichero) difiere de lo esperado (GAP-BASK-003 no verificado); revisar manualmente el fichero resultante.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="negativo">
+    <nombre>RDR_BASKETS_ABACO_NOC_FW sin fichero nocturno (soft-failure As-Is)</nombre>
+    <objetivo>Verificar el comportamiento real (documentado como As-Is) cuando el fichero nocturno no llega antes de las 02:30: soft-failure y continuidad de la cadena, pese al requisito funcional de "parar la cadena".</objetivo>
+    <precondiciones>
+      <precondicion>Cadena nocturna programada para el día de ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.csv" valor="no se deposita en la ruta de origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar ningún fichero nocturno.</paso>
+      <paso numero="2">Esperar hasta las 02:30 (fin de ventana, último ciclo del FW).</paso>
+      <paso numero="3">Verificar el código de retorno OS y el estado final de RDR_BASKETS_ABACO_NOC_FW.</paso>
+      <paso numero="4">Verificar si RDR_ABACO_GSPROCESS se ejecuta a continuación.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW retorna código OS 7 (fichero no encontrado); Control-M lo marca como OK (soft-failure); RDR_ABACO_GSPROCESS se ejecuta igualmente; se emite alerta W a ans_rdr.es@bbva.com.</resultadoEsperado>
+    <tipoValidacion>Código de retorno del job + estado final en Control-M (Planning/Monitoring) + verificación de correo de alerta + estado de RDR_ABACO_GSPROCESS.</tipoValidacion>
+    <criterioAceptacion>Job marcado OK pese al código 7, cadena continúa (DEF-BASK-001 documentado), alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Resultado esperado y correcto según el comportamiento real observado; si la cadena se detuviera realmente, el caso indicaría un cambio de configuración respecto a la evidencia capturada (habría que re-verificar DEF-BASK-001).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="negativo">
+    <nombre>RDR_BASKETS_ABACO_FW sin ficheros pendientes en un ciclo</nombre>
+    <objetivo>Verificar que un ciclo de 10 minutos sin altas/modificaciones pendientes no dispara la unificación ni el envío, y no genera fallo real.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena cíclica activa, dentro de su ventana (antes de las 11:40 AM).</precondicion>
+      <precondicion>Ruta de origen sin ficheros Baskets_to_ABACO_*.txt.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_*.txt" valor="ausente en la ruta de origen durante el ciclo bajo prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Asegurar que no hay ficheros pendientes al inicio del ciclo.</paso>
+      <paso numero="2">Esperar a que RDR_BASKETS_ABACO_FW ejecute su ciclo.</paso>
+      <paso numero="3">Verificar su código de retorno y estado final.</paso>
+      <paso numero="4">Verificar que UNIFICACION_FICHEROS_ABACO no se dispara ese ciclo.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_BASKETS_ABACO_FW retorna código OS 7, se marca como OK (soft-failure); UNIFICACION_FICHEROS_ABACO no se ejecuta ese ciclo (su evento prerrequisito no se cumple); el ciclo se repite 10 minutos después.</resultadoEsperado>
+    <tipoValidacion>Código de retorno + estado final del job + confirmación de que no hay ejecución de UNIFICACION_FICHEROS_ABACO en ese ciclo.</tipoValidacion>
+    <criterioAceptacion>Job marcado OK, sin unificación ni envío, sin alerta de negocio (comportamiento normal esperado, no un fallo).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; este es el comportamiento normal de un ciclo sin novedades.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de UNIFICACION_FICHEROS_ABACO (sin soft failure)</nombre>
+    <objetivo>Verificar que, a diferencia de los FileWatchers, un fallo real en UNIFICACION_FICHEROS_ABACO detiene la cadena (no tiene On-Do configurado).</objetivo>
+    <precondiciones>
+      <precondicion>Fichero Baskets_to_ABACO_*.txt detectado correctamente por RDR_BASKETS_ABACO_FW.</precondicion>
+      <precondicion>Directorio Backup/Abaco/ simulado sin permisos de escritura para xakytl1p.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_test.txt" valor="fichero válido con 1 fila"/>
+      <dato campo="Backup/Abaco/" valor="permisos de escritura revocados (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la falta de permisos de escritura en Backup/Abaco/.</paso>
+      <paso numero="2">Depositar el fichero y esperar a que arranque la cadena.</paso>
+      <paso numero="3">Verificar el estado final de UNIFICACION_FICHEROS_ABACO.</paso>
+      <paso numero="4">Verificar que MEKYTL0851 no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>UNIFICACION_FICHEROS_ABACO termina en KO real (sin soft-failure); la cadena se detiene; MEKYTL0851 y MEKYTL0855 no se ejecutan; se emite alerta W.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job en Control-M + verificación de que los jobs sucesores no arrancan + correo de alerta.</tipoValidacion>
+    <criterioAceptacion>KO real propagado, cadena detenida, alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el KO real es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="error_funcional">
+    <nombre>Fallo real de envío MEKYTL0851 (Connect:Direct no disponible)</nombre>
+    <objetivo>Verificar que un fallo real en el envío detiene la cadena y no se ejecuta la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>FicheroUnificado.txt generado correctamente por UNIFICACION_FICHEROS_ABACO.</precondicion>
+      <precondicion>Conectividad Connect:Direct hacia vdrcdexp-anycast.igrupobbva simulada como no disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FicheroUnificado.txt" valor="válido, generado por el paso anterior"/>
+      <dato campo="vdrcdexp-anycast.igrupobbva" valor="inaccesible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad del destino Connect:Direct.</paso>
+      <paso numero="2">Ejecutar la cadena hasta que arranque MEKYTL0851.</paso>
+      <paso numero="3">Verificar el código de retorno y estado final de MEKYTL0851.</paso>
+      <paso numero="4">Verificar que MEKYTL0855 no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0851 termina en KO real; MEKYTL0855 no se ejecuta (FicheroUnificado.txt permanece sin historificar en la ruta origen); se emite alerta W.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job + verificación de que MEKYTL0855 no arranca + presencia de FicheroUnificado.txt aún en la ruta origen + correo de alerta.</tipoValidacion>
+    <criterioAceptacion>KO real propagado, historificación no ejecutada, fichero permanece en origen, alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el KO real es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="borde">
+    <nombre>WEIGHT no suma 100% en una cesta</nombre>
+    <objetivo>Confirmar que la cadena no valida la suma de WEIGHT por cesta y distribuye el dato igual a ABACO.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con fichero sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_1" valor="BSK900;ACTIVE;EQUITY;MADX;ES;COD1;CMP900;ACTIVE;30.00;STOCK;Comp A;"/>
+      <dato campo="fila_2" valor="BSK900;ACTIVE;EQUITY;MADX;ES;COD2;CMP901;ACTIVE;30.00;STOCK;Comp B;"/>
+      <dato campo="suma_total" valor="60.00 (no llega a 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un fichero con una cesta BSK900 cuyos componentes suman WEIGHT=60.00.</paso>
+      <paso numero="2">Depositar el fichero y ejecutar la cadena cíclica completa.</paso>
+      <paso numero="3">Verificar el contenido recibido en el destino Mainframe.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena distribuye la cesta desbalanceada sin bloquear ni alertar; los 5 jobs terminan OK; no hay validación de negocio sobre la suma de WEIGHT en ningún punto de RDR.</resultadoEsperado>
+    <tipoValidacion>Revisión manual del contenido transferido + confirmación de estado OK de todos los jobs.</tipoValidacion>
+    <criterioAceptacion>Se documenta explícitamente que RDR no valida ∑WEIGHT=100%; el caso queda registrado como comportamiento esperado del diseño actual (R8), no como fallo.</criterioAceptacion>
+    <posibilidadFallo>Riesgo: si ABACO/Murex3 tampoco valida la suma, una cesta desbalanceada podría propagarse sin control hasta el consumidor final.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="borde">
+    <nombre>Valor fuera del enum en BASKET_STATUS/COMPONENT_STATUS</nombre>
+    <objetivo>Confirmar que la cadena no valida el dominio de STATUS y documentar que el rechazo, si existe, depende del sistema destino.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con fichero sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="COMPONENT_STATUS" valor="'' (vacío)"/>
+      <dato campo="COMPONENT_STATUS" valor="PENDING"/>
+      <dato campo="BASKET_STATUS" valor="SUSPENDED"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un fichero con una fila BSK901;SUSPENDED;EQUITY;MADX;ES;COD3;CMP902;PENDING;100.00;STOCK;Comp C;</paso>
+      <paso numero="2">Depositar el fichero y ejecutar la cadena completa.</paso>
+      <paso numero="3">Verificar el contenido recibido en el destino.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena Control-M distribuye el fichero sin bloquear ni filtrar la fila con valores fuera de {ACTIVE, INACTIVE}; el rechazo, si ocurre, se produce en el validador de ABACO/Murex3.</resultadoEsperado>
+    <tipoValidacion>Revisión manual del contenido transferido + comprobación del comportamiento del sistema destino (si aplica).</tipoValidacion>
+    <criterioAceptacion>Se documenta que RDR no bloquea valores fuera de enum; comportamiento esperado del diseño actual (R9), no un fallo de esta cadena.</criterioAceptacion>
+    <posibilidadFallo>Riesgo: si ABACO tampoco valida el dominio, el dato inválido podría propagarse sin control.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="duplicidad">
+    <nombre>Componente duplicado en el mismo fichero (Last Write Wins)</nombre>
+    <objetivo>Verificar que, ante dos filas con la misma clave (BASKET_CODE, COMPONENT) en el mismo fichero, prevalece el WEIGHT de la última línea.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con fichero sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_1" valor="BSK500;ACTIVE;EQUITY;MADX;ES;COD1;CMP500;ACTIVE;25.00;STOCK;Comp Dup;"/>
+      <dato campo="fila_2 (misma clave, distinto WEIGHT)" valor="BSK500;ACTIVE;EQUITY;MADX;ES;COD1;CMP500;ACTIVE;75.00;STOCK;Comp Dup;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un fichero con las dos filas de clave (BSK500, CMP500) en ese orden.</paso>
+      <paso numero="2">Depositar el fichero y ejecutar la cadena cíclica completa.</paso>
+      <paso numero="3">Verificar el contenido de FicheroUnificado.txt (ambas filas deben seguir presentes, RDR no deduplica) y el tratamiento posterior en el consumidor.</paso>
+    </pasos>
+    <resultadoEsperado>RDR no deduplica ni bloquea: FicheroUnificado.txt contiene ambas filas tal cual llegaron (la cadena es pass-through de contenido). La resolución Last Write Wins (WEIGHT=75.00 prevalece) ocurre en el motor de ingesta del consumidor final, no dentro de esta cadena.</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido de FicheroUnificado.txt + verificación documental de la regla Last Write Wins confirmada por el usuario para el consumidor.</tipoValidacion>
+    <criterioAceptacion>Ambas filas viajan íntegras hasta el destino; se documenta que la resolución de duplicidad es responsabilidad del consumidor, no de RDR.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si en el futuro se introdujera una lógica de deduplicación no documentada en la cadena que alterase el orden o el contenido de las filas.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="datos_sinteticos">
+    <nombre>Repetición legítima de BASKET_CODE vs. conflicto de clave completa</nombre>
+    <objetivo>Distinguir entre la repetición esperada de BASKET_CODE con distintos COMPONENT (comportamiento normal, una cesta con varios componentes) y la repetición de la clave completa (BASKET_CODE, COMPONENT) (ver TC-009).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con fichero sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="escenario_legitimo" valor="BSK600;ACTIVE;EQUITY;MADX;ES;COD1;CMP600;ACTIVE;50.00;STOCK;Comp X; y BSK600;ACTIVE;EQUITY;MADX;ES;COD2;CMP601;ACTIVE;50.00;STOCK;Comp Y; (mismo BASKET_CODE, distinto COMPONENT)"/>
+      <dato campo="escenario_conflicto" valor="ver TC-009 (mismo BASKET_CODE y COMPONENT)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena con el escenario_legitimo insertado.</paso>
+      <paso numero="2">Confirmar que ambas filas se procesan y transfieren sin incidencia.</paso>
+      <paso numero="3">Comparar contra el resultado de TC-009 (conflicto de clave completa).</paso>
+    </pasos>
+    <resultadoEsperado>El escenario_legitimo se procesa sin incidencias como dos componentes válidos de la misma cesta; solo la repetición de la clave completa (BASKET_CODE + COMPONENT) se trata como conflicto de duplicidad (resuelto aguas abajo, ver TC-009).</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido de FicheroUnificado.txt en ambos escenarios.</tipoValidacion>
+    <criterioAceptacion>Solo la repetición de la clave completa se documenta como conflicto; la repetición de BASKET_CODE por sí sola nunca se trata como error.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si una futura lógica de validación tratara erróneamente la repetición legítima de BASKET_CODE como duplicidad.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="conflicto_integridad">
+    <nombre>Relanzamiento a medias de UnificacionFicherosAbaco.sh (RISK-BASK-001)</nombre>
+    <objetivo>Documentar y verificar el riesgo de diseño: el script no trunca FicheroUnificado.txt al inicio, por lo que un relanzamiento a medias puede duplicar datos.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda interrumpir UnificacionFicherosAbaco.sh a mitad de ejecución (tras procesar un fichero pero antes de terminar el bucle).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_riesgo1.txt" valor="1 fila válida BSK700;ACTIVE;EQUITY;MADX;ES;COD1;CMP700;ACTIVE;100.00;STOCK;Comp Riesgo;"/>
+      <dato campo="interrupcion" valor="job matado (kill) tras mover el primer fichero a Backup/Abaco/ pero antes de completar el volcado a FicheroUnificado.txt"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero y dejar que arranque UNIFICACION_FICHEROS_ABACO.</paso>
+      <paso numero="2">Interrumpir el job a mitad de ejecución.</paso>
+      <paso numero="3">Relanzar el job manualmente sin aplicar la mitigación operativa (sin borrar ficheros temporales/parciales).</paso>
+      <paso numero="4">Inspeccionar el contenido final de FicheroUnificado.txt.</paso>
+    </pasos>
+    <resultadoEsperado>Sin la mitigación operativa aplicada, FicheroUnificado.txt puede contener la fila de CMP700 duplicada (una del intento fallido, otra del relanzamiento), confirmando RISK-BASK-001 como comportamiento actual del script.</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido final de FicheroUnificado.txt tras el relanzamiento.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de truncado inicial: el caso documenta el comportamiento actual como riesgo abierto, no como validación superada. Repetir el caso aplicando la mitigación operativa recomendada debe eliminar la duplicación.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de negocio: ABACO podría recibir un componente duplicado con pesos inconsistentes tras un rearranque manual sin la norma operativa aplicada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="regresion">
+    <nombre>Sin doble historificación entre MEKYTL0851 y MEKYTL0855</nombre>
+    <objetivo>Confirmar que MEKYTL0851 no archiva internamente FicheroUnificado.txt (RUTA_HISTORIFICACION vacía), evitando colisión con MEKYTL0855.</objetivo>
+    <precondiciones>
+      <precondicion>Ciclo completo ejecutado con éxito hasta el envío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FicheroUnificado.txt" valor="fichero válido enviado en el ciclo bajo prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras la ejecución OK de MEKYTL0851, verificar si FicheroUnificado.txt sigue presente en /fichtemcomp/pr/descargas/kytl/issues/Baskets/.</paso>
+      <paso numero="2">Revisar la Salida (Control-M) de MEKYTL0851 y confirmar el valor de RUTA HISTORIFICACION.</paso>
+      <paso numero="3">Verificar que MEKYTL0855 se ejecuta a continuación y mueve el fichero sin error de "fichero no encontrado".</paso>
+    </pasos>
+    <resultadoEsperado>Tras MEKYTL0851, FicheroUnificado.txt sigue en la ruta origen (RUTA HISTORIFICACION vacía en la Salida real); MEKYTL0855 lo encuentra y lo mueve a Backup/Abaco/ sin colisión.</resultadoEsperado>
+    <tipoValidacion>Inspección de la pestaña Salida de MEKYTL0851 + verificación de presencia/ausencia del fichero en cada paso + estado OK de MEKYTL0855.</tipoValidacion>
+    <criterioAceptacion>RUTA HISTORIFICACION vacía confirmada, sin errores de fichero no encontrado en MEKYTL0855, historificación única y correcta.</criterioAceptacion>
+    <posibilidadFallo>Si en una futura versión del .idx de MEKYTL0851 se configurase RUTA_HISTORIFICACION, este caso fallaría por colisión con MEKYTL0855 — su ejecución periódica sirve como regresión de esta configuración.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="borde">
+    <nombre>Baja de un componente vía soft delete</nombre>
+    <objetivo>Verificar que una baja se procesa por el mismo pipeline que una alta, sin tratamiento especial, usando COMPONENT_STATUS=INACTIVE y/o WEIGHT=0.00.</objetivo>
+    <precondiciones>
+      <precondicion>Componente CMP800 existente y activo en una ejecución previa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_baja" valor="BSK800;ACTIVE;EQUITY;MADX;ES;COD1;CMP800;INACTIVE;0.00;STOCK;Comp Baja;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar un fichero con la fila de baja (COMPONENT_STATUS=INACTIVE, WEIGHT=0.00).</paso>
+      <paso numero="2">Ejecutar la cadena cíclica completa (o la nocturna, según el escenario de baja a validar).</paso>
+      <paso numero="3">Verificar que la fila se transfiere igual que cualquier alta, sin bloqueo ni tratamiento diferenciado.</paso>
+    </pasos>
+    <resultadoEsperado>La fila de baja se procesa y transfiere exactamente igual que una fila de alta: no hay borrado físico ni lógica condicional distinta en RDR; la interpretación de "baja" ocurre en el consumidor final.</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido transferido + confirmación de que no hay tratamiento especial en ningún job de la cadena.</tipoValidacion>
+    <criterioAceptacion>La fila de baja llega íntegra al destino con COMPONENT_STATUS=INACTIVE y/o WEIGHT=0.00, sin ser bloqueada ni filtrada por RDR.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el consumidor no interpreta correctamente el soft delete y mantiene el componente como activo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="e2e">
+    <nombre>Ciclo diario completo end-to-end (nocturno + varios ciclos intradía)</nombre>
+    <objetivo>Validar el flujo completo desde la revisión nocturna de bajas hasta varios ciclos de alta/modificación intradía en el mismo día operativo.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno disponible para ejecutar ambas cadenas durante una ventana operativa completa (00:10 a 11:40).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.csv" valor="fichero con 1 baja (COMPONENT_STATUS=INACTIVE)"/>
+      <dato campo="Baskets_to_ABACO_alta_0900.txt" valor="fichero con 1 alta depositado a las 09:00"/>
+      <dato campo="Baskets_to_ABACO_mod_1030.txt" valor="fichero con 1 modificación depositado a las 10:30"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero nocturno a las 00:20 y verificar el tramo nocturno completo (NOC_FW → GSPROCESS).</paso>
+      <paso numero="2">Verificar que el fichero recortado por GSProcess.sh es recogido por el primer ciclo intradía disponible tras las 00:20.</paso>
+      <paso numero="3">Depositar Baskets_to_ABACO_alta_0900.txt a las 09:00 y verificar su ciclo completo (FW → UNIFICACION → MEKYTL0851 → MEKYTL0855).</paso>
+      <paso numero="4">Depositar Baskets_to_ABACO_mod_1030.txt a las 10:30 y verificar su ciclo completo.</paso>
+      <paso numero="5">Confirmar que la cadena cíclica no se ejecuta después de las 11:40 AM hasta el día siguiente.</paso>
+    </pasos>
+    <resultadoEsperado>Los tres ficheros (nocturno recortado, alta 09:00, modificación 10:30) se procesan cada uno en su ciclo correspondiente, todos terminan OK, todos quedan historificados en Backup/Abaco/ con su timestamp correspondiente, y no hay actividad de la cadena cíclica tras las 11:40 AM.</resultadoEsperado>
+    <tipoValidacion>Estado OK de todos los jobs de ambas cadenas en cada ciclo + verificación de historificación de los 3 ficheros + confirmación de la ventana horaria de la cadena cíclica.</tipoValidacion>
+    <criterioAceptacion>Ambas cadenas completan sin KOs no esperados, los 3 ficheros llegan a destino con su contenido íntegro, y la ventana horaria de la cadena cíclica se respeta.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO no esperado, fichero no procesado en su ciclo, o actividad fuera de la ventana de las 11:40 AM invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
