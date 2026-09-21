@@ -11,7 +11,7 @@
 
 - Ambas cadenas Control-M (`KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new` y `KYTL0000-RDR_BASKETS_ABACO_new`) dadas de alta, activas y balanceadas en los nodos `lprdr501`/`lprdr602` de `pr-rdr.igrupobbva` (server MERCADOS-4).
 - Scripts desplegados y operativos en las rutas reales: `GSProcess.sh` y `UnificacionFicherosAbaco.sh` en `/pr/kytl/online/multipais/multicanal/scrt/`; `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/`; `RAMERC0068.sh` en `/pr/pl/scrt/`.
-- Fichero `cortarFicheroCestasAbaco.properties` disponible en el directorio `CONF` de `GSProcess.sh` (`/pr/kytl/online/multipais/multicanal/dat/properties/`) — su contenido exacto no ha podido verificarse (GAP-BASK-003, ver `spec.md` sección 9).
+- Fichero `cortarFicheroCestasAbaco.properties` disponible en el directorio `CONF` de `GSProcess.sh` (`/pr/kytl/online/multipais/multicanal/dat/properties/`), con sus 3 pasos `Accion=Script` (`Cortar` con recorte de columnas `1-11`, y 2×`MoverFichero`) — contenido verificado (ver `spec.md` sección 6.3).
 - Fichero `.idx` de backup de `MEKYTL0851` disponible en `/pr/pl/envioweb/idx/bck/MEKYTL0851.idx` (la generación vía Java está deshabilitada en el código real, por lo que este backup es el que se usa siempre).
 - Clave de historificación `MEKYTL0855` dada de alta en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` con operación `M` (mover).
 - Conectividad Connect:Direct operativa entre `lprdr602` (u otro nodo balanceado) y `vdrcdexp-anycast.igrupobbva`, con capacidad de ejecutar JCL remoto (`TEBDJCES.JCL`) tras la transferencia.

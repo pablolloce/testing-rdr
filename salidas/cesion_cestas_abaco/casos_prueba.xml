@@ -25,26 +25,26 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="happy_path">
-    <nombre>Ciclo nocturno completo (baja/revisión de estado)</nombre>
-    <objetivo>Verificar que el fichero nocturno se detecta, se recorta y se deja disponible para que el ciclo intradía lo recoja.</objetivo>
+    <nombre>Ciclo nocturno completo (baja/revisión de estado) con recorte de columnas 1-11</nombre>
+    <objetivo>Verificar que el fichero nocturno se detecta, se recorta exactamente a las columnas 1-11, se renombra de .csv a .txt, y se deja disponible para que el ciclo intradía lo recoja.</objetivo>
     <precondiciones>
       <precondicion>Cadena KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new activa, ventana 00:10-02:30.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.csv" valor="fichero con registros de revisión de estado, incluyendo al menos un componente con COMPONENT_STATUS=INACTIVE"/>
+      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.csv" valor="fichero con 12 columnas (las 11 del diccionario + 1 columna adicional de Murex3 no esperada por ABACO), incluyendo al menos un componente con COMPONENT_STATUS=INACTIVE"/>
       <dato campo="hora_deposito" valor="00:20"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Depositar el fichero nocturno a las 00:20.</paso>
+      <paso numero="1">Depositar el fichero nocturno (12 columnas) a las 00:20.</paso>
       <paso numero="2">Esperar a que RDR_BASKETS_ABACO_NOC_FW lo detecte.</paso>
-      <paso numero="3">Verificar la ejecución de RDR_ABACO_GSPROCESS (cortarFicheroCestasAbaco).</paso>
-      <paso numero="4">Verificar que aparece un fichero Baskets_to_ABACO_*.txt en la ruta de origen tras la ejecución.</paso>
-      <paso numero="5">Verificar que el siguiente ciclo de RDR_BASKETS_ABACO_FW recoge ese fichero.</paso>
+      <paso numero="3">Verificar la ejecución de RDR_ABACO_GSPROCESS (cortarFicheroCestasAbaco): paso Cortar (columnas 1-11) sobre Baskets_to_ABACO_Extr_Generica_Nocturna.csv, generando Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv; paso MoverFichero que sustituye el .csv original por la versión recortada; paso MoverFichero que renombra a Baskets_to_ABACO_Extr_Generica_Nocturna.txt.</paso>
+      <paso numero="4">Verificar que Baskets_to_ABACO_Extr_Generica_Nocturna.txt existe en la ruta de origen y contiene únicamente las 11 columnas del diccionario (la 12ª columna del fichero original no aparece).</paso>
+      <paso numero="5">Verificar que el siguiente ciclo de RDR_BASKETS_ABACO_FW recoge ese fichero (coincide con el patrón Baskets_to_ABACO_*.txt).</paso>
     </pasos>
-    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW y RDR_ABACO_GSPROCESS terminan OK; se genera un fichero con patrón Baskets_to_ABACO_*.txt; el ciclo intradía lo procesa en su siguiente ejecución (unificación, envío, historificación).</resultadoEsperado>
-    <tipoValidacion>Estado OK de los jobs de la cadena nocturna + verificación de presencia del fichero resultante + seguimiento de su procesamiento en el ciclo intradía siguiente.</tipoValidacion>
-    <criterioAceptacion>El fichero nocturno se recorta y es recogido y distribuido correctamente por el ciclo intradía en el siguiente barrido de 10 minutos.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si el contenido exacto de Script(Cortar)/Script(MoverFichero) difiere de lo esperado (GAP-BASK-003 no verificado); revisar manualmente el fichero resultante.</posibilidadFallo>
+    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW y RDR_ABACO_GSPROCESS terminan OK; Baskets_to_ABACO_Extr_Generica_Nocturna.txt contiene exactamente 11 columnas (la 12ª queda descartada por el recorte 1-11); el ciclo intradía lo procesa en su siguiente ejecución (unificación, envío, historificación).</resultadoEsperado>
+    <tipoValidacion>Estado OK de los jobs de la cadena nocturna + conteo de columnas del fichero .txt resultante + seguimiento de su procesamiento en el ciclo intradía siguiente.</tipoValidacion>
+    <criterioAceptacion>El fichero .txt resultante tiene exactamente 11 columnas (no 12), y es recogido y distribuido correctamente por el ciclo intradía en el siguiente barrido de 10 minutos.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el recorte 1-11 no descarta correctamente columnas adicionales del origen Murex3, propagando un campo no esperado hacia ABACO.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="negativo">
