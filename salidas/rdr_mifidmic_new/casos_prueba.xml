@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_mifidmic_new" fecha="2026-09-22" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Flujo completo correcto de un día laborable</nombre>
+    <objetivo>Validar que, con un FRMIC.csv válido, la cadena transforma, envía y historifica correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio /fichtemcomp/pr/descargas/kytl/mifidmic/ y su subcarpeta /old existen y son escribibles.</precondicion>
+      <precondicion>Los .idx de MEGENV0001.sh para MEKYTL0890/0770/0771 y las entradas de INFORMACION_HISTORIFICACIONES.IDX para MEKYTL0940/0941 están correctamente configurados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FRMIC.csv" valor="cabecera + 3 filas de datos, separador ';', 8 columnas cada fila (más de las 7 requeridas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar FRMIC.csv válido antes de las 6:00.</paso>
+      <paso numero="2">Esperar la ejecución completa de la cadena (06:00 en adelante).</paso>
+      <paso numero="3">Verificar que FRMIC_2.csv tiene las 3 filas de datos sin la cabecera.</paso>
+      <paso numero="4">Verificar que FRMIC_1.csv tiene exactamente las columnas 1-7 de FRMIC_2.csv.</paso>
+      <paso numero="5">Confirmar en Control-M que los 9 jobs terminan OK, incluyendo MEKYTL0940 y MEKYTL0941 en paralelo.</paso>
+      <paso numero="6">Verificar la presencia de FRMIC_YYYYMMDD.csv en ap_ejpe_pr y de FRMIC.csv + frmic.flg en mcm0501.</paso>
+      <paso numero="7">Verificar old/FRMIC_yyyymmdd.gz, old/FRMIC_1_YYYYMMDD.csv y old/FRMIC_2_YYYYMMDD.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Los 9 jobs terminan OK, ambos derivados se generan correctamente, se entregan en los 2 destinos con su flag, y quedan historificados los 3 ficheros esperados.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + inspección de filesystem en origen y destino</tipoValidacion>
+    <criterioAceptacion>RDR_MIFIDMIC_OUT en estado "Ended OK"; los 3 ficheros históricos y los 2 envíos externos existen con contenido correcto.</criterioAceptacion>
+    <posibilidadFallo>Si algún .idx de envío o historificación no está correctamente configurado, el job correspondiente fallará y bloqueará los siguientes en su rama (ver TC-003).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>FRMIC.csv no llega en ninguna ventana</nombre>
+    <objetivo>Confirmar que la ausencia del fichero no genera error, evento ni notificación, y la cadena no avanza.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio /fichtemcomp/pr/descargas/kytl/mifidmic/ no contiene FRMIC.csv en todo el día de la prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FRMIC.csv" valor="ausente durante toda la ventana 6:00-6:35"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que no hay FRMIC.csv antes de las 6:00.</paso>
+      <paso numero="2">Esperar a que pasen ambas ventanas del filewatcher (inicial y reintento a los 25 min).</paso>
+      <paso numero="3">Verificar el estado final de FW_MIFIDMIC_RDR en Control-M.</paso>
+      <paso numero="4">Verificar que RDRKYTL001 no se ha disparado.</paso>
+      <paso numero="5">Comprobar si se ha recibido alguna notificación (correo/alerta) por esta ausencia.</paso>
+    </pasos>
+    <resultadoEsperado>FW_MIFIDMIC_RDR termina en estado OK (código de retorno 7 tratado como éxito); no se genera el evento que dispara RDRKYTL001; no se recibe ninguna notificación.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y log de Control-M</tipoValidacion>
+    <criterioAceptacion>FW_MIFIDMIC_RDR en "Ended OK"; RDRKYTL001 sin ejecutar; ausencia confirmada de notificaciones.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; es el comportamiento documentado. El test falla si en algún momento se observa un error real o una notificación no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo de MEKYTL0890 bloquea MEKYTL0770</nombre>
+    <objetivo>Validar que un fallo en el envío a Murex impide el envío a mcm0501, por la dependencia secuencial entre ambos jobs.</objetivo>
+    <precondiciones>
+      <precondicion>El .idx de MEGENV0001.sh para la clave MEKYTL0890 está mal configurado o ausente (provoca fallo del envío).</precondicion>
+      <precondicion>FRMIC_1.csv se generó correctamente en el paso previo (RDRKYTL001 ya ejecutado con éxito).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="idx MEKYTL0890" valor="ausente o inválido, para forzar el fallo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo de MEKYTL0890 (idx inválido).</paso>
+      <paso numero="2">Verificar el estado final de MEKYTL0890 en Control-M.</paso>
+      <paso numero="3">Verificar si MEKYTL0770 llega a dispararse.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0890 termina en error (código de MEGENV0001.sh, p. ej. 110 IDX no existe); MEKYTL0770 no se ejecuta, porque su prerrequisito es el evento OK de MEKYTL0890.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y log de Control-M</tipoValidacion>
+    <criterioAceptacion>MEKYTL0890 en estado de fallo; MEKYTL0770 permanece sin ejecutar (esperando el evento que nunca llega).</criterioAceptacion>
+    <posibilidadFallo>Si MEKYTL0770 se ejecutara igualmente, contradiría la dependencia confirmada en Control-M y habría que revisar la condición real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Fila con menos de 7 columnas en FRMIC_2.csv</nombre>
+    <objetivo>Confirmar que Cortar no da error ante una fila con menos columnas de las esperadas, y trunca silenciosamente.</objetivo>
+    <precondiciones>
+      <precondicion>FRMIC.csv contiene al menos una fila de datos con solo 4 columnas separadas por ';' (menos de las 7 esperadas).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila corta" valor="CAMPO1;CAMPO2;CAMPO3;CAMPO4 (solo 4 campos)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar FRMIC.csv con esa fila corta incluida junto a filas normales de 7+ columnas.</paso>
+      <paso numero="2">Esperar la ejecución de RDRKYTL001.</paso>
+      <paso numero="3">Verificar el contenido de FRMIC_1.csv para esa fila concreta.</paso>
+      <paso numero="4">Verificar el estado final de RDRKYTL001.</paso>
+    </pasos>
+    <resultadoEsperado>La fila corta aparece en FRMIC_1.csv con únicamente sus 4 campos originales (sin relleno ni error); RDRKYTL001 termina OK.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de fichero + estado de Control-M</tipoValidacion>
+    <criterioAceptacion>FRMIC_1.csv contiene la fila corta tal cual, sin error en el job.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según el código de `cut` analizado; el test sirve para confirmar que el comportamiento real coincide con el análisis estático.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Dos filas con el mismo identificador (columna 1) y datos distintos</nombre>
+    <objetivo>Confirmar que no existe ninguna validación de unicidad por columna: dos filas con el mismo valor en la primera columna pero diferente en el resto se procesan y envían ambas. Campo que se repite: el valor de la columna 1 (identificador). Por qué provoca duplicidad: en un fichero de reporting MiFID, un identificador repetido con datos distintos sugiere un conflicto de negocio (¿cuál es el registro válido?), pero el pipeline no lo detecta.</objetivo>
+    <precondiciones>
+      <precondicion>FRMIC.csv contiene 2 filas con idéntico valor en la columna 1 y valores distintos en el resto de columnas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fila A" valor="ID001;VALOR_A2;VALOR_A3;VALOR_A4;VALOR_A5;VALOR_A6;VALOR_A7"/>
+      <dato campo="Fila B" valor="ID001;VALOR_B2;VALOR_B3;VALOR_B4;VALOR_B5;VALOR_B6;VALOR_B7"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar FRMIC.csv con ambas filas (mismo ID001, resto distinto).</paso>
+      <paso numero="2">Esperar la ejecución de RDRKYTL001.</paso>
+      <paso numero="3">Verificar que ambas filas aparecen en FRMIC_1.csv y FRMIC_2.csv.</paso>
+      <paso numero="4">Verificar que ambas se envían a Murex y mcm0501 sin filtrado.</paso>
+    </pasos>
+    <resultadoEsperado>Ambas filas (con el mismo ID001) se procesan y envían sin ninguna detección ni aviso de conflicto.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de fichero en origen y en los destinos de envío</tipoValidacion>
+    <criterioAceptacion>Las 2 filas con ID001 están presentes en ambos derivados y en ambos envíos, confirmando la ausencia de validación de unicidad (riesgo documentado en spec.md §9).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de script; fallaría solo si se introdujera en el futuro una validación no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="datos_sinteticos">
+    <nombre>3 filas sintéticas completamente idénticas</nombre>
+    <objetivo>Confirmar la ausencia total de control de duplicados a nivel de fila completa en todo el pipeline. Campo que se replica: la fila completa (las 7+ columnas). Cuántas veces se repite: 3. Qué valor se considera conflicto: cualquier repetición exacta de fila. Qué resultado confirma que la detección funciona: en este caso, ninguna — se confirma la ausencia de detección.</objetivo>
+    <precondiciones>
+      <precondicion>FRMIC.csv contiene 3 filas de datos con contenido exactamente idéntico entre sí, además de la cabecera.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fila sintética repetida x3" valor="SYN001;DUP;DUP;DUP;DUP;DUP;DUP (idéntica en las 3 apariciones)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar FRMIC.csv con las 3 filas idénticas.</paso>
+      <paso numero="2">Esperar la ejecución de la cadena completa.</paso>
+      <paso numero="3">Contar las apariciones de esa fila en FRMIC_2.csv y FRMIC_1.csv.</paso>
+      <paso numero="4">Contar las apariciones en el fichero recibido en Murex y en mcm0501.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 apariciones se mantienen intactas en cada etapa del pipeline y en ambos destinos, sin ninguna deduplicación.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de fichero en cada etapa y en los destinos finales</tipoValidacion>
+    <criterioAceptacion>Recuento de 3 apariciones idénticas confirmado en FRMIC_2.csv, FRMIC_1.csv y en ambos envíos.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; documenta explícitamente una ausencia de control, no un fallo del sistema.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Reejecución de RDRKYTL001 el mismo día con FRMIC_1.csv aún presente</nombre>
+    <objetivo>Confirmar el riesgo documentado: el `>>` de Cortar puede mezclar datos de dos ejecuciones del mismo día si FRMIC_1.csv no se ha movido todavía (MEKYTL0940 aún no ha corrido).</objetivo>
+    <precondiciones>
+      <precondicion>RDRKYTL001 ya se ejecutó hoy y generó FRMIC_1.csv con contenido A, pero MEKYTL0940 todavía no se ha ejecutado (cadena detenida o en curso en un paso intermedio).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Primera ejecución" valor="FRMIC.csv con fila de contenido A"/>
+      <dato campo="Segunda ejecución (relanzamiento manual)" valor="FRMIC.csv con fila de contenido B, distinto de A"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDRKYTL001 una primera vez con contenido A. Confirmar FRMIC_1.csv con esa fila.</paso>
+      <paso numero="2">Sin dejar que MEKYTL0940 se ejecute, sustituir FRMIC.csv por uno con contenido B y relanzar manualmente RDRKYTL001.</paso>
+      <paso numero="3">Verificar el contenido final de FRMIC_1.csv.</paso>
+    </pasos>
+    <resultadoEsperado>FRMIC_1.csv contiene las filas de ambas ejecuciones (A y B) mezcladas, en vez de solo las de la segunda, por el uso de `>>` en Cortar.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de fichero tras cada ejecución</tipoValidacion>
+    <criterioAceptacion>FRMIC_1.csv contiene tanto la fila A como la B tras la segunda ejecución.</criterioAceptacion>
+    <posibilidadFallo>Este es el comportamiento esperado (riesgo conocido, ver spec.md §9); el test señala una regresión si en algún momento cambia sin documentarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Flujo end-to-end de un día laborable típico</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo, desde la llegada de FRMIC.csv hasta el fin de RDR_MIFIDMIC_OUT.</objetivo>
+    <precondiciones>
+      <precondicion>FRMIC.csv válido disponible antes de las 6:00.</precondicion>
+      <precondicion>Toda la configuración de envío e historificación está correctamente establecida.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FRMIC.csv" valor="cabecera + filas de datos válidas, 7+ columnas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la llegada del fichero antes de las 6:00.</paso>
+      <paso numero="2">Esperar la ejecución automática completa de los 9 jobs.</paso>
+      <paso numero="3">Verificar que RDR_MIFIDMIC_OUT termina en "Ended OK".</paso>
+      <paso numero="4">Verificar la entrega en Murex y mcm0501 (+ flag) y la historificación de los 3 ficheros derivados.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa se ejecuta sin intervención manual, desde el disparo automático a las 06:00 hasta el fin de RDR_MIFIDMIC_OUT, con entrega e historificación correctas.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado de los 9 jobs) + inspección de filesystem en origen, destinos e histórico</tipoValidacion>
+    <criterioAceptacion>Los 9 jobs terminan "Ended OK"; ambos envíos externos y los 3 ficheros históricos existen con el contenido esperado.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo puntual de red/protocolo en los envíos (MEGENV0001.sh) haría fallar ese job y, por la dependencia secuencial (R9), bloquearía los siguientes de su rama.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
