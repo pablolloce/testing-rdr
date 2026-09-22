@@ -96,6 +96,7 @@ Entradas de Envío de roles GUIDO a EINS (RDR_GUIDO_PR_new):
 | Estructura real de RDR_clientesYYYYMMDD.csv | "La implementación Java posterior descompone esa cadena con split(\"\\|\") y escribe cada código en una línea independiente... CSV delimitado por ;, cabecera, un código por línea" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
 | Discrepancia query envío vs. conciliación | "La query obtenerCLIs... no aplica el filtro de sucursal activa 1145 ni excluye los 5 códigos hardcodeados... confirmada como inconsistencia/riesgo" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
 | Alcance de la conciliación | "La cadena no pertenece al folder Control-M KYTL0000-RDR_ALTAMIRAMEX_SEND. Debe quedar fuera del alcance de la orquestación de este proceso" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
+| Naturaleza de Cuenta_Registros_MMYYYY.csv | "Es generado" — confirmado que es un fichero de salida de Cuenta_Emisiones.sh (conteo diario acumulativo mensual), no un fichero recibido de un tercero | pablo.llorente@nfq.es | 2026-09-22 | Extracción de emisiones y mercados |
 
 ## 3. Lecciones de estructuración
 - El documento de análisis "funcional" de un proceso RDR suele describir el diccionario de datos de forma simplificada/idealizada; el diccionario real del fichero físico puede diferir sustancialmente (nombres de campo, número de campos, semántica de dominio). Verificar siempre antes de construir la especificación técnica. _(pablo.llorente, 2026-09-17)_
