@@ -28,6 +28,269 @@ emisiones, historificación/purga, extracción de datos de mercados y publicaci�
 comparten el mismo motor genérico `GSProcess.sh` (salvo la Cadena 5, que usa un script propio) y el mismo
 protocolo de soporte (grupo Remedy ANS RDR, `BZG03906`, `ans_rdr.es@bbva.com`).
 
+Las subsecciones 1.1 a 1.7 siguientes explican, cadena por cadena, la ejecución completa de principio a fin
+(disparador, jobs, comandos literales, eventos y comportamiento ante fallo), sin necesidad de cruzar con otras
+secciones del documento.
+
+### 1.1 Cadena 1 — `RDR_CUENTA_EMISIONES_new` (Conteo + Reporte)
+
+```
+ 23:40 — RDR_CUENTA_EMISIONES_IN (Dummy)
+      │  emite RDR_CUENTA_EMISIONES_new_IN_OK
+      ▼
+ CUENTA_EMISIONES (Cuenta_Emisiones.sh)
+      │  lee 5 fuentes (RE, SHS, RIMS, MENTOR, PRIIPS); fuente ausente → conteo 0, no bloquea
+      │  escribe (append incondicional, ver RISK-EMIS-001):
+      │    Cuenta_Registros_MMYYYY.csv         (conteo por tipo de producto, acumulado mensual)
+      │    Registros_Por_Destino_MMYYYY.csv    (conteo por destino, acumulado mensual)
+      │  luego copia el 2º sin fecha:
+      │    Emisiones_Emisores_Por_Destino.csv  (cp íntegro, cada ejecución lo sobrescribe)
+      │  emite RDR_CUENTA_EMISIONES_new_CUENTA_EMISIONES_OK
+      ▼
+ ENVIO_REPORTE_EMISIONES (GSProcess.sh EnvioReporteEmisiones)
+      │  Accion=Evento, tipo Workflow → executeBbvaEvent.sh fileloading SendMailReport ...
+      ▼
+ Workflow SendMailReport (.wkf real, parámetros CONSTANT hardcodeados — ver DEF-EMIS-001)
+      │  adjunta Emisiones_Emisores_Por_Destino.csv (contenido correcto, vía parámetro VARIABLE `File`)
+      │  asunto real: "Informe diario carga contrapartidas"   (NO "Reporte cuenta Emisiones - Emisores")
+      │  nombre adjunto real: "Report.csv"                     (NO Emisiones_Emisores_Por_Destino.csv)
+      ▼
+ 4 destinatarios: r.plaza.guijarro@, rdr_factory@, cesar.castillo@, miguel.munoz@bbva.com
+```
+
+**Paso 1 — `RDR_CUENTA_EMISIONES_IN`.** Dummy, servidor `MERCADOS-4`, usuario `xsramer1`. Arranca a las 23:40
+sin prerrequisito de evento (solo ventana horaria). Al finalizar, agrega el evento de arranque de la malla.
+
+**Paso 2 — `CUENTA_EMISIONES`.** Job OS/Script, `Cuenta_Emisiones.sh` (sin ruta documentada en la ficha, script
+real confirmado por evidencia GAP-EMIS-001/006). Lógica interna exacta (código fuente real):
+```bash
+function checkEnviroment () { ... }      # detecta $ENV (pr/pp/ei/de) por hostname
+function obtainVariables () {
+  FICHERO_CUENTA=$RUTA_CUENTA'Cuenta_Registros_'$DATE'.csv'          # DATE = mm+aaaa (mes/año actual)
+  FICHERO_FINAL=$RUTA_CUENTA'Registros_Por_Destino_'$DATE'.csv'
+  FICHERO_FINALSINFECHA=$RUTA_CUENTA'Emisiones_Emisores_Por_Destino.csv'
+}
+function generacuenta () {
+  if [ -f "$FICHERO_CUENTA" ]; then cuenta            # ya existe: NO vuelve a escribir cabecera
+  else echo "FECHA;RE TOTAL;...;REALESTA" >> $FICHERO_CUENTA ; cuenta
+  fi
+}
+function cuenta () {
+  # por cada fuente: si el fichero de hoy existe, cuenta <Security>/<Typ> con zcat+grep+wc -l; si no, todo a "0"
+  echo "$DATE_FICH ; $FILE_TOT ; ... ; $FILE_REALESTA" >> $FICHERO_CUENTA     # append SIEMPRE, sin comprobar duplicado
+  generadestino
+}
+function generadestino () {
+  # cabecera solo si $FICHERO_FINAL no existe
+  echo "$DATE_FICH; $FILE_RE ; ... ; $FILE_PRIIPS" >> $FICHERO_FINAL          # append SIEMPRE, sin comprobar duplicado
+}
+function copiaficheros () {
+  if [ -f "$FICHERO_FINAL" ]; then cp $FICHERO_FINAL $FICHERO_FINALSINFECHA ; fi   # copia íntegra, no append
+}
+checkEnviroment ; obtainVariables ; generacuenta ; copiaficheros
+```
+No hay ninguna comprobación de "¿ya existe una línea con la fecha de hoy?": ambos `echo ... >> $FICHERO` son
+incondicionales — de ahí **RISK-EMIS-001** (duplicidad ante relanzamiento el mismo día).
+
+**Paso 3 — `ENVIO_REPORTE_EMISIONES`.** `GSProcess.sh EnvioReporteEmisiones` — acción tipo Evento/Workflow.
+`GSProcess.sh` llama a `executeBbvaEvent.sh fileloading SendMailReport $CREDENTIALS $FICH_PROPERTIES`. El
+`PropertiesWorkflow` temporal que genera (campos `MOD_EJECUCION, Ruta, File, Servicio, BusinessFeed,
+SuccessAction, MessageType, TipoConciliacion, Tipo, TipoFichero, Tipologia, Paginacion, Entorno`) no lleva
+asunto ni nombre de adjunto, y además ni siquiera se usa en la llamada real (se pasa el `.properties` original).
+El Workflow `SendMailReport` real (`.wkf`) tiene `subject` y `attachmentsName[0]` como parámetros `CONSTANT`
+("Informe diario carga contrapartidas" / "Report.csv") — **no hay ningún mecanismo que los sobrescriba**: el
+correo sale literalmente con esos valores, no con "Reporte cuenta Emisiones - Emisores" /
+`Emisiones_Emisores_Por_Destino.csv` que indica la ficha funcional (**DEF-EMIS-001**). El adjunto `attachments[0]`
+sí es correcto (parámetro `VARIABLE`, contenido real de `Emisiones_Emisores_Por_Destino.csv`). Destinatarios
+reales (parámetros `CONSTANT recipients[0..3]`): `r.plaza.guijarro@bbva.com`, `rdr_factory@bbva.com`,
+`cesar.castillo@bbva.com`, `miguel.munoz@bbva.com`; remitente `moca.users.es@bbva.com`.
+
+### 1.2 Cadenas 2 y 3 — Extracción de emisiones vigentes y vencidas
+
+```
+ Cadena 2 (RDR_EXTRACCION_EMISIONES_new), L-V, 6 disparos/día:
+   14:25 / 15:25 / 16:25 / 17:25 / 18:20 / 18:40
+      │  cada disparo es independiente (mismo patrón Dummy-IN → OS → Dummy-OUT)
+      ▼
+ Cadena 3 (RDR_EXTRACCION_EMISIONES_VENCIDAS_new), L-V, 1 disparo/día:
+   09:25
+```
+
+Ambas cadenas son una **réplica funcional exacta** entre sí (mismo `.properties`, misma topología de 3 jobs),
+solo difieren en cuántas veces al día se disparan y en el ámbito de negocio (vigentes vs. vencidas):
+
+**Paso IN (Dummy).** `RDR_EXTRACCION_EMISIONES_IN` / `RDR_EXTRACCION_EMISIONES_VENCIDAS_IN`, servidor
+`MERCADOS-4`, usuario `xsramer1`. Arranca por ventana horaria (sin prerrequisito de evento), consume 1 unidad de
+`MAX-LPRDR501`, y agrega el evento `..._IN_OK` (o `..._IN_OK_new` según cadena) al finalizar.
+
+**Paso OS (`GSProcess.sh planifGenerico`).** `RDR_EXTRACCION_EMISIONES` / `RDR_EXTRACCION_EMISIONES_VENCIDAS`,
+servidor real de ejecución `pr-rdr.igrupobbva`, usuario `xakytl1p`, ruta
+`/pr/kytl/online/multipais/multicanal/scrt/`. Prerrequisito: el evento `..._IN_OK` del paso anterior. Lógica
+interna de `planifGenerico.properties` (el "Planificador Genérico", ya documentado en memoria):
+```
+Paso 1 — Script traducir_creden   → traduce credenciales de planificador.properties
+Paso 2 — Java ProjectMain.jar     → clase com.bbva.project.main.process.ProjectRunnableProcess
+                                     (ejecuta SQL y genera el fichero de extracción — caja negra, fuera de alcance)
+```
+Consume 1 unidad de `MAX-LPRDR501`. Al finalizar OK, agrega el evento de continuidad hacia el Dummy-OUT.
+Criticidad **A** (aviso inmediato) en ambas cadenas.
+
+**Paso OUT (Dummy).** `RDR_EXTRACCION_EMISIONES_OUT` / `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT`, mismo patrón que
+el IN: prerrequisito el evento del paso OS, agrega el evento de cierre de malla al finalizar. Ninguno de los 3
+jobs de ninguna de las 2 cadenas tiene acción On-Do documentada — un fallo real detiene la cadena.
+
+**Cadena 2 — nota de independencia entre disparos:** las 6 ventanas horarias son 6 ejecuciones completas
+independientes de los 3 jobs (no hay un único IN que dispare 6 veces al OS); cada ventana genera su propio ciclo
+IN → OS → OUT y su propio evento de cierre.
+
+### 1.3 Cadena 4 — `RDR_FUSION_EMISIONES`
+
+```
+ 01:00 AM (M-S) — GS_FUSION_EMISIONES (único job, sin Dummy IN/OUT documentado)
+      │  GSProcess.sh ProcesoDeFusion
+      ▼
+ ProcesoFusion.jar, clase proceso.ProcesoDeFusion, ArgJava1=2 (log INFO)
+      │  fusión de emisiones (merge) — lógica interna caja negra, fuera de alcance
+      ▼
+ fin (sin evento de salida ni sucesor documentado)
+```
+
+**Único paso — `GS_FUSION_EMISIONES`.** Job OS/Script, servidor real `pr-rdr.igrupobbva` (folder Control-M en
+`MERCADOS-4`), usuario `xakytl1p`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`. Arranca directamente por
+ventana horaria (01:00 AM, M-S) sin prerrequisito de evento documentado — no depende de ninguna otra cadena de
+este sistema. Consume 1 unidad de `MAX-LPRDR501`. Comando: `GSProcess.sh ProcesoDeFusion`, que ejecuta
+`ProcesoFusion.jar` (clase `proceso.ProcesoDeFusion`, `ArgJava1=2` = nivel de log INFO). Criticidad **S** (aviso
+día siguiente incluso si es festivo) — la más tolerante de las 7 cadenas. Sin On-Do documentado: un fallo real
+del JAR detiene el job (no hay evidencia de soft-failure en esta cadena).
+
+### 1.4 Cadena 5 — `RDR_HISTORIFICACION_EMISIONES`
+
+```
+ 06:00 AM, día 6 (Sábado, Control-M real — GAP-EMIS-003) — KYTL_HISTORIFICACION_EMISIONES
+      │  RDR_Procesar_Emisiones.sh (script propio, NO usa GSProcess.sh)
+      ▼
+ Paso 1: RDR_CrearIndices_Emisiones     (crearindices_emisiones.crearIndices, ArgJava5=1) ── crea índices BBDD
+      │  exit≠0 o "error" en log → exit -2, PARA AQUÍ (pasos 2-5 no ejecutan)
+      ▼
+ Paso 2: RDR_Emisiones_PLSQL_INAC       (main.Historificacion, HIST_INACTIVADOR_EMISIONES) ── inactiva vía PL/SQL
+      │  exit≠0 o "error" en log → exit -2, PARA AQUÍ (pasos 3-5 no ejecutan)
+      ▼
+ Paso 3: RDR_Emisiones_PLSQL_INCR       (main.Historificacion, INCR_HISTORIFICACION_EMISIONES) ── historif. incremental
+      │  exit≠0 o "error" en log → exit -2, PARA AQUÍ (pasos 4-5 no ejecutan)
+      ▼
+ Paso 4: RDR_Borrado_Emisiones          (main.BorradoEmisiones, ArgJava3=40) ── borra emisiones con >40 días
+      │  exit≠0 o "error" en log → exit -2, PARA AQUÍ (paso 5 no ejecuta)
+      ▼
+ Paso 5: RDR_BorrarIndices_Emisiones    (rdr.crearindices_emisiones.crearIndices, ArgJava5=2) ── borra los índices del paso 1
+      ▼
+ exit 0 — historificación completa del día
+```
+
+**Único job Control-M — `KYTL_HISTORIFICACION_EMISIONES`.** Folder `KYTL0000-RDR_HISTORIFICACION_EMISIONES`,
+servidor `MERCADOS-4`, User Daily específico `PLAN_1200`, Site Standard `KYTL0000_SS_PR_HR`. Servidor real de
+ejecución `pr-rdr.igrupobbva`, usuario `xakytl1p`, script `RDR_Procesar_Emisiones.sh` (**no** `GSProcess.sh`,
+a diferencia del resto del sistema). Programado exclusivamente en día `6` (Sábado) a las 06:00 AM en la
+configuración real de Control-M (GAP-EMIS-003) — el documento funcional dice "Diario (D)", pero se documenta el
+valor real como vigente. Sin prerrequisito de evento (arranca por ventana horaria); consume 1 unidad de
+`MAX-LPRDR501`. Criticidad **S**. Requiere JDK 17 (a diferencia del resto del sistema, JDK 64-bit genérico).
+
+Internamente ejecuta **5 sub-procesos GSProcess de forma estrictamente secuencial**, cada uno condicionado al
+éxito del anterior: crear índices → inactivar (PL/SQL) → historificación incremental (PL/SQL) → borrar
+emisiones con más de 40 días → borrar los índices creados en el paso 1. Los pasos 1 y 5 comparten el mismo JAR
+(`RDR_CrearIndices_Emisiones.jar`) con `ArgJava5` distinto (`1`=crear, `2`=borrar). **Ninguno de los 5
+sub-procesos usa Workflows** — todos son exclusivamente Java contra BBDD. Control de error: si cualquier paso
+falla (exit≠0) **o** su log contiene la cadena "error" (no solo el exit code), el script completo sale con
+`exit -2` inmediatamente y **no ejecuta ninguno de los pasos siguientes** — no hay reintento ni continuación
+parcial. Log real: `/fichtemcomp/$ENV/descargas/kytl/issues/borrado_emisiones_YYYY-MM-DD.log`.
+
+### 1.5 Cadena 6 — `RDR_MARKETS_EXTRACCION_new`
+
+```
+ 02:00 AM — RDR_MARKETS_EXT_IN (Dummy, usuario DUMMYUSR)
+      │  emite RDR_MARKETS_EXT_IN_OK_new
+      ▼
+ RDR_MARKETS_EXTRAC_FW (ctmfw nativo, usuario xpctma1)
+      │  ctmfw '/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv' CREATE 0 60 10 5 60
+      │
+      ├── código retorno = 0 (fichero detectado) ──▶ agrega RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new
+      │                                                continúa a MEKYTL0857
+      │
+      └── código retorno = 7 (timeout, no llega) ──▶ Marcar como OK (soft-failure ACOTADO, GAP-EMIS-008)
+                                                       MEKYTL0857 NO se ejecuta; sin historificación ese día
+      ▼ (solo si código = 0)
+ MEKYTL0857 (RAMERC0068.sh, PARM1=MEKYTL0857, usuario xsramer1)
+      │  historifica dictionaryMarkets.csv → /Backup/dictionaryMarkets_DDMMYYYY.csv
+      │  emite RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new   ← naming "BASKETS" anómalo pero real (GAP-EMIS-004)
+      ▼
+ fin de cadena
+```
+
+**Paso 1 — `RDR_MARKETS_EXT_IN`.** Dummy, servidor `MERCADOS-4`, usuario `DUMMYUSR`. Arranca a las 02:00 AM.
+Consume 1 unidad de `MAX-LPRDR501`. Agrega `RDR_MARKETS_EXT_IN_OK_new`.
+
+**Paso 2 — `RDR_MARKETS_EXTRAC_FW`.** Filewatcher nativo Control-M (`ctmfw`), servidor real `pr-rdr.igrupobbva`,
+usuario `xpctma1`. Prerrequisito: `RDR_MARKETS_EXT_IN_OK_new`. Comando exacto: `ctmfw
+'/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv' CREATE 0 60 10 5 60`. Consume 1 unidad de
+`MAX-LPRDR501`. **Acciones Si (confirmadas por captura real, GAP-EMIS-008):**
+- Código de retorno OS = 0 → agrega el evento `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`.
+- Código de retorno OS = 7 (timeout) → **Marcar como OK** — patrón acotado a este código específico de `ctmfw`
+  (mismo patrón ya visto en Cesión de Cestas a Abaco), no un "código ≠ 0 → OK" genérico. En este caso, el evento
+  de continuidad **no** se agrega, por lo que `MEKYTL0857` no llega a ejecutarse ese día.
+
+**Paso 3 — `MEKYTL0857`.** Job OS/Script, servidor real `pr-rdr.igrupobbva`, usuario `xsramer1`, script
+`RAMERC0068.sh` con `PARM1=MEKYTL0857`. Prerrequisito: `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`. Consume 1
+unidad de `MAX-LPRDR501`. Mueve `dictionaryMarkets.csv` de
+`/fichtemcomp/pr/descargas/kytl/markets/` a `/fichtemcomp/pr/descargas/kytl/markets/Backup/dictionaryMarkets_DDMMYYYY.csv`.
+Al finalizar OK, agrega el evento `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` — nombre confirmado real por captura
+de Control-M, con la palabra "BASKETS" pese a pertenecer a la cadena de Mercados/Emisiones, no a Cestas a Abaco
+(GAP-EMIS-004; ver anomalía de naming, sección 9). Sin sucesor documentado — es el último paso de la cadena.
+
+**Nota de discrepancia documental:** el documento funcional indica periodicidad "M-S" (Martes a Sábado) para
+esta cadena; la configuración real de Control-M para `RDR_MARKETS_EXT_IN` es "Avanzado (1, 2, 3, 4, 0)". Se
+documenta el valor real de Control-M como el vigente, siguiendo la regla ya aplicada en el resto del intake.
+
+### 1.6 Cadena 7 — `RDR_Selective_ISSUES`
+
+```
+ 03:00 AM (M-S) — PUBLICACIONSELECTIVA_EMISIONES (único job)
+      │  GSProcess.sh selectivePublishEmisiones
+      ▼
+ Workflow RDR_SelectivePublish, filtro IS_PUBLISH
+      │  publica las emisiones marcadas para publicación selectiva — lógica interna caja negra
+      ▼
+ fin (sin evento de salida ni sucesor documentado)
+```
+
+**Único paso — `PUBLICACIONSELECTIVA_EMISIONES`.** Job OS/Script, servidor real `pr-rdr.igrupobbva`, usuario
+`xakytl1p`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`. Arranca directamente por ventana horaria (03:00
+AM, M-S), sin prerrequisito de evento documentado. Comando: `GSProcess.sh selectivePublishEmisiones` →
+`selectivePublishEmisiones.properties` dispara `Accion=Evento` tipo Workflow: `RDR_SelectivePublish`, con filtro
+`IS_PUBLISH` (lógica interna del workflow no documentada, caja negra fuera de alcance). Criticidad **W** (aviso
+día siguiente). Sin On-Do documentado.
+
+### 1.7 Independencia entre las 7 cadenas
+
+Ninguna de las 7 cadenas tiene, en la evidencia real disponible, un evento Control-M que la conecte con otra
+cadena de este mismo sistema: cada una arranca por su propia ventana horaria (o su propio Dummy-IN) y termina
+sin un evento de cierre consumido por otra. Lo único que comparten es infraestructura y gobierno:
+
+```
+                    KYTL0000-RDR_* (servidor MERCADOS-4, aplicación KYTL)
+                    │
+   Cadena 1 (23:40) ─┤
+   Cadena 2 (6×/día) ─┤
+   Cadena 3 (09:25)  ─┼── recurso compartido: MAX-LPRDR501 (1/100 cada job) ──▶ sin coordinación de cupo documentada
+   Cadena 4 (01:00)  ─┤    entre cadenas (cada una consume su unidad de forma independiente)
+   Cadena 5 (06:00 sáb)┤
+   Cadena 6 (02:00)  ─┤
+   Cadena 7 (03:00)  ─┘
+                    │
+                    └── ANS RDR (BZG03906, ans_rdr.es@bbva.com) ◀── protocolo de soporte único ante KO real
+```
+
+Implicación de testing: las pruebas de cada cadena pueden ejecutarse de forma aislada sin necesidad de preparar
+el estado de ninguna otra cadena de este sistema como prerrequisito.
+
 ## 2. Alcance del proceso
 
 **Ámbito funcional — 7 cadenas:**
