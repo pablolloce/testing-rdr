@@ -20,6 +20,10 @@
 | Control-M | Herramienta de orquestación de cadenas (Server MERCADOS-4) | pablo.llorente | 2026-09-16 |
 | Planificador Genérico | Motor Java (ProjectMain.jar) que ejecuta SQL y genera ficheros CSV/TXT/XML según tablas FT_T_ATE1/QPF1/PAR1 | pablo.llorente | 2026-09-17 |
 | GoldenSource | Base de datos Oracle (BKYTL003 @ LDORA605:1525, usuario KYTL_GC) con tablas maestras ft_t_* | pablo.llorente | 2026-09-17 |
+| Legal Agreement | Contrato Marco de BBVA SA; tabla maestra FT_T_LAGR en KYTL_GC | pablo.llorente | 2026-09-22 |
+| Job Dummy | Job de Control-M sin efecto funcional que solo informa el fin de una rama | pablo.llorente | 2026-09-22 |
+| Pasarela (LPFTP501/502) | Máquina intermedia para envíos SFTP a terceros externos a la red BBVA | pablo.llorente | 2026-09-22 |
+| IHS Markit | Destino externo (SFTP-PROD.CAPPITECH.COM), único consumidor fuera de la red interna | pablo.llorente | 2026-09-22 |
 
 Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`):
 - **CADF (Calendars):** entidad RDR que cataloga días operativos/no operativos por mercado o divisa. _(pablo.llorente, 2026-09-17, Envío de Calendarios a Modelity)_
@@ -27,6 +31,8 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 - **GoldenSource:** origen de datos (tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`) desde el que se extrae `Calendarios.csv`. `MARKET_CODE`/`CAL_ID` son campos internos de este modelo y no viajan en el fichero físico. _(pablo.llorente, 2026-09-17)_
 - **RNUM:** correlativo de fila dentro de `Calendarios.csv`; no forma parte de la clave de negocio. _(pablo.llorente, 2026-09-17)_
 - **Criticidad W:** nivel de criticidad de job en Control-M = aviso al día siguiente (no inmediato). _(pablo.llorente, 2026-09-17)_
+- **Escala completa de criticidad (fichas EX-005-03):** W = aviso día siguiente; S = aviso día siguiente incluso si es festivo; C = aviso inmediato. Complementa la entrada anterior. _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- **ODATE+2:** desplazamiento de la fecha de proceso dos días, usado cuando el calendario del sistema destino no coincide con el de la cadena (p. ej. la variante sabatina de la rama IHS Markit). _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
 - **Convención general:** el diccionario de datos "de alto nivel" de un documento de análisis puede no coincidir con la estructura física real del fichero — verificar siempre contra el CSV/fichero real antes de dar por buena una especificación de campos. _(pablo.llorente, 2026-09-17)_
 - **RAMERC0068.sh:** script genérico de manipulación de ficheros (copia, chown, historificación) reutilizado en varias cadenas RDR (Calendarios, Altamira Colombia, Altamira/Bancomer México), parametrizado por `PARM1`. _(pablo.llorente, 2026-09-18)_
 - **DataX / datax-agent:** plataforma e infraestructura de transmisión de ficheros distinta de RDR (host `datax-live`, servidor Control-M `MERCADOS-1`), con cuentas de ejecución propias (p. ej. `epsilon-ctlm`) ajenas a las cuentas RDR habituales (`xakytl1p`, `xsramer1`, etc.). _(pablo.llorente, 2026-09-18, Envío a Altamira/Bancomer México)_
@@ -58,6 +64,14 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 | Estructura real de RDR_clientesYYYYMMDD.csv | "La implementación Java posterior descompone esa cadena con split(\"\\|\") y escribe cada código en una línea independiente... CSV delimitado por ;, cabecera, un código por línea" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
 | Discrepancia query envío vs. conciliación | "La query obtenerCLIs... no aplica el filtro de sucursal activa 1145 ni excluye los 5 códigos hardcodeados... confirmada como inconsistencia/riesgo" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
 | Alcance de la conciliación | "La cadena no pertenece al folder Control-M KYTL0000-RDR_ALTAMIRAMEX_SEND. Debe quedar fuera del alcance de la orquestación de este proceso" | pablo.llorente | 2026-09-18 | Envío a Altamira/Bancomer México |
+| Dependencias entre jobs en Control-M | "En ese caso si" (el sucesor arranca aunque el predecesor acabe KO): las dependencias son de ORDEN, no de éxito | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Fallo de validación XSD | "No si no se pasa el XSD da fallo y falla la cadena" — el flag "Force OK" de las fichas NO refleja el comportamiento real | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Protocolo ante fallo de extracción | "en caso de fallo se para" | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Aislamiento de envíos | "Los envios no entran en el target de este proyecto pero si fallase un envio por cualquier cosa no afectaria al resto de envios" | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Jobs sin documentar en una ficha | "los que no esten serán porque estan decomisdados" | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Job marcado "(dummy)" | "si aparece como dummy si infroma y ya esta no hay mas info al respecto" | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Entornos de prueba | "Si eson esos entornos pero todavia hay que definirlo entonces continuaremos sin definirlo" | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
+| Viabilidad de datos sintéticos | "si es vaible" (sobre las 19 tablas de KYTL_GC) | pablo.llorente | 2026-09-22 | RDR_BBVACONTRACTS_new |
 
 ## 3. Lecciones de estructuración
 - El documento de análisis "funcional" de un proceso RDR suele describir el diccionario de datos de forma simplificada/idealizada; el diccionario real del fichero físico puede diferir sustancialmente (nombres de campo, número de campos, semántica de dominio). Verificar siempre antes de construir la especificación técnica. _(pablo.llorente, 2026-09-17)_
@@ -71,6 +85,12 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 - Cuando un sistema documenta varias cadenas Control-M como un único "sistema"/proceso de negocio (p. ej. P-021 con 8 cadenas), preguntar explícitamente al usuario si prefiere una especificación por cadena o una única especificación consolidada, en vez de asumir la granularidad — el tamaño y la complejidad de tratar 8 cadenas en un solo intake sin acotar el alcance puede ser inmanejable. _(pablo.llorente, 2026-09-21, Sistema P-021)_
 - Cuando faltan la query SQL y el diccionario de datos de un fichero generado (y no hay muestra real disponible), no forzar un caso de prueba de tipo `datos_sinteticos` inventando una estructura — documentar la limitación de evidencia explícitamente y, si aplica, reinterpretar `duplicidad` a nivel de re-ejecución/fichero completo en lugar de a nivel de registro individual. _(pablo.llorente, 2026-09-21, RDR_BANCARIZACION_new)_
 - Patrón de riesgo a vigilar en cadenas con Fan-Out sin Fan-In: cuando varias ramas paralelas terminan de forma independiente sin converger en un marcador de cierre único, no asumir que existe un indicador global de "cadena completada" — cada rama debe verificarse por separado. _(pablo.llorente, 2026-09-21, RDR_BANCARIZACION_new)_
+- **Fichero huérfano:** buscar siempre ficheros que algún job lee pero que ningún job documentado genera. Ha aparecido en dos procesos: `DictionaryIndex_TOTAL.csv` (lo generaba el Planificador Genérico, externo a la cadena) y `BBVAContracts.csv` (lo genera el transformador `BBVA_Contrats_CSV.xsl` declarado en el properties). _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- Cuando el usuario cuestiona un dato del análisis ("¿de dónde sacas eso?"), tener localizada la **cita literal del documento fuente** resuelve la discusión en un paso y suele revelar que el error está en la ficha, no en el análisis. _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- Las fichas de Control-M contienen datos obsoletos con frecuencia: ventanas de filewatcher anteriores a la hora de arranque de la cadena, flags "Force OK" que no reflejan el comportamiento real, nombres de job renombrados sin actualizar el documento de la cadena. Contrastar siempre contra el usuario y dejar la verificación en Control-M como riesgo explícito. _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- Cuando el usuario responde a una tanda de preguntas **devolviendo a su vez preguntas propias**, hay que responderlas y cerrar el ciclo antes de generar la salida — no generar directamente asumiendo que la tanda está cerrada. _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- Decomisiones en cascada: al confirmarse que un destino está decomisado, revisar qué jobs del flujo vivo tenían ese destino como única función documentada — pueden seguir siendo nodos de secuencia imprescindibles para el resto de ramas (caso `MEKYTL0895`, cuyo nombre y descripción aluden a una transformación a Mentor que ya no realiza). _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
+- Cadencias mixtas dentro de una misma rama: un job de envío mensual encadenado con jobs de historificación diaria solo es coherente si las dependencias son de orden y no de éxito. Detectar el patrón "predecesor con calendario restringido" y preguntar explícitamente por él, porque de lo contrario parece un bloqueo permanente. _(pablo.llorente, 2026-09-22, RDR_BBVACONTRACTS_new)_
 
 ## 4. Registro de procesos ya analizados
 | Proceso | Usuario | Fecha | Documento de salida generado |
@@ -81,6 +101,7 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 | Envío a Altamira Colombia (P-035 / RDR_ALTAMIRA_COLOMBIA_SEND) | pablo.llorente | 2026-09-17 | salidas/envio_altamira_colombia/ |
 | Envío de Datos a Altamira/Bancomer México (RDR_ALTAMIRAMEX_SEND) | pablo.llorente | 2026-09-18 | salidas/envio_altamira_bancomer_mexico/ |
 | RDR_BANCARIZACION_new (1/8 cadenas del sistema P-021) | pablo.llorente | 2026-09-21 | salidas/rdr_bancarizacion/ |
+| RDR_BBVACONTRACTS_new (Cesión de Contratos BBVA / Legal Agreements) | pablo.llorente | 2026-09-22 | `salidas/cesion_contratos_bbva/` → `spec.md` + `prerrequisitos.md` + `casos_prueba.xml` (18 TC). Alcance reducido a 1 cadena: `_M`, `_L`, `RESPUESTA_MENTOR_LA_BBVA_M`, `DIF_MENTOR_BBVA_new` y el destino Mentor están DECOMISADOS. Todos los gaps funcionales cerrados en sesión; quedan 4 verificaciones documentales sobre Control-M |
 
 ## 5. Supuestos y decisiones pendientes de confirmación
 > Hipótesis de simulacro o pendientes de confirmar por un usuario. No deben usarse como
@@ -98,6 +119,11 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 | Cierre asimétrico de cadena (MEKYTL1221 no conectado a RDR_ALTAMIRAMEX_SEND_OUT) | Envío a Altamira/Bancomer México | pablo.llorente | Riesgo confirmado, no resuelto | Control-M puede marcar la cadena como completada con éxito aunque la transmisión a DataX falle; prioridad alta antes de confiar en el estado de Control-M como indicador de éxito real |
 | Formato de fecha en el comando datax-agent (YYYYMMDD vs AAMMDD sobre la misma variable %%$ODATE.) | Envío a Altamira/Bancomer México | pablo.llorente | Pendiente de evidencia en vivo | No confirmado con logs reales de ejecución; tratado en el caso de prueba TC-011 |
 | Posible duplicidad de código ALID entre sucursales distintas en el fichero aplanado | Envío a Altamira/Bancomer México | pablo.llorente | Pendiente | No confirmado con datos reales; comportamiento a observar en el caso de prueba TC-005 |
+| Ventana de `FW_BBVAContracts_RDR_1` documentada 09:30–11:15, anterior al arranque de las 13:00 | RDR_BBVACONTRACTS_new | pablo.llorente | Pendiente | Prevalece la secuencia de ejecución confirmada por el usuario; verificar la definición vigente en Control-M antes de ejecutar pruebas |
+| Flag `forzar_ok: true` en `VALIDACION_XSD_EXTRACT_BBVA` | RDR_BBVACONTRACTS_new | pablo.llorente | Contradicho por el usuario | El usuario confirma que el fallo de XSD detiene la cadena; corregir la ficha o verificar Control-M. Es el único control de calidad del fichero en toda la cadena |
+| Los ~8 pasos no documentados de los 30 declarados son jobs decomisados | RDR_BBVACONTRACTS_new | pablo.llorente | Confirmado verbalmente | Pendiente contrastar con el inventario de jobs activos de Control-M |
+| Job concreto que aplica el transformador `BBVA_Contrats_CSV.xsl` | RDR_BBVACONTRACTS_new | pablo.llorente | Pendiente | El usuario confirma que lo genera el properties; no se ha identificado en qué job se ejecuta la transformación |
+| Entornos de ejecución de pruebas | RDR_BBVACONTRACTS_new | pablo.llorente | Aplazado por el usuario | Decisión expresa de continuar sin definirlos |
 | Discrepancia de naming en MEKYTL0157 (espacio "Clientes"/"Bancarizacion") | RDR_BANCARIZACION_new | pablo.llorente | Pendiente | Confirmada como discrepancia documental abierta, sin poder determinar si es errata o requisito real del receptor MVP00G215; tratado en TC-005 |
 | Ausencia de query SQL/diccionario de datos del reporte de bancarización | RDR_BANCARIZACION_new | pablo.llorente | Pendiente (sin evidencia adicional disponible) | Limita el diseño de validaciones de contenido y de un caso de duplicidad de datos a nivel de registro |
 | Comportamiento de MVP00G200 ante la sobrescritura de BANCARIZA.txt sin fecha | RDR_BANCARIZACION_new | pablo.llorente | Pendiente | Se asume que el receptor consume/mueve el fichero antes del siguiente ciclo; no verificado directamente por el agente |
