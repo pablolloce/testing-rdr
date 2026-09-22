@@ -118,7 +118,9 @@ fichero de log.
 ### Directorio de trabajo
 
 `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/` debe existir y tener permisos de
-escritura para `xakytl1p`. La extracción escribe `ExtraccionContingenciaCONT.xml.tmp` y lo
+escritura para `xakytl1p`. **Este directorio lo comparte con otro flujo**, el que produce
+`DominiosContactosRDR.csv` para BPS & Fraud: ningún job de esta cadena lo toca, pero la
+preparación y la limpieza del entorno de pruebas deben respetarlo. La extracción escribe `ExtraccionContingenciaCONT.xml.tmp` y lo
 renombra a `.xml`, por lo que el sistema de ficheros debe permitir el renombrado atómico dentro
 del mismo directorio.
 
@@ -151,20 +153,27 @@ de 7 días, cada uno mantiene en régimen estacionario del orden de 5 ficheros.
 > borrado recursivo como `root` y un desajuste entre la ruta que se puebla y la que se purga
 > dejaría un directorio creciendo sin límite.
 
-### Directorio de disponibilización para DataX
+### Directorio de disponibilización de DataX
 
 `/unload/kytl/datsal/datax/` debe existir y admitir escritura. Según la nota operativa de la
 ficha, este directorio pertenece a la máquina `LPRDR501` / `LPRDR602` y su propietario es
 `xtkytl1p`, mientras que el job que escribe en él (`MEKYTL1177`) se ejecuta como `root`.
 
+Es un directorio **compartido por todas las cesiones de RDR vía DataX**, no exclusivo de este
+proceso: el inventario de la wiki registra 18 ficheros distintos disponibilizándose ahí. Las
+pruebas no deben asumir que el directorio contiene solo el fichero de contactos.
+
 ## 4. Conectividad con los sistemas destino
 
-La recepción en DataX y SAIT queda fuera del alcance, pero los jobs de envío no pueden
-completarse sin estos elementos:
+La recepción en IHS Markit y SAIT queda fuera del alcance, pero los jobs no pueden completarse
+sin estos elementos. Nótese la asimetría entre las dos ramas: la de SAIT realiza un **envío
+efectivo** a través de la pasarela, mientras que la de Markit solo **disponibiliza** el fichero
+en un directorio del que lo recoge una transferencia ajena a RDR (ver `spec.md` §4.5 y la
+memoria transversal `memoria/memoria_datax_RDR.md`).
 
 | Destino | Requisito |
 |---------|-----------|
-| DataX | Escritura en `/unload/kytl/datsal/datax/`. El fichero se disponibiliza como DataObject `x_kytlcontacts_1`. Contacto aplicativo: `soporte.markit.reporting.es@bbva.com` |
+| IHS Markit (vía DataX) | Escritura en el directorio de disponibilización `/unload/kytl/datsal/datax/`. El fichero se publica como DataObject `x_kytlcontacts_1`. **La transferencia hasta Markit la monta el sistema destino**, no RDR, y puede cambiar sin aviso. Contacto: `soporte.markit.reporting.es@bbva.com` |
 | Pasarela | Acceso a `lpftp503:/unload/transmisiones/KYTL/` para el usuario `xsramer1` |
 | SAIT | Conectividad desde la pasarela `lpftp503` hacia la máquina `150.100.230.96`. Contacto aplicativo: `bex-sait.group@bbva.com` |
 

@@ -155,11 +155,11 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-06" tipo="happy_path">
-    <nombre>Disponibilización del fichero completo a DataX</nombre>
-    <objetivo>Verificar que MEKYTL1177 deja el fichero completo, sin filtrar, en la ruta de disponibilización de DataX.</objetivo>
+    <nombre>Disponibilización del fichero completo para IHS Markit</nombre>
+    <objetivo>Verificar que MEKYTL1177 deja el fichero completo, sin filtrar, en el directorio de disponibilización de DataX, desde donde IHS Markit lo recoge mediante el DataObject x_kytlcontacts_1. El alcance del caso termina en ese directorio: la transferencia hasta Markit la monta y la controla el sistema destino y no es verificable desde RDR.</objetivo>
     <precondiciones>
       <precondicion>ExtraccionContingenciaCONT.xml generado con un número conocido de contactos, incluyendo mexicanos y no mexicanos.</precondicion>
-      <precondicion>Ruta /unload/kytl/datsal/datax/ accesible en escritura.</precondicion>
+      <precondicion>Directorio de disponibilización /unload/kytl/datsal/datax/ accesible en escritura.</precondicion>
       <precondicion>Script RAMERC0068.sh desplegado.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -167,20 +167,24 @@
       <dato campo="parametro" valor="MEKYTL1177"/>
       <dato campo="usuario" valor="root"/>
       <dato campo="origen" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/ExtraccionContingenciaCONT.xml"/>
-      <dato campo="destino" valor="/unload/kytl/datsal/datax/"/>
+      <dato campo="directorio_disponibilizacion" valor="/unload/kytl/datsal/datax/"/>
+      <dato campo="sistema_destino" valor="IHS Markit (soporte.markit.reporting.es@bbva.com)"/>
       <dato campo="dataobject" valor="x_kytlcontacts_1"/>
+      <dato campo="fichero_ajeno_en_CONT" valor="DominiosContactosRDR.csv, de otro flujo — no debe verse afectado"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar MEKYTL1177 tras una extracción correcta.</paso>
       <paso numero="2">Verificar que el job termina en OK.</paso>
-      <paso numero="3">Verificar que el fichero existe en la ruta de disponibilización.</paso>
+      <paso numero="3">Verificar que el fichero existe en el directorio de disponibilización con el nombre ExtraccionContingenciaCONT.xml.</paso>
       <paso numero="4">Comparar el contenido con el origen y confirmar que contiene TODOS los contactos, no solo los mexicanos.</paso>
       <paso numero="5">Verificar que el fichero origen permanece en CONT/, ya que aún debe ser historificado.</paso>
+      <paso numero="6">Verificar que DominiosContactosRDR.csv, si existe en CONT/ por pertenecer a otro flujo, no se ha visto alterado ni copiado.</paso>
+      <paso numero="7">Dejar constancia de que la verificación termina aquí: no se comprueba la recepción en IHS Markit, porque la transferencia la monta el sistema destino y puede cambiar sin aviso a RDR.</paso>
     </pasos>
-    <resultadoEsperado>Fichero íntegro en la ruta de DataX con el universo completo de contactos. El fichero origen se mantiene para los jobs posteriores.</resultadoEsperado>
+    <resultadoEsperado>Fichero íntegro en el directorio de disponibilización con el universo completo de contactos, incluidos los no mexicanos. El fichero origen se mantiene para los jobs posteriores y ningún fichero ajeno del directorio CONT/ resulta afectado.</resultadoEsperado>
     <tipoValidacion>Estado del job; comparación por checksum entre origen y destino; conteo de ContactDetail en el fichero disponibilizado.</tipoValidacion>
-    <criterioAceptacion>Fichero completo en destino, idéntico al origen, y origen intacto.</criterioAceptacion>
-    <posibilidadFallo>Baja — es una copia sin transformación. El punto a confirmar es que DataX recibe el universo completo y no el subconjunto de SAIT.</posibilidadFallo>
+    <criterioAceptacion>Fichero completo en el directorio de disponibilización, idéntico al origen, y origen intacto. La entrega efectiva a IHS Markit queda fuera del criterio por no ser observable desde RDR.</criterioAceptacion>
+    <posibilidadFallo>Baja — es una copia sin transformación. El punto a confirmar es que se disponibiliza el universo completo y no el subconjunto de SAIT.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-07" tipo="happy_path">

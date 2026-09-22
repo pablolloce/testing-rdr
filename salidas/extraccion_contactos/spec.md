@@ -1,6 +1,6 @@
 # Especificación — Extracción Genérica de Contactos
 
-> - Proceso: Extracción diaria del universo de contactos y distribución a DataX y SAIT
+> - Proceso: Extracción diaria del universo de contactos y distribución a IHS Markit y SAIT
 > - Cadena cubierta: `RDR_EXTRACCION_CONTACTOS` (folder `KYTL0000-RDR_EXTRACCION_CONTACTOS`), L-V
 > - Usuario: pablo.llorente
 > - Fecha de generación: 2026-09-22
@@ -9,6 +9,8 @@
 >   - `ExtraccionGenericaCONT.properties` (aportado en sesión)
 >   - `sait.xsl` (aportado en sesión)
 >   - `ExtraccionCONT.sql` y `ExtraccionContingenciaCONT.sql` (SQL literal, aportado en sesión)
+>   - `ef80ab24-Env_os_por_DataX_RDR___MoCA___Alert_Mirror.pdf` (inventario de transferencias DataX)
+> - Memoria transversal aplicable: `memoria/memoria_datax_RDR.md`
 
 ---
 
@@ -18,8 +20,9 @@ El proceso "Extracción Genérica de Contactos" genera diariamente (L-V) un fich
 universo completo de contactos vigentes de la plataforma GoldenSource RDR y lo distribuye a dos
 sistemas consumidores con alcances distintos:
 
-- **DataX** recibe el fichero completo, `ExtraccionContingenciaCONT.xml`, con todos los
-  contactos.
+- **IHS Markit** recibe el fichero completo, `ExtraccionContingenciaCONT.xml`, con todos los
+  contactos. La entrega no la hace la cadena: `MEKYTL1177` deja el fichero en el directorio de
+  disponibilización de DataX y es el sistema destino quien monta la transferencia (§4.6).
 - **SAIT** recibe `RDR_contactosSAIT.xml`, un **subconjunto restringido a México**: solo los
   contactos con acuerdos legales de la sucursal `1145` o con instrucciones de confirmación de
   la sucursal `MEX`.
@@ -53,15 +56,16 @@ de filewatcher ni de validación de esquema en ningún punto.
 | Motor | `ExtraccionGenericaOtherEntities.jar`, clase `Ppal`, `ArgJava6=CONT` |
 | Queries | `ExtraccionCONT.sql` (maestra) y `ExtraccionContingenciaCONT.sql` (detalle), ambas en `FT_T_ATE1` |
 | Transformación | `XSLT_TO_XML` con `sait.xsl`, dentro del job de extracción |
-| Distribución | DataX (`MEKYTL1177`) y SAIT (`MEKYTL1189` → `MEKYTL1189_SND`) |
-| Historificación | `MEKYTL1027` (rama DataX) y `MEKYTL1190` (rama SAIT) |
+| Distribución | IHS Markit vía DataX (`MEKYTL1177`, disponibilización) y SAIT vía pasarela (`MEKYTL1189` → `MEKYTL1189_SND`, envío efectivo) |
+| Historificación | `MEKYTL1027` (rama Markit/DataX) y `MEKYTL1190` (rama SAIT) |
 | Purga | `MANT_RDR_EXTRACCION_CONTACTOS` y `MANT_RDR_EXTRACCION_CONT_SAIT`, retención 7 días |
 
 ### 2.2 Fuera del alcance
 
 | Elemento excluido | Motivo |
 |-------------------|--------|
-| Recepción y procesamiento en DataX y SAIT | Los sistemas destino son consumidores externos a la cadena |
+| Recepción y procesamiento en IHS Markit y SAIT | Los sistemas destino son consumidores externos a la cadena |
+| **La transferencia de DataX hacia IHS Markit** | La monta y la controla el sistema destino, no RDR. Nombre, hora, máquina y ruta de destino pueden cambiar sin comunicarlo a RDR (§4.6) |
 | Contactos con una asignación de sucursal a la organización `A15` | Excluidos por la propia query maestra (ver §4.3) |
 
 ---
@@ -84,13 +88,14 @@ de filewatcher ni de validación de esquema en ningún punto.
 | R-12 | `sait.xsl` restringe el fichero de SAIT a los contactos que tengan al menos un acuerdo legal con `AgreementORGID = '1145'` **o** al menos una instrucción de confirmación con `SCIsBranch = 'MEX'`. SAIT es un consumidor exclusivamente mexicano. |
 | R-13 | Dentro de cada contacto seleccionado, `sait.xsl` conserva únicamente los elementos `AgreementsInf` con `AgreementORGID = '1145'` y los `SCIsInf` con `SCIsBranch = 'MEX'`, descartando el resto. |
 | R-14 | `sait.xsl` elimina del fichero de SAIT todo elemento cuyo contenido normalizado esté vacío, en cascada. |
-| R-15 | `MEKYTL1177` copia `ExtraccionContingenciaCONT.xml` a `/unload/kytl/datsal/datax/` para su disponibilización como DataObject `x_kytlcontacts_1` en DataX, mediante `RAMERC0068.sh` bajo el usuario `root`. |
+| R-15 | `MEKYTL1177` copia `ExtraccionContingenciaCONT.xml` a `/unload/kytl/datsal/datax/` mediante `RAMERC0068.sh` bajo el usuario `root`, **disponibilizándolo** como DataObject `x_kytlcontacts_1`. La responsabilidad de la cadena termina ahí: la transferencia hasta IHS Markit la monta el sistema destino. |
 | R-16 | `MEKYTL1027` historifica los ficheros con máscara `ExtraccionContingenciaCONT_*.xml` al subdirectorio `CONT/backup/`, y `MANT_RDR_EXTRACCION_CONTACTOS` purga de ese directorio los ficheros con más de 7 días. |
 | R-17 | `MEKYTL1189` copia `RDR_contactosSAIT.xml` a la pasarela `lpftp503:/unload/transmisiones/KYTL/` mediante `MEGENV0001.sh`, y `MEKYTL1189_SND` lo transmite desde la pasarela a la máquina `150.100.230.96` (SAIT) nombrándolo `RDR_contactosSAIT_YYYYMMDD.xml`. |
 | R-18 | `MEKYTL1190` mueve `RDR_contactosSAIT.xml` a `CONT/SAIT/old/RDR_contactosSAIT_YYYYMMDD.xml`, con la fecha del ODATE de ejecución. |
 | R-19 | `MANT_RDR_EXTRACCION_CONT_SAIT` purga de `CONT/SAIT/old/` los ficheros con más de 7 días mediante `find ... -mtime +7 -exec rm -r`, y cierra la cadena sin eventos de salida. |
 | R-20 | Todos los jobs de la cadena tienen nivel de criticidad W (aviso al día siguiente). |
 | R-21 | El fichero `RDR_contactosSAIT.xml` no debe generarse vacío en ninguna circunstancia. Un fichero sin contactos no es una salida válida del proceso. |
+| R-22 | El consumidor de `ExtraccionContingenciaCONT.xml` es **IHS Markit**, que lo recibe a través de la plataforma DataX mediante el DataObject `x_kytlcontacts_1`. La transferencia desde el directorio de disponibilización la monta y la controla el sistema destino, no RDR. |
 
 ---
 
@@ -102,9 +107,9 @@ Los 9 jobs se ejecutan en línea recta, sin ramas paralelas:
 
 ```
 GS_EXTRACCION_CONT
-  └─► MEKYTL1177 (DataX)
+  └─► MEKYTL1177 (disponibiliza para IHS Markit)
         └─► EXTRACCION_CONTACTOS_XML (Dummy)
-              └─► MEKYTL1027 (historificación DataX)
+              └─► MEKYTL1027 (historificación rama Markit)
                     └─► MANT_RDR_EXTRACCION_CONTACTOS (purga backup/)
                           └─► MEKYTL1189 (copia a pasarela)
                                 └─► MEKYTL1189_SND (envío a SAIT)
@@ -114,8 +119,8 @@ GS_EXTRACCION_CONT
 
 **Las dependencias son de éxito, no de orden.** El usuario confirma que si un job falla, su
 sucesor no llega a ejecutarse. Esto tiene una consecuencia de diseño relevante: al ser la
-cadena lineal y estar la rama de SAIT *después* de la de DataX, **un fallo en la
-disponibilización a DataX deja a SAIT sin fichero ese día**, aunque la transformación a SAIT ya
+cadena lineal y estar la rama de SAIT *después* de la de Markit, **un fallo en la
+disponibilización deja a SAIT sin fichero ese día**, aunque la transformación a SAIT ya
 se haya generado correctamente en el primer job. Los dos consumidores no son independientes
 entre sí pese a recibir ficheros distintos.
 
@@ -242,13 +247,71 @@ byte entre ejecuciones**: debe compararse el conjunto de contactos, no la secuen
 obtención del detalle de un contacto falla, falla la extracción y se produce un fallo de cadena.
 No existe el escenario de fichero parcial silencioso: o se genera el universo completo o no se
 genera nada. Es la única salvaguarda de integridad del proceso, dado que no hay validación
-posterior (§4.6).
+posterior (§4.7).
 
 El argumento `ArgJava3=20` del properties es, previsiblemente, el tamaño del pool de hilos —el
 mismo valor aparece en la configuración de Contratos BBVA—, pero el documento no lo confirma y
 no se ha verificado contra el código.
 
-### 4.5 Transformación a SAIT (`sait.xsl`)
+### 4.5 Disponibilización a IHS Markit vía DataX
+
+**La cadena no envía nada a DataX, y DataX no es el consumidor.** Es la interpretación más fácil
+de hacer mal al leer la ficha de `MEKYTL1177`, que se titula *"Disponibilización de la extracción
+genérica de emisiones (contactos) hacia la plataforma DataX mediante copiado de fichero"* y que
+etiqueta un correo como *"Contacto Aplicativo Destino (DataX)"*.
+
+Según el inventario de transferencias de la wiki interna de RDR:
+
+| Campo | Valor |
+|-------|-------|
+| Fichero origen RDR | `ExtraccionContingenciaCONT.xml` |
+| Ruta origen | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/` |
+| Directorio de disponibilización | `/unload/kytl/datsal/datax` |
+| DataObject | `x_kytlcontacts_1` |
+| **Sistema destino** | **IHS Markit** |
+| Contacto destino | `soporte.markit.reporting.es@bbva.com` |
+
+DataX es una **plataforma de transferencia**, no un sistema consumidor. Lo que hace `MEKYTL1177`
+es copiar el fichero al directorio de disponibilización; a partir de ahí, en palabras de la
+wiki:
+
+> *"Desde RDR se disponibilizan los ficheros y son los sistemas destino los que montan las
+> transferencias. […] El resto de datos de la transferencia (nombre, hora, máquina/ruta destino,
+> parámetros…) pueden ser cambiados por el sistema destino sin comunicarlo a RDR."*
+
+Esto tiene tres consecuencias directas sobre el alcance y sobre el diseño de pruebas:
+
+1. **La responsabilidad de la cadena termina en `/unload/kytl/datsal/datax`.** El criterio de
+   aceptación de TC-06 no puede ir más allá del fichero depositado en ese directorio.
+2. **La transferencia está fuera de la observabilidad de RDR.** Ni su configuración ni su
+   ejecución son visibles desde Control-M, y el sistema destino puede modificarla sin aviso. No
+   es posible escribir un caso de prueba que verifique la recepción en IHS Markit.
+3. **El identificador estable es el DataObject, no la ruta ni el nombre del fichero en destino.**
+   `x_kytlcontacts_1` es el dato por el que preguntar al investigar una incidencia de entrega.
+
+> **El correo de la ficha corresponde a IHS Markit, no a DataX.** La ficha de `MEKYTL1177`
+> presenta `soporte.markit.reporting.es@bbva.com` bajo el rótulo "Contacto Aplicativo Destino
+> (DataX)". El inventario confirma que es el contacto del sistema destino real. El rótulo de la
+> ficha es engañoso y conviene corregirlo.
+
+> **IHS Markit recibe datos de RDR por dos vías independientes.** Los contactos llegan por DataX
+> (`x_kytlcontacts_1`) y los contratos marco llegan por la pasarela SFTP a
+> `SFTP-PROD.CAPPITECH.COM`, según el análisis de `RDR_BBVACONTRACTS_new` recogido en
+> `salidas/cesion_contratos_bbva/`. Son circuitos distintos y no deben confundirse al diagnosticar
+> una incidencia de Markit.
+
+> **El directorio `CONT/` está compartido con otro flujo.** El mismo inventario registra un
+> segundo fichero de contactos, `DominiosContactosRDR.csv`, que sale de esa misma ruta con
+> DataObject `x_kytlextracciondominios_1` hacia **BPS & Fraud**
+> (`cib_fraud_domains@bbva.com`). No lo genera esta cadena y ningún job de ella lo toca —la
+> máscara de historificación es `ExtraccionContingenciaCONT_*.xml` y la purga opera sobre
+> `CONT/backup/`—, pero cualquier operación con comodines sobre `CONT/` afectaría a un flujo
+> ajeno. Ver §8 — RG-17.
+
+El detalle completo del modelo de DataX y el inventario de las 18 cesiones y 6 recepciones de
+RDR están en la memoria transversal `memoria/memoria_datax_RDR.md`.
+
+### 4.6 Transformación a SAIT (`sait.xsl`)
 
 La acción `Script` del properties aplica la hoja `sait.xsl` sobre el XML completo y produce
 `RDR_contactosSAIT.xml`:
@@ -291,7 +354,7 @@ Comportamientos adicionales de la hoja, relevantes para la validación del fiche
 |---|---|
 | Plantilla genérica `match="node()"` con `<xsl:if test="normalize-space()">` | Elimina todo elemento cuyo contenido normalizado esté vacío, **en cascada**: si todos los descendientes de un bloque están vacíos, desaparece el bloque completo. La estructura del fichero de SAIT es variable según los datos de cada contacto |
 | `omit-xml-declaration="yes"` | El fichero **no lleva declaración XML**: empieza directamente por el elemento raíz |
-| `<xsl:if test="$relevant-contact">` envuelve toda la salida | Si ningún contacto cumple el filtro, no se emite nada y el fichero resultante queda vacío. **La hoja no impide esta salida, pero el proceso la prohíbe** (R-21, §4.6) |
+| `<xsl:if test="$relevant-contact">` envuelve toda la salida | Si ningún contacto cumple el filtro, no se emite nada y el fichero resultante queda vacío. **La hoja no impide esta salida, pero el proceso la prohíbe** (R-21, §4.7) |
 | `AgreementsAssociated` y `SCIsAssociated` usan `<xsl:copy>` sin el guard de `normalize-space` | Se emiten **siempre**, aunque no sobreviva ningún hijo al filtrado. Un contacto seleccionado por su SCI mexicana y sin acuerdos 1145 tendrá un `AgreementsAssociated` vacío — comportamiento incoherente con la regla anterior, que elimina los vacíos |
 
 > **Defecto latente en el tratamiento de atributos.** La hoja invoca
@@ -303,7 +366,7 @@ Comportamientos adicionales de la hoja, relevantes para la validación del fiche
 > que ningún control de la cadena lo detectara. Se recoge como riesgo, no como fallo actual
 > (ver §8 — Riesgos).
 
-### 4.6 Ausencia de controles de calidad
+### 4.7 Ausencia de controles de calidad
 
 La cadena **no dispone de filewatcher ni de validación de esquema en ningún punto**. Es el único
 de los procesos analizados en el repositorio sin ninguno de los dos: `MEKYTL1177` arranca
@@ -341,7 +404,7 @@ transmitiría a SAIT y se historificaría con normalidad, cerrando la cadena en 
 fichero, si la historificación de la pasada previa no se completó, el fichero antiguo sigue en
 el directorio de trabajo. Cubierto en TC-15.
 
-### 4.7 Historificación y purga
+### 4.8 Historificación y purga
 
 Las dos ramas siguen el mismo patrón —historificar y purgar a 7 días— pero con directorios
 distintos:
@@ -369,7 +432,7 @@ historificado.
 > probable es la sobrescritura diaria; pero no está documentado y, de no ser así, los ficheros
 > se acumularían indefinidamente en la pasarela. Queda como punto abierto (ver §8 — Riesgos).
 
-### 4.8 Jobs ejecutados como `root`
+### 4.9 Jobs ejecutados como `root`
 
 Tres de los nueve jobs se ejecutan con el usuario `root`: `MEKYTL1177`, `MEKYTL1027` y
 `MANT_RDR_EXTRACCION_CONT_SAIT`. El resto usa las cuentas de aplicación habituales (`xakytl1p`,
@@ -385,7 +448,7 @@ recoge como riesgo: un borrado recursivo con privilegios de root cuya ruta, adem
 escrita de dos formas distintas en la documentación (§4.2) merece verificación antes de operar
 sobre un entorno real.
 
-### 4.9 Protocolo de fallo
+### 4.10 Protocolo de fallo
 
 **Seis de los nueve jobs no tienen protocolo de fallo documentado: tienen un recordatorio sin
 resolver.** Los jobs `GS_EXTRACCION_CONT`, `EXTRACCION_CONTACTOS_XML`, `MEKYTL1027`,
@@ -400,10 +463,10 @@ El usuario confirma que aplica el protocolo habitual: la cadena se para y se avi
 conviene señalar que **el documento fuente no nombra ningún grupo de soporte**, a diferencia de
 todos los procesos anteriores del repositorio, que identifican a ANS RDR (BZG03906,
 `ans_rdr.es@bbva.com`). Los únicos contactos que aparecen son de los aplicativos destino:
-`soporte.markit.reporting.es@bbva.com` (DataX) y `bex-sait.group@bbva.com` (SAIT), que son
+`soporte.markit.reporting.es@bbva.com` (IHS Markit) y `bex-sait.group@bbva.com` (SAIT), que son
 destinatarios funcionales, no el circuito de escalado operativo.
 
-### 4.10 Erratas del documento fuente asumidas
+### 4.11 Erratas del documento fuente asumidas
 
 Además de las de `fichtencomp` (§4.2), se asumen resueltas las siguientes, confirmadas por el
 usuario:
@@ -430,7 +493,7 @@ preparación de entornos lo despliegue con ese nombre exacto.
 | Servidor Control-M | MERCADOS-4 |
 | Sub-aplicación | `RDR_EXTRACCION_CONTACTOS` |
 | Máquina principal | `pr-rdr.igrupobbva` |
-| Máquinas adicionales | `LPRDR501` / `LPRDR602` (mantenimiento y directorio de DataX), `lpftp503` (pasarela) |
+| Máquinas adicionales | `LPRDR501` / `LPRDR602` (mantenimiento y directorio de disponibilización), `lpftp503` (pasarela SAIT) |
 | Usuarios de ejecución | `xakytl1p` (extracción y Dummy), `root` (`MEKYTL1177`, `MEKYTL1027`, `MANT_..._SAIT`), `xsramer1` (rama SAIT), `xtkytl1p` (propietario del directorio de DataX) |
 | Periodicidad | LMXJV |
 | Criticidad | W (aviso al día siguiente) en los 9 jobs |
@@ -482,7 +545,7 @@ preparación de entornos lo despliegue con ese nombre exacto.
 **El fichero completo tiene estructura fija.** Cada `XMLELEMENT` se emite siempre, también
 cuando su `XMLAGG` no devuelve filas: en ese caso el elemento aparece vacío. Los 20 elementos
 están por tanto presentes en todos los contactos del fichero de DataX. **La estructura variable
-es exclusiva del fichero de SAIT**, y la produce `sait.xsl` al eliminar los vacíos (§4.5).
+es exclusiva del fichero de SAIT**, y la produce `sait.xsl` al eliminar los vacíos (§4.6).
 
 > **`AgreementsAssociated` solo recoge los acuerdos de UNA función del contacto.** La subconsulta
 > del bloque restringe `FT_T_LAC1.CNTA_OID` con:
@@ -501,7 +564,7 @@ es exclusiva del fichero de SAIT**, y la produce `sait.xsl` al eliminar los vac�
 > de ejecución.
 >
 > El impacto no se queda en el fichero de DataX: **`AgreementORGID` es uno de los dos criterios
-> del filtro de México de `sait.xsl`** (§4.5). Un contacto cuyo acuerdo con la organización
+> del filtro de México de `sait.xsl`** (§4.6). Un contacto cuyo acuerdo con la organización
 > `1145` cuelgue de una función que el `rownum=1` no ha seleccionado **quedará excluido del
 > fichero de SAIT**, pese a cumplir la regla de negocio. Es el defecto de mayor impacto
 > funcional detectado en el proceso; cubierto por TC-17 (ver §8 — RG-15).
@@ -598,7 +661,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | Extracción y universo | TC-02, TC-03, TC-16, TC-18 | Completa — se dispone del SQL literal |
 | Filtro de México (`sait.xsl`) | TC-07, TC-08, TC-09, TC-10, TC-17 | Completa — la hoja de estilo y las queries están disponibles íntegras |
 | Integridad ante fallo | TC-04, TC-05, TC-14 | Completa |
-| Distribución a DataX | TC-06 | Parcial — la recepción en DataX está fuera de alcance |
+| Disponibilización para IHS Markit | TC-06 | Completa hasta el directorio de disponibilización; la transferencia la controla el sistema destino y no es verificable desde RDR |
 | Distribución a SAIT | TC-11 | Parcial — ídem, y sin job de limpieza en pasarela que verificar |
 | Historificación y purga | TC-12, TC-13 | Completa |
 | Control de cadena y reejecución | TC-01, TC-14, TC-15 | Completa |
@@ -632,6 +695,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | R-13 | TC-08 |
 | R-14 | TC-09 |
 | R-15 | TC-06 |
+| R-22 | TC-06 |
 | R-16 | TC-12, TC-13 |
 | R-17 | TC-11 |
 | R-18 | TC-12 |
@@ -645,21 +709,23 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
-| RG-01 | Ausencia total de filewatcher y de validación de esquema en la cadena | Un fichero incorrecto que no provoque KO llega a DataX y a SAIT sin detección | Comportamiento confirmado como deliberado. La integridad depende por completo de que el fallo de un hilo aborte la extracción (§4.6) |
+| RG-01 | Ausencia total de filewatcher y de validación de esquema en la cadena | Un fichero incorrecto que no provoque KO llega a DataX y a SAIT sin detección | Comportamiento confirmado como deliberado. La integridad depende por completo de que el fallo de un hilo aborte la extracción (§4.7) |
 | RG-02 | **R-21 prohíbe el fichero de SAIT vacío, pero ningún control de la cadena lo impide.** Si ningún contacto cumple el filtro de México, `sait.xsl` emite una salida vacía sin error y la cadena la distribuye cerrando en OK | Incumplimiento silencioso de un requisito explícito: SAIT recibiría un fichero sin contactos que podría interpretar como ausencia total de datos | Añadir una comprobación de contenido mínimo entre la transformación y `MEKYTL1189` (filewatcher con tamaño mínimo, validación o control en el propio script). Es el riesgo de mayor prioridad del proceso; TC-10 lo verifica como fallo |
-| RG-03 | Tres jobs se ejecutan como `root`, uno de ellos con `rm -r` recursivo | Borrado con privilegios elevados sobre una ruta que la documentación escribe de dos formas distintas | Verificar la ruta real del job en Control-M antes de operar sobre entorno real (§4.8) |
-| RG-04 | Dependencias de éxito en cadena lineal con SAIT después de DataX | Un fallo en la disponibilización a DataX deja a SAIT sin fichero ese día pese a estar ya generado | Documentado en §4.1; valorar si el orden de las ramas es el deseado |
-| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` | Si no se sobrescribe, los ficheros se acumulan indefinidamente en `/unload/transmisiones/KYTL/` | Confirmar el mecanismo de limpieza en pasarela (§4.7) |
+| RG-03 | Tres jobs se ejecutan como `root`, uno de ellos con `rm -r` recursivo | Borrado con privilegios elevados sobre una ruta que la documentación escribe de dos formas distintas | Verificar la ruta real del job en Control-M antes de operar sobre entorno real (§4.9) |
+| RG-04 | Dependencias de éxito en cadena lineal con SAIT después de la rama de Markit | Un fallo en la disponibilización deja a SAIT sin fichero ese día pese a estar ya generado | Documentado en §4.1; valorar si el orden de las ramas es el deseado |
+| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` | Si no se sobrescribe, los ficheros se acumulan indefinidamente en `/unload/transmisiones/KYTL/` | Confirmar el mecanismo de limpieza en pasarela (§4.8) |
 | RG-06 | La exclusión `A15` de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Confirmar si es intencionado; si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
-| RG-07 | `sait.xsl` vuelca los atributos como texto en lugar de copiarlos | Defecto latente: si se añadiera un atributo al XML de contactos, el fichero de SAIT se corrompería en silencio | Corregir la hoja añadiendo una plantilla `match="@*"` con `<xsl:copy/>`, o documentar la restricción de no usar atributos (§4.5) |
+| RG-07 | `sait.xsl` vuelca los atributos como texto en lugar de copiarlos | Defecto latente: si se añadiera un atributo al XML de contactos, el fichero de SAIT se corrompería en silencio | Corregir la hoja añadiendo una plantilla `match="@*"` con `<xsl:copy/>`, o documentar la restricción de no usar atributos (§4.6) |
 | RG-08 | `AgreementsAssociated` y `SCIsAssociated` se emiten vacíos, a diferencia del resto de elementos | Incoherencia estructural en el fichero de SAIT; un consumidor estricto podría rechazarlos | Documentado en §4.5; confirmar que SAIT los tolera |
-| RG-09 | Seis de nueve jobs tienen un recordatorio sin resolver en lugar de protocolo de fallo | Ante una incidencia, el operador no dispone de instrucciones en la ficha | Completar el campo de normas de rearranque en las nueve fichas (§4.9) |
-| RG-10 | El documento fuente no identifica grupo de soporte | El circuito de escalado no está documentado para este proceso | Confirmar que es ANS RDR (BZG03906) como en el resto de procesos del repositorio (§4.9) |
+| RG-09 | Seis de nueve jobs tienen un recordatorio sin resolver en lugar de protocolo de fallo | Ante una incidencia, el operador no dispone de instrucciones en la ficha | Completar el campo de normas de rearranque en las nueve fichas (§4.10) |
+| RG-10 | El documento fuente no identifica grupo de soporte | El circuito de escalado no está documentado para este proceso | Confirmar que es ANS RDR (BZG03906) como en el resto de procesos del repositorio (§4.10) |
 | RG-11 | Las queries residen en base de datos (`FT_T_ATE1`), no en código desplegado | Una modificación en base de datos cambia el comportamiento del proceso sin despliegue ni trazabilidad de versión | Incluir el contenido de `FT_T_ATE1` en el control de cambios del proceso (§4.2) |
 | RG-12 | Extracción de universo completo sin filtro incremental | El volumen crece de forma monótona con el número de contactos; el tiempo de extracción también | Vigilar la duración del job frente a la ventana operativa (§4.3) |
 | RG-13 | Fichero residual de una ejecución anterior en el directorio de trabajo | Sin filewatcher que verifique frescura, se distribuirían datos obsoletos | Verificar que la historificación de la pasada previa dejó el directorio limpio (TC-15) |
 | RG-14 | Erratas `fichtencomp` en la documentación de la cadena | Riesgo de que una corrección futura tome la forma errónea como buena | Corregir las tres apariciones en la ficha (§4.2) |
 | RG-15 | **`rownum = 1` sin `ORDER BY` en `AgreementsAssociated`**: cuando un contacto tiene varias funciones activas, solo se recogen los acuerdos de una de ellas, elegida arbitrariamente | Pérdida silenciosa y no determinista de acuerdos legales en el fichero de DataX. Y como `AgreementORGID` alimenta el filtro de México, **un contacto con acuerdo 1145 en otra función queda fuera del fichero de SAIT incumpliendo la regla de negocio**. Es el defecto de mayor impacto funcional del proceso | Corregir la query para recorrer todas las asignaciones `FUNCTION` activas del contacto en lugar de una sola (§5.1, TC-17) |
+| RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
+| RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
 
 ---
@@ -692,6 +758,13 @@ real del fichero —un bloque `Contacts` por contacto, no un `Contacts` con much
 de los 20 elementos; la exclusión `A15` con su tabla, columna y valor exactos; y la confirmación
 de las dos reglas que antes solo constaban en prosa (exclusión del identificador RDR de
 `ExtIdentifiers` y cálculo de `SCISnum`).
+
+**Corrección de alcance aportada por el inventario de DataX.** El consumidor del fichero
+completo es **IHS Markit**, no DataX: esta última es la plataforma de transferencia. La cadena
+solo disponibiliza el fichero en `/unload/kytl/datsal/datax` bajo el DataObject
+`x_kytlcontacts_1`, y es el sistema destino quien monta la transferencia y puede modificarla sin
+comunicarlo a RDR. El alcance de la spec y el criterio de aceptación de TC-06 se acotan en
+consecuencia (§4.5, RG-17).
 
 **Segundo hallazgo que requiere decisión de proyecto.** La subconsulta de
 `AgreementsAssociated` limita con `rownum = 1` sin `ORDER BY` las asignaciones `FUNCTION` del
