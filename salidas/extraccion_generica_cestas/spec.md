@@ -220,6 +220,95 @@ Al finalizar OK, `MEKYTL0856` agrega el evento de cierre global **`RDR_ACK_NACK_
 — de nuevo con el patrón de naming "ACK_NACK_BASKETS" en vez del patrón estándar de la cadena (ver sección 9).
 Sin sucesores — es el punto de cierre.
 
+### 1.6 Atributos completos de definición Control-M (los 19 jobs)
+
+Todos los jobs: `Aplicación=KYTL`, folder Control-M en servidor `MERCADOS-4`; servidor **real** de ejecución de
+los jobs OS/Script en `pr-rdr.igrupobbva`, salvo `MEKYTL1132_SND` y `MEKYTL1132_DEL`, que corren en la pasarela
+`lpftp501`.
+
+| # | Job | Tipo | Usuario ejecución | Creado por | Programación real (Control-M) | Retención | Recurso cuantitativo | Criticidad |
+|---|-----|------|--------------------|------------|--------------------------------|-----------|------------------------|------------|
+| 1 | `RDR_BASKETS_EXTRACCION_IN` | Dummy | `DUMMYUSR` | algocmd | Avanzado (1,2,3,4,5=L-V); 17:55 | 3 días | `MAX-LPRDR501` (1/100) | W (folder) |
+| 2 | `GS_EXTRACCION_BASKETS` | OS/Script | `xakytl1p` | algocmd | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 3 | `VALIDACION_XSD` | OS/Script | `xakytl1p` | algocmd | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPRDR501` (1/100) | **C** |
+| 4 | `MEKYTL0846` | OS/Script | `xsramer1` | **xe30690** | Avanzado (1-5, real; ficha funcional dice M-S); "02:00 AM" (floor, no vinculante — ver nota) | 3 días | `MAX-LPAPP501` (1/160) | W |
+| 5 | `MEKYTL0847` | OS/Script | `xsramer1` | **xe30690** | Avanzado (1-5, real; ficha funcional dice M-S); "02:00 AM" (floor) | 3 días | `MAX-LPAPP501` (1/160) | W |
+| 6 | `MEKYTL1011` | OS/Script | `xsramer1` | algocmd | Avanzado (1-5); 18:00 | 2 días | `MAX-LPRDR501` (1/100) | W |
+| 7 | `MEKYTL1063` | OS/Script | `xsramer1` | algocmd | Avanzado (1-5); 18:00 | 2 días | `MAX-LPRDR501` (1/100) | W |
+| 8 | `MEKYTL1095` | OS/Script | `xsramer1` | algocmd | Avanzado (1-5); 18:00 | 2 días | `MAX-LPRDR501` (1/100) | W |
+| 9 | `MEKYTL1103` | OS/Script | `xsramer1` | **emuser** | Avanzado (1-5); 18:00 | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 10 | `MEKYTL1116` | OS/Script | `xsramer1` | **xe30690** | Avanzado (1-5, real; ficha funcional dice M-S); "02:00 AM" (floor) | 2 días | `MAX-LPRDR501` (1/100) | W |
+| 11 | `MEKYTL1126` | OS/Script | `xsramer1` | **xe30690** | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 12 | `MEKYTL1153` | OS/Script | `xsramer1` | **xe30690**; activo desde 16/04/2022; Prioridad Very Low | Avanzado (1-5); sin hora ("permitir envío pasado nuevo día") | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 13 | `MEKYTL1259` | OS/Script | `xsramer1` | algocmd | Avanzado (1-5); 18:00 | 2 días | `MAX-LPRDR501` (1/100) | **S** |
+| 14 | `RDR_TRANSFORM_BASKETS_DUCO` | OS/Script | `xakytl1p` | algocmd | Avanzado (1-5); 18:00 | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 15 | `MEKYTL1132` | OS/Script | `xsramer1` | **xe30690**; activo desde 16/04/2022; Prioridad Very Low | Avanzado (1-5); sin hora ("permitir envío pasado nuevo día") | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 16 | `MEKYTL1132_SND` | OS/Script (host `lpftp501`) | `xtprox1p` | **XE30690**; activo desde 16/04/2022 | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPFTP501` (1/N-D) | W |
+| 17 | `MEKYTL1132_DEL` | OS/Script (host `lpftp501`) | `xtprox1p` | **emuser**; activo desde 16/04/2022 | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPFTP501` (1/100) | W |
+| 18 | `MEKYTL1133` | OS/Script | `xsramer1` | **xe30690** | Avanzado (1-5); sin hora (reactivo) | 3 días | `MAX-LPRDR501` (1/100) | W |
+| 19 | `MEKYTL0856` | OS/Script | `xsramer1` | algocmd | Avanzado (1-5); sin hora (reactivo AND) | 2 días | `MAX-LPRDR501` (1/100) | **S/C** |
+
+**Nota sobre los "floor" de 02:00 AM en `MEKYTL0846`/`MEKYTL0847`/`MEKYTL1116`:** como estos 3 jobs dependen
+del evento `..._VALIDACION_XSD_OK` (que llega hacia las 18:00, mucho después de las 02:00 AM), el floor horario
+queda satisfecho de sobra — el disparador real es el evento, no la hora. Lo único discrepante y relevante es el
+**día de la semana** (Avanzado 1-5 = L-V real, frente a "Martes a Sábado" de la ficha funcional).
+
+**Jobs creados por un usuario distinto de `algocmd`:** 8 de los 19 jobs (`MEKYTL0846`, `MEKYTL0847`,
+`MEKYTL1103`, `MEKYTL1116`, `MEKYTL1126`, `MEKYTL1153`, `MEKYTL1132`, `MEKYTL1132_SND`, `MEKYTL1132_DEL`,
+`MEKYTL1133`) — la mayoría creados por `xe30690`/`XE30690`, dos por `emuser`. Dato observado tal cual, sin
+explicación documentada, no bloqueante (mismo patrón ya visto en otros procesos de este intake, p. ej.
+`MEKYTL0851` en Cesión de Cestas a Abaco).
+
+### 1.7 Cadena de eventos completa
+
+| # | Evento | Emisor | Consumidor |
+|---|--------|--------|------------|
+| 1 | `RDR_MARKETS_EXTRACCION_IN_OK_new` | `RDR_BASKETS_EXTRACCION_IN` | `GS_EXTRACCION_BASKETS` |
+| 2 | `RDR_BASKETS_EXTRACCION_new_GS_EXTRACCION_BASKETS_OK` | `GS_EXTRACCION_BASKETS` | `VALIDACION_XSD` |
+| 3 | `RDR_BASKETS_EXTRACCION_new_VALIDACION_XSD_OK` | `VALIDACION_XSD` | Las 10 ramas de distribución + `RDR_TRANSFORM_BASKETS_DUCO` (11 consumidores) |
+| 4 | `RDR_MARKETS_EXTRACCION_MEKYTL0846_OK_new` | `MEKYTL0846` | `MEKYTL0856` |
+| 5 | `RDR_MARKETS_EXTRACCION_MEKYTL0847_OK_new` | `MEKYTL0847` | `MEKYTL0856` |
+| 6 | `RDR_ACK_NACK_BASKETS_MEKYTL1011_OK_new` | `MEKYTL1011` | `MEKYTL0856` |
+| 7 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1063_OK` | `MEKYTL1063` | `MEKYTL0856` |
+| 8 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1095_OK` | `MEKYTL1095` | `MEKYTL0856` |
+| 9 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1103_OK` | `MEKYTL1103` | *(sin consumidor interno — entrega a la cadena externa IHSM_RDR_BASKETS)* |
+| 10 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1116_OK` | `MEKYTL1116` | `MEKYTL0856` |
+| 11 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1126_OK` | `MEKYTL1126` | `MEKYTL0856` |
+| 12 | `GC_TESO_BASKETS_EXTRACCION_new_MEKYTL1126_OK` | `MEKYTL1126` | Cadena externa `XFIN_SOLAR_RDRBASKET` (job `XFIN012D_RDR_BASK_IN`) |
+| 13 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1153_OK` | `MEKYTL1153` | `MEKYTL0856` |
+| 14 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1259_OK` | `MEKYTL1259` | `MEKYTL0856` |
+| 15 | `RDR_BASKETS_EXTRACCION_new_RDR_TRANSFORM_BASKETS_DUCO_OK` | `RDR_TRANSFORM_BASKETS_DUCO` | `MEKYTL1132` |
+| 16 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1132_OK` | `MEKYTL1132` | `MEKYTL1132_SND` |
+| 17 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1132_SND_OK` | `MEKYTL1132_SND` | `MEKYTL1132_DEL` |
+| 18 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1132_DEL_OK` | `MEKYTL1132_DEL` | `MEKYTL1133` |
+| 19 | `RDR_BASKETS_EXTRACCION_new_MEKYTL1133_OK` | `MEKYTL1133` | `MEKYTL0856` |
+| 20 | `RDR_ACK_NACK_BASKETS_MEKYTL0856_OK_new` | `MEKYTL0856` | *(cierre de cadena, sin consumidor)* |
+
+`MEKYTL0856` espera la condición **AND** de los eventos 4, 5, 6, 7, 8, 10, 11, 13, 14 y 19 (10 eventos) — no
+espera el 9 (`MEKYTL1103`, cadena externa) ni ningún evento de `MEKYTL0929` (eliminado). De los 20 eventos de
+la cadena, solo 4 (`RDR_MARKETS_EXTRACCION_IN_OK_new`, `RDR_MARKETS_EXTRACCION_MEKYTL0846_OK_new`,
+`RDR_MARKETS_EXTRACCION_MEKYTL0847_OK_new`, `RDR_ACK_NACK_BASKETS_MEKYTL1011_OK_new`, más el evento de cierre
+`RDR_ACK_NACK_BASKETS_MEKYTL0856_OK_new`) rompen el patrón estándar `RDR_BASKETS_EXTRACCION_new_<JOB>_OK` de
+la cadena (ver sección 9).
+
+### 1.8 Escenarios de fallo por rama
+
+| Rama | Paso | Escenario | Comportamiento real | Efecto en la cadena |
+|------|------|-----------|----------------------|----------------------|
+| Tramo inicial | `GS_EXTRACCION_BASKETS` | Fallo real de extracción (BBDD no disponible) | Sin On-Do documentado | KO real; `VALIDACION_XSD` y las 11 ramas no arrancan ese día |
+| Tramo inicial | `VALIDACION_XSD` | Validación XSD falla (código 1) | Force OK genérico → Marcar como OK | La malla **continúa** hacia las 11 ramas pese al fallo real de validación (requisito de diseño, no defecto) |
+| Distribución directa | Cualquiera de las 10 ramas | Fallo real de envío (destino no disponible) | Sin On-Do documentado | KO real de esa rama únicamente; las demás ramas no se ven afectadas; `MEKYTL0856` no se ejecuta hasta resolver el fallo (si la rama forma parte del AND) |
+| Distribución directa | `MEKYTL1116` | Fichero origen no encontrado | Sin On-Do; requisito explícito de error visible | KO real explícito, sin tolerancia — comportamiento deliberadamente distinto al resto |
+| Distribución directa | `MEKYTL1103` | Fallo real de envío a la pasarela IHSM | Sin On-Do documentado | KO real; la cadena externa IHSM no recibe el fichero — no bloquea `MEKYTL0856` (no forma parte del AND) |
+| Distribución directa | `MEKYTL1126` | Fallo real de copia local | Sin On-Do documentado | KO real; ni `MEKYTL0856` ni la cadena externa XFIN reciben el fichero de esa ejecución |
+| Rama DUCO | `RDR_TRANSFORM_BASKETS_DUCO` | Fallo real de transformación | Sin On-Do documentado | KO real; toda la rama DUCO (`MEKYTL1132` en adelante) no se ejecuta; el resto de ramas no se ve afectado |
+| Rama DUCO | `MEKYTL1132_SND` | Fallo real de transmisión externa (pasarela caída) | Sin On-Do documentado | KO real; `MEKYTL1132_DEL` y `MEKYTL1133` no se ejecutan; `MEKYTL0856` bloqueado hasta resolver |
+| Rama DUCO | `MEKYTL1132_DEL` | Fallo real de limpieza de pasarela | Sin On-Do documentado | KO real; `MEKYTL1133` no se ejecuta pese a que la transmisión sí tuvo éxito — riesgo de ficheros residuales en la pasarela (ver sección 9) |
+| Colector | `MEKYTL0856` | Fallo real de compresión `.gz` | Sin On-Do documentado | KO real; el fichero original no queda archivado, aunque las 10 ramas de distribución ya hayan completado su entrega |
+
+Todos los KO reales (no soft-failure) generan alerta al grupo ANS RDR (`ans_rdr.es@bbva.com`) vía Remedy.
+`VALIDACION_XSD` es el único job de las 19 con soft-failure documentado en toda la cadena.
+
 ## 2. Alcance del proceso
 
 **Ámbito funcional:** extracción diaria del catálogo de cestas (*Baskets*) desde RDR (origen Murex vía
@@ -384,6 +473,13 @@ Referencia de casos por tipo:
 5. Discrepancias documentales menores (día de la semana, predecesor de `MEKYTL1116`, atribución de `MEKYTL1153`
    al historial DUCO, `MEKYTL0929`) — todas resueltas y documentadas en la sección 4, sin quedar como gaps
    abiertos.
+6. **RISK-BASK2-001 — posible fichero residual en la pasarela si `MEKYTL1132_DEL` falla tras una transmisión
+   ya exitosa.** `MEKYTL1132_SND` (transmisión real a DUCO) y `MEKYTL1132_DEL` (limpieza) son pasos separados
+   sin On-Do: si la transmisión tiene éxito pero la limpieza posterior falla, el fichero queda residual en la
+   pasarela `lpftp501` y `MEKYTL1133` (backup local) no llega a ejecutarse, aunque el envío a DUCO ya se haya
+   completado correctamente — riesgo de espacio en disco en la pasarela y de un backup local incompleto pese a
+   una entrega externa exitosa. No confirmado como comportamiento observado, es una deducción de la topología
+   de dependencias real (sección 1.4/1.7); a validar con TC-008 de `casos_prueba.xml`.
 
 ## 10. Conclusión
 
