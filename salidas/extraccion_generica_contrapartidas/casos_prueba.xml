@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_generica_contrapartidas" fecha="2026-09-22" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Núcleo común: generación, filewatchers y unión de ficheros (las 3 cadenas)</nombre>
+    <objetivo>Verificar que las 3 cadenas detectan correctamente ThirdParties.xml y ExtraccionContingencia.xml y los unen en un único XML.</objetivo>
+    <precondiciones>
+      <precondicion>ThirdParties.xml y ExtraccionContingencia.xml generados correctamente a las 00:05 por los jars correspondientes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ThirdParties.xml" valor="válido, generado por ExtraccionGenericaOtherEntities.jar"/>
+      <dato campo="ExtraccionContingencia.xml" valor="válido, generado por ExtraccionGenericaCPTY.jar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la generación de ambos ficheros a las 00:05.</paso>
+      <paso numero="2">Para cada una de las 3 cadenas, esperar su disparador propio (MEKYTL0334 en _new; MONITOR_BKYTL001_505-606 en las 2 semanales) en su ventana correspondiente.</paso>
+      <paso numero="3">Verificar que DAILY_THIRDPARTIES_FW y DAILY_EXTRACCION_CONTINGENCIA_FW detectan ambos ficheros.</paso>
+      <paso numero="4">Verificar que DAILY_UNION_FICHEROS genera el XML unificado.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 cadenas detectan ambos ficheros dentro de su ventana y generan el XML unificado correctamente, con el mismo comportamiento en las 3.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los filewatchers y de DAILY_UNION_FICHEROS en las 3 cadenas + verificación de contenido del XML unificado.</tipoValidacion>
+    <criterioAceptacion>Las 3 cadenas completan el núcleo común sin incidencias.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Pipeline de validación XSLT/XSD y generación de los 2 ficheros finales</nombre>
+    <objetivo>Verificar el comportamiento real del pipeline de validación añadido el 18/10/2025, incluyendo la diferencia entre VALIDACION_EXTRACCION real (_new) y DUMMY (las 2 semanales).</objetivo>
+    <precondiciones>
+      <precondicion>XML unificado generado correctamente (TC-001).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="XML unificado" valor="válido, conforme al esquema XSD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_XSLT_CPARTY y RDR_Validacion_XSD_CPARTY en cada una de las 3 cadenas.</paso>
+      <paso numero="2">En _new, verificar que VALIDACION_EXTRACCION ejecuta realmente y genera los 2 ficheros finales.</paso>
+      <paso numero="3">En _FINSEM_S_new y _FINSEM_D_new, verificar que VALIDACION_EXTRACCION es DUMMY y que los 2 ficheros finales ya existen antes de su ejecución (generados por el pipeline XSD/XSLT previo).</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 cadenas generan KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml (sin ratings) y KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml (con ratings); VALIDACION_EXTRACCION se comporta como job real solo en _new.</resultadoEsperado>
+    <tipoValidacion>Verificación de presencia y contenido de ambos ficheros finales + confirmación del tipo de job (real/DUMMY) de VALIDACION_EXTRACCION en cada cadena.</tipoValidacion>
+    <criterioAceptacion>Ambos ficheros generados correctamente en las 3 cadenas, comportamiento de VALIDACION_EXTRACCION coherente con lo documentado por cadena.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="happy_path">
+    <nombre>Ciclo completo de RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new (única cadena 100% documentada)</nombre>
+    <objetivo>Verificar el ciclo end-to-end completo de la cadena semanal de sábado, desde el disparador hasta los 5 destinos finales.</objetivo>
+    <precondiciones>
+      <precondicion>Núcleo común completado (TC-001, TC-002).</precondicion>
+      <precondicion>Cadena externa Fircosoft (MEKYTL1261_S) disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros_finales" valor="ambos generados correctamente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar la ejecución de MEKYTL0808 (S3 DataHub CIB) y MEKYTL0530 (Smart Data) como envíos directos.</paso>
+      <paso numero="2">Verificar RDR_TRANSFORMACION_FS (con predecesor doble: VALIDACION_EXTRACCION y MEKYTL1261_S externo).</paso>
+      <paso numero="3">Verificar RDR_TRANSFORMACION_FAED y sus 2 ramas: MEKYTL0272→MEKYTL0267→MEKYTL0781 (backup) y MEKYTL0285→MEKYTL0433 (envío MSC).</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 destinos (Fircosoft, MSC/Calypso, Smart Data, DataHub CIB, backup Rating) reciben o generan su fichero correspondiente sin incidencias.</resultadoEsperado>
+    <tipoValidacion>Estado OK de todos los jobs de la cadena + verificación de presencia del fichero en cada destino accesible.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, los 5 destinos confirmados.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>RDR_TRANSFORMACION_FS falla y libera sucesores (continuidad forzada)</nombre>
+    <objetivo>Confirmar el requisito documentado de que los jobs de deduplicación y transformación con esa nota liberan sucesores y continúan ante un fallo propio, en vez de detener la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_EXTRACCION completado (real o DUMMY según cadena).</precondicion>
+      <precondicion>Fallo real forzado en RDR_TRANSFORMACION_FS (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDR_TRANSFORMACION_FS" valor="forzado a fallar (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de RDR_TRANSFORMACION_FS.</paso>
+      <paso numero="2">Verificar si RDR_TRANSFORMACION_FAED y sus sucesores se liberan y ejecutan igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>Pese al fallo real de RDR_TRANSFORMACION_FS, sus sucesores se liberan manualmente/automáticamente según el procedimiento documentado y la cadena continúa hacia MSC y el backup.</resultadoEsperado>
+    <tipoValidacion>Estado KO de RDR_TRANSFORMACION_FS + estado de ejecución de sus sucesores.</tipoValidacion>
+    <criterioAceptacion>Sucesores liberados y ejecutados pese al fallo, confirmando el comportamiento documentado.</criterioAceptacion>
+    <posibilidadFallo>Si los sucesores no se liberan automáticamente, el requisito documentado implica una intervención manual — a confirmar si existe automatismo real o es un procedimiento operativo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Job de deduplicación falla y libera sucesores (ELIMINATEDUPLICATES_MENTOR)</nombre>
+    <objetivo>Confirmar el requisito R9 explícito de la ficha de los jobs de deduplicación: en caso de fallo, se deben liberar sucesores y continuar la ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_TRANSFORMACION_MENTOR completado (cadena _FINSEM_D_new).</precondicion>
+      <precondicion>Fallo real forzado en ELIMINATEDUPLICATES_MENTOR (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ELIMINATEDUPLICATES_MENTOR" valor="forzado a fallar (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de ELIMINATEDUPLICATES_MENTOR.</paso>
+      <paso numero="2">Verificar si MEKYTL0280 (historificación) y su rama continúan pese al fallo.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento coherente con la nota explícita de la ficha ("EN CASO DE FALLO SE DEBEN LIBERAR SUCESORES Y CONTINUAR CON LA EJECUCIÓN"): los sucesores se ejecutan pese al fallo del job de deduplicación.</resultadoEsperado>
+    <tipoValidacion>Estado KO de ELIMINATEDUPLICATES_MENTOR + estado de ejecución de MEKYTL0280 y sucesores.</tipoValidacion>
+    <criterioAceptacion>Sucesores ejecutados pese al fallo, confirmando el requisito documentado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio si el fallo real de deduplicación deja duplicados en el fichero final que sí se distribuye — a evaluar si la continuidad forzada es aceptable para este job en concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="datos_sinteticos">
+    <nombre>Limitación de evidencia: 53 pasos de _new sin ficha de job (GAP-CTPY-001)</nombre>
+    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba fiable para los ~53 pasos de la cadena _new que carecen de ficha de job en esta ronda de evidencia.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="pasos_sin_ficha" valor="~53 de los 101 pasos declarados de _new, mayoritariamente jobs de envío individuales del fan-out"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Solicitar el documento individual Analisis_Cadena_RDR_DAILY_EXGEN_CPARTYS_new.md referenciado por la fuente, o capturas reales de Control-M de los jobs sin ficha.</paso>
+      <paso numero="2">Si se obtiene, diseñar los casos de prueba específicos de cada job (comando, usuario, On-Do, recurso) equivalentes a los del resto de procesos de este intake.</paso>
+    </pasos>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha técnica de esos ~53 pasos.</resultadoEsperado>
+    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-CTPY-001 hasta recibir evidencia.</criterioAceptacion>
+    <posibilidadFallo>No se fuerza una cobertura de prueba inventada para evitar generar un caso de prueba engañoso sobre jobs cuyo comportamiento real no está confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Limitación de evidencia: MEKYTL0289/MEKYTL0292 (Proactive) sin ficha (GAP-CTPY-002)</nombre>
+    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba fiable para los 2 jobs de envío a Proactive del diccionario semanal, sin ficha propia.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0289, MEKYTL0292" valor="sin ficha propia, destino Proactive presumible pero no confirmado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Solicitar la ficha técnica de MEKYTL0289 y MEKYTL0292, o confirmación del destino real Proactive.</paso>
+      <paso numero="2">Si se obtiene, diseñar el caso de prueba de envío equivalente al resto de los 16 jobs del diccionario semanal.</paso>
+    </pasos>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha técnica de ambos jobs.</resultadoEsperado>
+    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-CTPY-002/006 hasta recibir evidencia.</criterioAceptacion>
+    <posibilidadFallo>No se fuerza un destino inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Verificación de la inconsistencia histórica de MEKYTL0449 (GAP-CTPY-004)</nombre>
+    <objetivo>Confirmar o refutar si MEKYTL0449 está realmente eliminado (según el historial de cambios del 14/03/2026) o activo (según la tabla de destinos vigente que lo lista como envío PRIIPS).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a Control-M real de la cadena _new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0449" valor="estado real a verificar directamente en Control-M"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar MEKYTL0449 en la definición real de Control-M de la cadena _new.</paso>
+      <paso numero="2">Si existe, verificar si está activo o desplanificado, y si genera algún envío real a PRIIPS.</paso>
+      <paso numero="3">Si no existe, confirmar cuál es el job real que hoy cubre el envío a PRIIPS documentado en la tabla de destinos.</paso>
+    </pasos>
+    <resultadoEsperado>Se determina cuál de las dos fuentes del documento (historial de cambios vs. tabla de destinos) refleja el estado real, resolviendo la inconsistencia detectada por el propio documento fuente.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Inconsistencia resuelta con evidencia real, documentada en una futura actualización del spec.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí — cualquiera de las dos resoluciones es válida, el caso simplemente cierra el gap documental.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="regresion">
+    <nombre>Cambio en un script compartido (p. ej. unionFicheros.sh) no rompe ninguna de las 3 cadenas</nombre>
+    <objetivo>Confirmar que un cambio en un script físico compartido por las 3 cadenas (unionFicheros.sh, RDR_Transformacion_XSLT.sh, RDR_Validacion_XSD.sh) se valida en las 3 antes de darse por bueno, dado que una única versión del script afecta a todas simultáneamente.</objetivo>
+    <precondiciones>
+      <precondicion>Cambio pendiente de desplegar en uno de los scripts compartidos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script_compartido" valor="nueva versión de unionFicheros.sh (ejemplo)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Desplegar el cambio del script compartido.</paso>
+      <paso numero="2">Ejecutar el núcleo común (TC-001, TC-002) en las 3 cadenas por separado, en sus respectivas ventanas.</paso>
+      <paso numero="3">Comparar el resultado en las 3 cadenas.</paso>
+    </pasos>
+    <resultadoEsperado>El comportamiento del núcleo común es idéntico y correcto en las 3 cadenas tras el cambio, sin regresión en ninguna.</resultadoEsperado>
+    <tipoValidacion>Estado OK del núcleo común en las 3 cadenas + comparación de resultados.</tipoValidacion>
+    <criterioAceptacion>Sin regresión en ninguna de las 3 cadenas.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de proceso: validar el cambio en una sola cadena y darlo por bueno para las 3 podría ocultar una regresión específica de otra cadena (p. ej. por diferencias en el volumen de datos de sábado/domingo vs. diario).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
