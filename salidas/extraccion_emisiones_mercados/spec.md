@@ -291,6 +291,79 @@ sin un evento de cierre consumido por otra. Lo único que comparten es infraestr
 Implicación de testing: las pruebas de cada cadena pueden ejecutarse de forma aislada sin necesidad de preparar
 el estado de ninguna otra cadena de este sistema como prerrequisito.
 
+### 1.8 Atributos completos de definición Control-M (los 15 jobs)
+
+Todos los jobs: `Aplicación=KYTL`, folder Control-M en servidor `MERCADOS-4`; servidor **real** de ejecución de
+los jobs OS/Script (no Dummy/filewatcher): `pr-rdr.igrupobbva`.
+
+| Cadena | Job | Tipo | Usuario ejecución | Creado por | Programación (Control-M real) | Recurso cuantitativo | Criticidad |
+|--------|-----|------|--------------------|------------|-------------------------------|------------------------|------------|
+| 1 | `RDR_CUENTA_EMISIONES_IN` | Dummy | `xsramer1` | — (confirmado estructuralmente, GAP-EMIS-001; sin captura de campo a campo en esta ronda) | 23:40, diario | — | — |
+| 1 | `CUENTA_EMISIONES` | OS/Script | — (no confirmado literalmente en esta ronda) | — | — | — | — |
+| 1 | `ENVIO_REPORTE_EMISIONES` | OS/Evento (Workflow) | — | — | — | — | — |
+| 2 | `RDR_EXTRACCION_EMISIONES_IN` | Dummy | `xsramer1` | algocmd | Avanzado (1,2,3,4,5 = LMXJV) | `MAX-LPRDR501` (1/100) | A |
+| 2 | `RDR_EXTRACCION_EMISIONES` | OS/Script | `xakytl1p` | algocmd | Avanzado (1,2,3,4,5); cíclico a horas fijas 14:25/15:25/16:25/17:25/18:20/18:40; tolerancia 0 | `MAX-LPRDR501` (1/100) | A |
+| 2 | `RDR_EXTRACCION_EMISIONES_OUT` | Dummy | `xsramer1` | algocmd | Avanzado (1,2,3,4,5) | `MAX-LPRDR501` (1/100) | A |
+| 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS_IN` | Dummy | `xsramer1` | algocmd | Avanzado (1,2,3,4,0); 09:25 AM | `MAX-LPRDR501` (1/100) | A |
+| 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS` | OS/Script | `xakytl1p` | algocmd | Avanzado (1,2,3,4,0) | `MAX-LPRDR501` (1/100) | A |
+| 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT` | Dummy | `xsramer1` | algocmd | Avanzado (1,2,3,4,0) | `MAX-LPRDR501` (1/100) | A |
+| 4 | `GS_FUSION_EMISIONES` | OS/Script (ref. `SS-636131`) | `xakytl1p` | **a923577** | Avanzado (1,2,3,4,5 en Control-M; funcionalmente M X J V S); 01:00 AM; activo desde 11/08/2025 | No documentado | S |
+| 5 | `KYTL_HISTORIFICACION_EMISIONES` | OS/Script | `xakytl1p` | **XE30690** | Avanzado (día `6` = Sábado; funcionalmente "D" diario, GAP-EMIS-003); 06:00 AM; User Daily `PLAN_1200` | `MAX-LPRDR501` (1/100) | S |
+| 6 | `RDR_MARKETS_EXT_IN` | Dummy | `DUMMYUSR` | algocmd | Avanzado (1,2,3,4,0); 02:00 AM; retención 3 días | `MAX-LPRDR501` (1/100) | W (folder) |
+| 6 | `RDR_MARKETS_EXTRAC_FW` | OS (Comando/Filewatcher) | `xpctma1` | algocmd | Avanzado (1,2,3,4,0); retención 3 días | `MAX-LPRDR501` (1/100) | C |
+| 6 | `MEKYTL0857` | OS/Script | `xsramer1` | algocmd | Avanzado (1,2,3,4,0); retención 2 días | `MAX-LPRDR501` (1/100) | C / S |
+| 7 | `PUBLICACIONSELECTIVA_EMISIONES` | OS/Script | `xakytl1p` | — | Martes a Sábado (MXJVS); 03:00 AM | No documentado | W |
+
+Notas de honestidad de evidencia: los atributos de `CUENTA_EMISIONES` y `ENVIO_REPORTE_EMISIONES` (Cadena 1) y
+el "Creado por" de `PUBLICACIONSELECTIVA_EMISIONES` (Cadena 7) no están confirmados campo a campo en esta ronda
+de evidencia — se deja en blanco en vez de inventarlos. `GS_FUSION_EMISIONES` y `KYTL_HISTORIFICACION_EMISIONES`
+son los únicos jobs del sistema creados por un usuario distinto de `algocmd` (`a923577` y `XE30690`
+respectivamente) — dato observado tal cual, sin explicación documentada, no bloqueante.
+
+### 1.9 Cadena de eventos completa (todas las cadenas)
+
+| Cadena | # | Evento | Emisor | Consumidor |
+|--------|---|--------|--------|------------|
+| 1 | 1 | *(no confirmado literalmente; por patrón `RDR_CUENTA_EMISIONES_new_IN_OK`)* | `RDR_CUENTA_EMISIONES_IN` | `CUENTA_EMISIONES` |
+| 1 | 2 | *(no confirmado literalmente; por patrón `RDR_CUENTA_EMISIONES_new_CUENTA_EMISIONES_OK`)* | `CUENTA_EMISIONES` | `ENVIO_REPORTE_EMISIONES` |
+| 2 | 1 | `RDR_EXTRACCION_EMISIONES_new_IN_OK` | `RDR_EXTRACCION_EMISIONES_IN` | `RDR_EXTRACCION_EMISIONES` |
+| 2 | 2 | `RDR_EXTRACCION_EMISIONES_new_EXTRACCION_EMISIONES_OK` | `RDR_EXTRACCION_EMISIONES` | `RDR_EXTRACCION_EMISIONES_OUT` |
+| 2 | 3 | `RDR_EXTRACCION_EMISIONES_new_OUT_OK` | `RDR_EXTRACCION_EMISIONES_OUT` | *(cierre de malla)* |
+| 3 | 1 | `RDR_EXTRACCION_EMISIONES_VENCIDAS_new_IN_OK` | `RDR_EXTRACCION_EMISIONES_VENCIDAS_IN` | `RDR_EXTRACCION_EMISIONES_VENCIDAS` |
+| 3 | 2 | `RDR_EXTRACCION_EMISIONES_VENCIDAS_new_RDR_EXTRACCION_EMISIONES_VENCIDAS_OK` | `RDR_EXTRACCION_EMISIONES_VENCIDAS` | `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT` |
+| 3 | 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS_new_OUT_OK` | `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT` | *(cierre de malla)* |
+| 4 | — | *(sin evento de salida documentado — "Sucesor Directo: No definido explícitamente")* | `GS_FUSION_EMISIONES` | — |
+| 5 | — | *(sin evento de salida documentado)* | `KYTL_HISTORIFICACION_EMISIONES` | — |
+| 6 | 1 | `RDR_MARKETS_EXT_IN_OK_new` | `RDR_MARKETS_EXT_IN` | `RDR_MARKETS_EXTRAC_FW` |
+| 6 | 2 | `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new` | `RDR_MARKETS_EXTRAC_FW` (solo si código retorno = 0) | `MEKYTL0857` |
+| 6 | 3 | `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` | `MEKYTL0857` | *(sin consumidor documentado — naming "BASKETS" anómalo, ver sección 9)* |
+| 7 | — | *(sin evento de salida documentado)* | `PUBLICACIONSELECTIVA_EMISIONES` | — |
+
+Patrón de nomenclatura confirmado donde hay evidencia literal: `RDR_<CADENA>_<JOB>_OK[_new]`. Tres de las 7
+cadenas (4, 5 y 7) no tienen evento de salida documentado — cada una termina en el job OS/Script sin un Dummy de
+cierre ni un evento de fin de malla confirmado.
+
+### 1.10 Escenarios de fallo por cadena
+
+| Cadena | Paso | Escenario | Comportamiento real | Efecto en la cadena |
+|--------|------|-----------|----------------------|----------------------|
+| 1 | `CUENTA_EMISIONES` | Una fuente (p. ej. RE) no existe (típico sábado) | Sin On-Do documentado; el script trata la ausencia como conteo 0, no como error | Job OK, columnas de esa fuente a 0, resto de columnas correctas |
+| 1 | `CUENTA_EMISIONES` | Ninguna fuente existe | Igual que arriba, generalizado | Job OK, todos los conteos a 0; el correo se envía igual con un reporte "vacío" |
+| 1 | `CUENTA_EMISIONES` | Relanzamiento el mismo día | Sin comprobación de fecha duplicada (RISK-EMIS-001) | Job OK; línea duplicada en ambos CSV acumulativos |
+| 1 | `ENVIO_REPORTE_EMISIONES` | Envío normal | Workflow `SendMailReport` con parámetros `CONSTANT` incorrectos (DEF-EMIS-001) | Job OK; correo real con asunto/adjunto distintos de los documentados |
+| 2 | `RDR_EXTRACCION_EMISIONES` | Fallo real del Planificador Genérico | Sin On-Do documentado | KO real; `RDR_EXTRACCION_EMISIONES_OUT` no se ejecuta esa ventana |
+| 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS` | Fallo real del Planificador Genérico | Sin On-Do documentado | KO real; cadena detenida ese día |
+| 4 | `GS_FUSION_EMISIONES` | Fallo real del JAR de fusión | Sin On-Do documentado | KO real; sin sucesor que se vea afectado (no hay evento de salida) |
+| 5 | `KYTL_HISTORIFICACION_EMISIONES` | Falla el paso 1 (crear índices) | Exit≠0 → exit -2 inmediato | Pasos 2-5 no se ejecutan ese sábado; ni inactivación ni borrado ni limpieza de índices |
+| 5 | `KYTL_HISTORIFICACION_EMISIONES` | Paso 3 con "error" en el log (exit=0 pero log contiene "error") | Detección por contenido de log, no solo exit code → exit -2 | Pasos 4-5 no se ejecutan; el borrado de >40 días no ocurre ese sábado |
+| 6 | `RDR_MARKETS_EXTRAC_FW` | `dictionaryMarkets.csv` no llega (timeout) | Código 7 → Marcar como OK (soft-failure acotado, GAP-EMIS-008) | Job "OK" visible en Control-M, pero `MEKYTL0857` no se ejecuta y no hay historificación ese día |
+| 6 | `MEKYTL0857` | Fallo real de `RAMERC0068.sh` (p. ej. permisos en `/Backup/`) | Sin On-Do documentado | KO real; el fichero permanece sin historificar en la ruta origen |
+| 7 | `PUBLICACIONSELECTIVA_EMISIONES` | Fallo real del Workflow `RDR_SelectivePublish` | Sin On-Do documentado | KO real; publicación selectiva no ocurre ese día |
+
+Todos los KO reales (no soft-failure) generan alerta al grupo ANS RDR (`ans_rdr.es@bbva.com`), criticidad según
+cadena (A, S, C/S o W — ver sección 1.8). Ninguna cadena de este sistema tiene, en la evidencia real disponible,
+más de un código de retorno con soft-failure documentado (la Cadena 6 es la única con On-Do confirmado).
+
 ## 2. Alcance del proceso
 
 **Ámbito funcional — 7 cadenas:**
