@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_ENVIO_CLIEX_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo con ambos ficheros presentes</nombre>
+    <objetivo>Verificar que los 8 jobs se ejecutan en el orden documentado, incluido el Fan-In final.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_ENVIO_CLIEX_new activa, entorno de prueba (no producción).</precondicion>
+      <precondicion>Existen CLIEXCLU.csv y CLIEXCLU.txt en /fichtemcomp/pr/descargas/kytl/cliexclu/ antes de las 05:00 AM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que FIC_CLIEXC_RDR_FW detecta CLIEXCLU.csv.</paso>
+      <paso numero="2">Verificar que FIC_CLIEXC_RDR_TXT_FW detecta CLIEXCLU.txt.</paso>
+      <paso numero="3">Verificar que KYTL_CLIEXC_GSPROCESS transforma el fichero con RC=0.</paso>
+      <paso numero="4">Verificar que MEKYTL0783 transmite a MVP00G219 con RC=0.</paso>
+      <paso numero="5">Verificar que MEKYTL0784 transmite a MVP00G517 con RC=0.</paso>
+      <paso numero="6">Verificar que MEKYTL0955 historifica CLIEXCLU.txt con timestamp YYYYMMDDhhii.</paso>
+      <paso numero="7">Verificar que MEKYTL0956 historifica CLIEXCLU.csv con timestamp YYYYMMDDhhii.</paso>
+      <paso numero="8">Verificar que RDR_ENVIO_CLIEX_IN cierra la cadena tras confirmarse ambas historificaciones.</paso>
+    </pasos>
+    <resultadoEsperado>Los 8 jobs terminan en OK; ambos ficheros quedan historificados con timestamp.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + existencia de ficheros historificados.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs OK; 2 ficheros en old/ con timestamp correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Ausencia de CLIEXCLU.csv detiene la cadena sin marcar error</nombre>
+    <objetivo>Confirmar que la ausencia del fichero de entrada detiene la cadena sin generar estado de fallo del job.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con CLIEXCLU.csv ausente durante toda la ventana 05:00-06:00 AM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="CLIEXCLU.csv ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener CLIEXCLU.csv ausente durante los 60 minutos de ventana de FIC_CLIEXC_RDR_FW.</paso>
+      <paso numero="2">Verificar que el job no marca error (RC de fallo) pese a no detectar el fichero.</paso>
+      <paso numero="3">Verificar que FIC_CLIEXC_RDR_TXT_FW no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se detiene tras el primer filewatcher sin marcar error de job — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados; el filewatcher no queda en estado de error.</criterioAceptacion>
+    <posibilidadFallo>Que el job marque error pese a la regla documentada de no fallar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>MEKYTL0783 falla la cadena si falta el fichero (estricto)</nombre>
+    <objetivo>Confirmar que la transmisión principal a MVP00G219 no tolera la ausencia del fichero de origen.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL_CLIEXC_GSPROCESS completado, pero CLIEXCLU.txt eliminado antes de la ejecución de MEKYTL0783, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="CLIEXCLU.txt ausente en el momento de la transmisión"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar CLIEXCLU.txt tras la finalización de KYTL_CLIEXC_GSPROCESS.</paso>
+      <paso numero="2">Ejecutar MEKYTL0783 y verificar que termina en estado de fallo (NOT OK).</paso>
+      <paso numero="3">Verificar que MEKYTL0784 no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0783 falla la cadena; el resto de jobs posteriores no se ejecutan — comportamiento confirmado (estricto), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0783 en NOT OK; 0 jobs posteriores ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Que el job tolere la ausencia pese a ser el envío estricto (contradiría R4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>MEKYTL0784 no falla si falta el fichero (Soft Failure)</nombre>
+    <objetivo>Confirmar que la réplica a MVP00G517 tolera la ausencia del fichero de origen sin bloquear la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0783 completado con éxito, pero CLIEXCLU.txt eliminado antes de la ejecución de MEKYTL0784, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="CLIEXCLU.txt ausente en el momento de la réplica"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar CLIEXCLU.txt tras la finalización de MEKYTL0783.</paso>
+      <paso numero="2">Ejecutar MEKYTL0784 y verificar RC=0 pese a la ausencia del fichero.</paso>
+      <paso numero="3">Verificar que MEKYTL0955 y MEKYTL0956 arrancan con normalidad.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0784 termina en OK sin transmitir ningún fichero; la historificación posterior no se bloquea — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 en MEKYTL0784 pese a la ausencia del fichero; historificación ejecutada.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R5).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>El Fan-In no cierra la cadena con una sola historificación completada</nombre>
+    <objetivo>Confirmar que RDR_ENVIO_CLIEX_IN exige el AND real de MEKYTL0955 y MEKYTL0956.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo selectivo de una de las 2 historificaciones.</precondicion>
+      <precondicion>MEKYTL0955 completado con éxito; MEKYTL0956 forzado a fallar (p. ej. permisos insuficientes sobre old/).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Job forzado a fallar" valor="MEKYTL0956"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0956 manteniendo MEKYTL0955 en OK.</paso>
+      <paso numero="2">Verificar que RDR_ENVIO_CLIEX_IN permanece en espera, sin disparar.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_ENVIO_CLIEX_IN no dispara mientras falte la confirmación de MEKYTL0956.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>RDR_ENVIO_CLIEX_IN en espera con 1 de 2 condiciones cumplidas.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dé por cerrada la cadena con una sola historificación confirmada (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>CLIEXCLU.csv nunca se transmite por XCOM</nombre>
+    <objetivo>Confirmar que solo CLIEXCLU.txt llega a los destinos externos, y CLIEXCLU.csv permanece únicamente en local/histórico.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución completa de la cadena en entorno de prueba, no producción.</precondicion>
+      <precondicion>Acceso de lectura a los 2 destinos XCOM configurados (MVP00G219, MVP00G517).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros a verificar" valor="CLIEXCLU.csv y CLIEXCLU.txt tras una ejecución completa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa.</paso>
+      <paso numero="2">Verificar que en ambos destinos XCOM solo aparece CLIEXCLU_RDR.txt.</paso>
+      <paso numero="3">Verificar que CLIEXCLU.csv solo existe en el directorio activo y luego en old/.</paso>
+    </pasos>
+    <resultadoEsperado>CLIEXCLU.csv nunca aparece en ningún destino XCOM — confirmado por diseño, no un gap.</resultadoEsperado>
+    <tipoValidacion>Verificación de contenido de los 2 destinos XCOM + existencia local del .csv.</tipoValidacion>
+    <criterioAceptacion>0 apariciones de CLIEXCLU.csv en los destinos XCOM.</criterioAceptacion>
+    <posibilidadFallo>Que aparezca una copia del .csv en algún destino (contradiría R8).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="e2e">
+    <nombre>Ciclo completo diario desde la detección hasta el cierre Fan-In</nombre>
+    <objetivo>Validar el flujo end-to-end completo, incluidas ambas transmisiones y el Fan-In final.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con conectividad a los 2 destinos XCOM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar CLIEXCLU.csv y CLIEXCLU.txt válidos antes de las 05:00 AM.</paso>
+      <paso numero="2">Ejecutar la cadena completa y verificar el paso por los 8 jobs.</paso>
+      <paso numero="3">Verificar el cierre de RDR_ENVIO_CLIEX_IN tras confirmarse ambas historificaciones.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina con los 8 jobs en OK y el cierre lógico confirmado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de principio a fin de la cadena completa.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs en OK; RDR_ENVIO_CLIEX_IN como último job ejecutado.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro de la ventana diaria.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

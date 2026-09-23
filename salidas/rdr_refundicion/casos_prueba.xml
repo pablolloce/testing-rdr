@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_REFUNDICION_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo con fichero de entrada presente</nombre>
+    <objetivo>Verificar que los 4 jobs se ejecutan en el orden documentado cuando Refundicion.csv está disponible.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_REFUNDICION_new activa, entorno de prueba (no producción).</precondicion>
+      <precondicion>Existe Refundicion.csv en /fichtemcomp/pr/descargas/kytl/Refundicion/ antes de las 04:00 AM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (martes a sábado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que KYTL_REF_GSPROCESS_FW detecta Refundicion.csv.</paso>
+      <paso numero="2">Verificar que KYTL_REF_GSPROCESS termina RC=0 y genera Reporte_Refundicion_dos.csv.</paso>
+      <paso numero="3">Verificar que MEKYTL0107 transmite el reporte a MVP00G215.</paso>
+      <paso numero="4">Verificar que MEKYTL0121 historifica Refundicion.csv en old/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan en OK; el reporte queda transmitido y el fichero fuente historificado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + existencia de fichero historificado.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs OK; fichero en old/ con la fecha correcta.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Ausencia de Refundicion.csv detiene la cadena</nombre>
+    <objetivo>Confirmar que la no recepción del fichero de entrada detiene la cadena sin ejecutar los pasos posteriores.</objetivo>
+    <precondiciones>
+      <precondicion>Refundicion.csv ausente durante toda la ventana 01:00-04:00 AM, en entorno de prueba, no producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente durante los 180 minutos de ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener Refundicion.csv ausente durante toda la ventana de KYTL_REF_GSPROCESS_FW.</paso>
+      <paso numero="2">Verificar que la cadena se detiene sin ejecutar KYTL_REF_GSPROCESS.</paso>
+      <paso numero="3">Verificar que RDR_CONCILIACION_CLIENTELA_new no recibe el disparo externo.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se detiene tras el filewatcher; la cadena externa tampoco arranca por esta vía.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M de ambas cadenas.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados en esta cadena; 0 disparo del evento externo.</criterioAceptacion>
+    <posibilidadFallo>Que la cadena continúe pese a la ausencia del fichero (contradiría R1).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="conflicto_integridad">
+    <nombre>El Fan-Out dispara correctamente ambos sucesores de KYTL_REF_GSPROCESS</nombre>
+    <objetivo>Confirmar que la finalización exitosa de KYTL_REF_GSPROCESS dispara en paralelo el sucesor interno (MEKYTL0107) y el evento externo (KYTL_CONCLI_GSPROCESS_FW).</objetivo>
+    <precondiciones>
+      <precondicion>Refundicion.csv presente y válido, en entorno de prueba, no producción.</precondicion>
+      <precondicion>Cadena RDR_CONCILIACION_CLIENTELA_new activa y en espera del evento externo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_REF_GSPROCESS hasta su finalización con éxito.</paso>
+      <paso numero="2">Verificar que MEKYTL0107 arranca inmediatamente dentro de esta cadena.</paso>
+      <paso numero="3">Verificar en paralelo que KYTL_CONCLI_GSPROCESS_FW (RDR_CONCILIACION_CLIENTELA_new) recibe el disparo y comienza su propia ventana de espera.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos sucesores se disparan tras la misma finalización exitosa de KYTL_REF_GSPROCESS, sin que uno dependa de la finalización del otro.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de ambas cadenas.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0107 en OK y KYTL_CONCLI_GSPROCESS_FW activado, ambos tras la misma ejecución de KYTL_REF_GSPROCESS.</criterioAceptacion>
+    <posibilidadFallo>Que el evento externo no se dispare pese a la finalización exitosa (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>MEKYTL0107 no falla si el reporte no existe</nombre>
+    <objetivo>Confirmar el comportamiento Soft Failure documentado para el envío XCOM.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL_REF_GSPROCESS completado, pero Reporte_Refundicion_dos.csv eliminado antes de la ejecución de MEKYTL0107, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_Refundicion_dos.csv ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar Reporte_Refundicion_dos.csv tras la finalización de KYTL_REF_GSPROCESS.</paso>
+      <paso numero="2">Ejecutar MEKYTL0107 y verificar RC=0 pese a la ausencia del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0107 termina en OK sin transmitir ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>MEKYTL0121 no falla si Refundicion.csv no existe</nombre>
+    <objetivo>Confirmar el comportamiento Soft Failure documentado para la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0107 completado, pero Refundicion.csv eliminado antes de la ejecución de MEKYTL0121, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Refundicion.csv ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar Refundicion.csv tras la finalización de MEKYTL0107.</paso>
+      <paso numero="2">Ejecutar MEKYTL0121 y verificar RC=0 pese a la ausencia del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0121 termina en OK sin historificar ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R5).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="e2e">
+    <nombre>Ciclo completo diario incluido el disparo de la cadena externa</nombre>
+    <objetivo>Validar el flujo end-to-end completo desde la detección del fichero hasta el cierre de esta cadena y el arranque de la cadena externa.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de observar el estado de RDR_CONCILIACION_CLIENTELA_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Refundicion.csv válido antes de las 04:00 AM.</paso>
+      <paso numero="2">Ejecutar la cadena completa y verificar el paso por los 4 jobs.</paso>
+      <paso numero="3">Verificar que RDR_CONCILIACION_CLIENTELA_new recibe el disparo externo tras KYTL_REF_GSPROCESS.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina con los 4 jobs en OK y la cadena externa queda activada.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de ambas cadenas de principio a fin.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs de esta cadena en OK; evento externo confirmado como recibido.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro de la ventana diaria.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
