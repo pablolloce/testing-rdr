@@ -24,17 +24,22 @@
   deduplicación de `_new`/`_FINSEM_D_new`.
 - Conectividad hacia los 45+ sistemas destino (Mentor, SIRE, SICOR, Fircosoft, Salesforce/Fonetic, MGCyG,
   CTM/Deal Manager, DataX, XVA, NOVA, Calypso/KLYO/MSC, Duco, Algorithmics, Smart Data/Cloudera, FENERGO,
-  Ibor, PRIIPS, SACCR, Ábaco, Webfocus, DataHub CIB/ADA/DATIO, entre otros) — sin detalle de ruta/protocolo
-  exacto para los destinos afectados por GAP-CTPY-001.
+  Ibor, PRIIPS, SACCR, Ábaco, Webfocus, DataHub CIB/ADA/DATIO, entre otros).
 - Monitor de BBDD operativo para `MONITOR_BKYTL001_505-606` (`/pr/pl/scrt/monitor_BBDD.sh BKYTL003`,
   `LPORA605`) — disparador compartido de `_FINSEM_S_new` y `_FINSEM_D_new`.
+- Pasarela de transmisión externa operativa en `lpftp501`/`lpftp503` (scripts `LPFTPEXCA0000.sh`/
+  `LPFTPEXCA0002.sh`) para los jobs `_SND`/`_DEL` de `_new` (`MEKYTL0282`, `MEKYTL0878`, `MEKYTL0879`,
+  `MEKYTL1093`).
 
 ## Roles y permisos
 
 - Grupo de soporte único para las 3 cadenas: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`).
-- No se documentan en esta ronda los usuarios de ejecución (`Run As`) de los jobs individuales, salvo lo
-  implícito en el patrón general de otros procesos RDR de este intake (`xakytl1p`/`xsramer1` típicos) — no
-  confirmado aquí, no asumir sin evidencia (GAP-CTPY-001).
+- Usuarios de ejecución reales confirmados en `_new` (GAP-CTPY-001, evidencia real): `xakytl1p` (transformaciones
+  `RDR_TRANSFORMACION_*`, deduplicación, unión), `xsramer1` (mayoría de envíos y jobs `RAMERC0068.sh`),
+  `xpctma1` (filewatchers), `xtsftp1`/`xtprox1p` (jobs `_SND`/`_DEL` en la pasarela), y **`root`** para 3 jobs
+  concretos (`MEKYTL0781`, `MEKYTL1020`, `MEKYTL1181`) — ver riesgo en `spec.md` sección 9.
+- Usuarios de ejecución de `_FINSEM_D_new` no confirmados campo a campo para `MEKYTL0289`/`MEKYTL0292`
+  (GAP-CTPY-002/006, aún abierto).
 
 ## Flujos previos que deben haberse completado
 
@@ -44,7 +49,10 @@
   `MONITOR_BKYTL001_505-606` como disparador — verificar en cualquier prueba conjunta de ambas cadenas que no
   haya una condición de carrera o un solapamiento no documentado entre sus dos arranques (viernes 22:00 vs.
   sábado 22:00, consecutivos).
-- **Importante (limitación de cobertura):** cualquier prueba sobre los ~53 pasos de `_new` sin ficha
-  (GAP-CTPY-001) o los 2 de `_FINSEM_D_new` (GAP-CTPY-002) requiere primero obtener su ficha técnica o una
-  captura real de Control-M — no se puede diseñar un caso de prueba fiable sobre un job cuyo comando, usuario
-  y comportamiento ante fallo no están confirmados.
+- **Importante (limitación de cobertura restante):** cualquier prueba sobre `MEKYTL0289`/`MEKYTL0292` de
+  `_FINSEM_D_new` (GAP-CTPY-002/006) requiere primero obtener su ficha técnica o una captura real de Control-M
+  — no se puede diseñar un caso de prueba fiable sobre un job cuyo comando, usuario y comportamiento ante
+  fallo no están confirmados. La cadena `_new` ya no tiene esta limitación (GAP-CTPY-001 resuelto).
+- **Importante:** antes de cualquier prueba de la rama SIRE o de `MEKYTL0879_DEL` en `_new`, revisar
+  RISK-CTPY-001 (limpieza por comodín `*ctpda*` que podría afectar a ficheros de otra rama si coinciden en la
+  misma ruta de pasarela en la misma ventana temporal).
