@@ -67,29 +67,30 @@
     <posibilidadFallo>Baja — el filtro es simple. El paso 5 cubre un caso que el documento fuente no contempla.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-03" tipo="borde">
-    <nombre>Extracción sin SCIs que procesar</nombre>
-    <objetivo>Determinar el comportamiento de la cadena cuando la query maestra no devuelve ningún identificador, escenario en el que no hay datos pero tampoco error de ejecución.</objetivo>
+  <casoDePrueba id="TC-03" tipo="error_funcional">
+    <nombre>La extracción falla cuando no hay SCIs que procesar</nombre>
+    <objetivo>Verificar que, si la query maestra no devuelve ningún identificador, la extracción termina en error y detiene la cadena, conforme a R-13: el proceso tiene que devolver algo.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de pruebas sin SCIs vigentes, o con todas excluidas por tener END_TMS informado o asignación a A15.</precondicion>
-      <precondicion>Directorio de extracción vacío.</precondicion>
+      <precondicion>En el entorno de pruebas, la query maestra devuelve cero filas: todas las SCIs tienen END_TMS informado o asignación BRANCH a la organización A15.</precondicion>
+      <precondicion>El directorio de extracción no contiene ningún fichero ExtraccionContingenciaSCIs previo.</precondicion>
+      <precondicion>Acceso de ejecución sobre el entorno de pruebas con el usuario que lanza GSProcess.sh, y de lectura sobre el directorio de extracción y sobre el log del proceso.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="n_scis_vigentes" valor="0"/>
-      <dato campo="fichero_esperado" valor="a determinar: XML vacío, XML con raíz sin bloques, o ausencia de fichero"/>
+      <dato campo="resultado_exigido" valor="error"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dejar el universo vacío en el entorno de pruebas.</paso>
-      <paso numero="2">Ejecutar GS_EXTRACCIONSCIS y comprobar en qué estado termina.</paso>
-      <paso numero="3">Comprobar si se genera el fichero y cuál es su contenido.</paso>
-      <paso numero="4">Dejar avanzar la cadena y comprobar el comportamiento de MEKYTL1022 ante la posible ausencia de fichero que archivar.</paso>
-      <paso numero="5">Verificar si el script termina con exit 6, que es su código para "no hay ficheros que historificar" cuando así está configurado.</paso>
-      <paso numero="6">Comprobar si la purga se ejecuta igualmente y si la cadena cierra en OK.</paso>
+      <paso numero="1">Dejar el universo de SCIs vigentes a cero en el entorno de pruebas.</paso>
+      <paso numero="2">Ejecutar la query maestra y comprobar que devuelve cero filas.</paso>
+      <paso numero="3">Ejecutar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="4">Comprobar que la extracción termina en error.</paso>
+      <paso numero="5">Comprobar que no queda ningún fichero de extracción en el directorio de salida.</paso>
+      <paso numero="6">Comprobar que la cadena no avanza hasta MEKYTL1022.</paso>
     </pasos>
-    <resultadoEsperado>A documentar según el comportamiento observado. El punto de interés es el paso 5: si el campo FALLASINOFICHS de la línea del IDX está a 0, la ausencia de fichero hará fallar MEKYTL1022 y detendrá la cadena; si no, continuará silenciosamente.</resultadoEsperado>
-    <tipoValidacion>Inspección del fichero generado; estado de cada job; revisión del log de RAMERC0068.sh en /pr/pl/log/ para identificar el código de salida.</tipoValidacion>
-    <criterioAceptacion>El comportamiento queda documentado de forma inequívoca, incluido el efecto de la configuración de FALLASINOFICHS.</criterioAceptacion>
-    <posibilidadFallo>Media — el documento fuente no contempla este escenario y su resultado depende de un campo del IDX que no está documentado.</posibilidadFallo>
+    <resultadoEsperado>La extracción termina en error y la cadena se detiene sin archivar ni purgar nada. No se genera fichero de extracción, ni vacío ni con la raíz sin bloques.</resultadoEsperado>
+    <tipoValidacion>Estado final del job de extracción; inventario del directorio de salida; estado de los jobs posteriores.</tipoValidacion>
+    <criterioAceptacion>La extracción no termina nunca en OK cuando el universo está vacío, y no deja fichero alguno.</criterioAceptacion>
+    <posibilidadFallo>Alta — nada de lo documentado indica que el motor genérico distinga un universo vacío de una ejecución correcta. Si termina en OK, o si genera un fichero sin bloques, el caso falla y ese es precisamente el hallazgo: incumpliría R-13. El mismo escenario está abierto en RDR_EXTRACCION_CONTACTOS.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-04" tipo="negativo">
@@ -369,28 +370,30 @@
 
   <casoDePrueba id="TC-13" tipo="duplicidad">
     <nombre>Reejecución con ficheros residuales</nombre>
-    <objetivo>Verificar el comportamiento de la cadena cuando quedan ficheros de una pasada anterior en el directorio de extracción, escenario posible al no existir filewatcher ni control de frescura.</objetivo>
+    <objetivo>Verificar que una extracción posterior sobrescribe el fichero de una pasada anterior, conforme a R-14, y que el fichero que acaba archivado es siempre el del día.</objetivo>
     <precondiciones>
-      <precondicion>El directorio de extracción contiene un ExtraccionContingenciaSCIs de una ejecución anterior, con una SCI marcadora que no existe en los datos del día.</precondicion>
-      <precondicion>La cadena no ha sido lanzada todavía en el día de proceso.</precondicion>
+      <precondicion>El directorio de extracción contiene un ExtraccionContingenciaSCIs de una ejecución anterior que incluye una SCI marcadora.</precondicion>
+      <precondicion>Esa SCI marcadora no pertenece al universo vigente, de modo que no puede aparecer en la extracción del día.</precondicion>
+      <precondicion>La cadena no se ha lanzado todavía en el día de proceso.</precondicion>
+      <precondicion>Acceso de escritura sobre el directorio de extracción para dejar el fichero residual, y de lectura sobre el directorio de histórico.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="marcador" valor="SCI sintética presente solo en el fichero residual"/>
-      <dato campo="residual" valor="fichero de extracción de la pasada anterior"/>
-      <dato campo="escenario_alternativo" valor="fichero ya presente en SCIS/backup con el mismo nombre"/>
+      <dato campo="residual" valor="fichero de extracción de la pasada anterior, mismo nombre que el del día"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Dejar el fichero residual con la SCI marcadora en el directorio de extracción.</paso>
-      <paso numero="2">Lanzar la cadena.</paso>
-      <paso numero="3">Verificar si la extracción sobrescribe el fichero residual o si falla por su existencia.</paso>
-      <paso numero="4">Buscar la SCI marcadora en el fichero finalmente archivado.</paso>
-      <paso numero="5">Repetir el escenario dejando además un fichero del mismo nombre en SCIS/backup, y verificar si el archivado lo sobrescribe, falla o genera un duplicado.</paso>
-      <paso numero="6">Revisar el log de RAMERC0068.sh para determinar el comportamiento exacto y el código de salida.</paso>
+      <paso numero="2">Registrar la marca de tiempo del fichero residual.</paso>
+      <paso numero="3">Lanzar la cadena.</paso>
+      <paso numero="4">Comprobar que la extracción termina correctamente y no falla por la existencia del fichero previo.</paso>
+      <paso numero="5">Comprobar que la marca de tiempo del fichero de extracción es posterior a la registrada en el paso 2.</paso>
+      <paso numero="6">Comprobar que la SCI marcadora no aparece en el fichero de extracción.</paso>
+      <paso numero="7">Comprobar que la SCI marcadora no aparece en el fichero archivado en el directorio de histórico.</paso>
     </pasos>
-    <resultadoEsperado>A documentar según el comportamiento observado. El riesgo a descartar es que un fichero residual acabe archivado como si fuera el del día, o que una colisión de nombres en el destino haga fallar el archivado.</resultadoEsperado>
-    <tipoValidacion>Búsqueda de la SCI marcadora en el fichero archivado; comparación de marcas de tiempo; revisión del log del script.</tipoValidacion>
-    <criterioAceptacion>Se confirma que el fichero archivado corresponde siempre a la extracción del día, o bien queda documentado que el escenario exige limpieza manual previa.</criterioAceptacion>
-    <posibilidadFallo>Media — el uso de un fichero .tmp renombrado protege frente a lecturas parciales, pero no frente a un fichero completo de la pasada anterior.</posibilidadFallo>
+    <resultadoEsperado>La extracción sobrescribe el fichero residual sin fallar, y ni el fichero generado ni el archivado contienen la SCI marcadora. El archivado corresponde siempre a la extracción del día.</resultadoEsperado>
+    <tipoValidacion>Comparación de marcas de tiempo antes y después; búsqueda de la SCI marcadora en el fichero generado y en el archivado.</tipoValidacion>
+    <criterioAceptacion>El fichero archivado corresponde a la extracción del día y no conserva ningún dato de la pasada anterior.</criterioAceptacion>
+    <posibilidadFallo>Baja para la sobrescritura, que es el comportamiento confirmado al no llevar fecha el nombre del fichero. El riesgo real está en el destino del archivado: si allí el nombre sí llevase fecha, los ficheros se acumularían, algo aceptado por R-14 y acotado por la purga de 7 días siempre que el destino sea el que cubre TC-07.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-14" tipo="conflicto_integridad">

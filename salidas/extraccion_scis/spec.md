@@ -78,6 +78,8 @@ que siguen ejecutando algo, uno extrae, otro archiva y el tercero purga.
 | R-10 | Los jobs `EXTRACCION_SCIS_XML_INACT`, `EXTRACCION_SCIS_XML`, `KYTL003D_MEKYTL1023` y `KYTL003D_MEKYTL1049` son de tipo Dummy y **no deben ejecutar ningún script en sistema operativo**. |
 | R-11 | `MANT_RDR_EXTRACCION_SCIS` exige como condición de entrada los eventos de los dos Dummy de la bifurcación (`RDR_EXTRACCIONSCIS_MEKYTL1023_OK` **y** `RDR_EXTRACCIONSCIS_MEKYTL1049_OK`). |
 | R-12 | El proceso no distribuye el fichero a ningún sistema consumidor. |
+| R-13 | Si la query maestra no devuelve ninguna SCI, **la extracción debe fallar**: el proceso tiene que devolver algo. No es admisible que termine en OK sin datos ni que genere un fichero vacío. |
+| R-14 | Un fichero de una pasada anterior en el directorio de extracción **se sobrescribe**, porque el nombre no lleva fecha. La acumulación solo se da en ficheros cuyo nombre sí la lleva, y se considera aceptable: su control corresponde a la gestión de espacio, no a este proceso. |
 
 ---
 
@@ -450,6 +452,8 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 | R-10 | TC-08 |
 | R-11 | TC-09 |
 | R-12 | TC-01 |
+| R-13 | TC-03 |
+| R-14 | TC-13 |
 
 ---
 
@@ -458,7 +462,7 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
 | RG-01 | La ficha de `MEKYTL1022` documenta como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros | Induce a error sobre qué hace la cadena: sugiere dos extracciones donde solo hay una | Corregir la descripción de la ficha (§4.2) |
-| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) no está documentado en ninguna ficha | No se conoce el directorio destino. Si no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Obtener `grep ^MEKYTL1022@ /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` y documentarlo en la ficha (§4.4, TC-06) |
+| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) no está documentado en ninguna ficha | No se conoce el directorio destino. Si no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `^MEKYTL1022@` del IDX del entorno que corresponda y documentarla en la ficha (§4.4, TC-06) |
 | RG-03 | El elemento `Colony` se emite dos veces con el mismo origen | Un consumidor estricto podría rechazar el XML o quedarse con una lectura ambigua | Verificar contra el SQL literal y eliminar la duplicación (§5.1, TC-14) |
 | RG-04 | Cuatro campos normalizan `;` a coma sin motivo documentado | Se está alterando el dato de origen sin una razón registrada; un cambio futuro podría revertirlo sin saber qué rompía | Documentar el motivo en la ficha del proceso (§5.1) |
 | RG-05 | `RAMERC0068.sh` deduce el entorno del segundo carácter del nombre de la máquina y, si no lo reconoce, **asume producción** | Un host que no siga la nomenclatura ejecutaría la configuración de producción sobre rutas de producción. Es el peor fallback posible para un entorno de pruebas | Verificar la nomenclatura del host antes de ejecutar pruebas (`memoria/memoria_ramerc0068_RDR.md`, TC-15) |
