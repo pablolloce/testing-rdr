@@ -32,7 +32,7 @@ funcionalmente independiente de `RDR_BATCH_EMISORES_REFINITIV` (carga batch diar
 | R3 | `FICHERO_RDR_REFINITIV_FW` valida la llegada del fichero en destino, sucesor de `MEKYTL1058`, predecesor de `RDR_REFINITIV_REQUEST`. |
 | R4 | `RDR_REFINITIV_REQUEST` ejecuta `GSProcess.sh RefinitivIssueMultiRequest` bajo `xakytl1p`, fin de cadena, sin sucesor. |
 | R5 | Los 4 jobs son criticidad `W`. Protocolo de fallo estándar: notificar a ANS RDR (`BZG03906`) vía `ans_rdr.es@bbva.com` y abrir ticket Remedy. |
-| R6 | **Gap de documentación confirmado (no hay ficha técnica individual completa para `FICHERO_REFINITIV_FW` ni `MEKYTL1058`)**: Run As, criticidad propia, nombres exactos de eventos de entrada/salida y parámetros `ctmfw` (tamaño mínimo, estabilidad) de estos 2 jobs no están documentados — el propio SSDD (`RDR_CARGA_REFINITIV_Multi.pdf`) carece de esas fichas EX-005-03, a diferencia del resto de jobs del documento fuente. |
+| R6 | **Gap de documentación confirmado**: Run As, criticidad propia, nombres exactos de eventos de entrada/salida y parámetros `ctmfw` (tamaño mínimo, estabilidad). |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
@@ -41,7 +41,7 @@ funcionalmente independiente de `RDR_BATCH_EMISORES_REFINITIV` (carga batch diar
 | G1 | ¿Por qué faltan las fichas técnicas de `FICHERO_REFINITIV_FW` y `MEKYTL1058`? | Confirmado como carencia real del documento de diseño SSDD (`RDR_CARGA_REFINITIV_Multi.pdf`); no es un error de transcripción de este intake, sino un gap de la fuente original. Se documenta como tal (R6) y como riesgo (sección 9). |
 | G2 | Si el fichero no llega en ningún ciclo del día, ¿hay alerta? | Confirmado: no. El filewatcher termina en estado limpio sin error ni alerta a guardia. |
 | G3 | ¿El borrado del fichero origen ocurre siempre o solo tras éxito de la transferencia? | Confirmado: solo tras confirmación de éxito de la transferencia. |
-| G4 | ¿Existen parámetros `ctmfw` (tamaño mínimo, estabilidad) para `FICHERO_REFINITIV_FW`? | Confirmado: no están documentados — gap de documentación aceptado, sin más evidencia disponible. |
+| G4 | ¿Existen parámetros `ctmfw` (tamaño mínimo, estabilidad) para `FICHERO_REFINITIV_FW`? | Confirmado: gap de documentación aceptado. |
 
 ## 5. Especificación funcional
 
