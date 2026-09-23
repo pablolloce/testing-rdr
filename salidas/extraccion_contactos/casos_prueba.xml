@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_contactos" fecha="2026-09-22" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-01" tipo="e2e">
+    <nombre>Flujo completo E2E de la cadena RDR_EXTRACCION_CONTACTOS</nombre>
+    <objetivo>Verificar que los nueve jobs se ejecutan en secuencia y que el ciclo completo —extracción, transformación a SAIT, disponibilización a DataX, envío a SAIT, historificación de las dos ramas y purga— termina correctamente en un día laborable.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_ATE1 contiene activas las filas ExtraccionCONT.sql y ExtraccionContingenciaCONT.sql.</precondicion>
+      <precondicion>FT_T_PAR1 contiene las etiquetas raíz del fichero de contactos.</precondicion>
+      <precondicion>Existen al menos 10 contactos vigentes, de los cuales al menos 2 cumplen el filtro de México (ORGID 1145 o SCIsBranch MEX).</precondicion>
+      <precondicion>Directorio CONT/ sin ficheros residuales de pasadas anteriores.</precondicion>
+      <precondicion>Subdirectorios CONT/SAIT/, CONT/backup/ y CONT/SAIT/old/ existentes y con permisos de escritura y borrado.</precondicion>
+      <precondicion>Cadena activa en Control-M con dependencias configuradas como condiciones de éxito.</precondicion>
+      <precondicion>Rutas de DataX, pasarela lpftp503 y SAIT accesibles.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dia_ejecucion" valor="día laborable (LMXJV)"/>
+      <dato campo="n_contactos_vigentes" valor="10"/>
+      <dato campo="n_contactos_mexico" valor="2"/>
+      <dato campo="cadena" valor="RDR_EXTRACCION_CONTACTOS"/>
+      <dato campo="criticidad_esperada" valor="W en los 9 jobs"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena RDR_EXTRACCION_CONTACTOS.</paso>
+      <paso numero="2">Verificar que GS_EXTRACCION_CONT genera ExtraccionContingenciaCONT.xml.tmp y lo renombra a .xml en CONT/.</paso>
+      <paso numero="3">Verificar que el mismo job genera RDR_contactosSAIT.xml en CONT/SAIT/ mediante la acción XSLT.</paso>
+      <paso numero="4">Verificar que MEKYTL1177 deja el fichero completo en /unload/kytl/datsal/datax/.</paso>
+      <paso numero="5">Verificar que el Dummy EXTRACCION_CONTACTOS_XML se ejecuta y encadena con MEKYTL1027.</paso>
+      <paso numero="6">Verificar que MEKYTL1027 historifica en CONT/backup/ y que MANT_RDR_EXTRACCION_CONTACTOS se ejecuta.</paso>
+      <paso numero="7">Verificar que MEKYTL1189 copia RDR_contactosSAIT.xml a lpftp503:/unload/transmisiones/KYTL/.</paso>
+      <paso numero="8">Verificar que MEKYTL1189_SND transmite el fichero a 150.100.230.96 como RDR_contactosSAIT_YYYYMMDD.xml.</paso>
+      <paso numero="9">Verificar que MEKYTL1190 mueve el fichero a CONT/SAIT/old/ con la fecha del ODATE.</paso>
+      <paso numero="10">Verificar que MANT_RDR_EXTRACCION_CONT_SAIT se ejecuta y cierra la cadena sin eventos de salida.</paso>
+      <paso numero="11">Comprobar que los nueve jobs figuran con criticidad W en Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>Los nueve jobs terminan en OK y en el orden declarado. DataX recibe el fichero completo con los 10 contactos y SAIT el fichero filtrado con los 2 contactos mexicanos. Los directorios de histórico contienen un fichero cada uno y los de trabajo quedan sin residuos.</resultadoEsperado>
+    <tipoValidacion>Estado y orden de ejecución de los jobs en Control-M; existencia y nombre de los ficheros en cada ruta; conteo de contactos en el fichero de DataX y en el de SAIT.</tipoValidacion>
+    <criterioAceptacion>Cadena completa en OK, dos ficheros distintos y correctos en destino, e históricos generados en ambas ramas.</criterioAceptacion>
+    <posibilidadFallo>Baja — la cadena es lineal y sin condiciones complejas. El punto de atención es que el fichero de SAIT contenga solo los contactos mexicanos y no los 10.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-02" tipo="happy_path">
+    <nombre>Extracción del universo de contactos y estructura del XML</nombre>
+    <objetivo>Verificar que la query maestra devuelve el universo completo de contactos vigentes y que la query de detalle genera para cada uno los bloques del diccionario de datos, con la jerarquía esperada.</objetivo>
+    <precondiciones>
+      <precondicion>Conjunto conocido de N contactos vigentes en la tabla maestra.</precondicion>
+      <precondicion>Al menos un contacto con los 20 bloques informados, incluidos los 10 repetibles.</precondicion>
+      <precondicion>Existen contactos dados de baja que no deben aparecer.</precondicion>
+      <precondicion>Consulta de contraste disponible para verificar los valores esperados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="query_maestra" valor="FT_T_ATE1 ACTION_NME='ExtraccionCONT.sql'"/>
+      <dato campo="query_detalle" valor="FT_T_ATE1 ACTION_NME='ExtraccionContingenciaCONT.sql'"/>
+      <dato campo="raiz_esperada" valor="etiqueta de FT_T_PAR1 (Contacts es el bloque por contacto)"/>
+      <dato campo="elemento_por_contacto" valor="ContactDetail"/>
+      <dato campo="n_bloques" valor="20 (10 repetibles)"/>
+      <dato campo="contactos_de_baja" valor="3 (no deben aparecer)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Comprobar que no queda ningún fichero .tmp en el directorio de trabajo.</paso>
+      <paso numero="3">Validar que ExtraccionContingenciaCONT.xml está bien formado y que su raíz es la definida en FT_T_PAR1, no Contacts.</paso>
+      <paso numero="4">Contar los bloques Contacts y los elementos ContactDetail: debe haber uno de cada por contacto vigente no excluido, y ambos recuentos deben coincidir.</paso>
+      <paso numero="5">Verificar que ninguno de los contactos dados de baja aparece en el fichero.</paso>
+      <paso numero="6">Sobre el contacto con todos los bloques informados, verificar campo a campo que los valores coinciden con los de la base de datos.</paso>
+      <paso numero="7">Verificar que los bloques repetibles admiten varias ocurrencias (FinancialInstitutions, MailingAddress, ElectronicAddress, Branches, Offices, ExtIdentifiers, Functions, SubFunctions, AgreementsAssociated, SCIsAssociated).</paso>
+      <paso numero="8">Verificar que el fichero contiene un bloque Contacts POR CADA contacto, cada uno con su propio ActualDate, StarDate y LastChangeDate como hermanos de un único ContactDetail, y que todo ello va envuelto en las etiquetas raíz de FT_T_PAR1.</paso>
+      <paso numero="9">Verificar que ExtIdentifiers no incluye el identificador de sistema origen RDR.</paso>
+    </pasos>
+    <resultadoEsperado>XML bien formado con un bloque Contacts y un ContactDetail por contacto vigente no excluido. Los contactos de baja no aparecen. Los valores coinciden con la base de datos y los bloques repetibles se repiten correctamente. Los 20 elementos están presentes en todos los contactos, vacíos cuando no hay datos.</resultadoEsperado>
+    <tipoValidacion>Validación de buena formación XML; conteo comparativo frente a consulta de contraste; verificación campo a campo sobre el contacto completo; inspección de la jerarquía.</tipoValidacion>
+    <criterioAceptacion>Cero discrepancias entre el XML y los datos de origen, y estructura conforme a la descrita en §5.2 de la especificación.</criterioAceptacion>
+    <posibilidadFallo>Baja — la estructura y el origen de cada campo están confirmados por el SQL literal de la query de detalle.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-03" tipo="borde">
+    <nombre>Extracción sin contactos vigentes en origen</nombre>
+    <objetivo>Determinar el comportamiento de la cadena cuando la query maestra no devuelve ningún identificador, escenario en el que no hay datos que extraer pero tampoco error de ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas sin contactos vigentes, o con todos ellos dados de baja.</precondicion>
+      <precondicion>Directorio de trabajo vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="n_contactos_vigentes" valor="0"/>
+      <dato campo="raiz_esperada" valor="Contacts (vacío) o fichero no generado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar el universo de contactos vigentes vacío en el entorno de pruebas.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Comprobar si se genera ExtraccionContingenciaCONT.xml y cuál es su contenido.</paso>
+      <paso numero="4">Comprobar si el job termina en OK o en KO.</paso>
+      <paso numero="5">Si la cadena continúa, verificar qué recibe DataX.</paso>
+      <paso numero="6">Verificar el contenido de RDR_contactosSAIT.xml, que necesariamente estará vacío al no haber contactos que filtrar.</paso>
+      <paso numero="7">Comprobar si el fichero vacío llega a SAIT y si la cadena cierra en OK.</paso>
+    </pasos>
+    <resultadoEsperado>A documentar según el comportamiento observado. La hipótesis es que se genera un XML con la raíz vacía y que la cadena continúa hasta el final. Este escenario incumple necesariamente el requisito R-21, por lo que su resultado debe contrastarse con TC-10.</resultadoEsperado>
+    <tipoValidacion>Inspección de los dos ficheros generados; estado de cada job; comprobación de lo recibido en ambos destinos.</tipoValidacion>
+    <criterioAceptacion>El comportamiento queda documentado de forma inequívoca y se confirma que ningún destino puede interpretar el fichero como un borrado masivo de contactos.</criterioAceptacion>
+    <posibilidadFallo>Alta — el documento fuente no contempla este escenario y la cadena no tiene ningún control que lo detenga.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-04" tipo="negativo">
+    <nombre>Fallo de un hilo de la query de detalle aborta la extracción</nombre>
+    <objetivo>Verificar que si la obtención del detalle de un contacto falla, falla la extracción completa y la cadena se detiene, sin generar un fichero parcial con el resto de contactos.</objetivo>
+    <precondiciones>
+      <precondicion>Universo de al menos 20 contactos vigentes, para que el pool de hilos trabaje en paralelo.</precondicion>
+      <precondicion>Posibilidad de provocar el fallo del detalle de un contacto concreto, por ejemplo corrompiendo un dato obligatorio o revocando permisos sobre una tabla satélite.</precondicion>
+      <precondicion>Directorio de trabajo vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="n_contactos" valor="20"/>
+      <dato campo="clase_paralelismo" valor="MyThreadCpty"/>
+      <dato campo="contacto_a_fallar" valor="1 contacto identificable del universo"/>
+      <dato campo="comportamiento_esperado" valor="fallo de la extracción completa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar el universo de 20 contactos e inducir el fallo del detalle de uno de ellos.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Verificar que el job termina en KO.</paso>
+      <paso numero="4">Verificar que NO queda un ExtraccionContingenciaCONT.xml con los 19 contactos restantes.</paso>
+      <paso numero="5">Verificar que no queda ningún fichero .tmp huérfano en el directorio.</paso>
+      <paso numero="6">Verificar que no se ha generado RDR_contactosSAIT.xml.</paso>
+      <paso numero="7">Verificar que MEKYTL1177 no llega a ejecutarse y que ni DataX ni SAIT reciben nada.</paso>
+    </pasos>
+    <resultadoEsperado>El job de extracción queda en KO y la cadena se detiene. No existe fichero completo ni parcial, ni .tmp huérfano. Ningún destino recibe datos.</resultadoEsperado>
+    <tipoValidacion>Estado del job y de sus sucesores en Control-M; listado del directorio de trabajo y del subdirectorio SAIT; verificación de ausencia de ficheros en destino.</tipoValidacion>
+    <criterioAceptacion>Cero ficheros generados y cadena detenida en el primer job.</criterioAceptacion>
+    <posibilidadFallo>Alta — es la única salvaguarda de integridad de todo el proceso. Si el motor tolerase el fallo de un hilo, se distribuiría un fichero parcial indistinguible de uno correcto, ya que no hay ninguna validación posterior.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-05" tipo="negativo">
+    <nombre>Indisponibilidad de Oracle durante la extracción</nombre>
+    <objetivo>Verificar que la cadena se detiene si no es posible acceder a la base de datos, y que no queda ningún artefacto intermedio.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena en condiciones normales de ejecución.</precondicion>
+      <precondicion>Posibilidad de interrumpir la conectividad JDBC o revocar permisos de SELECT en el entorno de pruebas.</precondicion>
+      <precondicion>Directorio de trabajo vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="modo_fallo_1" valor="conectividad JDBC interrumpida"/>
+      <dato campo="modo_fallo_2" valor="fila de FT_T_ATE1 con ACTION_NME='ExtraccionCONT.sql' inactiva o ausente"/>
+      <dato campo="modo_fallo_3" valor="FT_T_PAR1 sin las etiquetas raíz"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Interrumpir la conectividad con Oracle y ejecutar la cadena. Verificar KO y ausencia de ficheros.</paso>
+      <paso numero="2">Restaurar la conectividad e inactivar la fila de FT_T_ATE1 con la query maestra. Ejecutar y verificar el comportamiento.</paso>
+      <paso numero="3">Restaurar la query maestra y vaciar las etiquetas raíz de FT_T_PAR1. Ejecutar y comprobar si el fichero generado sigue siendo XML bien formado.</paso>
+      <paso numero="4">En los tres escenarios, verificar que ningún destino recibe fichero.</paso>
+      <paso numero="5">Verificar que en los tres casos se registra traza en el log configurado por log4jExtraccionGenericaCON.properties.</paso>
+    </pasos>
+    <resultadoEsperado>Los tres escenarios terminan en KO sin generar ficheros ni distribuir nada. El escenario 3 es el más delicado: si el motor generase un fichero sin etiquetas raíz, sería XML mal formado y al no existir validación llegaría a los destinos.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs; listado de directorios; validación de buena formación del fichero en el escenario 3; revisión del log del job.</tipoValidacion>
+    <criterioAceptacion>Cadena detenida en los tres escenarios y traza disponible para diagnóstico.</criterioAceptacion>
+    <posibilidadFallo>Media — el escenario 3 comprueba una dependencia de configuración en base de datos que no tiene ninguna protección.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-06" tipo="happy_path">
+    <nombre>Disponibilización del fichero completo para IHS Markit</nombre>
+    <objetivo>Verificar que MEKYTL1177 deja el fichero completo, sin filtrar, en el directorio de disponibilización de DataX, desde donde IHS Markit lo recoge mediante el DataObject x_kytlcontacts_1. El alcance del caso termina en ese directorio: la transferencia hasta Markit la monta y la controla el sistema destino y no es verificable desde RDR.</objetivo>
+    <precondiciones>
+      <precondicion>ExtraccionContingenciaCONT.xml generado con un número conocido de contactos, incluyendo mexicanos y no mexicanos.</precondicion>
+      <precondicion>Directorio de disponibilización /unload/kytl/datsal/datax/ accesible en escritura.</precondicion>
+      <precondicion>Script RAMERC0068.sh desplegado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script" valor="RAMERC0068.sh"/>
+      <dato campo="parametro" valor="MEKYTL1177"/>
+      <dato campo="usuario" valor="root"/>
+      <dato campo="origen" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/ExtraccionContingenciaCONT.xml"/>
+      <dato campo="directorio_disponibilizacion" valor="/unload/kytl/datsal/datax/"/>
+      <dato campo="sistema_destino" valor="IHS Markit (soporte.markit.reporting.es@bbva.com)"/>
+      <dato campo="dataobject" valor="x_kytlcontacts_1"/>
+      <dato campo="fichero_ajeno_en_CONT" valor="DominiosContactosRDR.csv, de otro flujo — no debe verse afectado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1177 tras una extracción correcta.</paso>
+      <paso numero="2">Verificar que el job termina en OK.</paso>
+      <paso numero="3">Verificar que el fichero existe en el directorio de disponibilización con el nombre ExtraccionContingenciaCONT.xml.</paso>
+      <paso numero="4">Comparar el contenido con el origen y confirmar que contiene TODOS los contactos, no solo los mexicanos.</paso>
+      <paso numero="5">Verificar que el fichero origen permanece en CONT/, ya que aún debe ser historificado.</paso>
+      <paso numero="6">Verificar que DominiosContactosRDR.csv, si existe en CONT/ por pertenecer a otro flujo, no se ha visto alterado ni copiado.</paso>
+      <paso numero="7">Dejar constancia de que la verificación termina aquí: no se comprueba la recepción en IHS Markit, porque la transferencia la monta el sistema destino y puede cambiar sin aviso a RDR.</paso>
+    </pasos>
+    <resultadoEsperado>Fichero íntegro en el directorio de disponibilización con el universo completo de contactos, incluidos los no mexicanos. El fichero origen se mantiene para los jobs posteriores y ningún fichero ajeno del directorio CONT/ resulta afectado.</resultadoEsperado>
+    <tipoValidacion>Estado del job; comparación por checksum entre origen y destino; conteo de ContactDetail en el fichero disponibilizado.</tipoValidacion>
+    <criterioAceptacion>Fichero completo en el directorio de disponibilización, idéntico al origen, y origen intacto. La entrega efectiva a IHS Markit queda fuera del criterio por no ser observable desde RDR.</criterioAceptacion>
+    <posibilidadFallo>Baja — es una copia sin transformación. El punto a confirmar es que se disponibiliza el universo completo y no el subconjunto de SAIT.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-07" tipo="happy_path">
+    <nombre>Filtro de México de sait.xsl — selección de contactos</nombre>
+    <objetivo>Verificar que RDR_contactosSAIT.xml contiene exclusivamente los contactos con al menos un acuerdo de AgreementORGID 1145 o al menos una SCI con SCIsBranch MEX, y ninguno más.</objetivo>
+    <precondiciones>
+      <precondicion>Juego de datos con contactos de los cuatro perfiles descritos.</precondicion>
+      <precondicion>Hoja sait.xsl desplegada en el directorio de properties.</precondicion>
+      <precondicion>Subdirectorio CONT/SAIT/ existente y con permisos de escritura.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="perfil_A" valor="contacto con acuerdo AgreementORGID=1145 y sin SCIs — debe aparecer"/>
+      <dato campo="perfil_B" valor="contacto con SCI SCIsBranch=MEX y sin acuerdos 1145 — debe aparecer"/>
+      <dato campo="perfil_C" valor="contacto con acuerdo 1145 y SCI MEX — debe aparecer"/>
+      <dato campo="perfil_D" valor="contacto sin acuerdos 1145 ni SCIs MEX — NO debe aparecer"/>
+      <dato campo="filtro" valor="AgreementORGID='1145' or SCIsBranch='MEX'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar los cuatro perfiles y ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Verificar que ExtraccionContingenciaCONT.xml contiene los cuatro contactos.</paso>
+      <paso numero="3">Verificar que RDR_contactosSAIT.xml contiene exactamente los perfiles A, B y C.</paso>
+      <paso numero="4">Verificar que el perfil D no aparece en el fichero de SAIT.</paso>
+      <paso numero="5">Verificar que el fichero de SAIT conserva los elementos de cabecera ActualDate, StarDate y LastChangeDate.</paso>
+      <paso numero="6">Verificar que el fichero de SAIT NO lleva declaración XML, conforme a omit-xml-declaration.</paso>
+      <paso numero="7">Comprobar que el fichero se genera en CONT/SAIT/ durante el job de extracción, antes de que se ejecute ningún otro job.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de SAIT contiene tres contactos (A, B y C) y excluye el D. Conserva los tres elementos de cabecera. No lleva declaración XML. Se genera dentro del job GS_EXTRACCION_CONT.</resultadoEsperado>
+    <tipoValidacion>Conteo y verificación de identidad de los ContactDetail presentes en cada fichero; inspección del primer byte del fichero de SAIT; verificación del momento de creación frente al orden de jobs.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta entre los contactos esperados y los presentes, sin falsos positivos ni negativos.</criterioAceptacion>
+    <posibilidadFallo>Media — es la lógica de negocio central del proceso y no estaba recogida en la ficha de ningún job, por lo que un cambio en sait.xsl pasaría desapercibido en una revisión basada solo en la documentación de la cadena.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-08" tipo="borde">
+    <nombre>Filtro de segundo nivel dentro del contacto seleccionado</nombre>
+    <objetivo>Verificar que, dentro de un contacto que sí llega a SAIT, se conservan únicamente los AgreementsInf con ORGID 1145 y los SCIsInf con Branch MEX, y comprobar el tratamiento de los bloques que quedan sin hijos.</objetivo>
+    <precondiciones>
+      <precondicion>Contacto que cumple el filtro y tiene acuerdos y SCIs de varias organizaciones y sucursales.</precondicion>
+      <precondicion>Contacto que entra por SCI mexicana pero sin ningún acuerdo 1145.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="contacto_mixto" valor="3 AgreementsInf (ORGID 1145, 2001, 3005) y 2 SCIsInf (MEX, ESP)"/>
+      <dato campo="contacto_solo_sci" valor="0 acuerdos 1145, 1 SCI MEX"/>
+      <dato campo="esperado_mixto" valor="1 AgreementsInf (1145) y 1 SCIsInf (MEX)"/>
+      <dato campo="esperado_solo_sci" valor="AgreementsAssociated presente pero vacío"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el contacto mixto y ejecutar la extracción.</paso>
+      <paso numero="2">Verificar que en el fichero completo ese contacto tiene sus 3 acuerdos y sus 2 SCIs.</paso>
+      <paso numero="3">Verificar que en el fichero de SAIT conserva únicamente el AgreementsInf de ORGID 1145.</paso>
+      <paso numero="4">Verificar que conserva únicamente el SCIsInf de Branch MEX.</paso>
+      <paso numero="5">Cargar el contacto que entra solo por SCI mexicana y repetir la extracción.</paso>
+      <paso numero="6">Verificar que su elemento AgreementsAssociated aparece en el fichero de SAIT pese a no conservar ningún hijo.</paso>
+      <paso numero="7">Documentar la forma exacta en que se emite ese elemento vacío y confirmar que SAIT lo tolera.</paso>
+    </pasos>
+    <resultadoEsperado>El contacto mixto conserva un solo acuerdo y una sola SCI. El contacto que entra por SCI presenta un AgreementsAssociated vacío, comportamiento distinto al del resto de elementos vacíos, que sí se eliminan.</resultadoEsperado>
+    <tipoValidacion>Conteo de AgreementsInf y SCIsInf por contacto en ambos ficheros; inspección de la serialización del elemento vacío.</tipoValidacion>
+    <criterioAceptacion>Solo sobreviven los hijos que cumplen el criterio, y el tratamiento del bloque vacío queda documentado y aceptado por el consumidor.</criterioAceptacion>
+    <posibilidadFallo>Media — la emisión de bloques vacíos es incoherente con la regla general de la hoja, que elimina los elementos sin contenido. Un consumidor estricto podría rechazar el fichero.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-09" tipo="borde">
+    <nombre>Eliminación en cascada de elementos vacíos en el fichero de SAIT</nombre>
+    <objetivo>Verificar que sait.xsl elimina del fichero de SAIT todo elemento cuyo contenido normalizado esté vacío, incluidos los bloques cuyos descendientes lo están, y que el fichero resultante sigue siendo válido pese a tener estructura variable.</objetivo>
+    <precondiciones>
+      <precondicion>Contacto que cumple el filtro de México con varios campos opcionales sin informar.</precondicion>
+      <precondicion>Contacto que cumple el filtro con todos los campos informados, para contraste.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="campos_vacios" valor="DepartamentNme, Observ, Language sin informar"/>
+      <dato campo="bloque_con_descendientes_vacios" valor="MailingAddress con todos sus subcampos en blanco"/>
+      <dato campo="campos_solo_espacios" valor="ContactTitle con un espacio en blanco"/>
+      <dato campo="contacto_contraste" valor="mismo perfil con todos los campos informados"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el contacto con campos vacíos y el de contraste, y ejecutar la extracción.</paso>
+      <paso numero="2">Verificar que en el fichero completo los campos vacíos SÍ aparecen como elementos vacíos.</paso>
+      <paso numero="3">Verificar que en el fichero de SAIT los elementos DepartamentNme, Observ y Language han desaparecido.</paso>
+      <paso numero="4">Verificar que el bloque MailingAddress con todos sus subcampos en blanco desaparece completo, no solo sus hijos.</paso>
+      <paso numero="5">Verificar que el campo que contiene únicamente un espacio en blanco también se elimina, conforme a normalize-space.</paso>
+      <paso numero="6">Comparar la estructura de los dos contactos en el fichero de SAIT y confirmar que difieren en número de elementos.</paso>
+      <paso numero="7">Validar que el fichero de SAIT sigue siendo XML bien formado pese a la estructura variable.</paso>
+    </pasos>
+    <resultadoEsperado>Los elementos vacíos y los que solo contienen espacios desaparecen del fichero de SAIT, en cascada hasta el bloque contenedor. Los dos contactos presentan estructuras distintas. El fichero sigue siendo bien formado.</resultadoEsperado>
+    <tipoValidacion>Comparación elemento a elemento entre el fichero completo y el de SAIT para el mismo contacto; validación de buena formación XML.</tipoValidacion>
+    <criterioAceptacion>Ningún elemento vacío en el fichero de SAIT, salvo AgreementsAssociated y SCIsAssociated, cuyo comportamiento cubre TC-08.</criterioAceptacion>
+    <posibilidadFallo>Media — la estructura variable obliga a que el consumidor trate todos los elementos como opcionales. Si SAIT esperase un esquema fijo, fallaría con contactos incompletos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-10" tipo="error_funcional">
+    <nombre>El fichero de SAIT no debe generarse vacío</nombre>
+    <objetivo>Verificar el cumplimiento del requisito R-21 comprobando que, cuando ningún contacto cumple el filtro de México, el proceso no entrega un fichero vacío a SAIT. Es el caso que confronta el requisito con la implementación actual, que carece de control alguno para impedirlo.</objetivo>
+    <precondiciones>
+      <precondicion>Universo de contactos vigentes poblado, pero SIN ningún contacto que tenga acuerdos de ORGID 1145 ni SCIs de Branch MEX.</precondicion>
+      <precondicion>Directorio CONT/SAIT/ vacío antes de la ejecución.</precondicion>
+      <precondicion>Rutas de pasarela y SAIT accesibles, para poder observar qué llegaría a destino.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="n_contactos_vigentes" valor="10"/>
+      <dato campo="n_contactos_mexico" valor="0"/>
+      <dato campo="requisito" valor="R-21: el fichero de SAIT no debe generarse vacío"/>
+      <dato campo="comportamiento_hoja" valor="xsl:if test='$relevant-contact' no emite nada"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Poblar el universo con 10 contactos vigentes, ninguno mexicano.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Verificar que ExtraccionContingenciaCONT.xml se genera correctamente con los 10 contactos.</paso>
+      <paso numero="4">Inspeccionar RDR_contactosSAIT.xml: comprobar si se ha creado y cuál es su tamaño en bytes.</paso>
+      <paso numero="5">Comprobar en qué estado termina el job de extracción.</paso>
+      <paso numero="6">Dejar avanzar la cadena y comprobar si MEKYTL1189 copia el fichero vacío a la pasarela.</paso>
+      <paso numero="7">Comprobar si MEKYTL1189_SND lo transmite a SAIT y si MEKYTL1190 lo historifica.</paso>
+      <paso numero="8">Registrar el estado final de los nueve jobs.</paso>
+    </pasos>
+    <resultadoEsperado>El requisito exige que no se entregue un fichero vacío. Con la implementación actual se espera observar lo contrario: fichero de cero bytes generado, distribuido a SAIT e historificado, con los nueve jobs en OK. Si es así, el caso se reporta como FALLO — incumplimiento de R-21 — y no como comportamiento documentado.</resultadoEsperado>
+    <tipoValidacion>Tamaño en bytes del fichero generado; verificación de lo recibido en la pasarela y en SAIT; estado de los nueve jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>El proceso debe impedir la entrega del fichero vacío, ya sea deteniendo la cadena o no generando el fichero. Cualquier ejecución que entregue un fichero de cero bytes a SAIT cerrando en OK incumple R-21.</criterioAceptacion>
+    <posibilidadFallo>Muy alta — se espera que el caso falle con la configuración actual. La cadena no tiene filewatcher con tamaño mínimo, ni validación de esquema, ni comprobación de contenido entre la transformación y el envío, de modo que nada impide la entrega. Resolverlo requiere añadir ese control (ver RG-02).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-11" tipo="happy_path">
+    <nombre>Envío a SAIT vía pasarela con renombrado por fecha</nombre>
+    <objetivo>Verificar que MEKYTL1189 copia el fichero a la pasarela y que MEKYTL1189_SND lo transmite a SAIT aplicando la fecha de ejecución al nombre.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_contactosSAIT.xml generado con contenido válido en CONT/SAIT/.</precondicion>
+      <precondicion>Pasarela lpftp503 accesible en escritura para xsramer1.</precondicion>
+      <precondicion>Agente de Control-M operativo en lpftp503.</precondicion>
+      <precondicion>Script MEGENV0001.sh desplegado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script" valor="MEGENV0001.sh"/>
+      <dato campo="parametro" valor="MEKYTL1189"/>
+      <dato campo="usuario" valor="xsramer1"/>
+      <dato campo="origen" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/SAIT/RDR_contactosSAIT.xml"/>
+      <dato campo="pasarela" valor="lpftp503:/unload/transmisiones/KYTL/"/>
+      <dato campo="destino_final" valor="150.100.230.96"/>
+      <dato campo="nombre_final" valor="RDR_contactosSAIT_YYYYMMDD.xml"/>
+      <dato campo="criticidad" valor="W"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1189 y verificar que deja el fichero en la pasarela.</paso>
+      <paso numero="2">Verificar que MEKYTL1189_SND se ejecuta en lpftp503, no en pr-rdr.igrupobbva.</paso>
+      <paso numero="3">Verificar que el fichero llega a 150.100.230.96 con el nombre RDR_contactosSAIT_YYYYMMDD.xml y la fecha del día de ejecución.</paso>
+      <paso numero="4">Comparar el contenido transmitido con el origen.</paso>
+      <paso numero="5">Comprobar el estado del directorio de la pasarela tras la transmisión: determinar si el fichero permanece, si se sobrescribe en la siguiente ejecución o si algún mecanismo lo elimina.</paso>
+      <paso numero="6">Repetir la ejecución al día siguiente y verificar si el directorio de la pasarela acumula dos ficheros o sigue conteniendo uno.</paso>
+      <paso numero="7">Verificar que MEKYTL1189_SND figura con criticidad W en Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero llega a SAIT con el nombre estampado con la fecha y contenido idéntico al origen. El paso 6 determina el mecanismo de limpieza de la pasarela, no documentado en la ficha.</resultadoEsperado>
+    <tipoValidacion>Listado del directorio de la pasarela antes y después de cada ejecución; comparación por checksum entre origen y fichero transmitido; verificación de la máquina de ejecución y de la criticidad en Control-M.</tipoValidacion>
+    <criterioAceptacion>Fichero íntegro en SAIT con el nombre correcto, y mecanismo de limpieza de la pasarela determinado tras dos ejecuciones consecutivas.</criterioAceptacion>
+    <posibilidadFallo>Media — el paso 6 resuelve un punto abierto de la especificación: la cadena no tiene job de borrado en pasarela, a diferencia de otros procesos del repositorio.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-12" tipo="happy_path">
+    <nombre>Historificación de las dos ramas</nombre>
+    <objetivo>Verificar que MEKYTL1027 historifica el fichero completo en CONT/backup/ y que MEKYTL1190 mueve el fichero de SAIT a CONT/SAIT/old/ con la fecha del ODATE.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución completa previa con ambos ficheros generados.</precondicion>
+      <precondicion>Directorios CONT/backup/ y CONT/SAIT/old/ existentes y con permisos de escritura.</precondicion>
+      <precondicion>Script RAMERC0068.sh desplegado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="mascara_rama_datax" valor="ExtraccionContingenciaCONT_*.xml"/>
+      <dato campo="destino_rama_datax" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/backup/"/>
+      <dato campo="origen_rama_sait" valor="CONT/SAIT/RDR_contactosSAIT.xml"/>
+      <dato campo="destino_rama_sait" valor="CONT/SAIT/old/RDR_contactosSAIT_YYYYMMDD.xml"/>
+      <dato campo="tipo_operacion_sait" valor="movimiento, no copia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar el inventario inicial de CONT/, CONT/backup/, CONT/SAIT/ y CONT/SAIT/old/.</paso>
+      <paso numero="2">Ejecutar MEKYTL1027 y verificar que los ficheros con la máscara indicada llegan a CONT/backup/.</paso>
+      <paso numero="3">Verificar qué ocurre con ExtraccionContingenciaCONT.xml, que no lleva sufijo y por tanto podría no casar con la máscara.</paso>
+      <paso numero="4">Ejecutar MEKYTL1190 y verificar que RDR_contactosSAIT.xml aparece en CONT/SAIT/old/ con la fecha del ODATE.</paso>
+      <paso numero="5">Verificar que el fichero ha sido MOVIDO y no copiado: CONT/SAIT/ debe quedar sin él.</paso>
+      <paso numero="6">Verificar que la fecha estampada corresponde al ODATE de ejecución y no a la fecha del sistema, si difieren.</paso>
+    </pasos>
+    <resultadoEsperado>Ambas ramas dejan su fichero en el directorio de histórico correspondiente. La rama SAIT deja su directorio de trabajo vacío. El paso 3 aclara si el fichero sin sufijo queda o no cubierto por la máscara de historificación.</resultadoEsperado>
+    <tipoValidacion>Comparación de inventarios antes y después; verificación de nombres y fechas; comprobación de que el origen de la rama SAIT queda vacío.</tipoValidacion>
+    <criterioAceptacion>Un fichero por rama en su histórico, con el nombre y la fecha correctos, y directorio de trabajo de SAIT limpio.</criterioAceptacion>
+    <posibilidadFallo>Media — el paso 3 es relevante: si la máscara ExtraccionContingenciaCONT_*.xml no casa con el fichero sin sufijo, este quedaría en el directorio de trabajo y se convertiría en el residuo que aborda TC-15.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-13" tipo="happy_path">
+    <nombre>Purga a 7 días en los dos directorios de histórico</nombre>
+    <objetivo>Verificar que los dos jobs de mantenimiento eliminan los ficheros con más de 7 días y respetan los que están dentro del periodo de retención.</objetivo>
+    <precondiciones>
+      <precondicion>CONT/backup/ y CONT/SAIT/old/ poblados con ficheros de antigüedades controladas.</precondicion>
+      <precondicion>Ambos jobs configurados para ejecutarse en LPRDR501.</precondicion>
+      <precondicion>Ruta real de MANT_RDR_EXTRACCION_CONT_SAIT verificada en Control-M antes de la ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_6_dias" valor="debe conservarse"/>
+      <dato campo="fichero_7_dias" valor="comportamiento límite a documentar"/>
+      <dato campo="fichero_8_dias" valor="debe borrarse"/>
+      <dato campo="fichero_30_dias" valor="debe borrarse"/>
+      <dato campo="subdirectorio_de_prueba" valor="directorio anidado dentro de old/ para comprobar el alcance de rm -r"/>
+      <dato campo="comando_sait" valor="find ... -type f -mtime +7 -exec rm -r {} \;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Poblar ambos directorios con ficheros de 6, 7, 8 y 30 días de antigüedad.</paso>
+      <paso numero="2">Crear además un subdirectorio anidado dentro de CONT/SAIT/old/ con un fichero reciente.</paso>
+      <paso numero="3">Registrar el inventario inicial de ambos directorios.</paso>
+      <paso numero="4">Ejecutar MANT_RDR_EXTRACCION_CONTACTOS y verificar el resultado sobre CONT/backup/.</paso>
+      <paso numero="5">Ejecutar MANT_RDR_EXTRACCION_CONT_SAIT y verificar el resultado sobre CONT/SAIT/old/.</paso>
+      <paso numero="6">Verificar que los ficheros de 6 días permanecen y que los de 8 y 30 días han desaparecido en ambos directorios.</paso>
+      <paso numero="7">Documentar el tratamiento del fichero de 7 días exactos.</paso>
+      <paso numero="8">Verificar que el subdirectorio anidado y su contenido reciente no se han visto afectados, dado que el comando filtra por -type f.</paso>
+      <paso numero="9">Verificar que ningún fichero fuera de los dos directorios de histórico ha sido alterado.</paso>
+    </pasos>
+    <resultadoEsperado>Los ficheros de 8 y 30 días eliminados en ambas ramas, el de 6 días conservado, el de 7 días documentado, y el subdirectorio anidado intacto. Ningún efecto fuera de los directorios objetivo.</resultadoEsperado>
+    <tipoValidacion>Comparación de inventarios antes y después; verificación del alcance del borrado sobre el árbol de directorios completo.</tipoValidacion>
+    <criterioAceptacion>Ningún fichero dentro del periodo de retención eliminado y ningún efecto fuera del directorio objetivo.</criterioAceptacion>
+    <posibilidadFallo>Media — el job de la rama SAIT ejecuta un borrado recursivo con privilegios de root sobre una ruta que la documentación escribe de dos formas distintas. El paso 9 es la comprobación de seguridad del caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-14" tipo="negativo">
+    <nombre>Las dependencias son de éxito: un job en KO detiene la cadena</nombre>
+    <objetivo>Verificar que si un job termina en KO su sucesor no llega a ejecutarse, y comprobar el efecto concreto de que la rama de SAIT esté situada después de la de DataX en la secuencia.</objetivo>
+    <precondiciones>
+      <precondicion>Extracción correcta con ficheros generados para ambas ramas.</precondicion>
+      <precondicion>Posibilidad de provocar el fallo de MEKYTL1177, por ejemplo retirando permisos sobre la ruta de DataX.</precondicion>
+      <precondicion>Dependencias configuradas como condiciones de éxito en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_a_fallar" valor="MEKYTL1177 (disponibilización a DataX)"/>
+      <dato campo="modo_fallo" valor="permisos de escritura retirados en /unload/kytl/datsal/datax/"/>
+      <dato campo="jobs_que_no_deben_ejecutarse" valor="EXTRACCION_CONTACTOS_XML, MEKYTL1027, MANT_RDR_EXTRACCION_CONTACTOS, MEKYTL1189, MEKYTL1189_SND, MEKYTL1190, MANT_RDR_EXTRACCION_CONT_SAIT"/>
+      <dato campo="fichero_sait" valor="RDR_contactosSAIT.xml ya generado y válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Retirar los permisos de escritura sobre la ruta de DataX.</paso>
+      <paso numero="2">Lanzar la cadena y dejar que alcance MEKYTL1177.</paso>
+      <paso numero="3">Verificar que MEKYTL1177 termina en KO.</paso>
+      <paso numero="4">Verificar que ninguno de los siete jobs posteriores llega a ejecutarse.</paso>
+      <paso numero="5">Verificar que RDR_contactosSAIT.xml SÍ existe en CONT/SAIT/, generado correctamente por el job de extracción.</paso>
+      <paso numero="6">Verificar que, pese a existir y ser válido, ese fichero NO ha llegado a SAIT.</paso>
+      <paso numero="7">Verificar que ninguno de los dos directorios de histórico ha recibido fichero.</paso>
+      <paso numero="8">Restaurar permisos, relanzar y comprobar que la cadena completa el recorrido.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se detiene en MEKYTL1177 y ningún job posterior se ejecuta. El fichero de SAIT existe pero no se entrega: un fallo en la rama de DataX deja a SAIT sin datos ese día, pese a que su fichero estaba listo desde el primer job.</resultadoEsperado>
+    <tipoValidacion>Estado de los nueve jobs en Control-M; existencia del fichero de SAIT en el directorio de trabajo; verificación de ausencia de entrega en ambos destinos.</tipoValidacion>
+    <criterioAceptacion>Solo el job forzado a fallar queda en KO y ningún sucesor arranca, confirmando que las dependencias son de éxito y no de orden.</criterioAceptacion>
+    <posibilidadFallo>Media — el caso documenta un acoplamiento entre dos consumidores independientes. Nótese que el comportamiento es el contrario al configurado en RDR_BBVACONTRACTS_new, por lo que no debe presuponerse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-15" tipo="duplicidad">
+    <nombre>Reejecución con ficheros residuales en el directorio de trabajo</nombre>
+    <objetivo>Verificar el comportamiento de la cadena cuando quedan ficheros de una pasada anterior, escenario posible al no existir filewatcher que verifique la frescura del fichero.</objetivo>
+    <precondiciones>
+      <precondicion>CONT/ contiene un ExtraccionContingenciaCONT.xml de una ejecución anterior, con un contacto marcador que no existe en los datos del día.</precondicion>
+      <precondicion>CONT/SAIT/ contiene un RDR_contactosSAIT.xml residual.</precondicion>
+      <precondicion>La cadena no ha sido lanzada todavía en el día de proceso.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="marcador" valor="contacto sintético presente solo en los ficheros residuales"/>
+      <dato campo="residual_completo" valor="ExtraccionContingenciaCONT.xml de la pasada anterior"/>
+      <dato campo="residual_sait" valor="RDR_contactosSAIT.xml de la pasada anterior"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar ambos ficheros residuales en sus directorios, con el contacto marcador.</paso>
+      <paso numero="2">Lanzar la cadena.</paso>
+      <paso numero="3">Verificar si la extracción sobrescribe el fichero residual o si falla por su existencia.</paso>
+      <paso numero="4">Verificar si la transformación XSLT sobrescribe el fichero residual de SAIT.</paso>
+      <paso numero="5">Buscar el contacto marcador en el fichero entregado a DataX.</paso>
+      <paso numero="6">Buscar el contacto marcador en el fichero entregado a SAIT.</paso>
+      <paso numero="7">Verificar si la historificación sobrescribe algún fichero previo del mismo día en los directorios de histórico.</paso>
+      <paso numero="8">Repetir el escenario dejando únicamente el residual de SAIT, para comprobar si la transformación lo regenera siempre.</paso>
+    </pasos>
+    <resultadoEsperado>A documentar según el comportamiento observado. El riesgo a descartar es que un fichero residual completo llegue a cualquiera de los dos destinos, ya que la cadena no dispone de ningún control de frescura.</resultadoEsperado>
+    <tipoValidacion>Búsqueda del contacto marcador en los ficheros de ambos destinos; comparación de marcas de tiempo de los ficheros antes y después; inventario de los directorios de histórico.</tipoValidacion>
+    <criterioAceptacion>Se confirma que ningún destino recibe el contacto marcador, o bien queda documentado que el escenario exige limpieza manual previa al lanzamiento.</criterioAceptacion>
+    <posibilidadFallo>Alta — el uso del fichero .tmp renombrado protege frente a lecturas parciales, pero no frente a un fichero completo de la pasada anterior. Enlaza con el paso 3 de TC-12: si la máscara de historificación no cubre el fichero sin sufijo, este escenario se produciría a diario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-16" tipo="datos_sinteticos">
+    <nombre>Cobertura del diccionario con contactos sintéticos</nombre>
+    <objetivo>Verificar que la extracción trata correctamente contactos con distinto grado de completitud sobre los 20 bloques del diccionario, con especial atención a los 10 repetibles y a su interacción con el filtro de México.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con capacidad de carga y limpieza de datos sintéticos sobre KYTL_GC.</precondicion>
+      <precondicion>Juego de datos preparado con los perfiles descritos.</precondicion>
+      <precondicion>Consulta de contraste disponible para verificar los valores esperados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="perfil_1" valor="contacto mínimo: solo datos identificativos, sin ningún bloque repetible"/>
+      <dato campo="perfil_2" valor="contacto completo: los 20 bloques informados, repetibles con varias ocurrencias"/>
+      <dato campo="perfil_3" valor="contacto con múltiples direcciones postales y electrónicas"/>
+      <dato campo="perfil_4" valor="contacto con Functions y SubFunctions, para verificar la traducción vía FT_T_IDMV"/>
+      <dato campo="perfil_5" valor="contacto con ExtIdentifiers de varios sistemas, incluido uno de origen RDR que debe excluirse"/>
+      <dato campo="perfil_6" valor="contacto con SCIs activas, para verificar el recuento de SCISnum"/>
+      <dato campo="perfil_7" valor="contacto con campos opcionales nulos o en blanco"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar los siete perfiles y ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Verificar que el perfil 1 aparece con sus campos identificativos y sin los bloques repetibles.</paso>
+      <paso numero="3">Verificar que el perfil 2 presenta los 20 bloques con las ocurrencias esperadas.</paso>
+      <paso numero="4">Verificar que el perfil 3 genera tantos MailingAddress y ElectronicAddress como direcciones activas tenga.</paso>
+      <paso numero="5">Verificar que en el perfil 4 las funciones aparecen traducidas mediante el dominio FT_T_IDMV y que las subfunciones incluyen nombre y prioridad.</paso>
+      <paso numero="6">Verificar que en el perfil 5 el identificador de origen RDR NO aparece en ExtIdentifiers, conforme al filtro DATA_SRC_ID != 'RDR' de la query, y que sí aparece en ContactRDRId.</paso>
+      <paso numero="7">Verificar que SCISnum del perfil 6 coincide con COUNT(FT_T_SCMO.SCIS_OID) uniendo FT_T_SCIS, ambas con DATA_STAT_TYP ACTIVE.</paso>
+      <paso numero="8">Verificar el tratamiento de los campos nulos del perfil 7 en el fichero completo.</paso>
+      <paso numero="9">Comprobar la coherencia entre el fichero completo y el de SAIT para los perfiles que cumplan el filtro de México.</paso>
+    </pasos>
+    <resultadoEsperado>Los siete perfiles se comportan según lo esperado. Los bloques repetibles se repiten conforme a los datos, el identificador RDR se excluye de ExtIdentifiers y el recuento de SCIs es correcto.</resultadoEsperado>
+    <tipoValidacion>Verificación por perfil de la presencia y estructura del contacto en el XML; contraste de valores con la consulta de referencia; conteo de ocurrencias de los bloques repetibles.</tipoValidacion>
+    <criterioAceptacion>Los siete perfiles producen el resultado esperado y los valores coinciden con los datos de origen.</criterioAceptacion>
+    <posibilidadFallo>Baja — ambas reglas están confirmadas en el SQL literal. El caso las verifica sobre datos reales, no sobre una descripción.</posibilidadFallo>
+  </casoDePrueba>
+
+
+  <casoDePrueba id="TC-17" tipo="error_funcional">
+    <nombre>Pérdida de acuerdos legales por el rownum=1 de AgreementsAssociated</nombre>
+    <objetivo>Verificar el impacto del límite `rownum = 1` de la subconsulta de AgreementsAssociated sobre un contacto con varias asignaciones FUNCTION activas, y comprobar si provoca su exclusión indebida del fichero de SAIT.</objetivo>
+    <precondiciones>
+      <precondicion>Contacto vigente con DOS asignaciones FT_T_CNTA de tipo FUNCTION activas, cada una con acuerdos legales distintos vinculados vía FT_T_LAC1.</precondicion>
+      <precondicion>Uno de esos acuerdos, y solo uno, pertenece a la organización 1145 (México).</precondicion>
+      <precondicion>El contacto NO tiene ninguna SCI con SCIsBranch MEX, de modo que el acuerdo 1145 sea su único motivo para entrar en el fichero de SAIT.</precondicion>
+      <precondicion>Acceso a FT_T_CNTA, FT_T_LAC1 y FT_T_LAGR para conocer el dato esperado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="funcion_1" valor="asignación FUNCTION activa con acuerdo de AgreementORGID=1145"/>
+      <dato campo="funcion_2" valor="asignación FUNCTION activa con acuerdos de otras organizaciones"/>
+      <dato campo="limite_sql" valor="lac1.cnta_oid IN (SELECT cnta_oid ... AND rownum = 1)"/>
+      <dato campo="acuerdos_esperados_regla_negocio" valor="todos los del contacto, incluido el 1145"/>
+      <dato campo="n_ejecuciones" valor="5, para observar si la elección varía"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el contacto con sus dos funciones y sus acuerdos.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Localizar el contacto en ExtraccionContingenciaCONT.xml y listar los AgreementsInf que contiene.</paso>
+      <paso numero="4">Comparar esa lista con los acuerdos que el contacto tiene realmente en base de datos a través de sus dos funciones.</paso>
+      <paso numero="5">Determinar si aparecen los acuerdos de ambas funciones o solo los de una.</paso>
+      <paso numero="6">Comprobar si el acuerdo de la organización 1145 está presente.</paso>
+      <paso numero="7">Inspeccionar RDR_contactosSAIT.xml y comprobar si el contacto ha llegado a SAIT.</paso>
+      <paso numero="8">Repetir la ejecución cinco veces sobre los mismos datos y comprobar si la función seleccionada por el rownum varía entre ejecuciones.</paso>
+      <paso numero="9">Repetir el escenario invirtiendo el orden de alta de las dos funciones, para observar si influye en la elección.</paso>
+    </pasos>
+    <resultadoEsperado>La regla de negocio exige que el contacto, por tener un acuerdo con la organización 1145, llegue al fichero de SAIT con ese acuerdo incluido. Con la query actual se espera observar lo contrario en al menos parte de las ejecuciones: solo aparecen los acuerdos de una función, y si la seleccionada no es la del 1145, el contacto queda fuera del fichero de SAIT. En ese caso el caso se reporta como FALLO.</resultadoEsperado>
+    <tipoValidacion>Comparación entre los AgreementsInf del XML y los acuerdos reales del contacto en base de datos; presencia o ausencia del contacto en el fichero de SAIT; comparación de las cinco ejecuciones entre sí para evidenciar el no determinismo.</tipoValidacion>
+    <criterioAceptacion>El contacto debe incluir todos sus acuerdos legales activos y, por el de la organización 1145, debe estar presente en el fichero de SAIT en las cinco ejecuciones. Cualquier ejecución en la que falten acuerdos o en la que el contacto no llegue a SAIT incumple R-09 y R-12.</criterioAceptacion>
+    <posibilidadFallo>Muy alta — se espera que el caso falle. El rownum=1 sin ORDER BY está presente en el SQL y es determinista solo por accidente del plan de ejecución. El impacto no se limita a la pérdida de datos en DataX: rompe la regla de negocio del filtro de México.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-18" tipo="regresion">
+    <nombre>Exclusión de contactos con asignación de sucursal a la organización A15</nombre>
+    <objetivo>Verificar que la query maestra excluye del universo a los contactos con una asignación BRANCH hacia ORG_ID 'A15 ', y comprobar el efecto de que esa exclusión no filtre por el estado de la asignación.</objetivo>
+    <precondiciones>
+      <precondicion>Contacto vigente con asignación FT_T_CNTA de tipo BRANCH hacia ORG_ID 'A15 ' en estado ACTIVE.</precondicion>
+      <precondicion>Contacto vigente con asignación BRANCH hacia A15 en estado NO ACTIVE (dada de baja).</precondicion>
+      <precondicion>Contacto vigente con asignación BRANCH hacia otra organización, como control.</precondicion>
+      <precondicion>Contacto con asignación a A15 que además tendría acuerdos de la organización 1145.</precondicion>
+      <precondicion>Acceso de lectura a FT_T_ENTR para obtener el nombre legal de la organización A15.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="valor_literal" valor="ORG_ID = 'A15 ' (cuatro caracteres, con espacio final)"/>
+      <dato campo="tabla_columna" valor="FT_T_CNTA.ORG_ID con CONTCT_ASSIGN_STAT_TYP='BRANCH'"/>
+      <dato campo="contacto_A15_activo" valor="NO debe aparecer"/>
+      <dato campo="contacto_A15_de_baja" valor="tampoco debe aparecer: el NOT EXISTS no filtra por DATA_STAT_TYP"/>
+      <dato campo="contacto_otra_sucursal" valor="debe aparecer"/>
+      <dato campo="contacto_A15_y_1145" valor="no debe aparecer en ninguno de los dos ficheros"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Consultar FT_T_ENTR con TRIM(ORG_ID)='A15' y documentar el ENT_LEG_NME de la organización, para dejar identificado a quién afecta la exclusión.</paso>
+      <paso numero="2">Cargar los cuatro perfiles y ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Verificar que el contacto con asignación A15 activa no aparece en ExtraccionContingenciaCONT.xml.</paso>
+      <paso numero="4">Verificar que el contacto con asignación A15 dada de baja TAMPOCO aparece, confirmando que el NOT EXISTS ignora el estado de la asignación.</paso>
+      <paso numero="5">Verificar que ese mismo contacto, de haber entrado, no habría mostrado la sucursal A15 en su bloque Branches, ya que ese bloque sí exige DATA_STAT_TYP ACTIVE. Documentar la asimetría.</paso>
+      <paso numero="6">Verificar que el contacto de otra sucursal sí aparece.</paso>
+      <paso numero="7">Verificar que el contacto con A15 y acuerdos de la organización 1145 no aparece tampoco en RDR_contactosSAIT.xml: la exclusión del universo precede al filtro de la XSLT.</paso>
+      <paso numero="8">Comprobar que una consulta de contraste con ORG_ID='A15' sin el espacio final no devuelve resultados, confirmando el padding de la columna.</paso>
+    </pasos>
+    <resultadoEsperado>Los contactos con cualquier asignación BRANCH hacia A15 quedan fuera del fichero, con independencia del estado de esa asignación. El contacto de otra sucursal sí aparece. Queda documentada la identidad de la organización A15 y la asimetría de estado entre la query maestra y el bloque Branches.</resultadoEsperado>
+    <tipoValidacion>Búsqueda de los contactos por CONTCT_OID en ambos ficheros; consulta a FT_T_ENTR; comprobación del comportamiento del padding en la comparación de ORG_ID.</tipoValidacion>
+    <criterioAceptacion>La exclusión se comporta de forma consistente con el SQL y queda documentada con precisión suficiente para detectar una regresión futura, incluida la identidad de la organización afectada.</criterioAceptacion>
+    <posibilidadFallo>Media — el comportamiento está confirmado en el SQL, pero el paso 4 evidencia una asimetría que puede no ser intencionada y que excluye contactos de forma permanente por una vinculación ya dada de baja.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
