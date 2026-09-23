@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_CLIENTES_CIB_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de los 7 jobs con fichero de entrada presente</nombre>
+    <objetivo>Verificar que los 7 jobs se ejecutan en el orden documentado, incluido el Fan-Out y el Fan-In.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CLIENTES_CIB_new activa en Control-M, servidor MERCADOS-4, usuario xakytl1p con permisos de ejecución sobre /pr/kytl/online/multipais/multicanal/scrt/.</precondicion>
+      <precondicion>Existe clientes.csv en /fichtemcomp/pr/descargas/kytl/clientes/ con al menos 1 registro válido según el diccionario de 12 campos (fillingRules_clientes.csv).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar clientes.csv en la ruta origen antes de las 04:00 AM.</paso>
+      <paso numero="2">Verificar que KYTL_CLI_GSPROCESS_FW detecta el fichero y genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="3">Verificar que KYTL_CLI_GSPROCESS termina con RC=0 y genera Reporte_clientes_dos.csv.</paso>
+      <paso numero="4">Verificar que MEKYTL0147 termina con RC=0 y transmite el fichero a MVP00G215.</paso>
+      <paso numero="5">Verificar que MEKYTL0148 termina con RC=0 y transmite el fichero a MVP00G219.</paso>
+      <paso numero="6">Verificar que MEKYTL0136 dispara solo tras confirmarse MEKYTL0147_OK y MEKYTL0148_OK, e historifica clientes.csv.</paso>
+      <paso numero="7">Verificar que MEKYTL0939 dispara solo tras confirmarse MEKYTL0147_OK y MEKYTL0148_OK, e historifica Reporte_clientes_dos.csv.</paso>
+      <paso numero="8">Verificar que RDR_CLIENTES_CIB_OUT dispara solo tras confirmarse MEKYTL0136_OK y MEKYTL0939_OK, y cierra la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 7 jobs terminan en estado OK, en el orden documentado; los 2 ficheros quedan historificados en old/ con máscara de fecha del día de ejecución.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + existencia de ficheros historificados.</tipoValidacion>
+    <criterioAceptacion>7/7 jobs en OK; 2 ficheros presentes en old/ con la fecha correcta.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de KYTL_CLI_GSPROCESS bloquea todo el Fan-Out</nombre>
+    <objetivo>Confirmar que un fallo en la carga impide la ejecución de ambos envíos paralelos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena activa; clientes.csv presente y detectado por el filewatcher.</precondicion>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo del job KYTL_CLI_GSPROCESS (p. ej. cortando la conectividad a GoldenSource antes de su ejecución).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conectividad a GoldenSource cortada durante la ejecución de KYTL_CLI_GSPROCESS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_CLI_GSPROCESS.</paso>
+      <paso numero="2">Verificar que no se genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_OK_new.</paso>
+      <paso numero="3">Verificar que MEKYTL0147 permanece en estado de espera, sin ejecutarse.</paso>
+      <paso numero="4">Verificar que MEKYTL0148 permanece en estado de espera, sin ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0147 y MEKYTL0148 no se ejecutan mientras KYTL_CLI_GSPROCESS no termine en OK.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 de las 2 ramas del Fan-Out se ejecutan tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente alguna rama por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Timeout del filewatcher: job marcado OK con evento de KO huérfano</nombre>
+    <objetivo>Confirmar el comportamiento verificado por captura real de Control-M ante el agotamiento de los 240 minutos de espera.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de mantener ausente clientes.csv durante toda la ventana de escucha de KYTL_CLI_GSPROCESS_FW.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="clientes.csv ausente durante los 240 minutos completos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener clientes.csv ausente durante los 240 minutos de ventana de KYTL_CLI_GSPROCESS_FW.</paso>
+      <paso numero="2">Verificar que el job queda en estado OK al agotarse el timeout (RC=7).</paso>
+      <paso numero="3">Verificar que se genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO en lugar de RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="4">Verificar que ningún otro job de la cadena consume el evento _KO ni cambia de estado a raíz de él.</paso>
+    </pasos>
+    <resultadoEsperado>El job queda en OK pese al timeout; se publica el evento _KO sin que ningún job de esta cadena reaccione a él — comportamiento confirmado por captura real de Control-M, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos publicados en Control-M.</tipoValidacion>
+    <criterioAceptacion>Job en OK; evento _KO presente; 0 jobs de esta cadena reaccionan a él.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio ya documentado: un retraso real del fichero de origen podría no escalarse si nadie monitoriza el evento _KO fuera de esta cadena.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>El fichero enviado a MVP00G219 tiene idéntico contenido que el de MVP00G215</nombre>
+    <objetivo>Confirmar que MEKYTL0148 no transforma el contenido ni los delimitadores al renombrar la extensión a .txt.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0147 y MEKYTL0148 completados con éxito para el mismo ODATE.</precondicion>
+      <precondicion>Acceso de lectura a ambos ficheros de destino (Reporte_clientes_yyyymmdd.csv en MVP00G215 y CLIEXCLU_yyyymmdd.txt en MVP00G219) en un entorno de prueba, no producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros a comparar" valor="Reporte_clientes_yyyymmdd.csv (MVP00G215) vs. CLIEXCLU_yyyymmdd.txt (MVP00G219)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Descargar ambos ficheros de destino tras una ejecución completa.</paso>
+      <paso numero="2">Comparar byte a byte (o línea a línea) el contenido de ambos ficheros, ignorando únicamente el nombre/extensión.</paso>
+    </pasos>
+    <resultadoEsperado>El contenido y los delimitadores de ambos ficheros son idénticos; solo difieren en nombre y extensión.</resultadoEsperado>
+    <tipoValidacion>Comparación de contenido de fichero (diff).</tipoValidacion>
+    <criterioAceptacion>0 diferencias de contenido entre ambos ficheros.</criterioAceptacion>
+    <posibilidadFallo>Que MVP00G219 reciba una transformación de formato no documentada (contradiría G2).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>Las historificaciones no disparan con una sola de las 2 ramas del Fan-Out completada</nombre>
+    <objetivo>Confirmar que MEKYTL0136 y MEKYTL0939 exigen el AND real de MEKYTL0147 y MEKYTL0148, no solo uno de los dos.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo selectivo de una sola rama del Fan-Out.</precondicion>
+      <precondicion>MEKYTL0147 completado con éxito; MEKYTL0148 forzado a fallar (p. ej. destino MVP00G219 inaccesible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama forzada a fallar" valor="MEKYTL0148"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0148 manteniendo MEKYTL0147 en OK.</paso>
+      <paso numero="2">Verificar que MEKYTL0136 permanece en espera, sin ejecutarse.</paso>
+      <paso numero="3">Verificar que MEKYTL0939 permanece en espera, sin ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>Ninguna de las 2 historificaciones se ejecuta mientras falte la confirmación de MEKYTL0148.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 de las 2 historificaciones ejecutadas con solo 1 de las 2 ramas del Fan-Out confirmada.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare alguna historificación con una sola condición cumplida (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>RDR_CLIENTES_CIB_OUT no cierra la cadena con una sola historificación confirmada</nombre>
+    <objetivo>Confirmar que el cierre lógico exige el AND real de MEKYTL0136 y MEKYTL0939.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo selectivo de una sola historificación.</precondicion>
+      <precondicion>MEKYTL0136 completado con éxito; MEKYTL0939 forzado a fallar (p. ej. permisos insuficientes sobre old/).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Job forzado a fallar" valor="MEKYTL0939"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0939 manteniendo MEKYTL0136 en OK.</paso>
+      <paso numero="2">Verificar que RDR_CLIENTES_CIB_OUT permanece en espera, sin disparar.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_CLIENTES_CIB_OUT no dispara mientras falte la confirmación de MEKYTL0939.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>RDR_CLIENTES_CIB_OUT en espera con 1 de 2 condiciones cumplidas.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dé por cerrada la cadena con una sola historificación confirmada (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Historificación con máscara de fecha correcta en ejecuciones sucesivas</nombre>
+    <objetivo>Verificar que los ficheros historificados no colisionan entre días de ejecución consecutivos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente 2 días laborables consecutivos, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días de prueba" valor="2 días laborables consecutivos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa el día 1 y verificar los 2 ficheros historificados en old/ con la fecha del día 1.</paso>
+      <paso numero="2">Ejecutar la cadena completa el día 2 y verificar que los ficheros del día 1 no se sobrescriben.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución genera sus propios ficheros historificados, sin colisión ni sobrescritura entre días.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en old/ tras ambos días.</tipoValidacion>
+    <criterioAceptacion>4 ficheros distintos en old/ (2 por día), ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si se relanza más de una vez el mismo día.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Ciclo completo diario desde la detección del fichero hasta el cierre de la cadena</nombre>
+    <objetivo>Validar el flujo end-to-end completo, incluidas ambas bifurcaciones (Fan-Out y Fan-In).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con conectividad a GoldenSource y a los 2 destinos XCOM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar clientes.csv válido en la ruta origen antes de las 04:00 AM.</paso>
+      <paso numero="2">Ejecutar la cadena completa y verificar el paso por los 7 jobs en el orden documentado.</paso>
+      <paso numero="3">Verificar el cierre de RDR_CLIENTES_CIB_OUT tras confirmarse ambas historificaciones.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina con los 7 jobs en OK y el cierre lógico confirmado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de principio a fin de la cadena completa.</tipoValidacion>
+    <criterioAceptacion>7/7 jobs en OK; RDR_CLIENTES_CIB_OUT como último job ejecutado.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio en cualquiera de las 2 ramas impide alcanzar el cierre final dentro de la ventana diaria.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
