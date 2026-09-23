@@ -2,18 +2,22 @@
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-23.
 > Fuentes: `Extraccion_generica_de_contrapartidas.md` — documento maestro de **Fase 1 (linaje de datos)** que
-> consolida el análisis de las 3 cadenas Control-M — y **506 capturas reales de Control-M** (GAP-CTPY-001,
+> consolida el análisis de las 3 cadenas Control-M —, **506 capturas reales de Control-M** (GAP-CTPY-001,
 > `GAP-CTPY-001_capturas_RDR_DAILY_EXGEN_CPARTYS_new.docx`) que cubren la totalidad de los 101 pasos declarados
-> de la cadena `_new`, recorridas sistemáticamente y transcritas en
-> `documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`.
+> de la cadena `_new` (transcritas en `documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`), y **250 capturas
+> reales de Control-M** (GAP-CTPY-002/006, `GAP-CTPY-002_capturas_RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new.docx`)
+> que cubren 50 jobs de `_FINSEM_D_new` (transcritas en `documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`).
 >
 > **Decisión explícita del usuario sobre cómo proceder ante evidencia incompleta:** en la ronda inicial, la
 > cadena `_new` solo tenía 48 de sus 101 pasos declarados documentados en detalle (y `_FINSEM_D_new` 46 de 48).
 > Se preguntó explícitamente al usuario cómo proceder, y eligió **generar la especificación con la evidencia
 > disponible, dejando marcados como gaps explícitos los pasos sin ficha**. El usuario aportó después evidencia
 > real (506 capturas) que cierra GAP-CTPY-001 al 100% (los 101 pasos de `_new` quedan documentados) y resuelve,
-> por ausencia confirmada en esa evidencia, GAP-CTPY-004 y GAP-CTPY-007. Quedan abiertos GAP-CTPY-002 (2 pasos
-> de `_FINSEM_D_new`), GAP-CTPY-003, GAP-CTPY-005 y GAP-CTPY-006 — ver sección 4.
+> por ausencia confirmada en esa evidencia, GAP-CTPY-004 y GAP-CTPY-007. Una segunda ronda de evidencia real
+> (250 capturas de `_FINSEM_D_new`) confirma la ficha de `MEKYTL0292` (job Dummy real, sin destino "Proactive"
+> visible — discrepancia con la asunción del documento fuente, ver GAP-CTPY-006 y RISK-CTPY-002) pero no
+> encuentra `MEKYTL0289` en ninguna de las 250 capturas (GAP-CTPY-002 queda parcialmente resuelto). Quedan
+> abiertos GAP-CTPY-002 (parcial — `MEKYTL0289`), GAP-CTPY-003 y GAP-CTPY-005 — ver sección 4.
 
 ## 1. Resumen ejecutivo
 
@@ -34,7 +38,7 @@ Las 3 cadenas comparten el mismo núcleo (unión de ficheros + pipeline de valid
 |--------|----------|--------|--------------------|---------|
 | `RDR_DAILY_EXGEN_CPARTYS_new` | Extracción + reparto diario a ~45 sistemas | D-L-M-X-J, 21:45 | 101 (**101 documentados — 100%**) | 13+ transformaciones, ~55 jobs de envío |
 | `RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new` | Extracción + reparto semanal de sábado, alcance reducido | Arranque V 22:00, ejecución S 03:00 | 21 (**100% documentados**) | 2 ramas, 5 destinos |
-| `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` | Extracción + reparto semanal de domingo, alcance amplio | Arranque S 22:00, ejecución D 03:00 | 48 (**46 documentados**) | Amplio, ~19 destinos, diccionario semanal a ~16 |
+| `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` | Extracción + reparto semanal de domingo, alcance amplio | Arranque S 22:00, ejecución D 03:00 | 48 declarados (**50 jobs con ficha real** — ver nota) | Amplio, ~19 destinos, diccionario semanal a ~16 |
 
 ### 1.1 Núcleo común — generación de origen y pipeline de validación (las 3 cadenas)
 
@@ -184,10 +188,33 @@ RDR_Transformacion_XSLT_CPARTY
 Soporte DataHub CIB (S3), backup Rating (solo local, sin envío externo confirmado). **A diferencia de `_new`,
 aquí no hay cesión** a MGCyG, Mentor emisores, SIRE, BOT, SAIT, AMIGA, diccionario, XVA, NOVA, SACCR, DataX.
 
-### 1.4 Cadena `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` — fan-out semanal de domingo (46/48 pasos documentados)
+### 1.4 Cadena `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` — fan-out semanal de domingo (50 jobs con ficha real, 1 paso aún sin ficha)
 
 La cadena semanal con mayor fan-out de las 3: Mentor, PRIIPS, FAED/FAET/FAMM/MSC, NOVA, y el **fan-out más
 grande de todo el proceso**: el diccionario semanal a ~16 destinos.
+
+**GAP-CTPY-002/006 parcialmente resuelto:** 250 capturas reales de Control-M (aportadas por el usuario, ver
+`documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`) cubren **50 jobs distintos** de esta cadena — núcleo propio,
+familia de envío web (`MEGENV0001.sh`, 18 jobs), familia `RAMERC0068.sh`, familia de transformaciones
+`GSProcess.sh`, los 2 jobs de la pasarela `lpftp501` (`MEKYTL1094_SND`/`_DEL`) y los 3 jobs Dummy de la cadena
+(`MEKYTL0285`, `MEKYTL0292`, `VALIDACION_EXTRACCION`) — con servidor, host, usuario de ejecución, comando/script,
+prerrequisitos, recurso cuantitativo y evento de salida reales para cada uno; sin huecos ni duplicados en el
+patrón de 5 capturas por job. Esto es **más jobs que los 48 pasos originalmente declarados** por el documento
+fuente para esta cadena, lo que sugiere que ese recuento no incluía algunos jobs de infraestructura ya
+cubiertos aparte (filewatchers, monitor, pasarela) — no se fuerza una reconciliación exacta del número.
+
+De los 2 jobs que motivaron el gap:
+- **`MEKYTL0292` SÍ aparece** (imgs 56-60 de la evidencia): es un job **Dummy real** — sin comando ni script,
+  Run As `xsramer1`, un único prerrequisito de entrada, **sin ningún evento de salida configurado** (pestaña
+  Acciones vacía) y **sin ningún dato visible sobre un destino "Proactive"**. Contradice la asunción implícita
+  del documento fuente (que lo lista como envío a Proactive) — ver GAP-CTPY-006 (sección 4) y RISK-CTPY-002
+  (sección 9).
+- **`MEKYTL0289` sigue sin aparecer**, ni como job ni como evento referenciado, en ninguna de las 250 capturas.
+  A diferencia de GAP-CTPY-004/007 (donde el documento de evidencia declaraba explícitamente cobertura del
+  100% de los pasos declarados de `_new`), aquí no hay una declaración equivalente de cobertura exacta del
+  100% de los 48 pasos de `_FINSEM_D_new` — la ausencia es un indicio fuerte, reforzado por el volumen de la
+  evidencia (50/48+ jobs sin huecos), pero se trata con un nivel de confianza algo menor que el aplicado a
+  GAP-CTPY-004/007 y el gap se mantiene abierto en vez de darse por resuelto.
 
 ```
 S 22:00 MONITOR_BKYTL001_505-606 → MEKYTL0335 → MEKYTL0337_505/606
@@ -213,14 +240,17 @@ RDR_Transformacion_XSLT_CPARTY
                                       → 16 jobs de envío + MEKYTL0272 → MEKYTL0267 → MEKYTL0781
 ```
 
-**Los 16 jobs de envío del diccionario semanal:** MEKYTL0288 (Ábaco), MEKYTL0289 (Proactive, **sin ficha —
-GAP**), MEKYTL0291 (Star/HPSTRHA01), MEKYTL0292 (Proactive, **sin ficha — GAP**), MEKYTL0832 (Ábaco), MEKYTL0837
-(Mentor), MEKYTL0889 (Ibor), MEKYTL1060 (HOST mainframe), MEKYTL1069→`_SND` (MMK/prmx_apx_batch), MEKYTL1094→
-`_SND`→`_DEL` (DUCO), MEKYTL1118 (Ábaco md/rdr), MEKYTL1152→MEKYTL1160 (NOVA EYSE/ganbaru), MEKYTL1212 (NOVA
-MXIF), MEKYTL1243 (Webfocus), MEKYTL1297 (NOVA MLCI, añadido 13/12/2025).
+**Los 16 jobs de envío del diccionario semanal:** MEKYTL0288 (Ábaco), MEKYTL0289 (Proactive presumible, **sin
+ficha — GAP-CTPY-002, ausente también en la evidencia de 250 capturas**), MEKYTL0291 (Star/HPSTRHA01), MEKYTL0292
+(**ficha real confirmada: job Dummy, sin comando ni evento de salida, sin destino "Proactive" visible — ver
+GAP-CTPY-006**), MEKYTL0832 (Ábaco), MEKYTL0837 (Mentor), MEKYTL0889 (Ibor), MEKYTL1060 (HOST mainframe),
+MEKYTL1069→`_SND` (MMK/prmx_apx_batch), MEKYTL1094→`_SND`→`_DEL` (DUCO, confirmado en pasarela `lpftp501`,
+usuario `xtprox1p`), MEKYTL1118 (Ábaco md/rdr), MEKYTL1152→MEKYTL1160 (NOVA EYSE/ganbaru, MEKYTL1160 con
+"Acciones Si": No OK → Marcar como OK), MEKYTL1212 (NOVA MXIF), MEKYTL1243 (Webfocus), MEKYTL1297 (NOVA MLCI,
+añadido 13/12/2025).
 
-**⚠️ 2 de los 48 pasos declarados no tienen ficha propia** (MEKYTL0289, MEKYTL0292 — Proactive) — ver
-GAP-CTPY-002.
+**⚠️ 1 de los 48 pasos declarados sigue sin ficha propia** (MEKYTL0289) — ver GAP-CTPY-002. MEKYTL0292 ya tiene
+ficha real (Dummy, sin destino confirmado) — ver GAP-CTPY-006.
 
 ### 1.5 Diccionarios de campos de los ficheros de origen
 
@@ -250,11 +280,11 @@ sábado, semanal domingo).
 
 **Ámbito técnico:** el núcleo común de las 3 cadenas (generación de origen, filewatchers, unión, pipeline
 XSLT/XSD) documentado en su totalidad; el fan-out completo de `_FINSEM_S_new` (21/21 pasos); el fan-out
-completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-out documentado de
-`_FINSEM_D_new` (46/48 pasos).
+completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-out de `_FINSEM_D_new` con
+evidencia real para 50 jobs (incluyendo `MEKYTL0292`, ya resuelto con ficha real).
 
 **Fuera de alcance / no cubierto por esta ronda de evidencia:**
-- Los 2 pasos de `_FINSEM_D_new` sin ficha de job (GAP-CTPY-002/006 — `MEKYTL0289`, `MEKYTL0292`).
+- El paso de `_FINSEM_D_new` que sigue sin ficha de job (GAP-CTPY-002 — `MEKYTL0289`).
 - La query de detalle de `ThirdParties.xml` (GAP-CTPY-003).
 - Las cadenas externas referenciadas como predecesor/sucesor (`RDR_FIRCOSOFT_CPARTYS_*_PRO_new` para
   Fircosoft) — documentadas solo hasta el punto de integración.
@@ -288,9 +318,14 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
   ambigüedades menores documentadas ahí mismo (2 eventos de `RDR_TRANSFORMACION_DCD` truncados de forma
   idéntica; 4 jobs — `MEKYTL0282_SND`, `MEKYTL0836`, `MEKYTL1093_DEL`, `MEKYTL1277` — sin captura de su pestaña
   Acciones, evento de salida no confirmable) que no bloquean el cierre del gap principal.
-- **GAP-CTPY-002 (2 pasos sin ficha de `_FINSEM_D_new`) — abierto.** `MEKYTL0289` y `MEKYTL0292` (ambos
-  "Proactive", parte de los 16 envíos del diccionario semanal) no tienen ficha propia en la evidencia de esta
-  ronda — la evidencia de GAP-CTPY-001 cubre `_new`, no `_FINSEM_D_new`.
+- **GAP-CTPY-002 (2 pasos sin ficha de `_FINSEM_D_new`) — parcialmente resuelto con evidencia real.** 250
+  capturas de Control-M (aportadas por el usuario, `documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`) cubren
+  50 jobs de `_FINSEM_D_new`, incluyendo `MEKYTL0292` (ficha real obtenida — ver GAP-CTPY-006). `MEKYTL0289`
+  sigue sin aparecer ni como job ni como evento en ninguna de las 250 capturas; se trata como un indicio fuerte
+  de no-existencia (mismo criterio que GAP-CTPY-004/007), pero con un matiz: a diferencia de esos dos gaps,
+  esta evidencia no declara explícitamente cubrir el 100% de los 48 pasos declarados de la cadena (cubre 50
+  jobs, más que los 48 declarados, pero sin una equivalencia 1:1 confirmada) — por eso el gap se mantiene
+  **abierto** en vez de cerrarse por ausencia, hasta una confirmación adicional o una ficha directa.
 - **GAP-CTPY-003 (query de detalle de ThirdParties no accedida) — abierto.** Solo se ha accedido a la query
   maestra de `ThirdParties.xml`; su diccionario de campos exacto no está confirmado con la query de detalle
   real.
@@ -302,8 +337,13 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
   confirma que el job no tiene ningún evento de salida configurado (pestaña Acciones vacía) y que corre como
   usuario `root` — pero sigue sin confirmarse si algún sistema externo consume ese backup o es puramente
   defensivo.
-- **GAP-CTPY-006 (destino "Proactive" ambiguo) — abierto.** Mismo gap que GAP-CTPY-002; no cubierto por la
-  evidencia de `_new`.
+- **GAP-CTPY-006 (destino "Proactive" ambiguo) — resuelto con hallazgo relevante (discrepancia documentada).**
+  La ficha real de `MEKYTL0292` (250 capturas, GAP-CTPY-002) muestra un job **Dummy**, sin comando ni script,
+  sin evento de salida configurado y sin ningún dato visible sobre un destino "Proactive". La asunción del
+  documento fuente (envío activo a Proactive) **no se confirma en Control-M real**: o bien el envío se realiza
+  fuera del planificador (proceso externo no cubierto por este intake), o bien la documentación funcional está
+  desactualizada en este punto — ver RISK-CTPY-002 (sección 9). `MEKYTL0289` permanece sin confirmar, ver
+  GAP-CTPY-002.
 - **GAP-CTPY-007 (posible desuso de `RDR_TRANSFORMACION_RGA`) — RESUELTO por ausencia confirmada.** No
   aparece en ninguna de las 506 capturas — se confirma que no forma parte de la cadena real vigente.
 
@@ -346,6 +386,12 @@ mismo job compartido entre `_FINSEM_S_new` y `_FINSEM_D_new` (no una instancia p
 existen en la cadena real — eliminar de cualquier lectura de la tabla de destinos del documento fuente que los
 dé como vigentes (ver GAP-CTPY-004/007).
 
+**Confirmado por GAP-CTPY-002/006 (capturas reales de `_FINSEM_D_new`):** el destino "Proactive" asociado a
+`MEKYTL0292` en el documento fuente **no está implementado en Control-M** — el job real es un Dummy sin
+comando ni evento de salida. No eliminar la fila "Diccionario" de la tabla de destinos (los otros 15 jobs del
+diccionario semanal sí tienen envío real confirmado o presumible), pero tratar el destino Proactive específico
+como no confirmado hasta verificación funcional externa (ver RISK-CTPY-002).
+
 ## 7. Especificación de testing
 
 **Estrategia:** dado el volumen del proceso (3 cadenas, ~150 jobs, 45+ destinos) y que más de la mitad de los
@@ -360,7 +406,7 @@ Referencia de casos por tipo:
 - `borde`: TC-004, TC-006.
 - `error_funcional`: TC-005, TC-010.
 - `datos_sinteticos`: TC-007.
-- `conflicto_integridad`: TC-008.
+- `conflicto_integridad`: TC-008, TC-012.
 - `regresion`: TC-009, TC-011.
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
@@ -374,15 +420,18 @@ Referencia de casos por tipo:
 | R7 (`_FINSEM_S_new` completo) | TC-003 | Ciclo end-to-end de la única cadena 100% documentada |
 | R9 (deduplicación con continuidad forzada) | TC-005 | Confirma el requisito de liberar sucesores ante fallo propio |
 | R11 (pasarela _SND/_DEL) | TC-006 | Verifica el riesgo de borrado cruzado en la pasarela (RISK-CTPY-001) |
-| GAP-CTPY-002/006 (`_FINSEM_D_new`) | TC-007 | Documenta la limitación en vez de inventar cobertura |
+| GAP-CTPY-002 (`MEKYTL0289`, aún sin ficha) | TC-007 | Documenta la limitación en vez de inventar cobertura |
+| GAP-CTPY-006 (`MEKYTL0292`, discrepancia Proactive) | TC-012 | Confirma o descarta si el envío a Proactive existe fuera de Control-M |
 | GAP-CTPY-004 (histórico, ya resuelto) | TC-008 | Confirma la inconsistencia de `MEKYTL0449`, ya resuelta con GAP-CTPY-001 |
 | MEKYTL1154 (soft-failure genérico) | TC-010 | Confirma que un fallo real de creación del `.ctl` queda enmascarado como OK |
 | GAP-CTPY-004/007 (regresión) | TC-011 | Confirma que `MEKYTL0449`/`RDR_TRANSFORMACION_RGA` siguen sin existir en revisiones futuras |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps abiertos: GAP-CTPY-002, 003, 005, 006** (sección 4) — sin evidencia adicional en esta ronda.
-   GAP-CTPY-001, 004 y 007 quedaron resueltos con las 506 capturas reales de `_new`.
+1. **Gaps abiertos: GAP-CTPY-002 (parcial), 003, 005** (sección 4). GAP-CTPY-001, 004 y 007 quedaron resueltos
+   con las 506 capturas reales de `_new`; GAP-CTPY-006 queda resuelto (con hallazgo de discrepancia) y
+   GAP-CTPY-002 pasa de "abierto" a "abierto, parcial" con las 250 capturas reales de `_FINSEM_D_new`
+   (`MEKYTL0292` confirmado, `MEKYTL0289` sigue sin ficha).
 2. **RISK-CTPY-001 — limpieza por comodín en `MEKYTL0879_DEL`.** El comando real es
    `cd /unload/transmisiones/KYTL/ ; rm -f *ctpda* ; rm -f *MEKYTL0879*`. El patrón `*ctpda*` no es específico
    de este job: `RDR_TRANSFORMACION_SIRE` genera ficheros `ctpdaDDMMYYYYCC.csv` que también podrían transitar
@@ -408,16 +457,26 @@ Referencia de casos por tipo:
 8. **`VALIDACION_EXTRACCION` con dos comportamientos distintos según cadena** (real en `_new`, DUMMY en las 2
    semanales) — a tener en cuenta al diseñar pruebas que dependan de su función real de generación de los 2
    ficheros finales: en las cadenas semanales esa generación ya no depende de este job desde el 18/10/2025.
+9. **RISK-CTPY-002 — `MEKYTL0292` es un job Dummy sin destino, pese a que el documento funcional lo lista como
+   envío activo a "Proactive".** Confirmado con captura real (GAP-CTPY-002/006): sin comando, sin script, sin
+   evento de salida. Mismo patrón de fondo ya observado en otros puntos de este intake — **prevalece la
+   configuración real sobre la ficha funcional** — pero aquí el job sigue existiendo (a diferencia de
+   `MEKYTL0449`/`RDR_TRANSFORMACION_RGA`, que estaban eliminados). No se puede descartar que el envío a
+   Proactive exista por un mecanismo fuera de Control-M; requiere confirmación funcional externa (ver TC-012).
+   Mientras no se confirme, tratar la fila "Proactive" del diccionario semanal como no verificada en el
+   alcance de este intake.
 
 ## 10. Conclusión
 
 Se documenta el núcleo común de las 3 cadenas del proceso Extracción Genérica de Contrapartidas en su
 totalidad, el fan-out completo de `_FINSEM_S_new` (21/21 pasos), el fan-out completo de `_new` (101/101 pasos,
-cerrado con 506 capturas reales de Control-M aportadas por el usuario tras la primera ronda) y el fan-out
-documentado de `_FINSEM_D_new` (46/48 pasos). De los 7 gaps abiertos en la primera ronda, **3 quedan
-resueltos** (GAP-CTPY-001 con evidencia real completa; GAP-CTPY-004 y GAP-CTPY-007 por ausencia confirmada en
-esa misma evidencia) y **4 siguen abiertos** (GAP-CTPY-002, 003, 005, 006), todos ellos relativos a
-`_FINSEM_D_new` o a la extracción de `ThirdParties.xml`, fuera del alcance de la evidencia aportada para
-`_new`. La evidencia real también reveló hallazgos de riesgo no preguntados (RISK-CTPY-001: limpieza por
-comodín potencialmente cruzada con la rama SIRE; ejecución como `root` de 3 jobs; soft-failure genérico en
-`MEKYTL1154`), registrados en la sección 9.
+cerrado con 506 capturas reales de Control-M aportadas por el usuario tras la primera ronda) y el fan-out de
+`_FINSEM_D_new` con evidencia real para 50 jobs (cerrado con 250 capturas reales aportadas por el usuario en
+una segunda ronda). De los 7 gaps abiertos en la primera ronda, **4 quedan resueltos** (GAP-CTPY-001 con
+evidencia real completa; GAP-CTPY-004 y GAP-CTPY-007 por ausencia confirmada en esa misma evidencia;
+GAP-CTPY-006 con ficha real de `MEKYTL0292` que revela una discrepancia con el documento funcional) y **3
+siguen abiertos** (GAP-CTPY-002 — solo `MEKYTL0289`, aún sin ficha ni en la segunda ronda de evidencia —,
+GAP-CTPY-003 y GAP-CTPY-005). La evidencia real también reveló hallazgos de riesgo no preguntados
+(RISK-CTPY-001: limpieza por comodín potencialmente cruzada con la rama SIRE; ejecución como `root` de 3 jobs;
+soft-failure genérico en `MEKYTL1154`; RISK-CTPY-002: destino "Proactive" documentado sin implementación real
+en Control-M para `MEKYTL0292`), registrados en la sección 9.

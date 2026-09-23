@@ -38,8 +38,10 @@
   `RDR_TRANSFORMACION_*`, deduplicación, unión), `xsramer1` (mayoría de envíos y jobs `RAMERC0068.sh`),
   `xpctma1` (filewatchers), `xtsftp1`/`xtprox1p` (jobs `_SND`/`_DEL` en la pasarela), y **`root`** para 3 jobs
   concretos (`MEKYTL0781`, `MEKYTL1020`, `MEKYTL1181`) — ver riesgo en `spec.md` sección 9.
-- Usuarios de ejecución de `_FINSEM_D_new` no confirmados campo a campo para `MEKYTL0289`/`MEKYTL0292`
-  (GAP-CTPY-002/006, aún abierto).
+- Usuarios de ejecución reales confirmados en `_FINSEM_D_new` (GAP-CTPY-002/006, evidencia real, 50 jobs):
+  mismo patrón que `_new` — `xakytl1p` (transformaciones, unión), `xsramer1` (mayoría de envíos y
+  `RAMERC0068.sh`, incluido `MEKYTL0292`), `xpctma1` (filewatchers), `xtprox1p` (`MEKYTL1094_SND`/`_DEL` en la
+  pasarela `lpftp501`). Usuario de ejecución de `MEKYTL0289` sigue sin confirmar (GAP-CTPY-002, aún abierto).
 
 ## Flujos previos que deben haberse completado
 
@@ -49,10 +51,14 @@
   `MONITOR_BKYTL001_505-606` como disparador — verificar en cualquier prueba conjunta de ambas cadenas que no
   haya una condición de carrera o un solapamiento no documentado entre sus dos arranques (viernes 22:00 vs.
   sábado 22:00, consecutivos).
-- **Importante (limitación de cobertura restante):** cualquier prueba sobre `MEKYTL0289`/`MEKYTL0292` de
-  `_FINSEM_D_new` (GAP-CTPY-002/006) requiere primero obtener su ficha técnica o una captura real de Control-M
-  — no se puede diseñar un caso de prueba fiable sobre un job cuyo comando, usuario y comportamiento ante
-  fallo no están confirmados. La cadena `_new` ya no tiene esta limitación (GAP-CTPY-001 resuelto).
+- **Importante (limitación de cobertura restante, reducida):** `MEKYTL0292` de `_FINSEM_D_new` ya tiene ficha
+  real (job Dummy, sin comando ni evento de salida — ver `spec.md` GAP-CTPY-006 y RISK-CTPY-002). Solo
+  `MEKYTL0289` sigue sin ficha técnica ni captura real de Control-M (GAP-CTPY-002, aún abierto) — no se puede
+  diseñar un caso de prueba fiable sobre ese job concreto hasta obtenerla. La cadena `_new` ya no tiene esta
+  limitación (GAP-CTPY-001 resuelto).
+- **Importante:** antes de cualquier prueba que dé por hecho un envío real a "Proactive" desde `MEKYTL0292`,
+  confirmar con el equipo funcional si ese envío existe fuera de Control-M — la evidencia real muestra un job
+  Dummy sin destino configurado (GAP-CTPY-006, RISK-CTPY-002 en `spec.md`).
 - **Importante:** antes de cualquier prueba de la rama SIRE o de `MEKYTL0879_DEL` en `_new`, revisar
   RISK-CTPY-001 (limpieza por comodín `*ctpda*` que podría afectar a ficheros de otra rama si coinciden en la
   misma ruta de pasarela en la misma ventana temporal).

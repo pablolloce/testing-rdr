@@ -165,22 +165,43 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Limitación de evidencia: MEKYTL0289/MEKYTL0292 (Proactive) sin ficha (GAP-CTPY-002)</nombre>
-    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba fiable para los 2 jobs de envío a Proactive del diccionario semanal, sin ficha propia.</objetivo>
+    <nombre>Limitación de evidencia: MEKYTL0289 (diccionario semanal) sigue sin ficha propia (GAP-CTPY-002)</nombre>
+    <objetivo>Documentar explícitamente que, pese a la segunda ronda de evidencia real (250 capturas/50 jobs de _FINSEM_D_new, que sí confirmó la ficha real de MEKYTL0292 — ver TC-012), MEKYTL0289 sigue sin aparecer ni como job ni como evento, por lo que no se puede diseñar un caso de prueba fiable sobre él.</objetivo>
     <precondiciones>
       <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="MEKYTL0289, MEKYTL0292" valor="sin ficha propia, destino Proactive presumible pero no confirmado"/>
+      <dato campo="MEKYTL0289" valor="sin ficha propia; ausente también en las 250 capturas de GAP-CTPY-002 (documentos_fuente/GAP-CTPY-002_jobs_extraidos.md), que cubren 50 jobs de la cadena sin huecos ni duplicados"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar la ficha técnica de MEKYTL0289 y MEKYTL0292, o confirmación del destino real Proactive.</paso>
-      <paso numero="2">Si se obtiene, diseñar el caso de prueba de envío equivalente al resto de los 16 jobs del diccionario semanal.</paso>
+      <paso numero="1">Solicitar la ficha técnica de MEKYTL0289, o una confirmación explícita de que ya no existe en la cadena real.</paso>
+      <paso numero="2">Si se obtiene la ficha, diseñar el caso de prueba de envío equivalente al resto de los jobs del diccionario semanal (mismo formato que documentos_fuente/GAP-CTPY-002_jobs_extraidos.md).</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha técnica de ambos jobs.</resultadoEsperado>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha técnica o de una confirmación de ausencia definitiva equivalente en firmeza a la aplicada en GAP-CTPY-004/007.</resultadoEsperado>
     <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-CTPY-002/006 hasta recibir evidencia.</criterioAceptacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-CTPY-002 hasta recibir evidencia. No se cierra por analogía con GAP-CTPY-004/007 porque, a diferencia de esos casos, no hay una declaración explícita de cobertura del 100% de los 48 pasos declarados de la cadena.</criterioAceptacion>
     <posibilidadFallo>No se fuerza un destino inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>MEKYTL0292: discrepancia entre destino documentado (Proactive) y comportamiento real (Dummy sin envío) — GAP-CTPY-006</nombre>
+    <objetivo>Confirmar si el envío a Proactive documentado para MEKYTL0292 existe realmente fuera de Control-M, o si la ficha funcional del documento fuente está desactualizada, dado que la evidencia real (250 capturas, GAP-CTPY-002) muestra un job Dummy sin comando ni evento de salida.</objetivo>
+    <precondiciones>
+      <precondicion>Evidencia real de Control-M de MEKYTL0292 ya obtenida (documentos_fuente/GAP-CTPY-002_jobs_extraidos.md, fila 12).</precondicion>
+      <precondicion>Acceso al equipo funcional o dueño de la integración con Proactive.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0292" valor="Dummy, sin comando ni script, sin evento de salida configurado, Run As xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en Control-M (ya realizado en esta ronda) que MEKYTL0292 es un job Dummy sin comando ni evento de salida.</paso>
+      <paso numero="2">Contactar con el equipo funcional o dueño de la integración con Proactive para confirmar si el envío se realiza fuera de Control-M (proceso externo) o si ya no está vigente.</paso>
+      <paso numero="3">Si el envío existe fuera de Control-M, documentar el mecanismo real; si no existe, confirmar que la tabla de destinos del documento fuente está desactualizada en este punto (mismo patrón que GAP-CTPY-004/007).</paso>
+    </pasos>
+    <resultadoEsperado>Se determina si "Proactive" es un destino real fuera del alcance de Control-M o una referencia desactualizada del documento funcional.</resultadoEsperado>
+    <tipoValidacion>Inspección de Control-M (ya realizada) + confirmación funcional externa.</tipoValidacion>
+    <criterioAceptacion>Discrepancia resuelta con confirmación funcional, documentada en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Si no se puede contactar al equipo funcional, el gap queda abierto indefinidamente — riesgo de que un destino "fantasma" siga apareciendo en documentación sin corresponder a ningún envío real (RISK-CTPY-002).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="conflicto_integridad">
