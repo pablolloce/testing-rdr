@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_DUCO_CPTY" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de los 5 jobs con contrapartidas presentes</nombre>
+    <objetivo>Verificar que los 5 jobs se ejecutan en orden y el fichero se transmite y historifica correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_DUCO_CPTY activa; existen contrapartidas OPERATIVE/CPARTY con ENFR_RANK=1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (Martes a Sábado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el disparo horario de RDR_DUCOCPTY_GSPROCESS a las 04:00 AM.</paso>
+      <paso numero="2">Verificar generación de DUCOCPTY.csv con al menos 1 fila de datos y evento RDR_DUCO_CPTY_RDR_DUCOCPTY_GSPROCESS_OK.</paso>
+      <paso numero="3">Verificar que MEKYTL1151 se dispara y genera RDR_DUCO_CPTY_MEKYTL1151_OK.</paso>
+      <paso numero="4">Verificar que MEKYTL1151_SND transmite el fichero por Connect Direct y genera RDR_DUCO_CPTY_MEKYTL1151_SND_OK.</paso>
+      <paso numero="5">Verificar que MEKYTL1151_DEL limpia la pasarela y genera RDR_DUCO_CPTY_MEKYTL1151_DEL_OK.</paso>
+      <paso numero="6">Verificar que MEKYTL1150 historifica y comprime el fichero en old/DUCOCPTY_YYYYMMDD.csv.tar.gz.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan OK en el orden documentado; fichero comprimido presente en old/.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + existencia del fichero comprimido.</tipoValidacion>
+    <criterioAceptacion>5/5 jobs OK, fichero .tar.gz presente con la fecha correcta.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de RDR_DUCOCPTY_GSPROCESS bloquea el resto de la cadena</nombre>
+    <objetivo>Confirmar que un fallo en el primer job impide la ejecución de los siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Se fuerza un fallo simulado (p. ej. desconectividad con GoldenSource) en RDR_DUCOCPTY_GSPROCESS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conexión a GoldenSource inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en RDR_DUCOCPTY_GSPROCESS a las 04:00 AM.</paso>
+      <paso numero="2">Verificar que no se genera el evento de salida.</paso>
+      <paso numero="3">Verificar que MEKYTL1151 no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena queda bloqueada en el primer job; ningún job posterior cambia de estado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>DUCOCPTY.csv se publica vacío sin bloquear la cadena</nombre>
+    <objetivo>Confirmar el comportamiento verificado por código fuente: publicación incondicional ante 0 contrapartidas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con 0 contrapartidas que cumplan el filtro OPERATIVE/CPARTY/ENFR_RANK=1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Contrapartidas candidatas" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_DUCOCPTY_GSPROCESS con la BD sin contrapartidas candidatas.</paso>
+      <paso numero="2">Verificar que el job termina OK y genera DUCOCPTY.csv con solo cabecera/pie, sin filas de datos.</paso>
+      <paso numero="3">Verificar que el resto de la cadena (MEKYTL1151 en adelante) se ejecuta con normalidad, transmitiendo el fichero vacío a DUCO.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se completa igual que con datos; el fichero vacío se transmite y se historifica sin ninguna alerta diferenciada — comportamiento confirmado por código fuente (Ppal.java/FicheroExtraccion.java), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + inspección del contenido de DUCOCPTY.csv.</tipoValidacion>
+    <criterioAceptacion>5/5 jobs OK; DUCOCPTY.csv sin filas de datos pero con estructura válida.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: DUCO podría no esperar/gestionar bien un fichero sin datos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Transmisión obligatoria por alias al ser destino externo a la red BBVA</nombre>
+    <objetivo>Verificar que MEKYTL1151_SND utiliza estrictamente el alias duco_bbva_upload/DUCO_BBVA_UPLOAD y no una ruta directa.</objetivo>
+    <precondiciones>
+      <precondicion>Configuración de pasarela con el alias duco_bbva_upload activo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Alias de transmisión" valor="duco_bbva_upload / DUCO_BBVA_UPLOAD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1151_SND y verificar en el log de LPFTPEXCA0000.sh que la transmisión se realiza vía el alias configurado.</paso>
+      <paso numero="2">Confirmar que no existe una ruta de conexión directa alternativa configurada para este destino.</paso>
+    </pasos>
+    <resultadoEsperado>La transmisión se realiza exclusivamente por el alias, conforme a la regla operativa documentada (destino externo a la red BBVA).</resultadoEsperado>
+    <tipoValidacion>Inspección de configuración/log de la pasarela Connect Direct.</tipoValidacion>
+    <criterioAceptacion>Alias usado en el 100% de las transmisiones observadas.</criterioAceptacion>
+    <posibilidadFallo>Configuración alternativa que bypasee el alias, incumpliendo la regla operativa.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>MEKYTL1150 dispara solo con el evento de MEKYTL1151_DEL</nombre>
+    <objetivo>Confirmar que la dependencia real de MEKYTL1150 es únicamente MEKYTL1151_DEL, no MEKYTL1151 (gap G2 resuelto).</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1151 completado, pero MEKYTL1151_SND/MEKYTL1151_DEL aún no ejecutados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado forzado" valor="MEKYTL1151 OK, MEKYTL1151_DEL pendiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Completar solo MEKYTL1151 y observar el estado de MEKYTL1150.</paso>
+      <paso numero="2">Verificar que MEKYTL1150 permanece en espera hasta que se recibe el evento RDR_DUCO_CPTY_MEKYTL1151_DEL_OK.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1150 no dispara con solo el evento de MEKYTL1151; requiere específicamente el de MEKYTL1151_DEL.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones de Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL1150 en espera hasta el evento correcto.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare prematuramente con el evento de MEKYTL1151 (contradiría G2).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Historificación con máscara de fecha correcta en ejecuciones sucesivas</nombre>
+    <objetivo>Verificar que la máscara de fecha de DUCOCPTY_YYYYMMDD.csv.tar.gz no colisiona entre días de ejecución (Martes a Sábado).</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente 2 días consecutivos de la ventana Martes-Sábado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días de prueba" valor="2 días consecutivos dentro de Martes-Sábado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa en el día 1 y verificar el fichero comprimido en old/ con la fecha del día 1.</paso>
+      <paso numero="2">Ejecutar la cadena completa en el día 2 y verificar que el fichero del día 1 no se sobrescribe.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución genera su propio fichero historificado, sin colisión entre días.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en old/.</tipoValidacion>
+    <criterioAceptacion>2 ficheros .tar.gz distintos, ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si se relanza más de una vez el mismo día.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="e2e">
+    <nombre>Ciclo completo diario desde la extracción hasta la historificación</nombre>
+    <objetivo>Validar el flujo end-to-end completo de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con conectividad a GoldenSource y a la pasarela Connect Direct.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa (5 jobs) en entorno de prueba.</paso>
+      <paso numero="2">Verificar la generación, transmisión, limpieza de pasarela e historificación comprimida del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina OK, con el fichero transmitido a DUCO e historificado localmente.</resultadoEsperado>
+    <tipoValidacion>Verificación combinada Control-M + existencia de fichero en cada etapa.</tipoValidacion>
+    <criterioAceptacion>5/5 jobs OK, fichero presente en pasarela (temporalmente) y en old/ (comprimido).</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio detiene el flujo antes de la historificación final.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
