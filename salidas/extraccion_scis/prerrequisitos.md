@@ -61,6 +61,12 @@ La query de detalle accede a las siguientes tablas. El usuario de conexión debe
 - Para ejercitar TC-10 debe existir la organización `A15` en `FT_T_ENTR` y al menos una SCI
   asignada a ella. Al cargar el dato conviene respetar el ancho fijo de `ORG_ID`, como se
   documentó en el proceso de Contactos.
+- Para TC-03 hace falta poder dejar el universo **a cero**: todas las SCIs con `END_TMS`
+  informado o con asignación `BRANCH` a `A15`. Es el único caso que exige vaciar el universo, así
+  que conviene ejecutarlo aislado o poder restaurar el juego de datos después.
+- Para TC-13 hace falta poder **escribir en el directorio de extracción** un fichero residual con
+  una SCI marcadora que no pertenezca al universo vigente, de forma que su presencia en la salida
+  sea inequívoca.
 
 ## 2. Entorno de ejecución de la extracción
 
