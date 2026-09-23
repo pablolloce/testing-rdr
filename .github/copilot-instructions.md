@@ -22,8 +22,9 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
 4. **Preguntas, sin límite de rondas**: pregunta todo lo de la lista obligatoria y cualquier gap
    adicional. Repite rondas hasta que tu checklist de cierre esté en "sí" para todo. Nunca
    generes con huecos. → §"Rigor analítico e iteración sin límite" y §"Reglas obligatorias" 4.
-5. **Genera la salida** en `salidas/<nombre_proceso>/`: `spec.md` + `prerrequisitos.md` +
-   `casos_prueba.xml`. → §"Estructura de salida esperada".
+5. **Genera la salida** en `salidas/<nombre_proceso>/`, en este orden: `spec.md`, después
+   `casos_prueba.xml`, y por último `prerrequisitos.md` derivado de los casos. → §"Estructura de
+   salida esperada".
 6. **Verifica el criterio de cierre** antes de dar nada por terminado. → §"Criterio de cierre".
 7. **Actualiza la memoria compartida** con lo aprendido de esta sesión. → §"Memoria única y
    compartida".
@@ -31,6 +32,10 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
    contenido generado. Nunca sincronices a `nfq` automáticamente aquí. → §"Modelo de ramas".
 9. **Paso 2 — sincroniza a `nfq` solo si el usuario lo pide explícitamente**, con comprobación de
    concurrencia y sync por ruta explícita (nunca merge de rama completa). → §"Modelo de ramas".
+10. **Modo ejecutable (opcional, solo si el usuario lo pide)**: prepara el encargo para que
+    el agente `atsqa-generator` de EQAT genere las pruebas automáticas del proceso. No
+    forma parte del flujo normal y nunca se activa por iniciativa propia. → §"Modo
+    ejecutable".
 
 ---
 
@@ -164,6 +169,24 @@ resultado esperado, tipo de validación, criterio de aceptación, posibilidad de
 esperado. Estos casos se entregan en `casos_prueba.xml` (ver "Estructura de salida esperada"),
 no en `spec.md`.
 
+#### Redacción de cada caso
+
+- **El resultado esperado es una decisión, no una observación.** `resultadoEsperado` debe afirmar
+  qué tiene que ocurrir, nunca proponer descubrir qué ocurre. Si al redactarlo no puedes afirmar
+  cuál es el resultado correcto, es que falta información: vuelve al usuario y ciérralo antes de
+  generar el caso. Un caso sin resultado esperado definido no es un caso de prueba, es un gap
+  disfrazado de caso.
+- **Un paso, una cosa.** Cada `<paso>` contiene una sola acción o una sola comprobación, de forma
+  que pueda marcarse como superado o fallado por sí mismo. No agrupes varias comprobaciones en un
+  paso ni mezcles ejecutar con verificar.
+- **Las precondiciones son estado comprobable.** En vez de "extracción previa correcta", "existe
+  el fichero X en la ruta Y con al menos un registro". Incluye qué accesos necesita quien ejecute
+  el caso: sobre qué entorno, con qué usuario y con qué permisos. No des por supuesto ninguno.
+- **Marca los casos que no se deben ejecutar.** Si ejecutar un caso puede tener efecto destructivo
+  sobre datos, ficheros o entornos reales, dilo en el criterio de aceptación —no solo en la
+  posibilidad de fallo— e indica que la verificación debe hacerse por lectura de código o de
+  configuración.
+
 ### 6) Control de duplicidades y datos sintéticos
 Si el flujo incluye gestión de registros, validaciones de integridad o datos únicos, incluye
 explícitamente pruebas para: datos repetidos, registros duplicados, conflicto de clave o valor
@@ -182,10 +205,7 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 
 ### `spec.md`
 1. Resumen ejecutivo
-2. Alcance del proceso — usa siempre esta estructura de 3 puntos, no un "incluye/no incluye" libre:
-   * **Ámbito funcional:** qué hace el proceso en términos de negocio (qué se distribuye/transforma, desde dónde, hacia dónde, para qué).
-   * **Ámbito técnico:** cadena(s) Control-M involucradas, número y tipo de jobs (p. ej. "9 jobs: 1 disparador, 1 filewatcher, 5 envíos, 1 historificación"), servidores/nodos donde se ejecuta.
-   * **Fuera de alcance:** qué queda explícitamente fuera de esta cadena/proceso, aunque condicione sus datos de entrada o consuma su salida (p. ej. la generación del fichero de origen, o su consumo en destino).
+2. Alcance del proceso
 3. Requisitos detectados
 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 5. Especificación funcional
@@ -206,9 +226,34 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 10. Conclusión y requisitos de cierre
 
 ### `prerrequisitos.md`
-Documento explicativo, en prosa, exclusivamente de prerrequisitos y condiciones previas: qué
-debe existir, qué configuración o datos previos hacen falta, qué roles o permisos se requieren y
-qué flujos previos deben haberse completado antes de ejecutar el proceso.
+
+**Genéralo el último, derivado de `casos_prueba.xml`.** Un prerrequisito es lo que debe estar en
+su sitio para que los casos se puedan ejecutar, no una descripción de cómo está montado el
+proceso. Si acabas describiendo la instalación en lugar de lo que hace falta para probar, lo has
+enfocado mal.
+
+**Trazabilidad en los dos sentidos.** Cada precondición de cada caso debe tener respaldo aquí, y
+cada prerrequisito debe indicar qué casos lo necesitan. Un prerrequisito que no necesita ningún
+caso o sobra, o señala que falta un caso: dilo en vez de dejarlo pasar.
+
+**Formato libre por sección.** Tabla cuando haya correspondencias, lista cuando haya
+enumeraciones, prosa cuando haya que explicar un porqué. No fuerces un formato único.
+
+**Di a qué entorno pertenece cada dato.** Toda ruta, host o usuario debe indicar su entorno.
+Separa lo que describe la instalación real del proceso, que es referencia, de lo que hace falta
+para poder probarlo, que es el prerrequisito propiamente dicho.
+
+Secciones mínimas, adaptadas a lo que tenga cada proceso:
+
+| Sección | Contenido |
+|---|---|
+| Orígenes de datos | Tablas, ficheros o servicios de los que se nutre el proceso, y qué alimenta cada uno |
+| Datos mínimos | Qué juego de datos hace falta, caso por caso, para que cada comprobación pueda fallar si algo va mal |
+| Entorno de ejecución | Máquinas, scripts, binarios y configuración desplegada, con el usuario y el privilegio que requiere cada ejecución |
+| Configuración | Ficheros de configuración de los que depende el comportamiento, y qué valores hay que conocer |
+| Sistema de ficheros | Directorios, máscaras, permisos y retenciones |
+| Orquestación | Planificación, dependencias y eventos, cuando existan |
+| Entorno de pruebas | Qué hace falta que tenga y qué queda por definir |
 
 ### `casos_prueba.xml`
 La matriz de casos de prueba en XML, un elemento `<casoDePrueba>` por caso, con los mismos diez
@@ -259,6 +304,160 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
   ambigüedad)
 - el conjunto de casos, end-to-end y/o troceados, cubre por completo el correcto funcionamiento
   del proceso, y eso queda explicado y justificado en la especificación de testing de `spec.md`
+
+## Modo ejecutable — preparar casos para AtSQA Framework
+
+Modo **opcional y bajo petición explícita del usuario**. No se activa por iniciativa propia ni
+forma parte del flujo normal de análisis. Nada de lo anterior de este documento queda derogado
+por esta sección.
+
+### Reparto de responsabilidades
+
+La automatización de pruebas en AtSQA Framework la realiza el equipo EQAT con su propio agente,
+`atsqa-generator`, que conoce el catálogo de acciones disponibles, el contrato del XML y sus
+reglas de validación, y que se mantiene actualizado cuando ese catálogo cambia.
+
+**Este agente no genera XML de AtSQA.** Genera el encargo que `atsqa-generator` consume. El
+reparto es:
+
+| Responsabilidad | Quién |
+|---|---|
+| Qué hay que probar de cada proceso y por qué | Este agente |
+| Qué casos son automatizables y cuáles no | Este agente |
+| Los pasos, en orden y atómicos, y los datos concretos del entorno | Este agente |
+| Qué acción del framework corresponde a cada paso | `atsqa-generator` |
+| Estructura del XML, atributos, ciclos de conexión, plantilla de datos | `atsqa-generator` |
+
+No dupliques el trabajo de `atsqa-generator`: no propongas nombres de acciones, ni atributos, ni
+estructura de XML. Si el usuario te los pide igualmente, avísale de que esa decisión es del otro
+agente y de que lo que tú escribas puede quedar desactualizado en cuanto EQAT amplíe el catálogo.
+
+### Cuándo aplica
+
+Solo cuando el usuario lo pida para un proceso concreto. Requisito previo innegociable: ese
+proceso ya debe tener en `salidas/<nombre_proceso>/` una `spec.md` y un `casos_prueba.xml`
+cerrados según el criterio de cierre general.
+
+### Qué se puede automatizar y qué no
+
+En procesos batch **no se lanza la cadena de Control-M: se simulan sus pasos**. Si un job ejecuta
+un script, la prueba ejecuta ese mismo script con los mismos parámetros. De ahí:
+
+- **Automatizable**: comportamiento de scripts y binarios, contenido y estructura de los ficheros
+  generados, consultas a base de datos, archivado, purga, reejecución con residuos.
+- **No automatizable**: la orquestación — dependencias entre jobs, propagación del fallo, jobs a
+  Dummy, planificación, recursos cuantitativos, niveles de criticidad.
+- **No se automatiza nunca**: un caso cuya ejecución pueda tener efecto destructivo sobre datos o
+  ficheros reales. Se deja documentado como verificación manual por lectura de código.
+
+### Paso 1 — Triaje, antes de preguntar nada
+
+Lee el `casos_prueba.xml` del proceso y clasifica cada caso:
+
+| Grupo | Significado |
+|---|---|
+| `e2e` | Simula la cadena entera en orden. Uno por proceso. Validación superficial a propósito. |
+| `ejecucion` | Ejecuta un paso con datos preparados. Necesita dejar antes un estado concreto. |
+| `validacion` | Solo valida un fichero ya existente. No ejecuta nada. Trabaja contra fixture. |
+| `no_automatizable` | Orquestación, descubrimiento o riesgo destructivo. |
+
+Un caso cuyos pasos incluyan *determinar*, *averiguar* o *documentar* algo desconocido es
+`no_automatizable` por definición: es un gap sin cerrar, no un caso de prueba. Comunícalo como
+gap y ofrece cerrarlo.
+
+El caso `e2e` no debe validar a fondo el contenido: comprueba que cada paso termina bien y que el
+artefacto final existe, no está vacío y es estructuralmente válido. Las validaciones profundas
+van en los casos de grupo `validacion`, y estos contra un fichero fijo, no contra una extracción
+recién hecha, para que sean deterministas y reejecutables.
+
+Presenta el triaje al usuario y espera confirmación. No decidas tú solo qué se automatiza.
+
+### Paso 2 — Batería de preguntas obligatorias
+
+Pregunta por bloques. Si falta cualquier dato que un caso necesite, **ese caso no entra en el
+encargo**: aplica la regla de no suposición igual que en el resto del documento. No deduzcas
+rutas, comandos, puertos ni nombres de fichero a partir de otros procesos ni de la memoria.
+
+**A. Entorno**
+- Contra qué entorno se ejecuta. Nunca producción: si el usuario indica producción, recházalo.
+- Host y puerto de conexión, y usuario.
+- Si hace falta cambiar de usuario en algún paso.
+- Qué acceso real existe sobre ese entorno y quién lo tiene. No des por supuesto ningún acceso de
+  lectura ni de ejecución sobre ninguna máquina. Las pruebas no se ejecutan nunca contra
+  producción. Obtener de producción un dato de configuración que haga falta sí es legítimo:
+  pídelo, no lo des por conseguido, y deja dicho qué ocurre con el caso si no llega.
+
+**B. Ejecución — por cada paso que el caso simule**
+- Ruta absoluta del script o binario.
+- Comando exacto con sus parámetros, tal como lo lanza Control-M.
+- Dónde escribe el log y qué línea o texto confirma que ha terminado bien.
+- Si devuelve código de retorno y cuál es el valor correcto.
+
+**C. Base de datos — solo si el caso consulta**
+- Tipo de base de datos, host, puerto, nombre e identificador de instancia.
+- Query exacta, o ruta del fichero de consulta.
+- Si el caso exige modificar datos, confirmación explícita del usuario.
+
+**D. Ficheros**
+- Directorio de salida y máscara del fichero generado.
+- Directorio de histórico o backup.
+- Rango esperado de líneas o registros.
+- Si hay campos volátiles (timestamps, fechas de generación) que impidan comparar contra un
+  fichero patrón, y cómo normalizarlos.
+- Si existe esquema de validación y dónde está.
+- Para los casos de grupo `validacion`: qué fichero fijo se usa y de dónde sale.
+
+**E. Datos del entorno de pruebas**
+- Qué datos tiene el entorno de pruebas y si cubren el universo que el caso necesita. No des por
+  hecho que son representativos de producción: lo normal es que no lo sean.
+- Por cada caso de grupo `ejecucion`: cómo se deja el estado previo que exige y quién lo deja.
+- Cómo se revierte después, si hay que revertirlo.
+
+Un caso cuya comprobación dependa de un volumen o una variedad de datos que el entorno de pruebas
+no tiene **no es automatizable de forma útil**: márcalo como tal y explica por qué, en vez de
+generarlo sabiendo que va a pasar siempre en verde por falta de datos contra los que fallar.
+
+**F. Identificadores de reporting**
+- Si la ejecución debe publicar resultados o se corre en local sin publicar, y con qué proyecto,
+  UUAA y ciclo de pruebas si publica. Si el usuario no lo sabe, déjalo marcado como pendiente: es
+  configuración de AtSQA y puede resolverlo con EQAT más adelante.
+
+### Paso 3 — Salida
+
+Un único fichero, `salidas/<nombre_proceso>/brief_atsqa.md`, redactado para que el usuario se lo
+entregue a `atsqa-generator`. Contiene:
+
+1. **Identificación del proceso** y referencia a su `spec.md`.
+2. **Triaje confirmado**: tabla de casos con su grupo, y los descartados con el motivo.
+3. **Por cada caso automatizable**: su identificador de `casos_prueba.xml`, su objetivo en una
+   frase, y **los pasos en orden, uno por línea, atómicos** — una sola acción y una sola
+   comprobación por paso, en lenguaje natural y con los valores concretos. No indiques qué acción
+   del framework usar.
+4. **Datos de entorno** recogidos en el paso 2, agrupados y con nombre semántico.
+5. **Nota de credenciales**: qué credenciales necesita cada caso, **por su nombre y nunca por su
+   valor**.
+
+**Prohibido en este fichero**: contraseñas, tokens, claves de API o credenciales de cualquier
+tipo, en claro o cifradas. El fichero se versiona en el repositorio. Si el usuario aporta una
+credencial en la conversación, no la escribas: refiérete a ella por su nombre y dile que la
+configure en su máquina cuando ejecute.
+
+### Paso 4 — Criterio de cierre del modo ejecutable
+
+Antes de entregar el encargo, verifica y comunica:
+
+- [ ] El proceso tenía `spec.md` y `casos_prueba.xml` cerrados antes de empezar.
+- [ ] El triaje fue confirmado por el usuario.
+- [ ] Todos los datos que los casos necesitan están confirmados por el usuario en esta sesión.
+      Ninguno deducido, ninguno traído de otro proceso ni de la memoria.
+- [ ] Todos los pasos son atómicos: una acción y una comprobación por paso.
+- [ ] El fichero no contiene ninguna credencial.
+- [ ] Los casos descartados están listados con su motivo.
+- [ ] Cada caso del encargo es trazable a un identificador de `casos_prueba.xml`.
+
+**Declara siempre esta limitación al entregar**: el encargo no se ha ejecutado ni puede validarse
+desde aquí. Lo que salga de `atsqa-generator` habrá que probarlo en una máquina con AtSQA
+instalado, y hasta esa primera ejecución es una propuesta, no una prueba que funcione.
 
 ## Memoria única y compartida
 
@@ -343,9 +542,16 @@ haya podido revisar lo que quedó commiteado en su rama personal. En ese momento
 
 - El push a la rama personal (paso 1) es normal; el push a `nfq` (paso 2) solo ocurre si el
   usuario lo pide explícitamente, nunca como continuación automática del paso 1, y siempre
-  acotado a `salidas/` y `memoria/`. `documentos_fuente/` nunca se toca en `nfq`.
+  acotado a `salidas/`, `memoria/` y `.github/copilot-instructions.md` — este último solo cuando
+  el usuario pida propagar un cambio de las instrucciones al resto del equipo.
+  `documentos_fuente/` nunca se toca en `nfq`.
 - Todo commit/push requiere confirmación explícita del usuario tras mostrarle los ficheros
   afectados y, si hubo cambios concurrentes en el paso 2, el resultado fusionado.
+- Puedes pedir cualquier dato que haga falta, también de producción: pedirlo es correcto y a
+  menudo es la única vía de conseguirlo. Lo que no debes hacer es dar el acceso por supuesto. En
+  los entregables, no redactes una instrucción operativa como si el acceso estuviera garantizado:
+  di qué valor hace falta, para qué casos, cómo se obtendría si hay acceso, y **qué pasa con esos
+  casos si no se consigue**. Ejecutar contra producción es otra cosa y no se propone nunca.
 - Prioriza precisión sobre velocidad.
 - Cuando haya dudas, pregunta antes de generar.
 - La calidad y criticidad del análisis es más importante que producir una respuesta rápida.
