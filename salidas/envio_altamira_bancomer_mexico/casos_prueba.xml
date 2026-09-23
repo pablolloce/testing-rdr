@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="envio_altamira_bancomer_mexico" fecha="2026-09-18" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo semanal completo con ambas ramas exitosas</nombre>
+    <objetivo>Verificar que un viernes normal genera, copia, historifica y transmite correctamente el fichero de códigos Altamira México.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_ALTAMIRAMEX_SEND activa y programada para el viernes de ejecución.</precondicion>
+      <precondicion>Al menos una sucursal activa bajo org_id=1145 con códigos ALID activos válidos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sucursal_activa" valor="entidad bajo org_id=1145, rl_typ=BRANCH, data_stat_typ=ACTIVE, rol MAINROL"/>
+      <dato campo="codigos_ALID" valor="conjunto de códigos activos válidos, ninguno de la lista de exclusión"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX el viernes y verificar la generación de RDR_clientesYYYYMMDD.csv.</paso>
+      <paso numero="2">Verificar que MEKYTL1205 copia el fichero a /unload/kytl/datsal/datax/ con el cambio de propietario a xtkytl1p:gtkecs1.</paso>
+      <paso numero="3">Verificar que MEKYTL1206 historifica el fichero e dispara RDR_ALTAMIRAMEX_SEND_OUT.</paso>
+      <paso numero="4">Verificar que MEKYTL1221 transmite el fichero a DataX y dispara RDR_ALTAMIRAMEX_SEND_MEKYTL1221_OK.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs reales terminan en OK; el fichero llega íntegro a /unload/kytl/datsal/datax/, se historifica en /backup/, y se transmite correctamente a DataX.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 4 jobs en Control-M + comparación de contenido entre origen y destino + confirmación de recepción en DataX.</tipoValidacion>
+    <criterioAceptacion>Los 4 jobs en OK, contenido idéntico en destino, historificación y transmisión confirmadas.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO o contenido distinto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de extracción, la cadena no avanza</nombre>
+    <objetivo>Verificar que si GS_CODIGOS_ALTMEX falla, el resto de la cadena no se ejecuta.</objetivo>
+    <precondiciones>
+      <precondicion>Conexión a base de datos simulada como no disponible durante la ejecución de GS_CODIGOS_ALTMEX.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ConexionBD" valor="simulada como inaccesible (ojdbc8.jar no puede conectar)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de la conexión a BD antes de ejecutar GS_CODIGOS_ALTMEX.</paso>
+      <paso numero="2">Ejecutar la cadena el viernes programado.</paso>
+      <paso numero="3">Verificar el estado de GS_CODIGOS_ALTMEX y de MEKYTL1205.</paso>
+    </pasos>
+    <resultadoEsperado>GS_CODIGOS_ALTMEX finaliza en error; MEKYTL1205, MEKYTL1206 y MEKYTL1221 no se ejecutan; se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Job de extracción en error, ningún job posterior ejecutado, alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: la no ejecución es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo de copia/chown en MEKYTL1205</nombre>
+    <objetivo>Verificar el comportamiento cuando la copia con cambio de propietario falla (p. ej. permisos insuficientes en destino).</objetivo>
+    <precondiciones>
+      <precondicion>Fichero RDR_clientesYYYYMMDD.csv generado correctamente por GS_CODIGOS_ALTMEX.</precondicion>
+      <precondicion>Directorio /unload/kytl/datsal/datax/ simulado sin permisos de escritura para xsramer1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="/unload/kytl/datsal/datax/" valor="permisos revocados para xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revocar permisos de escritura en el directorio destino antes de ejecutar MEKYTL1205.</paso>
+      <paso numero="2">Ejecutar la cadena con el fichero generado a tiempo.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL1205 y la alerta emitida.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1205 finaliza en error; MEKYTL1206 y MEKYTL1221 no se ejecutan (dependen de MEKYTL1205); se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
+    <tipoValidacion>Estado del job + correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Job en error, ramas paralelas no ejecutadas, alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo de transmisión DataX con cierre de cadena pese al fallo (riesgo crítico)</nombre>
+    <objetivo>Confirmar el riesgo documentado: la cadena se marca como completada aunque la transmisión a DataX falle, porque solo la rama de historificación dispara el evento de cierre.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1205 completado con éxito.</precondicion>
+      <precondicion>Plataforma DataX simulada como no disponible durante la ejecución de MEKYTL1221.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="datax-live" valor="host simulado como inaccesible o datax-agent forzado a fallar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo de MEKYTL1221 (p. ej. host datax-live inaccesible).</paso>
+      <paso numero="2">Ejecutar la cadena completa con MEKYTL1205 exitoso.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL1206 (historificación) y de RDR_ALTAMIRAMEX_SEND_OUT.</paso>
+      <paso numero="4">Verificar el estado real de la carpeta/cadena en Control-M tras el fallo de MEKYTL1221.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1206 se ejecuta con éxito y dispara RDR_ALTAMIRAMEX_SEND_OUT normalmente, marcando la cadena como cerrada, aunque MEKYTL1221 haya fallado. No hay ninguna dependencia formal que impida el cierre de la cadena ante ese fallo.</resultadoEsperado>
+    <tipoValidacion>Estado de la carpeta completa en Control-M + comparación con el resultado real de MEKYTL1221.</tipoValidacion>
+    <criterioAceptacion>Se confirma que la cadena se marca como cerrada/exitosa en el nivel de folder pese al fallo de MEKYTL1221; el caso documenta esto como riesgo abierto, no como comportamiento deseable.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio real: el fichero podría no llegar nunca a Altamira México sin que ningún indicador de orquestación lo refleje.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Mismo código ALID asociado a dos sucursales activas distintas</nombre>
+    <objetivo>Observar si un código ALID compartido entre dos sucursales activas distintas termina duplicado en el fichero final aplanado.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda dar de alta el mismo fins_id/ALID en dos sucursales activas distintas bajo org_id=1145.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="codigo_ALID_compartido" valor="mismo fins_id asociado, vía FT_T_FIRL, a dos sucursales (fins.inst_mnem) activas y con rol MAINROL distintas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dar de alta el mismo código ALID en dos sucursales activas distintas que cumplan los filtros de la query de extracción.</paso>
+      <paso numero="2">Ejecutar GS_CODIGOS_ALTMEX.</paso>
+      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv para determinar si el código aparece una o dos veces.</paso>
+    </pasos>
+    <resultadoEsperado>Documentar el comportamiento observado (caja negra): dado que la query agrega por sucursal antes de aplanar, es posible que el código aparezca duplicado como dos líneas distintas en el fichero final. No hay una regla de negocio documentada que confirme si esto es correcto o debe deduplicarse.</resultadoEsperado>
+    <tipoValidacion>Inspección manual del fichero generado + conteo de apariciones del código.</tipoValidacion>
+    <criterioAceptacion>El comportamiento observado queda registrado como evidencia; no hay criterio de aceptación de pase/fallo hasta que se confirme con el equipo funcional si la duplicidad entre sucursales es aceptable.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si Altamira México trata cada línea como un alta independiente, generando un conflicto o registro duplicado en destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Código excluido presente y activo en origen</nombre>
+    <objetivo>Confirmar que uno de los 5 códigos hardcodeados excluidos no aparece en el fichero de salida aunque esté activo y cumpla el resto de condiciones.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda dar de alta uno de los 5 códigos excluidos como activo en una sucursal válida.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="codigo_excluido" valor="38112087 (o cualquiera de: 49027955, 49584427, J9488131, J9488087)"/>
+      <dato campo="data_stat_typ" valor="ACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dar de alta el código 38112087 como activo en una sucursal que cumpla el resto de filtros de la query (org_id=1145, BRANCH activa, MAINROL).</paso>
+      <paso numero="2">Ejecutar GS_CODIGOS_ALTMEX.</paso>
+      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv para confirmar la ausencia del código.</paso>
+    </pasos>
+    <resultadoEsperado>El código 38112087 NO aparece en el fichero generado, pese a cumplir todos los demás criterios de activación.</resultadoEsperado>
+    <tipoValidacion>Inspección manual del fichero generado.</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada del código excluido en el fichero de salida.</criterioAceptacion>
+    <posibilidadFallo>Fallo si el código aparece en el fichero, lo que indicaría una regresión en la query de extracción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Verificación de la estructura real del fichero (un código por línea)</nombre>
+    <objetivo>Confirmar que el fichero final no conserva la agregación por `|` de la query SQL, sino un código por línea.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos una sucursal activa con más de un código ALID asociado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sucursal_con_multiples_codigos" valor="sucursal activa con 3 códigos ALID distintos asociados"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una sucursal que tenga múltiples códigos asociados.</paso>
+      <paso numero="2">Inspeccionar RDR_clientesYYYYMMDD.csv.</paso>
+      <paso numero="3">Verificar que cada código aparece en una línea independiente, con separador `;`, sin ningún carácter `|` en el contenido.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero contiene cabecera + una línea por código (primera columna informada, resto vacías separadas por `;`); no aparece ningún `|` en el contenido de datos.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido + búsqueda del carácter `|` en el fichero.</tipoValidacion>
+    <criterioAceptacion>Cero apariciones de `|` en las líneas de datos; un código por línea confirmado.</criterioAceptacion>
+    <posibilidadFallo>Fallo si aparece una lista concatenada con `|` en alguna línea, lo que indicaría un cambio no documentado en la lógica de `Ficheros.sacarFichero`.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Ausencia de validación de integridad en la copia MEKYTL1205</nombre>
+    <objetivo>Confirmar que no existe checksum ni conteo de líneas entre el fichero origen y el fichero copiado en destino.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito hasta MEKYTL1205.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDR_clientesYYYYMMDD.csv" valor="fichero real con N líneas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular manualmente un checksum y el número de líneas del fichero origen.</paso>
+      <paso numero="2">Tras la copia, calcular el mismo checksum sobre el fichero en destino.</paso>
+      <paso numero="3">Verificar si Control-M ejecuta alguna validación equivalente de forma automática.</paso>
+    </pasos>
+    <resultadoEsperado>No existe ningún paso automático de checksum o conteo de líneas en la definición de MEKYTL1205; la verificación de integridad, si se realiza, es manual y externa al proceso.</resultadoEsperado>
+    <tipoValidacion>Comparación manual de checksum + revisión de la definición del job en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control automático; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: una corrupción de fichero durante la copia no sería detectada automáticamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="regresion">
+    <nombre>Ejecuciones concurrentes de la cadena</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda relanzar manualmente la cadena mientras otra instancia sigue activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_1" valor="disparo programado el viernes a las 12:00"/>
+      <dato campo="ejecucion_2" valor="relanzamiento manual mientras la ejecucion_1 sigue en curso"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena a la hora programada.</paso>
+      <paso numero="2">Relanzar manualmente la misma cadena mientras la primera ejecución sigue activa.</paso>
+      <paso numero="3">Revisar los logs de ambas ejecuciones.</paso>
+    </pasos>
+    <resultadoEsperado>No existe mecanismo de lock/PID/semáforo que impida la ejecución concurrente; riesgo de condición de carrera, doble transmisión o corrupción de la historificación.</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de ambas ejecuciones para detectar solapamiento.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de protección; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: doble transmisión a DataX o corrupción de la historificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="borde">
+    <nombre>Discrepancia entre la query de envío y la query de conciliación (documental)</nombre>
+    <objetivo>Documentar el riesgo confirmado de que la query de validación de la conciliación (obtenerCLIs) no aplica los mismos filtros que la query de envío real.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de lectura a las queries de ambos JAR (AltamiraMexicoConciliacion.jar, métodos obtenerIDs y obtenerCLIs).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="codigo_excluido_o_no_1145" valor="código ALID que pertenece a una sucursal fuera de org_id=1145, o que está en la lista de exclusión de 5 códigos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Identificar un código ALID activo que NO cumpla los filtros de la query de envío (fuera de org_id=1145, o en la lista de exclusión).</paso>
+      <paso numero="2">Ejecutar la query obtenerCLIs (validación de conciliación) con ese código.</paso>
+      <paso numero="3">Comparar el resultado con el hecho de que ese código nunca se envía realmente en RDR_clientesYYYYMMDD.csv.</paso>
+    </pasos>
+    <resultadoEsperado>La query obtenerCLIs considera "válido en RDR" un código que la query de envío real nunca incluiría en el fichero enviado a Altamira, confirmando la discrepancia documentada como riesgo.</resultadoEsperado>
+    <tipoValidacion>Comparación de resultados entre ambas queries sobre el mismo conjunto de datos de prueba.</tipoValidacion>
+    <criterioAceptacion>Se confirma la discrepancia; el caso documenta el comportamiento actual como riesgo de negocio abierto, pendiente de decisión funcional sobre si armonizar ambas queries.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: la conciliación podría no marcar como discrepancia un código que en realidad nunca se envió a Altamira México.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Verificación del formato de fecha en el comando datax-agent</nombre>
+    <objetivo>Confirmar con evidencia real (log/sysout) cómo se materializa cada parámetro de fecha del comando datax-agent, dado que ambos usan la misma variable de Control-M pero se documentan con formatos distintos.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al sysout/log de ejecución de MEKYTL1221 en un entorno real o de preproducción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de ejecución conocida, p. ej. 2026-09-18"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1221 (o revisar una ejecución reciente) con una fecha ODATE conocida.</paso>
+      <paso numero="2">Inspeccionar el sysout/log para ver los valores reales sustituidos en gf_odate_date_id y DATE.</paso>
+      <paso numero="3">Confirmar si gf_odate_date_id se materializa como YYYYMMDD y DATE como AAMMDD, o si ambos usan el mismo formato.</paso>
+    </pasos>
+    <resultadoEsperado>Se documenta el formato real observado en cada parámetro; si difiere de lo indicado en la nota operativa del documento fuente, se actualiza la especificación técnica.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de logs de ejecución.</tipoValidacion>
+    <criterioAceptacion>Formato real confirmado y documentado para ambos parámetros.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el sistema DataX interpreta incorrectamente una fecha por una discrepancia de formato no detectada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="e2e">
+    <nombre>Ciclo semanal completo end-to-end</nombre>
+    <objetivo>Validar el flujo completo desde la extracción hasta ambas ramas finales (historificación y transmisión DataX).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno disponible para ejecutar la cadena completa en condiciones normales un viernes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="datos RDR" valor="conjunto real o réplica fiel de producción, con sucursales activas bajo org_id=1145"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX y verificar la generación del fichero con naming y estructura correctos.</paso>
+      <paso numero="2">Verificar la copia con cambio de propietario en MEKYTL1205.</paso>
+      <paso numero="3">Verificar la historificación en MEKYTL1206 y el disparo de RDR_ALTAMIRAMEX_SEND_OUT.</paso>
+      <paso numero="4">Verificar la transmisión a DataX en MEKYTL1221 y el disparo de su propio evento de salida.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan en OK; el fichero llega íntegro tanto a la historificación como a DataX; ambos eventos de salida se disparan correctamente.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 4 jobs + comparación de contenido en cada destino + confirmación de ambos eventos de salida.</tipoValidacion>
+    <criterioAceptacion>Cadena completa ejecutada sin KOs, contenido íntegro en ambos destinos, ambos eventos de salida confirmados.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o evento de salida ausente invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

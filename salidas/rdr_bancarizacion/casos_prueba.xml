@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_bancarizacion" fecha="2026-09-21" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo con los 3 destinos exitosos</nombre>
+    <objetivo>Verificar que un día normal de ejecución genera el fichero y lo distribuye correctamente a los 3 destinos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_BANCARIZACION_new activa y programada para el día de ejecución (Martes-Sábado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero generado por KYTL_BANC_GSPROCESS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_BANC_GSPROCESS tras las 00:30 AM y verificar la generación del fichero.</paso>
+      <paso numero="2">Verificar que MEKYTL0157 entrega el fichero en XCOMWPMER con el naming documentado.</paso>
+      <paso numero="3">Verificar que MEKYTL0158 entrega BANCARIZA.txt en TRANSFTP.</paso>
+      <paso numero="4">Verificar que MEKYTL0436 entrega el fichero en Ábaco sin modificar ni historificar el origen.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan en OK; el fichero llega íntegro a los 3 destinos con el naming correspondiente a cada uno.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 4 jobs en Control-M + comparación de contenido en cada destino.</tipoValidacion>
+    <criterioAceptacion>Los 4 jobs en OK, contenido idéntico en los 3 destinos.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO o contenido distinto invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de generación, ninguna rama se ejecuta</nombre>
+    <objetivo>Verificar que si KYTL_BANC_GSPROCESS falla, las 3 ramas de envío no se ejecutan.</objetivo>
+    <precondiciones>
+      <precondicion>Fuente de datos de RDR_Report.jar simulada como no disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fuente_de_datos" valor="simulada como inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo de la fuente de datos antes de ejecutar KYTL_BANC_GSPROCESS.</paso>
+      <paso numero="2">Ejecutar la cadena el día programado.</paso>
+      <paso numero="3">Verificar el estado de KYTL_BANC_GSPROCESS y de las 3 ramas.</paso>
+    </pasos>
+    <resultadoEsperado>KYTL_BANC_GSPROCESS finaliza en error; MEKYTL0157, MEKYTL0158 y MEKYTL0436 no se ejecutan (dependen del evento OK); se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>
+    <criterioAceptacion>Job de generación en error, ninguna rama ejecutada, alerta recibida.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: la no ejecución es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo aislado de una rama sin afectar a las otras dos</nombre>
+    <objetivo>Confirmar que, al no existir Fan-In, el fallo de una rama (p. ej. MEKYTL0157) no impide ni afecta la ejecución de las otras dos.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero generado correctamente por KYTL_BANC_GSPROCESS.</precondicion>
+      <precondicion>Destino XCOMWPMER simulado como no disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="XCOMWPMER" valor="simulado como inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de XCOMWPMER antes de ejecutar MEKYTL0157.</paso>
+      <paso numero="2">Ejecutar la cadena completa con el fichero generado a tiempo.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL0157 (debe fallar) y de MEKYTL0158/MEKYTL0436 (deben completarse con éxito).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0157 finaliza en error y notifica a ANS RDR; MEKYTL0158 y MEKYTL0436 se ejecutan y terminan en OK sin verse afectados por el fallo de la otra rama.</resultadoEsperado>
+    <tipoValidacion>Estado de los 3 jobs en Control-M + verificación de contenido en los 2 destinos exitosos.</tipoValidacion>
+    <criterioAceptacion>Aislamiento confirmado: una rama en error, las otras dos en OK con contenido correcto.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si un fallo en una rama bloqueara indebidamente a las otras, lo que contradiría el diseño de fan-out puro documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Sobrescritura de BANCARIZA.txt sin fecha en el nombre</nombre>
+    <objetivo>Verificar el comportamiento de sobrescritura del fichero sin fecha en TRANSFTP a lo largo de dos ejecuciones consecutivas.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito el día anterior, con BANCARIZA.txt presente en TRANSFTP.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BANCARIZA.txt (día 1)" valor="contenido del día anterior, presente en //S00371F2/DATOS/TRANSFTP/MVP00G200/"/>
+      <dato campo="BANCARIZA.txt (día 2)" valor="contenido nuevo generado en la ejecución actual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la presencia de BANCARIZA.txt del día anterior en el destino.</paso>
+      <paso numero="2">Ejecutar MEKYTL0158 con el nuevo fichero generado.</paso>
+      <paso numero="3">Verificar si el contenido del día anterior fue consumido/movido antes de la sobrescritura, o si se pierde sin haber sido procesado.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se sobrescribe (REPLACE) con el contenido del día actual; se documenta si el sistema receptor MVP00G200 consumió el fichero anterior a tiempo.</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido en destino antes y después de la ejecución.</tipoValidacion>
+    <criterioAceptacion>El fichero final contiene los datos del día actual; se registra si hubo evidencia de pérdida de datos no consumidos del día anterior.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: si MVP00G200 no consume el fichero a tiempo, se pierde el dato del día anterior sin aviso, dado que no hay validación de integridad ni historificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Verificación del naming real de MEKYTL0157</nombre>
+    <objetivo>Determinar si el nombre real del fichero destino en XCOMWPMER lleva el espacio entre "Clientes" y "Bancarizacion" (como el origen) o no (como está documentado), dada la discrepancia abierta.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la ruta de destino en XCOMWPMER para inspección directa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="nombre_a_verificar_1" valor="Listado ClientesBancarizacion_yyyymmdd.csv (documentado)"/>
+      <dato campo="nombre_a_verificar_2" valor="Listado Clientes Bancarizacion_yyyymmdd.csv (con espacio, como el origen)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0157 con un fichero de prueba.</paso>
+      <paso numero="2">Inspeccionar el nombre exacto del fichero depositado en XCOMWPMER.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma cuál de los dos nombres es el real, resolviendo la discrepancia documental abierta.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del nombre de fichero en destino.</tipoValidacion>
+    <criterioAceptacion>Un único nombre queda confirmado como el real; se actualiza la documentación fuente con el resultado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el sistema receptor MVP00G215 espera un patrón de nombre exacto para su procesamiento automático y el nombre real no coincide con lo documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Ausencia de validación de integridad en los 3 envíos</nombre>
+    <objetivo>Confirmar que no existe checksum ni conteo de líneas en ninguno de los 3 envíos paralelos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada con éxito hasta los 3 destinos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero real con N líneas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular manualmente un checksum del fichero origen.</paso>
+      <paso numero="2">Tras cada envío, calcular el mismo checksum sobre el fichero en cada destino.</paso>
+      <paso numero="3">Verificar si Control-M ejecuta alguna validación equivalente de forma automática.</paso>
+    </pasos>
+    <resultadoEsperado>No existe ningún paso automático de checksum o conteo de líneas en ninguno de los 3 envíos; la verificación de integridad, si se realiza, es manual y externa al proceso.</resultadoEsperado>
+    <tipoValidacion>Comparación manual de checksum + revisión de la definición de los 3 jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de control automático en los 3 envíos; el caso documenta el comportamiento actual como riesgo abierto.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: una corrupción de fichero durante cualquiera de los 3 envíos no sería detectada automáticamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="duplicidad">
+    <nombre>Reejecución/relanzamiento manual duplicado</nombre>
+    <objetivo>Observar el comportamiento cuando la cadena se relanza manualmente el mismo día, generando y enviando el fichero dos veces a los 3 destinos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ya ejecutada con éxito el día en curso.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_1" valor="ejecución programada normal"/>
+      <dato campo="ejecucion_2" valor="relanzamiento manual del mismo día, tras la ejecución_1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena normalmente y confirmar la entrega en los 3 destinos.</paso>
+      <paso numero="2">Relanzar manualmente KYTL_BANC_GSPROCESS el mismo día.</paso>
+      <paso numero="3">Verificar el resultado en los 3 destinos tras el segundo envío.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0158 (BANCARIZA.txt, sin fecha) se sobrescribe silenciosamente con el segundo envío; MEKYTL0157 y MEKYTL0436 (con fecha/hora en el nombre) generan un segundo fichero distinto en destino, potencialmente duplicando el envío del mismo contenido lógico bajo dos nombres distintos (en el caso de MEKYTL0436, que incluye hora y minutos).</resultadoEsperado>
+    <tipoValidacion>Inspección de los 3 destinos tras ambas ejecuciones.</tipoValidacion>
+    <criterioAceptacion>Se documenta el comportamiento observado en cada destino ante la reejecución; no hay un criterio de aceptación de pase/fallo predefinido, dado que no hay una regla de negocio documentada sobre relanzamientos manuales en el mismo día.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: los sistemas receptores podrían procesar dos veces el mismo lote de clientes bancarizados sin ningún control que lo detecte.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Ejecuciones concurrentes de la cadena</nombre>
+    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda relanzar manualmente la cadena mientras otra instancia sigue activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_1" valor="disparo programado tras las 00:30 AM"/>
+      <dato campo="ejecucion_2" valor="relanzamiento manual mientras la ejecucion_1 sigue en curso"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena a la hora programada.</paso>
+      <paso numero="2">Relanzar manualmente la misma cadena mientras la primera ejecución sigue activa.</paso>
+      <paso numero="3">Revisar los logs de ambas ejecuciones.</paso>
+    </pasos>
+    <resultadoEsperado>No existe mecanismo de lock/PID/semáforo que impida la ejecución concurrente; riesgo de condición de carrera en la generación o en los 3 envíos.</resultadoEsperado>
+    <tipoValidacion>Revisión de logs de ambas ejecuciones para detectar solapamiento.</tipoValidacion>
+    <criterioAceptacion>Se confirma la ausencia de protección; el caso documenta el comportamiento actual como riesgo abierto.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: corrupción del fichero generado si dos instancias de KYTL_BANC_GSPROCESS escriben simultáneamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>Cumplimiento de la regla crítica de MEKYTL0436 (no modificar/historificar)</nombre>
+    <objetivo>Confirmar que el envío a Ábaco no modifica el nombre ni historifica el fichero origen local, tal como exige la regla de negocio crítica documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero origen generado y disponible en /fichtemcomp/pr/descargas/kytl/bancarizacion/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero origen antes de la ejecución de MEKYTL0436"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar el nombre y la ubicación del fichero origen antes de ejecutar MEKYTL0436.</paso>
+      <paso numero="2">Ejecutar MEKYTL0436.</paso>
+      <paso numero="3">Verificar que el fichero origen sigue existiendo en la misma ruta, con el mismo nombre, y que no se ha movido a ningún directorio de historificación.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero origen permanece intacto en nombre y ubicación tras la ejecución de MEKYTL0436; no se genera ninguna copia histórica.</resultadoEsperado>
+    <tipoValidacion>Comparación del estado del fichero origen antes y después de la ejecución.</tipoValidacion>
+    <criterioAceptacion>Fichero origen sin modificar ni mover, confirmando el cumplimiento de la regla crítica.</criterioAceptacion>
+    <posibilidadFallo>Fallo si el fichero origen es renombrado, movido o eliminado, lo que violaría la regla de negocio crítica documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="e2e">
+    <nombre>Ciclo semanal completo end-to-end (Martes a Sábado)</nombre>
+    <objetivo>Validar el flujo completo en varios días de la semana programada, confirmando la entrega correcta a los 3 destinos cada día.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno disponible para ejecutar la cadena en al menos 2 días distintos de la ventana Martes-Sábado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="datos de bancarización" valor="conjunto real o réplica fiel de producción para cada día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena un martes y verificar la entrega a los 3 destinos.</paso>
+      <paso numero="2">Ejecutar la cadena un sábado (último día de la ventana) y verificar igualmente la entrega a los 3 destinos.</paso>
+      <paso numero="3">Confirmar que no se ejecuta en domingo ni lunes (fuera de la ventana MXJVS).</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se ejecuta correctamente en los días programados (martes a sábado) y no se ejecuta fuera de esa ventana; los 3 destinos reciben el fichero correspondiente en cada ejecución.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de los 4 jobs + comparación de contenido en los 3 destinos + verificación del calendario de ejecución.</tipoValidacion>
+    <criterioAceptacion>Cadena ejecutada sin KOs en los días programados, contenido íntegro en los 3 destinos, sin ejecución fuera de ventana.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o ejecución fuera de la ventana MXJVS invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
