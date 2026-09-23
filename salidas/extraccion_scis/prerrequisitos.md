@@ -84,13 +84,28 @@ Deben estar desplegados y accesibles en `pr-rdr.igrupobbva`:
 Para que el job funcione debe existir **exactamente una** línea que empiece por `MEKYTL1022@`. Si
 no existe ninguna, o hay más de una, el script termina con `exit 2` sin tocar ningún fichero.
 
-Esa línea define directorio origen, máscara, directorio destino y operación. **No está
-documentada en ninguna ficha del proceso**, por lo que antes de ejecutar pruebas conviene
-obtenerla:
+Esa línea define directorio origen, máscara, directorio destino y operación, y **no está
+documentada en ninguna ficha del proceso**. Conocer su contenido es un prerrequisito de TC-06
+—que verifica el archivado— y del caso end-to-end TC-01, que lo encadena.
+
+La ruta mostrada es la de producción; en otro entorno es `/${ENTORNO}/pl/dat/`, donde `ENTORNO`
+lo deduce el propio script del segundo carácter del nombre de la máquina.
+
+**Cómo conseguirla.** Si se dispone de acceso de lectura sobre el IDX del entorno
+correspondiente, el contenido se obtiene con:
 
 ```bash
-grep ^MEKYTL1022@ /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX
+grep ^MEKYTL1022@ /<entorno>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX
 ```
+
+Si no hay acceso, debe facilitarla quien gestione la configuración de historificación, o bien
+obtenerse del repositorio desde el que se despliega ese fichero. Pedirla es la vía normal; no se
+da por supuesto ningún acceso.
+
+**Si no se consigue**, TC-06 no puede verificarse y queda fuera del alcance, y TC-01 debe
+limitarse a la extracción sin cubrir el paso de archivado. Ninguno de los dos debe ejecutarse a
+ciegas: sin conocer la operación configurada no se puede descartar el escenario destructivo que
+se describe abajo.
 
 Dos comprobaciones sobre esa línea antes de ejecutar nada:
 
