@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_CARGA_BAJA_NIVELES_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de los 4 jobs con activación del evento externo</nombre>
+    <objetivo>Verificar que los 4 jobs se ejecutan en orden y que se activa el evento hacia la cadena externa RDR_BAJAS_CPARTY_new.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CARGA_BAJA_NIVELES_new activa en Control-M; conectividad con GSDM-1.</precondicion>
+      <precondicion>Existen contrapartidas LOCAL/GLOBAL candidatas a baja en la BD de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el disparo horario de KYTL_BNIVEL_GSPROCESS a las 03:00 AM.</paso>
+      <paso numero="2">Verificar RC=0, generación de los 2 reportes y publicación de RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new y del evento externo hacia RDR_BAJAS_CPARTY_IN.</paso>
+      <paso numero="3">Verificar que MEKYTL0351 historifica Reporte_bajaniveles.csv a /old/ con máscara de fecha.</paso>
+      <paso numero="4">Verificar que MEKYTL0352 solicita la transmisión XCOM en modo A DUMMY, RC=0.</paso>
+      <paso numero="5">Verificar que MEKYTL0945 historifica Reporte_bajaniveles_dos.csv a /old/ y cierra la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan OK en orden; el evento externo hacia RDR_BAJAS_CPARTY_new queda publicado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + existencia de ficheros historificados.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs OK; 2 ficheros en /old/ con máscara de fecha correcta; evento externo presente.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de KYTL_BNIVEL_GSPROCESS bloquea el resto de la cadena y la cadena externa</nombre>
+    <objetivo>Confirmar que un fallo en el primer job impide tanto la ejecución de los siguientes jobs como la activación de RDR_BAJAS_CPARTY_new.</objetivo>
+    <precondiciones>
+      <precondicion>Se fuerza un fallo simulado (p. ej. desconectividad con GSDM-1) en KYTL_BNIVEL_GSPROCESS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conexión JDBC a GSDM-1 inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_BNIVEL_GSPROCESS.</paso>
+      <paso numero="2">Verificar que no se generan ni el evento interno ni el evento externo hacia RDR_BAJAS_CPARTY_IN.</paso>
+      <paso numero="3">Verificar que MEKYTL0351 no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena queda bloqueada en el primer job; RDR_BAJAS_CPARTY_new tampoco arranca por falta del evento externo.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y ausencia de eventos en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores a KYTL_BNIVEL_GSPROCESS cambian de estado.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>El modo "A DUMMY" de MEKYTL0352 no realiza envío real de red</nombre>
+    <objetivo>Confirmar que la transmisión XCOM configurada en modo simulacro no transmite datos reales al destino.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0352 ejecutado con normalidad tras MEKYTL0351.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_bajaniveles_dos.csv"/>
+      <dato campo="Destino nominal" valor="\\S00371F2\DATOS\TRANSFTP\MVP00G215\RDR"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0352 y verificar RC=0.</paso>
+      <paso numero="2">Verificar que NO existe el fichero Reporte_bajaniveles_yyyymmdd.csv en el destino de red.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK (valida la interfaz lógica) pero no hay transmisión real de red — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M + ausencia de fichero en el destino de red.</tipoValidacion>
+    <criterioAceptacion>RC=0 y 0 ficheros nuevos en el destino de red.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: si en algún momento se espera un envío real, este comportamiento simulado pasaría desapercibido.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Ejecución sin contrapartidas candidatas a baja</nombre>
+    <objetivo>Verificar el comportamiento cuando ninguna entidad cumple la condición de baja en ninguna de las 2 fases (LOCAL/GLOBAL).</objetivo>
+    <precondiciones>
+      <precondicion>BD de prueba sin contrapartidas LOCAL/GLOBAL candidatas a inactivación.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registros candidatos" valor="0 en ambas fases"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_BNIVEL_GSPROCESS con la BD sin candidatos.</paso>
+      <paso numero="2">Verificar que el job termina OK y genera los 2 reportes, aunque estén vacíos o sin filas de detalle.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa se ejecuta con normalidad; los reportes reflejan 0 bajas realizadas.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC y de contenido de los reportes generados.</tipoValidacion>
+    <criterioAceptacion>RC=0 en los 4 jobs; reportes generados sin filas de baja.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle o quede en estado ambiguo ante un resultado vacío, en vez de completar con normalidad.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>Relanzamiento manual concurrente sin lock</nombre>
+    <objetivo>Confirmar el riesgo de ejecución concurrente ante un relanzamiento manual mientras la cadena programada sigue activa (patrón transversal P-021).</objetivo>
+    <precondiciones>
+      <precondicion>Cadena programada en curso (p. ej. MEKYTL0351 ejecutándose).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Acción manual" valor="Relanzamiento manual de KYTL_BNIVEL_GSPROCESS mientras la ejecución original sigue activa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Relanzar manualmente KYTL_BNIVEL_GSPROCESS mientras la ejecución original está en curso.</paso>
+      <paso numero="2">Observar si Control-M permite 2 instancias concurrentes del workflow RDR_BajaCpartiesGL sobre la misma BD.</paso>
+    </pasos>
+    <resultadoEsperado>Sin lock/PID/semáforo documentado, Control-M no impide la concurrencia — riesgo confirmado, no un comportamiento deseable.</resultadoEsperado>
+    <tipoValidacion>Verificación de instancias concurrentes en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se documenta si existen o no 2 ejecuciones simultáneas y su efecto sobre las tablas GoldenSource.</criterioAceptacion>
+    <posibilidadFallo>Doble evaluación/baja concurrente sobre la misma jerarquía de contrapartidas.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Historificación con máscara de fecha correcta en ejecuciones sucesivas</nombre>
+    <objetivo>Verificar que la máscara de fecha de los ficheros historificados no colisiona entre ejecuciones de días distintos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente 2 días consecutivos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días de prueba" valor="2 días consecutivos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa en el día 1 y verificar los 2 ficheros en /old/ con la fecha del día 1.</paso>
+      <paso numero="2">Ejecutar la cadena completa en el día 2 y verificar que los ficheros del día 1 no se sobrescriben.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución genera ficheros historificados con su propia máscara de fecha, sin colisión entre días.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en /old/ tras ambos días.</tipoValidacion>
+    <criterioAceptacion>4 ficheros distintos en /old/ (2 por día), ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si la máscara de fecha no incluye suficiente granularidad (p. ej. 2 ejecuciones el mismo día).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="duplicidad">
+    <nombre>El SELECT DISTINCT no procesa la misma entidad más de una vez</nombre>
+    <objetivo>Confirmar que las 2 fases (LOCAL y GLOBAL) del workflow RDR_BajaCpartiesGL no invocan Sub_BajaCpartiesGL más de una vez para la misma entidad, aunque aparezca en varias filas de relación en ft_t_firl.</objetivo>
+    <precondiciones>
+      <precondicion>BD de prueba con una entidad LOCAL que tiene 2 o más filas de relación en ft_t_firl para el mismo inst_mnem (p. ej. distintas relaciones jerárquicas apuntando al mismo mnemónico), cumpliendo igualmente la condición de "sin hijas OPERATIVE activas".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="inst_mnem duplicado en ft_t_firl" valor="Mismo inst_mnem en 2 filas de relación LOCAL distintas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar en la BD de prueba 2 filas de ft_t_firl para el mismo inst_mnem que cumplan la condición de baja LOCAL.</paso>
+      <paso numero="2">Ejecutar KYTL_BNIVEL_GSPROCESS.</paso>
+      <paso numero="3">Verificar en el log/reporte cuántas veces se invocó Sub_BajaCpartiesGL para ese inst_mnem.</paso>
+    </pasos>
+    <resultadoEsperado>Sub_BajaCpartiesGL se invoca exactamente 1 vez para el inst_mnem repetido, confirmando que el SELECT DISTINCT evita el reprocesamiento.</resultadoEsperado>
+    <tipoValidacion>Inspección de log/reporte de ejecución del workflow.</tipoValidacion>
+    <criterioAceptacion>1 única invocación de Sub_BajaCpartiesGL por inst_mnem, pese a las filas de relación duplicadas.</criterioAceptacion>
+    <posibilidadFallo>Doble invocación de la baja sobre la misma entidad si el DISTINCT no se aplica correctamente en alguna de las 2 fases.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Ciclo completo con verificación de baja lógica y evento externo</nombre>
+    <objetivo>Validar el flujo end-to-end desde la evaluación de contrapartidas hasta el cierre de la cadena y la activación de la cadena externa.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de solo lectura a un entorno de prueba de GSDM-1 para verificar DATA_STAT_TYP.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Entidad de prueba" valor="Contrapartida LOCAL sin hijas OPERATIVE activas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa (4 jobs) en entorno de prueba.</paso>
+      <paso numero="2">Verificar que la entidad de prueba queda con DATA_STAT_TYP='INACTIVE' (baja lógica, sin borrado físico).</paso>
+      <paso numero="3">Verificar los 2 reportes historificados y el evento externo hacia RDR_BAJAS_CPARTY_new.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina OK; la baja lógica se confirma en BD; el evento externo queda publicado.</resultadoEsperado>
+    <tipoValidacion>Verificación combinada Control-M + BD (DATA_STAT_TYP).</tipoValidacion>
+    <criterioAceptacion>4/4 jobs OK, DATA_STAT_TYP='INACTIVE' confirmado, evento externo presente.</criterioAceptacion>
+    <posibilidadFallo>Imposibilidad de verificar DATA_STAT_TYP por falta de acceso al entorno GSDM-1.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
