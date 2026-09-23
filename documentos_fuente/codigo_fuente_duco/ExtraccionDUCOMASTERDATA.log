@@ -1,0 +1,74 @@
+[2025-11-25 11:40:59]  INFO Principal:44 - Args resumen: level=2, typeInfo=DUCOMASTERDATA, outDir=/fichtemcomp/ei/descargas/kytl/extracciongenerica, creds=/ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2025-11-25 11:40:59]  INFO ConfiguracionCredenciales:39 - Cargando credenciales desde: /ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2025-11-25 11:40:59]  INFO ConfiguracionCredenciales:78 - Credenciales cargadas correctamente
+[2025-11-25 11:40:59]  INFO ConfiguracionCredenciales:79 - URL de conexión: jdbc:oracle:thin:@liora603:1525:BKYTL003
+[2025-11-25 11:40:59]  INFO ConfiguracionCredenciales:80 - Usuario: KYTL_GC
+[2025-11-25 11:40:59]  INFO Principal:48 - Credenciales: ConfiguracionCredenciales [url=jdbc:oracle:thin:@liora603:1525:BKYTL003, usuario=KYTL_GC, password=te***]
+[2025-11-25 11:40:59]  INFO ConexionDB:30 - ConexionDB inicializado correctamente
+[2025-11-25 11:40:59]  INFO Principal:50 - Conexión DB inicializada
+[2025-11-25 11:40:59]  INFO Principal:118 - ******** INICIO EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+[2025-11-25 11:40:59]  INFO ConexionDB:47 - Estableciendo conexión con usuario: KYTL_GC
+[2025-11-25 11:40:59]  INFO ConexionDB:50 - Conexión establecida correctamente
+[2025-11-25 11:41:00]  INFO OperacionesDB:47 - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql
+[2025-11-25 11:41:00]  INFO Principal:133 - Query obtenida para tipo: DUCOMASTERDATA
+[2025-11-25 11:41:00]  INFO OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA
+[2025-11-25 11:41:00]  INFO OperacionesDB:107 - Fichero salida obtenido: ExtraccionDUCOMASTERDATA.csv
+[2025-11-25 11:41:00]  INFO Principal:144 - Directorio tipo: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA
+[2025-11-25 11:41:00]  INFO Principal:145 - Fichero salida: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv
+[2025-11-25 11:41:00]  INFO Principal:181 - Escribiendo fichero temporal: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv.tmp
+[2025-11-25 11:41:00]  INFO OperacionesDB:131 - Ejecutando extracción para: DUCOMASTERDATA
+[2025-11-25 11:41:01]  INFO OperacionesDB:138 - Extracción completada. Total registros: 26320
+[2025-11-25 11:41:01]  INFO Principal:187 - Fichero temporal completado. Tiempo: 00:00:01
+[2025-11-25 11:41:01]  INFO Principal:286 - Fichero definitivo generado: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv (26320 líneas, 2663847 bytes)
+[2025-11-25 11:41:01]  INFO Principal:149 - Total registros extraídos: 26320
+[2025-11-25 11:41:01]  INFO Principal:155 - Proceso finalizado correctamente. Tiempo: 00:00:02
+[2025-11-25 11:41:01]  INFO Principal:156 - ******** FIN EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+[2025-11-26 13:26:21]  INFO Principal:44 - Args resumen: level=2, typeInfo=DUCOMASTERDATA, outDir=/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA, creds=/ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2025-11-26 13:26:21]  INFO ConfiguracionCredenciales:39 - Cargando credenciales desde: /ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2025-11-26 13:26:21]  INFO ConfiguracionCredenciales:79 - Credenciales cargadas correctamente
+[2025-11-26 13:26:21]  INFO ConfiguracionCredenciales:80 - URL de conexión: jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=liora603)(PORT=1525)))(CONNECT_DATA=(SERVICE_NAME=BKYTL003)))
+[2025-11-26 13:26:21]  INFO ConfiguracionCredenciales:81 - Usuario: KYTL_GC
+[2025-11-26 13:26:21]  INFO Principal:48 - Credenciales: ConfiguracionCredenciales [url=jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=liora603)(PORT=1525)))(CONNECT_DATA=(SERVICE_NAME=BKYTL003))), usuario=KYTL_GC, password=te***]
+[2025-11-26 13:26:21]  INFO ConexionDB:47 - ConexionDB inicializado correctamente con pool de conexiones
+[2025-11-26 13:26:21]  INFO Principal:50 - Conexión DB inicializada
+[2025-11-26 13:26:21]  INFO Principal:118 - ******** INICIO EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+[2025-11-26 13:26:21]  INFO ConexionDB:59 - Obteniendo conexión del pool para usuario: KYTL_GC
+[2025-11-26 13:26:23]  INFO ConexionDB:61 - Conexión establecida correctamente
+[2025-11-26 13:26:23]  INFO OperacionesDB:47 - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql
+[2025-11-26 13:26:23]  INFO Principal:133 - Query obtenida para tipo: DUCOMASTERDATA
+[2025-11-26 13:26:23]  INFO OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA
+[2025-11-26 13:26:23]  INFO OperacionesDB:107 - Fichero salida obtenido: ExtraccionDUCOMASTERDATA.csv
+[2025-11-26 13:26:23]  INFO Principal:144 - Directorio tipo: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/DUCOMASTERDATA
+[2025-11-26 13:26:23]  INFO Principal:145 - Fichero salida: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv
+[2025-11-26 13:26:23]  INFO Principal:181 - Escribiendo fichero temporal: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv.tmp
+[2025-11-26 13:26:23]  INFO OperacionesDB:131 - Ejecutando extracción para: DUCOMASTERDATA
+[2025-11-26 13:26:25]  INFO OperacionesDB:138 - Extracción completada. Total registros: 26320
+[2025-11-26 13:26:25]  INFO Principal:187 - Fichero temporal completado. Tiempo: 00:00:01
+[2025-11-26 13:26:25]  INFO Principal:286 - Fichero definitivo generado: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv (26320 líneas, 2663847 bytes)
+[2025-11-26 13:26:25]  INFO Principal:149 - Total registros extraídos: 26320
+[2025-11-26 13:26:25]  INFO Principal:155 - Proceso finalizado correctamente. Tiempo: 00:00:03
+[2025-11-26 13:26:25]  INFO Principal:156 - ******** FIN EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+[2026-07-20 13:39:55]  INFO Principal:44 - Args resumen: level=2, typeInfo=DUCOMASTERDATA, outDir=/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA, creds=/ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2026-07-20 13:39:55]  INFO ConfiguracionCredenciales:42 - Cargando credenciales desde: /ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+[2026-07-20 13:39:55]  INFO ConfiguracionCredenciales:82 - Credenciales cargadas correctamente
+[2026-07-20 13:39:55]  INFO ConfiguracionCredenciales:83 - URL de conexión: jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=liora603)(PORT=1525)))(CONNECT_DATA=(SERVICE_NAME=BKYTL003)))
+[2026-07-20 13:39:55]  INFO ConfiguracionCredenciales:84 - Usuario: KYTL_GC
+[2026-07-20 13:39:55]  INFO Principal:48 - Credenciales: ConfiguracionCredenciales [url=jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=liora603)(PORT=1525)))(CONNECT_DATA=(SERVICE_NAME=BKYTL003))), usuario=KYTL_GC, password=te***]
+[2026-07-20 13:39:55]  INFO ConexionDB:47 - ConexionDB inicializado correctamente con pool de conexiones
+[2026-07-20 13:39:55]  INFO Principal:50 - Conexión DB inicializada
+[2026-07-20 13:39:55]  INFO Principal:117 - ******** INICIO EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+[2026-07-20 13:39:55]  INFO ConexionDB:59 - Obteniendo conexión del pool para usuario: KYTL_GC
+[2026-07-20 13:39:57]  INFO ConexionDB:61 - Conexión establecida correctamente
+[2026-07-20 13:39:58]  INFO OperacionesDB:47 - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql
+[2026-07-20 13:39:58]  INFO Principal:132 - Query obtenida para tipo: DUCOMASTERDATA
+[2026-07-20 13:39:58]  INFO OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA
+[2026-07-20 13:39:58]  INFO OperacionesDB:106 - Ruta completa de fichero salida obtenida: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv
+[2026-07-20 13:39:58]  INFO Principal:143 - Fichero salida (ruta completa): /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv
+[2026-07-20 13:39:58]  INFO Principal:179 - Escribiendo fichero temporal: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv.tmp
+[2026-07-20 13:39:58]  INFO OperacionesDB:130 - Ejecutando extracción para: DUCOMASTERDATA
+[2026-07-20 13:39:58]  INFO OperacionesDB:137 - Extracción completada. Total registros: 26439
+[2026-07-20 13:39:58]  INFO Principal:185 - Fichero temporal completado. Tiempo: 00:00:00
+[2026-07-20 13:39:58]  INFO Principal:284 - Fichero definitivo generado: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv (26439 líneas, 2676694 bytes)
+[2026-07-20 13:39:58]  INFO Principal:147 - Total registros extraídos: 26439
+[2026-07-20 13:39:58]  INFO Principal:153 - Proceso finalizado correctamente. Tiempo: 00:00:03
+[2026-07-20 13:39:58]  INFO Principal:154 - ******** FIN EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
