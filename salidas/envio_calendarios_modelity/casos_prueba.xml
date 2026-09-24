@@ -39,12 +39,12 @@
       <paso numero="2">Esperar a que se cumpla el timeout de 60 minutos configurado en el filewatcher (ctmfw).</paso>
       <paso numero="3">Verificar que KYTL_CAL_MODELITY_FW se relanza automáticamente (RERUN) en vez de quedar en KO.</paso>
       <paso numero="4">Verificar el estado de MEKYTL1113 y sucesores (no deben ejecutarse mientras el fichero no llegue).</paso>
-      <paso numero="5">Determinar, observando la ejecución real, cuántos relanzamientos automáticos ocurren antes de una alerta/KO definitivos (dato no especificado en el export de Control-M — ver gap abierto en spec.md sección 4).</paso>
+      <paso numero="5">Verificar que, al agotarse la ventana horaria (23:00), el job queda en KO y se emite la alerta a ans_rdr.es@bbva.com, sin más relanzamientos — confirmado por la ficha real EX-005-03-KYTL_CAL_MODELITY_FW: el límite no es un contador de reintentos, es la propia ventana de 22:00-23:00.</paso>
     </pasos>
-    <resultadoEsperado>KYTL_CAL_MODELITY_FW se relanza automáticamente ante el primer timeout (comportamiento confirmado, no un fallo de la prueba); MEKYTL1113 y sucesores no se ejecutan mientras el fichero no llegue. Este caso también sirve para determinar empíricamente el límite de reintentos y el momento en que se emite la alerta a ans_rdr.es@bbva.com, dato que no consta en el export de Control-M analizado.</resultadoEsperado>
-    <tipoValidacion>Estado del job en Control-M (histórico de relanzamientos) + verificación de recepción del correo de alerta cuando finalmente se agoten los reintentos.</tipoValidacion>
-    <criterioAceptacion>El primer timeout produce un RERUN, no un KO inmediato; ningún envío se ejecuta hasta que el fichero llegue o se agoten los reintentos con la alerta correspondiente.</criterioAceptacion>
-    <posibilidadFallo>Que el job finalice en KO en el primer timeout sin relanzarse (contradiría el DOACTION RERUN confirmado en el export).</posibilidadFallo>
+    <resultadoEsperado>KYTL_CAL_MODELITY_FW se relanza automáticamente ante el primer timeout (comportamiento confirmado, no un fallo de la prueba); MEKYTL1113 y sucesores no se ejecutan mientras el fichero no llegue. Dado que el timeout interno del ctmfw (60 min) coincide con la ventana completa (22:00-23:00), el RERUN solo puede dispararse una vez antes de que se agote la ventana y el job pase a KO con alerta, tal como exige la ficha real.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M (histórico de relanzamientos) + verificación de recepción del correo de alerta al agotarse la ventana.</tipoValidacion>
+    <criterioAceptacion>El primer timeout produce un RERUN, no un KO inmediato; al agotarse la ventana (23:00) el job termina en KO con alerta, sin relanzamientos adicionales.</criterioAceptacion>
+    <posibilidadFallo>Que el job finalice en KO en el primer timeout sin relanzarse (contradiría el DOACTION RERUN confirmado en el export), o que se relance más allá de la ventana de 23:00 (contradiría la ficha real).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
