@@ -58,11 +58,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Eliminar CLIEXCLU.txt tras la finalización de KYTL_CLIEXC_GSPROCESS.</paso>
-      <paso numero="2">Ejecutar MEKYTL0783 y verificar que termina en estado de fallo (NOT OK).</paso>
+      <paso numero="2">Ejecutar MEKYTL0783 y verificar que termina en estado de fallo (NOT OK) con código de retorno 60.</paso>
       <paso numero="3">Verificar que MEKYTL0784 no arranca.</paso>
+      <paso numero="4">Inspeccionar el log de MEGENV0001.sh y confirmar el mensaje "No hay ficheros que enviar para la máscara".</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL0783 falla la cadena; el resto de jobs posteriores no se ejecutan — comportamiento confirmado (estricto), no un fallo de la prueba.</resultadoEsperado>
-    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <resultadoEsperado>MEKYTL0783 falla la cadena con RC=60; el resto de jobs posteriores no se ejecutan — comportamiento confirmado con el script real MEGENV0001.sh (FALLA_NO_FICHERO="SI" → GetExitCode 60), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y RC en Control-M; inspección del log de MEGENV0001.sh.</tipoValidacion>
     <criterioAceptacion>MEKYTL0783 en NOT OK; 0 jobs posteriores ejecutados.</criterioAceptacion>
     <posibilidadFallo>Que el job tolere la ausencia pese a ser el envío estricto (contradiría R4).</posibilidadFallo>
   </casoDePrueba>

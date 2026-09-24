@@ -26,7 +26,7 @@ mayor detalle documentado).
 | R1 | `FIC_CLIEXC_RDR_FW` (filewatcher, ventana 05:00-06:00 AM, timeout 60 min) espera `CLIEXCLU.csv`. **Regla de negocio:** ausencia de fichero no es error (hay días sin subida), pero **sí detiene la cadena**. |
 | R2 | `FIC_CLIEXC_RDR_TXT_FW` espera `CLIEXCLU.txt` en el mismo directorio, tras el evento de R1. Misma regla: sin error, pero detiene la cadena si falta. |
 | R3 | `KYTL_CLIEXC_GSPROCESS` (Run As `xakytl1p`) transforma `CLIEXCLU.csv`/`.txt`: `Eliminar_fila` → `ConvertirUNIX` → `CortarGen` → `Eliminar_fila` → `limpiarFinales` → `Unix2Dos` → `MoverFichero` → `Borrar`. |
-| R4 | `MEKYTL0783` (Run As `xsramer1`) envía `CLIEXCLU.txt` a `MVP00G219` como `CLIEXCLU_RDR.txt`. **Confirmado (declaración de usuario en sesión, mecanismo interno no verificado por fichero fuente):** es la transmisión principal/estricta — si falta el fichero, falla la cadena (NOT OK). |
+| R4 | `MEKYTL0783` (Run As `xsramer1`) envía `CLIEXCLU.txt` a `MVP00G219` como `CLIEXCLU_RDR.txt`. **Confirmado con el script real `MEGENV0001.sh`:** es la transmisión principal/estricta — si falta el fichero, falla la cadena (NOT OK). El script confirma el mecanismo exacto: en el sentido `PUT`/`MPUT`, si la máscara de envío no encuentra ningún fichero y `FALLA_NO_FICHERO="SI"`, ejecuta `GetExitCode 60` ("No hay ficheros que enviar para la máscara..."), que termina el script con `exit 60` — coincide exactamente con lo declarado por el usuario (`FALLA_NO_FICHERO=SI`, `RC=60`). Si `FALLA_NO_FICHERO="NO"`, solo registra un aviso en el log y continúa (`ESTADO=0`), sin fallar. |
 | R5 | `MEKYTL0784` (Run As `xsramer1`) envía el mismo fichero a `MVP00G517` (renombrado igualmente a `CLIEXCLU_RDR.txt`). **Soft Failure documentado explícitamente en la fuente**: si falta el fichero, no falla — permite que la historificación posterior no se bloquee. |
 | R6 | Fan-in: `MEKYTL0955` historifica `CLIEXCLU.txt` (procesado) y `MEKYTL0956` historifica `CLIEXCLU.csv` (fuente original), ambos con timestamp `YYYYMMDDhhii`, disparados en paralelo tras R5. |
 | R7 | `RDR_ENVIO_CLIEX_IN` (Dummy) cierra la cadena exigiendo AND de `MEKYTL0955_OK` + `MEKYTL0956_OK`. |
@@ -38,7 +38,7 @@ mayor detalle documentado).
 
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G1 | ¿`MEKYTL0783` tolera la ausencia de `CLIEXCLU.txt` igual que `MEKYTL0784`, o es estricto? | Confirmado: es estricto (R4) — asimetría real entre ambos envíos, no un olvido de documentación. **Nota de evidencia:** el mecanismo interno citado por el usuario (variable `FALLA_NO_FICHERO`, código de retorno 60) no está respaldado por fichero fuente adjuntado; se documenta la conclusión (comportamiento estricto) como confirmada, el mecanismo interno como declaración sin verificar. |
+| G1 | ¿`MEKYTL0783` tolera la ausencia de `CLIEXCLU.txt` igual que `MEKYTL0784`, o es estricto? | Confirmado: es estricto (R4) — asimetría real entre ambos envíos, no un olvido de documentación. **Resuelto por completo (2026-09-24) con el script real `MEGENV0001.sh`**: el mecanismo (`FALLA_NO_FICHERO`, código de retorno 60) es real, genérico y compartido por todos los jobs que usan este motor, no específico de `MEKYTL0783`. El script confirma además otros códigos de la misma familia según el punto de fallo (`45` si el fichero concreto falta en origen tras haber pasado la máscara, `98`/`96`/`97` en el lado de recogida `GET`/`MGET`). Sigue sin verificarse solo si el `.idx`/config propio de `MEKYTL0783` fija literalmente `FALLA_NO_FICHERO="SI"` (impacto bajo: el comportamiento observado en producción ya coincide exactamente con ese valor). |
 | G2 | ¿Es intencional que `CLIEXCLU.csv` nunca se transmita por XCOM? | Confirmado: sí, es intencional (R8) — los sistemas destino no aceptan el fichero sin procesar. |
 
 ## 5. Especificación funcional
@@ -83,11 +83,14 @@ de las 2 historificaciones). El conjunto TC-001 a TC-007 cubre el 100% de las tr
 * **Asimetría de tolerancia (G1):** un fallo real en el envío a `MVP00G219` detiene toda la cadena
   (incluida la historificación), mientras que un fallo en `MVP00G517` pasa desapercibido a nivel de job —
   riesgo de que la réplica a Business Processes falle silenciosamente sin ninguna alerta diferenciada.
-* **Evidencia parcial (G1):** el mecanismo interno exacto de la tolerancia (variable de script, código de
-  retorno) no está verificado por fichero fuente — ver nota en sección 4.
+* **Mecanismo confirmado (G1, cerrado 2026-09-24):** el script real `MEGENV0001.sh` confirma que
+  `FALLA_NO_FICHERO`/código de retorno 60 es un mecanismo genérico del motor de envíos, no una
+  particularidad de `MEKYTL0783` — ver R4 y sección 4. Solo queda sin verificar, con impacto bajo,
+  si el `.idx`/config propio de este job fija literalmente `FALLA_NO_FICHERO="SI"`.
 * **Patrón transversal P-021 (R10):** sin validación de integridad ni protección de concurrencia.
 
 ## 10. Conclusión y requisitos de cierre
 
-Los 2 gaps (G1, G2) tienen resolución explícita, con la distinción de evidencia declarada en G1. No quedan
-preguntas sin responder.
+Los 2 gaps (G1, G2) tienen resolución explícita. G1 quedó cerrado con evidencia real de código (el script
+`MEGENV0001.sh`) el 2026-09-24, tras haberse documentado inicialmente solo por declaración del usuario. No
+quedan preguntas sin responder.
