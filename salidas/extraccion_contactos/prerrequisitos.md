@@ -76,8 +76,9 @@ Dos restricciones de datos conviene verificar antes de dar por buena una ejecuci
 
 - Al menos un contacto vigente en `FT_T_CNTC` (`DATA_STAT_TYP='ACTIVE'`, `END_TMS IS NULL`) sin
   asignación `BRANCH` a la organización `A15`, para que la query maestra devuelva universo.
-- La organización `A15` debe existir en `FT_T_ENTR` si se quiere ejercitar TC-18. Al cargar el
-  dato hay que respetar el ancho fijo de `ORG_ID`: el valor es `'A15 '`, con espacio final.
+- La organización `A15` (**COMPASS**, BBVA Compass/BBVA USA — vendida a PNC en 2020, motivo real de
+  la exclusión) debe existir en `FT_T_ENTR` si se quiere ejercitar TC-18. Al cargar el dato hay que
+  respetar el ancho fijo de `ORG_ID`: el valor es `'A15 '`, con espacio final.
 - **Al menos un contacto que cumpla el filtro de México** —con un acuerdo legal de
   `AgreementORGID = '1145'` o una SCI con `SCIsBranch = 'MEX'`—, ya que el requisito R-21
   prohíbe que el fichero de SAIT se genere vacío y ningún control de la cadena lo impide. Un
@@ -181,9 +182,11 @@ El job `MEKYTL1189_SND` se ejecuta **en la propia pasarela** (`lpftp503`), no en
 `pr-rdr.igrupobbva` como el resto de la cadena, por lo que el agente de Control-M debe estar
 operativo en esa máquina.
 
-No existe ningún job que borre el fichero depositado en la pasarela. Si el mecanismo real no es
-la sobrescritura diaria, el directorio acumularía un fichero por ejecución; conviene verificar
-su estado antes de una campaña de pruebas prolongada.
+No existe ningún job que borre el fichero depositado en la pasarela, pero no hace falta: las
+fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` confirman que el fichero se deposita siempre con el
+mismo nombre (`RDR_contactosSAIT.xml`, sin fecha) tanto en origen como en el destino intermedio de
+la pasarela, por lo que cada ejecución sobrescribe la anterior — sin acumulación (ver `spec.md`
+§4.8, RG-05).
 
 ## 5. Control-M
 

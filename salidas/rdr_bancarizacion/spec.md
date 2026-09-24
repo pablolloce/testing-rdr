@@ -19,29 +19,43 @@
 
 | ID | Requisito |
 |----|-----------|
-| R1 | `KYTL_BANC_GSPROCESS` genera `Listado Clientes Bancarizacion_dos.txt` (Run As `xakytl1p`) vía `RDR_Report.jar` + `Unix2Dos`, en `/fichtemcomp/pr/descargas/kytl/bancarizacion/`, Martes-Sábado tras las 00:30 AM. |
-| R2 | `MEKYTL0157` envía a XCOMWPMER (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\`) como `Listado ClientesBancarizacion_yyyymmdd.csv`. |
+| R1 | `KYTL_BANC_GSPROCESS` genera `ListadoClientesBancarizacion_dos.txt` (Run As `xakytl1p`) vía `RDR_Report.jar` + `Unix2Dos`, en `/fichtemcomp/pr/descargas/kytl/bancarizacion/`, Martes-Sábado tras las 00:30 AM. **Naming confirmado por ficha real (EX-005-03-MEKYTL0157): sin espacios**, corrige la transcripción del documento fuente original. |
+| R2 | `MEKYTL0157` envía a XCOMWPMER (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\`) como `ListadoClientesBancarizacion_yyyymmdd.csv`. **Criticidad real confirmada: C (aviso inmediato)**, no W como se documentaba para "los 3 envíos" — ver R6 y gap corregido en sección 4. |
 | R3 | `MEKYTL0158` envía a TRANSFTP (`//S00371F2/DATOS/TRANSFTP/MVP00G200/`) como `BANCARIZA.txt` (nombre fijo, sin fecha; se sobrescribe cada ejecución). |
 | R4 | `MEKYTL0436` envía a Ábaco (`//S00371F2/DATOS/TRANSMI/MVP00G004/ENT/ABACO/`) como `conversionBDI_DDMMAAAA_hhmm.txt`, con regla crítica de no modificar el nombre ni historificar el fichero origen local. |
 | R5 | Las 3 ramas de envío son independientes: no existe ningún job Dummy de cierre ni Fan-In; cada una termina por separado ("Fin de rama"). |
-| R6 | Máximo de relanzamientos: 0. Retención de log operativo: 3 días. Alertas W a ANS RDR (`BZG03906`) en los 3 envíos. |
+| R6 | Máximo de relanzamientos: 0. Retención de log operativo: 3 días. Alertas a ANS RDR (`BZG03906`) ante fallo en los 3 envíos; criticidad real confirmada para `MEKYTL0157` = **C** (aviso inmediato), por ficha real (ver R2). Criticidad de `MEKYTL0158`/`MEKYTL0436` no verificada individualmente, se mantiene la asunción original (W). |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
 Se realizaron 7 preguntas en 1 ronda. Resumen de las decisiones clave:
 
 - **Cierre de cadena y historificación:** confirmado como diseño real, no como documentación incompleta — las 3 ramas terminan de forma independiente sin Fan-In, y **no existe ningún paso de historificación** en toda la cadena. La ficha de `MEKYTL0436` lo confirma explícitamente con una regla de negocio crítica que prohíbe modificar el nombre o historificar el fichero origen.
-- **Query SQL y diccionario de datos del reporte de bancarización:** **no disponibles**. El documento solo indica que se invoca `RDR_Report.jar` + `Unix2Dos`, sin exponer la consulta ni una muestra real del fichero. Se cierra como limitación de evidencia (igual que el motivo de exclusión de códigos en Altamira/Bancomer México): no se puede construir un diccionario de campos preciso ni un caso de duplicidad de datos a nivel de contenido.
-- **Naming de `MEKYTL0157`:** el fichero origen (`Listado Clientes Bancarizacion_dos.txt`) y el destino documentado (`Listado ClientesBancarizacion_yyyymmdd.csv`) difieren en un espacio. **Se confirma como discrepancia documental abierta**, sin poder determinar si es una errata de redacción o un requisito real del receptor `MVP00G215`.
-- **`MEKYTL0158` (`BANCARIZA.txt` sin fecha):** confirmado que se sobrescribe (`REPLACE`) en cada ejecución; se asume que la plataforma `MVP00G200` consume o mueve el fichero antes del siguiente ciclo — **asunción sobre el comportamiento del sistema receptor, no verificada directamente** por el agente.
+- **Query SQL y diccionario de datos del reporte de bancarización:** **resuelto con el `select.properties` real** (clave `querybancarizacion`) y 2 muestras reales de producción (`ListadoClientesBancarizacion.txt`/`_dos.txt`, 98.905 registros, idénticas salvo el salto de línea). La query confirma 9 campos, cada uno resuelto contra el esquema GoldenSource (`FT_T_CUST`, `FT_T_FRID`, `FT_T_FIID`, `FT_T_FIST`, `FT_T_FIGU`); diccionario completo en la sección 5. La clave `cabecerabancarizacion` confirma la cabecera fija observada en la muestra (`BANCARIZACION;;;;;;;;`) y `fileNamebancarizacion` confirma que el nombre generado por Java antes de `Unix2Dos` es `ListadoClientesBancarizacion.txt` (sin `_dos`), consistente con las 2 muestras recibidas.
+- **Naming de `MEKYTL0157`:** **resuelto con ficha real EX-005-03-MEKYTL0157.** El fichero origen (`ListadoClientesBancarizacion_dos.txt`) y el fichero destino (`ListadoClientesBancarizacion_yyyymmdd.csv`) usan la misma cadena continua "ListadoClientesBancarizacion", sin espacio alguno en ninguno de los dos nombres. El espacio que aparecía en el documento fuente original era una errata de transcripción, no una discrepancia real de naming ni un requisito del receptor `MVP00G215`. La misma ficha confirma además que la criticidad real del job es **C** (aviso inmediato), no W como se documentaba para "los 3 envíos" (ver R6).
+- **`MEKYTL0158` (`BANCARIZA.txt` sin fecha):** confirmado que se sobrescribe (`REPLACE`) en cada ejecución; es el comportamiento de diseño de este envío, sin más consideraciones adicionales.
 - **Formatos de fecha distintos por destino:** confirmado tal cual — cada sistema receptor (`MVP00G215`, `MVP00G200`, `MVP00G004`) exige su propio formato de nomenclatura, no es una errata.
 - **Integridad de copia y concurrencia:** mismos gaps ya confirmados en todos los procesos anteriores (Calendarios, Altamira Colombia, Altamira/Bancomer México) — sin checksum/conteo, sin lock/PID/semáforo.
 
 ## 5. Especificación funcional
 
-**Entidad principal:** listado de clientes bancarizados, sin diccionario de campos disponible (ver gap de evidencia en sección 4).
+**Entidad principal:** listado de clientes bancarizados. Diccionario de campos confirmado con la query real (`select.properties`, clave `querybancarizacion`) contra el esquema GoldenSource:
 
-**Fichero generado:** `Listado Clientes Bancarizacion_dos.txt`, formato y estructura interna no documentados; formateado con `Unix2Dos` (saltos de línea CRLF) antes de la distribución.
+| Col | Campo (fuente SQL) | Significado |
+|-----|---------------------|--------------|
+| 1 | `FT_T_CUST.CST_NME` | Nombre/razón social del cliente |
+| 2 | `FT_T_FRID.FINR_ID` (`FINSRL_ID_CTXT_TYP IN ('STARID','MUREXID')`, origen `STAR_MADRID`/`MUREX`) | Identificador de la relación de contraparte en STAR Madrid o MUREX. Casi único (98.904/98.905 en la muestra real); una misma entidad puede tener varias filas con distinto valor aquí (una por relación/sucursal registrada) |
+| 3 | `FT_T_FIID.FINS_ID` (`FINS_ID_CTXT_TYP='BDIID'`) | Identificador BDI de la institución (vacío en 185/98.905 filas de la muestra real: no todas las instituciones tienen BDIID asignado) |
+| 4 | `FT_T_FIID.FINS_ID` (`FINS_ID_CTXT_TYP='CLIENTELAID'`) | Identificador de Clientela del cliente (siempre presente) |
+| 5 | `FT_T_FIID.FINS_ID` (primer contexto disponible entre `N.I.F.`, `C.I.F.`, `CIFEX`, `D.N.I.`, `FECNAC`, `TARJRES`, `PASAP`, `EMPNORES`, `OTROS`, `CODCLI`, `Not_Def`) | Identificador fiscal del cliente. Coincide con la col.2 en clientes españoles (24.258/98.905 en la muestra) porque para esos casos el STARID/MUREXID registrado es el propio NIF/CIF; en el resto (clientes extranjeros) difiere. Varias filas pueden compartir el mismo valor (una entidad con varias relaciones/sucursales registradas) — no es una duplicidad anómala |
+| 6 | `FT_T_FIST.STAT_CHAR_VAL_TXT` (`STAT_DEF_ID='ORIGBANC'`) | Origen de bancarización — atributo definido en el esquema pero **vacío en el 100% de la muestra real** (98.905/98.905) |
+| 7 | `FT_T_FIST.STAT_CHAR_VAL_TXT` (`STAT_DEF_ID='ORIGOFIC'`) | Oficina de origen — igualmente **vacío en el 100% de la muestra real** |
+| 8 | `FT_T_FIGU.GU_ID` (`FINS_GU_PURP_TYP='RESID_CO'`) | Código de país de residencia (ISO 2 letras: ES, GB, US, FR, DE... confirmado en la muestra real) |
+| 9 | `FT_T_FIST.STAT_CHAR_VAL_TXT` (`STAT_DEF_ID='OFIPPAL'`) | Código de oficina principal (4 dígitos; vacío en 388/98.905 filas) |
+
+Filtro de la query: contrapartes activas (`DATA_STAT_TYP='ACTIVE'`) con relación `OPERATIVE`/`CPARTY`, excluyendo `CLIENTELAID='000000000'`, y condicionadas a que la entidad legal raíz tenga una relación `LOCAL_ENT` activa con `ORG_ID='0182'` (código de entidad ya identificado en otros procesos del sistema P-021).
+
+**Fichero generado:** el properties (`fileNamebancarizacion`) confirma que Java genera `ListadoClientesBancarizacion.txt` (sin `_dos`); `Unix2Dos` produce a partir de él `ListadoClientesBancarizacion_dos.txt`, idéntico byte a byte salvo el salto de línea (LF→CRLF), confirmado comparando las 2 muestras reales recibidas. Cabecera fija confirmada: `BANCARIZACION;;;;;;;;` (solo el primer campo poblado, sin nombres de columna reales). 98.905 registros en la muestra real analizada.
 
 **Flujo funcional:** generación única → fan-out puro a 3 destinos independientes, sin punto de convergencia ni historificación. El éxito global de la ejecución debe verificarse comprobando las 3 ramas por separado, no existe un único indicador de cierre.
 
@@ -52,7 +66,7 @@ Se realizaron 7 preguntas en 1 ronda. Resumen de las decisiones clave:
 - **`KYTL_BANC_GSPROCESS`:** Run As `xakytl1p`, `GSProcess.sh bancarizacion` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`.
 - **`MEKYTL0157`, `MEKYTL0158`, `MEKYTL0436`:** Run As `xsramer1`, todos vía `MEGENV0001.sh`, disparados en paralelo por el mismo evento `RDR_BANCARIZACION_KYTL_BANC_GSPROCESS_OK_new`, sin dependencia entre ellos.
 - **Programación:** Martes a Sábado (`MXJVS`), tras las 00:30 AM.
-- **Gestión de errores:** máximo de relanzamientos 0 (sin reintento automático); criticidad W; alerta a ANS RDR.
+- **Gestión de errores:** máximo de relanzamientos 0 (sin reintento automático); criticidad C (aviso inmediato) confirmada para `MEKYTL0157`, W asumida para `MEKYTL0158`/`MEKYTL0436` (no verificada individualmente); alerta a ANS RDR.
 - **Integridad:** sin validación de checksum/conteo en ninguno de los 3 envíos.
 - **Concurrencia:** sin mecanismo de lock/PID/semáforo documentado.
 
@@ -64,13 +78,14 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (ciclo completo, 3 destinos OK).
 - `negativo`: TC-002 (fallo de generación, ninguna rama se ejecuta).
 - `error_funcional`: TC-003 (fallo aislado de una rama, verificación de independencia de las otras dos).
-- `borde`: TC-004 (sobrescritura de `BANCARIZA.txt`), TC-005 (verificación del naming real de `MEKYTL0157`), TC-009 (regla crítica de no modificar/historificar en `MEKYTL0436`).
+- `borde`: TC-004 (sobrescritura de `BANCARIZA.txt`), TC-005 (verificación del naming confirmado y de la criticidad C de `MEKYTL0157`), TC-009 (regla crítica de no modificar/historificar en `MEKYTL0436`).
 - `conflicto_integridad`: TC-006 (ausencia de validación de integridad en los 3 envíos).
 - `duplicidad`: TC-007 (reejecución/relanzamiento manual duplicado, a nivel de fichero/envío — ver nota de limitación abajo).
 - `regresion`: TC-008 (ejecuciones concurrentes sin protección).
 - `e2e`: TC-010 (ciclo completo Martes-Sábado).
+- `datos_sinteticos`: TC-011 (estructura de 9 campos y columnas `ORIGBANC`/`ORIGOFIC` siempre vacías, confirmadas con la query real y la muestra de producción).
 
-**Nota de limitación de cobertura:** no se incluye un caso de tipo `datos_sinteticos` en el sentido clásico (repetición de un valor de campo dentro de un registro), porque no existe diccionario de datos ni muestra real del fichero de bancarización (gap de evidencia, sección 4). Por el mismo motivo, `duplicidad` (TC-007) se interpreta a nivel de re-ejecución/envío duplicado del fichero completo, no de un registro individual repetido dentro del contenido.
+**Nota sobre cobertura de contenido:** con el diccionario de campos ya confirmado (sección 5), se añade TC-011 (`datos_sinteticos`) para validar la estructura de 9 campos y las 2 columnas siempre vacías (`ORIGBANC`/`ORIGOFIC`) contra un registro real. La coincidencia de identificador fiscal (col.5) entre varias filas de una misma entidad con distintas relaciones/sucursales (confirmada en la muestra real, p. ej. `BANCO DE SABADELL S.A.`) es un patrón esperado del modelo, no una duplicidad de datos; `duplicidad` (TC-007) se mantiene a nivel de re-ejecución/envío duplicado del fichero completo.
 
 **Confirmación de ejecutabilidad:** cada caso especifica datos concretos (rutas, nombres de fichero, servidores, fechas), pasos numerados y un resultado esperado verificable.
 
@@ -80,8 +95,8 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
-| R1 (generación) | TC-001, TC-002, TC-010 | Generación correcta del fichero; comportamiento ante fallo de generación |
-| R2 (envío XCOMWPMER) | TC-001, TC-003, TC-005, TC-010 | Envío correcto; aislamiento ante fallo; verificación del naming real |
+| R1 (generación) | TC-001, TC-002, TC-010, TC-011 | Generación correcta del fichero; comportamiento ante fallo de generación; estructura de campos real |
+| R2 (envío XCOMWPMER) | TC-001, TC-003, TC-005, TC-010 | Envío correcto; aislamiento ante fallo; naming confirmado sin espacios; criticidad C ante fallo |
 | R3 (envío TRANSFTP) | TC-001, TC-003, TC-004, TC-010 | Envío correcto; aislamiento ante fallo; comportamiento de sobrescritura |
 | R4 (envío Ábaco) | TC-001, TC-003, TC-009, TC-010 | Envío correcto; aislamiento ante fallo; cumplimiento de la regla crítica de no modificar/historificar |
 | R5 (sin Fan-In) | TC-003 | Confirma que el fallo de una rama no bloquea ni afecta a las otras dos |
@@ -92,12 +107,9 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 
 1. **Sin marcador de cierre unificado:** las 3 ramas terminan de forma independiente; verificar el éxito de la cadena requiere comprobar las 3 por separado, no hay un único indicador de "cadena completada".
 2. **Sin historificación del fichero origen en ningún punto de la cadena** (por diseño, confirmado): no queda registro histórico local de lo enviado; la trazabilidad depende enteramente de los sistemas receptores.
-3. **Discrepancia de naming no resuelta en `MEKYTL0157`** (`Listado Clientes Bancarizacion_dos.txt` vs. `Listado ClientesBancarizacion_yyyymmdd.csv`): riesgo documental abierto, sin poder determinar cuál es el nombre real requerido.
-4. **Ausencia de query SQL y diccionario de datos del reporte de bancarización:** limita la capacidad de diseñar validaciones de contenido y casos de duplicidad de datos (ver nota de limitación en sección 7).
-5. **Sobrescritura de `BANCARIZA.txt` sin fecha:** depende de una asunción no verificada sobre el comportamiento de consumo de `MVP00G200`; si el sistema receptor no consume el fichero antes del siguiente ciclo, podría perderse el dato del día anterior sin ningún aviso.
-6. **Sin validación de integridad de copia** en ninguno de los 3 envíos (mismo patrón de gap que en todos los procesos anteriores).
-7. **Sin protección de concurrencia** (mismo patrón de gap que en todos los procesos anteriores).
+3. **Sin validación de integridad de copia** en ninguno de los 3 envíos (mismo patrón de gap que en todos los procesos anteriores).
+4. **Sin protección de concurrencia** (mismo patrón de gap que en todos los procesos anteriores).
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 3, 4 y 5 de la sección 9 (naming, ausencia de diccionario de datos, y la asunción sobre el consumo de `MVP00G200`). Ninguno impide ejecutar la matriz de pruebas definida.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. El naming de `MEKYTL0157` queda resuelto y confirmado con ficha real (EX-005-03-MEKYTL0157), que además corrige la criticidad documentada de ese job a C (aviso inmediato). El diccionario de datos del reporte de bancarización queda resuelto con la query real (`select.properties`) y 2 muestras de producción. No queda ningún punto abierto que impida ejecutar la matriz de pruebas definida.

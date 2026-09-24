@@ -78,9 +78,10 @@ antes de lanzar la cadena.
 
 `/fichtemcomp/pr/descargas/kytl/LAGR/old/` debe existir con permisos de escritura y borrado, ya
 que recibe tanto la historificación comprimida del XML (`MEKYTL0953`) como la del CSV
-(`MEKYTL1052`), y sobre él opera la purga a 7 días (`MEKYTL1053`). Con una historificación
-diaria y una retención de 7 días, el directorio mantiene en régimen estacionario del orden de 6
-a 7 ficheros CSV más los `.gz` correspondientes.
+(`MEKYTL1052`). La purga a 7 días documentada para `MEKYTL1053` probablemente no está operando
+(ficha real con IP fija antigua y sin periodicidad activa, ausente del export de Control-M) — el
+directorio de históricos CSV puede estar creciendo sin control real; verificar su volumen antes
+de asumir el régimen estacionario de 6-7 ficheros originalmente previsto.
 
 ### Espacio en disco
 

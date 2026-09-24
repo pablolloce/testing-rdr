@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_BATCH_EMISORES_REFINITIV" fecha="2026-09-22" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de la cadena batch diaria</nombre>
+    <objetivo>Verificar que los 3 jobs se ejecutan en orden y cada uno dispara al siguiente por evento.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_BATCH_EMISORES_REFINITIV activa en Control-M, servidor MERCADOS-4.</precondicion>
+      <precondicion>Conectividad con Refinitiv y con la BD GoldenSource GSDM-1 operativa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual"/>
+      <dato campo="vreqOid (batch issuer)" valor="BATCH_ISSUER"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar disparo horario de RDR_REFINITIV_BATCH_REQUEST a las 21:00h.</paso>
+      <paso numero="2">Verificar RC=0 y generación del evento RDR_BATCH_EMISORES_REFINITIV_RDR_REFINITIV_BATCH_REQUEST_OK.</paso>
+      <paso numero="3">Verificar que GS_REFINITIV_REQ_RES se dispara a partir de las 22:00h al recibir el evento anterior, RC=0, y genera RDR_BATCH_EMISORES_REFINITIV_GS_REFINITIV_REQ_RES_OK.</paso>
+      <paso numero="4">Verificar que GS_BBG_REFINITIV_BATCH se dispara a partir de las 23:00h, RC=0, y genera RDR_BATCH_EMISORES_REFINITIV_GS_BBG_REFINITIV_BATCH_OK.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan OK en el orden y horario esperados; se generan los 3 eventos de salida.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M (consola/API).</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs en estado OK, sin relanzamiento, con los 3 eventos publicados.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario; cualquier RC≠0 invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de RDR_REFINITIV_BATCH_REQUEST bloquea el resto de la cadena</nombre>
+    <objetivo>Confirmar que un fallo en el primer job impide la ejecución de los siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena activa; se fuerza un fallo simulado (p. ej. desconectividad con Refinitiv) en RDR_REFINITIV_BATCH_REQUEST.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Endpoint Refinitiv inaccesible / RC≠0 forzado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en RDR_REFINITIV_BATCH_REQUEST a las 21:00h.</paso>
+      <paso numero="2">Verificar que NO se genera el evento RDR_BATCH_EMISORES_REFINITIV_RDR_REFINITIV_BATCH_REQUEST_OK.</paso>
+      <paso numero="3">Verificar que GS_REFINITIV_REQ_RES permanece en espera (no arranca) a las 22:00h.</paso>
+    </pasos>
+    <resultadoEsperado>GS_REFINITIV_REQ_RES y GS_BBG_REFINITIV_BATCH no se ejecutan; la cadena queda bloqueada en el primer job en estado NOTOK/pendiente.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al fallido cambia de estado "esperando evento".</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia (fallo real a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Respuesta de Refinitiv con error de negocio pero RC=0 no se detecta</nombre>
+    <objetivo>Confirmar la ausencia de validación de contenido de la respuesta (gap G4 confirmado por el usuario).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba capaz de simular una respuesta de Refinitiv vacía o con error de negocio manteniendo RC=0 del script.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Respuesta simulada" valor="Payload vacío o con código de error de negocio, RC del script forzado a 0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular una respuesta de Refinitiv inválida en el paso GS_REFINITIV_REQ_RES manteniendo RC=0.</paso>
+      <paso numero="2">Verificar que el job termina OK en Control-M pese al contenido inválido.</paso>
+      <paso numero="3">Verificar que GS_BBG_REFINITIV_BATCH se ejecuta igualmente al no existir bloqueo por contenido.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena continúa y se marca como exitosa en Control-M aunque el dato de negocio sea inválido — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + inspección manual del resultado de negocio (si el entorno lo permite).</tipoValidacion>
+    <criterioAceptacion>Se confirma que no existe ningún punto de control que detenga la cadena por contenido de respuesta inválido.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: datos inválidos podrían propagarse a GoldenSource sin alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Ejecución cruzando la medianoche / nuevo día contable</nombre>
+    <objetivo>Verificar el comportamiento de los jobs que permiten "pasar el nuevo día contable" sin afectar al ODATE de la ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Planificación real que haga que GS_BBG_REFINITIV_BATCH (23:00h) se extienda más allá de las 00:00h.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Hora de fin real" valor="00:05h del día siguiente al ODATE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena en un escenario donde GS_BBG_REFINITIV_BATCH termine tras la medianoche.</paso>
+      <paso numero="2">Verificar que Control-M mantiene el ODATE original para todos los eventos generados.</paso>
+    </pasos>
+    <resultadoEsperado>El job se ejecuta y completa correctamente sin que Control-M lo asocie erróneamente al ODATE del día siguiente.</resultadoEsperado>
+    <tipoValidacion>Verificación de ODATE en los eventos generados.</tipoValidacion>
+    <criterioAceptacion>El ODATE de los 3 eventos de la cadena coincide con el día de planificación, no con el día calendario de finalización.</criterioAceptacion>
+    <posibilidadFallo>Desalineación de ODATE si Control-M no está configurado correctamente para "permitir pasar el nuevo día contable".</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>Relanzamiento manual concurrente sin lock</nombre>
+    <objetivo>Confirmar el riesgo de ejecución concurrente de la cadena ante un relanzamiento manual mientras la programada sigue activa.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena programada en curso (p. ej. GS_REFINITIV_REQ_RES ejecutándose).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Acción manual" valor="Relanzamiento manual de RDR_REFINITIV_BATCH_REQUEST mientras la cadena del día sigue activa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Relanzar manualmente RDR_REFINITIV_BATCH_REQUEST mientras GS_REFINITIV_REQ_RES de la ejecución original está en curso.</paso>
+      <paso numero="2">Observar si Control-M permite 2 instancias concurrentes de la cadena o de sus eventos.</paso>
+    </pasos>
+    <resultadoEsperado>Sin lock/PID/semáforo documentado, Control-M no impide la concurrencia — riesgo confirmado, no un comportamiento deseable.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de instancias concurrentes en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se documenta si existen o no 2 ejecuciones simultáneas y su efecto sobre los eventos/BD.</criterioAceptacion>
+    <posibilidadFallo>Doble solicitud a Refinitiv el mismo día con el mismo vreqOid.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Cambio de Param1/.properties no rompe el encadenamiento de eventos</nombre>
+    <objetivo>Verificar que un cambio futuro en el fichero de propiedades de cualquier job no altera el contrato de eventos entre jobs.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con posibilidad de desplegar una versión modificada de un .properties.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Param1 modificado" valor="Variante de prueba de RDR_Refinitiv_REQ_RES.properties"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Desplegar la variante de prueba del .properties de GS_REFINITIV_REQ_RES.</paso>
+      <paso numero="2">Ejecutar la cadena completa y verificar que los eventos de entrada/salida no cambian de nombre ni de comportamiento de disparo.</paso>
+    </pasos>
+    <resultadoEsperado>El encadenamiento de eventos Control-M es independiente del contenido del .properties; solo cambia la lógica interna GoldenSource.</resultadoEsperado>
+    <tipoValidacion>Comparación de eventos generados antes/después del cambio.</tipoValidacion>
+    <criterioAceptacion>Los nombres y el orden de los 3 eventos de la cadena permanecen idénticos.</criterioAceptacion>
+    <posibilidadFallo>Que un cambio de properties afecte al RC del script y rompa el encadenamiento indirectamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Doble disparo del mismo vreqOid en el mismo día</nombre>
+    <objetivo>Comprobar qué ocurre cuando se repite deliberadamente la misma solicitud (mismo vreqOid) el mismo día, simulando un relanzamiento manual duplicado.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución previa ya completada con vreqOid=BATCH_ISSUER para el ODATE del día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="vreqOid" valor="BATCH_ISSUER (repetido 2 veces el mismo ODATE)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Relanzar manualmente RDR_REFINITIV_BATCH_REQUEST tras una ejecución ya completada con éxito el mismo día.</paso>
+      <paso numero="2">Verificar el comportamiento de la tabla FT_T_VREQ/FT_T_VRPM ante el vreqOid repetido (si el entorno de prueba lo permite consultar).</paso>
+    </pasos>
+    <resultadoEsperado>No hay control de duplicidad documentado a nivel de Control-M para este escenario; el resultado depende de la lógica interna de GoldenSource, no verificada documentalmente (ver spec.md sección 9).</resultadoEsperado>
+    <tipoValidacion>Inspección de tabla GoldenSource (si el entorno de prueba lo permite) + verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se documenta explícitamente el comportamiento observado ante la repetición, sin asumir de antemano un resultado.</criterioAceptacion>
+    <posibilidadFallo>Sobrescritura silenciosa o generación de un segundo registro conflictivo en FT_T_VREQ.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Ciclo completo diario con verificación de impacto en base de datos</nombre>
+    <objetivo>Validar el flujo end-to-end desde el disparo horario hasta el impacto funcional en GoldenSource.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de solo lectura a un entorno de prueba de la BD GoldenSource GSDM-1 (si disponible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="Día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa (21:00h→22:00h→23:00h) en entorno de prueba.</paso>
+      <paso numero="2">Verificar los 3 eventos de salida y ausencia de relanzamientos.</paso>
+      <paso numero="3">Si el entorno lo permite, consultar FT_T_FIRT/FT_T_RLT1 para confirmar en runtime el impacto ya verificado con código real en R6 de spec.md.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina OK y, si el entorno lo permite verificar, se observa el impacto en las tablas GoldenSource confirmado documentalmente en R6.</resultadoEsperado>
+    <tipoValidacion>Verificación combinada Control-M + BD (sujeta a disponibilidad de entorno).</tipoValidacion>
+    <criterioAceptacion>Cadena completa OK; impacto en BD confirmado o explícitamente marcado como no verificable por falta de entorno.</criterioAceptacion>
+    <posibilidadFallo>Imposibilidad de verificar el impacto real en BD por falta de acceso a GSDM-1, dejando el caso parcialmente cerrado (limitación ya explicitada en spec.md sección 7).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

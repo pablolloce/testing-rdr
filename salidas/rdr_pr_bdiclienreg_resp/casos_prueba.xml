@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_PR_BDICLIENREG_RESP_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo con fichero de respuesta, sin lock y con ACKNACK presente</nombre>
+    <objetivo>Verificar que los 10 jobs se ejecutan en el orden documentado cuando ambas condiciones de control se cumplen.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_PR_BDICLIENREG_RESP_new activa, entorno de prueba (no producción).</precondicion>
+      <precondicion>controlSCF.txt ausente en /fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/.</precondicion>
+      <precondicion>Existe un fichero .txt de respuesta y ClientesFondosFX_ACKNACK_*.txt en la ruta de respuesta.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ciclo" valor="disparo dentro de la ventana 04:30-23:55"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que RDR_PR_BDICLIENREG_RESP_FW detecta el fichero .txt.</paso>
+      <paso numero="2">Verificar que SLEEP_RDR_ALTACPTY_IP espera 6 minutos.</paso>
+      <paso numero="3">Verificar que COMPROBAR_CONTROL_ALTA_IP valida la ausencia de controlSCF.txt y da paso.</paso>
+      <paso numero="4">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 valida la existencia de ACKNACK_*.txt y da paso.</paso>
+      <paso numero="5">Verificar que GS_BDICLIENTREG, GS_INVESTORS_BDICLIENT_RESP, GS_INVESTORS_ALTAFONDOS y FX_ALERT_ALTA_SDIS terminan RC=0 en orden.</paso>
+      <paso numero="6">Verificar que MEKYTL0985 historifica y comprime el reporte final.</paso>
+    </pasos>
+    <resultadoEsperado>Los 10 jobs terminan en OK; el reporte queda historificado en .gz con timestamp.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + existencia del fichero historificado.</tipoValidacion>
+    <criterioAceptacion>10/10 jobs OK; 1 fichero .gz en old/ con timestamp correcto.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Ausencia de fichero de respuesta finaliza el ciclo sin error</nombre>
+    <objetivo>Confirmar que la no llegada del fichero .txt de respuesta no marca fallo de job ni bloquea el siguiente ciclo.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, sin ningún fichero .txt en la ruta de respuesta.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente durante un ciclo completo de 5 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar un ciclo con la ruta de respuesta vacía.</paso>
+      <paso numero="2">Verificar que RDR_PR_BDICLIENREG_RESP_FW no marca error.</paso>
+      <paso numero="3">Verificar que ningún job posterior se ejecuta en ese ciclo.</paso>
+    </pasos>
+    <resultadoEsperado>El ciclo finaliza limpiamente sin alerta; el siguiente ciclo de 5 min vuelve a intentar la detección — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados; el filewatcher no queda en estado de error.</criterioAceptacion>
+    <posibilidadFallo>Que el job marque error pese a la regla documentada de no fallar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="conflicto_integridad">
+    <nombre>controlSCF.txt presente detiene el ciclo sin error (lock externo activo)</nombre>
+    <objetivo>Confirmar que el lock file externo bloquea el procesamiento sin generar error de job.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero .txt de respuesta y ACKNACK_*.txt presentes.</precondicion>
+      <precondicion>controlSCF.txt depositado manualmente antes de COMPROBAR_CONTROL_ALTA_IP, en entorno de prueba, no producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero de control" valor="controlSCF.txt presente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar controlSCF.txt en la ruta de control antes de que se ejecute COMPROBAR_CONTROL_ALTA_IP.</paso>
+      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP detiene el ciclo sin marcar error.</paso>
+      <paso numero="3">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 no se ejecuta.</paso>
+      <paso numero="4">Eliminar controlSCF.txt (simulando la limpieza del proceso externo) y verificar que el siguiente ciclo prospera.</paso>
+    </pasos>
+    <resultadoEsperado>El ciclo se detiene sin error mientras el lock esté presente; se reanuda en un ciclo posterior tras su retirada — comportamiento confirmado (G1), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M a través de 2 ciclos consecutivos.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores a COMPROBAR_CONTROL_ALTA_IP en el ciclo con lock; 10/10 jobs OK en el ciclo posterior a su retirada.</criterioAceptacion>
+    <posibilidadFallo>Que el job continúe pese a la presencia del lock (riesgo de concurrencia real con SCF/Investors Plan).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="conflicto_integridad">
+    <nombre>Ausencia de ACKNACK_*.txt detiene el ciclo sin error (sin lock activo)</nombre>
+    <objetivo>Confirmar que la segunda validación bloquea el procesamiento de forma independiente al lock.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero .txt de respuesta presente, controlSCF.txt ausente.</precondicion>
+      <precondicion>ClientesFondosFX_ACKNACK_*.txt ausente, en entorno de prueba, no producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="ACKNACK_*.txt ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el ciclo con controlSCF.txt ausente pero sin ACKNACK_*.txt en la ruta de respuesta.</paso>
+      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 detiene el ciclo sin marcar error.</paso>
+      <paso numero="3">Verificar que GS_BDICLIENTREG no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>El ciclo se detiene sin error por la segunda validación, de forma indistinguible externamente del bloqueo por lock (TC-003) — riesgo documentado en la sección 9 del spec.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores a COMPROBAR_CONTROL_ALTA_IP_2 ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Que el job continúe pese a la ausencia del fichero de confirmación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>MEKYTL0985 no falla si no hay ficheros que historificar</nombre>
+    <objetivo>Confirmar el comportamiento Soft Failure documentado para la historificación final.</objetivo>
+    <precondiciones>
+      <precondicion>FX_ALERT_ALTA_SDIS completado, pero Reporte_SSI_ONLINE_INVESTORSPLAN*.* ausente antes de MEKYTL0985, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_SSI_ONLINE_INVESTORSPLAN*.* ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar el reporte antes de la ejecución de MEKYTL0985.</paso>
+      <paso numero="2">Ejecutar MEKYTL0985 y verificar RC=0 pese a la ausencia del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0985 termina en OK sin historificar ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R10).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="e2e">
+    <nombre>Ciclo completo desde la detección hasta la historificación final</nombre>
+    <objetivo>Validar el flujo end-to-end completo, incluidos el doble control de concurrencia y la integración con Investors Plan.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de depositar los ficheros de respuesta y ACKNACK.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ciclo" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero .txt de respuesta y ACKNACK_*.txt válidos, sin controlSCF.txt presente.</paso>
+      <paso numero="2">Ejecutar el ciclo completo y verificar el paso por los 10 jobs.</paso>
+      <paso numero="3">Verificar el cierre en MEKYTL0985 con el reporte historificado.</paso>
+    </pasos>
+    <resultadoEsperado>El ciclo completo termina con los 10 jobs en OK.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de principio a fin del ciclo completo.</tipoValidacion>
+    <criterioAceptacion>10/10 jobs en OK; MEKYTL0985 como último job ejecutado.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro del ciclo.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

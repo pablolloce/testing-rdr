@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_CARGA_REFINITIV_Multi" fecha="2026-09-22" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo con fichero presente en el primer intento</nombre>
+    <objetivo>Verificar el flujo completo cuando el fichero llega antes del primer ciclo del día (8:00h).</objetivo>
+    <precondiciones>
+      <precondicion>REFINITIV_MULTI_ISSUE.csv depositado en la ruta origen antes de las 8:00h.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="REFINITIV_MULTI_ISSUE.csv"/>
+      <dato campo="Ruta origen" valor="\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\Equities"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el ciclo de las 8:00h de FICHERO_REFINITIV_FW.</paso>
+      <paso numero="2">Verificar detección del fichero y disparo de MEKYTL1058.</paso>
+      <paso numero="3">Verificar transferencia a LPRDR501 y borrado del fichero origen.</paso>
+      <paso numero="4">Verificar que FICHERO_RDR_REFINITIV_FW detecta el fichero en destino.</paso>
+      <paso numero="5">Verificar que RDR_REFINITIV_REQUEST se ejecuta con RC=0.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan OK en orden; el fichero queda transferido a LPRDR501 y borrado en origen.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + existencia/ausencia de fichero en origen y destino.</tipoValidacion>
+    <criterioAceptacion>4 jobs OK, fichero presente solo en destino.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Ausencia de fichero en un ciclo no genera error</nombre>
+    <objetivo>Confirmar el comportamiento soft-failure documentado (G2).</objetivo>
+    <precondiciones>
+      <precondicion>No existe REFINITIV_MULTI_ISSUE.csv en la ruta origen en el ciclo evaluado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar un ciclo de FICHERO_REFINITIV_FW sin que exista el fichero.</paso>
+      <paso numero="2">Verificar que el job termina en estado OK/limpio, sin marcar error.</paso>
+      <paso numero="3">Verificar que MEKYTL1058 no se dispara.</paso>
+    </pasos>
+    <resultadoEsperado>El ciclo termina sin error ni alerta; el resto de la cadena no se ejecuta ese ciclo.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M (ausencia de estado NOTOK).</tipoValidacion>
+    <criterioAceptacion>Job en estado OK pese a no encontrar el fichero; sin evento de error.</criterioAceptacion>
+    <posibilidadFallo>Que el job marque erróneamente NOTOK (comportamiento no esperado según la documentación).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Ausencia de alerta cuando el fichero no llega en todo el día</nombre>
+    <objetivo>Confirmar que si el fichero no llega en ningún ciclo (8:00h-00:00h), no se genera ninguna alerta (G2).</objetivo>
+    <precondiciones>
+      <precondicion>REFINITIV_MULTI_ISSUE.csv ausente durante toda la ventana horaria del día evaluado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente todo el día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Recorrer todos los ciclos de 45 min entre 8:00h y 00:00h sin que el fichero llegue.</paso>
+      <paso numero="2">Verificar ausencia total de alertas a ANS RDR o de tickets Remedy generados por esta causa.</paso>
+    </pasos>
+    <resultadoEsperado>El día transcurre sin ejecutar RDR_REFINITIV_REQUEST y sin ninguna alerta — riesgo confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Revisión de log de alertas ANS RDR del día evaluado.</tipoValidacion>
+    <criterioAceptacion>Cero alertas generadas por esta causa en todo el día.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: pérdida silenciosa de la petición incremental del día sin ningún registro.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Comportamiento en el primer y último ciclo de la ventana horaria</nombre>
+    <objetivo>Verificar el comportamiento del filewatcher justo en los límites de la ventana 8:00h-00:00h.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero disponible únicamente en el ciclo de las 8:00h o en el último ciclo antes de las 00:00h.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Hora de llegada del fichero" valor="07:59h (justo antes) y 23:50h (justo antes del cierre)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero a las 07:59h y verificar si el ciclo de las 8:00h lo detecta.</paso>
+      <paso numero="2">Depositar el fichero a las 23:50h en otro día de prueba y verificar si el último ciclo antes de las 00:00h lo detecta y completa la cadena antes del cierre de ventana.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se detecta correctamente en ambos límites, sin quedar huérfano por el cierre de la ventana horaria a medianoche.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M en los ciclos límite.</tipoValidacion>
+    <criterioAceptacion>La cadena se completa en ambos escenarios de borde dentro de la ventana.</criterioAceptacion>
+    <posibilidadFallo>El último ciclo antes de las 00:00h no da tiempo a completar los 4 jobs antes del cierre de ventana, dejando la cadena a medias.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>Fallo de transferencia a mitad no borra el fichero origen</nombre>
+    <objetivo>Confirmar que el borrado en origen (MEKYTL1058) solo ocurre tras éxito de la transferencia (G3).</objetivo>
+    <precondiciones>
+      <precondicion>Se simula un corte de conectividad con LPRDR501 durante la transferencia.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Corte de red a mitad de la transferencia de REFINITIV_MULTI_ISSUE.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo de transferencia en MEKYTL1058.</paso>
+      <paso numero="2">Verificar que el fichero origen NO se ha borrado tras el fallo.</paso>
+      <paso numero="3">Verificar que el siguiente ciclo (45 min después) reintenta la detección/transferencia sobre el mismo fichero.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero origen permanece intacto tras un fallo de transferencia; no hay pérdida de datos.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia del fichero en origen tras el fallo simulado.</tipoValidacion>
+    <criterioAceptacion>Fichero origen presente e inalterado tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que el job borre el fichero antes de confirmar el éxito, causando pérdida de datos (contradiría G3).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="duplicidad">
+    <nombre>Detección solapada del fichero entre 2 ciclos consecutivos</nombre>
+    <objetivo>Verificar que un fichero que tarda en transferirse no se reprocesa por el ciclo siguiente antes de completarse el borrado en origen.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1058 en curso de transferencia cuando se cumplen los 45 min del ciclo siguiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Duración simulada de la transferencia" valor="Mayor a 45 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular una transferencia de MEKYTL1058 que dure más de 45 minutos.</paso>
+      <paso numero="2">Verificar si el ciclo siguiente de FICHERO_REFINITIV_FW vuelve a detectar el mismo fichero (aún no borrado) y dispara una segunda transferencia en paralelo.</paso>
+    </pasos>
+    <resultadoEsperado>Sin lock documentado entre ciclos, existe riesgo de doble disparo del mismo fichero — se debe documentar el resultado observado, no asumirlo.</resultadoEsperado>
+    <tipoValidacion>Verificación de instancias concurrentes de MEKYTL1058 en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se registra si hubo o no doble ejecución concurrente sobre el mismo fichero.</criterioAceptacion>
+    <posibilidadFallo>Doble transferencia y doble solicitud a Refinitiv por el mismo fichero de origen.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Repetición del ciclo en días sucesivos</nombre>
+    <objetivo>Verificar que el comportamiento cíclico se mantiene estable día tras día sin degradación.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente durante al menos 2 días consecutivos con fichero disponible en distintos ciclos cada día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días de prueba" valor="2 días consecutivos, fichero llegando en distinto ciclo cada día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena en día 1 con fichero llegando a media mañana.</paso>
+      <paso numero="2">Ejecutar la cadena en día 2 con fichero llegando a última hora de la tarde.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos días completan la cadena correctamente sin acumular estado residual del día anterior.</resultadoEsperado>
+    <tipoValidacion>Comparación de resultados entre ambos días.</tipoValidacion>
+    <criterioAceptacion>Mismo comportamiento y tiempos de respuesta en ambos días, sin arrastre de estado.</criterioAceptacion>
+    <posibilidadFallo>Un fichero no borrado el día anterior interfiere con la detección del día siguiente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="e2e">
+    <nombre>Flujo end-to-end desde la llegada del fichero hasta el disparo a Refinitiv</nombre>
+    <objetivo>Validar el flujo completo desde la entrada del dato (fichero de red) hasta el resultado esperado (solicitud disparada a Refinitiv).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con capacidad de simular la llegada del fichero y observar el disparo final.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="REFINITIV_MULTI_ISSUE.csv de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero de prueba en la ruta origen.</paso>
+      <paso numero="2">Verificar el recorrido completo por los 4 jobs de la cadena.</paso>
+      <paso numero="3">Confirmar el disparo de GSProcess.sh RefinitivIssueMultiRequest con RC=0.</paso>
+    </pasos>
+    <resultadoEsperado>El flujo completo se ejecuta sin intervención manual, desde la llegada del fichero hasta la solicitud disparada a Refinitiv.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de principio a fin de la cadena.</tipoValidacion>
+    <criterioAceptacion>4 jobs OK, en el orden documentado, en un único ciclo.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio detiene el flujo antes del disparo final a Refinitiv.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

@@ -208,4 +208,24 @@
     <criterioAceptacion>Los 3 jobs aparecen en estado OK en Control-M y ambos ficheros de salida existen con contenido.</criterioAceptacion>
     <posibilidadFallo>Cualquier job en NOTOK o cualquier discrepancia en los ficheros finales invalida el caso.</posibilidadFallo>
   </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="error_funcional">
+    <nombre>ExtraccionDUCOMASTERDATA.csv se publica vacío sin bloquear la cadena</nombre>
+    <objetivo>Confirmar el comportamiento verificado por código fuente real (Principal.java): publicación incondicional ante 0 filas en las 4 secciones.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con 0 registros en las 4 secciones (Index, Calendar, Products, DAYBASISTYPE).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registros por sección" valor="0 en las 4 secciones"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar EXTRACCIONDUCOMASTERDATA con la BD sin registros en ninguna sección.</paso>
+      <paso numero="2">Verificar que el job termina OK, registra el log "Sin registros extraídos, se genera fichero vacío" y publica el fichero igualmente.</paso>
+      <paso numero="3">Verificar que MEKYTL1299 copia igualmente el fichero vacío a DataX.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se completa igual que con datos; el fichero vacío se copia a DataX y se historifica sin ninguna alerta operativa diferenciada — comportamiento confirmado por código fuente (Principal.java), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + inspección del log y del contenido de ExtraccionDUCOMASTERDATA.csv.</tipoValidacion>
+    <criterioAceptacion>3/3 jobs OK; fichero sin filas de datos copiado a DataX; log de advertencia presente.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: el consumidor final (DUCO) podría no gestionar bien un fichero sin datos.</posibilidadFallo>
+  </casoDePrueba>
 </casosDePrueba>

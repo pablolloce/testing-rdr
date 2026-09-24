@@ -319,22 +319,21 @@
       <dato campo="origen" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/SAIT/RDR_contactosSAIT.xml"/>
       <dato campo="pasarela" valor="lpftp503:/unload/transmisiones/KYTL/"/>
       <dato campo="destino_final" valor="150.100.230.96"/>
-      <dato campo="nombre_final" valor="RDR_contactosSAIT_YYYYMMDD.xml"/>
+      <dato campo="nombre_final" valor="RDR_contactosSAIT._YYYYMMDD.xml (según ficha real EX-005-03-MEKYTL1189_SND; el punto extra antes del guion bajo es probable errata de la ficha)"/>
       <dato campo="criticidad" valor="W"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar MEKYTL1189 y verificar que deja el fichero en la pasarela.</paso>
+      <paso numero="1">Ejecutar MEKYTL1189 y verificar que deja el fichero en la pasarela con nombre fijo RDR_contactosSAIT.xml (sin fecha), sobrescribiendo el de la ejecución anterior.</paso>
       <paso numero="2">Verificar que MEKYTL1189_SND se ejecuta en lpftp503, no en pr-rdr.igrupobbva.</paso>
-      <paso numero="3">Verificar que el fichero llega a 150.100.230.96 con el nombre RDR_contactosSAIT_YYYYMMDD.xml y la fecha del día de ejecución.</paso>
+      <paso numero="3">Verificar que el fichero llega a 150.100.230.96 con el nombre estampado con la fecha del día de ejecución.</paso>
       <paso numero="4">Comparar el contenido transmitido con el origen.</paso>
-      <paso numero="5">Comprobar el estado del directorio de la pasarela tras la transmisión: determinar si el fichero permanece, si se sobrescribe en la siguiente ejecución o si algún mecanismo lo elimina.</paso>
-      <paso numero="6">Repetir la ejecución al día siguiente y verificar si el directorio de la pasarela acumula dos ficheros o sigue conteniendo uno.</paso>
-      <paso numero="7">Verificar que MEKYTL1189_SND figura con criticidad W en Control-M.</paso>
+      <paso numero="5">Repetir la ejecución al día siguiente y confirmar que el directorio de la pasarela sigue conteniendo un único fichero (RDR_contactosSAIT.xml), sobrescrito, no acumulado.</paso>
+      <paso numero="6">Verificar que MEKYTL1189_SND figura con criticidad W en Control-M.</paso>
     </pasos>
-    <resultadoEsperado>El fichero llega a SAIT con el nombre estampado con la fecha y contenido idéntico al origen. El paso 6 determina el mecanismo de limpieza de la pasarela, no documentado en la ficha.</resultadoEsperado>
+    <resultadoEsperado>El fichero llega a SAIT con el nombre estampado con la fecha y contenido idéntico al origen. El fichero en la pasarela se sobrescribe en cada ejecución (nombre fijo en origen y en destino intermedio), sin acumulación, confirmado por las fichas reales de MEKYTL1189/MEKYTL1189_SND.</resultadoEsperado>
     <tipoValidacion>Listado del directorio de la pasarela antes y después de cada ejecución; comparación por checksum entre origen y fichero transmitido; verificación de la máquina de ejecución y de la criticidad en Control-M.</tipoValidacion>
-    <criterioAceptacion>Fichero íntegro en SAIT con el nombre correcto, y mecanismo de limpieza de la pasarela determinado tras dos ejecuciones consecutivas.</criterioAceptacion>
-    <posibilidadFallo>Media — el paso 6 resuelve un punto abierto de la especificación: la cadena no tiene job de borrado en pasarela, a diferencia de otros procesos del repositorio.</posibilidadFallo>
+    <criterioAceptacion>Fichero íntegro en SAIT con el nombre correcto; un único fichero en la pasarela tras dos ejecuciones consecutivas (sobrescrito, no acumulado).</criterioAceptacion>
+    <posibilidadFallo>Baja — el mecanismo de sobrescritura ya está confirmado por las fichas reales; el caso valida que el comportamiento real coincide con lo documentado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-12" tipo="happy_path">
@@ -545,7 +544,7 @@
       <dato campo="contacto_A15_y_1145" valor="no debe aparecer en ninguno de los dos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar FT_T_ENTR con TRIM(ORG_ID)='A15' y documentar el ENT_LEG_NME de la organización, para dejar identificado a quién afecta la exclusión.</paso>
+      <paso numero="1">Consultar FT_T_ENTR con TRIM(ORG_ID)='A15' y confirmar que ENT_LEG_NME='COMPASS' (BBVA Compass/BBVA USA, vendida a PNC en 2020, motivo de la exclusión).</paso>
       <paso numero="2">Cargar los cuatro perfiles y ejecutar GS_EXTRACCION_CONT.</paso>
       <paso numero="3">Verificar que el contacto con asignación A15 activa no aparece en ExtraccionContingenciaCONT.xml.</paso>
       <paso numero="4">Verificar que el contacto con asignación A15 dada de baja TAMPOCO aparece, confirmando que el NOT EXISTS ignora el estado de la asignación.</paso>
@@ -554,7 +553,7 @@
       <paso numero="7">Verificar que el contacto con A15 y acuerdos de la organización 1145 no aparece tampoco en RDR_contactosSAIT.xml: la exclusión del universo precede al filtro de la XSLT.</paso>
       <paso numero="8">Comprobar que una consulta de contraste con ORG_ID='A15' sin el espacio final no devuelve resultados, confirmando el padding de la columna.</paso>
     </pasos>
-    <resultadoEsperado>Los contactos con cualquier asignación BRANCH hacia A15 quedan fuera del fichero, con independencia del estado de esa asignación. El contacto de otra sucursal sí aparece. Queda documentada la identidad de la organización A15 y la asimetría de estado entre la query maestra y el bloque Branches.</resultadoEsperado>
+    <resultadoEsperado>Los contactos con cualquier asignación BRANCH hacia A15 (COMPASS) quedan fuera del fichero, con independencia del estado de esa asignación. El contacto de otra sucursal sí aparece. Queda confirmada la identidad de la organización A15 y su motivo de exclusión (venta a PNC en 2020), y documentada la asimetría de estado entre la query maestra y el bloque Branches.</resultadoEsperado>
     <tipoValidacion>Búsqueda de los contactos por CONTCT_OID en ambos ficheros; consulta a FT_T_ENTR; comprobación del comportamiento del padding en la comparación de ORG_ID.</tipoValidacion>
     <criterioAceptacion>La exclusión se comporta de forma consistente con el SQL y queda documentada con precisión suficiente para detectar una regresión futura, incluida la identidad de la organización afectada.</criterioAceptacion>
     <posibilidadFallo>Media — el comportamiento está confirmado en el SQL, pero el paso 4 evidencia una asimetría que puede no ser intencionada y que excluye contactos de forma permanente por una vinculación ya dada de baja.</posibilidadFallo>

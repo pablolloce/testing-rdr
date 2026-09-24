@@ -8,7 +8,7 @@
 
 ## Configuración e infraestructura
 
-- Cadena Control-M `ENVIO_CAL_MODELITY_new` dada de alta y activa de lunes a viernes; las ramas de `MEKYTL1184` (CSCF) y `MEKYTL1311` (TFIT) deben estar programadas exclusivamente para el viernes.
+- Cadena Control-M `ENVIO_CAL_MODELITY_new` dada de alta y activa de lunes a viernes, **estrictamente secuencial** (confirmado por export real: `INCOND`/`OUTCOND` de cada job, sin Fan-Out/Fan-In). Orden real: `KYTL_CAL_MODELITY_FW` → `MEKYTL1113` (XERG) → `MEKYTL1090` (BONT) → [`MEKYTL1184` (CSCF, solo viernes) / `MEKYTL1184_DUMMY` (L-J)] → `MEKYTL1266` (Mentor) → [`MEKYTL1311` (TFIT, solo viernes) / `MEKYTL1311_DUMMY` (L-J)] → `MEKYTL0863` (historificación). Los jobs `MEKYTL1184` y `MEKYTL1311` deben estar programados exclusivamente para el viernes; sus placeholders `_DUMMY` exclusivamente de lunes a jueves.
 - Conectividad de red operativa entre el origen (`pr-rdr.igrupobbva`) y todos los destinos: `LPNOV503` (ruta `PXVA`), la landing zone de BONT (`bonotasfs/incoming/`), `pr-mentor.igrupobbva` (ruta `/fichtemcomp/pr/descargas/eezt/`) y los nodos de Nova Transfer (`novatransferbatch.igrupobbva`, rutas de CSCF y `bankholidays_rdr` para TFIT).
 - Script `RAMERC0068.sh` desplegado y operativo en el entorno de ejecución de KYTL, con capacidad de capturar errores de transferencia y finalizar con los códigos de salida definidos (7, 11, 68).
 - Carpeta de historificación `/old/` disponible y con permisos de escritura para el job `MEKYTL0863`.

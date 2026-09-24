@@ -2,7 +2,7 @@
 
 **Proceso:** RDR_ExtraccionDUCOMASTERDATA
 **Folder Control-M:** `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`
-**Usuario:** miguel.saavedra
+**Usuario:** miguel.saavedra (+ hallazgo R7/Gap 9 injertado de pablo.llorente, ver §4 y §7)
 **Fecha:** 2026-09-24
 
 ## 1. Resumen ejecutivo
@@ -49,6 +49,7 @@ maestras de instrumentos, no de contrapartidas.
 | R4 | `MEKYTL1300` debe trasladar `ExtraccionDUCOMASTERDATA.csv` a `backup/ExtraccionDUCOMASTERDATA_YYYYMMDD.csv`, solo tras el evento de éxito de `MEKYTL1299`. |
 | R5 | La cadena completa debe planificarse únicamente los viernes a las 22:00. |
 | R6 | Ninguno de los 3 jobs de esta cadena debe requerir recursos cuantitativos de Control-M (comportamiento confirmado, no omisión documental). |
+| R7 | El jar `ExtraccionGenericaUnificada.jar` debe publicar `ExtraccionDUCOMASTERDATA.csv` de forma **incondicional**, incluso si las 4 secciones devuelven 0 filas — sin bloquear la copia a DataX ni la historificación. |
 
 ## 4. Gaps identificados y preguntas pendientes
 
@@ -62,6 +63,7 @@ oficiales del gestor documental y lectura del código fuente de `RAMERC0068.sh`.
 | Gap 7 — ¿"DataX" es el consumidor real? | Esta cadena no tiene ningún job de transmisión SFTP/Connect Direct como `RDR_DUCO_CPTY`; el "envío" es solo una copia local. | **Confirmado por ausencia**: revisado el listado completo de 202 folders de la aplicación KYTL en Control-M, no existe ninguna cadena relacionada con "DataX" ni ninguna otra que consuma `/unload/kytl/datsal/datax`. Se asume que DataX es una plataforma de distribución externa a las cadenas RDR que recoge automáticamente lo depositado en esa ruta — no verificable en detalle dentro del alcance analizado. |
 | Gap resuelto — ¿Copia o mueve `MEKYTL1299`? | El documento dice "Copiar"/"Copia" tres veces (fase de la cadena, tabla de flujo, propósito del job) pero la "Nota Operativa" del job dice "mover el fichero". | **Resuelto por evidencia cruzada**: `MEKYTL1300` historifica desde ese mismo path local original, por lo que el fichero debe seguir existiendo tras `MEKYTL1299` — solo es coherente con una **copia** (`COPIA_FICH`/`cp -p`), no un movimiento. Reforzado por un ejemplo real de `INFORMACION_HISTORIFICACIONES.IDX` (clave `MEKYTL1320_EI`) que usa exactamente el mismo destino `/unload/kytl/datsal/datax/` con operación `C` (Copia). La "Nota Operativa" usa "mover" de forma imprecisa. |
 | Gap 8 — Mecanismo de purga de 6 meses en `MEKYTL1300` | El documento y la ficha oficial atribuyen tanto el traslado del fichero nuevo como la purga de ficheros de +6 meses a la misma invocación de `MEKYTL1300`. | **Confirmado según documentación y ficha oficial**: `MEKYTL1300` traslada el fichero nuevo a `backup/` y purga los ficheros de más de 6 meses de esa misma ruta. |
+| Gap 9 — ¿Qué ocurre si `ExtraccionDUCOMASTERDATA.csv` resulta con 0 filas en las 4 secciones? | El documento no especifica el comportamiento ante ausencia total de datos maestro en la extracción. | **Confirmado con código fuente real** (`Principal.java`, clase `com.bbva.kytl.extraccion.Principal`, aportado y verificado en sesión — ver `documentos_fuente/codigo_fuente_duco/`): el fichero se publica de forma incondicional, incluso vacío o solo con cabecera. El propio código contempla y registra el caso explícitamente (`LOGGER.warn("Sin registros extraídos, se genera fichero vacío.")`) sin ninguna bifurcación que bloquee la publicación ni la copia a DataX (R7). |
 
 ## 5. Especificación funcional
 
@@ -74,7 +76,10 @@ oficiales del gestor documental y lectura del código fuente de `RAMERC0068.sh`.
    `Products` (desde `ft_t_isty`/`ft_t_iscd`/`ft_t_eist`/`ft_t_dsrc`, sin filtro) y
    `DAYBASISTYPE` (desde `ft_t_idmv`/`ft_t_edmv`, filtrado por `fld_data_cl_id='DAYBASIS'`).
    Escribe `ExtraccionDUCOMASTERDATA.csv` en
-   `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/`.
+   `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/`. **Publicación
+   incondicional (R7, Gap 9):** si las 4 secciones devuelven 0 filas, `Principal.java` registra
+   `LOGGER.warn("Sin registros extraídos, se genera fichero vacío.")` y publica igualmente el
+   fichero (vacío o solo con cabecera), sin ninguna bifurcación que lo impida.
 3. **Copia a DataX:** `MEKYTL1299` (usuario `xsramer1`) invoca `RAMERC0068.sh` con operación de
    copia, dejando el fichero también en `/unload/kytl/datsal/datax/ExtraccionDUCOMASTERDATA.csv`,
    sin eliminar el original.
@@ -108,11 +113,17 @@ oficiales del gestor documental y lectura del código fuente de `RAMERC0068.sh`.
   `MEKYTL1150` en `RDR_DUCO_CPTY`, `MEKYTL1300` nombra el fichero destino solo por `YYYYMMDD`
   (sin hora ni secuencia) y usa `mv`; una reejecución el mismo viernes sobrescribiría
   silenciosamente el backup ya generado ese día.
+- **Publicación incondicional ante 0 filas, confirmada por código real (R7, Gap 9, TC-010):** el
+  jar `ExtraccionGenericaUnificada.jar` (clase `Principal`) publica `ExtraccionDUCOMASTERDATA.csv`
+  aunque las 4 secciones devuelvan 0 filas, sin ningún gate de conteo mínimo. Mismo patrón ya
+  confirmado en el motor `ExtraccionGenericaOtherEntities`/`Ppal.java` usado por `RDR_DUCO_CPTY` y
+  `rdr_extraccionssis`.
 
 ## 7. Especificación de testing
 
-La estrategia combina 8 pruebas troceadas por sub-flujo/tipo de gap (TC-001 a TC-008) con 1 prueba
-end-to-end (TC-009). Los 9 casos están definidos en `casos_prueba.xml`.
+La estrategia combina 8 pruebas troceadas por sub-flujo/tipo de gap (TC-001 a TC-008), 1 prueba
+adicional sobre publicación incondicional ante 0 filas (TC-010, injertada de la versión paralela de
+pablo.llorente) y 1 prueba end-to-end (TC-009). Los 10 casos están definidos en `casos_prueba.xml`.
 
 - **TC-001** (`happy_path`): ejecución semanal estándar con datos maestro válidos en las 4
   secciones.
@@ -128,13 +139,16 @@ end-to-end (TC-009). Los 9 casos están definidos en `casos_prueba.xml`.
 - **TC-008** (`regresion`): la criticidad de `MEKYTL1300` debe seguir siendo `W` tras cualquier
   republicación del plan, no revertir a la ambigüedad "S/C" del documento original.
 - **TC-009** (`e2e`): cadena completa de los 3 jobs en la ventana real (viernes, 22:00).
+- **TC-010** (`error_funcional`): 0 filas en las 4 secciones — el job debe terminar OK y publicar
+  el fichero igualmente, sin bloquear la copia a DataX. Confirmado por código fuente real de
+  `Principal.java` (R7, Gap 9).
 
 Cada caso está definido con pasos y datos concretos, ejecutables sin interpretación adicional. La
 cobertura es completa: TC-001/TC-002/TC-004/TC-005/TC-007 cubren en detalle el sub-flujo de
 extracción unificada (paso 2); TC-003 cubre el disparador (paso 1); TC-006/TC-008 cubren la
-copia/historificación final (pasos 3-4) y su integridad; TC-009 valida que la suma de todos los
-tramos troceados coincide con el comportamiento real de principio a fin, sin ningún sub-flujo,
-transición o condición sin cubrir.
+copia/historificación final (pasos 3-4) y su integridad; TC-010 cubre el caso de 0 filas de forma
+transversal a los pasos 2-3; TC-009 valida que la suma de todos los tramos troceados coincide con
+el comportamiento real de principio a fin, sin ningún sub-flujo, transición o condición sin cubrir.
 
 ## 8. Validaciones de casos de prueba
 
@@ -146,6 +160,7 @@ transición o condición sin cubrir.
 | R4 (historificación) | TC-006, TC-008, TC-009 | El traslado final funciona y su criticidad no sufre regresión. |
 | R5 (programación) | TC-009 | La cadena solo se prueba/ejecuta en la ventana real (viernes 22:00). |
 | R6 (sin recursos cuantitativos) | — | Confirmado por observación directa en Control-M, no requiere caso de prueba dedicado (ausencia estructural, no comportamiento a validar en ejecución). |
+| R7 (publicación incondicional ante 0 filas) | TC-010 | El fichero se publica igualmente y la cadena no se bloquea, confirmado por código real de `Principal.java`. |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -163,8 +178,9 @@ transición o condición sin cubrir.
 
 La especificación se considera completa según el criterio de cierre del agente. Todos los gaps
 detectados (ambigüedad de criticidad, ausencia de recursos cuantitativos, plataforma de
-distribución DataX, comportamiento copia/mueve de `MEKYTL1299` y mecanismo de purga de
-`MEKYTL1300`) quedaron resueltos con evidencia de Control-M en vivo, fichas oficiales del
-gestor documental y lectura del código fuente de `RAMERC0068.sh`. Los 9 casos de prueba en
-`casos_prueba.xml` cubren de forma combinada (troceada + end-to-end) el funcionamiento completo
-del proceso dentro del alcance analizado.
+distribución DataX, comportamiento copia/mueve de `MEKYTL1299`, mecanismo de purga de
+`MEKYTL1300` y publicación incondicional ante 0 filas) quedaron resueltos con evidencia de
+Control-M en vivo, fichas oficiales del gestor documental, lectura del código fuente de
+`RAMERC0068.sh` y de `Principal.java`. Los 10 casos de prueba en `casos_prueba.xml` cubren de
+forma combinada (troceada + end-to-end) el funcionamiento completo del proceso dentro del
+alcance analizado.
