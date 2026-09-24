@@ -184,6 +184,7 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 | rdr_extraccionssis | miguel.saavedra | 2026-09-23 | salidas/rdr_extraccionssis/spec.md, prerrequisitos.md, casos_prueba.xml |
 | rdr_duco_cpty | miguel.saavedra | 2026-09-24 | salidas/rdr_duco_cpty/spec.md, prerrequisitos.md, casos_prueba.xml |
 | rdr_extraccionducomasterdata | miguel.saavedra | 2026-09-24 | salidas/rdr_extraccionducomasterdata/spec.md, prerrequisitos.md, casos_prueba.xml |
+| rdr_informe_mifid_new | miguel.saavedra | 2026-09-24 | `salidas/rdr_informe_mifid_new/` → `spec.md` + `prerrequisitos.md` + `casos_prueba.xml` (9 TC). Cadena mensual (tercer lunes, ~02:30) de 3 jobs sin Dummy. Usa la rama `informeMIFID` (`id="636"`) del workflow genérico compartido `GenerateReports.gsp`. Hallazgo A confirmado en producción: 50 instituciones con relaciones MGC activas múltiples en `FT_T_FIRL` producen filas duplicadas. Hallazgo B (riesgo dormido): `rownum=1` sin `ORDER BY` sobre `EXERDATE` en `FT_T_FIST`, 0 casos actuales en producción. Plantilla `Reporte_informeMIFID_Plantilla.xlsx` estática desde 03/04/2020, sin proceso de mantenimiento documentado. Riesgo de fallo silencioso en la escritura final del Excel (`InformeMIFID.java`). Sin Normas de Rearranque definidas para ninguno de los 3 jobs (mismo patrón que `rdr_extraccionssis`) |
 
 ## 5. Supuestos y decisiones pendientes de confirmación
 > Hipótesis de simulacro o pendientes de confirmar por un usuario. No deben usarse como
