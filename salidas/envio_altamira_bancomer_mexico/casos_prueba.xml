@@ -89,23 +89,23 @@
 
   <casoDePrueba id="TC-005" tipo="duplicidad">
     <nombre>Mismo código ALID asociado a dos sucursales activas distintas</nombre>
-    <objetivo>Confirmar si un código ALID compartido entre dos sucursales activas distintas termina duplicado en el fichero final aplanado. Verificado en la muestra real RDR_clientes20250726.csv (28.689 filas, 0 duplicados de ALID), pero al no disponer del SQL exacto no se descarta estructuralmente el escenario bajo otras condiciones de datos — ver riesgo 3 en spec.md.</objetivo>
+    <objetivo>Confirmar que un código ALID compartido entre dos sucursales activas distintas puede terminar duplicado en el fichero final, dado que el código real de Querys.obtenerIDs() aplica el DISTINCT sobre la cadena LISTAGG agregada por combinación institución/sucursal, no sobre el ALID individual — confirmado por código fuente real (2026-09-24, ver riesgo 3 en spec.md).</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba donde se pueda dar de alta el mismo fins_id/ALID en dos sucursales activas distintas bajo org_id=1145.</precondicion>
+      <precondicion>Entorno de prueba donde se pueda dar de alta el mismo fins_id/ALID en dos sucursales activas distintas bajo org_id=1145, generando 2 combinaciones institución/sucursal distintas en la query.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="codigo_ALID_compartido" valor="mismo fins_id asociado, vía FT_T_FIRL, a dos sucursales (fins.inst_mnem) activas y con rol MAINROL distintas"/>
-      <dato campo="RDR_clientes20250726.csv (muestra real de producción)" valor="28.689 filas de datos, columna ALID (numclien) con 28.689 valores únicos — 0 duplicados encontrados en esta ejecución real"/>
+      <dato campo="RDR_clientes20250726.csv (muestra real de producción)" valor="28.689 filas de datos, columna ALID (numclien) con 28.689 valores únicos — 0 duplicados en esta ejecución real, pese a que el diseño de la query lo permitiría"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dar de alta el mismo código ALID en dos sucursales activas distintas que cumplan los filtros de la query de extracción.</paso>
+      <paso numero="1">Dar de alta el mismo código ALID en dos sucursales activas distintas que cumplan los filtros de la query de extracción (de forma que generen 2 filas ALTAMIRA_MEX distintas en el resultado).</paso>
       <paso numero="2">Ejecutar GS_CODIGOS_ALTMEX.</paso>
-      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv para determinar si el código aparece una o dos veces.</paso>
+      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv y confirmar que el ALID aparece en 2 líneas distintas del fichero.</paso>
     </pasos>
-    <resultadoEsperado>En la muestra real analizada no se observó ningún ALID duplicado. Este caso fuerza deliberadamente el escenario (alta en 2 sucursales activas simultáneas) para confirmar si la ausencia de duplicados en producción se debe a que el escenario no se da en la práctica, o a que la query realmente lo previene.</resultadoEsperado>
+    <resultadoEsperado>El ALID compartido aparece duplicado en el fichero (una vez por cada combinación institución/sucursal), confirmando que el DISTINCT de la query no opera a nivel de ALID individual, solo sobre la cadena LISTAGG agregada.</resultadoEsperado>
     <tipoValidacion>Inspección manual del fichero generado + conteo de apariciones del código.</tipoValidacion>
-    <criterioAceptacion>El comportamiento observado queda registrado como evidencia; no hay criterio de aceptación de pase/fallo hasta que se confirme con el equipo funcional si la duplicidad entre sucursales es aceptable.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si Altamira México trata cada línea como un alta independiente, generando un conflicto o registro duplicado en destino.</posibilidadFallo>
+    <criterioAceptacion>El comportamiento observado coincide con el confirmado por código real: duplicidad posible y no filtrada por el DISTINCT.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado: si Altamira México trata cada línea como un alta independiente, un ALID duplicado por estar en 2 sucursales generaría un conflicto o registro duplicado en destino.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="borde">

@@ -110,11 +110,30 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 
 1. **Cierre asimétrico de cadena (crítico):** solo `MEKYTL1206` (historificación) dispara `RDR_ALTAMIRAMEX_SEND_OUT`. `MEKYTL1221` (transmisión a DataX) tiene su propio evento de salida, pero no está conectado al cierre de cadena. **Control-M puede reportar la cadena como completada con éxito aunque la transmisión real a DataX haya fallado o siga en curso.** Riesgo de negocio real: el fichero podría no llegar nunca a Altamira México sin que se detecte a nivel de orquestación (TC-004).
 2. **Discrepancia entre la query de envío y la query de conciliación:** `obtenerCLIs` (usada en la reconciliación, fuera de alcance de orquestación de esta especificación) no aplica ni la exclusión de los 5 códigos ni el filtro de sucursal activa `org_id='1145'` que sí aplica la extracción real. Esto podría hacer que la conciliación considere "válido en RDR" un código que nunca se envió realmente a Altamira (TC-010, documental).
-3. **Posible duplicidad de código ALID entre sucursales — verificado en muestra real, sin duplicados encontrados:** dado que la query SQL agrega por sucursal (correlacionada) antes de aplanar a una línea por código, un mismo `fins_id` asociado a más de una sucursal activa podría en teoría aparecer más de una vez en el fichero final. **Comprobado contra el fichero real de producción `RDR_clientes20250726.csv`** (28.689 filas de datos, columna `numclien`/ALID): las 28.689 filas tienen valores de ALID **únicos, 0 duplicados**. Esto confirma que, al menos en esta ejecución real, el escenario no se materializó — pero al no disponer del SQL/lógica de agregación exacta, no se puede descartar estructuralmente que ocurra bajo otras condiciones de datos (p. ej. un cliente con 2 sucursales `MAINROL` activas simultáneamente el mismo día). Riesgo rebajado de "no confirmado" a "sin evidencia de que ocurra en producción", no cerrado por diseño (TC-005).
+3. **Posible duplicidad de código ALID entre sucursales — confirmado como estructuralmente posible (2026-09-24) con el código fuente real de `Querys.obtenerIDs()`.** La query real es:
+   ```sql
+   select distinct
+     (select listagg(distinct fiid.fins_id,'|') within group(order by fiid.fins_id)
+      from ft_t_fiid fiid, ft_t_firl firl
+      where fiid.inst_mnem=firl.prnt_inst_mnem and firl.inst_mnem=fins.inst_mnem
+        and trim(firl.finsrl_typ)=fist.stat_char_val_txt
+        and fiid.fins_id_ctxt_typ='ALID' and fiid.data_stat_typ='ACTIVE'
+        and fiid.fins_id not in ('38112087','49027955','49584427','J9488131','J9488087')
+        and fiid.fins_id is not null) ALTAMIRA_MEX
+   from ft_t_fins fins, ft_t_enfr enfr, ft_t_eerl eerl, ft_t_entr entr, ft_t_fist fist
+   where enfr.finr_inst_mnem=fins.inst_mnem and eerl.org_id=enfr.org_id
+     and entr.org_id=eerl.prnt_org_id and fist.inst_mnem=fins.inst_mnem
+     and fist.stat_def_id='MAINROL ' and fist.data_stat_typ='ACTIVE'
+     and eerl.rl_typ='BRANCH  ' and eerl.data_stat_typ='ACTIVE'
+     and entr.org_id='1145' and entr.ent_typ='ENTRPRSE'
+     and trim(enfr.finsrl_typ)=fist.stat_char_val_txt and enfr.data_stat_typ='ACTIVE'
+     and fins.data_stat_typ!='INACTIVE'
+   ```
+   El `DISTINCT` de la query opera sobre el **resultado completo del `LISTAGG`** (una cadena concatenada con `|` por cada combinación institución/sucursal que cumple el `WHERE` externo), no sobre el `fins_id`/ALID individual. Esto significa que, si un mismo ALID está vinculado a más de una combinación institución-sucursal que produce cadenas `LISTAGG` distintas, **el `DISTINCT` no lo detecta ni lo filtra** — a diferencia de la query de Colombia (`SELECT DISTINCT FINS_ID` directo sobre la columna), aquí la deduplicación es a nivel de cadena agregada, no de código individual. La muestra real (`RDR_clientes20250726.csv`, 28.689 filas, 0 duplicados) confirma que el escenario no se materializó en esa ejecución, pero ya no es una hipótesis sin descartar: **está confirmado que el diseño de la query lo permite**, no lo impide (TC-005).
 4. **Sin validación de integridad de copia** en `MEKYTL1205` (mismo patrón de gap que Calendarios y Altamira Colombia).
 5. **Sin protección de concurrencia** (mismo patrón de gap que procesos anteriores).
 6. **Errata documental en la descripción funcional del folder** (mencionaba "recepción, conciliación y reporte" en vez de "envío/generación") — riesgo puramente documental, ya corregido en esta especificación.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 a 3 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación, y posible duplicidad entre sucursales). Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. La posible duplicidad de ALID entre sucursales (punto 3 de la sección 9) quedó cerrada el 2026-09-24 con el código fuente real de `Querys.obtenerIDs()`: confirmado que el diseño de la query lo permite (el `DISTINCT` opera sobre la cadena `LISTAGG` agregada, no sobre el ALID individual), no que lo impida. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 y 2 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación). Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.
