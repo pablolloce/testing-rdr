@@ -78,3 +78,24 @@ para SIRE/Emisiones), pero **sigue sin aportar prueba funcional del contenido de
 sigue abierto. Para cerrarlo haría falta el propio `emisi.csv` real (para comparar contra
 `GAP-ADHOC-004_ctpda.csv`, ya disponible) o la definición del evento `EventSireEmisi` en la consola de
 administración de GoldenSource (fuera del alcance de scripts/ficheros de configuración).
+
+## Addendum 2 (2026-09-24) — ficha oficial EX-005-03 de `FICHERO_EMISI`
+
+> Fuente: `GAP-ADHOC-004_ficha_EX-005-03_FICHERO_EMISI.pdf` — ficha formal "Descripción de Scripts" (plantilla
+> EX-005-03, "Implantación de Mejoras y Proyectos de Sistemas Distribuidos"), un tipo de documento fuente nuevo
+> en esta ronda: no es una captura de Control-M ni código fuente, sino documentación oficial de operación.
+
+Confirma campo a campo todo lo ya sabido (script, ruta, parámetros, fichero generado, predecesor/sucesor,
+periodicidad, criticidad W, grupo de soporte ANS RDR) y añade un dato nuevo: **la ruta completa, no truncada,
+de `credentials.xml`**:
+
+```
+/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml
+```
+
+(hasta ahora solo se había visto truncada como `/pr/kytl/online/multipai...` en las capturas de Control-M).
+
+**No aporta contenido de `emisi.csv`** — sigue sin resolver el gap — pero identifica una **fuente documental
+nueva y potencialmente más eficiente** para gaps pendientes: si existen fichas EX-005-03 equivalentes para
+otros scripts (p. ej. `RDR_Transformacion_FS.sh`/`GSProcess.sh` con `PARM1` completo, para GAP-ADHOC-002),
+podrían resolver esos gaps de forma más directa que las capturas manuales de Control-M.
