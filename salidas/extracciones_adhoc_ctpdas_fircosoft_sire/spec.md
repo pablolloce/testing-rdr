@@ -116,9 +116,27 @@ documentalmente en detalle), el mismo patrón de transformación genérica→esp
 extracciones: `fonetics`, `salesforce`, `mgcyg`, `mentor`, `sire`, `sicor`,
 `fich_act_eco_total`/`diario`, `dicc_con_total`/`diario`.
 
-**GAP-ADHOC-002:** confirmado el mecanismo (extracción genérica → XSLT → `Batch_Fircosoft.txt`), pero **no el
-diccionario de campos exacto** que resulta de aplicar `XSLT_FIRCO` — no se sabe si `Batch_Fircosoft.txt` lleva
-el mismo diccionario completo de Contrapartidas (305 elementos) o un subconjunto/formato propio de Fircosoft.
+**Confirmación cruzada del mecanismo de invocación (2026-09-24, `GAP-ADHOC-002_capturas_RDR_TRANSFORMACION_FS.docx`
++ `GAP-ADHOC-002_jobs_extraidos.md`):** la ficha real del job Control-M `RDR_TRANSFORMACION_FS`
+(`KYTL0000-RDR_DAILY_EXGEN_CPARTYS_new`) confirma que **no invoca `RDR_Transformacion_FS.sh` directamente**,
+sino el dispatcher genérico `GSProcess.sh` (`/pr/kytl/online/multipais/multicanal/scrt/`, usuario `xakytl1p`,
+`PARM1=TransformacionesExtr...` truncado en captura, consistente con `TransformacionesExtraccionCTPDA_FIRC...`
+ya visto en `GAP-CTPY-001_jobs_extraidos.md`) — mismo patrón "Planificador Genérico RDR" que resolvió
+GAP-ADHOC-001. Esto es coherente con la cadena ya documentada arriba (no la contradice): según el mecanismo de
+`GSProcess.sh` (`Accion=Script` → `$SCRIPT/Generico.sh <NombreScript> ...`), lo más probable es que el
+`.properties` invocado por ese `PARM1` declare `Accion=Script` con `RDR_Transformacion_FS.sh` como script real a
+ejecutar — pero esto sigue sin confirmarse literalmente porque no se dispone del contenido de ese `.properties`
+(el nombre completo del `PARM1` sigue truncado en las dos evidencias Control-M vistas hasta ahora). El script
+`RDR_Transformacion_FS.sh` en sí y su lógica interna (jar `RDR_Transformacion_Fircosoft.jar`) siguen confirmados
+por código fuente real, independientemente de este eslabón de invocación.
+
+**GAP-ADHOC-002:** confirmado el mecanismo (extracción genérica → XSLT → `Batch_Fircosoft.txt`) y ahora también
+doblemente confirmado el patrón de invocación vía dispatcher genérico (`GSProcess.sh`, evidencia Control-M
+independiente), pero **sigue sin confirmarse el diccionario de campos exacto** que resulta de aplicar
+`XSLT_FIRCO` — no se sabe si `Batch_Fircosoft.txt` lleva el mismo diccionario completo de Contrapartidas (305
+elementos) o un subconjunto/formato propio de Fircosoft. Para cerrarlo haría falta el propio `XSLT_FIRCO` (o el
+`.properties` con el nombre completo, como vía secundaria de confirmación del mecanismo, no del diccionario en
+sí).
 
 **Envío (`MEKYTL1261`, ambas cadenas):**
 
