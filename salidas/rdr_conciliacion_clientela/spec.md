@@ -27,7 +27,7 @@ Queda fuera de alcance: la implementación interna de `RDR_REFUNDICION_new` (esp
 | R3 | `KYTL_CONCLI_GSPROCESS` (Run As `xakytl1p`): `Delta` → `QuitarNulos` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Java(RDR_PLSQL.jar)` → `Java(RDR_Report.jar)` → `Unix2Dos`. Genera `Reporte_ConClientela_dos.csv`. |
 | R4 | `MEKYTL0131` (Run As `xsramer1`) envía el reporte a `MVP00G215` como `Reporte_ConClientela_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. |
 | R5 | `MEKYTL0130` (Run As `xsramer1`) historifica `ConClientela.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. Fin de cadena. |
-| R6 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado como placeholder de cabecera** que agrupa los niveles de severidad posibles del folder (no un valor único), ya que ningún job individual de esta cadena desglosa su propia criticidad. Interpretación funcional razonable aportada por el usuario (no verificada job a job): fallos de filewatcher/historificación ⇒ impacto `W`; fallos de motores Java/PL-SQL de carga/conciliación ⇒ escalado a `S`/`C`. |
+| R6 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado como placeholder de cabecera** que agrupa los niveles de severidad posibles del folder (no un valor único), ya que ningún job individual de esta cadena desglosa su propia criticidad. Interpretación funcional confirmada: fallos de filewatcher/historificación ⇒ impacto `W`; fallos de motores Java/PL-SQL de carga/conciliación ⇒ escalado a `S`/`C`. |
 | R7 | **Patrón transversal P-021:** sin validación de integridad de negocio ni protección de concurrencia/lock documentadas. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
@@ -35,7 +35,7 @@ Queda fuera de alcance: la implementación interna de `RDR_REFUNDICION_new` (esp
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
 | G1 | ¿La detención por ausencia de `ConClientela.csv` genera alerta o es un fallo silencioso? | Confirmado: genera alerta (email + ticket Remedy) — R2. |
-| G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional razonable (no verificada por job) — R6. Aplicable también a `RDR_PR_BDICLIENREG_RESP_new` y `RDR_REFUNDICION_new`. |
+| G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R6. Aplicable también a `RDR_PR_BDICLIENREG_RESP_new` y `RDR_REFUNDICION_new`. |
 
 ## 5. Especificación funcional
 
