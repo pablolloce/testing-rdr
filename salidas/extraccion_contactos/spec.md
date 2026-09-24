@@ -737,7 +737,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
 | RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
-| RG-19 | El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25) pese a que la extracción sigue funcionando con normalidad (confirmado empíricamente: `RDR_contactosSAIT.xml` reciente, con contenido real) | El significado funcional real de `DATA_STAT_TYP` en esta tabla es incierto: si en algún momento el motor empezara a filtrar por este campo, la extracción dejaría de encontrar su query maestra sin previo aviso | Verificar contra el código real de `Querys.java` (no disponible) si el `SELECT` sobre `FT_T_ATE1` filtra por `DATA_STAT_TYP`; documentado como riesgo de trazabilidad, no como fallo activo (§9) |
+| RG-19 | **Resuelto con el código fuente real de `Querys.java` (2026-09-24).** El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25), pero **ninguno de los `SELECT` que el motor ejecuta contra `FT_T_ATE1` filtra por `DATA_STAT_TYP`** (`obtenerEntidades`, `obtenerExtraccion`, `obtenerFichero` — los 3 hacen `WHERE ACTION_NME = '...'` sin más condición). El campo es funcionalmente inerte para esta búsqueda: por eso la extracción sigue funcionando con normalidad pese al `INACTIVE` | El nombre del campo (`DATA_STAT_TYP=INACTIVE`) sugiere a cualquiera que revise `FT_T_ATE1` que la acción está deshabilitada, cuando en realidad no tiene ningún efecto sobre el motor — riesgo de que alguien intente "desactivar" esta extracción marcando el campo, sin que surta efecto, o de que alguien mal interprete el estado actual como una extracción parada | Ninguna: el comportamiento actual es correcto y está confirmado. Documentar que `DATA_STAT_TYP` en `FT_T_ATE1` no es un mecanismo de activación/desactivación real para este motor, para evitar confusión futura |
 
 ---
 
@@ -805,20 +805,21 @@ primero con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND`, el segundo con e
 real de `ExtraccionGenericaCONT` y el código fuente real de `Ppal.java` (`NUM_THREADS =
 Integer.parseInt(args[2])`, usado en `Executors.newFixedThreadPool`).
 
-**Hallazgo nuevo, no bloqueante pero a vigilar (2026-09-24).** Al intentar resolver si la ausencia
-de filtro por `DATA_STAT_TYP` en la exclusión `A15` es deliberada, una consulta real sobre
-`FT_T_ATE1` reveló que el propio registro de la acción `ExtraccionCONT.sql` (la query maestra del
-universo de contactos) tiene `DATA_STAT_TYP = INACTIVE` (último cambio `15-SEP-25`,
-`LAST_CHG_USR_ID = BBVA:CUSTOMER`). Esto no aporta nada sobre el motivo de diseño de la exclusión
-A15 (queda sin resolver, ver más abajo), pero plantea una pregunta más seria: ¿el motor de
-extracción filtra por `DATA_STAT_TYP='ACTIVE'` al buscar la acción por `ACTION_NME`, o le es
-indiferente el estado? **Confirmado empíricamente por el usuario:** el fichero real
-`RDR_contactosSAIT.xml` es de los últimos días y no está vacío ni contiene error — la cadena sigue
-funcionando con normalidad pese al `INACTIVE`. Esto indica que el motor no usa `DATA_STAT_TYP` como
-filtro de disponibilidad de la acción (o que el campo no tiene el significado de "acción
-deshabilitada" que su nombre sugiere), pero no se ha podido confirmar contra el código exacto de
-`Querys.java` (la clase que ejecuta el `SELECT` sobre `FT_T_ATE1`, no incluida en la evidencia
-recibida — solo se dispone de `Ppal.java`, la clase principal que la invoca).
+**Hallazgo nuevo, resuelto por completo (2026-09-24).** Al intentar resolver si la ausencia de
+filtro por `DATA_STAT_TYP` en la exclusión `A15` es deliberada, una consulta real sobre `FT_T_ATE1`
+reveló que el propio registro de la acción `ExtraccionCONT.sql` (la query maestra del universo de
+contactos) tiene `DATA_STAT_TYP = INACTIVE` (último cambio `15-SEP-25`, `LAST_CHG_USR_ID =
+BBVA:CUSTOMER`). Esto no aporta nada sobre el motivo de diseño de la exclusión A15 (queda sin
+resolver, ver más abajo), pero planteó una pregunta más seria: ¿el motor de extracción filtra por
+`DATA_STAT_TYP='ACTIVE'` al buscar la acción por `ACTION_NME`, o le es indiferente el estado? **El
+código fuente real de `Querys.java` lo confirma sin ambigüedad: no filtra.** Los 3 métodos que
+hacen `SELECT` sobre `FT_T_ATE1` por `ACTION_NME` (`obtenerEntidades`, `obtenerExtraccion`,
+`obtenerFichero`) no incluyen ninguna condición sobre `DATA_STAT_TYP` — cogen la fila que coincide
+con el `ACTION_NME`, esté o no marcada `INACTIVE`. El campo sí se usa como filtro en otras
+queries de la misma clase (contra `FT_T_PAR1`, para las etiquetas raíz), pero nunca sobre
+`FT_T_ATE1`. Conclusión: `DATA_STAT_TYP=INACTIVE` en el registro de `ExtraccionCONT.sql` es
+funcionalmente inerte para este motor — no es un mecanismo real de activación/desactivación, pese
+a lo que su nombre sugiere (RG-19).
 
 **Puntos abiertos, ninguno bloqueante:**
 
@@ -828,5 +829,3 @@ recibida — solo se dispone de `Ppal.java`, la clase principal que la invoca).
 3. **Motivo de diseño de la asimetría `DATA_STAT_TYP` en la exclusión `A15`** (RG-06): sigue sin
    confirmarse si es deliberado o un descuido — es una pregunta de intención de diseño, no
    verificable por código ni por fichas.
-4. **Efecto real de `DATA_STAT_TYP=INACTIVE` en `FT_T_ATE1.ExtraccionCONT.sql`**: comportamiento
-   empíricamente normal confirmado, mecanismo exacto (código de `Querys.java`) no verificado.
