@@ -38,8 +38,10 @@
 
 ## Flujos previos que deben haberse completado
 
-- **Importante (GAP-ADHOC-001, no confirmado):** si se confirma que `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS`
-  son la generación real de `ThirdParties.xml`/`ExtraccionContingencia.xml`, cualquier prueba conjunta con
+- **Importante (GAP-ADHOC-001, reforzado por evidencia real, no confirmado):** el listado de navegación de
+  ambos folders (`documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md`) descarta un tercer job oculto, pero sigue
+  sin confirmarse que `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` sean la generación real de
+  `ThirdParties.xml`/`ExtraccionContingencia.xml`. Si se confirma, cualquier prueba conjunta con
   "Extracción Genérica de Contrapartidas" debería reconciliar el horario (00:05h documentado allí vs.
   01:00-01:05h/03:00-03:05h aquí) antes de asumir una secuencia end-to-end fiable.
 - **Importante:** antes de cualquier prueba sobre Fircosoft, confirmar que `RDR_TRANSFORMACION_FS` de la cadena

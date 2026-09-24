@@ -67,33 +67,34 @@
 
   <casoDePrueba id="TC-004" tipo="borde">
     <nombre>Los eventos cross-chain se consumen sin destruir la señal (columna Eliminar = No)</nombre>
-    <objetivo>Confirmar que los prerrequisitos que consumen eventos generados por otra cadena (Fircosoft: evento de RDR_TRANSFORMACION_FS; SIRE interno: eventos entre jobs propios) no borran la señal original al consumirla, y aclarar si EXTRACCION_THIRDPARTYS de _D publica o no evento de salida (GAP-ADHOC-003).</objetivo>
+    <objetivo>Confirmar que los prerrequisitos que consumen eventos generados por otra cadena (Fircosoft: evento de RDR_TRANSFORMACION_FS; SIRE interno: eventos entre jobs propios) no borran la señal original al consumirla, y confirmar en revisiones futuras que EXTRACCION_THIRDPARTYS de _D sigue sin publicar evento de salida (GAP-ADHOC-003, ya resuelto con 26 capturas reales de Control-M — documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md).</objetivo>
     <precondiciones>
       <precondicion>Acceso a la definición real de Control-M de MEKYTL1261 (ambas variantes) y de la cadena RDR_SIRE_new.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Columna Eliminar de los prerrequisitos" valor="documentada como 'No' en MEKYTL1261, FICHERO_EMISI, MEKYTL0072, MEKYTL0072_SND, MEKYTL0072_DEL"/>
-      <dato campo="EXTRACCION_THIRDPARTYS (_D)" valor="sin bloque de Acciones/Eventos de Salida documentado, a diferencia de _W"/>
+      <dato campo="EXTRACCION_THIRDPARTYS (_D)" valor="confirmado con evidencia real: pestaña Acciones genuinamente vacía, sin ningún evento — a diferencia de _W, que sí publica RDR_EXTRACCION_CTPDAS_W_EXTRACCION_THIRDPARTYS_OK"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Verificar en Control-M que el evento consumido por MEKYTL1261 sigue existiendo después de su ejecución (no se elimina).</paso>
       <paso numero="2">Repetir la verificación para los eventos internos de la cadena RDR_SIRE_new.</paso>
-      <paso numero="3">Inspeccionar la pestaña Acciones de EXTRACCION_THIRDPARTYS en RDR_EXTRACCION_CTPDAS_D y confirmar si publica o no algún evento de salida (comparar con la variante _W, que sí publica RDR_EXTRACCION_CTPDAS_W_EXTRACCION_THIRDPARTYS_OK).</paso>
+      <paso numero="3">Inspeccionar la pestaña Acciones de EXTRACCION_THIRDPARTYS en RDR_EXTRACCION_CTPDAS_D y confirmar que sigue sin publicar ningún evento de salida (comportamiento real ya confirmado, no una omisión de captura).</paso>
     </pasos>
-    <resultadoEsperado>Los eventos cross-chain persisten tras su consumo (comportamiento "No eliminar" confirmado); se determina si EXTRACCION_THIRDPARTYS de _D publica evento de salida o no.</resultadoEsperado>
+    <resultadoEsperado>Los eventos cross-chain persisten tras su consumo (comportamiento "No eliminar" confirmado); EXTRACCION_THIRDPARTYS de _D sigue sin publicar evento de salida.</resultadoEsperado>
     <tipoValidacion>Inspección directa de la definición real de Control-M (pestañas Prerrequisitos y Acciones).</tipoValidacion>
-    <criterioAceptacion>Comportamiento "No eliminar" confirmado; GAP-ADHOC-003 resuelto con el resultado del paso 3, actualizando spec.md si difiere de lo documentado.</criterioAceptacion>
+    <criterioAceptacion>Comportamiento "No eliminar" confirmado; ausencia de evento en EXTRACCION_THIRDPARTYS (_D) confirmada de nuevo. Si en algún momento publicara un evento, actualizar spec.md con el cambio.</criterioAceptacion>
     <posibilidadFallo>Si algún evento se eliminara al consumirse, podría romper otros consumidores no documentados de la cadena origen — sería un defecto de diseño a escalar a ANS RDR.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="conflicto_integridad">
     <nombre>¿Generan EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS los ficheros de origen de la Extracción Genérica de Contrapartidas? (GAP-ADHOC-001)</nombre>
-    <objetivo>Confirmar o refutar la hipótesis de que estos 2 jobs son la ficha de job ausente para la generación de ThirdParties.xml/ExtraccionContingencia.xml, documentada como "proceso interno RDR sin ficha" en salidas/extraccion_generica_contrapartidas/spec.md.</objetivo>
+    <objetivo>Confirmar o refutar la hipótesis de que estos 2 jobs son la ficha de job ausente para la generación de ThirdParties.xml/ExtraccionContingencia.xml, documentada como "proceso interno RDR sin ficha" en salidas/extraccion_generica_contrapartidas/spec.md. El listado de navegación de ambos folders (documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md) ya descartó que exista un tercer job oculto — solo falta la confirmación funcional/de logs.</objetivo>
     <precondiciones>
       <precondicion>Acceso al script GSProcess.sh o a sus logs de ejecución con el parámetro ExtraccionGenericaCPTY/ExtraccionGenericaTHIRDPARTIES.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ThirdParties.xml, ExtraccionContingencia.xml" valor="verificar si su timestamp de generación coincide con la ejecución de EXTRACCION_THIRDPARTYS (01:00/03:00h) y EXTRACCION_CPTDAS (01:05/03:05h)"/>
+      <dato campo="Listado de navegación de RDR_EXTRACCION_CTPDAS_D/_W" valor="confirmado: solo 2 jobs por folder (EXTRACCION_CPTDAS, EXTRACCION_THIRDPARTYS), sin ningún tercero oculto"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Tras una ejecución real de EXTRACCION_CPTDAS y EXTRACCION_THIRDPARTYS, verificar si ThirdParties.xml y ExtraccionContingencia.xml aparecen o se actualizan en la ruta esperada inmediatamente después.</paso>
