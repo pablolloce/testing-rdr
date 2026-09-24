@@ -215,6 +215,36 @@ pero es evidencia **estructural/técnica, no funcional** — no confirma el cont
 evidencia. Si se confirma, el título del documento fuente ("Extracciones ad hoc de contrapartidas... Sire")
 estaría desactualizado para este bloque concreto: ya no extrae/envía contrapartidas, sino emisiones.
 
+**Refuerzo adicional (2026-09-24):**
+
+1. **Ruta real confirmada de `ctpda.csv`** (rama Contrapartidas→SIRE, `RDR_DAILY_EXGEN_CPARTYS_new`):
+   `/fichtemcomp/pr/descargas/kytl/sire_files/ctpda.csv` — generado por `RDR_TRANSFORMACION_SIRE`
+   (`ctpdaDDMMYYYYCC.csv`) y consolidado por `ELIMINATEDUPLICATES_SIRE` (dato ya en
+   `documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`, cruzado aquí por primera vez). **Es la misma carpeta**
+   donde cae `emisi.csv` (`sire_files/emisi.csv`), aunque cada fichero lo genera una cadena distinta.
+2. **`ctpda.csv` real aportado por el usuario** (`documentos_fuente/GAP-ADHOC-004_ctpda.csv`, 27.512 filas, 29
+   columnas, sin cabecera, `;`-delimitado): contiene código de entidad, código MEX/MX, nombre, código de plaza
+   y una columna de clasificación **FINANCIAL/NON FINANCIAL**; ~2.000 filas referencian explícitamente
+   **`BANXICO`** ("Reporting Delegation Model") — confirma con datos reales que `ctpda.csv` es un fichero de
+   contrapartidas para reporting regulatorio mexicano (Banco de México), coherente con el dominio
+   "Contrapartidas" ya documentado para esta rama.
+3. **Segunda ficha completa de `RDR_SIRE_new`** (31 capturas independientes,
+   `documentos_fuente/GAP-ADHOC-004_capturas_RDR_SIRE_new_v2_ficha_completa.docx`) re-confirma campo a campo la
+   tabla de los 6 jobs sin discrepancias, y aporta la ruta real de `FICHERO_EMISI`:
+   `/usr/local/pr/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts/executeBbvaEvent.sh`
+   — confirma que el mecanismo de invocación **no es la familia de scripts KYTL** (`GSProcess.sh` y similares,
+   usada por toda la cadena de Contrapartidas), sino herramientas nativas del **motor GoldenSource Fileloading
+   Engine**. El script real (`documentos_fuente/GAP-ADHOC-004_executeBbvaEvent.sh`) confirma que es un
+   lanzador 100% genérico de eventos GoldenSource asíncronos (vía `raiseEvent.sh`/JBoss) — sin lógica de
+   negocio propia, mismo patrón "dispatcher" que `GSProcess.sh` mostró para GAP-ADHOC-001, pero para un motor
+   completamente distinto. La lógica real de qué contiene `emisi.csv` vive server-side, en la definición del
+   evento `EventSireEmisi` dentro de GoldenSource — fuera del alcance de los ficheros vistos hasta ahora.
+
+**Balance:** ahora se dispone de referencia real y confirmada de `ctpda.csv` (dominio Contrapartidas/Banxico,
+formato de 29 columnas) y de un desacople de mecanismo de invocación aún más marcado entre ambas ramas. Sigue
+faltando el único dato que cerraría el gap con prueba funcional: el `emisi.csv` real, para comparar
+estructura/dominio directamente contra `ctpda.csv`.
+
 ## 2. Alcance del proceso
 
 **Ámbito funcional:** documentar las 5 cadenas del documento fuente como un único proceso — generación
