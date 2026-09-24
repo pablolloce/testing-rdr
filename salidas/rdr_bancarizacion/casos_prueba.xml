@@ -8,7 +8,7 @@
       <precondicion>Cadena RDR_BANCARIZACION_new activa y programada para el día de ejecución (Martes-Sábado).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero generado por KYTL_BANC_GSPROCESS"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero generado por KYTL_BANC_GSPROCESS"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar KYTL_BANC_GSPROCESS tras las 00:30 AM y verificar la generación del fichero.</paso>
@@ -85,23 +85,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
-    <nombre>Verificación del naming real de MEKYTL0157</nombre>
-    <objetivo>Determinar si el nombre real del fichero destino en XCOMWPMER lleva el espacio entre "Clientes" y "Bancarizacion" (como el origen) o no (como está documentado), dada la discrepancia abierta.</objetivo>
+    <nombre>Verificación del naming confirmado y la criticidad de MEKYTL0157</nombre>
+    <objetivo>Confirmar que el fichero llega a XCOMWPMER con el nombre real sin espacios (`ListadoClientesBancarizacion_yyyymmdd.csv`), según la ficha EX-005-03, y que el job dispara aviso inmediato (criticidad C) ante fallo.</objetivo>
     <precondiciones>
       <precondicion>Acceso a la ruta de destino en XCOMWPMER para inspección directa.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="nombre_a_verificar_1" valor="Listado ClientesBancarizacion_yyyymmdd.csv (documentado)"/>
-      <dato campo="nombre_a_verificar_2" valor="Listado Clientes Bancarizacion_yyyymmdd.csv (con espacio, como el origen)"/>
+      <dato campo="nombre_real_confirmado" valor="ListadoClientesBancarizacion_yyyymmdd.csv (ficha EX-005-03-MEKYTL0157, sin espacios en origen ni destino)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar MEKYTL0157 con un fichero de prueba.</paso>
-      <paso numero="2">Inspeccionar el nombre exacto del fichero depositado en XCOMWPMER.</paso>
+      <paso numero="2">Inspeccionar el nombre exacto del fichero depositado en XCOMWPMER y confirmar que coincide con el patrón sin espacios.</paso>
+      <paso numero="3">Provocar un fallo en MEKYTL0157 y verificar que dispara aviso inmediato (criticidad C) a ANS RDR.</paso>
     </pasos>
-    <resultadoEsperado>Se confirma cuál de los dos nombres es el real, resolviendo la discrepancia documental abierta.</resultadoEsperado>
-    <tipoValidacion>Inspección directa del nombre de fichero en destino.</tipoValidacion>
-    <criterioAceptacion>Un único nombre queda confirmado como el real; se actualiza la documentación fuente con el resultado.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si el sistema receptor MVP00G215 espera un patrón de nombre exacto para su procesamiento automático y el nombre real no coincide con lo documentado.</posibilidadFallo>
+    <resultadoEsperado>El fichero llega con el nombre exacto `ListadoClientesBancarizacion_yyyymmdd.csv`; un fallo del job genera aviso inmediato (C), no una alerta W estándar.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del nombre de fichero en destino + verificación del tipo de alerta ante fallo.</tipoValidacion>
+    <criterioAceptacion>Nombre real confirmado sin discrepancias; alerta de criticidad C recibida ante fallo simulado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el tratamiento de alerta configurado en Control-M no correspondiera realmente con C, o si el nombre real difiriera del confirmado por la ficha.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
@@ -111,7 +111,7 @@
       <precondicion>Cadena ejecutada con éxito hasta los 3 destinos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero real con N líneas"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero real con N líneas"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Calcular manualmente un checksum del fichero origen.</paso>
@@ -173,7 +173,7 @@
       <precondicion>Fichero origen generado y disponible en /fichtemcomp/pr/descargas/kytl/bancarizacion/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero origen antes de la ejecución de MEKYTL0436"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero origen antes de la ejecución de MEKYTL0436"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Registrar el nombre y la ubicación del fichero origen antes de ejecutar MEKYTL0436.</paso>

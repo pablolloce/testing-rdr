@@ -2,7 +2,7 @@
 
 ## Datos y ficheros previos
 
-- La fuente de datos que alimenta `RDR_Report.jar` (no documentada con detalle de query/tablas) debe estar disponible y actualizada antes de las 00:30 AM del día de ejecución, para que `KYTL_BANC_GSPROCESS` pueda generar `Listado Clientes Bancarizacion_dos.txt`.
+- La fuente de datos que alimenta `RDR_Report.jar` (no documentada con detalle de query/tablas) debe estar disponible y actualizada antes de las 00:30 AM del día de ejecución, para que `KYTL_BANC_GSPROCESS` pueda generar `ListadoClientesBancarizacion_dos.txt`.
 - El fichero generado se formatea con `Unix2Dos` antes de la distribución; no hay diccionario de datos disponible para validar su contenido exacto (gap de evidencia, ver `spec.md` sección 4).
 
 ## Configuración e infraestructura
