@@ -206,4 +206,25 @@
     <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o ejecución fuera de la ventana MXJVS invalida el caso.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>Estructura real de 9 campos del fichero de bancarización</nombre>
+    <objetivo>Verificar que un registro real generado por KYTL_BANC_GSPROCESS respeta la estructura de 9 campos confirmada por la query real (select.properties, clave querybancarizacion), incluidas las 2 columnas que la muestra de producción muestra siempre vacías.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero generado por KYTL_BANC_GSPROCESS disponible para inspección.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="registro_real_muestra" valor="EQUIPOS PARA MANUTENCION Y OBRAS S.A.;A28338077;177425;005299497;A28338077;;;ES;2372 (muestra de producción real, 98.905 registros)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tomar un registro cualquiera del fichero generado.</paso>
+      <paso numero="2">Contar los campos separados por ";" y verificar que son exactamente 9.</paso>
+      <paso numero="3">Verificar que los campos 6 (ORIGBANC) y 7 (ORIGOFIC) están vacíos, tal como en el 100% de la muestra real analizada.</paso>
+      <paso numero="4">Verificar que el campo 4 (CLIENTELAID) está siempre poblado y que el campo 8 (país) contiene un código ISO de 2 letras válido.</paso>
+    </pasos>
+    <resultadoEsperado>Todo registro tiene 9 campos separados por ";"; los campos ORIGBANC/ORIGOFIC llegan vacíos; CLIENTELAID y país están siempre poblados con el formato esperado.</resultadoEsperado>
+    <tipoValidacion>Inspección de campos del fichero real generado, contraste contra la query y la muestra de producción.</tipoValidacion>
+    <criterioAceptacion>Estructura de 9 campos respetada en el 100% de los registros; ORIGBANC/ORIGOFIC vacíos; CLIENTELAID y país siempre poblados.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si un cambio futuro en el esquema GoldenSource (nuevos FT_T_FIST con STAT_DEF_ID='ORIGBANC'/'ORIGOFIC' poblados) alterase el contenido de columnas hasta ahora siempre vacías, sin que el fichero destino lo refleje correctamente.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>
