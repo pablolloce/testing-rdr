@@ -204,8 +204,8 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-08" tipo="happy_path">
-    <nombre>Nodo de reparto MEKYTL0895 y habilitación de las ramas de distribución</nombre>
-    <objetivo>Verificar que MEKYTL0895 se ejecuta correctamente como nodo de secuencia, habilita las cinco ramas vigentes y ya no genera el fichero de Mentor.</objetivo>
+    <nombre>Nodo de reparto MEKYTL0895: habilitación de las 8 ramas de distribución y generación del CSV</nombre>
+    <objetivo>Verificar que MEKYTL0895 se ejecuta correctamente como nodo de secuencia, habilita las 8 ramas vigentes (incluidas GMIP/THOR/PXVA, identificadas en esta sesión) y genera BBVAContracts.csv internamente. Confirmar además si genera o no el fichero de Mentor, dado que su .properties (entorno "ei") sí contiene esa lógica — gap abierto, ver spec.md §4.5.</objetivo>
     <precondiciones>
       <precondicion>MEKYTL0900 ejecutado con éxito.</precondicion>
       <precondicion>BBVAContracts.xml disponible en LAGR/.</precondicion>
@@ -214,21 +214,22 @@
     <datosEmpleados>
       <dato campo="script" valor="GSProcess.sh"/>
       <dato campo="parametro" valor="transformarBBVAContracts"/>
-      <dato campo="ramas_sucesoras" valor="MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S"/>
-      <dato campo="fichero_mentor_esperado" valor="ninguno"/>
+      <dato campo="ramas_sucesoras" valor="MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S, MEKYTL1246, MEKYTL1264, MEKYTL1307"/>
+      <dato campo="fichero_mentor_a_verificar" valor="LAGR/MENTOR/BBVAContracts_mentor.xml — resultado no asumido, es lo que este caso determina"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar MEKYTL0895.</paso>
       <paso numero="2">Verificar que el job termina en estado OK.</paso>
-      <paso numero="3">Verificar que NO se ha creado LAGR/MENTOR/BBVAContracts_mentor.xml.</paso>
-      <paso numero="4">Verificar que los cinco jobs sucesores quedan habilitados para su ejecución.</paso>
-      <paso numero="5">Verificar que MEKYTL0886, MEKYTL1172, MEKYTL1104 y MEKYTL1104_S leen el mismo BBVAContracts.xml de LAGR/.</paso>
-      <paso numero="6">Verificar que FW_BBVAContracts_RDR_2 y MEKYTL0896 no se ejecutan por pertenecer a la rama decomisada.</paso>
+      <paso numero="3">Verificar si se ha creado o no LAGR/MENTOR/BBVAContracts_mentor.xml (determina cuál de las 2 hipótesis del gap abierto aplica en producción).</paso>
+      <paso numero="4">Verificar que se genera BBVAContracts.csv en LAGR/ a partir del XML ya normalizado (Agreements_Nodes.xsl aplicado in situ).</paso>
+      <paso numero="5">Verificar que los 8 jobs sucesores (MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S, MEKYTL1246, MEKYTL1264, MEKYTL1307) quedan habilitados para su ejecución.</paso>
+      <paso numero="6">Verificar que todos leen el mismo BBVAContracts.xml de LAGR/.</paso>
+      <paso numero="7">Verificar que FW_BBVAContracts_RDR_2 y MEKYTL0896 no se ejecutan por pertenecer a la rama decomisada.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL0895 termina OK sin generar el fichero de Mentor. Las cinco ramas vigentes quedan habilitadas y consumen el XML de LAGR/. La rama Mentor no se ejecuta.</resultadoEsperado>
-    <tipoValidacion>Estado de los jobs en Control-M; listado del directorio LAGR/MENTOR/; revisión de las dependencias declaradas en la estructura de la cadena.</tipoValidacion>
-    <criterioAceptacion>Ninguna escritura en LAGR/MENTOR/ y las cinco ramas vigentes habilitadas.</criterioAceptacion>
-    <posibilidadFallo>Media — el job conserva el nombre y la descripción de una transformación que ya no realiza, lo que dificulta interpretar su comportamiento esperado.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL0895 termina OK y genera BBVAContracts.csv. Las 8 ramas vigentes quedan habilitadas y consumen el XML de LAGR/. La rama Mentor (jobs Control-M) no se ejecuta. El resultado del paso 3 (fichero de Mentor sí/no) queda documentado como evidencia para cerrar el gap abierto, sin asumir de antemano cuál es el resultado correcto.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M; listado del directorio LAGR/MENTOR/; existencia y contenido de BBVAContracts.csv; revisión de las dependencias declaradas en la estructura de la cadena.</tipoValidacion>
+    <criterioAceptacion>Las 8 ramas vigentes habilitadas y BBVAContracts.csv generado; el resultado sobre el fichero de Mentor queda registrado, no forzado.</criterioAceptacion>
+    <posibilidadFallo>Media — el job conserva el nombre y la descripción de una transformación a Mentor cuyo estado real no está confirmado en producción (gap abierto).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-09" tipo="negativo">
@@ -531,16 +532,40 @@
       <paso numero="1">Registrar el contenido de la ruta de destino de Mentor antes de la ejecución.</paso>
       <paso numero="2">Ejecutar la cadena completa.</paso>
       <paso numero="3">Verificar que FW_BBVAContracts_RDR_2, MEKYTL0896 y MEKYTL0954 no se ejecutan.</paso>
-      <paso numero="4">Verificar que no se crea el directorio LAGR/MENTOR/ ni ningún fichero en su interior.</paso>
-      <paso numero="5">Verificar que la ruta de destino de Mentor no ha recibido ningún fichero nuevo.</paso>
+      <paso numero="4">Registrar si se crea o no el directorio LAGR/MENTOR/ y qué ficheros contiene (ver gap abierto: el .properties de entorno "ei" de MEKYTL0895 sí incluye la generación completa del fichero de Mentor — no asumir de antemano que estará vacío).</paso>
+      <paso numero="5">Verificar que la ruta de destino de Mentor (`pr-mentor.igrupobbva`) no ha recibido ningún fichero nuevo — este paso sí es una aserción firme, independiente del resultado del paso 4, porque los jobs de Control-M que transmitirían a Mentor (FW_BBVAContracts_RDR_2, MEKYTL0896) están confirmados decomisados.</paso>
       <paso numero="6">Verificar que las cadenas RDR_BBVAContracts_M y RDR_BBVAContracts_L no están planificadas ni se han ejecutado.</paso>
       <paso numero="7">Verificar que las cadenas de respuesta ACK/NACK no están activas.</paso>
-      <paso numero="8">Contrastar el inventario de jobs activos con los 21 pasos vigentes identificados en la especificación.</paso>
+      <paso numero="8">Contrastar el inventario de jobs activos con los 23 jobs confirmados por el export real de Control-M (spec.md §4.9).</paso>
     </pasos>
-    <resultadoEsperado>Ningún job de la rama Mentor se ejecuta, no se crea el directorio intermedio, la ruta de destino de Mentor no recibe ficheros y las cadenas incrementales y de respuesta permanecen inactivas. El inventario de jobs activos coincide con los pasos vigentes documentados.</resultadoEsperado>
+    <resultadoEsperado>Ningún job de Control-M de la rama Mentor se ejecuta y la ruta de destino final de Mentor no recibe ficheros — esto es firme. La creación o no de LAGR/MENTOR/BBVAContracts_mentor.xml queda registrada como evidencia para cerrar el gap abierto sobre el .properties, sin resultado esperado predefinido. El inventario de jobs activos coincide con los 23 confirmados en spec.md §4.9.</resultadoEsperado>
     <tipoValidacion>Estado de los jobs en Control-M; listado de LAGR/MENTOR/ y de la ruta de destino de Mentor antes y después; revisión de la planificación de las cadenas decomisadas; contraste del inventario de jobs activos.</tipoValidacion>
-    <criterioAceptacion>Cero ficheros nuevos en la ruta de Mentor, cero jobs de la rama decomisada en ejecución, y el inventario de jobs activos sin discrepancias respecto a lo documentado.</criterioAceptacion>
-    <posibilidadFallo>Media — MEKYTL0895 conserva el nombre y la descripción de la transformación a Mentor pese a ya no generarla, por lo que una configuración parcialmente revertida podría reactivar la escritura en LAGR/MENTOR/.</posibilidadFallo>
+    <criterioAceptacion>Cero ficheros nuevos en la ruta final de Mentor, cero jobs de Control-M de la rama decomisada en ejecución, y el inventario de jobs activos sin discrepancias respecto a los 23 documentados. El resultado sobre LAGR/MENTOR/ se registra, no se exige como criterio de pase/fallo.</criterioAceptacion>
+    <posibilidadFallo>Media — si el .properties de producción coincide con el de entorno "ei" analizado en sesión, el paso 4 generará el fichero de Mentor pese a que la ruta final no lo reciba; esto sería código muerto activo, no un fallo de la prueba.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-19" tipo="happy_path">
+    <nombre>Ramas de distribución GMIP, NOVA THOR y PXVA (identificadas en esta sesión)</nombre>
+    <objetivo>Verificar que MEKYTL1246, MEKYTL1264 y MEKYTL1307 — 3 ramas de distribución reales confirmadas por export de Control-M y fichas EX-005-03, no decomisadas como se asumía — transmiten correctamente BBVAContracts.xml a sus 3 destinos NOVA respectivos.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0895 ejecutado con éxito, BBVAContracts.xml disponible en LAGR/.</precondicion>
+      <precondicion>Conectividad de red operativa hacia novatransferbatch.igrupobbva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL1246 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/GMIP/gmipfs/incoming/rdr/BBVAContracts_yyyymmdd.xml"/>
+      <dato campo="MEKYTL1264 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/THOR/thorfs/incoming/RDR/ContratosBBVA/BBVAContracts_yyyymmdd.xml"/>
+      <dato campo="MEKYTL1307 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/BBVAContracts_yyyymmdd.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1246, MEKYTL1264 y MEKYTL1307 tras la finalización de MEKYTL0895.</paso>
+      <paso numero="2">Verificar que los 3 jobs terminan en OK.</paso>
+      <paso numero="3">Verificar la presencia del fichero BBVAContracts_yyyymmdd.xml en las 3 rutas de destino (GMIP, THOR, PXVA), con el ODATE correcto en el nombre.</paso>
+      <paso numero="4">Verificar que MEKYTL0953 (historificación final) espera la finalización en OK de los 3 jobs como parte de su condición de entrada (AND con el resto de predecesores).</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan en OK y el fichero llega a las 3 rutas NOVA correspondientes con el naming correcto; MEKYTL0953 no se dispara hasta que los 3 (y el resto de predecesores) confirman su OK.</resultadoEsperado>
+    <tipoValidacion>Estado de los 3 jobs en Control-M + verificación de presencia y naming de fichero en cada ruta destino.</tipoValidacion>
+    <criterioAceptacion>3/3 ficheros presentes en destino con naming correcto; MEKYTL0953 bloqueado hasta que los 3 confirman OK.</criterioAceptacion>
+    <posibilidadFallo>Que alguno de los 3 jobs no esté realmente activo en producción pese a aparecer en el export analizado, o que el destino real difiera del documentado en la ficha EX-005-03 correspondiente.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
