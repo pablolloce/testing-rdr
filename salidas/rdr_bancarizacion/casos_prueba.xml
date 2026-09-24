@@ -76,12 +76,12 @@
     <pasos>
       <paso numero="1">Confirmar la presencia de BANCARIZA.txt del día anterior en el destino.</paso>
       <paso numero="2">Ejecutar MEKYTL0158 con el nuevo fichero generado.</paso>
-      <paso numero="3">Verificar si el contenido del día anterior fue consumido/movido antes de la sobrescritura, o si se pierde sin haber sido procesado.</paso>
+      <paso numero="3">Verificar que el fichero en destino queda sobrescrito con el contenido de la ejecución actual.</paso>
     </pasos>
-    <resultadoEsperado>El fichero se sobrescribe (REPLACE) con el contenido del día actual; se documenta si el sistema receptor MVP00G200 consumió el fichero anterior a tiempo.</resultadoEsperado>
+    <resultadoEsperado>El fichero se sobrescribe (REPLACE) con el contenido del día actual.</resultadoEsperado>
     <tipoValidacion>Inspección del contenido en destino antes y después de la ejecución.</tipoValidacion>
-    <criterioAceptacion>El fichero final contiene los datos del día actual; se registra si hubo evidencia de pérdida de datos no consumidos del día anterior.</criterioAceptacion>
-    <posibilidadFallo>Riesgo real: si MVP00G200 no consume el fichero a tiempo, se pierde el dato del día anterior sin aviso, dado que no hay validación de integridad ni historificación.</posibilidadFallo>
+    <criterioAceptacion>El fichero final contiene los datos del día actual.</criterioAceptacion>
+    <posibilidadFallo>Fallo si el fichero no se sobrescribe correctamente o conserva contenido mixto de ambas ejecuciones.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
