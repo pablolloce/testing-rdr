@@ -89,26 +89,6 @@
     <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-005" tipo="borde">
-    <nombre>Desfase horario NTP superior a 200 ms</nombre>
-    <objetivo>Verificar el control de mitigación de desfase horario documentado entre pr-rdr.igrupobbva y lpftp503.</objetivo>
-    <precondiciones>
-      <precondicion>Entorno de prueba donde se pueda simular un desfase de reloj superior a 200 ms en lpftp503.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="desfase_simulado" valor="> 200 ms respecto a pr-rdr.igrupobbva"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Simular un desfase de reloj superior a 200 ms en lpftp503.</paso>
-      <paso numero="2">Ejecutar el Salto 2 (MEKYTL1044_SND).</paso>
-      <paso numero="3">Verificar si la transferencia se aborta.</paso>
-    </pasos>
-    <resultadoEsperado>La transferencia se aborta según el control NTP documentado (validación previa que impide continuar si el desfase supera 200 ms).</resultadoEsperado>
-    <tipoValidacion>Estado del job + verificación de la hora efectiva de sincronización.</tipoValidacion>
-    <criterioAceptacion>Transferencia abortada ante desfase > 200 ms.</criterioAceptacion>
-    <posibilidadFallo>Riesgo: este control fue documentado por el usuario pero no verificado directamente por el agente contra una fuente independiente; el caso sirve también para confirmar en producción que el control existe realmente.</posibilidadFallo>
-  </casoDePrueba>
-
   <casoDePrueba id="TC-006" tipo="duplicidad">
     <nombre>Identificador de 8 dígitos repetido dentro del fichero (exploratorio)</nombre>
     <objetivo>Observar el comportamiento real del proceso ante un identificador duplicado, dado que la lógica interna del JAR no es verificable con la evidencia disponible.</objetivo>

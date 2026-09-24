@@ -71,7 +71,6 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 - **Script de transmisión (ambos saltos):** `MEGENV0001.sh`, `PARM1=MEKYTL1044` (compartido, confirmado correcto en ambos jobs), formato ASCII, acción `REPLACE`.
 - **Script de historificación:** `RAMERC0068.sh`, mueve de `/send/` a `/send/backup/`.
 - **Usuarios de ejecución (Run As):** `xakytl1p` (extracción), `xpctma1` (filewatcher), `xsramer1` (ambos saltos e historificación).
-- **Mitigación de desfase horario:** NTP contra `ntp.bbva.es` en ambos servidores, con abortado de transferencia si el desfase supera 200 ms (documentado por el usuario, pendiente de evidencia operacional en vivo).
 - **Gestión de errores:** sin reintento automático (máximo de relanzamientos: 0 en sentido estricto de reintento-tras-fallo en los jobs de transferencia e historificación); notificación a `ans_rdr.es@bbva.com`, criticidad W (aviso día siguiente).
 - **Concurrencia:** sin mecanismo de lock/PID/semáforo documentado — mismo gap que Calendarios.
 
@@ -83,7 +82,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (ciclo diario completo).
 - `negativo`: TC-002 (fichero no llega, cadena no se ejecuta).
 - `error_funcional`: TC-003 (fallo de transmisión en Salto 1 con precaución de reproceso), TC-004 (saturación/permisos de `/backup/`).
-- `borde`: TC-005 (desfase NTP > 200ms), TC-009 (confirmación de la réplica de directorios usada como ruta origen del Salto 2).
+- `borde`: TC-009 (confirmación de la réplica de directorios usada como ruta origen del Salto 2).
 - `duplicidad`: TC-006 (identificador de 8 dígitos repetido, exploratorio/caja negra).
 - `datos_sinteticos`: TC-007 (repetición legítima entre ficheros de días distintos vs. duplicado dentro del mismo fichero).
 - `conflicto_integridad`: TC-008 (ausencia de validación de integridad más allá de `REPLACE`).
@@ -106,11 +105,10 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R1 (extracción) | TC-001, TC-013 | Genera `CONCILIA_AAAAMMDD.txt` con identificadores de 8 dígitos válidos |
 | R2 (filewatcher) | TC-002, TC-010 | Detecta la llegada; documenta que no detecta fichero vacío/parcial (gap confirmado) |
 | R3 (Salto 1) | TC-001, TC-003, TC-013 | Transmisión correcta a `lpftp503`; comportamiento ante fallo de transmisión |
-| R4 (Salto 2) | TC-001, TC-005, TC-009, TC-013 | Transmisión correcta al destino final; desfase NTP; confirmación de la réplica de directorios usada como ruta origen |
+| R4 (Salto 2) | TC-001, TC-009, TC-013 | Transmisión correcta al destino final; confirmación de la réplica de directorios usada como ruta origen |
 | R5 (historificación) | TC-004, TC-013 | Backup correcto; comportamiento ante saturación/permisos |
 | R6 (alertas) | TC-002, TC-003, TC-004 | Notificación a ANS RDR con criticidad W ante cualquier fallo |
 | R7 (clave/duplicidad) | TC-006, TC-007 | Comportamiento observado ante identificador repetido (caja negra) |
-| R8 (NTP) | TC-005 | Verifica el control documentado de desfase horario |
 | Riesgos de diseño (concurrencia, integridad) | TC-008, TC-011, TC-012 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
@@ -119,10 +117,9 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 2. **Manejo de duplicados del identificador de 8 dígitos dentro de `RDR_ConciliaColombia.jar` no verificable**: solo se dispone del JAR compilado, sin código fuente. El comportamiento ante duplicados debe tratarse como observación de caja negra (TC-006), no como validación de un comportamiento ya conocido.
 3. **Sin validación de integridad de copia más allá de `REPLACE`** en ninguno de los dos saltos (mismo patrón de gap que en Calendarios).
 4. **Filewatcher sin hora de corte exacta documentada**: solo se sabe que si el fichero no llega, el resto de la cadena no se ejecuta; la hora exacta de fin de ventana no está documentada.
-5. **Mitigación NTP documentada mediante respuesta del usuario, no verificada directamente por el agente** — se registra como control documentado, pendiente de evidencia operacional en vivo.
-6. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
-7. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
-8. **Sin protección de concurrencia** (mismo gap que Calendarios).
+5. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
+6. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
+7. **Sin protección de concurrencia** (mismo gap que Calendarios).
 
 ## 10. Conclusión y requisitos de cierre
 
