@@ -130,13 +130,26 @@ ejecutar — pero esto sigue sin confirmarse literalmente porque no se dispone d
 `RDR_Transformacion_FS.sh` en sí y su lógica interna (jar `RDR_Transformacion_Fircosoft.jar`) siguen confirmados
 por código fuente real, independientemente de este eslabón de invocación.
 
+**`PARM1` completo confirmado (2026-09-24, `GAP-ADHOC-002_ficha_EX-005-03_RDR_TRANSFORMACION_FS.pdf`,
+ficha oficial "Descripción de Scripts" EX-005-03 para la estructura `RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new`):**
+el comando real es
+```
+/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh TransformacionesExtraccionCTPDA_FIRCOSOFT
+```
+— resuelve la incógnita que quedaba truncada tanto en `GAP-CTPY-001_jobs_extraidos.md` como en la ficha Control-M
+de `GAP-ADHOC-002_capturas_RDR_TRANSFORMACION_FS.docx`. El `.properties` real que invoca `GSProcess.sh` es, con
+alta probabilidad (mismo patrón que resolvió GAP-ADHOC-001), `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties`
+en `$CONF=/pr/kytl/online/multipais/multicanal/dat/properties/`. Esta ficha también confirma predecesor
+`MEKYTL1261_S`, sucesores `RDR_TRANSFORMACION_FAED`/`VALIDACION_EXTRACCION`, y la norma de rearranque "en caso
+de fallo se deben liberar sucesores y continuar con la ejecución".
+
 **GAP-ADHOC-002:** confirmado el mecanismo (extracción genérica → XSLT → `Batch_Fircosoft.txt`) y ahora también
-doblemente confirmado el patrón de invocación vía dispatcher genérico (`GSProcess.sh`, evidencia Control-M
-independiente), pero **sigue sin confirmarse el diccionario de campos exacto** que resulta de aplicar
-`XSLT_FIRCO` — no se sabe si `Batch_Fircosoft.txt` lleva el mismo diccionario completo de Contrapartidas (305
-elementos) o un subconjunto/formato propio de Fircosoft. Para cerrarlo haría falta el propio `XSLT_FIRCO` (o el
-`.properties` con el nombre completo, como vía secundaria de confirmación del mecanismo, no del diccionario en
-sí).
+el mecanismo de invocación completo con el mismo nivel de certeza que cerró GAP-ADHOC-001 (dispatcher genérico
+`GSProcess.sh` + nombre exacto del `.properties`). **Sigue sin confirmarse el diccionario de campos exacto** que
+resulta de aplicar `XSLT_FIRCO` — no se sabe si `Batch_Fircosoft.txt` lleva el mismo diccionario completo de
+Contrapartidas (305 elementos) o un subconjunto/formato propio de Fircosoft. Para cerrar el gap en sí hace falta
+el contenido de `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` (ya identificable por nombre exacto) y/o
+el propio `XSLT_FIRCO`.
 
 **Envío (`MEKYTL1261`, ambas cadenas):**
 

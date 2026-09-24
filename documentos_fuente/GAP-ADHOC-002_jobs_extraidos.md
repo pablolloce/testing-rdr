@@ -88,3 +88,34 @@ falta uno de:
 - El propio `RDR_Transformacion_Fircosoft.jar`/su código, o el fichero `XSLT_FIRCO`, que son los que
   determinarían el diccionario de campos exacto de `Batch_Fircosoft_${AAAAMMDD}.txt` — esta es la única vía que
   resuelve el gap en sí (el diccionario de campos), independientemente de cómo se invoque el jar.
+
+## Addendum (2026-09-24) — ficha oficial EX-005-03 de `RDR_TRANSFORMACION_FS`: `PARM1` completo confirmado
+
+> Fuente: `GAP-ADHOC-002_ficha_EX-005-03_RDR_TRANSFORMACION_FS.pdf` — ficha oficial "Descripción de Scripts"
+> (misma plantilla EX-005-03 que resolvió el dato de `credentials.xml` en GAP-ADHOC-004), para la estructura
+> `RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new` (cadena semanal de sábado).
+
+**Confirma el nombre completo y no truncado del parámetro**, cerrando la incógnita que quedaba abierta desde
+`GAP-CTPY-001_jobs_extraidos.md` y `GAP-ADHOC-002_capturas_RDR_TRANSFORMACION_FS.docx` (ambos truncados en
+`TransformacionesExtr...`):
+
+```
+Comando: /pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh TransformacionesExtraccionCTPDA_FIRCOSOFT
+```
+
+Es decir, el `.properties` real es (con alta probabilidad, mismo patrón que `ExtraccionGenericaCPTY.properties`
+de GAP-ADHOC-001) `$CONF/TransformacionesExtraccionCTPDA_FIRCOSOFT.properties`, con
+`$CONF=/pr/kytl/online/multipais/multicanal/dat/properties/`.
+
+También confirma: predecesor `MEKYTL1261_S`, sucesores `RDR_TRANSFORMACION_FAED`/`VALIDACION_EXTRACCION`,
+periodicidad "S a partir de las 03:00", criticidad W, grupo de soporte ANS RDR, y la nota operativa "EN CASO DE
+FALLO SE DEBEN LIBERAR SUCESORES Y CONTINUAR CON LA EJECUCIÓN" (mismo patrón de tolerancia a fallo ya visto en
+otros jobs `RDR_TRANSFORMACION_*`/`ELIMINATEDUPLICATES_*`).
+
+**Esto confirma con el mismo nivel de certeza que GAP-ADHOC-001 el mecanismo completo de invocación** (dispatcher
+genérico `GSProcess.sh` + nombre exacto del `.properties`), pero **el gap en sí (diccionario de campos de
+`Batch_Fircosoft_${AAAAMMDD}.txt`) sigue sin resolverse** — para eso hace falta el contenido del propio
+`.properties` (jar, clase, argumentos — el mismo tipo de fichero que cerró GAP-ADHOC-001) y/o el `XSLT_FIRCO`
+real. Con el nombre exacto ya confirmado, pedir
+`TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` es ahora una solicitud concreta y dirigida, no una
+búsqueda a ciegas.
