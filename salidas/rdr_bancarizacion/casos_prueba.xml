@@ -8,7 +8,7 @@
       <precondicion>Cadena RDR_BANCARIZACION_new activa y programada para el día de ejecución (Martes-Sábado).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero generado por KYTL_BANC_GSPROCESS"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero generado por KYTL_BANC_GSPROCESS"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar KYTL_BANC_GSPROCESS tras las 00:30 AM y verificar la generación del fichero.</paso>
@@ -76,32 +76,32 @@
     <pasos>
       <paso numero="1">Confirmar la presencia de BANCARIZA.txt del día anterior en el destino.</paso>
       <paso numero="2">Ejecutar MEKYTL0158 con el nuevo fichero generado.</paso>
-      <paso numero="3">Verificar si el contenido del día anterior fue consumido/movido antes de la sobrescritura, o si se pierde sin haber sido procesado.</paso>
+      <paso numero="3">Verificar que el fichero en destino queda sobrescrito con el contenido de la ejecución actual.</paso>
     </pasos>
-    <resultadoEsperado>El fichero se sobrescribe (REPLACE) con el contenido del día actual; se documenta si el sistema receptor MVP00G200 consumió el fichero anterior a tiempo.</resultadoEsperado>
+    <resultadoEsperado>El fichero se sobrescribe (REPLACE) con el contenido del día actual.</resultadoEsperado>
     <tipoValidacion>Inspección del contenido en destino antes y después de la ejecución.</tipoValidacion>
-    <criterioAceptacion>El fichero final contiene los datos del día actual; se registra si hubo evidencia de pérdida de datos no consumidos del día anterior.</criterioAceptacion>
-    <posibilidadFallo>Riesgo real: si MVP00G200 no consume el fichero a tiempo, se pierde el dato del día anterior sin aviso, dado que no hay validación de integridad ni historificación.</posibilidadFallo>
+    <criterioAceptacion>El fichero final contiene los datos del día actual.</criterioAceptacion>
+    <posibilidadFallo>Fallo si el fichero no se sobrescribe correctamente o conserva contenido mixto de ambas ejecuciones.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
-    <nombre>Verificación del naming real de MEKYTL0157</nombre>
-    <objetivo>Determinar si el nombre real del fichero destino en XCOMWPMER lleva el espacio entre "Clientes" y "Bancarizacion" (como el origen) o no (como está documentado), dada la discrepancia abierta.</objetivo>
+    <nombre>Verificación del naming confirmado y la criticidad de MEKYTL0157</nombre>
+    <objetivo>Confirmar que el fichero llega a XCOMWPMER con el nombre real sin espacios (`ListadoClientesBancarizacion_yyyymmdd.csv`), según la ficha EX-005-03, y que el job dispara aviso inmediato (criticidad C) ante fallo.</objetivo>
     <precondiciones>
       <precondicion>Acceso a la ruta de destino en XCOMWPMER para inspección directa.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="nombre_a_verificar_1" valor="Listado ClientesBancarizacion_yyyymmdd.csv (documentado)"/>
-      <dato campo="nombre_a_verificar_2" valor="Listado Clientes Bancarizacion_yyyymmdd.csv (con espacio, como el origen)"/>
+      <dato campo="nombre_real_confirmado" valor="ListadoClientesBancarizacion_yyyymmdd.csv (ficha EX-005-03-MEKYTL0157, sin espacios en origen ni destino)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar MEKYTL0157 con un fichero de prueba.</paso>
-      <paso numero="2">Inspeccionar el nombre exacto del fichero depositado en XCOMWPMER.</paso>
+      <paso numero="2">Inspeccionar el nombre exacto del fichero depositado en XCOMWPMER y confirmar que coincide con el patrón sin espacios.</paso>
+      <paso numero="3">Provocar un fallo en MEKYTL0157 y verificar que dispara aviso inmediato (criticidad C) a ANS RDR.</paso>
     </pasos>
-    <resultadoEsperado>Se confirma cuál de los dos nombres es el real, resolviendo la discrepancia documental abierta.</resultadoEsperado>
-    <tipoValidacion>Inspección directa del nombre de fichero en destino.</tipoValidacion>
-    <criterioAceptacion>Un único nombre queda confirmado como el real; se actualiza la documentación fuente con el resultado.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si el sistema receptor MVP00G215 espera un patrón de nombre exacto para su procesamiento automático y el nombre real no coincide con lo documentado.</posibilidadFallo>
+    <resultadoEsperado>El fichero llega con el nombre exacto `ListadoClientesBancarizacion_yyyymmdd.csv`; un fallo del job genera aviso inmediato (C), no una alerta W estándar.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del nombre de fichero en destino + verificación del tipo de alerta ante fallo.</tipoValidacion>
+    <criterioAceptacion>Nombre real confirmado sin discrepancias; alerta de criticidad C recibida ante fallo simulado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si el tratamiento de alerta configurado en Control-M no correspondiera realmente con C, o si el nombre real difiriera del confirmado por la ficha.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
@@ -111,7 +111,7 @@
       <precondicion>Cadena ejecutada con éxito hasta los 3 destinos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero real con N líneas"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero real con N líneas"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Calcular manualmente un checksum del fichero origen.</paso>
@@ -173,7 +173,7 @@
       <precondicion>Fichero origen generado y disponible en /fichtemcomp/pr/descargas/kytl/bancarizacion/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Listado Clientes Bancarizacion_dos.txt" valor="fichero origen antes de la ejecución de MEKYTL0436"/>
+      <dato campo="ListadoClientesBancarizacion_dos.txt" valor="fichero origen antes de la ejecución de MEKYTL0436"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Registrar el nombre y la ubicación del fichero origen antes de ejecutar MEKYTL0436.</paso>
@@ -204,6 +204,27 @@
     <tipoValidacion>Verificación de estado de los 4 jobs + comparación de contenido en los 3 destinos + verificación del calendario de ejecución.</tipoValidacion>
     <criterioAceptacion>Cadena ejecutada sin KOs en los días programados, contenido íntegro en los 3 destinos, sin ejecución fuera de ventana.</criterioAceptacion>
     <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o ejecución fuera de la ventana MXJVS invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>Estructura real de 9 campos del fichero de bancarización</nombre>
+    <objetivo>Verificar que un registro real generado por KYTL_BANC_GSPROCESS respeta la estructura de 9 campos confirmada por la query real (select.properties, clave querybancarizacion), incluidas las 2 columnas que la muestra de producción muestra siempre vacías.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero generado por KYTL_BANC_GSPROCESS disponible para inspección.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="registro_real_muestra" valor="EQUIPOS PARA MANUTENCION Y OBRAS S.A.;A28338077;177425;005299497;A28338077;;;ES;2372 (muestra de producción real, 98.905 registros)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tomar un registro cualquiera del fichero generado.</paso>
+      <paso numero="2">Contar los campos separados por ";" y verificar que son exactamente 9.</paso>
+      <paso numero="3">Verificar que los campos 6 (ORIGBANC) y 7 (ORIGOFIC) están vacíos, tal como en el 100% de la muestra real analizada.</paso>
+      <paso numero="4">Verificar que el campo 4 (CLIENTELAID) está siempre poblado y que el campo 8 (país) contiene un código ISO de 2 letras válido.</paso>
+    </pasos>
+    <resultadoEsperado>Todo registro tiene 9 campos separados por ";"; los campos ORIGBANC/ORIGOFIC llegan vacíos; CLIENTELAID y país están siempre poblados con el formato esperado.</resultadoEsperado>
+    <tipoValidacion>Inspección de campos del fichero real generado, contraste contra la query y la muestra de producción.</tipoValidacion>
+    <criterioAceptacion>Estructura de 9 campos respetada en el 100% de los registros; ORIGBANC/ORIGOFIC vacíos; CLIENTELAID y país siempre poblados.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si un cambio futuro en el esquema GoldenSource (nuevos FT_T_FIST con STAT_DEF_ID='ORIGBANC'/'ORIGOFIC' poblados) alterase el contenido de columnas hasta ahora siempre vacías, sin que el fichero destino lo refleje correctamente.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

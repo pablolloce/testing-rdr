@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_ISSUES_RE_PRO_new" fecha="2026-09-22" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Bloque 1 (ReportingEngine) completo sin fallos</nombre>
+    <objetivo>Verificar el recorrido completo del bloque 20:00h: generación, filewatcher, validación XSD, 5 envíos en paralelo y convergencia.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena activa; conectividad con los 5 destinos del bloque 1 (APX, BigData, Datio/S3, IHS Markit, Calculation Engine).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual"/>
+      <dato campo="Fichero" valor="emisiones.xml válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_ISSUES_RE_PRO a las 20:00h, verificar generación de emisiones.xml y evento OK.</paso>
+      <paso numero="2">Verificar detección por FW_RDR_ISSUES_RE_PRO dentro de la ventana de 3h.</paso>
+      <paso numero="3">Verificar validación XSD exitosa en MEKYTL0811 y disparo de las 5 ramas paralelas.</paso>
+      <paso numero="4">Verificar los 5 envíos (MEKYTL0802, MEKYTL0844, MEKYTL0874, MEKYTL1105, MEKYTL1124) con RC=0.</paso>
+      <paso numero="5">Verificar que MEKYTL0536 dispara al recibir los 6 eventos AND y empaqueta el fichero.</paso>
+      <paso numero="6">Verificar que MANT_RDR_ISSUES_RE_PRO purga backups &gt;7 días y genera sus 2 eventos.</paso>
+    </pasos>
+    <resultadoEsperado>Los 8 jobs del bloque 1 terminan OK en el orden documentado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs OK, ficheros presentes en los 5 destinos y en Backup/.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Bloque 2 (Resto) completo sin fallos, incluida sub-convergencia</nombre>
+    <objetivo>Verificar el recorrido completo del bloque 23:00h: generación, filewatcher, validación XSD, 8 ramas paralelas (incluida la sub-convergencia de 3 ramas en RDRKYTL001) y convergencia final del bloque.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena activa; conectividad con los 8 destinos/ramas del bloque 2.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="emisiones.resto.xml válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_ISSUES_RESTO_T a las 23:00h, verificar generación de emisiones.resto.xml.</paso>
+      <paso numero="2">Verificar detección por FW_RDR_ISSUES_RESTO_T dentro de la ventana de 2h.</paso>
+      <paso numero="3">Verificar validación XSD exitosa en RDRKYTL002 y disparo de las 8 ramas.</paso>
+      <paso numero="4">Verificar los 7 envíos directos (Mentor, KLYO, DataX local, Quotepad, Nova/XCTT, AMIWEB, HYDRA) con RC=0.</paso>
+      <paso numero="5">Verificar RDRKYTL001 (transformación) y sus 3 sub-ramas (Terminals ES, Terminals MX, DataX sin borrado) hasta MEKYTL1139.</paso>
+      <paso numero="6">Verificar que MEKYTL0981 dispara al recibir los 8 eventos AND (incluido MEKYTL1139).</paso>
+    </pasos>
+    <resultadoEsperado>Todos los jobs del bloque 2 terminan OK, incluida la sub-convergencia de 3 ramas.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M.</tipoValidacion>
+    <criterioAceptacion>Todos los jobs del bloque 2 en OK, ficheros presentes en los 7+3 destinos.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="negativo">
+    <nombre>Timeout del filewatcher del bloque 1 (RC=7)</nombre>
+    <objetivo>Confirmar la alerta por email cuando emisiones.xml no aparece en la ventana de 3h.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_ISSUES_RE_PRO falla o no genera el fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente durante toda la ventana de escucha"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar la ausencia de emisiones.xml durante toda la ventana de FW_RDR_ISSUES_RE_PRO.</paso>
+      <paso numero="2">Verificar RC=7 al agotarse el timeout.</paso>
+      <paso numero="3">Verificar el envío de email a ans_rdr.es@bbva.com.</paso>
+    </pasos>
+    <resultadoEsperado>Se genera la alerta por email; MEKYTL0811 y el resto del bloque 1 no se ejecutan.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC y de la notificación por correo.</tipoValidacion>
+    <criterioAceptacion>Email recibido; ningún job posterior del bloque 1 cambia de estado.</criterioAceptacion>
+    <posibilidadFallo>Que el bloque 2 (independiente) se vea afectado indebidamente por el fallo del bloque 1.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="negativo">
+    <nombre>Timeout del filewatcher del bloque 2 (RC=7)</nombre>
+    <objetivo>Confirmar la alerta por email cuando emisiones.resto.xml no aparece en la ventana de 2h.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_ISSUES_RESTO_T falla o no genera el fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente durante las 2h de escucha"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar la ausencia de emisiones.resto.xml durante las 2h de FW_RDR_ISSUES_RESTO_T.</paso>
+      <paso numero="2">Verificar RC=7 y el envío de email de alerta.</paso>
+    </pasos>
+    <resultadoEsperado>Alerta enviada; RDRKYTL002 y las 8 ramas del bloque 2 no se ejecutan.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC y de la notificación por correo.</tipoValidacion>
+    <criterioAceptacion>Email recibido; ningún job posterior del bloque 2 cambia de estado.</criterioAceptacion>
+    <posibilidadFallo>Que MEKYTL1028 quede bloqueado indefinidamente esperando el cierre del bloque 2 sin ninguna alerta adicional de ese bloqueo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Validación XSD del bloque 1 detecta XML mal formado</nombre>
+    <objetivo>Confirmar que MEKYTL0811 detiene el bloque 1 si emisiones.xml no cumple el esquema.</objetivo>
+    <precondiciones>
+      <precondicion>emisiones.xml generado con estructura inválida (etiqueta de cierre faltante en &lt;Security&gt;).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="emisiones.xml con nodo &lt;Security&gt; sin cerrar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sustituir emisiones.xml por la variante mal formada tras el filewatcher.</paso>
+      <paso numero="2">Ejecutar MEKYTL0811 y verificar RC≠0.</paso>
+      <paso numero="3">Verificar que las 5 ramas paralelas no se disparan.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0811 falla y bloquea el resto del bloque 1; se genera alerta C (inmediata).</resultadoEsperado>
+    <tipoValidacion>Verificación de RC y de ausencia de disparo de las 5 ramas.</tipoValidacion>
+    <criterioAceptacion>0 de las 5 ramas se ejecutan tras el fallo de validación.</criterioAceptacion>
+    <posibilidadFallo>Nota de evidencia: el detalle exacto del algoritmo de validación (troceado awk/xmllint) es declaración de usuario sin fichero fuente (gap G7) — el caso valida el comportamiento observable (RC y bloqueo), no el algoritmo interno.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>MEKYTL0536 no dispara hasta los 6 eventos, incluido el redundante del padre</nombre>
+    <objetivo>Verificar el comportamiento cuando faltan solo los eventos "redundantes" para completar el AND de 6.</objetivo>
+    <precondiciones>
+      <precondicion>Los 5 hijos de MEKYTL0811 han terminado OK, pero el evento propio MEKYTL0811_OK aún no se ha registrado en Control-M (escenario de prueba forzado, si el entorno lo permite).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Eventos recibidos" valor="5 de 6 (todos salvo MEKYTL0811_OK)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar en Control-M el estado de espera de MEKYTL0536 con 5 de 6 condiciones cumplidas.</paso>
+      <paso numero="2">Confirmar que MEKYTL0536 NO dispara hasta que se registra también el evento del padre.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0536 permanece en espera hasta que se cumplen las 6 condiciones, confirmando la redundancia como comportamiento real (gap G1).</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones de Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0536 solo cambia a "listo para ejecutar" con las 6 condiciones marcadas.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare con solo 5 de 6, lo que contradiría la configuración documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Reenvío del mismo emisiones.xml el mismo ODATE</nombre>
+    <objetivo>Comprobar el comportamiento ante un relanzamiento manual duplicado de RDR_ISSUES_RE_PRO el mismo día.</objetivo>
+    <precondiciones>
+      <precondicion>Bloque 1 ya completado con éxito para el ODATE del día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="mismo día, 2 ejecuciones (RC del script controlado en cada una)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Relanzar manualmente RDR_ISSUES_RE_PRO tras una ejecución ya completada con éxito el mismo ODATE.</paso>
+      <paso numero="2">Verificar si el segundo emisiones.xml sobrescribe al primero antes de que MEKYTL0536 lo haya empaquetado, o si genera conflicto de nombre.</paso>
+    </pasos>
+    <resultadoEsperado>Sin control de duplicidad documentado a nivel de fichero (mismo nombre fijo emisiones.xml); se debe registrar el comportamiento observado, no asumirlo.</resultadoEsperado>
+    <tipoValidacion>Verificación de fichero y de eventos duplicados en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se documenta si hay sobrescritura silenciosa o error de Control-M por evento ya consumido.</criterioAceptacion>
+    <posibilidadFallo>Pérdida del primer emisiones.xml si el segundo lo sobrescribe antes del empaquetado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Fallo de 1 de las 5 ramas del bloque 1 bloquea la convergencia</nombre>
+    <objetivo>Confirmar que MEKYTL0536 no dispara si falta cualquiera de los 5 envíos paralelos (fan-in real, sin el patrón de riesgo ya visto en otras cadenas RDR).</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0874 (envío a Datio/S3) configurado para fallar.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama forzada a fallar" valor="MEKYTL0874"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0874 manteniendo el resto de ramas OK.</paso>
+      <paso numero="2">Verificar que MEKYTL0536 permanece en espera indefinidamente (no dispara con 4 de 5 más el evento del padre).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0536 no se ejecuta; el bloque 1 queda bloqueado en la convergencia hasta resolver el fallo de MEKYTL0874.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0536 en estado de espera mientras falte cualquiera de las 6 condiciones.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente con una condición incumplida (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>MEKYTL0981 no dispara hasta las 8 ramas del bloque 2</nombre>
+    <objetivo>Verificar el AND estricto de 8 eventos en el colector final del bloque "Resto".</objetivo>
+    <precondiciones>
+      <precondicion>7 de las 8 ramas completadas, falta MEKYTL1139 (sub-convergencia de Terminals/DataX).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Eventos recibidos" valor="7 de 8"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Completar las 7 ramas directas del bloque 2 dejando pendiente MEKYTL1139.</paso>
+      <paso numero="2">Verificar que MEKYTL0981 permanece en espera.</paso>
+      <paso numero="3">Completar MEKYTL1139 y verificar el disparo inmediato de MEKYTL0981.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0981 solo dispara cuando las 8 condiciones están cumplidas, no antes.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0981 en espera con 7/8; dispara al completarse la 8ª.</criterioAceptacion>
+    <posibilidadFallo>Disparo prematuro con 7/8 (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Fallo de 1 de las 8 ramas del bloque 2 bloquea la convergencia final</nombre>
+    <objetivo>Confirmar el fan-in real del bloque 2 ante el fallo de una rama distinta a la sub-convergencia.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1146 (Mentor) configurado para fallar.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama forzada a fallar" valor="MEKYTL1146"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL1146.</paso>
+      <paso numero="2">Verificar que, por política, MEKYTL1146 NO se relanza automáticamente ni manualmente por defecto.</paso>
+      <paso numero="3">Verificar que MEKYTL0981 permanece en espera indefinidamente.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0981 no dispara; el bloque 2 queda bloqueado hasta que se resuelva manualmente el fallo de Mentor (sin relanzamiento automático).</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M y de la ausencia de relanzamiento.</tipoValidacion>
+    <criterioAceptacion>MEKYTL1146 en estado de fallo sin relanzar; MEKYTL0981 en espera.</criterioAceptacion>
+    <posibilidadFallo>Riesgo operativo: un fallo en Mentor bloquea todo el cierre del bloque 2 (y por extensión, MEKYTL1028) hasta intervención manual.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="duplicidad">
+    <nombre>Fallo de 1 de las 3 sub-ramas de RDRKYTL001 bloquea MEKYTL1139</nombre>
+    <objetivo>Confirmar el AND estricto de 3 eventos en la sub-convergencia interna del bloque 2.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0997 (flag Terminals ES) configurado para fallar; MEKYTL1010 y MEKYTL1171 OK.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama forzada a fallar" valor="MEKYTL0997"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0997.</paso>
+      <paso numero="2">Verificar que MEKYTL1139 permanece en espera con 2 de 3 condiciones cumplidas.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1139 no dispara; por cascada, MEKYTL0981 tampoco recibe su 8ª condición.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL1139 en espera con 2/3; efecto cascada confirmado sobre MEKYTL0981.</criterioAceptacion>
+    <posibilidadFallo>Disparo prematuro con 2/3 (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>MEKYTL1028 espera al bloque más lento entre ReportingEngine y Resto</nombre>
+    <objetivo>Confirmar que el cierre final no dispara hasta que ambos bloques (independientes en horario) confirman su cierre.</objetivo>
+    <precondiciones>
+      <precondicion>Bloque 1 (20:00h) completado y MANT_RDR_ISSUES_RE_PRO_OK generado varias horas antes de que el bloque 2 (23:00h) siquiera comience.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Desfase" valor="Bloque 1 cerrado a las ~20:45h, bloque 2 no arranca hasta las 23:00h"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL1028 permanece en espera tras cerrarse el bloque 1, con 1 de 2 condiciones cumplidas.</paso>
+      <paso numero="2">Ejecutar el bloque 2 completo y verificar que MEKYTL1028 dispara solo al completarse MEKYTL0981_OK.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1028 no dispara antes de que ambos bloques hayan cerrado, pese al desfase horario de varias horas entre ellos.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND y de los timestamps de los eventos.</tipoValidacion>
+    <criterioAceptacion>MEKYTL1028 en espera durante el desfase; dispara solo tras el segundo evento.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M interprete incorrectamente el evento del bloque 1 como caducado antes de que llegue el del bloque 2.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="error_funcional">
+    <nombre>Validación XSD del bloque 2 detecta XML mal formado</nombre>
+    <objetivo>Confirmar que RDRKYTL002 detiene el bloque 2 si emisiones.resto.xml no cumple el esquema.</objetivo>
+    <precondiciones>
+      <precondicion>emisiones.resto.xml generado con estructura inválida.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="emisiones.resto.xml con nodo &lt;Security&gt; mal cerrado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sustituir emisiones.resto.xml por la variante mal formada tras el filewatcher.</paso>
+      <paso numero="2">Ejecutar RDRKYTL002 y verificar RC≠0.</paso>
+      <paso numero="3">Verificar que las 8 ramas no se disparan.</paso>
+    </pasos>
+    <resultadoEsperado>RDRKYTL002 falla y bloquea todo el bloque 2; se genera alerta C (inmediata).</resultadoEsperado>
+    <tipoValidacion>Verificación de RC y de ausencia de disparo de las 8 ramas.</tipoValidacion>
+    <criterioAceptacion>0 de las 8 ramas se ejecutan tras el fallo de validación.</criterioAceptacion>
+    <posibilidadFallo>Nota de evidencia: mismo caveat que TC-005 respecto al algoritmo interno del validador (gap G7).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="negativo">
+    <nombre>Mentor (MEKYTL1146) no se relanza automáticamente ante error</nombre>
+    <objetivo>Confirmar la excepción documental a la política estándar de rearranque.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1146 falla por causa simulada (p. ej. destino Mentor inaccesible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="pr-mentor.igrupobbva inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de conectividad con Mentor durante la ejecución de MEKYTL1146.</paso>
+      <paso numero="2">Verificar que el job queda en estado de fallo sin ningún relanzamiento automático.</paso>
+      <paso numero="3">Verificar la notificación inmediata a ANS RDR (criticidad C).</paso>
+    </pasos>
+    <resultadoEsperado>El job permanece fallido hasta intervención manual explícita; no hay reintento de ningún tipo.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y de ausencia de relanzamiento en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 relanzamientos registrados tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que una configuración de rearranque automático general de la malla ignore esta excepción específica.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="error_funcional">
+    <nombre>Evento NO_OK de RDR_ISSUES_RE_PRO sin consumidor documentado</nombre>
+    <objetivo>Confirmar que el evento de fallo del disparador inicial no dispara ningún job dentro de esta cadena (gap G5).</objetivo>
+    <precondiciones>
+      <precondicion>RDR_ISSUES_RE_PRO configurado para terminar con RC≠0.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Resultado forzado" valor="RC≠0 en RDR_ISSUES_RE_PRO"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de RDR_ISSUES_RE_PRO.</paso>
+      <paso numero="2">Verificar la generación del evento RDR_ISSUES_RE_PRO_new_RDR_ISSUES_RE_PRO_NO_OK.</paso>
+      <paso numero="3">Verificar que ningún job de esta cadena consume dicho evento ni cambia de estado a raíz de él.</paso>
+    </pasos>
+    <resultadoEsperado>El evento se publica pero queda huérfano dentro del alcance de esta cadena — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de eventos publicados y de jobs disparados en Control-M.</tipoValidacion>
+    <criterioAceptacion>Evento presente; 0 jobs de esta cadena reaccionan a él.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio ya documentado: si la malla global de error fuera de alcance no existe, el fallo podría no escalarse en absoluto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="borde">
+    <nombre>Placeholder "RA" en Librería Origen no tiene impacto funcional</nombre>
+    <objetivo>Confirmar que el valor de configuración pendiente "RA"/"A definir por RA" no afecta a la ejecución real de los jobs que lo tienen.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecutar cualquiera de los jobs con Librería Origen = RA (p. ej. MEKYTL0844, MEKYTL1105, MEKYTL0986).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Job de prueba" valor="MEKYTL0844"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0844 con normalidad.</paso>
+      <paso numero="2">Verificar que el job completa correctamente pese al placeholder documental.</paso>
+    </pasos>
+    <resultadoEsperado>El placeholder es un gap de documentación de la ficha fuente, sin efecto en la ejecución real (confirmado, no una hipótesis).</resultadoEsperado>
+    <tipoValidacion>Verificación de RC del job.</tipoValidacion>
+    <criterioAceptacion>RC=0, sin relación con el valor "RA".</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada — caso de confirmación documental, no de comportamiento funcional real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="error_funcional">
+    <nombre>Escalado de criticidad "A" de cadena ante fallo de un job "C"</nombre>
+    <objetivo>Confirmar que un fallo en cualquier job de criticidad C provoca notificación inmediata a nivel de cadena "A".</objetivo>
+    <precondiciones>
+      <precondicion>Forzar el fallo de un job de criticidad C, p. ej. MEKYTL0844.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Job forzado a fallar" valor="MEKYTL0844 (criticidad C)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en MEKYTL0844.</paso>
+      <paso numero="2">Verificar la notificación inmediata a ANS RDR, tanto a nivel de job (C) como de cadena (A).</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma el escalado inmediato documentado (R16/gap G3).</resultadoEsperado>
+    <tipoValidacion>Verificación del registro de alertas de ANS RDR.</tipoValidacion>
+    <criterioAceptacion>Alerta inmediata registrada tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que solo se notifique a nivel de job y no se refleje el escalado de cadena "A" en ningún sistema de guardia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="regresion">
+    <nombre>El cableado real de MEKYTL0981 no se ve afectado por la descripción textual incorrecta</nombre>
+    <objetivo>Confirmar que, pese al texto de "Propósito" que asocia MEKYTL0981 a ReportingEngine, sus 8 predecesores reales del bloque Resto siguen funcionando correctamente tras cualquier cambio de documentación futuro.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecutar el bloque 2 completo tras una hipotética corrección de la documentación de MEKYTL0981.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="N/A" valor="Prueba de regresión sobre configuración real de Control-M, no sobre el texto documental"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el bloque 2 completo.</paso>
+      <paso numero="2">Verificar que MEKYTL0981 sigue exigiendo los 8 eventos del bloque Resto, no eventos del bloque ReportingEngine.</paso>
+    </pasos>
+    <resultadoEsperado>El comportamiento real de Control-M permanece correcto independientemente de la corrección textual aplicada en la documentación (R15).</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones de MEKYTL0981.</tipoValidacion>
+    <criterioAceptacion>Las 8 condiciones de MEKYTL0981 siguen siendo las del bloque Resto tras cualquier actualización documental.</criterioAceptacion>
+    <posibilidadFallo>Que una futura corrección documental se traduzca por error en un cambio de configuración real en Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-019" tipo="borde">
+    <nombre>Generación y envío del flag de Terminals ES/MX</nombre>
+    <objetivo>Verificar que MEKYTL0997/MEKYTL1010 generan correctamente el fichero flag vacío con el sufijo de fecha y lo transmiten tras el envío previo del fichero de datos.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0996 (envío ES) y MEKYTL0998 (envío MX) ya completados con éxito.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero flag ES" valor="KYTL_SACCR_emisiones_EUR_YYYYMMDD.flag.rdr"/>
+      <dato campo="Fichero flag MX" valor="KYTL_SACCR_emisiones_MEX_YYYYMMDD.flag.rdr"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0997 tras la finalización exitosa de MEKYTL0996.</paso>
+      <paso numero="2">Verificar la creación del fichero flag vacío con el sufijo de fecha correcto y su transmisión a spalg501.</paso>
+      <paso numero="3">Repetir la verificación análoga para MEKYTL1010/MEKYTL0998 (incluyendo la copia de respaldo en Backup/).</paso>
+    </pasos>
+    <resultadoEsperado>Ambos flags se generan y transmiten correctamente, señalizando la disponibilidad del dato ya enviado previamente.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia del fichero flag en destino y de su fecha de nombre.</tipoValidacion>
+    <criterioAceptacion>2 ficheros flag presentes en spalg501 con el sufijo de fecha correspondiente al ODATE.</criterioAceptacion>
+    <posibilidadFallo>Flag generado antes de que el fichero de datos real haya llegado a destino, invirtiendo el orden de señalización.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-020" tipo="e2e">
+    <nombre>Ciclo completo diario de ambos bloques hasta el cierre final</nombre>
+    <objetivo>Validar el flujo end-to-end completo de la cadena, desde los 2 disparadores horarios hasta MEKYTL1029.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con conectividad a los ~13 destinos y a la BD de origen.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_ISSUES_RE_PRO (20:00h) y recorrer todo el bloque 1 hasta MANT_RDR_ISSUES_RE_PRO.</paso>
+      <paso numero="2">Ejecutar RDR_ISSUES_RESTO_T (23:00h) y recorrer todo el bloque 2, incluida la sub-convergencia de RDRKYTL001, hasta MEKYTL0981.</paso>
+      <paso numero="3">Verificar que MEKYTL1028 dispara al completarse ambos bloques y historifica los ficheros de error de ambos.</paso>
+      <paso numero="4">Verificar que MEKYTL1029 purga la carpeta de errores y cierra la cadena sin evento de salida.</paso>
+    </pasos>
+    <resultadoEsperado>Los 30 jobs de la cadena completan su ciclo diario correctamente, con las 3 sincronizaciones externas (IHS Markit, GC_TESO, SHS global) emitidas aunque fuera de verificación de esta prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de principio a fin de la cadena completa.</tipoValidacion>
+    <criterioAceptacion>30/30 jobs en estado OK al final del ciclo diario; MEKYTL1029 como último job ejecutado, sin evento de salida.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio en cualquiera de los 2 bloques impide alcanzar el cierre final en MEKYTL1029 dentro de la ventana diaria.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-021" tipo="error_funcional">
+    <nombre>Fichero bien formado pero inválido según el XSD no detiene la cadena</nombre>
+    <objetivo>Confirmar, con el script real RDR_Validacion_XSD.sh, que una violación de esquema (no de estructura) nunca produce RC≠0 y que las ramas de envío se disparan igualmente con datos inválidos.</objetivo>
+    <precondiciones>
+      <precondicion>emisiones.xml (o emisiones.resto.xml) bien formado: todas las etiquetas de apertura/cierre balanceadas, pero con un campo que incumple el XSD (p. ej. tipo de dato incorrecto o valor de enumeración no permitido en un &lt;Security&gt;).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="emisiones.xml bien formado, con un &lt;Security&gt; cuyo campo numérico contiene un valor no numérico (viola xsd_emisiones_batch.xsd sin romper el balance de etiquetas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sustituir emisiones.xml por la variante con la violación de esquema descrita, tras el filewatcher.</paso>
+      <paso numero="2">Ejecutar MEKYTL0811 (RDR_Validacion_XSD.sh pr ISSUE) y verificar el código de retorno del job.</paso>
+      <paso numero="3">Inspeccionar el log RDR_Validacion_XSD_&lt;fecha&gt;.log y confirmar que reporta el error de xmllint (mensaje, trozo y línea original) bajo "RESULTADO VALIDACIÓN XSD".</paso>
+      <paso numero="4">Verificar el estado de las 5 ramas paralelas (MEKYTL0802, MEKYTL0844, MEKYTL0874, MEKYTL1105, MEKYTL1124).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0811 termina en RC=0 (OK) pese a la violación de esquema; el log contiene el detalle del error de xmllint; las 5 ramas paralelas se disparan igualmente, distribuyendo el registro con datos inválidos según el XSD.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC del job + inspección de contenido del log + verificación de disparo de las 5 ramas.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese al error de esquema; error visible en el log; 5/5 ramas disparadas.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado por código (R20): al no bloquear la cadena, un dato inválido según el XSD llega a los 5/8 sistemas destino sin ningún control adicional que lo detenga; solo la revisión manual del log lo expondría.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
