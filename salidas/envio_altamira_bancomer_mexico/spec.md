@@ -23,7 +23,7 @@ La cadena `RDR_ALTAMIRAMEX_SEND` genera semanalmente (viernes 12:00) un listado 
 | R3 | `MEKYTL1206` historifica el fichero a `/fichtemcomp/pr/descargas/kytl/AltamiraMexico/send/backup/` y dispara el evento de cierre de cadena `RDR_ALTAMIRAMEX_SEND_OUT`. |
 | R4 | `MEKYTL1221` transmite el fichero a DataX (`datax-agent --transferId transfer_tm_rdr_00 --namespace mx.mtmh.app-id-1060487.pro ...`), en paralelo a `MEKYTL1206`, con su propio evento de salida (`RDR_ALTAMIRAMEX_SEND_MEKYTL1221_OK`) **no conectado** al cierre de cadena. |
 | R5 | Alertas de fallo con criticidad W. `GS_CODIGOS_ALTMEX`, `MEKYTL1205` y `MEKYTL1206` tienen regla explícita de aviso a ANS RDR (`BZG03906`); `MEKYTL1221` no tiene regla propia y hereda la regla por defecto del folder `KYTL0000-RDR_ALTAMIRAMEX_SEND` (también ANS RDR). |
-| R6 | Estructura real de `RDR_clientesYYYYMMDD.csv`: CSV delimitado por `;`, con cabecera obligatoria, un código ALID por línea (primera columna informada, resto de columnas vacías). |
+| R6 | Estructura real de `RDR_clientesYYYYMMDD.csv`: CSV delimitado por `;`, con cabecera obligatoria, un código ALID por línea (primera columna informada, resto de columnas vacías). **Riesgo latente confirmado por código real (2026-09-24, ver R1/sección 9):** cada línea del fichero corresponde a una fila de la query (`Querys.obtenerIDs()`), y cada fila es en realidad el resultado de un `LISTAGG(DISTINCT fiid.fins_id,'|')` por combinación institución/sucursal — si esa combinación tuviera más de un ALID asociado, la línea contendría varios códigos concatenados con `|` en vez de uno solo, rompiendo la estructura de "un código por línea" (TC-007). |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
@@ -80,7 +80,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `error_funcional`: TC-003 (fallo de copia/chown en `MEKYTL1205`), TC-004 (fallo de transmisión DataX con cierre de cadena "exitoso" pese al fallo — riesgo crítico).
 - `duplicidad`: TC-005 (mismo código ALID asociado a dos sucursales activas distintas).
 - `borde`: TC-006 (código excluido presente y activo en origen), TC-010 (discrepancia de la query de conciliación, documental).
-- `datos_sinteticos`: TC-007 (verificación de la estructura real del fichero, un código por línea).
+- `datos_sinteticos`: TC-007 (verificación de la estructura real del fichero, un código por línea — riesgo de concatenación `LISTAGG` confirmado por código real, ver R6/sección 9).
 - `conflicto_integridad`: TC-008 (ausencia de checksum en la copia).
 - `regresion`: TC-009 (ejecuciones concurrentes sin protección).
 - `e2e`: TC-012 (ciclo semanal completo).
@@ -103,7 +103,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R3 (historificación / cierre) | TC-001, TC-012 | Historificación correcta y disparo del evento de cierre de cadena |
 | R4 (transmisión DataX) | TC-001, TC-004, TC-012 | Transmisión correcta; riesgo de cierre asimétrico de cadena |
 | R5 (alertas) | TC-002, TC-003, TC-004 | Notificación a ANS RDR ante cualquier fallo, incluida la rama DataX sin regla propia |
-| R6 (estructura del fichero) | TC-007 | Confirma un código por línea, sin agregación `\|` residual |
+| R6 (estructura del fichero) | TC-007 | Confirma un código por línea, sin agregación `\|` residual — riesgo de concatenación multi-valor confirmado por código real, no solo hipotético |
 | Riesgos de diseño (concurrencia, integridad, conciliación) | TC-008, TC-009, TC-010 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
@@ -133,7 +133,8 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 4. **Sin validación de integridad de copia** en `MEKYTL1205` (mismo patrón de gap que Calendarios y Altamira Colombia).
 5. **Sin protección de concurrencia** (mismo patrón de gap que procesos anteriores).
 6. **Errata documental en la descripción funcional del folder** (mencionaba "recepción, conciliación y reporte" en vez de "envío/generación") — riesgo puramente documental, ya corregido en esta especificación.
+7. **Concatenación multi-valor por `LISTAGG`, confirmada por código real (2026-09-24), distinta del riesgo 3.** Cada línea del fichero corresponde a una combinación institución/sucursal, no directamente a un ALID: el valor real de la línea es `LISTAGG(DISTINCT fiid.fins_id,'|')`, que concatena con `|` **todos** los ALID asociados a esa combinación. Si alguna vez una combinación institución/sucursal tuviera más de un ALID vinculado (en vez de exactamente uno, como en la muestra real analizada), la línea del fichero contendría varios códigos pegados con `|` en un único campo, en vez de un ALID limpio por línea — rompiendo la estructura documentada en R6 y pudiendo hacer que Altamira México reciba un valor ininterpretable como identificador de cliente. TC-007 lo verifica.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. La posible duplicidad de ALID entre sucursales (punto 3 de la sección 9) quedó cerrada el 2026-09-24 con el código fuente real de `Querys.obtenerIDs()`: confirmado que el diseño de la query lo permite (el `DISTINCT` opera sobre la cadena `LISTAGG` agregada, no sobre el ALID individual), no que lo impida. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 y 2 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación). Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. La posible duplicidad de ALID entre sucursales (punto 3 de la sección 9) quedó cerrada el 2026-09-24 con el código fuente real de `Querys.obtenerIDs()`: confirmado que el diseño de la query lo permite (el `DISTINCT` opera sobre la cadena `LISTAGG` agregada, no sobre el ALID individual), no que lo impida. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 y 2 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación); el punto 7 (concatenación multi-valor por `LISTAGG`) es un riesgo latente ya confirmado por código real, no un gap de evidencia. Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.

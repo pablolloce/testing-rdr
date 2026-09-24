@@ -130,23 +130,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Verificación de la estructura real del fichero (un código por línea)</nombre>
-    <objetivo>Confirmar que el fichero final no conserva la agregación por `|` de la query SQL, sino un código por línea.</objetivo>
+    <nombre>Verificación de la estructura real del fichero (un código por línea, sin concatenación LISTAGG)</nombre>
+    <objetivo>Confirmar que cada línea del fichero contiene un único ALID, no una concatenación con `|` — riesgo confirmado por código real: Querys.obtenerIDs() usa LISTAGG(DISTINCT fiid.fins_id,'|') por combinación institución/sucursal, así que una combinación con más de un ALID generaría una línea con varios códigos pegados.</objetivo>
     <precondiciones>
-      <precondicion>Al menos una sucursal activa con más de un código ALID asociado.</precondicion>
+      <precondicion>Al menos una combinación institución/sucursal activa (fins.inst_mnem + eerl) con más de un código ALID asociado vía FT_T_FIRL.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="sucursal_con_multiples_codigos" valor="sucursal activa con 3 códigos ALID distintos asociados"/>
+      <dato campo="combinacion_con_multiples_codigos" valor="una misma combinación institución/sucursal con 3 códigos ALID distintos asociados en FT_T_FIID/FT_T_FIRL"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una sucursal que tenga múltiples códigos asociados.</paso>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una combinación institución/sucursal que tenga múltiples ALID asociados.</paso>
       <paso numero="2">Inspeccionar RDR_clientesYYYYMMDD.csv.</paso>
-      <paso numero="3">Verificar que cada código aparece en una línea independiente, con separador `;`, sin ningún carácter `|` en el contenido.</paso>
+      <paso numero="3">Verificar si esa línea contiene un único código o los 3 códigos concatenados con `|` en el mismo campo.</paso>
     </pasos>
-    <resultadoEsperado>El fichero contiene cabecera + una línea por código (primera columna informada, resto vacías separadas por `;`); no aparece ningún `|` en el contenido de datos.</resultadoEsperado>
+    <resultadoEsperado>Si la combinación institución/sucursal tiene varios ALID asociados, la línea del fichero contendrá los 3 códigos concatenados con `|` en un único campo (comportamiento confirmado por el código real de Querys.obtenerIDs(), no un fallo de la prueba) — rompiendo la estructura de "un código por línea" documentada en R6.</resultadoEsperado>
     <tipoValidacion>Inspección de contenido + búsqueda del carácter `|` en el fichero.</tipoValidacion>
-    <criterioAceptacion>Cero apariciones de `|` en las líneas de datos; un código por línea confirmado.</criterioAceptacion>
-    <posibilidadFallo>Fallo si aparece una lista concatenada con `|` en alguna línea, lo que indicaría un cambio no documentado en la lógica de `Ficheros.sacarFichero`.</posibilidadFallo>
+    <criterioAceptacion>Se documenta si aparece o no una concatenación `|`; en la muestra real de producción analizada no se observó ninguna, pero el escenario está confirmado como posible por diseño.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado por código: si Altamira México recibe un campo con varios ALID concatenados con `|`, lo trataría como un identificador de cliente ininterpretable o inválido.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="conflicto_integridad">
