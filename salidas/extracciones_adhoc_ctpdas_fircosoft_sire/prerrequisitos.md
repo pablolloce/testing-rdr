@@ -43,7 +43,12 @@
   sin confirmarse que `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` sean la generación real de
   `ThirdParties.xml`/`ExtraccionContingencia.xml`. Si se confirma, cualquier prueba conjunta con
   "Extracción Genérica de Contrapartidas" debería reconciliar el horario (00:05h documentado allí vs.
-  01:00-01:05h/03:00-03:05h aquí) antes de asumir una secuencia end-to-end fiable.
+  01:00-01:05h/03:00-03:05h aquí) antes de asumir una secuencia end-to-end fiable. Evidencia exacta pendiente
+  (confirmada por el código fuente real de `GSProcess.sh`,
+  `documentos_fuente/GAP-ADHOC-001_GSProcess.sh`): el contenido de
+  `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties` y
+  `.../ExtraccionGenericaTHIRDPARTIES.properties` — ahí vive la lógica real (Java/Script/Evento), no en
+  `GSProcess.sh`, que es un lanzador 100% genérico.
 - **Importante:** antes de cualquier prueba sobre Fircosoft, confirmar que `RDR_TRANSFORMACION_FS` de la cadena
   correspondiente (`_new` para la variante diaria, `_FINSEM_S_new` para la de sábado) ha finalizado con éxito
   — es una dependencia cross-chain bloqueante, no opcional.

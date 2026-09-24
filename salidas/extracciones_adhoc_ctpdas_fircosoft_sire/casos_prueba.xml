@@ -90,16 +90,18 @@
     <nombre>¿Generan EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS los ficheros de origen de la Extracción Genérica de Contrapartidas? (GAP-ADHOC-001)</nombre>
     <objetivo>Confirmar o refutar la hipótesis de que estos 2 jobs son la ficha de job ausente para la generación de ThirdParties.xml/ExtraccionContingencia.xml, documentada como "proceso interno RDR sin ficha" en salidas/extraccion_generica_contrapartidas/spec.md. El listado de navegación de ambos folders (documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md) ya descartó que exista un tercer job oculto — solo falta la confirmación funcional/de logs.</objetivo>
     <precondiciones>
-      <precondicion>Acceso al script GSProcess.sh o a sus logs de ejecución con el parámetro ExtraccionGenericaCPTY/ExtraccionGenericaTHIRDPARTIES.</precondicion>
+      <precondicion>Acceso a los ficheros /pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties y .../ExtraccionGenericaTHIRDPARTIES.properties, o a los logs de ejecución de EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS (execute_ExtraccionGenericaCPTY_YYYYMMDD.log / execute_ExtraccionGenericaTHIRDPARTIES_YYYYMMDD.log).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ThirdParties.xml, ExtraccionContingencia.xml" valor="verificar si su timestamp de generación coincide con la ejecución de EXTRACCION_THIRDPARTYS (01:00/03:00h) y EXTRACCION_CPTDAS (01:05/03:05h)"/>
       <dato campo="Listado de navegación de RDR_EXTRACCION_CTPDAS_D/_W" valor="confirmado: solo 2 jobs por folder (EXTRACCION_CPTDAS, EXTRACCION_THIRDPARTYS), sin ningún tercero oculto"/>
+      <dato campo="GSProcess.sh" valor="confirmado con código fuente real: lanzador 100% genérico (documentos_fuente/GAP-ADHOC-001_GSProcess.sh) — lee $CONF/$MOD_EJECUCION.properties y despacha a Java/Script/Evento/Property según lo que declare ese fichero; no contiene lógica propia de Contrapartidas/ThirdParties"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Tras una ejecución real de EXTRACCION_CPTDAS y EXTRACCION_THIRDPARTYS, verificar si ThirdParties.xml y ExtraccionContingencia.xml aparecen o se actualizan en la ruta esperada inmediatamente después.</paso>
-      <paso numero="2">Si es posible, inspeccionar el log/salida del script GSProcess.sh con esos parámetros para confirmar si invoca los jars ExtraccionGenericaCPTY.jar/ExtraccionGenericaOtherEntities.jar.</paso>
-      <paso numero="3">Documentar el resultado (confirmado / refutado) y reconciliar el horario (00:05h vs. 01:00-01:05h/03:00-03:05h) si se confirma la relación.</paso>
+      <paso numero="1">Obtener el contenido de ExtraccionGenericaCPTY.properties y ExtraccionGenericaTHIRDPARTIES.properties — el bloque "Accion" (Java/Script/Evento) declarado ahí determina qué se ejecuta realmente.</paso>
+      <paso numero="2">Si la acción es "Java", confirmar el paquete/clase invocados (p. ej. si coincide con ExtraccionGenericaCPTY.jar/ExtraccionGenericaOtherEntities.jar) y los argumentos (posible ruta de fichero de salida).</paso>
+      <paso numero="3">Alternativamente, tras una ejecución real, verificar si ThirdParties.xml y ExtraccionContingencia.xml aparecen o se actualizan en la ruta esperada inmediatamente después, o inspeccionar el log execute_ExtraccionGenericaCPTY/THIRDPARTIES_YYYYMMDD.log (generado por el propio GSProcess.sh) en busca de las líneas "-CLASE:"/"-SERVICIO_JAVA:"/"-ARGUMENTOS:".</paso>
+      <paso numero="4">Documentar el resultado (confirmado / refutado) y reconciliar el horario (00:05h vs. 01:00-01:05h/03:00-03:05h) si se confirma la relación.</paso>
     </pasos>
     <resultadoEsperado>Se determina de forma concluyente si estos jobs son o no la generación real de los ficheros de origen de la extracción genérica.</resultadoEsperado>
     <tipoValidacion>Inspección de logs/timestamps reales + confirmación funcional si es necesario.</tipoValidacion>

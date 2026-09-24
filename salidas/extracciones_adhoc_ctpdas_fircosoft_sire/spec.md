@@ -73,6 +73,22 @@ aporta prueba literal (log, ruta de fichero de salida, referencia explícita a `
 documentado en el otro proceso vs. 01:00-01:05h diaria / 03:00-03:05h fin de semana aquí). El usuario decidió
 explícitamente mantener este gap abierto.
 
+**Mecanismo de despacho confirmado con el código fuente real de `GSProcess.sh`**
+(`documentos_fuente/GAP-ADHOC-001_GSProcess.sh`): es un **lanzador 100% genérico** (mismo patrón "Planificador
+Genérico RDR" ya visto en otros procesos de este intake, p. ej. Cesiones SMA). El único parámetro que recibe
+(`ExtraccionGenericaCPTY`, `ExtraccionGenericaTHIRDPARTIES`) es el nombre de un fichero `.properties` —
+`$CONF/$MOD_EJECUCION.properties`, es decir:
+- `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties`
+- `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaTHIRDPARTIES.properties`
+
+`GSProcess.sh` recorre ese `.properties` línea a línea (función `Control()`) y, según el bloque `Accion`
+declarado dentro (`Java`, `Script`, `Evento` o `Property`), despacha a una clase Java con paquete/clase/librerías/
+argumentos propios, a un script de `Generico.sh`, a un evento GoldenSource (`executeBbvaEvent.sh`), o genera un
+property temporal. **`GSProcess.sh` no contiene ninguna lógica específica de Contrapartidas/ThirdParties — toda
+la lógica real (qué jar, qué clase, qué fichero de salida) vive en esos 2 ficheros `.properties`, que aún no se
+han aportado.** Esto no cierra GAP-ADHOC-001, pero identifica con precisión la evidencia exacta que lo
+resolvería.
+
 ### 1.2 Bloque Fircosoft — `RDR_FIRCOSOFT_CPARTYS_DAILY_PRO_new` / `_S_PRO_new`
 
 **Origen del fichero (confirmado con `RDR_Transformacion_FS.sh` real, versión re-descargada tras un primer
@@ -222,7 +238,11 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
   confirman que no hay ningún tercer job oculto — descarta esa alternativa, pero sigue sin haber prueba directa
   (log, ruta de fichero de salida, referencia literal a los nombres de fichero) de que generen
   `ThirdParties.xml`/`ExtraccionContingencia.xml`. El desfase de horario persiste (00:05h documentado allí vs.
-  01:00-01:05h/03:00-03:05h aquí). El usuario decidió explícitamente mantener el gap abierto.
+  01:00-01:05h/03:00-03:05h aquí). El usuario decidió explícitamente mantener el gap abierto. El código fuente
+  real de `GSProcess.sh` (`documentos_fuente/GAP-ADHOC-001_GSProcess.sh`) confirma que es un lanzador 100%
+  genérico sin lógica propia de Contrapartidas/ThirdParties — toda la lógica real vive en 2 ficheros
+  `.properties` aún no aportados: `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties`
+  y `.../ExtraccionGenericaTHIRDPARTIES.properties`. Esa es la evidencia exacta que cerraría el gap.
 - **GAP-ADHOC-002 (diccionario de campos de `Batch_Fircosoft.txt`) — abierto.** Confirmado el mecanismo
   (extracción genérica → `RDR_Transformacion_Fircosoft.jar` → XSLT → fichero), pero no el diccionario de
   campos exacto resultante — la hoja XSLT se resuelve en tiempo de ejecución (no fija en el script) y no se ha
@@ -335,9 +355,11 @@ datos, transformación confirmada con script real). El bloque "SW" (extracción)
 confirmado**, a ser la ficha de job ausente para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml`
 de ese mismo proceso (GAP-ADHOC-001) — una segunda ronda de 26 capturas reales de Control-M descartó que exista
 un tercer job oculto en cualquiera de los 2 folders, y de paso confirmó GAP-ADHOC-003 (ausencia real de evento
-de salida en `EXTRACCION_THIRDPARTYS` de `_D`, ya resuelto), pero no aportó prueba literal del fichero de
-salida ni resolvió el desfase de horario, así que GAP-ADHOC-001 sigue abierto por decisión explícita del
-usuario. El bloque SIRE revela un hallazgo relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre
+de salida en `EXTRACCION_THIRDPARTYS` de `_D`, ya resuelto). Una tercera pieza de evidencia, el código fuente
+real de `GSProcess.sh`, confirmó que es un lanzador 100% genérico sin lógica propia — identificó con precisión
+los 2 ficheros `.properties` (`ExtraccionGenericaCPTY.properties`/`ExtraccionGenericaTHIRDPARTIES.properties`)
+que contienen la lógica real y que aún no se han aportado. GAP-ADHOC-001 sigue abierto por decisión explícita
+del usuario. El bloque SIRE revela un hallazgo relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre
 y agrupación en este documento, parece haber dejado de enviar Contrapartidas a SIRE (sustituida por un envío de
 Emisiones con mecanismo y fuente de datos distintos) — GAP-ADHOC-004. Una ronda posterior de 33 capturas reales
 de Control-M reforzó esta hipótesis (desacople técnico total confirmado, naming `EventSireEmisi`), pero el
