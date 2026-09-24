@@ -108,16 +108,17 @@
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
     <nombre>¿Sigue RDR_SIRE_new enviando datos de Contrapartidas, o ha pasado a ser un canal de Emisiones? (GAP-ADHOC-004)</nombre>
-    <objetivo>Confirmar si RDR_SIRE_new, pese a su nombre y agrupación en el documento fuente, sigue siendo parte del alcance funcional de "Contrapartidas" o si, tras el decomiso de FICHERO_CPTDA/MEKYTL0071 (ctpda.csv), ha pasado a ser exclusivamente un canal de Emisiones (emisi.csv) sin relación con Contrapartidas.</objetivo>
+    <objetivo>Confirmar si RDR_SIRE_new, pese a su nombre y agrupación en el documento fuente, sigue siendo parte del alcance funcional de "Contrapartidas" o si, tras el decomiso de FICHERO_CPTDA/MEKYTL0071 (ctpda.csv), ha pasado a ser exclusivamente un canal de Emisiones (emisi.csv) sin relación con Contrapartidas. El desacople técnico ya está confirmado con evidencia real (33 capturas de Control-M, documentos_fuente/GAP-ADHOC-004_jobs_extraidos.md); falta la confirmación funcional del contenido de datos.</objetivo>
     <precondiciones>
       <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre el contenido de emisi.csv.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="emisi.csv" valor="contenido no confirmado; generado por executeBbvaEvent.sh vía GoldenSource Fileloading Engine, mecanismo distinto a la extracción genérica de Contrapartidas"/>
+      <dato campo="emisi.csv" valor="contenido no confirmado a nivel funcional; generado por executeBbvaEvent.sh (evento EventSireEmisi) vía GoldenSource Fileloading Engine, mecanismo distinto a la extracción genérica de Contrapartidas"/>
+      <dato campo="RDR_SIRE_IN (cabeza de cadena)" valor="confirmado con evidencia real: sin ningún prerrequisito — la cadena está totalmente desacoplada de RDR_DAILY_EXGEN_CPARTYS_new/_FINSEM_S_new/_FINSEM_D_new"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar con el equipo funcional o el responsable de SIRE si emisi.csv contiene datos de Emisiones, Contrapartidas, o ambos.</paso>
-      <paso numero="2">Si contiene datos de Contrapartidas, documentar la relación con la extracción genérica común; si no, confirmar que el envío real de Contrapartidas a SIRE vive únicamente en la rama RDR_TRANSFORMACION_SIRE de RDR_DAILY_EXGEN_CPARTYS_new.</paso>
+      <paso numero="2">Si contiene datos de Contrapartidas, documentar la relación con la extracción genérica común (pese al desacople técnico ya confirmado); si no, confirmar que el envío real de Contrapartidas a SIRE vive únicamente en la rama RDR_TRANSFORMACION_SIRE de RDR_DAILY_EXGEN_CPARTYS_new.</paso>
     </pasos>
     <resultadoEsperado>Se aclara si RDR_SIRE_new pertenece realmente al alcance de "Contrapartidas" o si el documento fuente agrupa bajo el mismo título un proceso que ya ha migrado a otro dominio de datos (Emisiones).</resultadoEsperado>
     <tipoValidacion>Confirmación funcional directa; inspección del diccionario de campos de emisi.csv si se aporta.</tipoValidacion>

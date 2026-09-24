@@ -145,17 +145,27 @@ en la pasarela `lpftp503`. Todos creados por `emuser`, activos desde 06/06/2020.
 - **Procesos decomisados:** `FICHERO_CPTDA` (generaba `ctpda.csv` a las 10:00 AM) y `MEKYTL0071` (envío de
   `ctpda.csv` por Connect:Direct) — sustituidos por `FICHERO_EMISI`/`MEKYTL0072` (generan/envían `emisi.csv`).
 
-**GAP-ADHOC-004 (hallazgo, no gap de evidencia pura):** el nombre `ctpda.csv` del proceso decomisado confirma
-que esta cadena **antes sí enviaba Contrapartidas a SIRE**. El reemplazo genera y envía `emisi.csv`
-("Emisiones"), un dominio de datos distinto, a través de un mecanismo distinto (`executeBbvaEvent.sh` /
-GoldenSource Fileloading Engine, no `GSProcess.sh` ni la extracción genérica común). **Conclusión provisional:**
-`RDR_SIRE_new` ya **no es** el canal de envío de Contrapartidas a SIRE — ese envío hoy vive, con alta
-probabilidad, únicamente dentro del fan-out de `RDR_DAILY_EXGEN_CPARTYS_new` (rama
-`RDR_TRANSFORMACION_SIRE → ELIMINATEDUPLICATES_SIRE → MEKYTL0823/0878/0879/1204/0282`, ya documentada en
-`salidas/extraccion_generica_contrapartidas/spec.md` §1.2). **No confirmado con evidencia adicional** — el
-documento no lo declara explícitamente, es una inferencia a partir del cambio de nombre de fichero y mecanismo.
-Si se confirma, el título del documento fuente ("Extracciones ad hoc de contrapartidas... Sire") estaría
-desactualizado para este bloque concreto: ya no extrae/envía contrapartidas, sino emisiones.
+**GAP-ADHOC-004 (hallazgo, reforzado por evidencia real — no cerrado) — abierto.** El nombre `ctpda.csv` del
+proceso decomisado confirma que esta cadena **antes sí enviaba Contrapartidas a SIRE**. El reemplazo genera y
+envía `emisi.csv` ("Emisiones"), un dominio de datos distinto, a través de un mecanismo distinto
+(`executeBbvaEvent.sh` / GoldenSource Fileloading Engine, no `GSProcess.sh` ni la extracción genérica común).
+
+**Evidencia real aportada por el usuario (33 capturas de Control-M, `documentos_fuente/GAP-ADHOC-004_capturas_RDR_SIRE_new.docx`,
+tabla completa en `documentos_fuente/GAP-ADHOC-004_jobs_extraidos.md`)** confirma con datos reales, no solo con
+el documento fuente: (1) `RDR_SIRE_IN` (cabeza de la cadena) **no tiene ningún prerrequisito** — la cadena
+entera está totalmente desacoplada de las 3 cadenas de "Extracción Genérica de Contrapartidas", a diferencia
+de Fircosoft (que sí tiene una dependencia cross-chain explícita); (2) el evento GoldenSource invocado se
+llama literalmente `EventSireEmisi` — nomenclatura de Emisiones, no de Contrapartidas. Ningún job de la cadena
+tiene texto en su campo "Descripción" que aclare el contenido funcional.
+
+**Conclusión:** la evidencia real **refuerza** la hipótesis (`RDR_SIRE_new` ya no es el canal de Contrapartidas
+a SIRE — ese envío hoy vive, con alta probabilidad, únicamente dentro del fan-out de
+`RDR_DAILY_EXGEN_CPARTYS_new`, rama `RDR_TRANSFORMACION_SIRE → ELIMINATEDUPLICATES_SIRE →
+MEKYTL0823/0878/0879/1204/0282`, ya documentada en `salidas/extraccion_generica_contrapartidas/spec.md` §1.2),
+pero es evidencia **estructural/técnica, no funcional** — no confirma el contenido de datos exacto de
+`emisi.csv`. El usuario decidió explícitamente mantener el gap **abierto** en vez de cerrarlo con esta
+evidencia. Si se confirma, el título del documento fuente ("Extracciones ad hoc de contrapartidas... Sire")
+estaría desactualizado para este bloque concreto: ya no extrae/envía contrapartidas, sino emisiones.
 
 ## 2. Alcance del proceso
 
@@ -211,14 +221,17 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
   publican evento). No está confirmado si es una omisión de captura del documento o si el job realmente no
   publica ningún evento en la variante diaria.
 - **GAP-ADHOC-004 (¿sigue `RDR_SIRE_new` enviando Contrapartidas, o ha pasado a ser un canal de Emisiones?) —
-  abierto (hallazgo con indicios fuertes, no confirmado).** El propio documento confirma que el mecanismo
-  anterior (`FICHERO_CPTDA`/`MEKYTL0071`, generaba/enviaba `ctpda.csv`) fue decomisado y sustituido por
-  `FICHERO_EMISI`/`MEKYTL0072` (`emisi.csv`, motor GoldenSource Fileloading distinto). Esto sugiere que
-  `RDR_SIRE_new` ya no envía Contrapartidas a SIRE, y que el envío real de Contrapartidas a SIRE vive
-  únicamente en la rama `RDR_TRANSFORMACION_SIRE` del fan-out de `RDR_DAILY_EXGEN_CPARTYS_new`. No confirmado
-  explícitamente por el documento — es una inferencia razonada a partir del cambio de nombre de fichero y
-  mecanismo, pendiente de verificación directa (p. ej., preguntando al responsable funcional si `RDR_SIRE_new`
-  sigue considerándose parte del alcance de "Contrapartidas").
+  abierto, reforzado por evidencia real de Control-M.** El documento fuente confirma que el mecanismo anterior
+  (`FICHERO_CPTDA`/`MEKYTL0071`, generaba/enviaba `ctpda.csv`) fue decomisado y sustituido por
+  `FICHERO_EMISI`/`MEKYTL0072` (`emisi.csv`, motor GoldenSource Fileloading distinto). El usuario aportó
+  después 33 capturas reales de Control-M (`documentos_fuente/GAP-ADHOC-004_jobs_extraidos.md`) que confirman
+  con evidencia real, no solo con el documento: la cadena está totalmente desacoplada (sin prerrequisito
+  alguno en `RDR_SIRE_IN`) de las 3 cadenas de "Extracción Genérica de Contrapartidas", y el evento GoldenSource
+  invocado se llama literalmente `EventSireEmisi`. Esto refuerza que `RDR_SIRE_new` ya no envía Contrapartidas
+  a SIRE, y que el envío real de Contrapartidas a SIRE vive únicamente en la rama `RDR_TRANSFORMACION_SIRE` del
+  fan-out de `RDR_DAILY_EXGEN_CPARTYS_new`. **No se cierra el gap**: la evidencia es estructural/técnica, no
+  confirma el contenido de datos exacto de `emisi.csv` — decisión explícita del usuario de mantenerlo abierto
+  pendiente de una confirmación funcional directa.
 
 ## 5. Especificación funcional
 
@@ -274,7 +287,7 @@ Referencia de casos por tipo:
 | R6 (SIRE: generación + envío + historificación) | TC-003 | Ciclo completo emisi.csv: generación, envío, purga, historificación en paralelo |
 | R7 (evento "Eliminar" = No en prerrequisitos cross-chain) | TC-004 | Verifica que el consumo de eventos cross-chain no destruye la señal original |
 | GAP-ADHOC-001 (relación con generación de origen) | TC-005 | Confirma o descarta si EXTRACCION_CPTDAS/THIRDPARTYS generan los ficheros de la extracción genérica |
-| GAP-ADHOC-004 (naturaleza actual de RDR_SIRE_new) | TC-006 | Confirma si RDR_SIRE_new sigue enviando Contrapartidas o solo Emisiones |
+| GAP-ADHOC-004 (naturaleza actual de RDR_SIRE_new, reforzado por evidencia real) | TC-006 | Confirma funcionalmente si RDR_SIRE_new sigue enviando Contrapartidas o solo Emisiones — desacople técnico ya confirmado |
 | GAP-ADHOC-002 (diccionario de Batch_Fircosoft.txt) | TC-007 | Documenta la limitación en vez de inventar el diccionario de campos |
 | GAP-ADHOC-003 (evento de salida de EXTRACCION_THIRDPARTYS en \_D) | TC-004 | Confirma si el job realmente no publica evento en la variante diaria |
 
@@ -309,6 +322,8 @@ datos, transformación confirmada con script real). El bloque "SW" (extracción)
 confirmado**, a ser la ficha de job ausente para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml`
 de ese mismo proceso (GAP-ADHOC-001). El bloque SIRE revela un hallazgo relevante no preguntado: la cadena
 `RDR_SIRE_new`, pese a su nombre y agrupación en este documento, parece haber dejado de enviar Contrapartidas a
-SIRE (sustituida por un envío de Emisiones con mecanismo y fuente de datos distintos) — GAP-ADHOC-004, a
-confirmar. Quedan 4 gaps abiertos (GAP-ADHOC-001 a 004) y 3 riesgos registrados (RISK-ADHOC-001 a 003), ninguno
-bloqueante para el testing funcional documentado en `casos_prueba.xml`.
+SIRE (sustituida por un envío de Emisiones con mecanismo y fuente de datos distintos) — GAP-ADHOC-004. Una
+ronda posterior de 33 capturas reales de Control-M reforzó esta hipótesis (desacople técnico total confirmado,
+naming `EventSireEmisi`), pero el usuario decidió explícitamente mantener el gap abierto por no ser evidencia
+funcional del contenido de datos. Quedan 4 gaps abiertos (GAP-ADHOC-001 a 004) y 3 riesgos registrados
+(RISK-ADHOC-001 a 003), ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`.

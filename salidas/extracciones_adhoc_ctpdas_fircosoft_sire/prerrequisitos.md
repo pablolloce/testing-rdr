@@ -45,9 +45,11 @@
 - **Importante:** antes de cualquier prueba sobre Fircosoft, confirmar que `RDR_TRANSFORMACION_FS` de la cadena
   correspondiente (`_new` para la variante diaria, `_FINSEM_S_new` para la de sábado) ha finalizado con éxito
   — es una dependencia cross-chain bloqueante, no opcional.
-- **Importante (GAP-ADHOC-004, no confirmado):** no asumir que `RDR_SIRE_new` envía datos de Contrapartidas —
-  la evidencia documental (decomiso de `FICHERO_CPTDA`/`ctpda.csv`, sustitución por `FICHERO_EMISI`/`emisi.csv`)
-  sugiere que hoy es un canal de Emisiones. Confirmar con el responsable funcional antes de diseñar pruebas de
-  integridad de datos de Contrapartidas sobre esta cadena.
+- **Importante (GAP-ADHOC-004, reforzado por evidencia real, no confirmado a nivel funcional):** no asumir que
+  `RDR_SIRE_new` envía datos de Contrapartidas — tanto la evidencia documental (decomiso de
+  `FICHERO_CPTDA`/`ctpda.csv`, sustitución por `FICHERO_EMISI`/`emisi.csv`) como las 33 capturas reales de
+  Control-M (desacople técnico total de las cadenas de Contrapartidas, evento GoldenSource `EventSireEmisi`)
+  sugieren que hoy es un canal de Emisiones. Confirmar con el responsable funcional el contenido real de
+  `emisi.csv` antes de diseñar pruebas de integridad de datos de Contrapartidas sobre esta cadena.
 - **Importante:** los jobs `MEKYTL0320`/`MEKYTL1216` están decomisados (Fircosoft) y `FICHERO_CPTDA`/`MEKYTL0071`
   también (SIRE) — ningún caso de prueba debe asumir su existencia en el entorno real.
