@@ -14,34 +14,37 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Depositar Calendarios.csv en /fichtemcomp/pr/descargas/kytl/Modelity/ a las 22:10.</paso>
-      <paso numero="2">Esperar a que KYTL_CAL_MODELITY_FW detecte el fichero.</paso>
-      <paso numero="3">Verificar la ejecución de MEKYTL1113 (XERG), MEKYTL1090 (BONT) y MEKYTL1266 (Mentor).</paso>
-      <paso numero="4">Verificar que MEKYTL1184 y MEKYTL1311 no se ejecutan (no es viernes).</paso>
+      <paso numero="2">Esperar a que KYTL_CAL_MODELITY_FW detecte el fichero y genere su evento OK.</paso>
+      <paso numero="3">Verificar la ejecución en cadena, en este orden: MEKYTL1113 (XERG) → MEKYTL1090 (BONT) → MEKYTL1184_DUMMY (placeholder CSCF, no MEKYTL1184) → MEKYTL1266 (Mentor) → MEKYTL1311_DUMMY (placeholder TFIT, no MEKYTL1311) → MEKYTL0863 (historificación).</paso>
+      <paso numero="4">Verificar que MEKYTL1184 y MEKYTL1311 (los envíos reales de CSCF/TFIT) no se ejecutan (no es viernes), y que sus placeholders `_DUMMY` sí se ejecutan y generan el mismo evento de salida.</paso>
+      <paso numero="5">Verificar el cierre de la cadena en ENVIO_CAL_MODELITY_OUT.</paso>
     </pasos>
-    <resultadoEsperado>Calendars_AAAAMMDD.csv presente en LPNOV503/PXVA y en bonotasfs/incoming/; fichero presente en pr-mentor:/fichtemcomp/pr/descargas/eezt/; los tres jobs terminan en OK.</resultadoEsperado>
-    <tipoValidacion>Comparación de checksum origen/destino + verificación de presencia y naming de fichero en cada ruta destino.</tipoValidacion>
-    <criterioAceptacion>Los 3 ficheros destino existen, con el naming correcto y checksum idéntico al origen.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada; cualquier KO o checksum distinto invalida el caso.</posibilidadFallo>
+    <resultadoEsperado>Calendars_AAAAMMDD.csv presente en LPNOV503/PXVA y en bonotasfs/incoming/; fichero presente en pr-mentor:/fichtemcomp/pr/descargas/eezt/; fichero historificado en /old/; los 6 jobs de la cadena de ese día (FW, 1113, 1090, 1184_DUMMY, 1266, 1311_DUMMY, 0863) terminan en OK, en ese orden secuencial (confirmado por export real de Control-M, no ejecución paralela).</resultadoEsperado>
+    <tipoValidacion>Comparación de checksum origen/destino + verificación de presencia y naming de fichero en cada ruta destino + orden de finalización de jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Los 3 ficheros destino existen, con el naming correcto y checksum idéntico al origen; el fichero histórico existe en /old/; el orden de finalización respeta la cadena secuencial documentada.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO, checksum distinto, o ejecución fuera del orden secuencial esperado invalida el caso.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Filewatcher KO por timeout</nombre>
-    <objetivo>Verificar que si el fichero no llega antes de las 23:00, el filewatcher finaliza en KO y no se ejecutan los envíos.</objetivo>
+    <nombre>Filewatcher timeout: relanzamiento automático (no KO directo)</nombre>
+    <objetivo>Verificar que, ante timeout de recepción (RC=7), el filewatcher se relanza automáticamente (DOACTION RERUN, confirmado por export real de Control-M) en vez de finalizar directamente en KO, y que ningún envío se ejecuta mientras el fichero no llegue.</objetivo>
     <precondiciones>
       <precondicion>Cadena programada para el día de ejecución.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Calendarios.csv" valor="no se deposita en la ruta de origen"/>
+      <dato campo="Calendarios.csv" valor="no se deposita en la ruta de origen durante toda la ventana"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">No depositar ningún fichero en /fichtemcomp/pr/descargas/kytl/Modelity/.</paso>
-      <paso numero="2">Esperar hasta las 23:00.</paso>
-      <paso numero="3">Verificar el estado de KYTL_CAL_MODELITY_FW y de MEKYTL1113.</paso>
+      <paso numero="2">Esperar a que se cumpla el timeout de 60 minutos configurado en el filewatcher (ctmfw).</paso>
+      <paso numero="3">Verificar que KYTL_CAL_MODELITY_FW se relanza automáticamente (RERUN) en vez de quedar en KO.</paso>
+      <paso numero="4">Verificar el estado de MEKYTL1113 y sucesores (no deben ejecutarse mientras el fichero no llegue).</paso>
+      <paso numero="5">Determinar, observando la ejecución real, cuántos relanzamientos automáticos ocurren antes de una alerta/KO definitivos (dato no especificado en el export de Control-M — ver gap abierto en spec.md sección 4).</paso>
     </pasos>
-    <resultadoEsperado>KYTL_CAL_MODELITY_FW termina en KO a las 23:00; MEKYTL1113 y sucesores no se ejecutan; se emite correo a ans_rdr.es@bbva.com.</resultadoEsperado>
-    <tipoValidacion>Estado del job en Control-M + verificación de recepción del correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Job en KO, ningún envío ejecutado, correo de alerta recibido con criticidad W.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: el KO es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>KYTL_CAL_MODELITY_FW se relanza automáticamente ante el primer timeout (comportamiento confirmado, no un fallo de la prueba); MEKYTL1113 y sucesores no se ejecutan mientras el fichero no llegue. Este caso también sirve para determinar empíricamente el límite de reintentos y el momento en que se emite la alerta a ans_rdr.es@bbva.com, dato que no consta en el export de Control-M analizado.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M (histórico de relanzamientos) + verificación de recepción del correo de alerta cuando finalmente se agoten los reintentos.</tipoValidacion>
+    <criterioAceptacion>El primer timeout produce un RERUN, no un KO inmediato; ningún envío se ejecuta hasta que el fichero llegue o se agoten los reintentos con la alerta correspondiente.</criterioAceptacion>
+    <posibilidadFallo>Que el job finalice en KO en el primer timeout sin relanzarse (contradiría el DOACTION RERUN confirmado en el export).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -60,10 +63,10 @@
       <paso numero="2">Ejecutar la cadena con el fichero depositado a tiempo.</paso>
       <paso numero="3">Verificar el estado y el código de salida de MEKYTL1113.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL1113 finaliza con código de error específico (7, 11 o 68) capturado por RAMERC0068.sh; se emite correo a ans_rdr.es@bbva.com; no hay reintento automático.</resultadoEsperado>
-    <tipoValidacion>Código de salida del script + verificación de correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Código de salida documentado presente, correo de alerta recibido, sin reintento espontáneo del job.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL1113 finaliza con código de error específico (7, 11 o 68) capturado por RAMERC0068.sh; se emite correo a ans_rdr.es@bbva.com; no hay reintento automático. **Confirmado por el grafo real (cadena estrictamente secuencial):** al fallar MEKYTL1113 (el primer envío), ningún job posterior se ejecuta — MEKYTL1090 (BONT), MEKYTL1184/MEKYTL1184_DUMMY (CSCF), MEKYTL1266 (Mentor), MEKYTL1311/MEKYTL1311_DUMMY (TFIT) y MEKYTL0863 (historificación) quedan todos bloqueados, no solo XERG.</resultadoEsperado>
+    <tipoValidacion>Código de salida del script + verificación de correo de alerta + verificación de que ningún job posterior a MEKYTL1113 se ejecuta.</tipoValidacion>
+    <criterioAceptacion>Código de salida documentado presente, correo de alerta recibido, sin reintento espontáneo del job, y 0 jobs posteriores ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso. Sería un fallo de la prueba que algún job posterior (BONT, CSCF, Mentor, TFIT, historificación) se ejecutara pese al fallo de XERG.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -225,11 +228,11 @@
       <dato campo="dia_2" valor="viernes"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena un jueves: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor e historificación.</paso>
-      <paso numero="2">Ejecutar la cadena el viernes siguiente: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor/CSCF/TFIT e historificación.</paso>
-      <paso numero="3">Verificar checksum y naming en todos los destinos de ambos días.</paso>
+      <paso numero="1">Ejecutar la cadena un jueves: depositar el fichero, esperar al filewatcher, verificar la cadena secuencial completa: FW → MEKYTL1113 (XERG) → MEKYTL1090 (BONT) → MEKYTL1184_DUMMY → MEKYTL1266 (Mentor) → MEKYTL1311_DUMMY → MEKYTL0863 (historificación) → cierre.</paso>
+      <paso numero="2">Ejecutar la cadena el viernes siguiente: depositar el fichero, esperar al filewatcher, verificar la misma cadena secuencial pero con MEKYTL1184 y MEKYTL1311 (envíos reales a CSCF/TFIT) en vez de sus placeholders `_DUMMY`.</paso>
+      <paso numero="3">Verificar checksum y naming en todos los destinos de ambos días, y que el orden de finalización de los jobs respeta la secuencia documentada (no hay ejecución paralela).</paso>
     </pasos>
-    <resultadoEsperado>El jueves se distribuye a 3 destinos y se historifica; el viernes se distribuye a los 5 destinos y se historifica; todos los checksums coinciden con el origen correspondiente.</resultadoEsperado>
+    <resultadoEsperado>El jueves se distribuye a 3 destinos reales (XERG, BONT, Mentor) con los 2 placeholders CSCF/TFIT ejecutándose sin enviar nada, y se historifica; el viernes se distribuye a los 5 destinos reales y se historifica; todos los checksums coinciden con el origen correspondiente; en ambos días la ejecución respeta el orden secuencial confirmado por el export de Control-M.</resultadoEsperado>
     <tipoValidacion>Checksum + verificación de naming y rutas + estado final de todos los jobs en Control-M en ambos días.</tipoValidacion>
     <criterioAceptacion>Cadena completa ejecutada sin KOs en ambos días, todos los destinos aplicables cubiertos, historificación confirmada en ambos casos.</criterioAceptacion>
     <posibilidadFallo>Cualquier KO no esperado, checksum distinto, o destino faltante invalida el caso.</posibilidadFallo>

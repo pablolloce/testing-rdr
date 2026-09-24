@@ -7,28 +7,29 @@
 
 ## 1. Resumen ejecutivo
 
-El proceso `ENVIO_CAL_MODELITY_new` detecta, captura y distribuye el fichero maestro `Calendarios.csv` desde el ecosistema RDR hacia la plataforma Modelity y 5 unidades de negocio satélite (XERG, BONT, CSCF, Mentor, TFIT), garantizando que todas ellas dispongan de la misma referencia de días no hábiles (fines de semana y festivos) por divisa.
+El proceso `ENVIO_CAL_MODELITY_new` detecta, captura y distribuye el fichero maestro `Calendarios.csv` desde el ecosistema RDR hacia la plataforma Modelity y 5 unidades de negocio satélite (XERG, BONT, CSCF, Mentor, TFIT), garantizando que todas ellas dispongan de la misma referencia de días no hábiles (fines de semana y festivos) por divisa. **Confirmado por export real de Control-M (`INCOND`/`OUTCOND` de cada job):** la cadena es **estrictamente secuencial** — no hay ramas paralelas independientes; cada destino depende de la finalización del anterior.
 
 ## 2. Alcance del proceso
 
 * **Ámbito funcional:** Distribución diaria del fichero maestro de calendarios (`Calendarios.csv`) generado en RDR hacia la plataforma Modelity y las unidades de negocio XERG, BONT, CSCF, Mentor y TFIT, garantizando la alineación de días hábiles y festivos (*bank holidays*) por divisa en sus sistemas.
-* **Ámbito técnico:** Cadena Control-M `ENVIO_CAL_MODELITY_new` con 9 jobs (1 disparador, 1 filewatcher, 5 envíos por destino — XERG, BONT, CSCF vía dummy + principal, Mentor, TFIT —, 1 historificación). Se ejecuta sobre los nodos `lprdr501`/`lprdr602` (VIPA `pr-rdr.igrupobbva`), con destinos en `LPNOV503`, `pr-mentor.igrupobbva` y Nova Transfer (`novatransferbatch.igrupobbva`).
+* **Ámbito técnico:** Cadena Control-M `ENVIO_CAL_MODELITY_new` con **11 jobs** (2 dummy de apertura/cierre, 1 filewatcher, 5 envíos por destino — XERG, BONT, CSCF, Mentor, TFIT —, 2 jobs `_DUMMY` de alternancia por calendario para CSCF y TFIT, 1 historificación), encadenados de forma estrictamente secuencial (confirmado por export real de Control-M, ver sección 3). Se ejecuta sobre los nodos `lprdr501`/`lprdr602` (VIPA `pr-rdr.igrupobbva`), con destinos en `LPNOV503`, `pr-mentor.igrupobbva` y Nova Transfer (`novatransferbatch.igrupobbva`).
 * **Fuera de alcance:** La generación del propio `Calendarios.csv` (query/ETL de extracción sobre GoldenSource, tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`). El consumo/interpretación del fichero en cada plataforma destino (XERG, BONT, CSCF, Mentor, TFIT).
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
-| R1 | El filewatcher `KYTL_CAL_MODELITY_FW` debe detectar `Calendarios.csv` en `/fichtemcomp/pr/descargas/kytl/Modelity/` entre las 22:00 y las 23:00, o finalizar en KO. |
-| R2 | Envío a XERG (`MEKYTL1113`) hacia `LPNOV503` (ruta `PXVA`), renombrado `Calendars_AAAAMMDD.csv`, sin modificar el fichero origen. Ejecución L-V. |
-| R3 | Envío a BONT (`MEKYTL1090`) hacia `bonotasfs/incoming/`, mismo naming, sin historificación propia. Ejecución L-V. |
-| R4 | Envío a CSCF (`MEKYTL1184`), retenido L-J por `MEKYTL1184_DUMMY`, liberado únicamente los viernes hacia Nova Transfer como `RDR_Calendarios_YYYYMMDD.csv`. |
-| R5 | Envío a Mentor (`MEKYTL1266`) hacia `pr-mentor:/fichtemcomp/pr/descargas/eezt/`. Ejecución L-V. |
-| R6 | Envío semanal a TFIT (`MEKYTL1311`, viernes 22:00) vía Nova Transfer a `bankholidays_rdr`, como `Calendarios_YYYYMMDD.csv`. |
-| R7 | Historificación (`MEKYTL0863`) del fichero procesado a `/old/` como `Calendarios_AAAAMMDD.csv`, como último paso secuencial, incondicional respecto al éxito de los envíos anteriores. |
+| R1 | El filewatcher `KYTL_CAL_MODELITY_FW` (`ctmfw ... CREATE 0 60 10 3 60`, ventana desde las 22:00) debe detectar `Calendarios.csv` en `/fichtemcomp/pr/descargas/kytl/Modelity/`. **Confirmado por export real de Control-M:** ante RC=0 genera el evento de salida `KYTL_CAL_MODELITY_FW_OK`; ante timeout (`COMPSTAT EQ 7`) tiene configurada una acción explícita de **relanzamiento automático (`DOACTION RERUN`)**, no una finalización directa en KO como se documentaba antes — ver gap abierto sobre el límite de reintentos en la sección 4. |
+| R2 | Envío a XERG (`MEKYTL1113`) hacia `LPNOV503` (ruta `PXVA`), renombrado `Calendars_AAAAMMDD.csv`. **Predecesor real confirmado: `KYTL_CAL_MODELITY_FW_OK`** (primer job tras el filewatcher). Ejecución L-V. |
+| R3 | Envío a BONT (`MEKYTL1090`) hacia `bonotasfs/incoming/`, mismo naming, sin historificación propia. **Predecesor real confirmado: `MEKYTL1113_OK`** — se ejecuta en cadena tras XERG, no en paralelo con el filewatcher. Ejecución L-V. |
+| R4 | Envío a CSCF: **`MEKYTL1184`** (envío real, `WEEKDAYS=5`, solo viernes) y **`MEKYTL1184_DUMMY`** (placeholder, `WEEKDAYS=1,2,3,4`, lunes a jueves) comparten el mismo predecesor (`MEKYTL1090_OK`) y el mismo evento de salida (`MEKYTL1184_OK`) — **alternancia por calendario**, no una retención secuencial: cada día solo uno de los dos está programado, y cualquiera de los dos que se ejecute libera el mismo evento para continuar la cadena. `MEKYTL1184` envía a Nova Transfer como `RDR_Calendarios_YYYYMMDD.csv`. |
+| R5 | Envío a Mentor (`MEKYTL1266`) hacia `pr-mentor:/fichtemcomp/pr/descargas/eezt/`. **Predecesor real confirmado: `MEKYTL1184_OK`** (tras el punto de alternancia CSCF). Ejecución L-V. |
+| R6 | Envío a TFIT: **`MEKYTL1311`** (envío real, `WEEKDAYS=5`, `TIMEFROM=2200`, solo viernes) y **`MEKYTL1311_DUMMY`** (placeholder, `WEEKDAYS=1,2,3,4`) — mismo patrón de alternancia que R4: ambos comparten predecesor (`MEKYTL1266_OK`) y evento de salida (`MEKYTL1311_OK`). `MEKYTL1311` envía vía Nova Transfer a `bankholidays_rdr` como `Calendarios_YYYYMMDD.csv`. |
+| R7 | Historificación (`MEKYTL0863`) del fichero procesado a `/old/` como `Calendarios_AAAAMMDD.csv`. **Predecesor real confirmado: `MEKYTL1311_OK`** — último paso antes del cierre (`ENVIO_CAL_MODELITY_OUT`), incondicional respecto al éxito de los envíos anteriores. |
 | R8 | Alertas de fallo con criticidad W (aviso día siguiente) a `ans_rdr.es@bbva.com`, salvo CSCF que alerta a `scff_ans@bbva.com`. |
 | R9 | Integridad de copia: cada transferencia (`MEKYTL1113`, `1090`, `1184`, `1266`, `1311`) debe preservar el contenido exacto del fichero origen, verificado por checksum. |
 | R10 | El fichero `Calendarios.csv` contiene exclusivamente registros de días NO hábiles (no hay filas de días laborables); la ausencia de una fecha para una divisa se interpreta como día hábil. |
+| R11 | **Grafo real confirmado (export Control-M, `INCOND`/`OUTCOND` de cada job) — cadena estrictamente lineal, sin Fan-Out/Fan-In real:** `ENVIO_CAL_MODELITY_IN` → `KYTL_CAL_MODELITY_FW` → `MEKYTL1113` → `MEKYTL1090` → [`MEKYTL1184` viernes \| `MEKYTL1184_DUMMY` L-J] → `MEKYTL1266` → [`MEKYTL1311` viernes \| `MEKYTL1311_DUMMY` L-J] → `MEKYTL0863` → `ENVIO_CAL_MODELITY_OUT`. Un fallo en cualquier job bloquea todos los posteriores — ver riesgo en sección 9. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
@@ -41,6 +42,8 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 - **Contenido de `HOLIDAY`:** enum cerrado de 2 valores (`WEEKEND`, `HOLIDAY`), sin nulos ni terceros valores en los 251.874 registros observados.
 - **Fallos de transferencia:** aviso por correo + código de salida específico de `RAMERC0068.sh` (7/11/68), sin reintento automático.
 - **Historificación:** último paso secuencial, incondicional; no hay lógica que la detenga si un envío previo falló.
+- **Topología del árbol de jobs (confirmado con export real de Control-M):** la cadena es estrictamente lineal, sin ramas paralelas — ver R2-R7 y R11. `MEKYTL1090` (BONT) depende de `MEKYTL1113` (XERG), no del filewatcher directamente. `MEKYTL1184`/`MEKYTL1184_DUMMY` y `MEKYTL1311`/`MEKYTL1311_DUMMY` son pares de alternancia por calendario (mismo predecesor y mismo evento de salida cada uno), no un Fan-Out/Fan-In real.
+- **Nuevo gap abierto (no existía antes de este hallazgo):** el filewatcher tiene configurado un `DOACTION RERUN` explícito ante timeout (`COMPSTAT EQ 7`), pero el export no especifica cuántas veces puede reintentar antes de una alerta/KO definitivos, ni si ese límite está gobernado por `MAXRERUN` (declarado en `0` a nivel de job, lo cual sería contradictorio con un `RERUN` explícito) o por otro mecanismo. **Pendiente de aclarar con el usuario o con evidencia adicional (p. ej. histórico de ejecuciones con timeout real).**
 
 ## 5. Especificación funcional
 
@@ -61,22 +64,29 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 - Criterio de completitud correcto: (a) fechas dentro del rango temporal esperado, (b) presencia de las 87 divisas esperadas, (c) las fechas presentes corresponden efectivamente a fines de semana o festivos catalogados.
 - **Rango temporal (confirmado con evidencia real cruzada):** el horizonte de vigencia **es un valor estático precargado por divisa en `FT_T_CADP`** (no un cálculo dinámico relativo a "hoy"), confirmado cruzando una consulta real contra esa tabla con el fichero real de producción (2026-09-17, 251.874 filas, 87 divisas): el máximo por divisa en la tabla y el máximo real exportado a `Calendarios.csv` coinciden exactamente en mes y día, con un desfase constante de 6 años en todas las divisas comprobadas (p. ej. USD: tabla `2055-11-25` / fichero `2049-11-25`; EUR: tabla `2055-04-19` / fichero `2049-04-19`). **Confirmado por el usuario en sesión:** ese recorte de 6 años en la extracción es deliberado — una regla de protección de diseño en el SQL de extracción para evitar que sistemas destino con restricciones de formato de fecha (XERG, BONT, Mentor, CSCF, etc.) interpreten los años 2050-2055 como 1950-1955. El valor `2049-12-31` observado en la muestra **no es un límite único global**: cada divisa tiene su propio máximo en `FT_T_CADP` (heterogéneo: desde 2013 hasta 2096 según la divisa/plaza), recortado 6 años en la exportación.
 
-**Flujo funcional (router):** un único fichero de entrada se distribuye en 5 ramas independientes de salida más una historificación final, con nombres de fichero y rutas propios por destino.
+**Flujo funcional (cadena secuencial, no router):** un único fichero de entrada pasa por los 5 destinos **en cadena, uno tras otro** (XERG → BONT → CSCF/placeholder → Mentor → TFIT/placeholder), cada uno con su propio nombre de fichero y ruta, y termina en una historificación final. No hay ramas independientes: el fallo de un destino bloquea a todos los posteriores (confirmado por export real de Control-M, ver R11).
 
 ## 6. Especificación técnica
 
 - **Servidor origen:** `pr-rdr.igrupobbva` (VIPA `22.156.148.85`), balanceado en `lprdr501`/`lprdr602`.
 - **Ruta de recepción:** `/fichtemcomp/pr/descargas/kytl/Modelity/Calendarios.csv`.
-- **Ventana del filewatcher:** 22:00–23:00; KO por timeout si no llega. Control únicamente por presencia física del fichero (variable `FALLASINOFICHS`), **sin validación de número de registros ni de escritura completa** (riesgo, ver sección 9).
-- **Destinos y naming:**
+- **Ventana del filewatcher:** desde las 22:00 (`ctmfw ... CREATE 0 60 10 3 60`: tamaño mínimo 0, chequeo cada 60s, 10 verificaciones de estabilidad, retardo inicial 3 min, timeout 60 min); ante timeout, **relanzamiento automático confirmado** (`DOACTION RERUN`), no KO directo (ver gap abierto en sección 4 sobre el límite de reintentos). Control únicamente por presencia física del fichero (variable `FALLASINOFICHS`), **sin validación de número de registros ni de escritura completa** (riesgo, ver sección 9).
+- **Grafo real (confirmado por export de Control-M, no por inferencia visual):** cadena estrictamente lineal —
+  `ENVIO_CAL_MODELITY_IN` → `KYTL_CAL_MODELITY_FW` → `MEKYTL1113` (XERG) → `MEKYTL1090` (BONT) →
+  [`MEKYTL1184` (viernes) / `MEKYTL1184_DUMMY` (L-J), mismo evento de salida `MEKYTL1184_OK`] →
+  `MEKYTL1266` (Mentor) →
+  [`MEKYTL1311` (viernes) / `MEKYTL1311_DUMMY` (L-J), mismo evento de salida `MEKYTL1311_OK`] →
+  `MEKYTL0863` (historificación) → `ENVIO_CAL_MODELITY_OUT`. Sin Fan-Out/Fan-In real: los pares `_DUMMY` son
+  alternancia por calendario (uno u otro, nunca ambos el mismo día), no ejecución paralela.
+- **Destinos y naming (en el orden real de la cadena):**
   - XERG (`MEKYTL1113` → `LPNOV503`/`PXVA`): `Calendars_AAAAMMDD.csv`.
   - BONT (`MEKYTL1090` → `bonotasfs/incoming/`): `Calendars_AAAAMMDD.csv`, sin historificación propia.
-  - CSCF (`MEKYTL1184`, solo viernes, vía `MEKYTL1184_DUMMY` de retención L-J → Nova Transfer): `RDR_Calendarios_YYYYMMDD.csv`.
+  - CSCF (`MEKYTL1184`, solo viernes; `MEKYTL1184_DUMMY` L-J → Nova Transfer): `RDR_Calendarios_YYYYMMDD.csv`.
   - Mentor (`MEKYTL1266` → `pr-mentor:/fichtemcomp/pr/descargas/eezt/`): sin renombrado documentado.
-  - TFIT (`MEKYTL1311`, semanal viernes 22:00, vía Nova Transfer a `bankholidays_rdr`): `Calendarios_YYYYMMDD.csv`.
-- **Historificación:** `MEKYTL0863` mueve el fichero a `/old/` como `Calendarios_AAAAMMDD.csv`; sucesor final incondicional de la cadena.
+  - TFIT (`MEKYTL1311`, solo viernes 22:00; `MEKYTL1311_DUMMY` L-J → Nova Transfer a `bankholidays_rdr`): `Calendarios_YYYYMMDD.csv`.
+- **Historificación:** `MEKYTL0863` mueve el fichero a `/old/` como `Calendarios_AAAAMMDD.csv`; predecesor real `MEKYTL1311_OK`, sucesor final incondicional de la cadena antes de `ENVIO_CAL_MODELITY_OUT`.
 - **Validación de integridad de copia:** checksum entre origen y cada destino.
-- **Gestión de errores:** script `RAMERC0068.sh` captura errores de transferencia y finaliza con código de salida específico (`7`, `11`, `68`); no hay reintento automático.
+- **Gestión de errores:** script `RAMERC0068.sh` captura errores de transferencia y finaliza con código de salida específico (`7`, `11`, `68`); no hay reintento automático en los jobs de envío (a diferencia del filewatcher, que sí tiene `RERUN` explícito ante timeout).
 - **Concurrencia:** sin mecanismo de lock/PID/semáforo — riesgo de ejecuciones solapadas ante relanzamientos manuales.
 
 ## 7. Especificación de testing
@@ -106,8 +116,8 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
-| R1 (filewatcher) | TC-002, TC-009 | Detecta timeout; documenta que no detecta fichero vacío/parcial (gap confirmado) |
-| R2–R6 (distribución por destino) | TC-001, TC-011 | Entrega correcta con naming y ruta por destino, en el día correspondiente |
+| R1 (filewatcher) | TC-002, TC-009 | Detecta timeout y confirma relanzamiento automático (`RERUN`); documenta que no detecta fichero vacío/parcial (gap confirmado) |
+| R2–R7, R11 (distribución por destino y grafo real) | TC-001, TC-011 | Entrega correcta con naming y ruta por destino, en el día correspondiente, respetando el orden secuencial real y los pares de alternancia por calendario |
 | R7 (historificación) | TC-011 | Se ejecuta como paso final tras los envíos |
 | R8 (alertas) | TC-002, TC-003 | Alerta al buzón correcto según destino, con código de error |
 | R9 (integridad) | TC-007 | Checksum idéntico origen/destino |
@@ -120,8 +130,9 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 1. **Fichero vacío/parcial no detectado** (TC-009): el filewatcher solo controla presencia por horario, no contenido. Riesgo de distribuir un fichero corrupto o vacío a los 5 destinos sin alerta.
 2. **Sin protección de concurrencia** (TC-010): ausencia de lock/PID/semáforo en `RAMERC0068.sh`; un relanzamiento manual durante la ejecución nocturna podría producir condiciones de carrera.
 3. **Sin validación de dominio de contenido en la cadena de distribución**: valores fuera del enum `{WEEKEND, HOLIDAY}` no serían bloqueados por RDR; la responsabilidad recae en los sistemas destino.
-4. **Historificación incondicional** (`MEKYTL0863`): se ejecuta aunque algún envío intermedio haya fallado, lo que podría enmascarar un fallo parcial si no se revisan las alertas de los jobs de envío específicos.
-5. **Topología exacta del árbol de jobs no confirmada**: el documento solo indica que el sucesor directo del filewatcher es `MEKYTL1113`; no se especifica si `MEKYTL1090`, `MEKYTL1184_DUMMY`, `MEKYTL1266` y `MEKYTL1311` cuelgan en paralelo del filewatcher o en cadena tras `MEKYTL1113`. Esto afecta si un fallo en XERG bloquea o no el resto de destinos — recomendable confirmar contra la definición real en Control-M antes de ejecutar TC-003 en un entorno real.
+4. **Historificación incondicional** (`MEKYTL0863`): se ejecuta aunque algún envío intermedio haya fallado, lo que podría enmascarar un fallo parcial si no se revisan las alertas de los jobs de envío específicos. **Matizado por el hallazgo de R11:** dado que la cadena es estrictamente secuencial, si un envío intermedio falla, `MEKYTL0863` en realidad **no llega a ejecutarse** (no recibe el evento de su predecesor) — el riesgo real no es que la historificación "enmascare" un fallo, sino que **todos los destinos posteriores al que falla quedan bloqueados sin distinción**, incluida la propia historificación.
+5. **Cadena de fallo único (Single Point of Failure), confirmado por el grafo real (R11):** al no existir Fan-Out/Fan-In real, un fallo en cualquier punto (p. ej. `MEKYTL1113`/XERG, el primer envío) bloquea **todos** los destinos posteriores (BONT, CSCF, Mentor, TFIT) y la historificación — no solo el destino que falló. Esto es más severo que lo asumido originalmente (se pensaba en distribución independiente por destino).
+6. **Límite de reintentos del filewatcher no especificado:** el export de Control-M confirma un `DOACTION RERUN` explícito ante timeout, pero no cuántas veces puede reintentar antes de una alerta/KO definitivos, ni cómo se concilia con `MAXRERUN=0` a nivel de job — ver gap en sección 4.
 
 **Nota de verificación futura — fallback de viernes festivo:** el diseño confirmado (sección 4) es enviar el
 fichero igual en un viernes festivo, asumiendo que el sistema destino lo procesa en su siguiente día lectivo.
@@ -132,4 +143,4 @@ a los equipos propietarios de esos sistemas.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario en sesión para todos los puntos bloqueantes (clave de negocio, estructura real del fichero, gestión de errores, integridad, concurrencia, roles, fallback de viernes festivo y rango temporal de vigencia). Queda registrado como **riesgo abierto, no como supuesto cerrado**, el punto 5 de la sección 9 (topología del árbol de jobs), que no impide ejecutar la matriz de pruebas pero sí debe revisarse antes de dar por válido el comportamiento en producción. El fallback de viernes festivo queda documentado como decisión de diseño confirmada, con un procedimiento de verificación futura pendiente de ejecutar (ver nota en sección 9), no como riesgo abierto. El rango temporal de vigencia queda cerrado con evidencia real cruzada (tabla `FT_T_CADP` + fichero de producción) y confirmación del usuario sobre el motivo del recorte de 6 años.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario en sesión para todos los puntos bloqueantes (clave de negocio, estructura real del fichero, gestión de errores, integridad, concurrencia, roles, fallback de viernes festivo, rango temporal de vigencia y topología real del grafo de jobs). La **topología del árbol de jobs queda resuelta con evidencia real** (export XML de Control-M con `INCOND`/`OUTCOND` de cada job): la cadena es estrictamente secuencial, sin Fan-Out/Fan-In, con 2 puntos de alternancia por calendario (CSCF y TFIT). Esto revela un riesgo más severo que el documentado originalmente (punto 5 de la sección 9: fallo único bloquea toda la cadena posterior). Queda como **gap nuevo, abierto**: el límite de reintentos automáticos del filewatcher ante timeout (punto 6 de la sección 9). El fallback de viernes festivo queda documentado como decisión de diseño confirmada, con un procedimiento de verificación futura pendiente de ejecutar (ver nota en sección 9), no como riesgo abierto. El rango temporal de vigencia queda cerrado con evidencia real cruzada (tabla `FT_T_CADP` + fichero de producción) y confirmación del usuario sobre el motivo del recorte de 6 años.
