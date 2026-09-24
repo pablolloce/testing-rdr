@@ -182,7 +182,6 @@ Entradas adicionales (registradas en formato lista en la rama `feature/Eduardo`)
 
 | Supuesto | Proceso | Usuario | Estado | Comentario |
 |----------|---------|---------|--------|------------|
-| Criticidad W (aviso día siguiente) es aceptable pese al impacto en P-001/P-028/P-061 | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Riesgo de negocio abierto, remitido a validación con negocio; no bloquea la especificación de testing |
 | El fallback de "enviar igual en viernes festivo" es correctamente interpretado por los sistemas destino | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Confirmada la decisión de envío, no verificado el comportamiento de recepción en XERG/BONT/CSCF/Mentor/TFIT |
 | Rango temporal exacto (N años) de vigencia del calendario para el criterio de completitud | Envío de Calendarios a Modelity | pablo.llorente | Pendiente (con evidencia de muestra) | No se confirmó si el máximo observado (2049-12-31) es un límite fijo del sistema origen o una ventana relativa a la fecha de generación; se usa como referencia empírica en TC-013, no como regla validada |
 | Topología exacta del árbol de jobs (paralelo vs. en cadena tras MEKYTL1113) | Envío de Calendarios a Modelity | pablo.llorente | Pendiente | Afecta si un fallo en un destino bloquea a los demás; recomendable confirmar en la definición real de Control-M |
