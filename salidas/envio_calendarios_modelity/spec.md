@@ -59,7 +59,7 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 - Volumen de referencia observado: 251.874 filas, 87 divisas.
 - No se valida continuidad secuencial de fechas: el salto natural entre registros consecutivos de una misma divisa es de 5–6 días (fin de semana), salvo festivos intermedios.
 - Criterio de completitud correcto: (a) fechas dentro del rango temporal esperado, (b) presencia de las 87 divisas esperadas, (c) las fechas presentes corresponden efectivamente a fines de semana o festivos catalogados.
-- **Rango temporal (evidencia de muestra, no regla de negocio confirmada):** el parámetro operativo "N años vista" no está definido como regla documentada. Se analizó un fichero real de producción (2026-09-17, 251.874 filas) que cubre `CAL_DAY` desde `2022-09-21` hasta `2049-12-31` (~27 años y 3 meses), con festivos reales (no solo `WEEKEND` calculado) poblados en profundidad (~770-1020 por año) durante todo ese rango. No se ha confirmado si `2049-12-31` es un límite fijo en el sistema origen o una ventana relativa a la fecha de generación del fichero — ver riesgo 7 en la sección 9.
+- **Rango temporal (confirmado con evidencia real cruzada):** el horizonte de vigencia **es un valor estático precargado por divisa en `FT_T_CADP`** (no un cálculo dinámico relativo a "hoy"), confirmado cruzando una consulta real contra esa tabla con el fichero real de producción (2026-09-17, 251.874 filas, 87 divisas): el máximo por divisa en la tabla y el máximo real exportado a `Calendarios.csv` coinciden exactamente en mes y día, con un desfase constante de 6 años en todas las divisas comprobadas (p. ej. USD: tabla `2055-11-25` / fichero `2049-11-25`; EUR: tabla `2055-04-19` / fichero `2049-04-19`). **Confirmado por el usuario en sesión:** ese recorte de 6 años en la extracción es deliberado — una regla de protección de diseño en el SQL de extracción para evitar que sistemas destino con restricciones de formato de fecha (XERG, BONT, Mentor, CSCF, etc.) interpreten los años 2050-2055 como 1950-1955. El valor `2049-12-31` observado en la muestra **no es un límite único global**: cada divisa tiene su propio máximo en `FT_T_CADP` (heterogéneo: desde 2013 hasta 2096 según la divisa/plaza), recortado 6 años en la exportación.
 
 **Flujo funcional (router):** un único fichero de entrada se distribuye en 5 ramas independientes de salida más una historificación final, con nombres de fichero y rutas propios por destino.
 
@@ -87,7 +87,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (distribución diaria básica), TC-012 (cobertura de las 87 divisas).
 - `negativo`: TC-002 (filewatcher KO por timeout).
 - `error_funcional`: TC-003 (fallo de transferencia a destino).
-- `borde`: TC-004 (valor fuera de dominio en `HOLIDAY`), TC-008 (viernes festivo), TC-013 (rango temporal de cobertura, evidencia de muestra).
+- `borde`: TC-004 (valor fuera de dominio en `HOLIDAY`), TC-008 (viernes festivo), TC-013 (rango temporal de cobertura, confirmado).
 - `duplicidad`: TC-005 (conflicto de clave `CURRENCY+CAL_DAY` en la extracción).
 - `datos_sinteticos`: TC-006 (repetición legítima de divisa vs. repetición de clave completa).
 - `conflicto_integridad`: TC-007 (checksum origen vs. destino).
@@ -111,7 +111,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R7 (historificación) | TC-011 | Se ejecuta como paso final tras los envíos |
 | R8 (alertas) | TC-002, TC-003 | Alerta al buzón correcto según destino, con código de error |
 | R9 (integridad) | TC-007 | Checksum idéntico origen/destino |
-| R10 (contenido: solo días no hábiles) | TC-004, TC-012, TC-013 | Dominio cerrado de `HOLIDAY`; cobertura de las 87 divisas; rango temporal de cobertura (evidencia de muestra) |
+| R10 (contenido: solo días no hábiles) | TC-004, TC-012, TC-013 | Dominio cerrado de `HOLIDAY`; cobertura de las 87 divisas; rango temporal de cobertura (confirmado: valor estático por divisa, recortado 6 años en la exportación) |
 | Clave de negocio / duplicidad | TC-005, TC-006 | Detección de conflicto de clave en el punto de extracción; distinción entre repetición legítima y conflicto |
 | Riesgos de diseño (concurrencia, fichero vacío) | TC-009, TC-010 | Documentan el comportamiento actual (sin control) como caso de regresión a vigilar |
 
@@ -121,8 +121,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 2. **Sin protección de concurrencia** (TC-010): ausencia de lock/PID/semáforo en `RAMERC0068.sh`; un relanzamiento manual durante la ejecución nocturna podría producir condiciones de carrera.
 3. **Sin validación de dominio de contenido en la cadena de distribución**: valores fuera del enum `{WEEKEND, HOLIDAY}` no serían bloqueados por RDR; la responsabilidad recae en los sistemas destino.
 4. **Historificación incondicional** (`MEKYTL0863`): se ejecuta aunque algún envío intermedio haya fallado, lo que podría enmascarar un fallo parcial si no se revisan las alertas de los jobs de envío específicos.
-5. **Rango temporal de vigencia del calendario (parámetro N años) no definido como regla de negocio**: se dispone de evidencia empírica de una muestra real (fichero de producción analizado 2026-09-17: rango `2022-09-21` a `2049-12-31`, ~27 años y 3 meses, con festivos reales poblados en profundidad todo ese rango), pero no se ha confirmado si `2049-12-31` es un límite fijo en el sistema origen o una ventana relativa a la fecha de generación (TC-013 usa esta muestra como referencia, no como regla validada).
-6. **Topología exacta del árbol de jobs no confirmada**: el documento solo indica que el sucesor directo del filewatcher es `MEKYTL1113`; no se especifica si `MEKYTL1090`, `MEKYTL1184_DUMMY`, `MEKYTL1266` y `MEKYTL1311` cuelgan en paralelo del filewatcher o en cadena tras `MEKYTL1113`. Esto afecta si un fallo en XERG bloquea o no el resto de destinos — recomendable confirmar contra la definición real en Control-M antes de ejecutar TC-003 en un entorno real.
+5. **Topología exacta del árbol de jobs no confirmada**: el documento solo indica que el sucesor directo del filewatcher es `MEKYTL1113`; no se especifica si `MEKYTL1090`, `MEKYTL1184_DUMMY`, `MEKYTL1266` y `MEKYTL1311` cuelgan en paralelo del filewatcher o en cadena tras `MEKYTL1113`. Esto afecta si un fallo en XERG bloquea o no el resto de destinos — recomendable confirmar contra la definición real en Control-M antes de ejecutar TC-003 en un entorno real.
 
 **Nota de verificación futura — fallback de viernes festivo:** el diseño confirmado (sección 4) es enviar el
 fichero igual en un viernes festivo, asumiendo que el sistema destino lo procesa en su siguiente día lectivo.
@@ -133,4 +132,4 @@ a los equipos propietarios de esos sistemas.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario en sesión para todos los puntos bloqueantes (clave de negocio, estructura real del fichero, gestión de errores, integridad, concurrencia, roles y fallback de viernes festivo). Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 5 y 6 de la sección 9, que no impiden ejecutar la matriz de pruebas pero sí deben revisarse antes de dar por válido el comportamiento en producción. El fallback de viernes festivo queda documentado como decisión de diseño confirmada, con un procedimiento de verificación futura pendiente de ejecutar (ver nota en sección 9), no como riesgo abierto.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario en sesión para todos los puntos bloqueantes (clave de negocio, estructura real del fichero, gestión de errores, integridad, concurrencia, roles, fallback de viernes festivo y rango temporal de vigencia). Queda registrado como **riesgo abierto, no como supuesto cerrado**, el punto 5 de la sección 9 (topología del árbol de jobs), que no impide ejecutar la matriz de pruebas pero sí debe revisarse antes de dar por válido el comportamiento en producción. El fallback de viernes festivo queda documentado como decisión de diseño confirmada, con un procedimiento de verificación futura pendiente de ejecutar (ver nota en sección 9), no como riesgo abierto. El rango temporal de vigencia queda cerrado con evidencia real cruzada (tabla `FT_T_CADP` + fichero de producción) y confirmación del usuario sobre el motivo del recorte de 6 años.

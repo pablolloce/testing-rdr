@@ -256,22 +256,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="borde">
-    <nombre>Rango temporal de cobertura del fichero (evidencia de muestra)</nombre>
-    <objetivo>Verificar el rango de fechas cubierto por el fichero de producción, usando como referencia el rango observado en una muestra real, dado que el parámetro operativo "N años vista" no está confirmado como regla de negocio.</objetivo>
+    <nombre>Rango temporal de cobertura del fichero (máximo por divisa, recorte de 6 años confirmado)</nombre>
+    <objetivo>Verificar que el máximo de CAL_DAY por divisa en el fichero coincide con el máximo real de FT_T_CADP para esa divisa menos 6 años exactos (mismo mes/día), confirmando el recorte de protección de formato de fecha.</objetivo>
     <precondiciones>
       <precondicion>Fichero Calendarios.csv de producción disponible para análisis.</precondicion>
+      <precondicion>Acceso de lectura a FT_T_CADP (GoldenSource) para contrastar el máximo real por CAL_ID/divisa.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Calendarios.csv (muestra real analizada 2026-09-17)" valor="251.874 filas; rango observado CAL_DAY: 2022-09-21 a 2049-12-31 (~27 años y 3 meses); festivos reales (HOLIDAY, no solo WEEKEND) poblados con profundidad de ~770-1020 por año en todos los años del rango, no solo fines de semana calculados"/>
+      <dato campo="Calendarios.csv (muestra real analizada 2026-09-17)" valor="251.874 filas, 87 divisas; máximo por divisa comprobado exactamente 6 años antes del máximo real en FT_T_CADP para esa misma divisa (mismo mes/día) — p. ej. USD: tabla 2055-11-25 / fichero 2049-11-25; EUR: tabla 2055-04-19 / fichero 2049-04-19"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Extraer el valor mínimo y máximo del campo CAL_DAY del fichero bajo prueba.</paso>
-      <paso numero="2">Comparar contra el rango observado en la muestra de referencia (2022-09-21 a 2049-12-31).</paso>
-      <paso numero="3">Si el fichero bajo prueba es una regeneración posterior, verificar si el máximo se mantiene fijo en 2049-12-31 (límite hardcodeado) o se desplaza hacia adelante (ventana relativa a la fecha de generación).</paso>
+      <paso numero="1">Extraer el valor máximo del campo CAL_DAY por divisa del fichero bajo prueba.</paso>
+      <paso numero="2">Consultar MAX(GREG_DTE) por CAL_ID en FT_T_CADP para las mismas divisas.</paso>
+      <paso numero="3">Verificar que el máximo del fichero es exactamente 6 años (mismo mes/día) anterior al máximo de la tabla para cada divisa comprobada.</paso>
     </pasos>
-    <resultadoEsperado>No hay un resultado esperado cerrado de negocio: este caso documenta el comportamiento observado en la muestra como evidencia, no como validación de una regla confirmada. Sirve para detectar si el rango cambia entre regeneraciones del fichero y así inferir si el límite es fijo o relativo.</resultadoEsperado>
-    <tipoValidacion>Extracción de min/max de CAL_DAY + comparación con la muestra de referencia documentada.</tipoValidacion>
-    <criterioAceptacion>No aplica un criterio de aceptación de pase/fallo hasta que se confirme con el equipo si el límite de 2049-12-31 es fijo o relativo a la fecha de generación (ver riesgo 7 en spec.md).</criterioAceptacion>
+    <resultadoEsperado>El máximo por divisa en el fichero es sistemáticamente 6 años anterior al máximo real en FT_T_CADP para la misma divisa — comportamiento confirmado por diseño (recorte deliberado para evitar que sistemas destino con restricciones de formato interpreten 2050-2055 como 1950-1955), no un límite único global ni una ventana relativa a la fecha de generación.</resultadoEsperado>
+    <tipoValidacion>Extracción de MAX(CAL_DAY) por divisa en el fichero + consulta MAX(GREG_DTE) por CAL_ID en FT_T_CADP + comparación del desfase.</tipoValidacion>
+    <criterioAceptacion>Desfase de exactamente 6 años (mismo mes/día) entre el máximo de FT_T_CADP y el máximo exportado, para cada divisa comprobada.</criterioAceptacion>
     <posibilidadFallo>Riesgo si el rango real difiere sustancialmente de la muestra sin explicación (p. ej. un corte prematuro del catálogo de festivos), lo que podría indicar un problema en la extracción de origen no relacionado con esta cadena de distribución.</posibilidadFallo>
   </casoDePrueba>
 
