@@ -90,41 +90,40 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="duplicidad">
-    <nombre>Identificador de 8 dígitos repetido dentro del fichero (exploratorio)</nombre>
-    <objetivo>Observar el comportamiento real del proceso ante un identificador duplicado, dado que la lógica interna del JAR no es verificable con la evidencia disponible.</objetivo>
+    <nombre>Identificador de 8 dígitos nunca duplicado dentro del fichero (confirmado por SELECT DISTINCT)</nombre>
+    <objetivo>Confirmar que CONCILIA_AAAAMMDD.txt nunca contiene un identificador de 8 dígitos repetido, dado que Querys.obtenerIDs() usa SELECT DISTINCT FINS_ID sobre FT_T_FIID/FT_T_FINS.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba donde se pueda inyectar un fichero sintético o datos de origen controlados.</precondicion>
+      <precondicion>Entorno de prueba donde se pueda insertar en origen 2 registros que compartan el mismo FINS_ID de 8 dígitos con contexto ID_ALTAMIRA_COL.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="identificador_duplicado" valor="mismo identificador de 8 dígitos repetido dos veces en el mismo fichero/extracción"/>
+      <dato campo="identificador_duplicado_en_origen" valor="mismo identificador de 8 dígitos presente en 2 filas de FT_T_FIID/FT_T_FINS que cumplen el filtro de la query"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Insertar en el origen de datos de FINS dos registros que generen el mismo identificador de 8 dígitos.</paso>
+      <paso numero="1">Insertar en el origen de datos de FINS dos registros que generen el mismo identificador de 8 dígitos, ambos cumpliendo el filtro de obtenerIDs() (FINS_ID_CTXT_TYP='ID_ALTAMIRA_COL', longitud 8, ACTIVE, ORG_ID='9020').</paso>
       <paso numero="2">Ejecutar EXTRACCION_ALTAMIRA_SEND.</paso>
-      <paso numero="3">Inspeccionar el fichero CONCILIA_AAAAMMDD.txt generado.</paso>
+      <paso numero="3">Inspeccionar el fichero CONCILIA_AAAAMMDD.txt generado y contar las apariciones del identificador.</paso>
     </pasos>
-    <resultadoEsperado>Documentar el comportamiento observado (caja negra): puede que el duplicado se filtre, se mantenga, o la extracción falle. No se valida contra un resultado esperado predefinido, ya que el comportamiento interno del JAR no está documentado ni es verificable.</resultadoEsperado>
-    <tipoValidacion>Inspección manual del fichero generado y del resultado de ejecución de EXTRACCION_ALTAMIRA_SEND.</tipoValidacion>
-    <criterioAceptacion>El comportamiento observado queda registrado como evidencia para futuras ejecuciones; no hay criterio de aceptación de pase/fallo hasta que se confirme el comportamiento esperado con el equipo propietario del JAR.</criterioAceptacion>
-    <posibilidadFallo>Riesgo: si el duplicado se propaga sin control hasta Altamira Colombia, podría generar un conflicto de conciliación en destino.</posibilidadFallo>
+    <resultadoEsperado>El identificador aparece exactamente una vez en el fichero generado, pese a existir 2 registros en origen — confirmado por el SELECT DISTINCT real de obtenerIDs().</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero generado + conteo de apariciones del identificador.</tipoValidacion>
+    <criterioAceptacion>0 duplicados en el fichero generado, con independencia de cuántas filas de origen compartan el mismo identificador.</criterioAceptacion>
+    <posibilidadFallo>Que el identificador aparezca más de una vez en el fichero, lo que contradiría el comportamiento del SELECT DISTINCT confirmado por código real.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Repetición legítima entre días vs. duplicado dentro del mismo fichero</nombre>
-    <objetivo>Distinguir entre la repetición esperada de un mismo identificador en ficheros de días distintos (normal) y su repetición dentro del mismo fichero (caso de duplicidad, ver TC-006).</objetivo>
+    <nombre>Repetición legítima entre días (normal, distinta del caso TC-006 estructuralmente imposible)</nombre>
+    <objetivo>Confirmar que la repetición esperada de un mismo identificador en ficheros de días distintos (normal, un cliente sigue activo) no genera ninguna incidencia, a diferencia de la duplicidad dentro de un mismo fichero, que TC-006 confirma como estructuralmente imposible.</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba con capacidad de ejecutar la extracción en dos días distintos.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="escenario_legitimo" valor="identificador 12345678 presente en CONCILIA_20260907.txt y de nuevo en CONCILIA_20260908.txt"/>
-      <dato campo="escenario_duplicado" valor="identificador 12345678 repetido dos veces dentro de CONCILIA_20260907.txt (ver TC-006)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar la extracción dos días consecutivos con el mismo identificador presente en ambos ficheros.</paso>
       <paso numero="2">Confirmar que ambos ficheros se generan y transmiten sin incidencias.</paso>
-      <paso numero="3">Comparar con el resultado de TC-006 (mismo identificador repetido dentro de un único fichero).</paso>
+      <paso numero="3">Contrastar con TC-006: dentro de un mismo fichero el duplicado es imposible por el SELECT DISTINCT; entre ficheros de días distintos, en cambio, es el comportamiento normal esperado.</paso>
     </pasos>
-    <resultadoEsperado>La repetición del identificador entre ficheros de días distintos es normal y no genera ninguna incidencia; solo la repetición dentro del mismo fichero se trata como caso a observar (TC-006).</resultadoEsperado>
+    <resultadoEsperado>La repetición del identificador entre ficheros de días distintos es normal y no genera ninguna incidencia.</resultadoEsperado>
     <tipoValidacion>Verificación de ejecución sin incidencias en ambos días.</tipoValidacion>
     <criterioAceptacion>Ambas ejecuciones diarias terminan en OK; ningún control bloquea el identificador por aparecer en un día anterior.</criterioAceptacion>
     <posibilidadFallo>Riesgo si la lógica de negocio tratara erróneamente la reaparición del identificador en días distintos como un conflicto.</posibilidadFallo>
