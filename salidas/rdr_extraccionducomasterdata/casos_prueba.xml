@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_ExtraccionDUCOMASTERDATA" fecha="2026-09-24" usuario="miguel.saavedra">
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ejecución semanal estándar con datos maestro válidos en las 4 secciones</nombre>
+    <objetivo>Verificar que la cadena genera, copia a DataX e historifica correctamente el fichero de datos maestro en una ejecución semanal normal.</objetivo>
+    <precondiciones>
+      <precondicion>Existe en `ft_t_issu` al menos 1 índice con `iss_typ='INDEXCUR'` y `data_stat_typ='ACTIVE'`.</precondicion>
+      <precondicion>Existe en `ft_t_cadf` al menos 1 calendario con `data_stat_typ='ACTIVE'`.</precondicion>
+      <precondicion>Existe en `ft_t_isty` al menos 1 tipo de producto con `data_stat_typ='ACTIVE'`.</precondicion>
+      <precondicion>Existe en `ft_t_idmv` al menos 1 valor con `fld_data_cl_id='DAYBASIS'` y `data_stat_typ='ACTIVE'`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Índice" valor="pref_iss_id=IDX001, iss_typ=INDEXCUR"/>
+      <dato campo="Calendario" valor="cal_id=CAL001"/>
+      <dato campo="Producto" valor="iss_typ_nme=PROD001"/>
+      <dato campo="Day Count" valor="intrnl_dmn_val_nme=DBT001, fld_data_cl_id=DAYBASIS"/>
+      <dato campo="Fecha de ejecución" valor="2026-09-25 (viernes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `EXTRACCIONDUCOMASTERDATA` se dispara después de las 22:00 del 2026-09-25 y finaliza en OK.</paso>
+      <paso numero="2">Verificar que `ExtraccionDUCOMASTERDATA.csv` contiene una fila con `Tipo=Index` y `Columna2=IDX001`.</paso>
+      <paso numero="3">Verificar que el mismo CSV contiene una fila con `Tipo=Calendar` y `Columna2=CAL001`.</paso>
+      <paso numero="4">Verificar que el mismo CSV contiene una fila con `Tipo=Products` y `Columna2=PROD001`.</paso>
+      <paso numero="5">Verificar que el mismo CSV contiene una fila con `Tipo=DAYBASISTYPE` y `Columna2=DBT001`.</paso>
+      <paso numero="6">Confirmar que `MEKYTL1299` finaliza en OK y que `/unload/kytl/datsal/datax/ExtraccionDUCOMASTERDATA.csv` existe con el mismo contenido.</paso>
+      <paso numero="7">Confirmar que `ExtraccionDUCOMASTERDATA.csv` sigue existiendo en la ruta local tras `MEKYTL1299`.</paso>
+      <paso numero="8">Confirmar que `MEKYTL1300` finaliza en OK y que `backup/ExtraccionDUCOMASTERDATA_20260925.csv` existe.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs finalizan en OK; el CSV contiene las 4 filas esperadas (una por sección); el fichero existe tanto en la ruta de DataX como en el backup histórico.</resultadoEsperado>
+    <tipoValidacion>Validación funcional de extremo a extremo sobre estados de job y ficheros de salida.</tipoValidacion>
+    <criterioAceptacion>Ningún job termina en NOTOK, las 4 filas esperadas existen, y el fichero está presente en ambos destinos (DataX y backup).</criterioAceptacion>
+    <posibilidadFallo>Si falta alguna fila, si el fichero no llega a DataX, o si el histórico no existe, el caso falla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Exclusión de índice con iss_typ fuera de la lista permitida</nombre>
+    <objetivo>Verificar que un índice cuyo iss_typ no está en la lista permitida (INDEXBS, INDEXCUR, INDEXFRA, INDEXFUT, INDEXFXF, INDEXINF, INDEXINT, INDEXSMM, INDEXSOF, INDEXSOS, INDEXSW, NOTIFACT) queda excluido de la sección Index.</objetivo>
+    <precondiciones>
+      <precondicion>Existe en `ft_t_issu` un registro con `pref_iss_id=IDX999`, `iss_typ='BOND'` (no permitido) y `data_stat_typ='ACTIVE'`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="pref_iss_id" valor="IDX999"/>
+      <dato campo="iss_typ" valor="BOND (fuera de la lista permitida)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `IDX999` tiene `iss_typ='BOND'` en `ft_t_issu`.</paso>
+      <paso numero="2">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="3">Buscar en `ExtraccionDUCOMASTERDATA.csv` una fila con `Tipo=Index` y `Columna2=IDX999`.</paso>
+    </pasos>
+    <resultadoEsperado>No existe ninguna fila con `Tipo=Index` y `Columna2=IDX999` en el CSV.</resultadoEsperado>
+    <tipoValidacion>Validación de regla de negocio (filtro de tipos de índice permitidos).</tipoValidacion>
+    <criterioAceptacion>Ausencia total de `IDX999` en la sección Index del fichero de salida, sin que el job falle.</criterioAceptacion>
+    <posibilidadFallo>Si `IDX999` aparece en la sección Index, el filtro de exclusión no funciona como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo del job disparador EXTRACCIONDUCOMASTERDATA</nombre>
+    <objetivo>Verificar que un fallo en la ejecución del jar de extracción unificada detiene la cadena y no permite avanzar a MEKYTL1299.</objetivo>
+    <precondiciones>
+      <precondicion>Es posible forzar en entorno de pruebas la indisponibilidad de la conexión a base de datos que usa `ExtraccionGenericaUnificada.jar` durante la ejecución de `EXTRACCIONDUCOMASTERDATA`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición forzada" valor="Conexión Oracle no disponible durante la ejecución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar la indisponibilidad de la conexión a base de datos antes de la ventana de disparo (viernes 22:00).</paso>
+      <paso numero="2">Dejar que Control-M dispare `EXTRACCIONDUCOMASTERDATA` en su ventana normal.</paso>
+      <paso numero="3">Verificar el estado final del job en Control-M.</paso>
+      <paso numero="4">Verificar el estado de `MEKYTL1299`.</paso>
+    </pasos>
+    <resultadoEsperado>`EXTRACCIONDUCOMASTERDATA` finaliza en NOTOK; el evento de salida no se genera; `MEKYTL1299` permanece en espera sin ejecutarse.</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de errores y propagación de estado de fallo.</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al disparador se ejecuta tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Si la cadena avanza pese al fallo del disparador, el manejo de errores está roto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Valor DAYBASISTYPE sin fila correspondiente en ft_t_edmv</nombre>
+    <objetivo>Verificar que un valor de dominio interno DAYBASIS sin fila correspondiente en ft_t_edmv (LEFT JOIN sin match) genera una fila con las columnas 4 a 8 vacías, sin error.</objetivo>
+    <precondiciones>
+      <precondicion>Existe en `ft_t_idmv` un registro (`intrnl_dmn_val_nme=DBT500`) con `fld_data_cl_id='DAYBASIS'` y `data_stat_typ='ACTIVE'`, sin ninguna fila correspondiente en `ft_t_edmv`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="intrnl_dmn_val_nme" valor="DBT500"/>
+      <dato campo="Filas en ft_t_edmv" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `DBT500` no tiene ninguna fila en `ft_t_edmv`.</paso>
+      <paso numero="2">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="3">Localizar la fila `Tipo=DAYBASISTYPE`, `Columna2=DBT500` en el CSV.</paso>
+      <paso numero="4">Verificar el contenido de las columnas 4 a 8 de esa fila.</paso>
+    </pasos>
+    <resultadoEsperado>La fila de `DBT500` existe en el CSV, con las columnas 4 (contexto externo), 5 (identificador externo), 7 (fuente de datos) y 8 (estado del identificador externo) vacías, y la columna 3 (estado principal) poblada normalmente.</resultadoEsperado>
+    <tipoValidacion>Validación de borde sobre el `LEFT JOIN` de la sección DAYBASISTYPE.</tipoValidacion>
+    <criterioAceptacion>La fila existe, las columnas dependientes de `ft_t_edmv` están vacías, y el job finaliza en OK.</criterioAceptacion>
+    <posibilidadFallo>Si el job falla o alguna columna trae un valor inesperado en vez de vacío, el caso falla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Índice con múltiples contextos de identificador externo genera múltiples filas legítimas</nombre>
+    <objetivo>Confirmar que un mismo índice con 2 filas en ft_t_isid (distinto id_ctxt_typ) genera 2 filas independientes en la sección Index, comportamiento esperado y no un defecto de deduplicación.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un índice (`pref_iss_id=IDX600`, `iss_typ='INDEXCUR'`, `data_stat_typ='ACTIVE'`) con 2 filas en `ft_t_isid` para el mismo `instr_id`: una con `id_ctxt_typ='BLOOMBERG'`, otra con `id_ctxt_typ='REUTERS'`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="pref_iss_id" valor="IDX600"/>
+      <dato campo="ft_t_isid fila 1" valor="id_ctxt_typ=BLOOMBERG"/>
+      <dato campo="ft_t_isid fila 2" valor="id_ctxt_typ=REUTERS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las 2 filas de `ft_t_isid` descritas para el `instr_id` de `IDX600`.</paso>
+      <paso numero="2">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="3">Contar en el CSV cuántas filas tienen `Tipo=Index` y `Columna2=IDX600`.</paso>
+      <paso numero="4">Verificar que una de esas filas tiene `Columna4=BLOOMBERG` y la otra `Columna4=REUTERS`.</paso>
+    </pasos>
+    <resultadoEsperado>Existen exactamente 2 filas con `Tipo=Index` y `Columna2=IDX600`, una con `Columna4=BLOOMBERG` y otra con `Columna4=REUTERS`.</resultadoEsperado>
+    <tipoValidacion>Validación de comportamiento esperado (una fila por contexto de identificador externo, sin deduplicación por instrumento).</tipoValidacion>
+    <criterioAceptacion>Se observan exactamente 2 filas para `IDX600`, cada una con su propio `Columna4`.</criterioAceptacion>
+    <posibilidadFallo>Si aparece una sola fila fusionada, el comportamiento difiere del confirmado por el `LEFT JOIN` documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Sobrescritura silenciosa del backup ante reejecución en el mismo viernes</nombre>
+    <objetivo>Confirmar que una segunda ejecución de la cadena el mismo día de calendario sobrescribe sin aviso el backup generado por la primera ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>La cadena ya se ejecutó con éxito una vez en el día de prueba, generando `backup/ExtraccionDUCOMASTERDATA_20261002.csv` con contenido conocido (4 filas, una por sección, ver TC-001).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero backup existente" valor="ExtraccionDUCOMASTERDATA_20261002.csv con 4 filas (Index, Calendar, Products, DAYBASISTYPE)"/>
+      <dato campo="Segunda ejecución" valor="Solo la sección Calendar con datos vigentes en el momento de la reejecución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar el contenido del backup de la primera ejecución (4 filas).</paso>
+      <paso numero="2">Dar de baja (`data_stat_typ` distinto de `ACTIVE`) los registros de `Index`, `Products` y `DAYBASISTYPE` usados en la primera ejecución.</paso>
+      <paso numero="3">Forzar una segunda ejecución manual de la cadena completa el mismo día de calendario.</paso>
+      <paso numero="4">Tras la segunda ejecución de `MEKYTL1300`, inspeccionar `backup/ExtraccionDUCOMASTERDATA_20261002.csv`.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero `backup/ExtraccionDUCOMASTERDATA_20261002.csv` queda sobrescrito con el contenido de la segunda ejecución (solo la fila Calendar), perdiéndose sin aviso ni error el contenido original de la primera ejecución.</resultadoEsperado>
+    <tipoValidacion>Validación de riesgo de integridad confirmado por analogía con el hallazgo de `MEKYTL1150` en `rdr_duco_cpty`.</tipoValidacion>
+    <criterioAceptacion>El backup final solo contiene la fila Calendar, y `MEKYTL1300` finaliza en OK pese a la pérdida de información de la primera ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si el sistema conservara ambos backups o fallara la segunda ejecución, el hallazgo documentado quedaría invalidado y debería revisarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Calendarios distintos con el mismo alt_id no se deduplican</nombre>
+    <objetivo>Verificar que la repetición deliberada del campo alt_id en 2 calendarios distintos no provoca ninguna fusión ni pérdida de filas: cada cal_id debe seguir generando su propia fila.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 2 calendarios activos distintos (`cal_id=CAL700`, `cal_id=CAL701`) en `ft_t_cadf`, cada uno con una fila en `ft_t_cid1` con el mismo `alt_id='DUP-CAL-001'`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="cal_id" valor="CAL700, CAL701"/>
+      <dato campo="alt_id (repetido)" valor="DUP-CAL-001"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar las 2 filas de `ft_t_cid1` con el mismo `alt_id='DUP-CAL-001'` para `CAL700` y `CAL701`.</paso>
+      <paso numero="2">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="3">Contar en el CSV cuántas filas `Tipo=Calendar` tienen `Columna5='DUP-CAL-001'`.</paso>
+      <paso numero="4">Verificar que cada una de esas filas tiene un `Columna2` (cal_id) distinto.</paso>
+    </pasos>
+    <resultadoEsperado>Existen exactamente 2 filas `Tipo=Calendar` con `Columna5='DUP-CAL-001'`, una con `Columna2=CAL700` y otra con `Columna2=CAL701`.</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de datos sintéticos repetidos en un campo no clave (alt_id).</tipoValidacion>
+    <criterioAceptacion>Las 2 filas aparecen íntegras y diferenciadas pese a compartir el mismo alt_id.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso deduplicara por alt_id en vez de por cal_id, uno de los 2 calendarios faltaría en el CSV resultante.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>MEKYTL1300 mantiene criticidad W tras republicación del plan</nombre>
+    <objetivo>Verificar que, tras una republicación o migración del plan Control-M, MEKYTL1300 mantiene la criticidad W confirmada, sin revertir a la ambigüedad "S/C" que indicaba el documento de análisis original.</objetivo>
+    <precondiciones>
+      <precondicion>`MEKYTL1300` tiene actualmente criticidad `W` configurada (confirmado en la ficha oficial del gestor documental).</precondicion>
+      <precondicion>Existe un evento de republicación de plan disponible para pruebas en el entorno de pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Criticidad esperada" valor="W - Aviso día siguiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar como línea base la criticidad actual de `MEKYTL1300` (`W`).</paso>
+      <paso numero="2">Ejecutar la republicación/migración del plan Control-M sobre el folder `KYTL0000-RDR_ExtraccionDUCOMASTERDATA` en el entorno de pruebas.</paso>
+      <paso numero="3">Consultar de nuevo la criticidad de `MEKYTL1300` tras la republicación.</paso>
+    </pasos>
+    <resultadoEsperado>La criticidad de `MEKYTL1300` sigue siendo `W` tras la republicación.</resultadoEsperado>
+    <tipoValidacion>Prueba de regresión sobre configuración de criticidad, motivada por la ambigüedad detectada en el documento original.</tipoValidacion>
+    <criterioAceptacion>La criticidad coincide con la línea base (`W`) tras la republicación.</criterioAceptacion>
+    <posibilidadFallo>Si la criticidad cambia a `S` o `C`, el protocolo de aviso ante incidencia dejaría de coincidir con el confirmado en esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ejecución end-to-end de la cadena completa en ventana real (viernes 22:00)</nombre>
+    <objetivo>Validar el funcionamiento completo de los 3 jobs de la cadena, desde el disparo horario hasta la historificación final, en un viernes de la ventana de planificación real.</objetivo>
+    <precondiciones>
+      <precondicion>El día de ejecución de prueba es viernes.</precondicion>
+      <precondicion>Existen datos válidos en las tablas Oracle de origen para al menos una fila de cada una de las 4 secciones.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="2026-10-02 (viernes)"/>
+      <dato campo="Datos de las 4 secciones" valor="Al menos 1 fila válida por sección (Index, Calendar, Products, DAYBASISTYPE)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `EXTRACCIONDUCOMASTERDATA` se dispara después de las 22:00 del 2026-10-02 y finaliza en OK.</paso>
+      <paso numero="2">Confirmar que `ExtraccionDUCOMASTERDATA.csv` contiene al menos una fila de cada una de las 4 secciones.</paso>
+      <paso numero="3">Confirmar que `MEKYTL1299` se dispara solo tras el evento del disparador y finaliza en OK.</paso>
+      <paso numero="4">Confirmar que el fichero existe en `/unload/kytl/datsal/datax/` y también sigue existiendo en la ruta local tras `MEKYTL1299`.</paso>
+      <paso numero="5">Confirmar que `MEKYTL1300` se dispara solo tras el evento de `MEKYTL1299` y finaliza en OK.</paso>
+      <paso numero="6">Verificar que `backup/ExtraccionDUCOMASTERDATA_20261002.csv` existe y no está vacío.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs finalizan en OK en el orden documentado; el fichero existe tanto en DataX como en el backup histórico.</resultadoEsperado>
+    <tipoValidacion>Validación end-to-end de la cadena completa: encadenamiento de eventos y resultado final.</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs aparecen en estado OK en Control-M y ambos ficheros de salida existen con contenido.</criterioAceptacion>
+    <posibilidadFallo>Cualquier job en NOTOK o cualquier discrepancia en los ficheros finales invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+</casosDePrueba>
