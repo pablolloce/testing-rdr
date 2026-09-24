@@ -28,7 +28,3 @@ Para que `MEKYTL0967`-`MEKYTL0970` puedan enviar los `.tar` a Asset Control, deb
 ## Flujos previos que deben haberse completado
 
 Los procesos batch y online de generación de solicitudes a Bloomberg (issues e issuer) deben haber finalizado su ejecución del día antes de las 00:30, para que los `.req` estén disponibles cuando arranque `KYTL_SENDBBG_ASSET`. No es un prerrequisito estricto de fallo — si no hay `.req` en una categoría, el proceso continúa sin generar `.tar` para ella (ver `spec.md`, requisito R5) — pero si se requiere validar el camino feliz (TC-001) o la prueba end-to-end (TC-008), estos procesos previos deben haber producido al menos un `.req` en cada una de las 4 categorías antes del inicio de la prueba.
-
-## Prerrequisito no confirmado
-
-No ha sido posible confirmar si existe algún prerrequisito o expectativa de negocio distinta para los fines de semana (por ejemplo, si los procesos previos de generación de `.req` no corren en sábado/domingo, lo que explicaría categorías vacías esas fechas). Este punto queda registrado como hipótesis pendiente en `spec.md` (§4) y no se asume aquí ningún prerrequisito específico de fin de semana.

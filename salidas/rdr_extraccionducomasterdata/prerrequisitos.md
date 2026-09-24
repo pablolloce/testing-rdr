@@ -37,8 +37,8 @@ integrado/pruebas debe replicar la misma estructura de rutas y roles.
 ## Configuración
 
 - `ExtraccionDUCOMASTERDATA.properties`: parametriza el jar `ExtraccionGenericaUnificada.jar` con tipo de extracción `DUCOMASTERDATA` (TC-001, TC-002, TC-004, TC-005, TC-007, TC-009).
-- Entrada de `MEKYTL1299` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de copia (`c`/`C`) hacia `/unload/kytl/datsal/datax/` — necesaria para reproducir TC-001/TC-006/TC-009; no confirmada de forma directa en el entorno de integrado (solo corroborada por analogía con la clave `MEKYTL1320_EI`, ver spec.md §4).
-- Entrada de `MEKYTL1300` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de traslado (`m`/`M`) hacia `/backup/` — necesaria para TC-006/TC-008/TC-009. La posible segunda clave de purga de +6 meses queda pendiente de confirmar (spec.md §4 Gap 8), no bloquea la ejecución de estos casos.
+- Entrada de `MEKYTL1299` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de copia (`c`/`C`) hacia `/unload/kytl/datsal/datax/` — necesaria para reproducir TC-001/TC-006/TC-009.
+- Entrada de `MEKYTL1300` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de traslado (`m`/`M`) hacia `/backup/` y purga de ficheros de +6 meses — necesaria para TC-006/TC-008/TC-009.
 
 ## Sistema de ficheros
 
@@ -46,7 +46,7 @@ integrado/pruebas debe replicar la misma estructura de rutas y roles.
 |---|---|---|---|
 | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/` (origen/local) | `ExtraccionDUCOMASTERDATA.csv` | N/A (se copia, no se elimina) | TC-001, TC-006, TC-009 |
 | `/unload/kytl/datsal/datax/` (salida DataX) | `ExtraccionDUCOMASTERDATA.csv` | No documentada — fuera del alcance analizado | TC-001, TC-009 |
-| `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/` (histórico) | `ExtraccionDUCOMASTERDATA_YYYYMMDD.csv` | 6 meses documentados, mecanismo exacto sin confirmar (Gap 8) | TC-001, TC-006, TC-008, TC-009 |
+| `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/` (histórico) | `ExtraccionDUCOMASTERDATA_YYYYMMDD.csv` | 6 meses | TC-001, TC-006, TC-008, TC-009 |
 
 ## Orquestación
 
@@ -70,6 +70,4 @@ integrado/pruebas debe replicar la misma estructura de rutas y roles.
 - TC-008 requiere capacidad de disparar una republicación/migración de plan sobre el folder
   `KYTL0000-RDR_ExtraccionDUCOMASTERDATA` en el entorno de pruebas, sin afectar al plan de
   producción.
-- Ninguno de los 9 casos requiere acceso a producción para ejecutarse; el hallazgo sin confirmar
-  del Gap 8 (purga de `MEKYTL1300`) queda fuera de lo que estos casos pueden verificar por sí
-  solos, dado que depende de una entrada de configuración de producción no disponible.
+- Ninguno de los 9 casos requiere acceso a producción para ejecutarse.

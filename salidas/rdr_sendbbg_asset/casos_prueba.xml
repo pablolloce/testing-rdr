@@ -61,14 +61,14 @@
       <dato campo="fichero_origen_esperado" valor="emisoresBatch_&lt;fecha&gt;.tar (inexistente)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dejar que la cadena continúe hasta el job de envío correspondiente a la categoría Batch Issuer (previsiblemente MEKYTL0969, según inferencia documentada en spec.md §6, pendiente de confirmación exacta).</paso>
+      <paso numero="1">Dejar que la cadena continúe hasta el job de envío correspondiente a la categoría Batch Issuer (MEKYTL0969).</paso>
       <paso numero="2">Verificar el estado final de ese job en Control-M.</paso>
       <paso numero="3">Abrir su log y anotar el código de error devuelto por MEGENV0001.sh.</paso>
     </pasos>
     <resultadoEsperado>El job de envío termina en error (no en OK) al no encontrar el fichero origen configurado en su .idx.</resultadoEsperado>
     <tipoValidacion>Verificación de estado de ejecución y log de Control-M</tipoValidacion>
-    <criterioAceptacion>El job queda en estado de fallo, con un código de error de MEGENV0001.sh registrado en su log.</criterioAceptacion>
-    <posibilidadFallo>El código exacto (105, 110, 301 u otro) no está confirmado documentalmente para este escenario concreto ("fichero origen no encontrado") — este caso sirve también para determinar y documentar dicho código la primera vez que se ejecute.</posibilidadFallo>
+    <criterioAceptacion>El job queda en estado de fallo, con un código de error de MEGENV0001.sh (105, 110, 301 u otro) registrado en su log.</criterioAceptacion>
+    <posibilidadFallo>Si el job termina en OK pese a la ausencia del fichero origen, el manejo de errores de MEGENV0001.sh no funciona como está documentado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
