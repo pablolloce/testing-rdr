@@ -25,7 +25,12 @@
 > job en esta cadena, cerrando GAP-CTPY-002 por ausencia confirmada con el mismo nivel de certeza que
 > GAP-CTPY-004/007. El usuario confirmó además, en respuesta literal, el comportamiento real de `MEKYTL0781`
 > (comprime `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` y lo mueve a una ruta de backup dentro de la misma VIPA
-> `pr-rdr.igrupobbva`, sin envío externo), cerrando GAP-CTPY-005. Queda abierto GAP-CTPY-003 — ver sección 4.
+> `pr-rdr.igrupobbva`, sin envío externo), cerrando GAP-CTPY-005. El usuario confirmó por último, en respuesta
+> literal, que el diccionario de ~140 campos de ThirdParties ya incluido en la sección 1.5 (atribuido a
+> `ExtraccionContingenciaTHIRDPARTIES.sql`) es válido y corresponde a la query de detalle real ejecutada — la
+> nota de "query de detalle no accedida" quedó obsoleta de una versión preliminar del documento fuente y no se
+> eliminó al incorporar el diccionario real, cerrando GAP-CTPY-003. **Los 7 gaps iniciales del proceso quedan
+> resueltos.**
 
 ## 1. Resumen ejecutivo
 
@@ -54,7 +59,8 @@ Las 3 cadenas comparten el mismo núcleo (unión de ficheros + pipeline de valid
 00:05 (fuera del árbol de jobs de las 3 cadenas — generación interna RDR)
    ├── ExtraccionGenericaOtherEntities.jar (tipo THIRDPARTIES) → ThirdParties.xml
    │     Query maestra: entidades con relación operativa activa, EXCLUYENDO rol CPARTY
-   │     (universo = "operativo pero NO contraparte"). Query de detalle no accedida (GAP).
+   │     (universo = "operativo pero NO contraparte"). Query de detalle (ExtraccionContingenciaTHIRDPARTIES.sql)
+   │     confirmada real — diccionario completo en sección 1.5 (GAP-CTPY-003 resuelto).
    └── ExtraccionGenericaCPTY.jar (tipo CPARTY) → ExtraccionContingencia.xml
          Query de detalle parametrizada por INST_MNEM, una vez por contrapartida.
          XML muy anidado (bloque GLOBAL + sub-bloque LOCAL repetible), 305 elementos XML distintos —
@@ -279,8 +285,13 @@ diccionario semanal real reparte a 15 destinos, no 16.
 - **`ThirdParties.xml`** — ~140 elementos XML, estructura de **un solo nivel** (`OPERATIVE`, sin el
   desdoblamiento `GLOBAL`/`LOCAL` de Contrapartidas). Comparte la mayoría de bloques de detalle con
   Contrapartidas (identificadores, direcciones, ratings, certificados fiscales, atributos de emisor,
-  sectorización, bloqueos, fondos, subdivisiones), aunque lo genera un jar Java distinto. **Query de detalle no
-  accedida** (solo la maestra) — ver GAP-CTPY-003.
+  sectorización, bloqueos, fondos, subdivisiones), aunque lo genera un jar Java distinto. **Diccionario de
+  campos confirmado como real por el usuario** (GAP-CTPY-003 resuelto): la query de detalle
+  (`ExtraccionContingenciaTHIRDPARTIES.sql`) sí fue accedida y analizada — la nota "query de detalle no
+  accedida" que aparecía en el documento fuente quedó obsoleta de una versión preliminar y no se eliminó al
+  incorporar el diccionario real; no es una copia/derivado de Contrapartidas, es la ejecución real de
+  ThirdParties. Diccionario completo campo a campo en
+  `documentos_fuente/Extraccion_generica_de_contrapartidas.md`.
 - **Universo de Third Parties = complementario al de Contrapartidas:** entidades con relación operativa activa
   con RDR que **no** están marcadas con rol `CPARTY`.
 
@@ -296,9 +307,9 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
 (50/50 jobs reales, con evidencia real de Control-M y confirmación por el listado de navegación del folder).
 
 **Fuera de alcance / no cubierto por esta ronda de evidencia:**
-- La query de detalle de `ThirdParties.xml` (GAP-CTPY-003).
 - Las cadenas externas referenciadas como predecesor/sucesor (`RDR_FIRCOSOFT_CPARTYS_*_PRO_new` para
-  Fircosoft) — documentadas solo hasta el punto de integración.
+  Fircosoft) — documentadas solo hasta el punto de integración en este proceso; detalladas en profundidad en
+  `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/spec.md` (proceso relacionado, ya analizado).
 - La lógica interna de los jars Java (`ExtraccionGenericaOtherEntities.jar`,
   `ExtraccionGenericaCPTY.jar`, `RDR_Extraction_CPARTYS.jar`) más allá de su función observable.
 - Las rutas y nombres de fichero exactos de cada uno de los ~55 destinos de `_new` (el documento remite a un
@@ -340,9 +351,13 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
   cobertura al 100%), un listado de navegación de folder es por construcción exhaustivo, por lo que la
   ausencia aquí tiene el mismo valor probatorio que el usado para GAP-CTPY-004/007: **`MEKYTL0289` no existe
   como job en la cadena real.**
-- **GAP-CTPY-003 (query de detalle de ThirdParties no accedida) — abierto.** Solo se ha accedido a la query
-  maestra de `ThirdParties.xml`; su diccionario de campos exacto no está confirmado con la query de detalle
-  real.
+- **GAP-CTPY-003 (query de detalle de ThirdParties no accedida) — RESUELTO por confirmación literal del
+  usuario.** El diccionario de ~140 campos de `ThirdParties.xml` (atribuido a
+  `ExtraccionContingenciaTHIRDPARTIES.sql`, ya incluido en la sección 1.5) **sí corresponde a la query de
+  detalle real** — no es una copia/derivado de Contrapartidas. La nota "query de detalle no accedida, solo la
+  maestra" que aparecía en el documento fuente (§1.1) quedó **obsoleta de una versión preliminar** del
+  documento y no se eliminó al incorporarse el diccionario real en una sección posterior — es una
+  autocontradicción documental resuelta por el usuario, no un gap de evidencia real.
 - **GAP-CTPY-004 (inconsistencia histórica de `MEKYTL0449`) — RESUELTO por ausencia confirmada.** No aparece
   en ninguna de las 506 capturas que cubren los 101 pasos reales de `_new` — se confirma que está realmente
   eliminado; la tabla de destinos del wiki funcional (que lo lista como envío PRIIPS activo) está
@@ -451,12 +466,13 @@ Referencia de casos por tipo:
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gap abierto: GAP-CTPY-003** (sección 4). GAP-CTPY-001, 004 y 007 quedaron resueltos con las 506 capturas
-   reales de `_new`; GAP-CTPY-002 y GAP-CTPY-006 quedaron resueltos con las 250 capturas reales de
-   `_FINSEM_D_new` y el listado de navegación del folder (`MEKYTL0292` confirmado con hallazgo de discrepancia,
-   `MEKYTL0289` confirmado no-existente por ausencia en el listado exhaustivo del folder); GAP-CTPY-005 quedó
-   resuelto con la confirmación literal del usuario sobre el comportamiento real de `MEKYTL0781` (backup local
-   sin envío externo).
+1. **Los 7 gaps iniciales del proceso quedan resueltos** (sección 4). GAP-CTPY-001, 004 y 007 con las 506
+   capturas reales de `_new`; GAP-CTPY-002 y GAP-CTPY-006 con las 250 capturas reales de `_FINSEM_D_new` y el
+   listado de navegación del folder (`MEKYTL0292` confirmado con hallazgo de discrepancia, `MEKYTL0289`
+   confirmado no-existente por ausencia en el listado exhaustivo del folder); GAP-CTPY-005 con la confirmación
+   literal del usuario sobre el comportamiento real de `MEKYTL0781` (backup local sin envío externo);
+   GAP-CTPY-003 con la confirmación literal del usuario de que el diccionario de ~140 campos de ThirdParties
+   (sección 1.5) es real y la nota de "query de detalle no accedida" del documento fuente estaba obsoleta.
 2. **RISK-CTPY-001 — limpieza por comodín en `MEKYTL0879_DEL`.** El comando real es
    `cd /unload/transmisiones/KYTL/ ; rm -f *ctpda* ; rm -f *MEKYTL0879*`. El patrón `*ctpda*` no es específico
    de este job: `RDR_TRANSFORMACION_SIRE` genera ficheros `ctpdaDDMMYYYYCC.csv` que también podrían transitar
@@ -499,13 +515,15 @@ Se documenta el núcleo común de las 3 cadenas del proceso Extracción Genéric
 totalidad, el fan-out completo de `_FINSEM_S_new` (21/21 pasos), el fan-out completo de `_new` (101/101 pasos,
 cerrado con 506 capturas reales de Control-M aportadas por el usuario tras la primera ronda) y el fan-out
 completo de `_FINSEM_D_new` (50/50 jobs reales, cerrado con 250 capturas reales y el listado de navegación del
-folder aportados por el usuario en rondas posteriores). De los 7 gaps abiertos en la primera ronda, **5 quedan
-resueltos** (GAP-CTPY-001 con evidencia real completa; GAP-CTPY-004 y GAP-CTPY-007 por ausencia confirmada en
+folder aportados por el usuario en rondas posteriores). **Los 7 gaps de la primera ronda quedan todos
+resueltos:** GAP-CTPY-001 con evidencia real completa; GAP-CTPY-004 y GAP-CTPY-007 por ausencia confirmada en
 esa misma evidencia; GAP-CTPY-002 por ausencia confirmada de `MEKYTL0289` tanto en las 250 capturas como en el
 listado exhaustivo del folder; GAP-CTPY-006 con ficha real de `MEKYTL0292` que revela una discrepancia con el
 documento funcional; GAP-CTPY-005 con la confirmación literal del usuario de que `MEKYTL0781` es un backup
-local, sin envío externo) y **1 sigue abierto** (GAP-CTPY-003, la query de detalle de `ThirdParties.xml`). La
-evidencia real también reveló hallazgos de riesgo no preguntados (RISK-CTPY-001: limpieza por comodín
-potencialmente cruzada con la rama SIRE; ejecución como `root` de 2 jobs aún sin motivo confirmado
+local, sin envío externo; y GAP-CTPY-003 con la confirmación literal del usuario de que el diccionario de ~140
+campos de `ThirdParties.xml` (sección 1.5) es real, corrigiendo una nota obsoleta del documento fuente que
+databa de una versión preliminar. La evidencia real también reveló hallazgos de riesgo no preguntados
+(RISK-CTPY-001: limpieza por comodín potencialmente cruzada con la rama SIRE; ejecución como `root` de 2 jobs
+aún sin motivo confirmado
 (`MEKYTL1020`, `MEKYTL1181`); soft-failure genérico en `MEKYTL1154`; RISK-CTPY-002: destino "Proactive"
 documentado sin implementación real en Control-M para `MEKYTL0292`), registrados en la sección 9.
