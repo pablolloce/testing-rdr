@@ -7,8 +7,9 @@
 - Debe existir conectividad de red y de aplicación entre `pr-rdr.igrupobbva` y la plataforma externa
   Refinitiv (protocolo/autenticación no documentados en el material fuente de este proceso).
 - Debe existir conectividad JDBC entre el motor `GSProcess.sh`/workflows GoldenSource y la base de datos
-  `GSDM-1`, donde se declara (sin verificación documental — ver `spec.md` sección 9) que se actualizan las
-  tablas `FT_T_FIRT`, `FT_T_RTNG`, `FT_T_RVXR`, `FT_T_RTVL`, `FT_T_VREQ`, `FT_T_VRPM`, `FT_T_PAR1` y `FT_T_RLT1`.
+  `GSDM-1`, donde se actualizan las tablas `FT_T_FIRT`, `FT_T_RTNG`, `FT_T_RVXR`, `FT_T_RTVL`, `FT_T_VREQ`,
+  `FT_T_VRPM`, `FT_T_PAR1`, `FT_T_RLT1`, `FT_T_FRRL` y `FT_T_INCL` — confirmado con los 3 workflows
+  GoldenSource reales (ver `spec.md` R6 y sección 9).
 
 ## Configuración e infraestructura
 

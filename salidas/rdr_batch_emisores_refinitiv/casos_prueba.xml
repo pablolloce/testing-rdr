@@ -152,9 +152,9 @@
     <pasos>
       <paso numero="1">Ejecutar la cadena completa (21:00h→22:00h→23:00h) en entorno de prueba.</paso>
       <paso numero="2">Verificar los 3 eventos de salida y ausencia de relanzamientos.</paso>
-      <paso numero="3">Si el entorno lo permite, consultar FT_T_FIRT/FT_T_RLT1 para confirmar el impacto declarado en R6 de spec.md.</paso>
+      <paso numero="3">Si el entorno lo permite, consultar FT_T_FIRT/FT_T_RLT1 para confirmar en runtime el impacto ya verificado con código real en R6 de spec.md.</paso>
     </pasos>
-    <resultadoEsperado>La cadena completa termina OK y, si el entorno lo permite verificar, se observa el impacto declarado en las tablas GoldenSource.</resultadoEsperado>
+    <resultadoEsperado>La cadena completa termina OK y, si el entorno lo permite verificar, se observa el impacto en las tablas GoldenSource confirmado documentalmente en R6.</resultadoEsperado>
     <tipoValidacion>Verificación combinada Control-M + BD (sujeta a disponibilidad de entorno).</tipoValidacion>
     <criterioAceptacion>Cadena completa OK; impacto en BD confirmado o explícitamente marcado como no verificable por falta de entorno.</criterioAceptacion>
     <posibilidadFallo>Imposibilidad de verificar el impacto real en BD por falta de acceso a GSDM-1, dejando el caso parcialmente cerrado (limitación ya explicitada en spec.md sección 7).</posibilidadFallo>
