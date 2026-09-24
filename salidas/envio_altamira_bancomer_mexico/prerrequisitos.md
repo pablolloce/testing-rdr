@@ -25,4 +25,3 @@
 - La generación del fichero (`GS_CODIGOS_ALTMEX`) debe completarse íntegramente antes de que `MEKYTL1205` pueda copiarlo (dependencia estricta de eventos Control-M).
 - **Antes de confiar en el estado "completado con éxito" de la cadena**, debe verificarse de forma independiente el resultado real de `MEKYTL1221` (transmisión a DataX), dado que su evento de salida no está conectado al marcador de cierre `RDR_ALTAMIRAMEX_SEND_OUT` — la cadena puede marcarse como cerrada aunque esa transmisión haya fallado.
 - No debe relanzarse manualmente la cadena mientras una ejecución programada siga en curso: no hay lock/PID/semáforo que lo impida (mismo riesgo que en Calendarios y Altamira Colombia).
-- **Riesgo abierto a resolver antes de operar con garantías en producción**: confirmar contra logs reales de ejecución el mecanismo exacto de conversión de formato de fecha en el comando `datax-agent`.

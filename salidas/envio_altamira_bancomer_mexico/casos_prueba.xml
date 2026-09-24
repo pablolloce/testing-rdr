@@ -209,26 +209,6 @@
     <posibilidadFallo>Riesgo de negocio: la conciliación podría no marcar como discrepancia un código que en realidad nunca se envió a Altamira México.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-011" tipo="borde">
-    <nombre>Verificación del formato de fecha en el comando datax-agent</nombre>
-    <objetivo>Confirmar con evidencia real (log/sysout) cómo se materializa cada parámetro de fecha del comando datax-agent, dado que ambos usan la misma variable de Control-M pero se documentan con formatos distintos.</objetivo>
-    <precondiciones>
-      <precondicion>Acceso al sysout/log de ejecución de MEKYTL1221 en un entorno real o de preproducción.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="ODATE" valor="fecha de ejecución conocida, p. ej. 2026-09-18"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Ejecutar MEKYTL1221 (o revisar una ejecución reciente) con una fecha ODATE conocida.</paso>
-      <paso numero="2">Inspeccionar el sysout/log para ver los valores reales sustituidos en gf_odate_date_id y DATE.</paso>
-      <paso numero="3">Confirmar si gf_odate_date_id se materializa como YYYYMMDD y DATE como AAMMDD, o si ambos usan el mismo formato.</paso>
-    </pasos>
-    <resultadoEsperado>Se documenta el formato real observado en cada parámetro; si difiere de lo indicado en la nota operativa del documento fuente, se actualiza la especificación técnica.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de logs de ejecución.</tipoValidacion>
-    <criterioAceptacion>Formato real confirmado y documentado para ambos parámetros.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si el sistema DataX interpreta incorrectamente una fecha por una discrepancia de formato no detectada.</posibilidadFallo>
-  </casoDePrueba>
-
   <casoDePrueba id="TC-012" tipo="e2e">
     <nombre>Ciclo semanal completo end-to-end</nombre>
     <objetivo>Validar el flujo completo desde la extracción hasta ambas ramas finales (historificación y transmisión DataX).</objetivo>

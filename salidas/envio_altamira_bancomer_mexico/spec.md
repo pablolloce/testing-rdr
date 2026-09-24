@@ -34,7 +34,6 @@ Se realizaron 14 preguntas en 1 ronda. Resumen de las decisiones clave:
 - **`MEKYTL1205` Run As:** `xsramer1`; ejecuta físicamente `/pr/pl/scrt/RAMERC0068.sh` en `MERCADOS-4` (mismo script genérico de manipulación de ficheros ya visto en los procesos de Calendarios y Altamira Colombia).
 - **`MEKYTL1221` rearranque:** sin regla propia documentada a nivel de job; ante un fallo (abend) aplica la regla por defecto del folder completo, que también recae en ANS RDR.
 - **`MEKYTL1221` evento de salida:** sí existe (`RDR_ALTAMIRAMEX_SEND_MEKYTL1221_OK`), contrario a lo que sugería la ausencia de datos en el documento original. **Pero ese evento no está conectado al marcador de cierre `RDR_ALTAMIRAMEX_SEND_OUT`**, que solo lo dispara `MEKYTL1206`. Esto significa que **Control-M puede dar la cadena por completada con éxito aunque la transmisión a DataX siga en curso o haya fallado** — riesgo confirmado, ver sección 9.
-- **Formato de fecha en el comando `datax-agent`:** ambos parámetros (`gf_odate_date_id` y `DATE`) usan literalmente la misma variable de Control-M (`%%$ODATE.`), pero se documentan con formatos distintos (`YYYYMMDD` y `AAMMDD` respectivamente). **No se ha podido confirmar con evidencia exacta** (sysout/log de ejecución) cómo se materializa cada formato — queda como riesgo abierto.
 - **Exclusión de 5 códigos hardcodeados** (`38112087`, `49027955`, `49584427`, `J9488131`, `J9488087`): comportamiento confirmado y verificable en el bytecode (ver R1, TC-006).
 - **Estructura real del fichero:** aunque la query SQL agrega códigos por sucursal vía `LISTAGG(...,'|')`, la clase Java posterior descompone esa cadena (`split("\|")`) y escribe **un código por línea**, con cabecera y separador `;`. No se conserva ninguna lista concatenada por `|` en el fichero final.
 - **Discrepancia confirmada como riesgo:** la query de validación de la conciliación (`obtenerCLIs`) no aplica ni la exclusión de los 5 códigos ni el filtro de sucursal activa de `org_id='1145'` que sí aplica la query de envío. Queda confirmada como inconsistencia real, no como comportamiento intencionado documentado.
@@ -80,13 +79,13 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `negativo`: TC-002 (fallo de extracción, la cadena no avanza).
 - `error_funcional`: TC-003 (fallo de copia/chown en `MEKYTL1205`), TC-004 (fallo de transmisión DataX con cierre de cadena "exitoso" pese al fallo — riesgo crítico).
 - `duplicidad`: TC-005 (mismo código ALID asociado a dos sucursales activas distintas).
-- `borde`: TC-006 (código excluido presente y activo en origen), TC-010 (discrepancia de la query de conciliación, documental), TC-011 (verificación del formato de fecha en el comando DataX).
+- `borde`: TC-006 (código excluido presente y activo en origen), TC-010 (discrepancia de la query de conciliación, documental).
 - `datos_sinteticos`: TC-007 (verificación de la estructura real del fichero, un código por línea).
 - `conflicto_integridad`: TC-008 (ausencia de checksum en la copia).
 - `regresion`: TC-009 (ejecuciones concurrentes sin protección).
 - `e2e`: TC-012 (ciclo semanal completo).
 
-**Confirmación de ejecutabilidad:** cada caso especifica datos concretos (códigos ALID, rutas, fechas, comandos), pasos numerados y un resultado esperado verificable. TC-005 y TC-010 documentan explícitamente comportamientos a confirmar/observar en lugar de un resultado de negocio ya validado, dado que el formato de fecha de `datax-agent` y la discrepancia de la conciliación (Q9) son gaps abiertos — esto no resta ejecutabilidad, solo acota su interpretación como evidencia, no como validación de una regla cerrada.
+**Confirmación de ejecutabilidad:** cada caso especifica datos concretos (códigos ALID, rutas, fechas, comandos), pasos numerados y un resultado esperado verificable. TC-005 y TC-010 documentan explícitamente comportamientos a confirmar/observar en lugar de un resultado de negocio ya validado, dado que la discrepancia de la conciliación (Q9) es un gap abierto — esto no resta ejecutabilidad, solo acota su interpretación como evidencia, no como validación de una regla cerrada.
 
 **Confirmación de cobertura completa:** el conjunto de casos cubre:
 - El camino feliz completo de los 4 jobs reales más los 2 marcadores Dummy (TC-001, ampliado por TC-012 como E2E).
@@ -102,7 +101,7 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R1 (extracción) | TC-001, TC-005, TC-006, TC-007, TC-012 | Genera el fichero correcto; excluye códigos hardcodeados; detecta duplicidad entre sucursales; estructura real validada |
 | R2 (copia/chown) | TC-001, TC-003, TC-008, TC-012 | Copia correcta con cambio de propietario; comportamiento ante fallo; ausencia de validación de integridad (gap confirmado) |
 | R3 (historificación / cierre) | TC-001, TC-012 | Historificación correcta y disparo del evento de cierre de cadena |
-| R4 (transmisión DataX) | TC-001, TC-004, TC-011, TC-012 | Transmisión correcta; riesgo de cierre asimétrico de cadena; formato de fecha en el comando |
+| R4 (transmisión DataX) | TC-001, TC-004, TC-012 | Transmisión correcta; riesgo de cierre asimétrico de cadena |
 | R5 (alertas) | TC-002, TC-003, TC-004 | Notificación a ANS RDR ante cualquier fallo, incluida la rama DataX sin regla propia |
 | R6 (estructura del fichero) | TC-007 | Confirma un código por línea, sin agregación `\|` residual |
 | Riesgos de diseño (concurrencia, integridad, conciliación) | TC-008, TC-009, TC-010 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
@@ -111,12 +110,11 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 
 1. **Cierre asimétrico de cadena (crítico):** solo `MEKYTL1206` (historificación) dispara `RDR_ALTAMIRAMEX_SEND_OUT`. `MEKYTL1221` (transmisión a DataX) tiene su propio evento de salida, pero no está conectado al cierre de cadena. **Control-M puede reportar la cadena como completada con éxito aunque la transmisión real a DataX haya fallado o siga en curso.** Riesgo de negocio real: el fichero podría no llegar nunca a Altamira México sin que se detecte a nivel de orquestación (TC-004).
 2. **Discrepancia entre la query de envío y la query de conciliación:** `obtenerCLIs` (usada en la reconciliación, fuera de alcance de orquestación de esta especificación) no aplica ni la exclusión de los 5 códigos ni el filtro de sucursal activa `org_id='1145'` que sí aplica la extracción real. Esto podría hacer que la conciliación considere "válido en RDR" un código que nunca se envió realmente a Altamira (TC-010, documental).
-3. **Formato de fecha en el comando `datax-agent` no verificado con evidencia exacta:** ambos parámetros usan la misma variable de Control-M (`%%$ODATE.`) pero se documentan con formatos distintos (`YYYYMMDD` vs `AAMMDD`); no se ha confirmado el mecanismo de conversión (TC-011).
-4. **Posible duplicidad de código ALID entre sucursales:** dado que la query SQL agrega por sucursal (correlacionada) antes de aplanar a una línea por código, un mismo `fins_id` asociado a más de una sucursal activa podría terminar apareciendo más de una vez en el fichero final aplanado. No confirmado con datos reales — comportamiento a observar (TC-005).
-5. **Sin validación de integridad de copia** en `MEKYTL1205` (mismo patrón de gap que Calendarios y Altamira Colombia).
-6. **Sin protección de concurrencia** (mismo patrón de gap que procesos anteriores).
-7. **Errata documental en la descripción funcional del folder** (mencionaba "recepción, conciliación y reporte" en vez de "envío/generación") — riesgo puramente documental, ya corregido en esta especificación.
+3. **Posible duplicidad de código ALID entre sucursales:** dado que la query SQL agrega por sucursal (correlacionada) antes de aplanar a una línea por código, un mismo `fins_id` asociado a más de una sucursal activa podría terminar apareciendo más de una vez en el fichero final aplanado. No confirmado con datos reales — comportamiento a observar (TC-005).
+4. **Sin validación de integridad de copia** en `MEKYTL1205` (mismo patrón de gap que Calendarios y Altamira Colombia).
+5. **Sin protección de concurrencia** (mismo patrón de gap que procesos anteriores).
+6. **Errata documental en la descripción funcional del folder** (mencionaba "recepción, conciliación y reporte" en vez de "envío/generación") — riesgo puramente documental, ya corregido en esta especificación.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 a 4 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación, formato de fecha en DataX, y posible duplicidad entre sucursales). Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos bloqueantes. Quedan registrados como **riesgos abiertos, no como supuestos cerrados**, los puntos 1 a 3 de la sección 9 (cierre asimétrico de cadena, discrepancia de conciliación, y posible duplicidad entre sucursales). Ninguno de ellos impide ejecutar la matriz de pruebas definida, pero el riesgo 1 (cierre asimétrico) debe tratarse con prioridad antes de confiar en el estado de la cadena en Control-M como indicador de éxito real de la transmisión a DataX.
