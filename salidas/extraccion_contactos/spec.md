@@ -251,14 +251,15 @@ No existe el escenario de fichero parcial silencioso: o se genera el universo co
 genera nada. Es la única salvaguarda de integridad del proceso, dado que no hay validación
 posterior (§4.7).
 
-**Confirmado con el `.properties` real (2026-09-24): `ArgJava3=20`.** El fichero
-`ExtraccionGenericaCONT.properties` real confirma el valor literal (posición 3 de los argumentos
-Java, entre `ArgJava2`=ruta del log4j y `ArgJava4`=directorio de salida), invocando la misma clase
-`extracciongenericaotherentities.Ppal` del jar `ExtraccionGenericaOtherEntities.jar` que en otros
-procesos de extracción genérica (p. ej. Contratos BBVA), donde aparece el mismo valor. El valor ya
-no depende de una analogía con otro proceso — es el real de este `.properties`. Su interpretación
-como tamaño del pool de hilos sigue siendo la lectura más razonable dada la posición y el motor
-compartido, pero continúa sin confirmar contra el código fuente de `Ppal`/`MyThreadCpty`.
+**Resuelto por completo (2026-09-24): `ArgJava3=20` es el tamaño del pool de hilos.** Confirmado en
+dos pasos: el `.properties` real (`ExtraccionGenericaCONT.properties`) da el valor literal (posición
+3 de los argumentos Java), y el código fuente real de `Ppal.java` (clase `Ppal` del jar
+`ExtraccionGenericaOtherEntities.jar`) muestra literalmente `int NUM_THREADS =
+Integer.parseInt(args[2])`, usado directamente en `Executors.newFixedThreadPool(NUM_THREADS)` — el
+orden de argumentos del `main` (`args[0]`=nivel de log, `args[1]`=ruta log4j, `args[2]`=hilos,
+`args[3]`=ruta ficheros, `args[4]`=fichero salida, `args[5]`=tipo de entidad, `args[6]`=credenciales)
+coincide exactamente con el orden `ArgJava1`...`ArgJava7` del `.properties`. Ya no es una
+interpretación razonable: es un hecho confirmado por código.
 
 ### 4.5 Disponibilización a IHS Markit vía DataX
 
@@ -723,7 +724,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-03 | Tres jobs se ejecutan como `root`, uno de ellos con `rm -r` recursivo | Borrado con privilegios elevados sobre una ruta que la documentación escribe de dos formas distintas | Verificar la ruta real del job en Control-M antes de operar sobre entorno real (§4.9) |
 | RG-04 | Dependencias de éxito en cadena lineal con SAIT después de la rama de Markit | Un fallo en la disponibilización deja a SAIT sin fichero ese día pese a estar ya generado | Documentado en §4.1; valorar si el orden de las ramas es el deseado |
 | RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` — **resuelto**: fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` confirman nombre fijo en origen y en destino intermedio, por lo que cada ejecución sobrescribe la anterior, sin acumulación | N/A — riesgo cerrado | Sobrescritura diaria confirmada (§4.8, TC-11) |
-| RG-06 | La exclusión `A15` de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Confirmar si es intencionado; si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
+| RG-06 | La exclusión `A15` (**COMPASS**, motivo confirmado: venta a PNC en 2020) de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Sigue sin confirmarse si es intencionado (pregunta de intención de diseño, no verificable por código); si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
 | RG-07 | `sait.xsl` vuelca los atributos como texto en lugar de copiarlos | Defecto latente: si se añadiera un atributo al XML de contactos, el fichero de SAIT se corrompería en silencio | Corregir la hoja añadiendo una plantilla `match="@*"` con `<xsl:copy/>`, o documentar la restricción de no usar atributos (§4.6) |
 | RG-08 | `AgreementsAssociated` y `SCIsAssociated` se emiten vacíos, a diferencia del resto de elementos | Incoherencia estructural en el fichero de SAIT; un consumidor estricto podría rechazarlos | Documentado en §4.5; confirmar que SAIT los tolera |
 | RG-09 | Seis de nueve jobs tienen un recordatorio sin resolver en lugar de protocolo de fallo | Ante una incidencia, el operador no dispone de instrucciones en la ficha | Completar el campo de normas de rearranque en las nueve fichas (§4.10) |
@@ -736,6 +737,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
 | RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
+| RG-19 | El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25) pese a que la extracción sigue funcionando con normalidad (confirmado empíricamente: `RDR_contactosSAIT.xml` reciente, con contenido real) | El significado funcional real de `DATA_STAT_TYP` en esta tabla es incierto: si en algún momento el motor empezara a filtrar por este campo, la extracción dejaría de encontrar su query maestra sin previo aviso | Verificar contra el código real de `Querys.java` (no disponible) si el `SELECT` sobre `FT_T_ATE1` filtra por `DATA_STAT_TYP`; documentado como riesgo de trazabilidad, no como fallo activo (§9) |
 
 ---
 
@@ -798,14 +800,33 @@ extracción. Sigue sin confirmarse solo si la ausencia de filtro por estado de l
 (`DATA_STAT_TYP`) es deliberada o un descuido — comportamiento verificable con TC-18.
 
 **Cerrado con evidencia real (2026-09-24), además de la exclusión `A15`.** El mecanismo de la
-pasarela `lpftp503` (RG-05) y el valor de `ArgJava3=20` (§4.4) quedan confirmados con las fichas
-reales de `MEKYTL1189`/`MEKYTL1189_SND` y el `.properties` real de `ExtraccionGenericaCONT`,
-respectivamente.
+pasarela `lpftp503` (RG-05) y el valor y función de `ArgJava3=20` (§4.4) quedan confirmados: el
+primero con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND`, el segundo con el `.properties`
+real de `ExtraccionGenericaCONT` y el código fuente real de `Ppal.java` (`NUM_THREADS =
+Integer.parseInt(args[2])`, usado en `Executors.newFixedThreadPool`).
+
+**Hallazgo nuevo, no bloqueante pero a vigilar (2026-09-24).** Al intentar resolver si la ausencia
+de filtro por `DATA_STAT_TYP` en la exclusión `A15` es deliberada, una consulta real sobre
+`FT_T_ATE1` reveló que el propio registro de la acción `ExtraccionCONT.sql` (la query maestra del
+universo de contactos) tiene `DATA_STAT_TYP = INACTIVE` (último cambio `15-SEP-25`,
+`LAST_CHG_USR_ID = BBVA:CUSTOMER`). Esto no aporta nada sobre el motivo de diseño de la exclusión
+A15 (queda sin resolver, ver más abajo), pero plantea una pregunta más seria: ¿el motor de
+extracción filtra por `DATA_STAT_TYP='ACTIVE'` al buscar la acción por `ACTION_NME`, o le es
+indiferente el estado? **Confirmado empíricamente por el usuario:** el fichero real
+`RDR_contactosSAIT.xml` es de los últimos días y no está vacío ni contiene error — la cadena sigue
+funcionando con normalidad pese al `INACTIVE`. Esto indica que el motor no usa `DATA_STAT_TYP` como
+filtro de disponibilidad de la acción (o que el campo no tiene el significado de "acción
+deshabilitada" que su nombre sugiere), pero no se ha podido confirmar contra el código exacto de
+`Querys.java` (la clase que ejecuta el `SELECT` sobre `FT_T_ATE1`, no incluida en la evidencia
+recibida — solo se dispone de `Ppal.java`, la clase principal que la invoca).
 
 **Puntos abiertos, ninguno bloqueante:**
 
 1. **Nivel de `StarDate` y `LastChangeDate`** (§5.1). El usuario no dispone del dato; se asume
    el nivel evidenciado por `sait.xsl` y TC-02 lo verifica contra un fichero real.
 2. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
-3. **Interpretación de `ArgJava3` como tamaño de pool de hilos** (§4.4): el valor está confirmado,
-   su función exacta no, a falta del código fuente de `Ppal`/`MyThreadCpty`.
+3. **Motivo de diseño de la asimetría `DATA_STAT_TYP` en la exclusión `A15`** (RG-06): sigue sin
+   confirmarse si es deliberado o un descuido — es una pregunta de intención de diseño, no
+   verificable por código ni por fichas.
+4. **Efecto real de `DATA_STAT_TYP=INACTIVE` en `FT_T_ATE1.ExtraccionCONT.sql`**: comportamiento
+   empíricamente normal confirmado, mecanismo exacto (código de `Querys.java`) no verificado.
