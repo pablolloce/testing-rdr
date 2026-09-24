@@ -66,7 +66,7 @@ de filewatcher ni de validación de esquema en ningún punto.
 |-------------------|--------|
 | Recepción y procesamiento en IHS Markit y SAIT | Los sistemas destino son consumidores externos a la cadena |
 | **La transferencia de DataX hacia IHS Markit** | La monta y la controla el sistema destino, no RDR. Nombre, hora, máquina y ruta de destino pueden cambiar sin comunicarlo a RDR (§4.6) |
-| Contactos con una asignación de sucursal a la organización `A15` | Excluidos por la propia query maestra (ver §4.3) |
+| Contactos con una asignación de sucursal a la organización `A15` (**COMPASS**) | Excluidos por la propia query maestra; motivo confirmado: BBVA Compass/BBVA USA fue vendida a PNC en 2020 (ver §4.3) |
 
 ---
 
@@ -209,8 +209,10 @@ Su nombre legal se obtiene directamente:
 SELECT ORG_ID, ENT_LEG_NME FROM FT_T_ENTR WHERE TRIM(ORG_ID) = 'A15';
 ```
 
-El motivo de negocio de la exclusión sigue sin estar documentado, pero el comportamiento está
-ahora completamente especificado y es verificable (TC-18).
+**Resuelto con query real (2026-09-24): `A15` = `COMPASS`**. Motivo de negocio confirmado por el
+usuario: BBVA Compass/BBVA USA fue vendida a PNC en 2020 y ya no forma parte del grupo, de ahí que
+sus contactos se excluyan explícitamente de la extracción. El comportamiento está completamente
+especificado, verificable (TC-18), y ahora también motivado.
 
 > **La exclusión no filtra por estado de la asignación.** El `NOT EXISTS` comprueba
 > `CONTCT_ASSIGN_STAT_TYP` y `ORG_ID`, pero **no** `CNTA.DATA_STAT_TYP`. En consecuencia, un
@@ -668,8 +670,6 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 
 ### 6.3 Huecos de cobertura conocidos
 
-- El motivo de negocio de la exclusión `A15` sigue sin documentar: TC-18 verifica el
-  comportamiento y la asimetría de estado, no la corrección de la regla.
 - No se ha verificado si existe restricción de unicidad en `FT_T_CAI1` para el identificador RDR
   del contacto (RG-16); TC-05 lo aborda de forma indirecta.
 - Los entornos de ejecución de pruebas no están definidos (ver `prerrequisitos.md` §7).
@@ -781,13 +781,16 @@ jobs en OK. Es una discrepancia entre requisito e implementación, no una ambig�
 documentación, y es el punto de mayor prioridad de esta especificación (RG-02). Resolverlo
 exige añadir una comprobación de contenido mínimo entre la transformación y el envío.
 
+**Cerrado con evidencia real (2026-09-24).** El motivo de negocio de la exclusión `A15` (RG-06)
+queda resuelto: `SELECT ENT_LEG_NME FROM FT_T_ENTR WHERE TRIM(ORG_ID)='A15'` confirma
+`A15 = COMPASS`, y el usuario confirma que el motivo es la venta de BBVA Compass/BBVA USA a PNC
+en 2020 — al dejar de formar parte del grupo, sus contactos se excluyen explícitamente de la
+extracción. Sigue sin confirmarse solo si la ausencia de filtro por estado de la asignación
+(`DATA_STAT_TYP`) es deliberada o un descuido — comportamiento verificable con TC-18.
+
 **Puntos abiertos, ninguno bloqueante:**
 
 1. **Nivel de `StarDate` y `LastChangeDate`** (§5.1). El usuario no dispone del dato; se asume
    el nivel evidenciado por `sait.xsl` y TC-02 lo verifica contra un fichero real.
-2. **Motivo de negocio de la exclusión `A15`** (RG-06). El comportamiento está ahora
-   completamente especificado y es verificable; lo que falta es saber qué organización es y por
-   qué se excluye, además de si la ausencia de filtro por estado de la asignación es
-   deliberada.
-3. **Mecanismo de limpieza en la pasarela** (RG-05).
-4. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
+2. **Mecanismo de limpieza en la pasarela** (RG-05).
+3. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).

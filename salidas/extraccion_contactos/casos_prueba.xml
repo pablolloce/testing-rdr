@@ -545,7 +545,7 @@
       <dato campo="contacto_A15_y_1145" valor="no debe aparecer en ninguno de los dos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar FT_T_ENTR con TRIM(ORG_ID)='A15' y documentar el ENT_LEG_NME de la organización, para dejar identificado a quién afecta la exclusión.</paso>
+      <paso numero="1">Consultar FT_T_ENTR con TRIM(ORG_ID)='A15' y confirmar que ENT_LEG_NME='COMPASS' (BBVA Compass/BBVA USA, vendida a PNC en 2020, motivo de la exclusión).</paso>
       <paso numero="2">Cargar los cuatro perfiles y ejecutar GS_EXTRACCION_CONT.</paso>
       <paso numero="3">Verificar que el contacto con asignación A15 activa no aparece en ExtraccionContingenciaCONT.xml.</paso>
       <paso numero="4">Verificar que el contacto con asignación A15 dada de baja TAMPOCO aparece, confirmando que el NOT EXISTS ignora el estado de la asignación.</paso>
@@ -554,7 +554,7 @@
       <paso numero="7">Verificar que el contacto con A15 y acuerdos de la organización 1145 no aparece tampoco en RDR_contactosSAIT.xml: la exclusión del universo precede al filtro de la XSLT.</paso>
       <paso numero="8">Comprobar que una consulta de contraste con ORG_ID='A15' sin el espacio final no devuelve resultados, confirmando el padding de la columna.</paso>
     </pasos>
-    <resultadoEsperado>Los contactos con cualquier asignación BRANCH hacia A15 quedan fuera del fichero, con independencia del estado de esa asignación. El contacto de otra sucursal sí aparece. Queda documentada la identidad de la organización A15 y la asimetría de estado entre la query maestra y el bloque Branches.</resultadoEsperado>
+    <resultadoEsperado>Los contactos con cualquier asignación BRANCH hacia A15 (COMPASS) quedan fuera del fichero, con independencia del estado de esa asignación. El contacto de otra sucursal sí aparece. Queda confirmada la identidad de la organización A15 y su motivo de exclusión (venta a PNC en 2020), y documentada la asimetría de estado entre la query maestra y el bloque Branches.</resultadoEsperado>
     <tipoValidacion>Búsqueda de los contactos por CONTCT_OID en ambos ficheros; consulta a FT_T_ENTR; comprobación del comportamiento del padding en la comparación de ORG_ID.</tipoValidacion>
     <criterioAceptacion>La exclusión se comporta de forma consistente con el SQL y queda documentada con precisión suficiente para detectar una regresión futura, incluida la identidad de la organización afectada.</criterioAceptacion>
     <posibilidadFallo>Media — el comportamiento está confirmado en el SQL, pero el paso 4 evidencia una asimetría que puede no ser intencionada y que excluye contactos de forma permanente por una vinculación ya dada de baja.</posibilidadFallo>
