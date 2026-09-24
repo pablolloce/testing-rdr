@@ -90,7 +90,7 @@ cadenas de respuesta ACK/NACK están decomisadas, al igual que el propio destino
 | R-04 | El XML resultante contiene los 337 campos de salida definidos por la query, construidos a partir de 19 tablas de `KYTL_GC` con `FT_T_LAGR` como tabla conductora y raíz `nettingContractArray`. |
 | R-05 | La cadena `_new` extrae el universo completo de contratos: no aplica filtro `daybefore` ni exclusión CLS/SWIFT. |
 | R-06 | El filewatcher `FW_BBVAContracts_RDR_1` detecta la presencia de `BBVAContracts.xml` y habilita la continuación de la cadena. |
-| R-07 | `VALIDACION_XSD_EXTRACT_BBVA` valida `BBVAContracts.xml` contra el XSD `ValidationBBVAContracts` mediante `GenericValidator.sh`. Si el fichero no valida, el job da fallo y la cadena se para. |
+| R-07 | `VALIDACION_XSD_EXTRACT_BBVA` valida `BBVAContracts.xml` contra el XSD `ValidationBBVAContracts` mediante `GenericValidator.sh`. **Confirmado por export real de Control-M:** el job tiene configurada la acción `ON CODE="NOTOK" → DOACTION ACTION="OK"` — un fallo de validación se convierte automáticamente en éxito y la cadena **continúa**, entregando el fichero a los 6 destinos aunque no sea válido según el XSD. |
 | R-08 | `MEKYTL0900` envía `BBVAContracts.xml` a la landing zone de XCTT mediante `MEGENV0001.sh` (usuario `xsramer1`), nombrando el fichero destino `BBVAContracts_YYYYMMDD.xml`. |
 | R-09 | `MEKYTL0895` ejecuta `GSProcess.sh transformarBBVAContracts` y actúa como nodo de reparto: es predecesor de todas las ramas de distribución posteriores. Ya no genera el fichero de Mentor. |
 | R-10 | `MEKYTL0886` envía el XML a Ibor (`/unload/eyvr/IN/Ibor/`) sin historificar; `MEKYTL0892` lo envía al bucket S3 de ADA; `MEKYTL0543` lo envía a EYMI (`eymip015`) y cierra la rama como job Dummy. |
@@ -116,17 +116,21 @@ partir de ahí, cada job se ejecuta cuando le llega el turno en la secuencia. No
 planificación horaria independiente por job: la hora real de ejecución de cada paso depende del
 tiempo que consuman los anteriores.
 
-> **Ventanas de filewatcher inconsistentes con la hora de arranque (pendiente de verificar en
-> Control-M):** la ficha de `FW_BBVAContracts_RDR_1` declara una ventana **09:30–11:15** y la de
-> `FW_BBVAContracts_RDR_2` una ventana **09:30–12:15**, ambas **anteriores** a la hora de
-> arranque de la cadena (13:00). Tal como están documentadas, ninguno de los dos filewatchers
-> podría abrirse después de que la extracción haya depositado el fichero. El usuario confirma
-> que la cadena arranca entera a las 13:00 y se ejecuta job a job, por lo que **prevalece la
-> secuencia de ejecución sobre las ventanas documentadas**: las ventanas de la ficha están
-> obsoletas o corresponden a una planificación anterior. Antes de ejecutar pruebas sobre entorno
-> real debe verificarse la definición vigente en Control-M, porque una ventana mal configurada
-> bloquearía la cadena completa (ver §8 — Riesgos). Nótese que `FW_BBVAContracts_RDR_2`
-> pertenece a la rama Mentor, decomisada, por lo que solo el primer filewatcher es relevante.
+> **Ventana de `FW_BBVAContracts_RDR_1`: confirmada con export real de Control-M.** El export del
+> Workspace de la cadena (`INCOND`/`OUTCOND`/`TIMEFROM`/`TIMETO` por job) muestra que la ventana
+> vigente del filewatcher es **14:00–15:30** (`TIMEFROM="1400" TIMETO="1530"`, chequeo cíclico
+> cada 15 min), no el 09:30–11:15 que declaraba el documento fuente original — esa cifra queda
+> identificada como errata/desactualización documental. Esta ventana es coherente con la
+> secuencia real: `RDR_BBVACONTRACTS_IN` (dummy de entrada) dispara a las **13:00**
+> (`TIMEFROM="1300"`), tras lo cual se ejecuta la extracción (`EXTRACCIONGENERICACONTRBBVA`), y
+> el filewatcher activa su propia ventana una hora después, a las 14:00, dejando margen para que
+> la extracción termine. No hay conflicto entre el arranque a las 13:00 y la ventana del
+> filewatcher: son dos franjas distintas y compatibles. **Hallazgo adicional confirmado por el
+> mismo export:** ante timeout del filewatcher (`COMPSTAT=7`), Control-M tiene configurada la
+> acción `DOACTION ACTION="OK"` — el timeout se convierte automáticamente en éxito, sin alertar
+> ni detener la cadena (patrón de "soft failure silencioso" ya visto en otros procesos RDR).
+> Nótese que `FW_BBVAContracts_RDR_2` pertenece a la rama Mentor, decomisada, por lo que no se
+> verifica su ventana.
 
 Del mismo modo, el job `MEKYTL1104` declara periodicidad propia "M X J V, 14:00": debe
 entenderse como la franja horaria en la que habitualmente se alcanza ese paso dentro de la
@@ -179,20 +183,26 @@ informados.
 ### 4.4 Validación XSD
 
 `VALIDACION_XSD_EXTRACT_BBVA` ejecuta `GenericValidator.sh` con parámetro
-`ValidationBBVAContracts` sobre `LAGR/BBVAContracts.xml`. Si el fichero no valida, el job da
-fallo y la cadena se para.
+`ValidationBBVAContracts` sobre `LAGR/BBVAContracts.xml`.
 
-> **Corrección sobre el documento fuente:** el análisis de Fase 1 marca este job con
-> `forzar_ok: true` ("Force OK") tanto en el diagrama como en el YAML de linaje, lo que
-> implicaría que un XML inválido continuaría por la cadena hasta llegar a los sistemas destino.
-> El usuario confirma que **el comportamiento real es el contrario**. La especificación y los
-> casos de prueba se construyen sobre el comportamiento confirmado. El flag "Force OK"
-> documentado debe corregirse en la ficha o verificarse en Control-M antes del paso a
-> producción (ver §8 — Riesgos).
+> **Confirmado con export real de Control-M — el flag "Force OK" está activo.** El análisis de
+> Fase 1 marcaba este job con `forzar_ok: true` ("Force OK") en el diagrama y el YAML de linaje.
+> En una ronda anterior de esta sesión, el usuario había indicado que el comportamiento real era
+> el contrario (que el fallo de XSD sí detiene la cadena). **El export del Workspace de
+> Control-M, confirmado explícitamente por el usuario como correcto, muestra lo contrario:**
+> ```xml
+> <ON STMT="*" CODE="NOTOK">
+>     <DOACTION ACTION="OK"/>
+> </ON>
+> ```
+> Es decir, el documento fuente original tenía razón: el flag "Force OK" **sí está activo**, y un
+> XML que no valide contra el XSD se convierte en éxito y continúa hacia los 6 destinos. La
+> respuesta anterior del usuario en esta sesión queda corregida por esta evidencia de mayor
+> rango (export en vivo de Control-M frente a una declaración verbal sin fichero fuente).
 
-Esta diferencia es material: con "Force OK" el XSD sería un aviso; sin él, es la barrera que
-protege a los sistemas consumidores de recibir un fichero malformado. Es el único control de
-calidad del fichero en toda la cadena.
+Esta diferencia es material: con "Force OK" confirmado, el XSD **no protege a los sistemas
+consumidores de recibir un fichero malformado** — es un control de calidad presente pero
+inoperante. Ningún otro job de la cadena valida el contenido del fichero antes de distribuirlo.
 
 ### 4.5 Nodo de reparto (`MEKYTL0895`) y ramas de distribución
 
@@ -437,8 +447,9 @@ bloques:
 
 1. **Extracción y contenido del XML** — que la query produzca el fichero correcto a partir de
    los datos de GoldenSource (TC-02, TC-03, TC-04, TC-17).
-2. **Barrera de validación** — que el XSD detenga la cadena ante un fichero malformado (TC-05),
-   dado que es el único control de calidad del fichero en toda la cadena.
+2. **Ausencia real de barrera de validación** — confirmar que, pese a validar contra el XSD, un
+   fichero malformado **no** detiene la cadena (TC-05), dado que el flag "Force OK" está activo
+   y es el único control de calidad de contenido en toda la cadena.
 3. **Transformación a CSV** — que el XSL produzca las cuatro columnas correctas incluyendo el
    tratamiento de campos vacíos (TC-10).
 4. **Lógica de control de la cadena** — secuencia, dependencias de orden frente a éxito,
@@ -453,8 +464,8 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 | Bloque | Casos | Cobertura |
 |--------|-------|-----------|
 | Extracción Oracle → XML | TC-02, TC-03, TC-04, TC-17 | Completa |
-| Validación XSD | TC-05 | Completa |
-| Control de cadena (FW, secuencia, reejecución) | TC-01, TC-06, TC-16 | Parcial — depende de verificar la ventana del FW en Control-M |
+| Validación XSD (confirmado: no bloquea, Force OK activo) | TC-05 | Completa |
+| Control de cadena (FW, secuencia, reejecución) | TC-01, TC-06, TC-16 | Completa — ventana del FW confirmada por export real (§4.1) |
 | Reparto y aislamiento de envíos | TC-07, TC-08, TC-09, TC-18 | Parcial — la recepción en destino está fuera de target |
 | Rama CSV (generación, envío mensual, historificación diaria, purga) | TC-10, TC-11, TC-12 | Completa |
 | Rama IHS Markit (envío, sábado, borrado en pasarela) | TC-13, TC-14 | Completa |
@@ -463,10 +474,11 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 ### 6.3 Huecos de cobertura conocidos
 
 - Los ≈8 pasos declarados en Control-M y no identificados se dan por decomisados según
-  confirmación del usuario. Si el inventario real de la cadena mostrara alguno activo, quedaría
-  sin cobertura.
-- La ventana del filewatcher `FW_BBVAContracts_RDR_1` debe verificarse en Control-M antes de
-  ejecutar TC-01 y TC-06.
+  confirmación del usuario. El export real del Workspace (23 jobs activos, ver §4.9) confirma
+  que la rama Mentor (`FW_BBVAContracts_RDR_2`, `MEKYTL0896`, `MEKYTL0954`) no aparece en la
+  definición vigente, lo que apoya la teoría de decomisión sin cerrarla numéricamente del todo
+  (no se ha reconciliado cifra a cifra el recuento original de 30 pasos frente a los 23 activos).
+  Si el inventario completo mostrara algún job activo no recogido aquí, quedaría sin cobertura.
 - Los entornos de ejecución de pruebas no están definidos (ver `prerrequisitos.md` §7).
 - El script concreto de `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` no está identificado ("a
   determinar por Service Support"): TC-14 verifica el efecto, no la implementación.
@@ -504,8 +516,8 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
-| RG-01 | Ventana del filewatcher `FW_BBVAContracts_RDR_1` (09:30–11:15) anterior a la hora de arranque de la cadena (13:00) | Bloqueo total de la cadena si la definición documentada coincide con la real | Verificar la definición vigente en Control-M antes de ejecutar pruebas (§4.1) |
-| RG-02 | Flag "Force OK" documentado en `VALIDACION_XSD_EXTRACT_BBVA`, contradictorio con el comportamiento confirmado | Un XML inválido alcanzaría los sistemas consumidores | Corregir la ficha o verificar la configuración real del job en Control-M (§4.4) |
+| RG-01 | ~~Ventana del filewatcher `FW_BBVAContracts_RDR_1`~~ — **resuelto**: export real confirma 14:00–15:30, compatible con el arranque a las 13:00 | — | Cerrado (§4.1) |
+| RG-02 | **Confirmado, crítico:** el flag "Force OK" de `VALIDACION_XSD_EXTRACT_BBVA` está activo (`ON NOTOK → DOACTION OK`) | Un XML que no cumpla el XSD **llega igualmente** a los 6 sistemas consumidores (XCTT, Ibor, S3/ADA, EYMI, Smart Data, IHS Markit) sin ningún otro control de calidad de contenido en toda la cadena | Decisión de negocio/gobierno: confirmar si es intencional o corregir la configuración del job en Control-M antes de asumir que el XSD protege algo (§4.4) |
 | RG-03 | `MEKYTL0895` conserva nombre y descripción referidos a una transformación a Mentor que ya no realiza | Riesgo de que una revisión futura lo interprete como job decomisado y lo retire, rompiendo el encadenamiento de las cinco ramas vigentes | Actualizar la ficha del job reflejando su función actual de nodo de secuencia (§4.5) |
 | RG-04 | Documentación de la cadena con los nombres antiguos `MEKYTL1104_DEL` / `MEKYTL1104_S_DEL`, renombrados a `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` el 12/09/25 | Búsquedas en Control-M por el nombre antiguo no encuentran los jobs | Actualizar la documentación de la cadena (§4.7) |
 | RG-05 | Script de los jobs de borrado sin identificar ("a determinar por Service Support") | No es posible verificar qué borra exactamente ni con qué criterio de nombre | Solicitar la identificación del script a Service Support (§4.7) |
@@ -534,18 +546,24 @@ calendario restringido se ejecuten a diario), el comportamiento del XSD ante fal
 protocolo ante fallo de extracción, la función de los jobs de borrado en pasarela y su
 renombrado, y el estado actual de `MEKYTL0895`.
 
-**Lo que queda pendiente no es funcional sino de verificación documental**, y debe resolverse
-antes de ejecutar pruebas sobre entorno real:
+**Actualización con export real de Control-M (2026-09-24):** los dos puntos de verificación
+documental más críticos quedan resueltos con evidencia real, uno de ellos con una conclusión
+distinta a la que constaba en la sesión anterior:
 
-1. **Ventana vigente de `FW_BBVAContracts_RDR_1`** (RG-01). Es el único punto que puede impedir
-   que la cadena arranque, y la ficha es incoherente con la hora de ejecución confirmada.
-2. **Flag "Force OK" del job de validación XSD** (RG-02). La ficha dice lo contrario del
-   comportamiento confirmado; si la ficha reflejara la configuración real, el único control de
-   calidad del fichero estaría desactivado.
-3. **Inventario de jobs activos en Control-M** (RG-08), para confirmar que los pasos no
-   documentados son efectivamente los decomisados y que la cobertura de pruebas es completa.
-4. **Definición de los entornos de ejecución** (RG-12).
+1. **Ventana de `FW_BBVAContracts_RDR_1` — cerrado.** El export confirma 14:00–15:30,
+   compatible con el arranque de la cadena a las 13:00 (RG-01, §4.1).
+2. **Flag "Force OK" del job de validación XSD — cerrado, pero con conclusión invertida.** El
+   export confirma que el flag **sí está activo** (`ON NOTOK → DOACTION OK`): el documento fuente
+   original tenía razón, y la respuesta que el usuario había dado antes en esta sesión (que el
+   fallo de XSD detiene la cadena) queda corregida por esta evidencia de mayor rango. El XSD
+   **no** protege a los sistemas consumidores de un fichero malformado (RG-02, §4.4).
 
-Ninguno de los cuatro bloquea la redacción de los casos de prueba, que se adjuntan en
-`casos_prueba.xml`. Los tres primeros son verificaciones a realizar sobre Control-M; el cuarto
-es una decisión de proyecto pendiente.
+**Sigue pendiente de verificación documental**, sin bloquear la redacción de los casos de
+prueba (adjuntos en `casos_prueba.xml`):
+
+3. **Inventario completo de jobs activos en Control-M** (RG-08): el export real confirma que la
+   rama Mentor no aparece en la definición vigente (apoya la decomisión), pero no reconcilia
+   cifra a cifra los 30 pasos originalmente declarados frente a los 23 jobs activos vistos en el
+   export.
+4. **Definición de los entornos de ejecución** (RG-12) — decisión de proyecto, no de verificación
+   técnica.

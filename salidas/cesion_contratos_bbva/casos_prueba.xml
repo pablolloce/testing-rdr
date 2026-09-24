@@ -125,12 +125,11 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-05" tipo="error_funcional">
-    <nombre>XML no conforme al XSD detiene la cadena</nombre>
-    <objetivo>Verificar que VALIDACION_XSD_EXTRACT_BBVA detiene la cadena ante un fichero que no cumple el esquema, impidiendo que un XML malformado alcance los sistemas consumidores. Es la comprobación del único control de calidad del fichero en toda la cadena.</objetivo>
+    <nombre>XML no conforme al XSD NO detiene la cadena (Force OK confirmado)</nombre>
+    <objetivo>Confirmar que, pese a que VALIDACION_XSD_EXTRACT_BBVA valida BBVAContracts.xml contra el XSD, un fallo de validación se convierte automáticamente en éxito (flag "Force OK" activo, confirmado por export real de Control-M: ON NOTOK → DOACTION OK) y la cadena continúa hacia los 6 destinos.</objetivo>
     <precondiciones>
       <precondicion>Existe un BBVAContracts.xml válido que sirve de base.</precondicion>
       <precondicion>Es posible sustituir el fichero en LAGR/ antes de la ejecución del job de validación.</precondicion>
-      <precondicion>El job de validación está configurado para detener la cadena ante fallo, verificado previamente en Control-M.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="variante_1" valor="etiqueta obligatoria eliminada"/>
@@ -141,41 +140,39 @@
     <pasos>
       <paso numero="1">Generar un BBVAContracts.xml válido mediante una ejecución normal.</paso>
       <paso numero="2">Sustituirlo por la variante 1 (etiqueta obligatoria eliminada) y lanzar VALIDACION_XSD_EXTRACT_BBVA.</paso>
-      <paso numero="3">Verificar que el job termina en KO y que MEKYTL0900 no llega a ejecutarse.</paso>
+      <paso numero="3">Verificar que el job termina en OK (pese al fallo de validación interno) y que MEKYTL0900 sí llega a ejecutarse.</paso>
       <paso numero="4">Repetir los pasos 2 y 3 con la variante 2 (tipo de dato inválido).</paso>
       <paso numero="5">Repetir los pasos 2 y 3 con la variante 3 (XML truncado).</paso>
-      <paso numero="6">Verificar en las tres variantes que ningún sistema destino ha recibido el fichero.</paso>
+      <paso numero="6">Verificar en las tres variantes que el fichero inválido llega igualmente a los destinos.</paso>
     </pasos>
-    <resultadoEsperado>En las tres variantes el job de validación termina en KO y la cadena se detiene. Ningún job de envío se ejecuta y ningún destino recibe el fichero inválido.</resultadoEsperado>
-    <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh; verificación de ausencia del fichero en las siete rutas de destino.</tipoValidacion>
-    <criterioAceptacion>Las tres variantes detienen la cadena y ningún fichero inválido sale hacia destino.</criterioAceptacion>
-    <posibilidadFallo>Alta — la ficha del job documenta un flag "Force OK" que, de estar activo en Control-M, permitiría que el fichero inválido continuara por la cadena hasta los seis destinos. Este caso es el que confirma cuál de las dos configuraciones está vigente.</posibilidadFallo>
+    <resultadoEsperado>En las tres variantes el job de validación termina en OK pese al fallo real de validación (Force OK), y la cadena continúa: el fichero inválido llega a los 6 destinos — comportamiento confirmado, no un fallo de la prueba. Riesgo real: no hay ningún control de calidad de contenido efectivo en toda la cadena.</resultadoEsperado>
+    <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh (debe registrar el fallo real aunque el job termine OK); verificación de presencia del fichero inválido en las rutas de destino.</tipoValidacion>
+    <criterioAceptacion>Las tres variantes terminan en OK y el fichero llega a los destinos pese a ser inválido — confirma el comportamiento real (Force OK), no lo contrario.</criterioAceptacion>
+    <posibilidadFallo>Que el job termine en KO y detenga la cadena, lo que contradiría el export real de Control-M confirmado en sesión.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-06" tipo="negativo">
-    <nombre>Filewatcher sin fichero dentro de su ventana</nombre>
-    <objetivo>Verificar el comportamiento de FW_BBVAContracts_RDR_1 cuando BBVAContracts.xml no está disponible, y confirmar que la ventana configurada en Control-M es compatible con la hora real de arranque de la cadena.</objetivo>
+    <nombre>Filewatcher sin fichero dentro de su ventana (14:00-15:30, confirmada)</nombre>
+    <objetivo>Verificar el comportamiento de FW_BBVAContracts_RDR_1 cuando BBVAContracts.xml no está disponible dentro de su ventana real (14:00-15:30, confirmada por export de Control-M), y confirmar que ante timeout el job se marca OK automáticamente sin alerta (DOACTION OK ante COMPSTAT=7).</objetivo>
     <precondiciones>
       <precondicion>Directorio LAGR/ vacío.</precondicion>
-      <precondicion>Definición vigente de la ventana del filewatcher obtenida de Control-M.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ventana_documentada_en_ficha" valor="09:30-11:15"/>
-      <dato campo="hora_arranque_cadena" valor="13:00"/>
+      <dato campo="ventana_confirmada" valor="14:00-15:30 (TIMEFROM=1400, TIMETO=1530, export real de Control-M)"/>
+      <dato campo="hora_arranque_cadena" valor="13:00 (RDR_BBVACONTRACTS_IN)"/>
       <dato campo="fichero_vigilado" valor="/fichtemcomp/pr/descargas/kytl/LAGR/BBVAContracts.xml"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar en Control-M la ventana real configurada para FW_BBVAContracts_RDR_1 y contrastarla con la documentada en la ficha.</paso>
-      <paso numero="2">Lanzar la cadena con el directorio LAGR/ vacío y sin ejecutar la extracción.</paso>
-      <paso numero="3">Verificar el comportamiento del filewatcher al agotarse su ventana sin encontrar el fichero.</paso>
-      <paso numero="4">Verificar que ningún job sucesor se ejecuta.</paso>
-      <paso numero="5">Verificar que se emite el aviso al grupo de soporte ANS RDR.</paso>
-      <paso numero="6">Depositar manualmente el fichero dentro de la ventana y verificar que el filewatcher lo detecta y genera su evento OK.</paso>
+      <paso numero="1">Lanzar la cadena con el directorio LAGR/ vacío y sin ejecutar la extracción.</paso>
+      <paso numero="2">Verificar el comportamiento del filewatcher al agotarse su ventana (15:30) sin encontrar el fichero.</paso>
+      <paso numero="3">Confirmar que el job termina en OK pese al timeout (DOACTION OK ante COMPSTAT=7), sin generar alerta.</paso>
+      <paso numero="4">Verificar si el job sucesor (VALIDACION_XSD_EXTRACT_BBVA) llega a ejecutarse pese a la ausencia real del fichero.</paso>
+      <paso numero="5">Depositar manualmente el fichero dentro de la ventana (14:00-15:30) y verificar que el filewatcher lo detecta y genera su evento OK con normalidad.</paso>
     </pasos>
-    <resultadoEsperado>Sin fichero, el filewatcher no se satisface, la cadena no avanza y se emite el aviso correspondiente. Con el fichero depositado dentro de la ventana, el filewatcher lo detecta y habilita al job de validación. La ventana real en Control-M permite la detección después de las 13:00.</resultadoEsperado>
-    <tipoValidacion>Consulta de la definición del job en Control-M; revisión del estado del filewatcher y de sus sucesores; comprobación del registro de notificación.</tipoValidacion>
-    <criterioAceptacion>Queda documentada la ventana real vigente y se confirma que es compatible con la hora de arranque de la cadena.</criterioAceptacion>
-    <posibilidadFallo>Alta — si la ventana real coincide con la documentada (09:30-11:15), la cadena nunca podría avanzar, ya que la extracción arranca a las 13:00.</posibilidadFallo>
+    <resultadoEsperado>Sin fichero, el filewatcher agota su ventana y termina en OK igualmente (comportamiento confirmado, no un fallo de la prueba), sin ninguna alerta a ANS RDR por esta vía. Con el fichero depositado dentro de la ventana, el filewatcher lo detecta con normalidad.</resultadoEsperado>
+    <tipoValidacion>Revisión del estado del filewatcher y de sus sucesores en Control-M; confirmación de ausencia de notificación tras el timeout.</tipoValidacion>
+    <criterioAceptacion>El job termina en OK tanto si detecta el fichero como si agota la ventana sin él; no se genera alerta en ninguno de los dos casos por esta vía.</criterioAceptacion>
+    <posibilidadFallo>Que el job quede en KO ante el timeout, lo que contradiría el DOACTION OK confirmado en el export real de Control-M.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-07" tipo="happy_path">
