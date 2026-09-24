@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="cesion_contratos_bbva" fecha="2026-09-22" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-01" tipo="e2e">
+    <nombre>Flujo completo E2E de la cadena RDR_BBVACONTRACTS_new</nombre>
+    <objetivo>Verificar que el ciclo completo —extracción de Oracle, copia a LAGR, detección por el filewatcher, validación XSD, reparto a los seis destinos vigentes, generación e historificación del CSV, historificación comprimida del XML y borrado en pasarela— se ejecuta correctamente de principio a fin en un día laborable.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_LAGR contiene al menos 10 contratos marco con datos en las tablas satélite.</precondicion>
+      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/LAGR/ vacío, sin BBVAContracts.xml ni BBVAContracts.csv residuales.</precondicion>
+      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/LAGR/old/ existente y con permisos de escritura y borrado.</precondicion>
+      <precondicion>Cadena RDR_BBVACONTRACTS_new activa en Control-M, no bloqueada ni en hold.</precondicion>
+      <precondicion>Ventana de FW_BBVAContracts_RDR_1 verificada y compatible con la hora de arranque de las 13:00.</precondicion>
+      <precondicion>Conectividad y permisos de escritura confirmados en las siete rutas de destino.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dia_ejecucion" valor="miércoles (día laborable, no primer martes de mes)"/>
+      <dato campo="hora_arranque" valor="13:00"/>
+      <dato campo="n_contratos_FT_T_LAGR" valor="10"/>
+      <dato campo="cadena" valor="RDR_BBVACONTRACTS_new"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena RDR_BBVACONTRACTS_new a las 13:00.</paso>
+      <paso numero="2">Verificar que EXTRACCIONGENERICACONTRBBVA genera ExtraccionContingenciaCONTRBBVA.xml.tmp y lo renombra a .xml en /fichtemcomp/pr/descargas/kytl/extracciongenerica/CONTRBBVA/.</paso>
+      <paso numero="3">Verificar que el script CopiarFichero deja BBVAContracts.xml en /fichtemcomp/pr/descargas/kytl/LAGR/.</paso>
+      <paso numero="4">Verificar que FW_BBVAContracts_RDR_1 detecta el fichero y genera su evento OK.</paso>
+      <paso numero="5">Verificar que VALIDACION_XSD_EXTRACT_BBVA termina OK.</paso>
+      <paso numero="6">Verificar que MEKYTL0900 deposita BBVAContracts_YYYYMMDD.xml en la landing zone de XCTT.</paso>
+      <paso numero="7">Verificar que MEKYTL0895 termina OK y habilita las ramas sucesoras.</paso>
+      <paso numero="8">Verificar los envíos de MEKYTL0886 (Ibor), MEKYTL0892 (S3/ADA) y MEKYTL0543 (EYMI, job Dummy de cierre de rama).</paso>
+      <paso numero="9">Verificar que MEKYTL1172 deposita RDR_EBDM_BBVAContracts_yyyymmdd.xml en Cloudera.</paso>
+      <paso numero="10">Verificar que MEKYTL1104 deposita el fichero en la pasarela y MEXIRM1104_SND lo transmite por SFTP a IHS Markit.</paso>
+      <paso numero="11">Verificar que MEXIRM1104_DEL borra el fichero de la ruta rdr de la pasarela.</paso>
+      <paso numero="12">Verificar que MEKYTL1052 historifica el CSV en LAGR/old/ y MEKYTL1053 ejecuta la purga.</paso>
+      <paso numero="13">Verificar que MEKYTL0953 genera LAGR/old/BBVAContracts_yyyymmdd.gz.</paso>
+    </pasos>
+    <resultadoEsperado>Todos los jobs de la cadena terminan en estado OK. Los seis destinos vigentes reciben el fichero con el nombre esperado. El CSV se genera e historifica. El XML queda comprimido en LAGR/old/. La pasarela queda sin el fichero transmitido. MEKYTL1051 NO se ejecuta por no ser primer martes de mes, sin que ello bloquee a MEKYTL1052 ni a MEKYTL1053.</resultadoEsperado>
+    <tipoValidacion>Revisión de estado de cada job en Control-M; verificación de existencia, nombre y tamaño de los ficheros en cada ruta de destino; comprobación del contenido de LAGR/old/ y de la ruta rdr de la pasarela.</tipoValidacion>
+    <criterioAceptacion>Cadena completa en estado OK, siete ficheros verificables en destino (seis XML más el CSV historificado) y ningún fichero residual en LAGR/ ni en la pasarela.</criterioAceptacion>
+    <posibilidadFallo>Media — la ventana documentada del filewatcher (09:30-11:15) es anterior a la hora de arranque y podría impedir la detección del fichero, bloqueando toda la cadena.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-02" tipo="happy_path">
+    <nombre>Extracción genérica y estructura del XML de salida</nombre>
+    <objetivo>Verificar que ExtraccionContingenciaCONTRBBVA.sql genera un documento XML bien formado con raíz nettingContractArray, conteniendo el universo completo de contratos y los 337 campos de salida a partir de las 19 tablas de origen.</objetivo>
+    <precondiciones>
+      <precondicion>FT_T_LAGR contiene un conjunto conocido de N contratos marco.</precondicion>
+      <precondicion>Al menos un contrato tiene datos informados en las cinco tablas de mayor aportación: FT_T_LAGR, FT_T_LAAN, FT_T_LPS1, FT_T_LAX1 y FT_T_LAT1.</precondicion>
+      <precondicion>Existen contratos de tipo CLS y SWIFT en FT_T_LAGR.</precondicion>
+      <precondicion>Permisos de SELECT sobre las 19 tablas de origen y las 6 auxiliares de filtrado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="tabla_conductora" valor="KYTL_GC.FT_T_LAGR"/>
+      <dato campo="raiz_xml" valor="nettingContractArray"/>
+      <dato campo="n_campos_salida" valor="337"/>
+      <dato campo="n_tablas_origen" valor="19"/>
+      <dato campo="contractType_CLS_presente" valor="sí"/>
+      <dato campo="contractType_SWIFT_presente" valor="sí"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job EXTRACCIONGENERICACONTRBBVA.</paso>
+      <paso numero="2">Comprobar que el fichero .tmp se ha renombrado a .xml y que no queda ningún .tmp en el directorio.</paso>
+      <paso numero="3">Validar que el XML está bien formado y su elemento raíz es nettingContractArray.</paso>
+      <paso numero="4">Contar los contratos presentes en el XML y compararlos con el número de filas de FT_T_LAGR.</paso>
+      <paso numero="5">Seleccionar el contrato con datos en las cinco tablas principales y verificar campo a campo que los valores del XML coinciden con los de Oracle.</paso>
+      <paso numero="6">Verificar que los contratos de tipo CLS y SWIFT SÍ aparecen en el XML.</paso>
+      <paso numero="7">Verificar que el conjunto de etiquetas distintas del XML se corresponde con los 337 campos de salida definidos por la query.</paso>
+    </pasos>
+    <resultadoEsperado>XML bien formado con raíz nettingContractArray. El número de contratos coincide exactamente con las filas de FT_T_LAGR: la cadena _new no aplica filtro daybefore ni exclusión CLS/SWIFT. Los valores de los campos coinciden con Oracle. Se identifican los 337 campos de salida.</resultadoEsperado>
+    <tipoValidacion>Validación de buena formación XML; conteo comparativo XML frente a SELECT COUNT(*) sobre FT_T_LAGR; diff campo a campo entre el XML y una consulta de contraste sobre las tablas origen.</tipoValidacion>
+    <criterioAceptacion>Cero discrepancias entre el contenido del XML y los datos de Oracle, y presencia confirmada de los contratos CLS y SWIFT.</criterioAceptacion>
+    <posibilidadFallo>Media — el documento fuente describe la exclusión de CLS y SWIFT como lógica del proceso; si por error se hubiera aplicado también a _new, este caso lo detecta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-03" tipo="borde">
+    <nombre>Extracción sin contratos en origen</nombre>
+    <objetivo>Determinar el comportamiento de la cadena cuando la consulta no devuelve ningún contrato: si se genera un XML vacío que se distribuye a los destinos, o si la cadena se detiene.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con FT_T_LAGR sin filas, o con todas sus filas excluidas por las tablas auxiliares de filtrado.</precondicion>
+      <precondicion>Directorio LAGR/ vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="n_filas_FT_T_LAGR" valor="0"/>
+      <dato campo="raiz_xml_esperada" valor="nettingContractArray"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Vaciar FT_T_LAGR en el entorno de pruebas o aplicar un filtro que excluya todos los contratos.</paso>
+      <paso numero="2">Ejecutar EXTRACCIONGENERICACONTRBBVA.</paso>
+      <paso numero="3">Comprobar si se genera el fichero .xml y cuál es su contenido.</paso>
+      <paso numero="4">Comprobar si FW_BBVAContracts_RDR_1 detecta el fichero.</paso>
+      <paso numero="5">Comprobar si VALIDACION_XSD_EXTRACT_BBVA acepta un documento con la raíz vacía.</paso>
+      <paso numero="6">Si la cadena continúa, verificar qué reciben los sistemas destino y qué contiene el CSV generado por el XSL.</paso>
+    </pasos>
+    <resultadoEsperado>A documentar según el comportamiento observado. La hipótesis es que se genera un XML con la raíz nettingContractArray vacía, que pasa el XSD y se distribuye, y que el CSV resultante contiene únicamente la línea de cabecera. Debe confirmarse si los sistemas destino toleran un fichero sin contratos.</resultadoEsperado>
+    <tipoValidacion>Inspección del XML y del CSV generados; revisión del estado de cada job; contraste con el comportamiento esperado por los sistemas consumidores.</tipoValidacion>
+    <criterioAceptacion>El comportamiento queda documentado de forma inequívoca y se confirma que no se envía un fichero interpretable como borrado masivo en los destinos.</criterioAceptacion>
+    <posibilidadFallo>Alta — el documento fuente no define este escenario. Un fichero vacío distribuido a seis sistemas podría interpretarse como ausencia de contratos y provocar borrados en destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-04" tipo="negativo">
+    <nombre>Fallo de la extracción por indisponibilidad de Oracle</nombre>
+    <objetivo>Verificar que, si la extracción falla, la cadena se para y no se distribuye ningún fichero a los sistemas destino.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena en condiciones normales de ejecución.</precondicion>
+      <precondicion>Posibilidad de inhabilitar la conectividad JDBC con Oracle o de revocar los permisos de SELECT en el entorno de pruebas.</precondicion>
+      <precondicion>Directorio LAGR/ vacío, sin ficheros de pasadas anteriores.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="modo_fallo" valor="conectividad JDBC interrumpida"/>
+      <dato campo="modo_fallo_alternativo" valor="revocación de SELECT sobre FT_T_LAGR"/>
+      <dato campo="grupo_soporte" valor="ANS RDR (BZG03906)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Interrumpir la conectividad con Oracle o revocar el permiso de SELECT sobre FT_T_LAGR.</paso>
+      <paso numero="2">Lanzar la cadena.</paso>
+      <paso numero="3">Verificar que EXTRACCIONGENERICACONTRBBVA termina en estado KO.</paso>
+      <paso numero="4">Verificar que no se ha generado ningún fichero en el directorio de extracción ni en LAGR/.</paso>
+      <paso numero="5">Verificar que FW_BBVAContracts_RDR_1 no se satisface y la cadena no avanza.</paso>
+      <paso numero="6">Verificar que ningún sistema destino ha recibido fichero alguno.</paso>
+      <paso numero="7">Verificar que se emite el aviso al grupo de soporte ANS RDR.</paso>
+    </pasos>
+    <resultadoEsperado>El job de extracción queda en KO y la cadena se para sin avanzar. No hay ficheros en el directorio de extracción ni en LAGR/, en particular ningún .tmp huérfano. Ningún destino recibe fichero. Se genera el aviso a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M; listado de los directorios de trabajo; verificación de ausencia de ficheros en las rutas de destino; comprobación del registro de notificación.</tipoValidacion>
+    <criterioAceptacion>Cadena detenida, cero ficheros generados o distribuidos, y aviso emitido al grupo de soporte.</criterioAceptacion>
+    <posibilidadFallo>Baja — el protocolo confirmado es que la cadena se para. El punto de atención es la posible permanencia de un fichero .tmp huérfano si el fallo ocurre a mitad de la escritura.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-05" tipo="error_funcional">
+    <nombre>XML no conforme al XSD detiene la cadena</nombre>
+    <objetivo>Verificar que VALIDACION_XSD_EXTRACT_BBVA detiene la cadena ante un fichero que no cumple el esquema, impidiendo que un XML malformado alcance los sistemas consumidores. Es la comprobación del único control de calidad del fichero en toda la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un BBVAContracts.xml válido que sirve de base.</precondicion>
+      <precondicion>Es posible sustituir el fichero en LAGR/ antes de la ejecución del job de validación.</precondicion>
+      <precondicion>El job de validación está configurado para detener la cadena ante fallo, verificado previamente en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="variante_1" valor="etiqueta obligatoria eliminada"/>
+      <dato campo="variante_2" valor="tipo de dato inválido en un campo numérico"/>
+      <dato campo="variante_3" valor="XML truncado, sin etiqueta de cierre de la raíz"/>
+      <dato campo="xsd" valor="ValidationBBVAContracts"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Generar un BBVAContracts.xml válido mediante una ejecución normal.</paso>
+      <paso numero="2">Sustituirlo por la variante 1 (etiqueta obligatoria eliminada) y lanzar VALIDACION_XSD_EXTRACT_BBVA.</paso>
+      <paso numero="3">Verificar que el job termina en KO y que MEKYTL0900 no llega a ejecutarse.</paso>
+      <paso numero="4">Repetir los pasos 2 y 3 con la variante 2 (tipo de dato inválido).</paso>
+      <paso numero="5">Repetir los pasos 2 y 3 con la variante 3 (XML truncado).</paso>
+      <paso numero="6">Verificar en las tres variantes que ningún sistema destino ha recibido el fichero.</paso>
+    </pasos>
+    <resultadoEsperado>En las tres variantes el job de validación termina en KO y la cadena se detiene. Ningún job de envío se ejecuta y ningún destino recibe el fichero inválido.</resultadoEsperado>
+    <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh; verificación de ausencia del fichero en las siete rutas de destino.</tipoValidacion>
+    <criterioAceptacion>Las tres variantes detienen la cadena y ningún fichero inválido sale hacia destino.</criterioAceptacion>
+    <posibilidadFallo>Alta — la ficha del job documenta un flag "Force OK" que, de estar activo en Control-M, permitiría que el fichero inválido continuara por la cadena hasta los seis destinos. Este caso es el que confirma cuál de las dos configuraciones está vigente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-06" tipo="negativo">
+    <nombre>Filewatcher sin fichero dentro de su ventana</nombre>
+    <objetivo>Verificar el comportamiento de FW_BBVAContracts_RDR_1 cuando BBVAContracts.xml no está disponible, y confirmar que la ventana configurada en Control-M es compatible con la hora real de arranque de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Directorio LAGR/ vacío.</precondicion>
+      <precondicion>Definición vigente de la ventana del filewatcher obtenida de Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana_documentada_en_ficha" valor="09:30-11:15"/>
+      <dato campo="hora_arranque_cadena" valor="13:00"/>
+      <dato campo="fichero_vigilado" valor="/fichtemcomp/pr/descargas/kytl/LAGR/BBVAContracts.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Consultar en Control-M la ventana real configurada para FW_BBVAContracts_RDR_1 y contrastarla con la documentada en la ficha.</paso>
+      <paso numero="2">Lanzar la cadena con el directorio LAGR/ vacío y sin ejecutar la extracción.</paso>
+      <paso numero="3">Verificar el comportamiento del filewatcher al agotarse su ventana sin encontrar el fichero.</paso>
+      <paso numero="4">Verificar que ningún job sucesor se ejecuta.</paso>
+      <paso numero="5">Verificar que se emite el aviso al grupo de soporte ANS RDR.</paso>
+      <paso numero="6">Depositar manualmente el fichero dentro de la ventana y verificar que el filewatcher lo detecta y genera su evento OK.</paso>
+    </pasos>
+    <resultadoEsperado>Sin fichero, el filewatcher no se satisface, la cadena no avanza y se emite el aviso correspondiente. Con el fichero depositado dentro de la ventana, el filewatcher lo detecta y habilita al job de validación. La ventana real en Control-M permite la detección después de las 13:00.</resultadoEsperado>
+    <tipoValidacion>Consulta de la definición del job en Control-M; revisión del estado del filewatcher y de sus sucesores; comprobación del registro de notificación.</tipoValidacion>
+    <criterioAceptacion>Queda documentada la ventana real vigente y se confirma que es compatible con la hora de arranque de la cadena.</criterioAceptacion>
+    <posibilidadFallo>Alta — si la ventana real coincide con la documentada (09:30-11:15), la cadena nunca podría avanzar, ya que la extracción arranca a las 13:00.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-07" tipo="happy_path">
+    <nombre>Envío a XCTT mediante MEKYTL0900</nombre>
+    <objetivo>Verificar que MEKYTL0900 deposita el XML en la landing zone de XCTT con el nombre y el contenido correctos, usando MEGENV0001.sh bajo el usuario xsramer1.</objetivo>
+    <precondiciones>
+      <precondicion>BBVAContracts.xml válido disponible en LAGR/ y validación XSD superada.</precondicion>
+      <precondicion>Landing zone de XCTT accesible en escritura para el usuario xsramer1.</precondicion>
+      <precondicion>Script MEGENV0001.sh desplegado y accesible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script" valor="MEGENV0001.sh"/>
+      <dato campo="parametro" valor="MEKYTL0900"/>
+      <dato campo="usuario" valor="xsramer1"/>
+      <dato campo="origen" valor="/fichtemcomp/pr/descargas/kytl/LAGR/BBVAContracts.xml"/>
+      <dato campo="destino" valor="/usr/local/pr/nova/landingzone/XCTT/.../incoming/rdr/agreements/BBVAContracts_YYYYMMDD.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0900 tras una validación XSD correcta.</paso>
+      <paso numero="2">Verificar que el job termina en estado OK.</paso>
+      <paso numero="3">Verificar que el fichero existe en la landing zone con el nombre BBVAContracts_YYYYMMDD.xml y la fecha del día de proceso.</paso>
+      <paso numero="4">Comparar el contenido del fichero depositado con el origen en LAGR/.</paso>
+      <paso numero="5">Verificar que el fichero origen permanece en LAGR/, ya que este job no historifica.</paso>
+    </pasos>
+    <resultadoEsperado>Fichero presente en la landing zone de XCTT con nombre BBVAContracts_YYYYMMDD.xml, idéntico al origen. El fichero en LAGR/ se mantiene para las ramas posteriores.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M; comprobación de existencia y nombre en destino; comparación byte a byte o por checksum entre origen y destino.</tipoValidacion>
+    <criterioAceptacion>Fichero íntegro en destino con el nombre correcto y fichero origen intacto.</criterioAceptacion>
+    <posibilidadFallo>Baja — envío interno sin transformación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-08" tipo="happy_path">
+    <nombre>Nodo de reparto MEKYTL0895 y habilitación de las ramas de distribución</nombre>
+    <objetivo>Verificar que MEKYTL0895 se ejecuta correctamente como nodo de secuencia, habilita las cinco ramas vigentes y ya no genera el fichero de Mentor.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0900 ejecutado con éxito.</precondicion>
+      <precondicion>BBVAContracts.xml disponible en LAGR/.</precondicion>
+      <precondicion>Directorio LAGR/MENTOR/ vacío o inexistente antes de la ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script" valor="GSProcess.sh"/>
+      <dato campo="parametro" valor="transformarBBVAContracts"/>
+      <dato campo="ramas_sucesoras" valor="MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S"/>
+      <dato campo="fichero_mentor_esperado" valor="ninguno"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0895.</paso>
+      <paso numero="2">Verificar que el job termina en estado OK.</paso>
+      <paso numero="3">Verificar que NO se ha creado LAGR/MENTOR/BBVAContracts_mentor.xml.</paso>
+      <paso numero="4">Verificar que los cinco jobs sucesores quedan habilitados para su ejecución.</paso>
+      <paso numero="5">Verificar que MEKYTL0886, MEKYTL1172, MEKYTL1104 y MEKYTL1104_S leen el mismo BBVAContracts.xml de LAGR/.</paso>
+      <paso numero="6">Verificar que FW_BBVAContracts_RDR_2 y MEKYTL0896 no se ejecutan por pertenecer a la rama decomisada.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0895 termina OK sin generar el fichero de Mentor. Las cinco ramas vigentes quedan habilitadas y consumen el XML de LAGR/. La rama Mentor no se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M; listado del directorio LAGR/MENTOR/; revisión de las dependencias declaradas en la estructura de la cadena.</tipoValidacion>
+    <criterioAceptacion>Ninguna escritura en LAGR/MENTOR/ y las cinco ramas vigentes habilitadas.</criterioAceptacion>
+    <posibilidadFallo>Media — el job conserva el nombre y la descripción de una transformación que ya no realiza, lo que dificulta interpretar su comportamiento esperado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-09" tipo="negativo">
+    <nombre>Aislamiento de envíos: el fallo de un job no bloquea a sus sucesores</nombre>
+    <objetivo>Verificar que las dependencias de la cadena son de orden y no de éxito: si un job de envío falla, sus sucesores se ejecutan igualmente y el resto de ramas no se ve afectado.</objetivo>
+    <precondiciones>
+      <precondicion>BBVAContracts.xml válido disponible y validación XSD superada.</precondicion>
+      <precondicion>Posibilidad de provocar el fallo de un envío concreto, por ejemplo retirando los permisos de escritura en la ruta de Ibor.</precondicion>
+      <precondicion>Dependencias de Control-M verificadas como condiciones de orden.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_a_fallar" valor="MEKYTL0886 (envío a Ibor)"/>
+      <dato campo="modo_fallo" valor="permisos de escritura retirados en /unload/eyvr/IN/Ibor/"/>
+      <dato campo="sucesores_a_verificar" valor="MEKYTL0892 (S3/ADA), MEKYTL0543 (EYMI)"/>
+      <dato campo="ramas_paralelas" valor="MEKYTL1051, MEKYTL1172, MEKYTL1104"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Retirar los permisos de escritura sobre la ruta de destino de Ibor.</paso>
+      <paso numero="2">Lanzar la cadena y dejar que alcance MEKYTL0886.</paso>
+      <paso numero="3">Verificar que MEKYTL0886 termina en estado KO.</paso>
+      <paso numero="4">Verificar que MEKYTL0892 se ejecuta pese al fallo del predecesor y deposita el fichero en el bucket S3.</paso>
+      <paso numero="5">Verificar que MEKYTL0543 se ejecuta y cierra la rama.</paso>
+      <paso numero="6">Verificar que las ramas paralelas (CSV, Smart Data, IHS Markit) se ejecutan sin verse afectadas.</paso>
+      <paso numero="7">Verificar que MEKYTL0953 completa la historificación final.</paso>
+      <paso numero="8">Verificar que se emite aviso a ANS RDR por el fallo de MEKYTL0886.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0886 en KO. MEKYTL0892 y MEKYTL0543 se ejecutan igualmente y los destinos S3 y EYMI reciben el fichero. Las ramas paralelas no se ven afectadas. La cadena completa su recorrido. Se emite el aviso por el fallo individual.</resultadoEsperado>
+    <tipoValidacion>Estado de cada job en Control-M; verificación de existencia del fichero en las rutas de S3, EYMI, Cloudera y pasarela; comprobación del registro de notificación a ANS RDR.</tipoValidacion>
+    <criterioAceptacion>Solo el job forzado a fallar queda en KO; todos los demás completan y el fallo genera aviso.</criterioAceptacion>
+    <posibilidadFallo>Media — la ficha declara las ramas Ibor → S3 → EYMI como secuencia predecesor-sucesor, lo que sobre una dependencia de éxito dejaría sin ejecutar S3 y EYMI. Este caso confirma cuál es el tipo de condición configurado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-10" tipo="happy_path">
+    <nombre>Generación del CSV mediante el transformador BBVA_Contrats_CSV.xsl</nombre>
+    <objetivo>Verificar que el CSV derivado del XML total contiene la cabecera correcta, una línea por legal agreement y los cuatro campos separados por punto y coma, incluyendo el tratamiento de campos vacíos.</objetivo>
+    <precondiciones>
+      <precondicion>BBVAContracts.xml generado y validado, con un número conocido de contratos.</precondicion>
+      <precondicion>El juego de datos incluye contratos con idStar vacío y con contractDescription vacía.</precondicion>
+      <precondicion>Transformador BBVA_Contrats_CSV.xsl desplegado y referenciado en el properties.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="cabecera_esperada" valor="RDR_ID;idStar;contractType;contractDescription"/>
+      <dato campo="separador" valor=";"/>
+      <dato campo="ejemplo_completo" valor="39285164;280360066;ISDA02ENG;RAIFFEISENLANDESBANK OBEROSTERREICH"/>
+      <dato campo="ejemplo_descripcion_vacia" valor="323836;280320002;ISDA92;"/>
+      <dato campo="ejemplo_idStar_vacio" valor="32373633;;ISDA92;"/>
+      <dato campo="transformador" valor="BBVA_Contrats_CSV.xsl"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena hasta que se genere BBVAContracts.csv en LAGR/.</paso>
+      <paso numero="2">Verificar que la primera línea del fichero es exactamente RDR_ID;idStar;contractType;contractDescription.</paso>
+      <paso numero="3">Contar las líneas de datos del CSV y comprobar que coinciden con el número de legal agreements del XML.</paso>
+      <paso numero="4">Verificar que todas las líneas contienen exactamente tres separadores, incluidas aquellas con campos vacíos.</paso>
+      <paso numero="5">Localizar un contrato con idStar vacío y comprobar que la línea mantiene el doble separador consecutivo.</paso>
+      <paso numero="6">Localizar un contrato con contractDescription vacía y comprobar que la línea termina en separador.</paso>
+      <paso numero="7">Contrastar los valores de RDR_ID, idStar, contractType y contractDescription de una muestra de contratos con los del XML de origen.</paso>
+      <paso numero="8">Verificar que cada línea termina con un salto de línea.</paso>
+    </pasos>
+    <resultadoEsperado>CSV con cabecera correcta y una línea por legal agreement del XML. Todas las líneas presentan tres separadores con independencia de que haya campos vacíos. Los valores coinciden con los del XML de origen. Cada línea finaliza con salto de línea.</resultadoEsperado>
+    <tipoValidacion>Comparación de la cabecera; conteo de líneas del CSV frente a contratos del XML; verificación del número de separadores por línea; diff de una muestra frente al XML.</tipoValidacion>
+    <criterioAceptacion>Cero líneas con número de separadores distinto de tres y cero discrepancias de valor en la muestra contrastada.</criterioAceptacion>
+    <posibilidadFallo>Media — los campos opcionales vacíos son el punto sensible: una transformación que omitiera el separador desalinearía las columnas en el sistema de reporting.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-11" tipo="borde">
+    <nombre>Doble cadencia de la rama CSV: envío mensual frente a historificación diaria</nombre>
+    <objetivo>Verificar que MEKYTL1051 solo envía el CSV el primer martes de mes mientras que MEKYTL1052 y MEKYTL1053 se ejecutan en cada pasada de la cadena, sin quedar bloqueados por el predecesor de calendario mensual.</objetivo>
+    <precondiciones>
+      <precondicion>Calendario MX3_1MART_M definido en Control-M y asociado únicamente a MEKYTL1051.</precondicion>
+      <precondicion>Dependencias de MEKYTL1052 configuradas como condiciones de orden y no de éxito.</precondicion>
+      <precondicion>BBVAContracts.csv generado correctamente en ambas ejecuciones.</precondicion>
+      <precondicion>Acceso a la ruta de destino en v1128metr1 para verificar la recepción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecucion_A" valor="primer martes de mes"/>
+      <dato campo="ejecucion_B" valor="día de cadena que no es primer martes de mes"/>
+      <dato campo="calendario" valor="MX3_1MART_M"/>
+      <dato campo="predecesores_MEKYTL1052" valor="MEKYTL1051, MEKYTL1104"/>
+      <dato campo="destino_csv" valor="v1128metr1:\DATDPTO1\...\SC000353\BBVAContracts_yyyymmdd.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena en un primer martes de mes (ejecución A).</paso>
+      <paso numero="2">Verificar que MEKYTL1051 se ejecuta y deposita el CSV en v1128metr1.</paso>
+      <paso numero="3">Verificar que MEKYTL1052 historifica el CSV en LAGR/old/BBVAContracts_yyyymmdd.csv.</paso>
+      <paso numero="4">Verificar que MEKYTL1053 se ejecuta.</paso>
+      <paso numero="5">Ejecutar la cadena en un día que no sea primer martes de mes (ejecución B).</paso>
+      <paso numero="6">Verificar que MEKYTL1051 NO se ejecuta.</paso>
+      <paso numero="7">Verificar que MEKYTL1052 SÍ se ejecuta e historifica el CSV del día, pese a que su predecesor MEKYTL1051 no ha corrido.</paso>
+      <paso numero="8">Verificar que MEKYTL1053 SÍ se ejecuta.</paso>
+      <paso numero="9">Verificar que v1128metr1 no recibe fichero en la ejecución B.</paso>
+    </pasos>
+    <resultadoEsperado>En la ejecución A se envía e historifica el CSV. En la ejecución B no hay envío a v1128metr1, pero la historificación y la purga se ejecutan con normalidad. LAGR/old/ acumula un CSV por cada día de ejecución de la cadena, no uno al mes.</resultadoEsperado>
+    <tipoValidacion>Estado de los tres jobs en cada una de las dos ejecuciones; listado de LAGR/old/ antes y después; verificación de la presencia o ausencia del fichero en v1128metr1.</tipoValidacion>
+    <criterioAceptacion>La historificación y la purga se ejecutan en ambas fechas y el envío solo en la ejecución A.</criterioAceptacion>
+    <posibilidadFallo>Media — si la condición de entrada de MEKYTL1052 estuviera configurada como dependencia de éxito, quedaría bloqueada todos los días salvo el primer martes de mes y la purga a 7 días nunca se ejecutaría.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-12" tipo="happy_path">
+    <nombre>Purga de históricos CSV con más de 7 días</nombre>
+    <objetivo>Verificar que MEKYTL1053 elimina de LAGR/old/ los ficheros CSV con antigüedad superior a 7 días y respeta los que están dentro del periodo de retención.</objetivo>
+    <precondiciones>
+      <precondicion>Directorio LAGR/old/ poblado con ficheros BBVAContracts_yyyymmdd.csv de antigüedades controladas.</precondicion>
+      <precondicion>MEKYTL1052 ejecutado con éxito en la pasada actual.</precondicion>
+      <precondicion>Permisos de borrado sobre LAGR/old/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_6_dias" valor="BBVAContracts_yyyymmdd.csv con 6 días de antigüedad — debe conservarse"/>
+      <dato campo="fichero_7_dias" valor="BBVAContracts_yyyymmdd.csv con 7 días exactos — comportamiento límite a documentar"/>
+      <dato campo="fichero_8_dias" valor="BBVAContracts_yyyymmdd.csv con 8 días de antigüedad — debe borrarse"/>
+      <dato campo="fichero_30_dias" valor="BBVAContracts_yyyymmdd.csv con 30 días de antigüedad — debe borrarse"/>
+      <dato campo="fichero_gz" valor="BBVAContracts_yyyymmdd.gz — no debe verse afectado"/>
+      <dato campo="retencion" valor="7 días"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar LAGR/old/ con ficheros CSV de 6, 7, 8 y 30 días de antigüedad, más un fichero .gz de historificación del XML.</paso>
+      <paso numero="2">Registrar el inventario inicial del directorio.</paso>
+      <paso numero="3">Ejecutar MEKYTL1053.</paso>
+      <paso numero="4">Verificar que el fichero de 6 días permanece.</paso>
+      <paso numero="5">Verificar que los ficheros de 8 y 30 días han sido eliminados.</paso>
+      <paso numero="6">Documentar el tratamiento del fichero de 7 días exactos (inclusivo o exclusivo).</paso>
+      <paso numero="7">Verificar que el fichero .gz no ha sido afectado por la purga.</paso>
+    </pasos>
+    <resultadoEsperado>Los CSV de 8 y 30 días eliminados; el de 6 días conservado; el comportamiento en el límite de 7 días documentado; los ficheros .gz intactos.</resultadoEsperado>
+    <tipoValidacion>Comparación del inventario de LAGR/old/ antes y después de la ejecución; verificación de que el criterio de borrado se aplica solo a los CSV.</tipoValidacion>
+    <criterioAceptacion>Ningún fichero dentro del periodo de retención eliminado y ningún fichero .gz afectado.</criterioAceptacion>
+    <posibilidadFallo>Media — un criterio de borrado demasiado amplio podría alcanzar los .gz de historificación del XML, que no tienen política de retención documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-13" tipo="borde">
+    <nombre>Ejecución sabatina de la rama IHS Markit con ODATE+2</nombre>
+    <objetivo>Verificar que la variante sabatina MEKYTL1104_S / MEXIRM1104_S_SND / MEXIRM1104_S_DEL se ejecuta únicamente los sábados y aplica correctamente el desplazamiento ODATE+2 en la fecha del fichero.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena planificada y ejecutable en sábado.</precondicion>
+      <precondicion>MEKYTL1104_S configurado con ODATE+2 en Control-M.</precondicion>
+      <precondicion>Acceso a la ruta rdr de la pasarela LPFTP501/502 para verificar el nombre del fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dia_ejecucion" valor="sábado"/>
+      <dato campo="desplazamiento" valor="ODATE+2"/>
+      <dato campo="jobs_sabado" valor="MEKYTL1104_S, MEXIRM1104_S_SND, MEXIRM1104_S_DEL"/>
+      <dato campo="jobs_laborable" valor="MEKYTL1104, MEXIRM1104_SND, MEXIRM1104_DEL"/>
+      <dato campo="ruta_pasarela" valor="LPFTP501/502:/unload/transmisiones/XIRM/rdr/"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena en sábado.</paso>
+      <paso numero="2">Verificar que MEKYTL1104_S se ejecuta y que MEKYTL1104 NO se ejecuta.</paso>
+      <paso numero="3">Verificar el nombre del fichero depositado en la pasarela y comprobar que la fecha corresponde al sábado desplazado dos días.</paso>
+      <paso numero="4">Verificar que MEXIRM1104_S_SND transmite el fichero por SFTP al destino externo.</paso>
+      <paso numero="5">Verificar que MEXIRM1104_S_DEL borra el fichero de la ruta rdr de la pasarela.</paso>
+      <paso numero="6">Ejecutar la cadena en un día laborable y verificar que se ejecuta la rama MEKYTL1104 y no la sabatina.</paso>
+      <paso numero="7">Verificar que ambas variantes escriben en la misma ruta de destino sin interferir entre sí.</paso>
+    </pasos>
+    <resultadoEsperado>En sábado se ejecuta exclusivamente la rama _S, con el fichero nombrado según ODATE+2, transmitido y posteriormente borrado de la pasarela. En día laborable se ejecuta exclusivamente la rama ordinaria.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs de ambas ramas en las dos ejecuciones; verificación del nombre y la fecha del fichero en la pasarela; comprobación de la transmisión SFTP y del borrado posterior.</tipoValidacion>
+    <criterioAceptacion>La fecha del fichero sabatino refleja el desplazamiento ODATE+2 y las dos variantes nunca se ejecutan simultáneamente.</criterioAceptacion>
+    <posibilidadFallo>Media — el desplazamiento de fecha es una fuente habitual de error y afecta a un destino externo cuyo calendario no controlamos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-14" tipo="happy_path">
+    <nombre>Borrado del fichero en la pasarela tras el envío a IHS Markit</nombre>
+    <objetivo>Verificar que MEXIRM1104_DEL borra BBVAContracts_${AAAAMMDD}.xml de la ruta rdr de la pasarela únicamente después de que MEXIRM1104_SND haya transmitido el fichero al destino externo.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1104 ha depositado el fichero en LPFTP501/502:/unload/transmisiones/XIRM/rdr/.</precondicion>
+      <precondicion>Conectividad SFTP con SFTP-PROD.CAPPITECH.COM operativa y credenciales de xtprox1d vigentes.</precondicion>
+      <precondicion>Permisos de borrado sobre la ruta rdr de la pasarela.</precondicion>
+      <precondicion>Los jobs se localizan en Control-M por sus nombres actuales MEXIRM1104_DEL y MEXIRM1104_S_DEL.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="BBVAContracts_${AAAAMMDD}.xml"/>
+      <dato campo="ruta" valor="LPFTP501/502:/unload/transmisiones/XIRM/rdr/"/>
+      <dato campo="maquina_ejecucion" valor="LPFTP501/502"/>
+      <dato campo="predecesor" valor="MEXIRM1104_SND"/>
+      <dato campo="nivel_criticidad" valor="W (aviso día siguiente)"/>
+      <dato campo="nombre_anterior" valor="MEKYTL1104_DEL (renombrado el 12/09/25)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que el fichero está presente en la ruta rdr de la pasarela tras MEKYTL1104.</paso>
+      <paso numero="2">Ejecutar MEXIRM1104_SND y confirmar la transmisión al destino externo.</paso>
+      <paso numero="3">Verificar que MEXIRM1104_DEL se ejecuta después del envío y no antes.</paso>
+      <paso numero="4">Verificar que el fichero ya no existe en la ruta rdr de la pasarela.</paso>
+      <paso numero="5">Verificar que el job no tiene sucesores y cierra su rama.</paso>
+      <paso numero="6">Forzar un fallo de MEXIRM1104_SND y verificar el comportamiento de MEXIRM1104_DEL: comprobar si borra un fichero que no ha sido transmitido.</paso>
+      <paso numero="7">Verificar que, si el borrado no se produce, la cadena continúa y el aviso generado es de nivel W.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero desaparece de la ruta rdr de la pasarela tras una transmisión correcta. El borrado nunca precede al envío. Un fallo del borrado no detiene la cadena y genera un aviso de nivel W al día siguiente.</resultadoEsperado>
+    <tipoValidacion>Listado de la ruta rdr de la pasarela antes y después de cada job; orden de ejecución en Control-M; confirmación de la transmisión SFTP; nivel del aviso generado.</tipoValidacion>
+    <criterioAceptacion>Cero ficheros residuales en la pasarela tras una ejecución correcta, y ningún borrado de fichero no transmitido en el escenario de fallo del paso 6.</criterioAceptacion>
+    <posibilidadFallo>Media — el paso 6 es el punto crítico: si el borrado se ejecutase pese al fallo del envío, el fichero se perdería sin haber llegado a IHS Markit y sin aviso inmediato, dado el nivel de criticidad W.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-15" tipo="happy_path">
+    <nombre>Historificación final comprimida con predecesores de calendario dispar</nombre>
+    <objetivo>Verificar que MEKYTL0953 genera el fichero .gz de historificación del XML en días laborables, pese a que uno de sus tres predecesores (MEKYTL1104_S) solo se ejecuta los sábados.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL1172 y MEKYTL1104 ejecutados con éxito.</precondicion>
+      <precondicion>BBVAContracts.xml presente en LAGR/.</precondicion>
+      <precondicion>Directorio LAGR/old/ con permisos de escritura.</precondicion>
+      <precondicion>Script RAMERC0068.sh desplegado y accesible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script" valor="RAMERC0068.sh"/>
+      <dato campo="parametro" valor="MEKYTL0953"/>
+      <dato campo="predecesores" valor="MEKYTL1172, MEKYTL1104, MEKYTL1104_S"/>
+      <dato campo="origen" valor="LAGR/BBVAContracts.xml"/>
+      <dato campo="destino" valor="LAGR/old/BBVAContracts_yyyymmdd.gz"/>
+      <dato campo="dia_ejecucion" valor="día laborable (MEKYTL1104_S no planificado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena en un día laborable.</paso>
+      <paso numero="2">Verificar que MEKYTL1104_S no se ejecuta por no ser sábado.</paso>
+      <paso numero="3">Verificar que MEKYTL0953 se ejecuta igualmente, sin quedar bloqueado a la espera de ese predecesor.</paso>
+      <paso numero="4">Verificar que se genera LAGR/old/BBVAContracts_yyyymmdd.gz con la fecha del día de proceso.</paso>
+      <paso numero="5">Descomprimir el .gz y comparar su contenido con BBVAContracts.xml.</paso>
+      <paso numero="6">Verificar el estado en que queda LAGR/BBVAContracts.xml tras la historificación.</paso>
+      <paso numero="7">Repetir la verificación en sábado, con los tres predecesores ejecutados.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0953 se ejecuta tanto en día laborable como en sábado. El .gz generado contiene el XML íntegro de la pasada. El estado final del directorio LAGR/ queda documentado de cara a la siguiente ejecución.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M en ambas fechas; verificación de existencia y nombre del .gz; comparación del contenido descomprimido con el XML origen; listado de LAGR/ tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Historificación completada en ambas fechas y contenido del .gz idéntico al XML de la pasada.</criterioAceptacion>
+    <posibilidadFallo>Media — si la condición de entrada fuese de éxito y no de orden, la historificación quedaría bloqueada todos los días salvo el sábado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-16" tipo="duplicidad">
+    <nombre>Reejecución de la cadena con ficheros residuales en LAGR/</nombre>
+    <objetivo>Verificar el comportamiento de la cadena cuando en LAGR/ permanecen ficheros de una pasada anterior, escenario que se produce si la historificación del día previo no se completó.</objetivo>
+    <precondiciones>
+      <precondicion>LAGR/ contiene un BBVAContracts.xml y un BBVAContracts.csv de una ejecución anterior, con contenido distinguible del actual.</precondicion>
+      <precondicion>La cadena no ha sido lanzada todavía en el día de proceso.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_residual_xml" valor="BBVAContracts.xml de la pasada anterior, con contratos identificables"/>
+      <dato campo="fichero_residual_csv" valor="BBVAContracts.csv de la pasada anterior"/>
+      <dato campo="marcador" valor="contrato sintético presente solo en el fichero residual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar en LAGR/ los ficheros de la pasada anterior, incluyendo un contrato marcador que no exista en los datos del día.</paso>
+      <paso numero="2">Lanzar la cadena.</paso>
+      <paso numero="3">Verificar si FW_BBVAContracts_RDR_1 detecta el fichero residual antes de que la extracción haya terminado.</paso>
+      <paso numero="4">Verificar si la extracción sobrescribe el fichero residual o si falla por su existencia.</paso>
+      <paso numero="5">Verificar el contenido del fichero finalmente distribuido: comprobar si contiene el contrato marcador.</paso>
+      <paso numero="6">Verificar si el CSV residual se sobrescribe antes de la historificación de MEKYTL1052.</paso>
+      <paso numero="7">Verificar si la historificación en LAGR/old/ sobrescribe algún fichero previo del mismo día.</paso>
+    </pasos>
+    <resultadoEsperado>A documentar según el comportamiento observado. El riesgo a descartar es que el filewatcher se satisfaga con el fichero residual y la cadena distribuya datos obsoletos a los seis destinos sin que ningún control lo advierta.</resultadoEsperado>
+    <tipoValidacion>Búsqueda del contrato marcador en los ficheros depositados en cada destino; comparación de marcas de tiempo de los ficheros en LAGR/ y LAGR/old/; revisión del orden de eventos en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se confirma que ningún destino recibe el contrato marcador, o bien queda documentado que el escenario exige limpieza manual previa al lanzamiento.</criterioAceptacion>
+    <posibilidadFallo>Alta — la cadena no tiene ningún control de frescura del fichero. El uso del .tmp renombrado protege frente a lecturas parciales, pero no frente a un fichero completo de la pasada anterior.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-17" tipo="datos_sinteticos">
+    <nombre>Cobertura del modelo de datos con contratos sintéticos</nombre>
+    <objetivo>Verificar que la extracción trata correctamente contratos con distinto grado de completitud sobre las 19 tablas de origen, con especial atención a las dos tablas en modelo entidad-atributo-valor.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con capacidad de carga y limpieza de datos sintéticos sobre las 19 tablas de KYTL_GC.</precondicion>
+      <precondicion>Juego de datos sintéticos preparado con los perfiles de contrato descritos.</precondicion>
+      <precondicion>Consulta de contraste disponible para verificar los valores esperados en el XML.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="perfil_1" valor="contrato mínimo: solo fila en FT_T_LAGR, sin anexos ni parámetros"/>
+      <dato campo="perfil_2" valor="contrato con anexo CSA: FT_T_LAGR + FT_T_LAAN + FT_T_LAX1 + FT_T_LACD"/>
+      <dato campo="perfil_3" valor="contrato con parámetros EAV parciales: FT_T_LPS1 y FT_T_LAT1 con pocos atributos"/>
+      <dato campo="perfil_4" valor="contrato completo: las 19 tablas informadas"/>
+      <dato campo="perfil_5" valor="contrato con campos opcionales nulos: sin idStar y sin descripción"/>
+      <dato campo="perfil_6" valor="contrato de tipo CLS y contrato de tipo SWIFT"/>
+      <dato campo="perfil_7" valor="contrato excluido por las tablas auxiliares de filtrado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el juego de datos sintéticos con los siete perfiles en el entorno de pruebas.</paso>
+      <paso numero="2">Ejecutar EXTRACCIONGENERICACONTRBBVA.</paso>
+      <paso numero="3">Verificar que el perfil 1 (contrato mínimo) aparece en el XML con sus campos obligatorios y sin las secciones de anexos.</paso>
+      <paso numero="4">Verificar que el perfil 4 (contrato completo) presenta las secciones correspondientes a las 19 tablas.</paso>
+      <paso numero="5">Comparar la estructura XML de los perfiles 3 y 4 para confirmar el tratamiento variable de los atributos EAV.</paso>
+      <paso numero="6">Verificar que el perfil 5 genera las etiquetas de los campos nulos o las omite de forma consistente con el XSD.</paso>
+      <paso numero="7">Verificar que los contratos del perfil 6 (CLS y SWIFT) SÍ aparecen, al no aplicar exclusiones en la cadena _new.</paso>
+      <paso numero="8">Verificar que el contrato del perfil 7 no aparece en el XML.</paso>
+      <paso numero="9">Ejecutar la validación XSD sobre el XML resultante.</paso>
+      <paso numero="10">Verificar que el CSV derivado contiene una línea por cada contrato presente en el XML.</paso>
+    </pasos>
+    <resultadoEsperado>Los siete perfiles se comportan según lo esperado: los contratos válidos aparecen con la estructura correspondiente a sus datos, los de tipo CLS y SWIFT se incluyen, el excluido por filtrado no aparece, y el XML resultante supera la validación XSD en todos los casos.</resultadoEsperado>
+    <tipoValidacion>Verificación por perfil de la presencia y estructura del contrato en el XML; contraste de valores con la consulta de referencia sobre las tablas origen; validación XSD; conteo de líneas del CSV.</tipoValidacion>
+    <criterioAceptacion>Los siete perfiles producen el resultado esperado y el XML valida contra el XSD en todas las combinaciones.</criterioAceptacion>
+    <posibilidadFallo>Media — las tablas en modelo EAV son el punto de mayor variabilidad estructural: un contrato con atributos parciales puede generar un XML que el XSD rechace si el esquema espera elementos obligatorios.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-18" tipo="regresion">
+    <nombre>No distribución a Mentor tras la decomisión</nombre>
+    <objetivo>Verificar que ningún fichero de contratos sale hacia Mentor por esta cadena y que los jobs de la rama decomisada no se ejecutan.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_BBVACONTRACTS_new en su configuración vigente.</precondicion>
+      <precondicion>Acceso de lectura a la ruta de destino de Mentor para verificar la ausencia de ficheros nuevos.</precondicion>
+      <precondicion>Inventario de jobs activos de la estructura obtenido de Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="jobs_decomisados" valor="FW_BBVAContracts_RDR_2, MEKYTL0896, MEKYTL0954"/>
+      <dato campo="cadenas_decomisadas" valor="RDR_BBVAContracts_M, RDR_BBVAContracts_L, RESPUESTA_MENTOR_LA_BBVA_M, DIF_MENTOR_BBVA_new"/>
+      <dato campo="ruta_mentor" valor="pr-mentor.igrupobbva:/fichtemcomp/pr/descargas/eezt/"/>
+      <dato campo="directorio_intermedio" valor="LAGR/MENTOR/"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar el contenido de la ruta de destino de Mentor antes de la ejecución.</paso>
+      <paso numero="2">Ejecutar la cadena completa.</paso>
+      <paso numero="3">Verificar que FW_BBVAContracts_RDR_2, MEKYTL0896 y MEKYTL0954 no se ejecutan.</paso>
+      <paso numero="4">Verificar que no se crea el directorio LAGR/MENTOR/ ni ningún fichero en su interior.</paso>
+      <paso numero="5">Verificar que la ruta de destino de Mentor no ha recibido ningún fichero nuevo.</paso>
+      <paso numero="6">Verificar que las cadenas RDR_BBVAContracts_M y RDR_BBVAContracts_L no están planificadas ni se han ejecutado.</paso>
+      <paso numero="7">Verificar que las cadenas de respuesta ACK/NACK no están activas.</paso>
+      <paso numero="8">Contrastar el inventario de jobs activos con los 21 pasos vigentes identificados en la especificación.</paso>
+    </pasos>
+    <resultadoEsperado>Ningún job de la rama Mentor se ejecuta, no se crea el directorio intermedio, la ruta de destino de Mentor no recibe ficheros y las cadenas incrementales y de respuesta permanecen inactivas. El inventario de jobs activos coincide con los pasos vigentes documentados.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M; listado de LAGR/MENTOR/ y de la ruta de destino de Mentor antes y después; revisión de la planificación de las cadenas decomisadas; contraste del inventario de jobs activos.</tipoValidacion>
+    <criterioAceptacion>Cero ficheros nuevos en la ruta de Mentor, cero jobs de la rama decomisada en ejecución, y el inventario de jobs activos sin discrepancias respecto a lo documentado.</criterioAceptacion>
+    <posibilidadFallo>Media — MEKYTL0895 conserva el nombre y la descripción de la transformación a Mentor pese a ya no generarla, por lo que una configuración parcialmente revertida podría reactivar la escritura en LAGR/MENTOR/.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
