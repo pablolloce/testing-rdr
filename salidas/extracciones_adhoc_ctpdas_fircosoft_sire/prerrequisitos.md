@@ -2,7 +2,8 @@
 
 ## Datos y ficheros previos
 
-- Bloque SW: no requiere ningún fichero previo — es candidato a ser el propio origen de datos (GAP-ADHOC-001).
+- Bloque SW: no requiere ningún fichero previo — es el propio origen de datos de la extracción genérica
+  (confirmado, GAP-ADHOC-001 resuelto).
 - Bloque Fircosoft: requiere que la extracción genérica común (`RDR_DAILY_EXGEN_CPARTYS_new`/`_FINSEM_S_new`)
   haya completado `RDR_TRANSFORMACION_FS` y que exista contenido válido en
   `/fichtemcomp/$env/descargas/kytl/extracciongenerica/` antes de que `RDR_Transformacion_FS.sh` pueda generar
@@ -38,17 +39,14 @@
 
 ## Flujos previos que deben haberse completado
 
-- **Importante (GAP-ADHOC-001, reforzado por evidencia real, no confirmado):** el listado de navegación de
-  ambos folders (`documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md`) descarta un tercer job oculto, pero sigue
-  sin confirmarse que `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` sean la generación real de
-  `ThirdParties.xml`/`ExtraccionContingencia.xml`. Si se confirma, cualquier prueba conjunta con
-  "Extracción Genérica de Contrapartidas" debería reconciliar el horario (00:05h documentado allí vs.
-  01:00-01:05h/03:00-03:05h aquí) antes de asumir una secuencia end-to-end fiable. Evidencia exacta pendiente
-  (confirmada por el código fuente real de `GSProcess.sh`,
-  `documentos_fuente/GAP-ADHOC-001_GSProcess.sh`): el contenido de
-  `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties` y
-  `.../ExtraccionGenericaTHIRDPARTIES.properties` — ahí vive la lógica real (Java/Script/Evento), no en
-  `GSProcess.sh`, que es un lanzador 100% genérico.
+- **Nota (GAP-ADHOC-001, resuelto):** `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` son la generación real
+  confirmada de `ExtraccionContingencia.xml`/`ThirdParties.xml` — confirmado con el contenido real de
+  `ExtraccionGenericaCPTY.properties`/`ExtraccionGenericaTHIRDPARTIES.properties`
+  (`documentos_fuente/GAP-ADHOC-001_ExtraccionGenericaCPTY.properties` y
+  `.../GAP-ADHOC-001_ExtraccionGenericaTHIRDPARTIES.properties`): mismos jars, misma carpeta de salida, mismos
+  tipos que ya documentaba "Extracción Genérica de Contrapartidas". Cualquier prueba conjunta con ese proceso
+  debe usar el horario real confirmado (01:00-01:05h diaria, 03:00-03:05h fin de semana), no el "00:05h"
+  aproximado que aparecía en el documento fuente original de ese proceso.
 - **Importante:** antes de cualquier prueba sobre Fircosoft, confirmar que `RDR_TRANSFORMACION_FS` de la cadena
   correspondiente (`_new` para la variante diaria, `_FINSEM_S_new` para la de sábado) ha finalizado con éxito
   — es una dependencia cross-chain bloqueante, no opcional.

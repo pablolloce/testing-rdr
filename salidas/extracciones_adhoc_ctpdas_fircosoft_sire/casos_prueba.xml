@@ -86,27 +86,25 @@
     <posibilidadFallo>Si algún evento se eliminara al consumirse, podría romper otros consumidores no documentados de la cadena origen — sería un defecto de diseño a escalar a ANS RDR.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
-    <nombre>¿Generan EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS los ficheros de origen de la Extracción Genérica de Contrapartidas? (GAP-ADHOC-001)</nombre>
-    <objetivo>Confirmar o refutar la hipótesis de que estos 2 jobs son la ficha de job ausente para la generación de ThirdParties.xml/ExtraccionContingencia.xml, documentada como "proceso interno RDR sin ficha" en salidas/extraccion_generica_contrapartidas/spec.md. El listado de navegación de ambos folders (documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md) ya descartó que exista un tercer job oculto — solo falta la confirmación funcional/de logs.</objetivo>
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Confirmación de que EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS siguen generando los ficheros de origen de la Extracción Genérica de Contrapartidas (GAP-ADHOC-001, ya resuelto)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión, que EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS (RDR_EXTRACCION_CTPDAS_D/_W) siguen siendo la generación real de ExtraccionContingencia.xml/ThirdParties.xml — confirmado con el contenido real de ExtraccionGenericaCPTY.properties/ExtraccionGenericaTHIRDPARTIES.properties (documentos_fuente/GAP-ADHOC-001_*.properties): mismos jars (ExtraccionGenericaCPTY.jar/ExtraccionGenericaOtherEntities.jar), misma carpeta de salida (/fichtemcomp/$env/descargas/kytl/extracciongenerica), mismos tipos (CPARTY/THIRDPARTIES) que ya documentaba salidas/extraccion_generica_contrapartidas/spec.md.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a los ficheros /pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties y .../ExtraccionGenericaTHIRDPARTIES.properties, o a los logs de ejecución de EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS (execute_ExtraccionGenericaCPTY_YYYYMMDD.log / execute_ExtraccionGenericaTHIRDPARTIES_YYYYMMDD.log).</precondicion>
+      <precondicion>Acceso a los ficheros /pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties y .../ExtraccionGenericaTHIRDPARTIES.properties.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ThirdParties.xml, ExtraccionContingencia.xml" valor="verificar si su timestamp de generación coincide con la ejecución de EXTRACCION_THIRDPARTYS (01:00/03:00h) y EXTRACCION_CPTDAS (01:05/03:05h)"/>
-      <dato campo="Listado de navegación de RDR_EXTRACCION_CTPDAS_D/_W" valor="confirmado: solo 2 jobs por folder (EXTRACCION_CPTDAS, EXTRACCION_THIRDPARTYS), sin ningún tercero oculto"/>
-      <dato campo="GSProcess.sh" valor="confirmado con código fuente real: lanzador 100% genérico (documentos_fuente/GAP-ADHOC-001_GSProcess.sh) — lee $CONF/$MOD_EJECUCION.properties y despacha a Java/Script/Evento/Property según lo que declare ese fichero; no contiene lógica propia de Contrapartidas/ThirdParties"/>
+      <dato campo="ExtraccionGenericaCPTY.properties" valor="confirmado: Accion=Java, NomPaquete1=ExtraccionGenericaCPTY.jar, ArgJava4=/fichtemcomp/$env/descargas/kytl/extracciongenerica, ArgJava5=ExtraccionContingencia.xml.tmp, ArgJava6=CPARTY"/>
+      <dato campo="ExtraccionGenericaTHIRDPARTIES.properties" valor="confirmado: Accion=Java, NomPaquete1=ExtraccionGenericaOtherEntities.jar, ArgJava4=/fichtemcomp/$env/descargas/kytl/extracciongenerica, ArgJava5=Thirdparties.xml.tmp, ArgJava6=THIRDPARTIES"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Obtener el contenido de ExtraccionGenericaCPTY.properties y ExtraccionGenericaTHIRDPARTIES.properties — el bloque "Accion" (Java/Script/Evento) declarado ahí determina qué se ejecuta realmente.</paso>
-      <paso numero="2">Si la acción es "Java", confirmar el paquete/clase invocados (p. ej. si coincide con ExtraccionGenericaCPTY.jar/ExtraccionGenericaOtherEntities.jar) y los argumentos (posible ruta de fichero de salida).</paso>
-      <paso numero="3">Alternativamente, tras una ejecución real, verificar si ThirdParties.xml y ExtraccionContingencia.xml aparecen o se actualizan en la ruta esperada inmediatamente después, o inspeccionar el log execute_ExtraccionGenericaCPTY/THIRDPARTIES_YYYYMMDD.log (generado por el propio GSProcess.sh) en busca de las líneas "-CLASE:"/"-SERVICIO_JAVA:"/"-ARGUMENTOS:".</paso>
-      <paso numero="4">Documentar el resultado (confirmado / refutado) y reconciliar el horario (00:05h vs. 01:00-01:05h/03:00-03:05h) si se confirma la relación.</paso>
+      <paso numero="1">Verificar que ExtraccionGenericaCPTY.properties sigue invocando ExtraccionGenericaCPTY.jar sobre la misma carpeta de salida y con tipo CPARTY.</paso>
+      <paso numero="2">Verificar que ExtraccionGenericaTHIRDPARTIES.properties sigue invocando ExtraccionGenericaOtherEntities.jar sobre la misma carpeta de salida y con tipo THIRDPARTIES.</paso>
+      <paso numero="3">Si alguno cambia (jar, carpeta o tipo), actualizar ambos documentos de spec (este y el de Extracción Genérica de Contrapartidas).</paso>
     </pasos>
-    <resultadoEsperado>Se determina de forma concluyente si estos jobs son o no la generación real de los ficheros de origen de la extracción genérica.</resultadoEsperado>
-    <tipoValidacion>Inspección de logs/timestamps reales + confirmación funcional si es necesario.</tipoValidacion>
-    <criterioAceptacion>Relación confirmada o refutada con evidencia real; actualizar ambos documentos de spec (este y el de Extracción Genérica de Contrapartidas) según el resultado.</criterioAceptacion>
-    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí — cualquiera de las dos resoluciones es válida, el caso simplemente cierra el gap documental.</posibilidadFallo>
+    <resultadoEsperado>Ambos .properties siguen confirmando que estos 2 jobs son la generación real de los ficheros de origen de la extracción genérica.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del contenido real de ambos ficheros .properties.</tipoValidacion>
+    <criterioAceptacion>Relación confirmada de nuevo, o cambio documentado si el contenido difiere de lo ya registrado.</criterioAceptacion>
+    <posibilidadFallo>Si el contenido cambiara (nuevo jar, nueva carpeta), indicaría un cambio real en el proceso a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">

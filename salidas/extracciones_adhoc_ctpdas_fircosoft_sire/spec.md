@@ -17,15 +17,15 @@ El documento describe **5 cadenas Control-M** agrupadas en 3 bloques:
 
 | Bloque | Cadenas | Qué hace |
 |--------|---------|----------|
-| **Extracción "SW" (ad hoc)** | `RDR_EXTRACCION_CTPDAS_D` (diaria), `RDR_EXTRACCION_CTPDAS_W` (fin de semana) | 2 jobs paralelos por reloj (`EXTRACCION_CPTDAS`, `EXTRACCION_THIRDPARTYS`) que invocan `GSProcess.sh` — candidatos fuertes a ser la generación real de `ExtraccionContingencia.xml`/`ThirdParties.xml` del proceso "Extracción Genérica de Contrapartidas" (ver GAP-ADHOC-001) |
+| **Extracción "SW" (ad hoc)** | `RDR_EXTRACCION_CTPDAS_D` (diaria), `RDR_EXTRACCION_CTPDAS_W` (fin de semana) | 2 jobs paralelos por reloj (`EXTRACCION_CPTDAS`, `EXTRACCION_THIRDPARTYS`) que invocan `GSProcess.sh` — **confirmados como la generación real** de `ExtraccionContingencia.xml`/`ThirdParties.xml` del proceso "Extracción Genérica de Contrapartidas" (GAP-ADHOC-001 **RESUELTO**) |
 | **Envío a Fircosoft** | `RDR_FIRCOSOFT_CPARTYS_DAILY_PRO_new` (M-X-J-V), `RDR_FIRCOSOFT_CPARTYS_S_PRO_new` (sábado) | Job único `MEKYTL1261`: transmite `Batch_Fircosoft_${AAAAMMDD}.txt` a México vía Connect:Direct, con dependencia cross-chain a `RDR_TRANSFORMACION_FS` de `RDR_DAILY_EXGEN_CPARTYS_new`/`_FINSEM_S_new` |
 | **Envío a SIRE** | `RDR_SIRE_new` (diaria LMXJV) | Cadena lineal autocontenida: genera y envía `emisi.csv` a México — **dominio de datos distinto** (Emisiones, no Contrapartidas — ver GAP-ADHOC-004) |
 
 **Relación con "Extracción Genérica de Contrapartidas" (proceso ya analizado):** este documento **no es
-independiente** — se conecta en 2 puntos directos y 1 punto candidato:
+independiente** — se conecta en 3 puntos, los 3 ya confirmados con evidencia real:
 1. **Fircosoft** — confirma y detalla el mecanismo ya documentado en `salidas/extraccion_generica_contrapartidas/spec.md` (§1.2/1.3): `RDR_Transformacion_FS.sh` transforma la extracción genérica común en `Batch_Fircosoft_*.txt`.
 2. **SIRE** — el nombre sugiere relación con la rama SIRE ya documentada en `_new` (`RDR_TRANSFORMACION_SIRE → ELIMINATEDUPLICATES_SIRE → ...`), pero la evidencia de este documento apunta a que son **canales distintos** (ver GAP-ADHOC-004).
-3. **Generación de origen ("SW")** — candidato fuerte, no confirmado al 100%, a ser la ficha de job que faltaba para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml` (ver GAP-ADHOC-001). **No se toca GAP-CTPY-003** (query de detalle de ThirdParties) con esta evidencia — sigue aparcado en su proceso original.
+3. **Generación de origen ("SW")** — **CONFIRMADO** (GAP-ADHOC-001 resuelto): `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` son exactamente los jobs que faltaban para la generación de `ExtraccionContingencia.xml`/`ThirdParties.xml`. Confirmado con el contenido real de los 2 ficheros `.properties` que invoca `GSProcess.sh` (`ExtraccionGenericaCPTY.properties`/`ExtraccionGenericaTHIRDPARTIES.properties`): mismos jars (`ExtraccionGenericaCPTY.jar`/`ExtraccionGenericaOtherEntities.jar`), misma carpeta de salida (`/fichtemcomp/$env/descargas/kytl/extracciongenerica`), mismos tipos (`CPARTY`/`THIRDPARTIES`). **No se toca GAP-CTPY-003** (query de detalle de ThirdParties, ya resuelto por otra vía) con esta evidencia.
 
 ### 1.1 Bloque "SW" — `RDR_EXTRACCION_CTPDAS_D` / `RDR_EXTRACCION_CTPDAS_W`
 
@@ -61,33 +61,36 @@ del documento original, es comportamiento real. `EXTRACCION_THIRDPARTYS` de `_W`
 (`RDR_EXTRACCION_CTPDAS_W_EXTRACCION_THIRDPARTYS_OK`), confirmando que es una asimetría real entre ambas
 variantes, no un error documental.
 
-**GAP-ADHOC-001 (hipótesis fuerte, reforzada pero NO confirmada) — sigue abierto.** Los nombres de parámetro
-(`ExtraccionGenericaCPTY`, `ExtraccionGenericaTHIRDPARTIES`) coinciden con los jars ya documentados en
-"Extracción Genérica de Contrapartidas" (`ExtraccionGenericaCPTY.jar`, `ExtraccionGenericaOtherEntities.jar`
-tipo THIRDPARTIES) — jars que ese proceso describía como "generados por un proceso interno RDR fuera del árbol
-de jobs de las 3 cadenas, sin ficha de job". Las mismas 26 capturas reales incluyen el **listado de navegación**
-de ambos folders, que confirma exhaustivamente que cada uno solo contiene estos 2 jobs — descarta que exista
-un tercer job oculto que sea el "verdadero" generador. Pero **sigue sin confirmarse al 100%**: ninguna captura
-aporta prueba literal (log, ruta de fichero de salida, referencia explícita a `ThirdParties.xml`/
-`ExtraccionContingencia.xml`) de que estos jobs generen esos ficheros, y el desfase de horario persiste (00:05h
-documentado en el otro proceso vs. 01:00-01:05h diaria / 03:00-03:05h fin de semana aquí). El usuario decidió
-explícitamente mantener este gap abierto.
+**GAP-ADHOC-001 RESUELTO — confirmado con evidencia literal.** `GSProcess.sh` es un **lanzador 100% genérico**
+(mismo patrón "Planificador Genérico RDR" ya visto en otros procesos de este intake, p. ej. Cesiones SMA) — el
+único parámetro que recibe (`ExtraccionGenericaCPTY`, `ExtraccionGenericaTHIRDPARTIES`) es el nombre de un
+fichero `.properties` (`$CONF/$MOD_EJECUCION.properties`). El usuario aportó el contenido real de ambos:
+- `ExtraccionGenericaCPTY.properties` (`documentos_fuente/GAP-ADHOC-001_ExtraccionGenericaCPTY.properties`):
+  `Accion=Java`, `NomPaquete1=ExtraccionGenericaCPTY.jar`, `NomClaseJava=extracciongenericacpty.Ppal`,
+  `ArgJava4=/fichtemcomp/$env/descargas/kytl/extracciongenerica`, `ArgJava5=ExtraccionContingencia.xml.tmp`,
+  `ArgJava6=CPARTY`.
+- `ExtraccionGenericaTHIRDPARTIES.properties` (`documentos_fuente/GAP-ADHOC-001_ExtraccionGenericaTHIRDPARTIES.properties`):
+  `Accion=Java`, `NomPaquete1=ExtraccionGenericaOtherEntities.jar`,
+  `NomClaseJava=extracciongenericaotherentities.Ppal`,
+  `ArgJava4=/fichtemcomp/$env/descargas/kytl/extracciongenerica`, `ArgJava5=Thirdparties.xml.tmp`,
+  `ArgJava6=THIRDPARTIES`.
 
-**Mecanismo de despacho confirmado con el código fuente real de `GSProcess.sh`**
-(`documentos_fuente/GAP-ADHOC-001_GSProcess.sh`): es un **lanzador 100% genérico** (mismo patrón "Planificador
-Genérico RDR" ya visto en otros procesos de este intake, p. ej. Cesiones SMA). El único parámetro que recibe
-(`ExtraccionGenericaCPTY`, `ExtraccionGenericaTHIRDPARTIES`) es el nombre de un fichero `.properties` —
-`$CONF/$MOD_EJECUCION.properties`, es decir:
-- `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties`
-- `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaTHIRDPARTIES.properties`
+Coincide de forma literal y exacta con lo ya documentado en "Extracción Genérica de Contrapartidas": **mismos
+jars** (`ExtraccionGenericaCPTY.jar`, `ExtraccionGenericaOtherEntities.jar`), **misma carpeta de salida**
+(`/fichtemcomp/$env/descargas/kytl/extracciongenerica` — la misma que usa `RDR_Transformacion_FS.sh` como
+`FILESEXGEN` para Fircosoft) y **mismos tipos** (`CPARTY`/`THIRDPARTIES`). Se confirma que `EXTRACCION_CPTDAS`
+(cadenas `_D`/`_W`) **es** la generación real de `ExtraccionContingencia.xml` y `EXTRACCION_THIRDPARTYS` **es**
+la generación real de `ThirdParties.xml`.
 
-`GSProcess.sh` recorre ese `.properties` línea a línea (función `Control()`) y, según el bloque `Accion`
-declarado dentro (`Java`, `Script`, `Evento` o `Property`), despacha a una clase Java con paquete/clase/librerías/
-argumentos propios, a un script de `Generico.sh`, a un evento GoldenSource (`executeBbvaEvent.sh`), o genera un
-property temporal. **`GSProcess.sh` no contiene ninguna lógica específica de Contrapartidas/ThirdParties — toda
-la lógica real (qué jar, qué clase, qué fichero de salida) vive en esos 2 ficheros `.properties`, que aún no se
-han aportado.** Esto no cierra GAP-ADHOC-001, pero identifica con precisión la evidencia exacta que lo
-resolvería.
+**Detalle menor no bloqueante:** el `.properties` referencia `ExtraccionContingencia.xml.tmp`/
+`Thirdparties.xml.tmp` (con sufijo `.tmp` y, en el segundo caso, con minúscula en "Thirdparties") en vez de los
+nombres finales exactos `ExtraccionContingencia.xml`/`ThirdParties.xml` — consistente con un patrón habitual de
+escritura a fichero temporal seguido de un rename atómico (no confirmado con evidencia adicional, pero no
+contradice la conclusión: son los ficheros de origen del proceso). El desfase de horario (00:05h documentado en
+"Extracción Genérica de Contrapartidas" vs. 01:00-01:05h diaria / 03:00-03:05h fin de semana aquí) queda
+**superado**: esta evidencia confirma que el horario real de generación es el de `RDR_EXTRACCION_CTPDAS_D`/`_W`,
+no el "00:05h" que era una aproximación no verificada del documento fuente original — ver actualización cruzada
+en `salidas/extraccion_generica_contrapartidas/spec.md`.
 
 ### 1.2 Bloque Fircosoft — `RDR_FIRCOSOFT_CPARTYS_DAILY_PRO_new` / `_S_PRO_new`
 
@@ -205,9 +208,8 @@ de Control-M — servidor, host, usuario, comando, prerrequisitos, recurso, even
 propias de este intake, pero sí evidencia técnica ya aportada en el documento fuente).
 
 **Fuera de alcance:**
-- Confirmar con evidencia adicional GAP-ADHOC-001 (relación con la generación de origen de "Extracción
-  Genérica de Contrapartidas") y GAP-ADHOC-004 (naturaleza actual de `RDR_SIRE_new`) — ambos quedan como gaps
-  explícitos, no se fuerza una conclusión.
+- Confirmar con evidencia adicional GAP-ADHOC-004 (naturaleza actual de `RDR_SIRE_new`) — sigue como gap
+  explícito, no se fuerza una conclusión. (GAP-ADHOC-001 ya quedó resuelto con evidencia real — ver sección 4.)
 - El diccionario de campos completo de `emisi.csv` y su query de origen en GoldenSource (el documento no lo
   detalla, solo el mecanismo de invocación `executeBbvaEvent.sh`).
 - GAP-CTPY-003 (query de detalle de `ThirdParties.xml`) del proceso "Extracción Genérica de Contrapartidas" —
@@ -230,19 +232,21 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
 ## 4. Gaps identificados
 
 - **GAP-ADHOC-001 (¿son estos los jobs de generación de origen de "Extracción Genérica de Contrapartidas"?) —
-  abierto, reforzado por evidencia real.** `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` invocan `GSProcess.sh`
-  con parámetros que coinciden con los jars `ExtraccionGenericaCPTY.jar`/`ExtraccionGenericaOtherEntities.jar`
-  (tipo THIRDPARTIES) ya documentados como "proceso interno RDR sin ficha de job" en
-  `salidas/extraccion_generica_contrapartidas/`. 26 capturas reales de Control-M
-  (`documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md`), incluido el listado de navegación de ambos folders,
-  confirman que no hay ningún tercer job oculto — descarta esa alternativa, pero sigue sin haber prueba directa
-  (log, ruta de fichero de salida, referencia literal a los nombres de fichero) de que generen
-  `ThirdParties.xml`/`ExtraccionContingencia.xml`. El desfase de horario persiste (00:05h documentado allí vs.
-  01:00-01:05h/03:00-03:05h aquí). El usuario decidió explícitamente mantener el gap abierto. El código fuente
-  real de `GSProcess.sh` (`documentos_fuente/GAP-ADHOC-001_GSProcess.sh`) confirma que es un lanzador 100%
-  genérico sin lógica propia de Contrapartidas/ThirdParties — toda la lógica real vive en 2 ficheros
-  `.properties` aún no aportados: `/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaCPTY.properties`
-  y `.../ExtraccionGenericaTHIRDPARTIES.properties`. Esa es la evidencia exacta que cerraría el gap.
+  RESUELTO con evidencia literal.** `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` invocan `GSProcess.sh`, un
+  lanzador 100% genérico (confirmado con su código fuente real,
+  `documentos_fuente/GAP-ADHOC-001_GSProcess.sh`) que despacha según el contenido de un fichero `.properties`
+  con el mismo nombre que el parámetro recibido. El usuario aportó el contenido real de ambos
+  (`documentos_fuente/GAP-ADHOC-001_ExtraccionGenericaCPTY.properties` y
+  `.../GAP-ADHOC-001_ExtraccionGenericaTHIRDPARTIES.properties`): declaran `Accion=Java` invocando
+  `ExtraccionGenericaCPTY.jar`/`ExtraccionGenericaOtherEntities.jar` (mismos jars, mismos nombres, ya
+  documentados en `salidas/extraccion_generica_contrapartidas/`), sobre la misma carpeta de salida
+  `/fichtemcomp/$env/descargas/kytl/extracciongenerica`, escribiendo `ExtraccionContingencia.xml.tmp`/
+  `Thirdparties.xml.tmp` con tipo `CPARTY`/`THIRDPARTIES`. Coincidencia literal y exacta — confirma que estos 2
+  jobs son la generación real de `ExtraccionContingencia.xml`/`ThirdParties.xml`. El desfase de horario queda
+  superado: el horario real de generación es el de estos jobs (01:00-01:05h diaria, 03:00-03:05h fin de
+  semana), no el "00:05h" aproximado del documento fuente original de "Extracción Genérica de Contrapartidas"
+  (actualizado también en ese spec). El listado de navegación de ambos folders (26 capturas reales,
+  `documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md`) ya había descartado un tercer job oculto.
 - **GAP-ADHOC-002 (diccionario de campos de `Batch_Fircosoft.txt`) — abierto.** Confirmado el mecanismo
   (extracción genérica → `RDR_Transformacion_Fircosoft.jar` → XSLT → fichero), pero no el diccionario de
   campos exacto resultante — la hoja XSLT se resuelve en tiempo de ejecución (no fija en el script) y no se ha
@@ -305,9 +309,9 @@ forzar una respuesta. Casos completos en `casos_prueba.xml`.
 Referencia de casos por tipo:
 - `happy_path`: TC-001, TC-002, TC-003.
 - `borde`: TC-004.
-- `conflicto_integridad`: TC-005, TC-006.
+- `conflicto_integridad`: TC-006.
 - `datos_sinteticos`: TC-007.
-- `regresion`: TC-008.
+- `regresion`: TC-005, TC-008.
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -319,22 +323,22 @@ Referencia de casos por tipo:
 | R6 (SIRE: generación + envío + historificación) | TC-003 | Ciclo completo emisi.csv: generación, envío, purga, historificación en paralelo |
 | R7 (evento "Eliminar" = No en prerrequisitos cross-chain) | TC-004 | Verifica que el consumo de eventos cross-chain no destruye la señal original |
 | GAP-ADHOC-003 (evento de salida de EXTRACCION_THIRDPARTYS en \_D, ya resuelto) | TC-004 | Confirma en revisiones futuras que la ausencia de evento sigue siendo real, no una omisión |
-| GAP-ADHOC-001 (relación con generación de origen, reforzado — job oculto descartado) | TC-005 | Confirma o descarta funcionalmente si EXTRACCION_CPTDAS/THIRDPARTYS generan los ficheros de la extracción genérica |
+| GAP-ADHOC-001 (relación con generación de origen, ya resuelto) | TC-005 | Confirma en revisiones futuras que EXTRACCION_CPTDAS/THIRDPARTYS siguen generando los ficheros de la extracción genérica |
 | GAP-ADHOC-004 (naturaleza actual de RDR_SIRE_new, reforzado por evidencia real) | TC-006 | Confirma funcionalmente si RDR_SIRE_new sigue enviando Contrapartidas o solo Emisiones — desacople técnico ya confirmado |
 | GAP-ADHOC-002 (diccionario de Batch_Fircosoft.txt) | TC-007 | Documenta la limitación en vez de inventar el diccionario de campos |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps abiertos: GAP-ADHOC-001, 002, 004** (sección 4) — ninguno bloquea la generación de esta
-   especificación, todos están documentados como hipótesis o limitaciones explícitas. GAP-ADHOC-003 quedó
-   resuelto con 26 capturas reales de Control-M.
+1. **Gaps abiertos: GAP-ADHOC-002, 004** (sección 4) — ninguno bloquea la generación de esta especificación.
+   GAP-ADHOC-003 quedó resuelto con 26 capturas reales de Control-M; GAP-ADHOC-001 quedó resuelto con el
+   contenido real de los 2 ficheros `.properties` invocados por `GSProcess.sh`.
 2. **RISK-ADHOC-001 — Alta disponibilidad de scripts en ambas máquinas físicas.** El documento exige
    explícitamente que `GSProcess.sh` (extracción SW) esté desplegado en `lprdr501` **y** `lprdr602` para
    garantizar el balanceo de la VIPA `pr-rdr.igrupobbva`. Un despliegue desincronizado entre ambas máquinas
    podría causar fallos intermitentes según qué nodo balancee la ejecución — no confirmado como incidente real,
    es un riesgo de despliegue.
 3. **RISK-ADHOC-002 — Sin relanzamientos en jobs de criticidad C.** `EXTRACCION_CPTDAS`, `EXTRACCION_THIRDPARTYS`
-   y `FICHERO_EMISI` tienen `Relanzamientos: 0` pese a ser criticidad **C** (aviso inmediato) y, si se confirma
+   y `FICHERO_EMISI` tienen `Relanzamientos: 0` pese a ser criticidad **C** (aviso inmediato) y, confirmado por
    GAP-ADHOC-001, ser el origen de datos de toda la cadena de "Extracción Genérica de Contrapartidas" —
    cualquier fallo transitorio requiere intervención manual inmediata, sin red de seguridad automática.
 4. **RISK-ADHOC-003 — Inconsistencia de versionado documental.** Los documentos de diseño de las cadenas
@@ -351,18 +355,18 @@ Referencia de casos por tipo:
 Se documentan las 5 cadenas del bloque "Extracciones ad hoc de Contrapartidas: SW, Fircosoft, SIRE" como un
 único proceso, con ficha técnica completa en los 3 bloques temáticos. El bloque Fircosoft queda completamente
 conectado y confirmado con el proceso "Extracción Genérica de Contrapartidas" ya analizado (mismo origen de
-datos, transformación confirmada con script real). El bloque "SW" (extracción) es un **candidato fuerte, no
-confirmado**, a ser la ficha de job ausente para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml`
-de ese mismo proceso (GAP-ADHOC-001) — una segunda ronda de 26 capturas reales de Control-M descartó que exista
-un tercer job oculto en cualquiera de los 2 folders, y de paso confirmó GAP-ADHOC-003 (ausencia real de evento
-de salida en `EXTRACCION_THIRDPARTYS` de `_D`, ya resuelto). Una tercera pieza de evidencia, el código fuente
-real de `GSProcess.sh`, confirmó que es un lanzador 100% genérico sin lógica propia — identificó con precisión
-los 2 ficheros `.properties` (`ExtraccionGenericaCPTY.properties`/`ExtraccionGenericaTHIRDPARTIES.properties`)
-que contienen la lógica real y que aún no se han aportado. GAP-ADHOC-001 sigue abierto por decisión explícita
-del usuario. El bloque SIRE revela un hallazgo relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre
+datos, transformación confirmada con script real). El bloque "SW" (extracción) queda también **confirmado**
+como la ficha de job que faltaba para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml` de ese
+mismo proceso (GAP-ADHOC-001, resuelto): una segunda ronda de 26 capturas reales de Control-M descartó que
+exista un tercer job oculto en cualquiera de los 2 folders y confirmó GAP-ADHOC-003 (ausencia real de evento
+de salida en `EXTRACCION_THIRDPARTYS` de `_D`); una tercera ronda con el código fuente real de `GSProcess.sh`
+identificó los 2 ficheros `.properties` que contenían la lógica real, y una cuarta ronda con el contenido de
+esos 2 ficheros confirmó de forma literal y exacta (mismos jars, misma carpeta de salida, mismos tipos) que
+`EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` son esa generación real, superando también el desfase de horario
+inicial. El bloque SIRE revela un hallazgo relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre
 y agrupación en este documento, parece haber dejado de enviar Contrapartidas a SIRE (sustituida por un envío de
 Emisiones con mecanismo y fuente de datos distintos) — GAP-ADHOC-004. Una ronda posterior de 33 capturas reales
 de Control-M reforzó esta hipótesis (desacople técnico total confirmado, naming `EventSireEmisi`), pero el
 usuario decidió explícitamente mantener el gap abierto por no ser evidencia funcional del contenido de datos.
-Quedan 3 gaps abiertos (GAP-ADHOC-001, 002 y 004) y 3 riesgos registrados (RISK-ADHOC-001 a 003), ninguno
+Quedan 2 gaps abiertos (GAP-ADHOC-002 y 004) y 3 riesgos registrados (RISK-ADHOC-001 a 003), ninguno
 bloqueante para el testing funcional documentado en `casos_prueba.xml`.

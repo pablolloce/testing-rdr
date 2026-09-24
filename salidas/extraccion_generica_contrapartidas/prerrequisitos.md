@@ -2,10 +2,12 @@
 
 ## Datos y ficheros previos
 
-- `ThirdParties.xml` y `ExtraccionContingencia.xml` deben existir, generados a las 00:05 por los jars
-  `ExtraccionGenericaOtherEntities.jar` y `ExtraccionGenericaCPTY.jar` respectivamente — proceso externo a las
-  3 cadenas, fuera del control de este intake. Cualquier prueba de la cadena debe confirmar primero que ambos
-  ficheros existen y tienen contenido antes de evaluar el resto del flujo.
+- `ThirdParties.xml` y `ExtraccionContingencia.xml` deben existir, generados a las 01:00-01:05h (diaria)/
+  03:00-03:05h (fin de semana) por los jobs `EXTRACCION_THIRDPARTYS`/`EXTRACCION_CPTDAS` de
+  `RDR_EXTRACCION_CTPDAS_D`/`_W` (jars `ExtraccionGenericaOtherEntities.jar` y `ExtraccionGenericaCPTY.jar`
+  respectivamente, confirmado en GAP-ADHOC-001 — ver `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/`) —
+  cadenas propias, fuera del árbol de jobs de estas 3, pero dentro de Control-M. Cualquier prueba de la cadena
+  debe confirmar primero que ambos ficheros existen y tienen contenido antes de evaluar el resto del flujo.
 - El origen de ambos ficheros es la base GoldenSource RDR (tabla `FT_T_ATE1`, antigua `ACTIONS_TO_EXECUTE`, en
   el esquema `KYTL_GC`); no se documenta en esta ronda cómo verificar la disponibilidad de esa base antes de
   que arranque la generación.
@@ -52,8 +54,10 @@
 
 ## Flujos previos que deben haberse completado
 
-- La generación externa de `ThirdParties.xml`/`ExtraccionContingencia.xml` (00:05) debe haberse completado
-  antes de que cualquiera de las 3 cadenas pueda avanzar más allá de sus filewatchers de entrada.
+- La generación de `ThirdParties.xml`/`ExtraccionContingencia.xml` (jobs `EXTRACCION_THIRDPARTYS`/
+  `EXTRACCION_CPTDAS` de `RDR_EXTRACCION_CTPDAS_D`/`_W`, 01:00-01:05h diaria/03:00-03:05h fin de semana) debe
+  haberse completado antes de que cualquiera de las 3 cadenas pueda avanzar más allá de sus filewatchers de
+  entrada.
 - **Importante:** `_FINSEM_S_new` y `_FINSEM_D_new` comparten literalmente el mismo job
   `MONITOR_BKYTL001_505-606` como disparador — verificar en cualquier prueba conjunta de ambas cadenas que no
   haya una condición de carrera o un solapamiento no documentado entre sus dos arranques (viernes 22:00 vs.

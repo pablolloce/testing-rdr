@@ -39,10 +39,16 @@ aplicación KYTL) los datos de **Contrapartidas** (personas jurídicas/físicas,
 Third Parties) a **más de 45 sistemas consumidores** internos y externos a BBVA (Mentor, SIRE, SICOR,
 Fircosoft, Salesforce/Fonetic, MGCyG, CTM/Deal Manager, DataX, XVA, NOVA, Calypso/KLYO/MSC, Duco, Algorithmics,
 Smart Data/Cloudera, FENERGO, Ibor, PRIIPS, SACCR, Ábaco, Webfocus, DataHub CIB/ADA/DATIO, entre otros). A
-diferencia de otros procesos RDR, **la extracción SQL no se ejecuta dentro del árbol de jobs de las 3
+diferencia de otros procesos RDR, **la extracción SQL no se ejecuta dentro del árbol de jobs de estas 3
 cadenas**: dos jars Java específicos (`ExtraccionGenericaOtherEntities.jar` para ThirdParties,
-`ExtraccionGenericaCPTY.jar` para Contrapartidas) generan los ficheros de partida de forma autónoma a las
-00:05h, y las 3 cadenas arrancan **esperando** esos ficheros vía filewatcher.
+`ExtraccionGenericaCPTY.jar` para Contrapartidas) generan los ficheros de partida, y las 3 cadenas arrancan
+**esperando** esos ficheros vía filewatcher. **Confirmado con evidencia real (proceso relacionado
+`salidas/extracciones_adhoc_ctpdas_fircosoft_sire/spec.md`, GAP-ADHOC-001 resuelto):** esos jars sí corren
+dentro de Control-M, en 2 cadenas propias y separadas — `RDR_EXTRACCION_CTPDAS_D` (diaria, jobs
+`EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` a las 01:05/01:00 AM) y `RDR_EXTRACCION_CTPDAS_W` (fin de semana,
+mismos jobs a las 03:05/03:00 AM) — no un proceso interno RDR sin ficha de job. El horario real de generación
+es, por tanto, el de esos jobs (01:00-01:05h diaria, 03:00-03:05h fin de semana), no el "00:05h" que se había
+usado aquí como aproximación no verificada.
 
 Las 3 cadenas comparten el mismo núcleo (unión de ficheros + pipeline de validación XSLT/XSD, añadido
 18/10/2025) y divergen después en su propio fan-out de transformación y distribución:
@@ -56,7 +62,8 @@ Las 3 cadenas comparten el mismo núcleo (unión de ficheros + pipeline de valid
 ### 1.1 Núcleo común — generación de origen y pipeline de validación (las 3 cadenas)
 
 ```
-00:05 (fuera del árbol de jobs de las 3 cadenas — generación interna RDR)
+01:00-01:05 AM diaria / 03:00-03:05 AM fin de semana (fuera del árbol de jobs de estas 3 cadenas — jobs reales
+EXTRACCION_THIRDPARTYS/EXTRACCION_CPTDAS de RDR_EXTRACCION_CTPDAS_D/_W, confirmado en GAP-ADHOC-001)
    ├── ExtraccionGenericaOtherEntities.jar (tipo THIRDPARTIES) → ThirdParties.xml
    │     Query maestra: entidades con relación operativa activa, EXCLUYENDO rol CPARTY
    │     (universo = "operativo pero NO contraparte"). Query de detalle (ExtraccionContingenciaTHIRDPARTIES.sql)
@@ -320,7 +327,7 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
 
 | ID | Requisito |
 |----|-----------|
-| R1 | Los ficheros de origen (`ThirdParties.xml`, `ExtraccionContingencia.xml`) se generan a las 00:05, fuera del árbol de jobs de las 3 cadenas, vía 2 jars Java específicos por tipo de entidad. |
+| R1 | Los ficheros de origen (`ThirdParties.xml`, `ExtraccionContingencia.xml`) se generan a las 01:00-01:05h (diaria)/03:00-03:05h (fin de semana), fuera del árbol de jobs de estas 3 cadenas pero dentro de Control-M (jobs `EXTRACCION_THIRDPARTYS`/`EXTRACCION_CPTDAS` de `RDR_EXTRACCION_CTPDAS_D`/`_W`, confirmado en GAP-ADHOC-001), vía 2 jars Java específicos por tipo de entidad. |
 | R2 | Las 3 cadenas arrancan esperando ambos ficheros vía filewatcher (`DAILY_THIRDPARTIES_FW`, `DAILY_EXTRACCION_CONTINGENCIA_FW`), tras su disparador propio (`MEKYTL0334` en `_new`; `MONITOR_BKYTL001_505-606` en las 2 semanales). |
 | R3 | `DAILY_UNION_FICHEROS` (`unionFicheros.sh`) une ambos XML — mismo script en las 3 cadenas. |
 | R4 | Desde el 18/10/2025, las 3 cadenas comparten el mismo pipeline de validación XSLT/XSD (`RDR_Transformacion_XSLT_CPARTY` → `RDR_Validacion_XSD_CPARTY`), instancia propia por cadena. `VALIDACION_EXTRACCION` sigue siendo el job funcional real solo en `_new`; en las 2 semanales quedó como DUMMY de compatibilidad. |
@@ -536,3 +543,10 @@ lógica interna de los jars Java más allá de su función observable, y el deta
 externas de Fircosoft (ya cubierto en `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/spec.md`). Cualquier
 evidencia adicional sobre estos 3 puntos podría reabrir una ampliación de alcance, pero no una corrección de lo
 ya documentado.
+
+**Addendum (2026-09-24, no reabre el cierre):** el proceso relacionado "Extracciones ad hoc de Contrapartidas:
+SW, Fircosoft, SIRE" (GAP-ADHOC-001) confirmó con evidencia literal (jars, carpeta de salida y tipos exactos)
+que los jobs `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` de `RDR_EXTRACCION_CTPDAS_D`/`_W` son la generación
+real de `ExtraccionContingencia.xml`/`ThirdParties.xml`, con ficha de job real en Control-M. Esto completa una
+pieza que este documento dejaba como "proceso interno RDR sin ficha de job" y corrige el horario aproximado
+"00:05h" por el horario real confirmado (01:00-01:05h diaria, 03:00-03:05h fin de semana) — ver §1.1 y R1.
