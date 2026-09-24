@@ -1,0 +1,4930 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">NFQ-Vulne v0.1</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">Historificar</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">statements</name>
+<stringValue id="14">import java.io.*;
+import java.net.URI;
+
+try{
+
+if ("UNDLY".equals(idType)) {
+	String file = "file:"+ pathOut + fileOut;
+	String old = (file+"").replace("OpcionesFutures/Enrichment/issues/RFNT_BBVA", "OpcionesFutures/Enrichment/issues/old/RFNT_BBVA");
+	File source = new File(new URI(file+""));
+	File dest = new File(new URI(old+""));
+      	boolean bool = source.renameTo(dest);
+}
+
+else {
+	String file = "file:"+ pathOut + fileOut;
+	String old = (file+"").replace("Refinitiv/RFNT_BBVA", "Refinitiv/old/RFNT_BBVA");
+      	File source = new File(new URI(file+""));
+      	File dest = new File(new URI(old+""));
+      	boolean bool = source.renameTo(dest);
+}
+
+} catch (Exception ex){	} 	
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="15" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="16">["fileOut"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="17">variables["fileOut"]</name>
+<stringValue id="18">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="19" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="20">variables["idType"]</name>
+<stringValue id="21">idType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="22" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="23">["pathOut"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="24">variables["pathOut"]</name>
+<stringValue id="25">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="26" type="java.util.HashSet">
+<item id="27" type="com.j2fe.workflow.definition.Transition">
+<name id="28">BATCH_ISSUER</name>
+<source id="29">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="30">BackEnd Request?</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="31">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="32" type="java.util.HashSet">
+<item id="33" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="34">caseItem</name>
+<stringValue id="35">requestTypeAux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="36" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="37">defaultItem</name>
+<stringValue id="38">BATCH_ISSUER</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="39" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="40">nullTransition</name>
+<stringValue id="41">BATCH_ISSUER</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="42" type="java.util.HashSet">
+<item id="43" type="com.j2fe.workflow.definition.Transition">
+<name id="44">goto-next</name>
+<source id="45">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="46">Carga MDX</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="47">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="48" type="java.util.HashSet">
+<item id="49" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="50">["BusinessFeed"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="51">input["BusinessFeed"]</name>
+<stringValue id="52">Refinitiv_Issuer_Batch_Response</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="53" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="54">["File"]@java/net/URI@</UITypeHint>
+<input>true</input>
+<name id="55">input["File"]</name>
+<stringValue id="56">uri</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="57" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="58">["MessageType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="59">input["MessageType"]</name>
+<stringValue id="60">Refinitiv_Issuer_Batch_Response</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="61" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="62">["OutputDirectory"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="63">input["OutputDirectory"]</name>
+<stringValue id="64">pathOld</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="65" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="66">["Parallel File Load Sub"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="67">input["Parallel File Load Sub"]</name>
+<stringValue id="68">Parallel File Load Sub</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="69" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="70">["SuccessAction"]@com/j2fe/feeds/SuccessAction@</UITypeHint>
+<input>true</input>
+<name id="71">input["SuccessAction"]</name>
+<stringValue id="72">MOVE</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="73" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="74">name</name>
+<stringValue id="75">Standard File Load</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="76" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="77">["JobId"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="78">output["JobId"]</name>
+<stringValue id="79">jobIdIssue</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="80" type="java.util.HashSet">
+<item id="81" type="com.j2fe.workflow.definition.Transition">
+<name id="82">goto-next</name>
+<source id="83">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="84">set URI</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="85">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="86" type="java.util.HashSet">
+<item id="87" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="88">statements</name>
+<stringValue id="89">String uri = path+file;
+
+String pathOld = path+"old";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="90" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="91">variables["file"]</name>
+<stringValue id="92">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="93" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="94">variables["path"]</name>
+<stringValue id="95">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="96" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="97">["pathOld"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="98">variables["pathOld"]</name>
+<stringValue id="99">pathOld</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="100" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="101">["uri"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="102">variables["uri"]</name>
+<stringValue id="103">uri</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="104" type="java.util.HashSet">
+<item id="105" type="com.j2fe.workflow.definition.Transition">
+<name id="106">BATCH_ISSUER</name>
+<source id="107">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="108">Batch Request?</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="109">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="110" type="java.util.HashSet">
+<item id="111" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="112">caseItem</name>
+<stringValue id="113">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="114" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="115">defaultItem</name>
+<stringValue id="116">online</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="117" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="118">nullTransition</name>
+<stringValue id="119">online</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="120" type="java.util.HashSet">
+<item id="121" type="com.j2fe.workflow.definition.Transition">
+<name id="122">rows-found</name>
+<source id="123">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="124">Get Issuers Output</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="125">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="126" type="java.util.HashSet">
+<item id="127" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="128">database</name>
+<stringValue id="129">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="130" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="131">[0]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="132">firstColumnsResult[0]</name>
+<stringValue id="133">FirstColumnResultList</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="134" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="135">["1"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="136">mappedParameters["1"]</name>
+<stringValue id="137">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="138" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="139">querySQL</name>
+<stringValue id="140">select result from (select DBMS_LOB.substr(par1_value_clob,10000) as result from ft_t_par1 where parameter_ctxt_typ='REFINITIV_PARAMS' and par1_nme = :requestType||'Output')</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="141" type="java.util.HashSet">
+<item id="142" type="com.j2fe.workflow.definition.Transition">
+<name id="143">issuerRequest</name>
+<source id="144">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="145">Request Type</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="146">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="147" type="java.util.HashSet">
+<item id="148" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="149">caseItem</name>
+<stringValue id="150">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="151" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="152">defaultItem</name>
+<stringValue id="153">error</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="154" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="155">nullTransition</name>
+<stringValue id="156">error</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="157" type="java.util.HashSet">
+<item id="158" type="com.j2fe.workflow.definition.Transition">
+<name id="159">ToSplit</name>
+<source id="160">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="161">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="162">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="163">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="164" type="java.util.HashSet">
+<item id="165" type="com.j2fe.workflow.definition.Transition">
+<name id="166">has-messages</name>
+<source id="167">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="168">File Split</name>
+<nodeHandler>com.j2fe.feeds.activities.FileSplitCondition</nodeHandler>
+<nodeHandlerClass id="169">com.j2fe.feeds.activities.FileSplitCondition</nodeHandlerClass>
+<parameters id="170" type="java.util.HashSet">
+<item id="171" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="172">businessFeed</name>
+<stringValue id="173">Refinitiv_Issue_Response</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="174" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="175">createTransactions</name>
+<objectValue id="176" type="java.lang.Boolean">false</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="177" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="178">fileConnection</name>
+<stringValue id="179">FileConnection</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="180" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="181">messages[0].message</name>
+<stringValue id="182">messages</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="183" type="java.util.HashSet">
+<item id="184" type="com.j2fe.workflow.definition.Transition">
+<name id="185">success</name>
+<source id="186">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="187">Prepare File (Xor Split)</name>
+<nodeHandler>com.j2fe.feeds.activities.ReadFile</nodeHandler>
+<nodeHandlerClass id="188">com.j2fe.feeds.activities.ReadFile</nodeHandlerClass>
+<parameters id="189" type="java.util.HashSet">
+<item id="190" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="191">businessFeed</name>
+<stringValue id="192">Refinitiv_Issue_Response</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="193" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="194">file</name>
+<stringValue id="195">FileItems</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="196" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="197">fileConnection</name>
+<stringValue id="198">FileConnection</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="199" type="java.util.HashSet">
+<item id="200" type="com.j2fe.workflow.definition.Transition">
+<name id="201">true</name>
+<source id="202">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="203">Wait for Files</name>
+<nodeHandler>com.j2fe.feeds.activities.WaitForFiles</nodeHandler>
+<nodeHandlerClass id="204">com.j2fe.feeds.activities.WaitForFiles</nodeHandlerClass>
+<parameters id="205" type="java.util.HashSet">
+<item id="206" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="207">directory</name>
+<stringValue id="208">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="209" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="210">fileSystem</name>
+<stringValue id="211">filesystem/local</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="212" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="213">globPatterns</name>
+<stringValue id="214">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="215" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="216">items[0]</name>
+<stringValue id="217">FileItems</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="218" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="219">timeout</name>
+<objectValue id="220" type="java.lang.Long">300</objectValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="221" type="java.util.HashSet">
+<item id="222" type="com.j2fe.workflow.definition.Transition">
+<name id="223">goto-next</name>
+<source id="224">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="225">Call java</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="226">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="227" type="java.util.HashSet">
+<item id="228" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="229">commandLine</name>
+<stringValue id="230">cmd</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="231" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="232">killTimeout</name>
+<objectValue id="233" type="java.lang.Long">900</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="234" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="235">waitForEnd</name>
+<objectValue id="236" type="java.lang.Boolean">true</objectValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="237" type="java.util.HashSet">
+<item id="238" type="com.j2fe.workflow.definition.Transition">
+<name id="239">goto-next</name>
+<source id="240">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="241">Prepare java call</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="242">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="243" type="java.util.HashSet">
+<item id="244" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="245">statements</name>
+<objectValue id="246" type="java.lang.String"><![CDATA[import org.apache.log4j.Logger;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.regex.*;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import org.xml.sax.SAXException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+
+SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMdd-HHmmss");  
+Date date = new Date();
+
+Logger logger = Logger.getLogger("Refinitiv_Request");
+String cmd="";
+String env="";
+String nivelLog="";
+String pathOut="";
+String fileOut="";	
+String pathpro = "/pr/kytl/online/multipais/multicanal/cfg/entorno/";
+String pathpre = "/pp/kytl/online/multipais/multicanal/cfg/entorno/";
+String pathint = "/ei/kytl/online/multipais/multicanal/cfg/entorno/";
+String pathdev = "/de/kytl/online/multipais/multicanal/cfg/entorno/";
+String path = "";
+String javahome17 = "";
+String linea;
+String fich = "";
+File folderpro = new File(pathpro);
+File folderpre = new File(pathpre);
+File folderint = new File(pathint);
+File folderdev = new File(pathdev);
+
+if (folderpro.exists()){
+	path = pathpro + "credentials.xml";
+	env="pr";
+	nivelLog ="error";
+}else if (folderpre.exists()){
+	path = pathpre + "credentials.xml";
+	env="pp";
+	nivelLog = "info";
+}else if (folderint.exists()){
+	path = pathint + "credentials.xml";
+	env="ei";
+	nivelLog = "info";
+}else if (folderdev.exists()){
+	path = pathdev + "credentials.xml";
+	env="de";
+	nivelLog = "debug";
+}
+		
+File archivo = new File(path);
+FileReader fr = new FileReader(archivo);
+BufferedReader br = new BufferedReader(fr);
+
+
+while ((linea = br.readLine()) != null){
+	fich = fich + linea;
+}
+fr.close();
+
+Pattern patronAux = Pattern.compile("<environment>(.*?)</environment>");
+Matcher matchAux = patronAux.matcher(fich);	
+if (matchAux.find()) {
+	fich = matchAux.group(1);
+}
+
+patronAux = Pattern.compile("<javahome17>(.*?)</javahome17>");
+matchAux = patronAux.matcher(fich);
+if (matchAux.find()) {
+	javahome17 = matchAux.group(1);
+}
+		
+String JAR="/"+env+"/kytl/online/multipais/multicanal/jar/";
+String JAVA= javahome17 +"bin/java";
+String LIB="/"+env+"/kytl/online/multipais/multicanal/lib/";
+
+switch (requestType){
+	case "issueRequest":
+		if (vreqOid.equals("MULTI_ISSUE")){
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/Multi_Request/";
+		} 		
+		else if (vreqOid.equals("UNDLY_ISSUES_ENRICHMENT")){
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/OpcionesFutures/Enrichment/issues/";
+		}		
+		else if (vreqOid.equals("OPTIONS_FUTURES_ENRICHMENT")){
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/OpcionesFutures/Enrichment/optionsfutures/";
+		}		
+		else {
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/";
+		}
+		fileOut= "RFNT_BBVA_"+id+"_"+formatter.format(date)+".txt";
+		fileOut= fileOut.replaceAll("['^']","");
+		break;
+
+	case "optionsfuturesRequest":
+		if (vreqOid.equals("OPTIONS_FUTURES_ENRICHMENT")){
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/OpcionesFutures/Enrichment/optionsfutures/";
+		}
+	    else{
+		   pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/";			
+		}
+		fileOut= "RFNT_BBVA_"+id+"_"+formatter.format(date)+".txt";
+		fileOut= fileOut.replaceAll("['^']","");
+		break;
+	case "issueSearch":
+		pathOut= "/fichtemcomp/"+env+"/descargas/kytl/issues/Refinitiv/";
+		fileOut= "RFNT_BBVA_Search_"+id+"_"+formatter.format(date)+".txt";
+		fileOut= fileOut.replaceAll("['^']","");
+		break;
+	case "issuerRequest": case "issuerRequestBE":
+		if (vreqOid.equals("BATCH_ISSUER")){
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/riesgoemisorBatch/Refinitiv/";
+		} else {
+			pathOut= "/fichtemcomp/"+env+"/descargas/kytl/riesgoemisor/Refinitiv/";
+		}
+		fileOut= "RFNT_BBVA_"+id+"_"+formatter.format(date)+".txt";
+		break;
+	case "ratingsRequest": case "ratingsRequestBE":
+		pathOut= "/fichtemcomp/"+env+"/descargas/kytl/riesgoemisor/Refinitiv/";
+		fileOut= "RFNT_BBVA_"+id+"_"+formatter.format(date)+".txt";
+		break;
+	default :
+		break;
+	}
+
+cmd = JAVA+" -Dfile.encoding=UTF8 -Denv="+env+" -cp "+
+JAR+"RDR_Refinitiv_Request.jar:"+
+LIB+"ojdbc8.jar:"+
+LIB+"commons-dbcp-1.4.jar:"+
+LIB+"commons-pool-1.5.4.jar:"+
+JAR+"ConexionBD.jar:"+
+LIB+"log4j.jar:"+
+LIB+"gson-2.6.2.jar:"+
+LIB+"commons-logging-1.2.jar:"+
+LIB+"httpclient-4.5.12.jar:"+
+LIB+"httpcore-4.4.13.jar:"+
+LIB+"httpcore-nio-4.4.13.jar:"+
+JAR+"XMASToken-0.0.1.jar:"+
+" com.bbva.kytl.main.Request REFINITIV "
++vreqOid+" "+requestType+" "+env+" "+pathOut+fileOut+" "+nivelLog;
+
+if (requestType.substring(requestType.length()-2, requestType.length()).equals("BE")){
+	requestTypeAux=requestType;
+	requestType=requestType.substring(0, requestType.length()-2);
+}
+
+logger.error("[Refinitiv_Request]: "+ cmd);]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="247" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="248">variables["JAVA"]</name>
+<stringValue id="249">JAVA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="250" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="251">["cmd"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="252">variables["cmd"]</name>
+<stringValue id="253">cmd</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="254" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="255">["env"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="256">variables["env"]</name>
+<stringValue id="257">env</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="258" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="259">["fileOut"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="260">variables["fileOut"]</name>
+<stringValue id="261">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="262" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="263">["id"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="264">variables["id"]</name>
+<stringValue id="265">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="266" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="267">variables["nivelLog"]</name>
+<stringValue id="268">nivelLog</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="269" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="270">["pathOut"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="271">variables["pathOut"]</name>
+<stringValue id="272">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="273" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="274">["requestType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="275">variables["requestType"]</name>
+<stringValue id="276">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="277" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="278">["requestType"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="279">variables["requestType"]</name>
+<stringValue id="280">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="281" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="282">["requestTypeAux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="283">variables["requestTypeAux"]</name>
+<stringValue id="284">requestTypeAux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="285" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="286">variables["vreqOid"]</name>
+<stringValue id="287">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="288" type="java.util.HashSet">
+<item id="289" type="com.j2fe.workflow.definition.Transition">
+<name id="290">goto-next</name>
+<source id="291">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="292">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="293">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="294" type="java.util.HashSet">
+</sources>
+<targets id="295" type="java.util.HashSet">
+<item idref="289"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="240"/>
+</item>
+</sources>
+<targets id="296" type="java.util.HashSet">
+<item idref="238"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="224"/>
+</item>
+</sources>
+<targets id="297" type="java.util.HashSet">
+<item idref="222"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="202"/>
+</item>
+</sources>
+<targets id="298" type="java.util.HashSet">
+<item id="299" type="com.j2fe.workflow.definition.Transition">
+<name id="300">false</name>
+<source idref="202"/>
+<target id="301">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="302">set Error Message</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="303">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="304" type="java.util.HashSet">
+<item id="305" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="306">statements</name>
+<stringValue id="307">String errorMessage="Unable to load response, file not found";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="308" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="309">["errorMessage"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="310">variables["errorMessage"]</name>
+<stringValue id="311">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="312" type="java.util.HashSet">
+<item idref="299"/>
+</sources>
+<targets id="313" type="java.util.HashSet">
+<item id="314" type="com.j2fe.workflow.definition.Transition">
+<name id="315">goto-next</name>
+<source idref="301"/>
+<target id="316">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="317">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="318">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="319">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="320" type="java.util.HashSet">
+<item id="321" type="com.j2fe.workflow.definition.Transition">
+<name id="322">goto-next</name>
+<source id="323">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="324">set Error Message</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="325">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="326" type="java.util.HashSet">
+<item id="327" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="328">statements</name>
+<stringValue id="329">String errorMessage="Unable to load response, output layout not found";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="330" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="331">["errorMessage"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="332">variables["errorMessage"]</name>
+<stringValue id="333">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="334" type="java.util.HashSet">
+<item id="335" type="com.j2fe.workflow.definition.Transition">
+<name id="336">nothing-found</name>
+<source idref="123"/>
+<target idref="323"/>
+</item>
+<item id="337" type="com.j2fe.workflow.definition.Transition">
+<name id="338">nothing-found</name>
+<source id="339">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="340">Get Ratings Output</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="341">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="342" type="java.util.HashSet">
+<item id="343" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="344">database</name>
+<stringValue id="345">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="346" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="347">[0]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="348">firstColumnsResult[0]</name>
+<stringValue id="349">FirstColumnResultList</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="350" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="351">["1"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="352">mappedParameters["1"]</name>
+<stringValue id="353">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="354" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="355">querySQL</name>
+<stringValue id="356">select result from (select DBMS_LOB.substr(par1_value_clob,10000) as result from ft_t_par1 where parameter_ctxt_typ='REFINITIV_PARAMS' and par1_nme = :requestType||'Output')</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="357" type="java.util.HashSet">
+<item id="358" type="com.j2fe.workflow.definition.Transition">
+<name id="359">online</name>
+<source id="360">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="361">BackEnd Request?</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="362">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="363" type="java.util.HashSet">
+<item id="364" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="365">caseItem</name>
+<stringValue id="366">requestTypeAux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="367" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="368">defaultItem</name>
+<stringValue id="369">online</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="370" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="371">nullTransition</name>
+<stringValue id="372">online</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="373" type="java.util.HashSet">
+<item id="374" type="com.j2fe.workflow.definition.Transition">
+<name id="375">online</name>
+<source id="376">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="377">BATCH</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="378">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="379" type="java.util.HashSet">
+<item id="380" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="381">caseItem</name>
+<stringValue id="382">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="383" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="384">defaultItem</name>
+<stringValue id="385">online</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="386" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="387">nullTransition</name>
+<stringValue id="388">online</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="389" type="java.util.HashSet">
+<item id="390" type="com.j2fe.workflow.definition.Transition">
+<name id="391">ratingsRequest</name>
+<source idref="144"/>
+<target idref="376"/>
+</item>
+</sources>
+<targets id="392" type="java.util.HashSet">
+<item id="393" type="com.j2fe.workflow.definition.Transition">
+<name id="394">BATCH_RATINGS</name>
+<source idref="376"/>
+<target id="395">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="396">Refinitiv_Load_Ratings</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="397">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="398" type="java.util.HashSet">
+<item id="399" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="400">["file"]@java/net/URI@</UITypeHint>
+<input>true</input>
+<name id="401">input["file"]</name>
+<stringValue id="402">FileItems</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="403" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="404">["requestType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="405">input["requestType"]</name>
+<stringValue id="406">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="407" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="408">["vreqOid"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="409">input["vreqOid"]</name>
+<stringValue id="410">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="411" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="412">name</name>
+<stringValue id="413">Refinitiv_Load_Ratings</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="414" type="java.util.HashSet">
+<item idref="393"/>
+<item id="415" type="com.j2fe.workflow.definition.Transition">
+<name id="416">ratingsRequestBE</name>
+<source idref="360"/>
+<target idref="395"/>
+</item>
+</sources>
+<targets id="417" type="java.util.HashSet">
+<item id="418" type="com.j2fe.workflow.definition.Transition">
+<name id="419">goto-next</name>
+<source idref="395"/>
+<target id="420">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="421">BackEnd Request?</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="422">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="423" type="java.util.HashSet">
+<item id="424" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="425">caseItem</name>
+<stringValue id="426">requestTypeAux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="427" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="428">defaultItem</name>
+<stringValue id="429">BATCH_RATINGS</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="430" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="431">nullTransition</name>
+<stringValue id="432">BATCH_RATINGS</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="433" type="java.util.HashSet">
+<item idref="418"/>
+</sources>
+<targets id="434" type="java.util.HashSet">
+<item id="435" type="com.j2fe.workflow.definition.Transition">
+<name id="436">BATCH_RATINGS</name>
+<source idref="420"/>
+<target idref="8"/>
+</item>
+<item id="437" type="com.j2fe.workflow.definition.Transition">
+<name id="438">ratingsRequestBE</name>
+<source idref="420"/>
+<target id="439">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="440">query VREQ</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="441">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="442" type="java.util.HashSet">
+<item id="443" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="444">statements</name>
+<stringValue id="445"><![CDATA[String queryVreq="";
+String status="";
+String[] fileLineAux= fileLine.split("\\|");
+String vreqTxt="";
+
+
+if ( fileLine.contains("ERROR") ){
+ 	status="FAILED";
+
+	for (int i = 0; i < fileLineAux.length; i++){
+		if (fileLineAux[i].equals("ERROR") && i + 1 < fileLineAux.length){
+			vreqTxt= fileLineAux[i + 1];
+			break;
+		}
+	}
+
+}else {
+	status="PROCESSED";
+	vreqTxt="Refinitiv Ratings request processed successfully";
+}
+
+
+queryVreq = "UPDATE FT_T_VREQ SET VND_RQST_STAT_TYP='"+status +"', VND_RQST_STAT_TXT='"+vreqTxt +"', LAST_CHG_TMS=SYSDATE, LAST_CHG_USR_ID='ALTA:ROL:EMISOR:RF' WHERE VND_RQST_OID='"+vreqOid +"' and VND_RQST_STAT_TYP='PENDING'";]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="446" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="447">variables["fileLine"]</name>
+<stringValue id="448">messages</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="449" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="450">variables["queryVreq"]</name>
+<stringValue id="451">queryVreq</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="452" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="453">variables["vreqOid"]</name>
+<stringValue id="454">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="455" type="java.util.HashSet">
+<item idref="437"/>
+</sources>
+<targets id="456" type="java.util.HashSet">
+<item id="457" type="com.j2fe.workflow.definition.Transition">
+<name id="458">goto-next</name>
+<source idref="439"/>
+<target id="459">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="460">Update Vendor Request</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="461">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="462" type="java.util.HashSet">
+<item id="463" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="464">database</name>
+<stringValue id="465">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="466" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="467">querySQL</name>
+<stringValue id="468">queryVreq</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="469" type="java.util.HashSet">
+<item idref="457"/>
+</sources>
+<targets id="470" type="java.util.HashSet">
+<item id="471" type="com.j2fe.workflow.definition.Transition">
+<name id="472">goto-next</name>
+<source idref="459"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="374"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="360"/>
+</item>
+</sources>
+<targets id="473" type="java.util.HashSet">
+<item idref="358"/>
+<item idref="415"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="339"/>
+</item>
+</sources>
+<targets id="474" type="java.util.HashSet">
+<item idref="337"/>
+<item id="475" type="com.j2fe.workflow.definition.Transition">
+<name id="476">rows-found</name>
+<source idref="339"/>
+<target id="477">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="478">Read Ratings line to map</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="479">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="480" type="java.util.HashSet">
+<item id="481" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="482">statements</name>
+<stringValue id="483"><![CDATA[import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Map fieldsMap = new LinkedHashMap();
+
+String[] fieldsArray = fieldsList.split(",");
+String[] lineArray = fileLine.split("\\|");
+int fieldCounter = 0;
+//declaramos mapa vacio
+for (String field : fieldsArray) {
+	fieldsMap.put(field,"");
+}
+
+for (String field : fieldsArray) {
+	if (fieldCounter < lineArray.length){
+		fieldsMap.put(field,lineArray[fieldCounter]);
+	}
+	fieldCounter++;
+}]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="484" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="485">variables["fieldsList"]</name>
+<stringValue id="486">FirstColumnResultList</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="487" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="488">variables["fieldsMap"]</name>
+<stringValue id="489">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="490" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="491">["fileLine"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="492">variables["fileLine"]</name>
+<stringValue id="493">messages</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="494" type="java.util.HashSet">
+<item idref="475"/>
+</sources>
+<targets id="495" type="java.util.HashSet">
+<item id="496" type="com.j2fe.workflow.definition.Transition">
+<name id="497">goto-next</name>
+<source idref="477"/>
+<target id="498">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="499">Read Categ</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="500">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="501" type="java.util.HashSet">
+<item id="502" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="503">statements</name>
+<objectValue id="504" type="java.lang.String"><![CDATA[import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Map fieldsCateg = new LinkedHashMap();
+
+			if(fieldsMap.get("SPI_Domestic_Issuer Rating Code")!=null && fieldsMap.get("SPI_Domestic_Issuer Rating Code").toString().length()>0 
+			&& !fieldsMap.get("SPI_Domestic_Issuer Rating Code").equals(" ") && !fieldsMap.get("SPI_Domestic_Issuer Rating Code").equals("N.A.") &&
+			!fieldsMap.get("SPI_Domestic_Issuer Rating Code").equals("N.S.") && !fieldsMap.get("SPI_Domestic_Issuer Rating Code").equals("NR") && 
+			!fieldsMap.get("SPI_Domestic_Issuer Rating Code").equals("(P)NR")){
+				fieldsCateg.put("SPI_DOMESTIC_CODE", fieldsMap.get("SPI_Domestic_Issuer Rating Code"));
+			}else{
+				fieldsCateg.put("SPI_DOMESTIC_CODE", "NR");
+			}
+			
+		fieldsCateg.put("SPI_DOMESTIC_DATE", fieldsMap.get("SPI_Domestic_Issuer Rating Effective Date").toString());
+		
+		if(fieldsMap.get("SPI_Foreign_Issuer Rating Code")!=null && fieldsMap.get("SPI_Foreign_Issuer Rating Code").toString().length()>0 
+			&& !fieldsMap.get("SPI_Foreign_Issuer Rating Code").equals(" ") && !fieldsMap.get("SPI_Foreign_Issuer Rating Code").equals("N.A.") &&
+			!fieldsMap.get("SPI_Foreign_Issuer Rating Code").equals("N.S.") && !fieldsMap.get("SPI_Foreign_Issuer Rating Code").equals("NR") && 
+			!fieldsMap.get("SPI_Foreign_Issuer Rating Code").equals("(P)NR")){
+				fieldsCateg.put("SPI_FOREIGN_CODE", fieldsMap.get("SPI_Foreign_Issuer Rating Code"));
+			}else{
+				fieldsCateg.put("SPI_FOREIGN_CODE", "NR");
+			}
+		fieldsCateg.put("SPI_FOREIGN_DATE", fieldsMap.get("SPI_Foreign_Issuer Rating Effective Date").toString());	
+
+		String MOODYS_DOMESTIC_CODE ="";
+		String MOODYS_DOMESTIC_DATE ="";
+
+		if(fieldsMap.get("MCD_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MCD_Domestic_Issuer Rating Code").toString().length()>0 && 
+				!fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals(" ")){
+			if(fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("N.S.") ||  
+				 fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("WR") ||
+				fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MCD_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+					MOODYS_DOMESTIC_CODE ="NR";
+					MOODYS_DOMESTIC_DATE  = fieldsMap.get("MCD_Domestic_Issuer Rating Effective Date").toString() ;
+			}else{
+					MOODYS_DOMESTIC_CODE = fieldsMap.get("MCD_Domestic_Issuer Rating Code").toString() ;
+					MOODYS_DOMESTIC_DATE  = fieldsMap.get("MCD_Domestic_Issuer Rating Effective Date").toString() ;
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MIS_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MIS_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MIS_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MIS_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MIS_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MIS_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MSU_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MSU_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MSU_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MSU_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MSU_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MSU_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MLD_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MLD_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MLD_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MLD_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MLD_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MLD_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MBT_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MBT_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MBT_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MBT_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MBT_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MBT_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MBD_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MBD_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MBD_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MBD_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MBD_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MBD_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.length()==0 || MOODYS_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("MJB_Domestic_Issuer Rating Code")!=null && fieldsMap.get("MJB_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MJB_Domestic_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_DOMESTIC_CODE ="NR";
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MJB_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_DOMESTIC_CODE = fieldsMap.get("MJB_Domestic_Issuer Rating Code").toString() ;
+						MOODYS_DOMESTIC_DATE  = fieldsMap.get("MJB_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_DOMESTIC_CODE.equals("")){
+			MOODYS_DOMESTIC_CODE ="NR";
+		}
+		
+		fieldsCateg.put("MOODYS_DOMESTIC_CODE", MOODYS_DOMESTIC_CODE );
+		fieldsCateg.put("MOODYS_DOMESTIC_DATE", MOODYS_DOMESTIC_DATE );
+
+			
+		String MOODYS_FOREIGN_CODE ="";
+		String MOODYS_FOREIGN_DATE ="";
+
+		if(fieldsMap.get("MCD_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MCD_Foreign_Issuer Rating Code").toString().length()>0 
+				&& !fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals(" ")){
+			if(fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("N.S.") ||  
+				 fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("WR") ||
+				fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MCD_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+					MOODYS_FOREIGN_CODE ="NR";
+					MOODYS_FOREIGN_DATE  = fieldsMap.get("MCD_Foreign_Issuer Rating Effective Date").toString() ;
+			}else{
+					MOODYS_FOREIGN_CODE = fieldsMap.get("MCD_Foreign_Issuer Rating Code").toString() ;
+					MOODYS_FOREIGN_DATE  = fieldsMap.get("MCD_Foreign_Issuer Rating Effective Date").toString() ;
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MIS_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MIS_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MIS_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MIS_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MIS_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MIS_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MSU_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MSU_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MSU_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MSU_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MSU_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MSU_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MLD_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MLD_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MLD_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MLD_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MLD_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MLD_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MBT_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MBT_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MBT_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MBT_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MBT_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MBT_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MBD_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MBD_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MBD_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MBD_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MBD_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MBD_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(MOODYS_FOREIGN_CODE.length()==0 || MOODYS_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("MJB_Foreign_Issuer Rating Code")!=null && fieldsMap.get("MJB_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("WR") ||
+					fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("NR (hyb)") || fieldsMap.get("MJB_Foreign_Issuer Rating Code").equals("WR (hyb)")){
+						MOODYS_FOREIGN_CODE ="NR";
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MJB_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						MOODYS_FOREIGN_CODE = fieldsMap.get("MJB_Foreign_Issuer Rating Code").toString() ;
+						MOODYS_FOREIGN_DATE  = fieldsMap.get("MJB_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+		
+		if(MOODYS_FOREIGN_CODE.equals("")){
+			MOODYS_FOREIGN_CODE ="NR";
+		}
+
+		fieldsCateg.put("MOODYS_FOREIGN_CODE", MOODYS_FOREIGN_CODE );
+		fieldsCateg.put("MOODYS_FOREIGN_DATE", MOODYS_FOREIGN_DATE );
+
+			
+		String FDL_DOMESTIC_CODE ="";
+		String FDL_DOMESTIC_DATE ="";
+
+		if(fieldsMap.get("FDL_Domestic_Issuer Rating Code")!=null && fieldsMap.get("FDL_Domestic_Issuer Rating Code").toString().length()>0 
+				&& !fieldsMap.get("FDL_Domestic_Issuer Rating Code").equals(" ")){
+			if(fieldsMap.get("FDL_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FDL_Domestic_Issuer Rating Code").equals("N.S.") ||  
+				 fieldsMap.get("FDL_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("FDL_Domestic_Issuer Rating Code").equals("WD")){
+					FDL_DOMESTIC_CODE ="NR";
+					FDL_DOMESTIC_DATE  = fieldsMap.get("FDL_Domestic_Issuer Rating Effective Date").toString() ;
+			}else{
+					FDL_DOMESTIC_CODE = fieldsMap.get("FDL_Domestic_Issuer Rating Code").toString() ;
+					FDL_DOMESTIC_DATE  = fieldsMap.get("FDL_Domestic_Issuer Rating Effective Date").toString() ;
+			}
+		}
+
+		if(FDL_DOMESTIC_CODE.length()==0 || FDL_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("FSU_Domestic_Issuer Rating Code")!=null && fieldsMap.get("FSU_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FSU_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FSU_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FSU_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FSU_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("FSU_Domestic_Issuer Rating Code").equals("WD")){
+						FDL_DOMESTIC_CODE ="NR";
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FSU_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_DOMESTIC_CODE = fieldsMap.get("FSU_Domestic_Issuer Rating Code").toString() ;
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FSU_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_DOMESTIC_CODE.length()==0 || FDL_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("FIS_Domestic_Issuer Rating Code")!=null && fieldsMap.get("FIS_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FIS_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FIS_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FIS_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FIS_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("FIS_Domestic_Issuer Rating Code").equals("WD")){
+						FDL_DOMESTIC_CODE ="NR";
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FIS_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_DOMESTIC_CODE = fieldsMap.get("FIS_Domestic_Issuer Rating Code").toString() ;
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FIS_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_DOMESTIC_CODE.length()==0 || FDL_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("FBD_Domestic_Issuer Rating Code")!=null && fieldsMap.get("FBD_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FBD_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FBD_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FBD_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FBD_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("FBD_Domestic_Issuer Rating Code").equals("WD")){
+						FDL_DOMESTIC_CODE ="NR";
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FBD_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_DOMESTIC_CODE = fieldsMap.get("FBD_Domestic_Issuer Rating Code").toString() ;
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FBD_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_DOMESTIC_CODE.length()==0 || FDL_DOMESTIC_CODE.equals("NR") ){
+			if(fieldsMap.get("FJB_Domestic_Issuer Rating Code")!=null && fieldsMap.get("FJB_Domestic_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FJB_Domestic_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FJB_Domestic_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FJB_Domestic_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FJB_Domestic_Issuer Rating Code").equals("NR") || fieldsMap.get("FJB_Domestic_Issuer Rating Code").equals("WD")){
+						FDL_DOMESTIC_CODE ="NR";
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FJB_Domestic_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_DOMESTIC_CODE = fieldsMap.get("FJB_Domestic_Issuer Rating Code").toString() ;
+						FDL_DOMESTIC_DATE  = fieldsMap.get("FJB_Domestic_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+			
+		if(FDL_DOMESTIC_CODE.equals("")){
+			FDL_DOMESTIC_CODE ="NR";
+		}
+			
+		fieldsCateg.put("FITCH_DOMESTIC_CODE", FDL_DOMESTIC_CODE );
+		fieldsCateg.put("FITCH_DOMESTIC_DATE", FDL_DOMESTIC_DATE );
+			
+		String FDL_FOREIGN_CODE ="";
+		String FDL_FOREIGN_DATE ="";
+
+		if(fieldsMap.get("FDL_Foreign_Issuer Rating Code")!=null && fieldsMap.get("FDL_Foreign_Issuer Rating Code").toString().length()>0 
+				&& !fieldsMap.get("FDL_Foreign_Issuer Rating Code").equals(" ")){
+			if(fieldsMap.get("FDL_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FDL_Foreign_Issuer Rating Code").equals("N.S.") ||  
+				 fieldsMap.get("FDL_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("FDL_Foreign_Issuer Rating Code").equals("WD")){
+					FDL_FOREIGN_CODE ="NR";
+					FDL_FOREIGN_DATE  = fieldsMap.get("FDL_Foreign_Issuer Rating Effective Date").toString() ;
+			}else{
+					FDL_FOREIGN_CODE = fieldsMap.get("FDL_Foreign_Issuer Rating Code").toString() ;
+					FDL_FOREIGN_DATE  = fieldsMap.get("FDL_Foreign_Issuer Rating Effective Date").toString() ;
+			}
+		}
+
+		if(FDL_FOREIGN_CODE.length()==0 || FDL_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("FSU_Foreign_Issuer Rating Code")!=null && fieldsMap.get("FSU_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FSU_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FSU_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FSU_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FSU_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("FSU_Foreign_Issuer Rating Code").equals("WD")){
+						FDL_FOREIGN_CODE ="NR";
+						FDL_FOREIGN_DATE  = fieldsMap.get("FSU_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_FOREIGN_CODE = fieldsMap.get("FSU_Foreign_Issuer Rating Code").toString() ;
+						FDL_FOREIGN_DATE  = fieldsMap.get("FSU_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_FOREIGN_CODE.length()==0 || FDL_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("FIS_Foreign_Issuer Rating Code")!=null && fieldsMap.get("FIS_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FIS_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FIS_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FIS_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FIS_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("FIS_Foreign_Issuer Rating Code").equals("WD")){
+						FDL_FOREIGN_CODE ="NR";
+						FDL_FOREIGN_DATE  = fieldsMap.get("FIS_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_FOREIGN_CODE = fieldsMap.get("FIS_Foreign_Issuer Rating Code").toString() ;
+						FDL_FOREIGN_DATE  = fieldsMap.get("FIS_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_FOREIGN_CODE.length()==0 || FDL_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("FBD_Foreign_Issuer Rating Code")!=null && fieldsMap.get("FBD_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FBD_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FBD_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FBD_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FBD_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("FBD_Foreign_Issuer Rating Code").equals("WD")){
+						FDL_FOREIGN_CODE ="NR";
+						FDL_FOREIGN_DATE  = fieldsMap.get("FBD_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_FOREIGN_CODE = fieldsMap.get("FBD_Foreign_Issuer Rating Code").toString() ;
+						FDL_FOREIGN_DATE  = fieldsMap.get("FBD_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}
+
+		if(FDL_FOREIGN_CODE.length()==0 || FDL_FOREIGN_CODE.equals("NR") ){
+			if(fieldsMap.get("FJB_Foreign_Issuer Rating Code")!=null && fieldsMap.get("FJB_Foreign_Issuer Rating Code").toString().length()>0 
+					&& !fieldsMap.get("FJB_Foreign_Issuer Rating Code").equals(" ")){
+				if(fieldsMap.get("FJB_Foreign_Issuer Rating Code").equals("N.A.") || fieldsMap.get("FJB_Foreign_Issuer Rating Code").equals("N.S.") ||  
+					 fieldsMap.get("FJB_Foreign_Issuer Rating Code").equals("NR") || fieldsMap.get("FJB_Foreign_Issuer Rating Code").equals("WD")){
+						FDL_FOREIGN_CODE ="NR";
+						FDL_FOREIGN_DATE  = fieldsMap.get("FJB_Foreign_Issuer Rating Effective Date").toString() ;
+				}else{
+						FDL_FOREIGN_CODE = fieldsMap.get("FJB_Foreign_Issuer Rating Code").toString() ;
+						FDL_FOREIGN_DATE  = fieldsMap.get("FJB_Foreign_Issuer Rating Effective Date").toString() ;
+				}
+			}
+		}	
+			
+			if(FDL_FOREIGN_CODE.equals("")){
+				FDL_FOREIGN_CODE ="NR";
+			}
+		
+		fieldsCateg.put("FITCH_FOREIGN_CODE", FDL_FOREIGN_CODE );
+		fieldsCateg.put("FITCH_FOREIGN_DATE", FDL_FOREIGN_DATE );
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="505" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="506">variables["fieldsCateg"]</name>
+<stringValue id="507">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="508" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="509">variables["fieldsMap"]</name>
+<stringValue id="510">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="511" type="java.util.HashSet">
+<item idref="496"/>
+</sources>
+<targets id="512" type="java.util.HashSet">
+<item id="513" type="com.j2fe.workflow.definition.Transition">
+<name id="514">goto-next</name>
+<source idref="498"/>
+<target id="515">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="516">Refinitiv_Ratings_oids</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="517">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="518" type="java.util.HashSet">
+<item id="519" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="520">["fieldsCateg"]@java/util/Map@</UITypeHint>
+<input>true</input>
+<name id="521">input["fieldsCateg"]</name>
+<stringValue id="522">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="523" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="524">["fieldsMap"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="525">input["fieldsMap"]</name>
+<stringValue id="526">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="527" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="528">name</name>
+<stringValue id="529">Refinitiv_Ratings_oids</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="530" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="531">["OK"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="532">output["OK"]</name>
+<stringValue id="533">OK</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="534" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="535">["OUTMSG"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="536">output["OUTMSG"]</name>
+<stringValue id="537">OUTMSG</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="538" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="539">["fieldsCateg"]@java/util/Map@</UITypeHint>
+<input>false</input>
+<name id="540">output["fieldsCateg"]</name>
+<stringValue id="541">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="542" type="java.util.HashSet">
+<item idref="513"/>
+</sources>
+<targets id="543" type="java.util.HashSet">
+<item id="544" type="com.j2fe.workflow.definition.Transition">
+<name id="545">goto-next</name>
+<source idref="515"/>
+<target id="546">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="547">OK</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="548">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="549" type="java.util.HashSet">
+<item id="550" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="551">caseItem</name>
+<stringValue id="552">OK</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="553" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="554">defaultItem</name>
+<stringValue id="555">N</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="556" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="557">nullTransition</name>
+<stringValue id="558">N</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="559" type="java.util.HashSet">
+<item idref="544"/>
+</sources>
+<targets id="560" type="java.util.HashSet">
+<item id="561" type="com.j2fe.workflow.definition.Transition">
+<name id="562">N</name>
+<source idref="546"/>
+<target id="563">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="564">set Error XML</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="565">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="566" type="java.util.HashSet">
+<item id="567" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="568">statements</name>
+<objectValue id="569" type="java.lang.String"><![CDATA[import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Date date = Calendar.getInstance().getTime();
+SimpleDateFormat date2 = new SimpleDateFormat("dd-MM-yyyy  HH.mm.ss");
+
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ_RATINGS><REF_ID_R>" + VREQ_OID + 
+"</REF_ID_R><REF_STATUS_R>FAILED</REF_STATUS_R><REF_DATE_R>"+ date2.format(date) +"</REF_DATE_R><REF_MSG_R>"+errorMessage +"</REF_MSG_R>" +
+"<SPI_DOMESTIC_CODE></SPI_DOMESTIC_CODE>"+
+"<SPI_DOMESTIC_DATE></SPI_DOMESTIC_DATE>"+
+"<SPI_DOMESTIC_OID></SPI_DOMESTIC_OID>"+
+"<SPI_DOMESTIC_VAL></SPI_DOMESTIC_VAL>"+
+"<SPI_FOREIGN_CODE></SPI_FOREIGN_CODE>"+
+"<SPI_FOREIGN_DATE></SPI_FOREIGN_DATE>"+
+"<SPI_FOREIGN_OID></SPI_FOREIGN_OID>"+
+"<SPI_FOREIGN_VAL></SPI_FOREIGN_VAL>"+
+"<MCD_DOMESTIC_CODE></MCD_DOMESTIC_CODE>"+
+"<MCD_DOMESTIC_DATE></MCD_DOMESTIC_DATE>"+
+"<MCD_DOMESTIC_OID></MCD_DOMESTIC_OID>"+
+"<MCD_DOMESTIC_VAL></MCD_DOMESTIC_VAL>"+
+"<MCD_FOREIGN_CODE></MCD_FOREIGN_CODE>"+
+"<MCD_FOREIGN_DATE></MCD_FOREIGN_DATE>"+
+"<MCD_FOREIGN_OID></MCD_FOREIGN_OID>"+
+"<MCD_FOREIGN_VAL></MCD_FOREIGN_VAL>"+
+"<MIS_DOMESTIC_CODE></MIS_DOMESTIC_CODE>"+
+"<MIS_DOMESTIC_DATE></MIS_DOMESTIC_DATE>"+
+"<MIS_DOMESTIC_OID></MIS_DOMESTIC_OID>"+
+"<MIS_DOMESTIC_VAL></MIS_DOMESTIC_VAL>"+
+"<MIS_FOREIGN_CODE></MIS_FOREIGN_CODE>"+
+"<MIS_FOREIGN_DATE></MIS_FOREIGN_DATE>"+
+"<MIS_FOREIGN_OID></MIS_FOREIGN_OID>"+
+"<MIS_FOREIGN_VAL></MIS_FOREIGN_VAL>"+
+"<MSU_DOMESTIC_CODE></MSU_DOMESTIC_CODE>"+
+"<MSU_DOMESTIC_DATE></MSU_DOMESTIC_DATE>"+
+"<MSU_DOMESTIC_OID></MSU_DOMESTIC_OID>"+
+"<MSU_DOMESTIC_VAL></MSU_DOMESTIC_VAL>"+
+"<MSU_FOREIGN_CODE></MSU_FOREIGN_CODE>"+
+"<MSU_FOREIGN_DATE></MSU_FOREIGN_DATE>"+
+"<MSU_FOREIGN_OID></MSU_FOREIGN_OID>"+
+"<MSU_FOREIGN_VAL></MSU_FOREIGN_VAL>"+
+"<MLD_DOMESTIC_CODE></MLD_DOMESTIC_CODE>"+
+"<MLD_DOMESTIC_DATE></MLD_DOMESTIC_DATE>"+
+"<MLD_DOMESTIC_OID></MLD_DOMESTIC_OID>"+
+"<MLD_DOMESTIC_VAL></MLD_DOMESTIC_VAL>"+
+"<MLD_FOREIGN_CODE></MLD_FOREIGN_CODE>"+
+"<MLD_FOREIGN_DATE></MLD_FOREIGN_DATE>"+
+"<MLD_FOREIGN_OID></MLD_FOREIGN_OID>"+
+"<MLD_FOREIGN_VAL></MLD_FOREIGN_VAL>"+
+"<MBT_DOMESTIC_CODE></MBT_DOMESTIC_CODE>"+
+"<MBT_DOMESTIC_DATE></MBT_DOMESTIC_DATE>"+
+"<MBT_DOMESTIC_OID></MBT_DOMESTIC_OID>"+
+"<MBT_DOMESTIC_VAL></MBT_DOMESTIC_VAL>"+
+"<MBT_FOREIGN_CODE></MBT_FOREIGN_CODE>"+
+"<MBT_FOREIGN_DATE></MBT_FOREIGN_DATE>"+
+"<MBT_FOREIGN_OID></MBT_FOREIGN_OID>"+
+"<MBT_FOREIGN_VAL></MBT_FOREIGN_VAL>"+
+"<MBD_DOMESTIC_CODE></MBD_DOMESTIC_CODE>"+
+"<MBD_DOMESTIC_DATE></MBD_DOMESTIC_DATE>"+
+"<MBD_DOMESTIC_OID></MBD_DOMESTIC_OID>"+
+"<MBD_DOMESTIC_VAL></MBD_DOMESTIC_VAL>"+
+"<MBD_FOREIGN_CODE></MBD_FOREIGN_CODE>"+
+"<MBD_FOREIGN_DATE></MBD_FOREIGN_DATE>"+
+"<MBD_FOREIGN_OID></MBD_FOREIGN_OID>"+
+"<MBD_FOREIGN_VAL></MBD_FOREIGN_VAL>"+
+"<MJB_DOMESTIC_CODE></MJB_DOMESTIC_CODE>"+
+"<MJB_DOMESTIC_DATE></MJB_DOMESTIC_DATE>"+
+"<MJB_DOMESTIC_OID></MJB_DOMESTIC_OID>"+
+"<MJB_DOMESTIC_VAL></MJB_DOMESTIC_VAL>"+
+"<MJB_FOREIGN_CODE></MJB_FOREIGN_CODE>"+
+"<MJB_FOREIGN_DATE></MJB_FOREIGN_DATE>"+
+"<MJB_FOREIGN_OID></MJB_FOREIGN_OID>"+
+"<MJB_FOREIGN_VAL></MJB_FOREIGN_VAL>"+
+"<FDL_DOMESTIC_CODE></FDL_DOMESTIC_CODE>"+
+"<FDL_DOMESTIC_DATE></FDL_DOMESTIC_DATE>"+
+"<FDL_DOMESTIC_OID></FDL_DOMESTIC_OID>"+
+"<FDL_DOMESTIC_VAL></FDL_DOMESTIC_VAL>"+
+"<FDL_FOREIGN_CODE></FDL_FOREIGN_CODE>"+
+"<FDL_FOREIGN_DATE></FDL_FOREIGN_DATE>"+
+"<FDL_FOREIGN_OID></FDL_FOREIGN_OID>"+
+"<FDL_FOREIGN_VAL></FDL_FOREIGN_VAL>"+
+"<FSU_DOMESTIC_CODE></FSU_DOMESTIC_CODE>"+
+"<FSU_DOMESTIC_DATE></FSU_DOMESTIC_DATE>"+
+"<FSU_DOMESTIC_OID></FSU_DOMESTIC_OID>"+
+"<FSU_DOMESTIC_VAL></FSU_DOMESTIC_VAL>"+
+"<FSU_FOREIGN_CODE></FSU_FOREIGN_CODE>"+
+"<FSU_FOREIGN_DATE></FSU_FOREIGN_DATE>"+
+"<FSU_FOREIGN_OID></FSU_FOREIGN_OID>"+
+"<FSU_FOREIGN_VAL></FSU_FOREIGN_VAL>"+
+"<FIS_DOMESTIC_CODE></FIS_DOMESTIC_CODE>"+
+"<FIS_DOMESTIC_DATE></FIS_DOMESTIC_DATE>"+
+"<FIS_DOMESTIC_OID></FIS_DOMESTIC_OID>"+
+"<FIS_DOMESTIC_VAL></FIS_DOMESTIC_VAL>"+
+"<FIS_FOREIGN_CODE></FIS_FOREIGN_CODE>"+
+"<FIS_FOREIGN_DATE></FIS_FOREIGN_DATE>"+
+"<FIS_FOREIGN_OID></FIS_FOREIGN_OID>"+
+"<FIS_FOREIGN_VAL></FIS_FOREIGN_VAL>"+
+"<FBD_DOMESTIC_CODE></FBD_DOMESTIC_CODE>"+
+"<FBD_DOMESTIC_DATE></FBD_DOMESTIC_DATE>"+
+"<FBD_DOMESTIC_OID></FBD_DOMESTIC_OID>"+
+"<FBD_DOMESTIC_VAL></FBD_DOMESTIC_VAL>"+
+"<FBD_FOREIGN_CODE></FBD_FOREIGN_CODE>"+
+"<FBD_FOREIGN_DATE></FBD_FOREIGN_DATE>"+
+"<FBD_FOREIGN_OID></FBD_FOREIGN_OID>"+
+"<FBD_FOREIGN_VAL></FBD_FOREIGN_VAL>"+
+"<FJB_DOMESTIC_CODE></FJB_DOMESTIC_CODE>"+
+"<FJB_DOMESTIC_DATE></FJB_DOMESTIC_DATE>"+
+"<FJB_DOMESTIC_OID></FJB_DOMESTIC_OID>"+
+"<FJB_DOMESTIC_VAL></FJB_DOMESTIC_VAL>"+
+"<FJB_FOREIGN_CODE></FJB_FOREIGN_CODE>"+
+"<FJB_FOREIGN_DATE></FJB_FOREIGN_DATE>"+
+"<FJB_FOREIGN_OID></FJB_FOREIGN_OID>"+
+"<FJB_FOREIGN_VAL></FJB_FOREIGN_VAL>"+
+"<RFNT_SP_OID_L></RFNT_SP_OID_L>"+
+"<RFNT_SP_OID_F></RFNT_SP_OID_F>"+
+"<RFNT_MO_OID_L></RFNT_MO_OID_L>"+
+"<RFNT_MO_OID_F></RFNT_MO_OID_F>"+
+"<RFNT_FI_OID_L></RFNT_FI_OID_L>"+
+"<RFNT_FI_OID_F></RFNT_FI_OID_F>"+
+"<OFFI_SP_OID_L></OFFI_SP_OID_L>"+
+"<OFFI_SP_OID_F></OFFI_SP_OID_F>"+
+"<OFFI_MO_OID_L></OFFI_MO_OID_L>"+
+"<OFFI_MO_OID_F></OFFI_MO_OID_F>"+
+"<OFFI_FI_OID_L></OFFI_FI_OID_L>"+
+"<OFFI_FI_OID_F></OFFI_FI_OID_F>"+
+"<RFNT_SP_CDE_L></RFNT_SP_CDE_L>"+
+"<RFNT_SP_CDE_F></RFNT_SP_CDE_F>"+
+"<RFNT_MO_CDE_L></RFNT_MO_CDE_L>"+
+"<RFNT_MO_CDE_F></RFNT_MO_CDE_F>"+
+"<RFNT_FI_CDE_L></RFNT_FI_CDE_L>"+
+"<RFNT_FI_CDE_F></RFNT_FI_CDE_F>"+
+"<OFFI_SP_CDE_L></OFFI_SP_CDE_L>"+
+"<OFFI_SP_CDE_F></OFFI_SP_CDE_F>"+
+"<OFFI_MO_CDE_L></OFFI_MO_CDE_L>"+
+"<OFFI_MO_CDE_F></OFFI_MO_CDE_F>"+
+"<OFFI_FI_CDE_L></OFFI_FI_CDE_L>"+
+"<OFFI_FI_CDE_F></OFFI_FI_CDE_F>"+
+"<RFNT_SP_VAL_L></RFNT_SP_VAL_L>"+
+"<RFNT_SP_VAL_F></RFNT_SP_VAL_F>"+
+"<RFNT_MO_VAL_L></RFNT_MO_VAL_L>"+
+"<RFNT_MO_VAL_F></RFNT_MO_VAL_F>"+
+"<RFNT_FI_VAL_L></RFNT_FI_VAL_L>"+
+"<RFNT_FI_VAL_F></RFNT_FI_VAL_F>"+
+"<OFFI_SP_VAL_L></OFFI_SP_VAL_L>"+
+"<OFFI_SP_VAL_F></OFFI_SP_VAL_F>"+
+"<OFFI_MO_VAL_L></OFFI_MO_VAL_L>"+
+"<OFFI_MO_VAL_F></OFFI_MO_VAL_F>"+
+"<OFFI_FI_VAL_L></OFFI_FI_VAL_L>"+
+"<OFFI_FI_VAL_F></OFFI_FI_VAL_F>"+
+"<OFFI_SP_DAT_L></OFFI_SP_DAT_L>"+
+"<OFFI_SP_DAT_F></OFFI_SP_DAT_F>"+
+"<OFFI_MO_DAT_L></OFFI_MO_DAT_L>"+
+"<OFFI_MO_DAT_F></OFFI_MO_DAT_F>"+
+"<OFFI_FI_DAT_L></OFFI_FI_DAT_L>"+
+"<OFFI_FI_DAT_F></OFFI_FI_DAT_F>"+
+"<OFFI_SP_STAT_L></OFFI_SP_STAT_L>"+
+"<OFFI_SP_STAT_F></OFFI_SP_STAT_F>"+
+"<OFFI_MO_STAT_L></OFFI_MO_STAT_L>"+
+"<OFFI_MO_STAT_F></OFFI_MO_STAT_F>"+
+"<OFFI_FI_STAT_L></OFFI_FI_STAT_L>"+
+"<OFFI_FI_STAT_F></OFFI_FI_STAT_F>"+
+"</REFINITIV_REQ_RATINGS>";
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="570" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="571">["OUTPUT"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="572">variables["OUTPUT"]</name>
+<stringValue id="573">OUTPUT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="574" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="575">variables["VREQ_OID"]</name>
+<stringValue id="576">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="577" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="578">variables["errorMessage"]</name>
+<stringValue id="579">OUTMSG</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="580" type="java.util.HashSet">
+<item idref="561"/>
+</sources>
+<targets id="581" type="java.util.HashSet">
+<item id="582" type="com.j2fe.workflow.definition.Transition">
+<name id="583">goto-next</name>
+<source idref="563"/>
+<target id="584">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="585">Grabar-VREQ_VRPM</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="586">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="587" type="java.util.HashSet">
+<item id="588" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="589">["KEY_ID"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="590">input["KEY_ID"]</name>
+<stringValue id="591">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="592" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="593">["cad"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="594">input["cad"]</name>
+<stringValue id="595">OUTPUT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="596" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="597">["vreqOid"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="598">input["vreqOid"]</name>
+<stringValue id="599">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="600" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="601">name</name>
+<stringValue id="602">Grabar-VREQ_VRPM</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="603" type="java.util.HashSet">
+<item id="604" type="com.j2fe.workflow.definition.Transition">
+<name id="605">goto-next</name>
+<source id="606">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="607">Set Output Ratings</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="608">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="609" type="java.util.HashSet">
+<item id="610" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="611">statements</name>
+<objectValue id="612" type="java.lang.String"><![CDATA[import org.apache.log4j.Logger;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Date date = Calendar.getInstance().getTime();
+SimpleDateFormat date2 = new SimpleDateFormat("dd-MM-yyyy  HH.mm.ss");
+
+Logger logger = Logger.getLogger("Refinitiv_Request_Ratings");
+
+if (fieldsMap.get("Request Status").equals("OK"))
+{
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ_RATINGS><REF_ID_R>" + VREQ_OID + 
+"</REF_ID_R><REF_STATUS_R>PROCESSED</REF_STATUS_R><REF_DATE_R>"+ date2.format(date) +"</REF_DATE_R><REF_MSG_R>The request has been correctly processed.</REF_MSG_R>" ;
+if(fieldsMap.get("SPI_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("SPI_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<SPI_DOMESTIC_CODE>"+fieldsMap.get("SPI_Domestic_Issuer Rating Code").toString()+"</SPI_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("SPI_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("SPI_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<SPI_DOMESTIC_DATE>"+fieldsMap.get("SPI_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</SPI_DOMESTIC_DATE>";
+}
+if(fieldsMap.get("SPI_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("SPI_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<SPI_DOMESTIC_OID>"+fieldsCateg.get("RFSPLTIL_OID").toString()+"</SPI_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFSPLTIL_VAL")!=null &&
+fieldsCateg.get("RFSPLTIL_VAL").length()>0){
+OUTPUT+="<SPI_DOMESTIC_VAL>"+fieldsCateg.get("RFSPLTIL_VAL").toString()+"</SPI_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("SPI_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("SPI_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<SPI_FOREIGN_CODE>"+fieldsMap.get("SPI_Foreign_Issuer Rating Code").toString()+"</SPI_FOREIGN_CODE>";
+}
+if(fieldsMap.get("SPI_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("SPI_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<SPI_FOREIGN_DATE>"+fieldsMap.get("SPI_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</SPI_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFSPLTIF_OID")!=null &&
+fieldsCateg.get("RFSPLTIF_OID").length()>0){
+OUTPUT+="<SPI_FOREIGN_OID>"+fieldsCateg.get("RFSPLTIF_OID").toString()+"</SPI_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFSPLTIF_VAL")!=null &&
+fieldsCateg.get("RFSPLTIF_VAL").length()>0){
+OUTPUT+="<SPI_FOREIGN_VAL>"+fieldsCateg.get("RFSPLTIF_VAL").toString()+"</SPI_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MCD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MCD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MCD_DOMESTIC_CODE>"+fieldsMap.get("MCD_Domestic_Issuer Rating Code").toString()+"</MCD_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MCD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MCD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MCD_DOMESTIC_DATE>"+fieldsMap.get("MCD_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MCD_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOLTBL_OID")!=null &&
+fieldsCateg.get("RFMOLTBL_OID").length()>0){
+OUTPUT+="<MCD_DOMESTIC_OID>"+fieldsCateg.get("RFMOLTBL_OID").toString()+"</MCD_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOLTBL_VAL")!=null &&
+fieldsCateg.get("RFMOLTBL_VAL").length()>0){
+OUTPUT+="<MCD_DOMESTIC_VAL>"+fieldsCateg.get("RFMOLTBL_VAL").toString()+"</MCD_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MCD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MCD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MCD_FOREIGN_CODE>"+fieldsMap.get("MCD_Foreign_Issuer Rating Code").toString()+"</MCD_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MCD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MCD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MCD_FOREIGN_DATE>"+fieldsMap.get("MCD_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MCD_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOLTBF_OID")!=null &&
+fieldsCateg.get("RFMOLTBF_OID").length()>0){
+OUTPUT+="<MCD_FOREIGN_OID>"+fieldsCateg.get("RFMOLTBF_OID").toString()+"</MCD_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOLTBF_VAL")!=null &&
+fieldsCateg.get("RFMOLTBF_VAL").length()>0){
+OUTPUT+="<MCD_FOREIGN_VAL>"+fieldsCateg.get("RFMOLTBF_VAL").toString()+"</MCD_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MIS_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MIS_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MIS_DOMESTIC_CODE>"+fieldsMap.get("MIS_Domestic_Issuer Rating Code").toString()+"</MIS_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MIS_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MIS_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MIS_DOMESTIC_DATE>"+fieldsMap.get("MIS_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MIS_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOLTIL_OID")!=null &&
+fieldsCateg.get("RFMOLTIL_OID").length()>0){
+OUTPUT+="<MIS_DOMESTIC_OID>"+fieldsCateg.get("RFMOLTIL_OID").toString()+"</MIS_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOLTIL_VAL")!=null &&
+fieldsCateg.get("RFMOLTIL_VAL").length()>0){
+OUTPUT+="<MIS_DOMESTIC_VAL>"+fieldsCateg.get("RFMOLTIL_VAL").toString()+"</MIS_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MIS_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MIS_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MIS_FOREIGN_CODE>"+fieldsMap.get("MIS_Foreign_Issuer Rating Code").toString()+"</MIS_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MIS_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MIS_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MIS_FOREIGN_DATE>"+fieldsMap.get("MIS_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MIS_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOLTIF_OID")!=null &&
+fieldsCateg.get("RFMOLTIF_OID").length()>0){
+OUTPUT+="<MIS_FOREIGN_OID>"+fieldsCateg.get("RFMOLTIF_OID").toString()+"</MIS_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOLTIF_VAL")!=null &&
+fieldsCateg.get("RFMOLTIF_VAL").length()>0){
+OUTPUT+="<MIS_FOREIGN_VAL>"+fieldsCateg.get("RFMOLTIF_VAL").toString()+"</MIS_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MSU_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MSU_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MSU_DOMESTIC_CODE>"+fieldsMap.get("MSU_Domestic_Issuer Rating Code").toString()+"</MSU_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MSU_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MSU_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MSU_DOMESTIC_DATE>"+fieldsMap.get("MSU_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MSU_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOSULO_OID")!=null &&
+fieldsCateg.get("RFMOSULO_OID").length()>0){
+OUTPUT+="<MSU_DOMESTIC_OID>"+fieldsCateg.get("RFMOSULO_OID").toString()+"</MSU_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOSULO_VAL")!=null &&
+fieldsCateg.get("RFMOSULO_VAL").length()>0){
+OUTPUT+="<MSU_DOMESTIC_VAL>"+fieldsCateg.get("RFMOSULO_VAL").toString()+"</MSU_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MSU_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MSU_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MSU_FOREIGN_CODE>"+fieldsMap.get("MSU_Foreign_Issuer Rating Code").toString()+"</MSU_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MSU_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MSU_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MSU_FOREIGN_DATE>"+fieldsMap.get("MSU_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MSU_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOSUFO_OID")!=null &&
+fieldsCateg.get("RFMOSUFO_OID").length()>0){
+OUTPUT+="<MSU_FOREIGN_OID>"+fieldsCateg.get("RFMOSUFO_OID").toString()+"</MSU_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOSUFO_VAL")!=null &&
+fieldsCateg.get("RFMOSUFO_VAL").length()>0){
+OUTPUT+="<MSU_FOREIGN_VAL>"+fieldsCateg.get("RFMOSUFO_VAL").toString()+"</MSU_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MLD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MLD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MLD_DOMESTIC_CODE>"+fieldsMap.get("MLD_Domestic_Issuer Rating Code").toString()+"</MLD_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MLD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MLD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MLD_DOMESTIC_DATE>"+fieldsMap.get("MLD_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MLD_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOLTDL_OID")!=null &&
+fieldsCateg.get("RFMOLTDL_OID").length()>0){
+OUTPUT+="<MLD_DOMESTIC_OID>"+fieldsCateg.get("RFMOLTDL_OID").toString()+"</MLD_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOLTDL_VAL")!=null &&
+fieldsCateg.get("RFMOLTDL_VAL").length()>0){
+OUTPUT+="<MLD_DOMESTIC_VAL>"+fieldsCateg.get("RFMOLTDL_VAL").toString()+"</MLD_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MLD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MLD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MLD_FOREIGN_CODE>"+fieldsMap.get("MLD_Foreign_Issuer Rating Code").toString()+"</MLD_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MLD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MLD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MLD_FOREIGN_DATE>"+fieldsMap.get("MLD_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MLD_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOLTDF_OID")!=null &&
+fieldsCateg.get("RFMOLTDF_OID").length()>0){
+OUTPUT+="<MLD_FOREIGN_OID>"+fieldsCateg.get("RFMOLTDF_OID").toString()+"</MLD_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOLTDF_VAL")!=null &&
+fieldsCateg.get("RFMOLTDF_VAL").length()>0){
+OUTPUT+="<MLD_FOREIGN_VAL>"+fieldsCateg.get("RFMOLTDF_VAL").toString()+"</MLD_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MBT_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MBT_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MBT_DOMESTIC_CODE>"+fieldsMap.get("MBT_Domestic_Issuer Rating Code").toString()+"</MBT_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MBT_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MBT_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MBT_DOMESTIC_DATE>"+fieldsMap.get("MBT_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MBT_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOBLBL_OID")!=null &&
+fieldsCateg.get("RFMOBLBL_OID").length()>0){
+OUTPUT+="<MBT_DOMESTIC_OID>"+fieldsCateg.get("RFMOBLBL_OID").toString()+"</MBT_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOBLBL_VAL")!=null &&
+fieldsCateg.get("RFMOBLBL_VAL").length()>0){
+OUTPUT+="<MBT_DOMESTIC_VAL>"+fieldsCateg.get("RFMOBLBL_VAL").toString()+"</MBT_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MBT_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MBT_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MBT_FOREIGN_CODE>"+fieldsMap.get("MBT_Foreign_Issuer Rating Code").toString()+"</MBT_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MBT_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MBT_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MBT_FOREIGN_DATE>"+fieldsMap.get("MBT_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MBT_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOBLBF_OID")!=null &&
+fieldsCateg.get("RFMOBLBF_OID").length()>0){
+OUTPUT+="<MBT_FOREIGN_OID>"+fieldsCateg.get("RFMOBLBF_OID").toString()+"</MBT_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOBLBF_VAL")!=null &&
+fieldsCateg.get("RFMOBLBF_VAL").length()>0){
+OUTPUT+="<MBT_FOREIGN_VAL>"+fieldsCateg.get("RFMOBLBF_VAL").toString()+"</MBT_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MBD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MBD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MBD_DOMESTIC_CODE>"+fieldsMap.get("MBD_Domestic_Issuer Rating Code").toString()+"</MBD_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MBD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MBD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MBD_DOMESTIC_DATE>"+fieldsMap.get("MBD_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MBD_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOSBLO_OID")!=null &&
+fieldsCateg.get("RFMOSBLO_OID").length()>0){
+OUTPUT+="<MBD_DOMESTIC_OID>"+fieldsCateg.get("RFMOSBLO_OID").toString()+"</MBD_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOSBLO_VAL")!=null &&
+fieldsCateg.get("RFMOSBLO_VAL").length()>0){
+OUTPUT+="<MBD_DOMESTIC_VAL>"+fieldsCateg.get("RFMOSBLO_VAL").toString()+"</MBD_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MBD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MBD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MBD_FOREIGN_CODE>"+fieldsMap.get("MBD_Foreign_Issuer Rating Code").toString()+"</MBD_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MBD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MBD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MBD_FOREIGN_DATE>"+fieldsMap.get("MBD_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MBD_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOSBFO_OID")!=null &&
+fieldsCateg.get("RFMOSBFO_OID").length()>0){
+OUTPUT+="<MBD_FOREIGN_OID>"+fieldsCateg.get("RFMOSBFO_OID").toString()+"</MBD_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOSBFO_VAL")!=null &&
+fieldsCateg.get("RFMOSBFO_VAL").length()>0){
+OUTPUT+="<MBD_FOREIGN_VAL>"+fieldsCateg.get("RFMOSBFO_VAL").toString()+"</MBD_FOREIGN_VAL>";
+}
+if(fieldsMap.get("MJB_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MJB_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MJB_DOMESTIC_CODE>"+fieldsMap.get("MJB_Domestic_Issuer Rating Code").toString()+"</MJB_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("MJB_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("MJB_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<MJB_DOMESTIC_DATE>"+fieldsMap.get("MJB_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MJB_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFMOJSLO_OID")!=null &&
+fieldsCateg.get("RFMOJSLO_OID").length()>0){
+OUTPUT+="<MJB_DOMESTIC_OID>"+fieldsCateg.get("RFMOJSLO_OID").toString()+"</MJB_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFMOJSLO_VAL")!=null &&
+fieldsCateg.get("RFMOJSLO_VAL").length()>0){
+OUTPUT+="<MJB_DOMESTIC_VAL>"+fieldsCateg.get("RFMOJSLO_VAL").toString()+"</MJB_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("MJB_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MJB_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MJB_FOREIGN_CODE>"+fieldsMap.get("MJB_Foreign_Issuer Rating Code").toString()+"</MJB_FOREIGN_CODE>";
+}
+if(fieldsMap.get("MJB_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("MJB_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<MJB_FOREIGN_DATE>"+fieldsMap.get("MJB_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</MJB_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFMOJSFO_OID")!=null &&
+fieldsCateg.get("RFMOJSFO_OID").length()>0){
+OUTPUT+="<MJB_FOREIGN_OID>"+fieldsCateg.get("RFMOJSFO_OID").toString()+"</MJB_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFMOJSFO_VAL")!=null &&
+fieldsCateg.get("RFMOJSFO_VAL").length()>0){
+OUTPUT+="<MJB_FOREIGN_VAL>"+fieldsCateg.get("RFMOJSFO_VAL").toString()+"</MJB_FOREIGN_VAL>";
+}
+if(fieldsMap.get("FDL_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FDL_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FDL_DOMESTIC_CODE>"+fieldsMap.get("FDL_Domestic_Issuer Rating Code").toString()+"</FDL_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("FDL_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FDL_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FDL_DOMESTIC_DATE>"+fieldsMap.get("FDL_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FDL_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFFILTDL_OID")!=null &&
+fieldsCateg.get("RFFILTDL_OID").length()>0){
+OUTPUT+="<FDL_DOMESTIC_OID>"+fieldsCateg.get("RFFILTDL_OID").toString()+"</FDL_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFFILTDL_VAL")!=null &&
+fieldsCateg.get("RFFILTDL_VAL").length()>0){
+OUTPUT+="<FDL_DOMESTIC_VAL>"+fieldsCateg.get("RFFILTDL_VAL").toString()+"</FDL_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("FDL_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FDL_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FDL_FOREIGN_CODE>"+fieldsMap.get("FDL_Foreign_Issuer Rating Code").toString()+"</FDL_FOREIGN_CODE>";
+}
+if(fieldsMap.get("FDL_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FDL_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FDL_FOREIGN_DATE>"+fieldsMap.get("FDL_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FDL_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFFILTDF_OID")!=null &&
+fieldsCateg.get("RFFILTDF_OID").length()>0){
+OUTPUT+="<FDL_FOREIGN_OID>"+fieldsCateg.get("RFFILTDF_OID").toString()+"</FDL_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFFILTDF_VAL")!=null &&
+fieldsCateg.get("RFFILTDF_VAL").length()>0){
+OUTPUT+="<FDL_FOREIGN_VAL>"+fieldsCateg.get("RFFILTDF_VAL").toString()+"</FDL_FOREIGN_VAL>";
+}
+if(fieldsMap.get("FSU_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FSU_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FSU_DOMESTIC_CODE>"+fieldsMap.get("FSU_Domestic_Issuer Rating Code").toString()+"</FSU_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("FSU_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FSU_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FSU_DOMESTIC_DATE>"+fieldsMap.get("FSU_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FSU_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFFISULO_OID")!=null &&
+fieldsCateg.get("RFFISULO_OID").length()>0){
+OUTPUT+="<FSU_DOMESTIC_OID>"+fieldsCateg.get("RFFISULO_OID").toString()+"</FSU_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFFISULO_VAL")!=null &&
+fieldsCateg.get("RFFISULO_VAL").length()>0){
+OUTPUT+="<FSU_DOMESTIC_VAL>"+fieldsCateg.get("RFFISULO_VAL").toString()+"</FSU_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("FSU_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FSU_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FSU_FOREIGN_CODE>"+fieldsMap.get("FSU_Foreign_Issuer Rating Code").toString()+"</FSU_FOREIGN_CODE>";
+}
+if(fieldsMap.get("FSU_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FSU_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FSU_FOREIGN_DATE>"+fieldsMap.get("FSU_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FSU_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFFISUFO_OID")!=null &&
+fieldsCateg.get("RFFISUFO_OID").length()>0){
+OUTPUT+="<FSU_FOREIGN_OID>"+fieldsCateg.get("RFFISUFO_OID").toString()+"</FSU_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFFISUFO_VAL")!=null &&
+fieldsCateg.get("RFFISUFO_VAL").length()>0){
+OUTPUT+="<FSU_FOREIGN_VAL>"+fieldsCateg.get("RFFISUFO_VAL").toString()+"</FSU_FOREIGN_VAL>";
+}
+if(fieldsMap.get("FIS_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FIS_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FIS_DOMESTIC_CODE>"+fieldsMap.get("FIS_Domestic_Issuer Rating Code").toString()+"</FIS_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("FIS_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FIS_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FIS_DOMESTIC_DATE>"+fieldsMap.get("FIS_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FIS_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFFILTIL_OID")!=null &&
+fieldsCateg.get("RFFILTIL_OID").length()>0){
+OUTPUT+="<FIS_DOMESTIC_OID>"+fieldsCateg.get("RFFILTIL_OID").toString()+"</FIS_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFFILTIL_VAL")!=null &&
+fieldsCateg.get("RFFILTIL_VAL").length()>0){
+OUTPUT+="<FIS_DOMESTIC_VAL>"+fieldsCateg.get("RFFILTIL_VAL").toString()+"</FIS_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("FIS_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FIS_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FIS_FOREIGN_CODE>"+fieldsMap.get("FIS_Foreign_Issuer Rating Code").toString()+"</FIS_FOREIGN_CODE>";
+}
+if(fieldsMap.get("FIS_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FIS_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FIS_FOREIGN_DATE>"+fieldsMap.get("FIS_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FIS_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFFILTIF_OID")!=null &&
+fieldsCateg.get("RFFILTIF_OID").length()>0){
+OUTPUT+="<FIS_FOREIGN_OID>"+fieldsCateg.get("RFFILTIF_OID").toString()+"</FIS_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFFILTIF_VAL")!=null &&
+fieldsCateg.get("RFFILTIF_VAL").length()>0){
+OUTPUT+="<FIS_FOREIGN_VAL>"+fieldsCateg.get("RFFILTIF_VAL").toString()+"</FIS_FOREIGN_VAL>";
+}
+if(fieldsMap.get("FBD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FBD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FBD_DOMESTIC_CODE>"+fieldsMap.get("FBD_Domestic_Issuer Rating Code").toString()+"</FBD_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("FBD_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FBD_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FBD_DOMESTIC_DATE>"+fieldsMap.get("FBD_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FBD_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFFISBLO_OID")!=null &&
+fieldsCateg.get("RFFISBLO_OID").length()>0){
+OUTPUT+="<FBD_DOMESTIC_OID>"+fieldsCateg.get("RFFISBLO_OID").toString()+"</FBD_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFFISBLO_VAL")!=null &&
+fieldsCateg.get("RFFISBLO_VAL").length()>0){
+OUTPUT+="<FBD_DOMESTIC_VAL>"+fieldsCateg.get("RFFISBLO_VAL").toString()+"</FBD_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("FBD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FBD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FBD_FOREIGN_CODE>"+fieldsMap.get("FBD_Foreign_Issuer Rating Code").toString()+"</FBD_FOREIGN_CODE>";
+}
+if(fieldsMap.get("FBD_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FBD_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FBD_FOREIGN_DATE>"+fieldsMap.get("FBD_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FBD_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFFISBFO_OID")!=null &&
+fieldsCateg.get("RFFISBFO_OID").length()>0){
+OUTPUT+="<FBD_FOREIGN_OID>"+fieldsCateg.get("RFFISBFO_OID").toString()+"</FBD_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFFISBFO_VAL")!=null &&
+fieldsCateg.get("RFFISBFO_VAL").length()>0){
+OUTPUT+="<FBD_FOREIGN_VAL>"+fieldsCateg.get("RFFISBFO_VAL").toString()+"</FBD_FOREIGN_VAL>";
+}
+if(fieldsMap.get("FJB_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FJB_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FJB_DOMESTIC_CODE>"+fieldsMap.get("FJB_Domestic_Issuer Rating Code").toString()+"</FJB_DOMESTIC_CODE>";
+}
+if(fieldsMap.get("FJB_Domestic_Issuer Rating Code")!=null &&
+fieldsMap.get("FJB_Domestic_Issuer Rating Code").length()>0){
+OUTPUT+="<FJB_DOMESTIC_DATE>"+fieldsMap.get("FJB_Domestic_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FJB_DOMESTIC_DATE>";
+}
+if(fieldsCateg.get("RFFIJSLO_OID")!=null &&
+fieldsCateg.get("RFFIJSLO_OID").length()>0){
+OUTPUT+="<FJB_DOMESTIC_OID>"+fieldsCateg.get("RFFIJSLO_OID").toString()+"</FJB_DOMESTIC_OID>";
+}
+if(fieldsCateg.get("RFFIJSLO_VAL")!=null &&
+fieldsCateg.get("RFFIJSLO_VAL").length()>0){
+OUTPUT+="<FJB_DOMESTIC_VAL>"+fieldsCateg.get("RFFIJSLO_VAL").toString()+"</FJB_DOMESTIC_VAL>";
+}
+if(fieldsMap.get("FJB_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FJB_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FJB_FOREIGN_CODE>"+fieldsMap.get("FJB_Foreign_Issuer Rating Code").toString()+"</FJB_FOREIGN_CODE>";
+}
+if(fieldsMap.get("FJB_Foreign_Issuer Rating Code")!=null &&
+fieldsMap.get("FJB_Foreign_Issuer Rating Code").length()>0){
+OUTPUT+="<FJB_FOREIGN_DATE>"+fieldsMap.get("FJB_Foreign_Issuer Rating Effective Date").toString().concat("-00.00.00")+"</FJB_FOREIGN_DATE>";
+}
+if(fieldsCateg.get("RFFIJSFO_OID")!=null &&
+fieldsCateg.get("RFFIJSFO_OID").length()>0){
+OUTPUT+="<FJB_FOREIGN_OID>"+fieldsCateg.get("RFFIJSFO_OID").toString()+"</FJB_FOREIGN_OID>";
+}
+if(fieldsCateg.get("RFFIJSFO_VAL")!=null &&
+fieldsCateg.get("RFFIJSFO_VAL").length()>0){
+OUTPUT+="<FJB_FOREIGN_VAL>"+fieldsCateg.get("RFFIJSFO_VAL").toString()+"</FJB_FOREIGN_VAL>";
+}
+if(fieldsCateg.get("SPI_DOMESTIC_OID")!=null &&
+fieldsCateg.get("SPI_DOMESTIC_OID").length()>0){
+OUTPUT+="<RFNT_SP_OID_L>"+fieldsCateg.get("SPI_DOMESTIC_OID").toString()+"</RFNT_SP_OID_L>";
+}
+if(fieldsCateg.get("SPI_FOREIGN_OID")!=null &&
+fieldsCateg.get("SPI_FOREIGN_OID").length()>0){
+OUTPUT+="<RFNT_SP_OID_F>"+fieldsCateg.get("SPI_FOREIGN_OID").toString()+"</RFNT_SP_OID_F>";
+}
+if(fieldsCateg.get("MOODYS_DOMESTIC_OID")!=null &&
+fieldsCateg.get("MOODYS_DOMESTIC_OID").length()>0){
+OUTPUT+="<RFNT_MO_OID_L>"+fieldsCateg.get("MOODYS_DOMESTIC_OID").toString()+"</RFNT_MO_OID_L>";
+}
+if(fieldsCateg.get("MOODYS_FOREIGN_OID")!=null &&
+fieldsCateg.get("MOODYS_FOREIGN_OID").length()>0){
+OUTPUT+="<RFNT_MO_OID_F>"+fieldsCateg.get("MOODYS_FOREIGN_OID").toString()+"</RFNT_MO_OID_F>";
+}
+if(fieldsCateg.get("FDL_DOMESTIC_OID")!=null &&
+fieldsCateg.get("FDL_DOMESTIC_OID").length()>0){
+OUTPUT+="<RFNT_FI_OID_L>"+fieldsCateg.get("FDL_DOMESTIC_OID").toString()+"</RFNT_FI_OID_L>";
+}
+if(fieldsCateg.get("FDL_FOREIGN_OID")!=null &&
+fieldsCateg.get("FDL_FOREIGN_OID").length()>0){
+OUTPUT+="<RFNT_FI_OID_F>"+fieldsCateg.get("FDL_FOREIGN_OID").toString()+"</RFNT_FI_OID_F>";
+}
+if(fieldsCateg.get("OFFI_SPI_DOMESTIC_OID")!=null &&
+fieldsCateg.get("OFFI_SPI_DOMESTIC_OID").length()>0){
+OUTPUT+="<OFFI_SP_OID_L>"+fieldsCateg.get("OFFI_SPI_DOMESTIC_OID").toString()+"</OFFI_SP_OID_L>";
+}
+if(fieldsCateg.get("OFFI_SPI_FOREIGN_OID")!=null &&
+fieldsCateg.get("OFFI_SPI_FOREIGN_OID").length()>0){
+OUTPUT+="<OFFI_SP_OID_F>"+fieldsCateg.get("OFFI_SPI_FOREIGN_OID").toString()+"</OFFI_SP_OID_F>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_DOMESTIC_OID")!=null &&
+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_OID").length()>0){
+OUTPUT+="<OFFI_MO_OID_L>"+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_OID").toString()+"</OFFI_MO_OID_L>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_FOREIGN_OID")!=null &&
+fieldsCateg.get("OFFI_MOODYS_FOREIGN_OID").length()>0){
+OUTPUT+="<OFFI_MO_OID_F>"+fieldsCateg.get("OFFI_MOODYS_FOREIGN_OID").toString()+"</OFFI_MO_OID_F>";
+}
+if(fieldsCateg.get("OFFI_FDL_DOMESTIC_OID")!=null &&
+fieldsCateg.get("OFFI_FDL_DOMESTIC_OID").length()>0){
+OUTPUT+="<OFFI_FI_OID_L>"+fieldsCateg.get("OFFI_FDL_DOMESTIC_OID").toString()+"</OFFI_FI_OID_L>";
+}
+if(fieldsCateg.get("OFFI_FDL_FOREIGN_OID")!=null &&
+fieldsCateg.get("OFFI_FDL_FOREIGN_OID").length()>0){
+OUTPUT+="<OFFI_FI_OID_F>"+fieldsCateg.get("OFFI_FDL_FOREIGN_OID").toString()+"</OFFI_FI_OID_F>";
+}
+if(fieldsCateg.get("SPI_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("SPI_DOMESTIC_CODE").length()>0){
+OUTPUT+="<RFNT_SP_CDE_L>"+fieldsCateg.get("SPI_DOMESTIC_CODE").toString()+"</RFNT_SP_CDE_L>";
+}
+if(fieldsCateg.get("SPI_FOREIGN_CODE")!=null &&
+fieldsCateg.get("SPI_FOREIGN_CODE").length()>0){
+OUTPUT+="<RFNT_SP_CDE_F>"+fieldsCateg.get("SPI_FOREIGN_CODE").toString()+"</RFNT_SP_CDE_F>";
+}
+if(fieldsCateg.get("MOODYS_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("MOODYS_DOMESTIC_CODE").length()>0){
+OUTPUT+="<RFNT_MO_CDE_L>"+fieldsCateg.get("MOODYS_DOMESTIC_CODE").toString()+"</RFNT_MO_CDE_L>";
+}
+if(fieldsCateg.get("MOODYS_FOREIGN_CODE")!=null &&
+fieldsCateg.get("MOODYS_FOREIGN_CODE").length()>0){
+OUTPUT+="<RFNT_MO_CDE_F>"+fieldsCateg.get("MOODYS_FOREIGN_CODE").toString()+"</RFNT_MO_CDE_F>";
+}
+if(fieldsCateg.get("FITCH_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("FITCH_DOMESTIC_CODE").length()>0){
+OUTPUT+="<RFNT_FI_CDE_L>"+fieldsCateg.get("FITCH_DOMESTIC_CODE").toString()+"</RFNT_FI_CDE_L>";
+}
+if(fieldsCateg.get("FITCH_FOREIGN_CODE")!=null &&
+fieldsCateg.get("FITCH_FOREIGN_CODE").length()>0){
+OUTPUT+="<RFNT_FI_CDE_F>"+fieldsCateg.get("FITCH_FOREIGN_CODE").toString()+"</RFNT_FI_CDE_F>";
+}
+if(fieldsCateg.get("OFFI_SPI_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("OFFI_SPI_DOMESTIC_CODE").length()>0){
+OUTPUT+="<OFFI_SP_CDE_L>"+fieldsCateg.get("OFFI_SPI_DOMESTIC_CODE").toString()+"</OFFI_SP_CDE_L>";
+}
+if(fieldsCateg.get("OFFI_SPI_FOREIGN_CODE")!=null &&
+fieldsCateg.get("OFFI_SPI_FOREIGN_CODE").length()>0){
+OUTPUT+="<OFFI_SP_CDE_F>"+fieldsCateg.get("OFFI_SPI_FOREIGN_CODE").toString()+"</OFFI_SP_CDE_F>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_CODE").length()>0){
+OUTPUT+="<OFFI_MO_CDE_L>"+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_CODE").toString()+"</OFFI_MO_CDE_L>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_FOREIGN_CODE")!=null &&
+fieldsCateg.get("OFFI_MOODYS_FOREIGN_CODE").length()>0){
+OUTPUT+="<OFFI_MO_CDE_F>"+fieldsCateg.get("OFFI_MOODYS_FOREIGN_CODE").toString()+"</OFFI_MO_CDE_F>";
+}
+if(fieldsCateg.get("OFFI_FDL_DOMESTIC_CODE")!=null &&
+fieldsCateg.get("OFFI_FDL_DOMESTIC_CODE").length()>0){
+OUTPUT+="<OFFI_FI_CDE_L>"+fieldsCateg.get("OFFI_FDL_DOMESTIC_CODE").toString()+"</OFFI_FI_CDE_L>";
+}
+if(fieldsCateg.get("OFFI_FDL_FOREIGN_CODE")!=null &&
+fieldsCateg.get("OFFI_FDL_FOREIGN_CODE").length()>0){
+OUTPUT+="<OFFI_FI_CDE_F>"+fieldsCateg.get("OFFI_FDL_FOREIGN_CODE").toString()+"</OFFI_FI_CDE_F>";
+}
+if(fieldsCateg.get("SPI_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("SPI_DOMESTIC_VAL").length()>0){
+OUTPUT+="<RFNT_SP_VAL_L>"+fieldsCateg.get("SPI_DOMESTIC_VAL").toString()+"</RFNT_SP_VAL_L>";
+}
+if(fieldsCateg.get("SPI_FOREIGN_VAL")!=null &&
+fieldsCateg.get("SPI_FOREIGN_VAL").length()>0){
+OUTPUT+="<RFNT_SP_VAL_F>"+fieldsCateg.get("SPI_FOREIGN_VAL").toString()+"</RFNT_SP_VAL_F>";
+}
+if(fieldsCateg.get("MOODYS_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("MOODYS_DOMESTIC_VAL").length()>0){
+OUTPUT+="<RFNT_MO_VAL_L>"+fieldsCateg.get("MOODYS_DOMESTIC_VAL").toString()+"</RFNT_MO_VAL_L>";
+}
+if(fieldsCateg.get("MOODYS_FOREIGN_VAL")!=null &&
+fieldsCateg.get("MOODYS_FOREIGN_VAL").length()>0){
+OUTPUT+="<RFNT_MO_VAL_F>"+fieldsCateg.get("MOODYS_FOREIGN_VAL").toString()+"</RFNT_MO_VAL_F>";
+}
+if(fieldsCateg.get("FDL_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("FDL_DOMESTIC_VAL").length()>0){
+OUTPUT+="<RFNT_FI_VAL_L>"+fieldsCateg.get("FDL_DOMESTIC_VAL").toString()+"</RFNT_FI_VAL_L>";
+}
+if(fieldsCateg.get("FDL_FOREIGN_VAL")!=null &&
+fieldsCateg.get("FDL_FOREIGN_VAL").length()>0){
+OUTPUT+="<RFNT_FI_VAL_F>"+fieldsCateg.get("FDL_FOREIGN_VAL").toString()+"</RFNT_FI_VAL_F>";
+}
+if(fieldsCateg.get("OFFI_SPI_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("OFFI_SPI_DOMESTIC_VAL").length()>0){
+OUTPUT+="<OFFI_SP_VAL_L>"+fieldsCateg.get("OFFI_SPI_DOMESTIC_VAL").toString()+"</OFFI_SP_VAL_L>";
+}
+if(fieldsCateg.get("OFFI_SPI_FOREIGN_VAL")!=null &&
+fieldsCateg.get("OFFI_SPI_FOREIGN_VAL").length()>0){
+OUTPUT+="<OFFI_SP_VAL_F>"+fieldsCateg.get("OFFI_SPI_FOREIGN_VAL").toString()+"</OFFI_SP_VAL_F>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_VAL").length()>0){
+OUTPUT+="<OFFI_MO_VAL_L>"+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_VAL").toString()+"</OFFI_MO_VAL_L>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_FOREIGN_VAL")!=null &&
+fieldsCateg.get("OFFI_MOODYS_FOREIGN_VAL").length()>0){
+OUTPUT+="<OFFI_MO_VAL_F>"+fieldsCateg.get("OFFI_MOODYS_FOREIGN_VAL").toString()+"</OFFI_MO_VAL_F>";
+}
+if(fieldsCateg.get("OFFI_FDL_DOMESTIC_VAL")!=null &&
+fieldsCateg.get("OFFI_FDL_DOMESTIC_VAL").length()>0){
+OUTPUT+="<OFFI_FI_VAL_L>"+fieldsCateg.get("OFFI_FDL_DOMESTIC_VAL").toString()+"</OFFI_FI_VAL_L>";
+}
+if(fieldsCateg.get("OFFI_FDL_FOREIGN_VAL")!=null &&
+fieldsCateg.get("OFFI_FDL_FOREIGN_VAL").length()>0){
+OUTPUT+="<OFFI_FI_VAL_F>"+fieldsCateg.get("OFFI_FDL_FOREIGN_VAL").toString()+"</OFFI_FI_VAL_F>";
+}
+if(fieldsCateg.get("SPI_DOMESTIC_DATE")!=null &&
+fieldsCateg.get("SPI_DOMESTIC_DATE").length()>0){
+OUTPUT+="<OFFI_SP_DAT_L>"+fieldsCateg.get("SPI_DOMESTIC_DATE").toString().concat("-00.00.00")+"</OFFI_SP_DAT_L>";
+}
+if(fieldsCateg.get("SPI_FOREIGN_DATE")!=null &&
+fieldsCateg.get("SPI_FOREIGN_DATE").length()>0){
+OUTPUT+="<OFFI_SP_DAT_F>"+fieldsCateg.get("SPI_FOREIGN_DATE").toString().concat("-00.00.00")+"</OFFI_SP_DAT_F>";
+}
+if(fieldsCateg.get("MOODYS_DOMESTIC_DATE")!=null &&
+fieldsCateg.get("MOODYS_DOMESTIC_DATE").length()>0){
+OUTPUT+="<OFFI_MO_DAT_L>"+fieldsCateg.get("MOODYS_DOMESTIC_DATE").toString().concat("-00.00.00")+"</OFFI_MO_DAT_L>";
+}
+if(fieldsCateg.get("MOODYS_FOREIGN_DATE")!=null &&
+fieldsCateg.get("MOODYS_FOREIGN_DATE").length()>0){
+OUTPUT+="<OFFI_MO_DAT_F>"+fieldsCateg.get("MOODYS_FOREIGN_DATE").toString().concat("-00.00.00")+"</OFFI_MO_DAT_F>";
+}
+if(fieldsCateg.get("FITCH_DOMESTIC_DATE")!=null &&
+fieldsCateg.get("FITCH_DOMESTIC_DATE").length()>0){
+OUTPUT+="<OFFI_FI_DAT_L>"+fieldsCateg.get("FITCH_DOMESTIC_DATE").toString().concat("-00.00.00")+"</OFFI_FI_DAT_L>";
+}
+if(fieldsCateg.get("FITCH_FOREIGN_DATE")!=null &&
+fieldsCateg.get("FITCH_FOREIGN_DATE").length()>0){
+OUTPUT+="<OFFI_FI_DAT_F>"+fieldsCateg.get("FITCH_FOREIGN_DATE").toString().concat("-00.00.00")+"</OFFI_FI_DAT_F>";
+}
+if(fieldsCateg.get("OFFI_SPI_DOMESTIC_STAT")!=null &&
+fieldsCateg.get("OFFI_SPI_DOMESTIC_STAT").length()>0){
+OUTPUT+="<OFFI_SP_STAT_L>"+fieldsCateg.get("OFFI_SPI_DOMESTIC_STAT").toString()+"</OFFI_SP_STAT_L>";
+}
+if(fieldsCateg.get("OFFI_SPI_FOREIGN_STAT")!=null &&
+fieldsCateg.get("OFFI_SPI_FOREIGN_STAT").length()>0){
+OUTPUT+="<OFFI_SP_STAT_F>"+fieldsCateg.get("OFFI_SPI_FOREIGN_STAT").toString()+"</OFFI_SP_STAT_F>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_DOMESTIC_STAT")!=null &&
+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_STAT").length()>0){
+OUTPUT+="<OFFI_MO_STAT_L>"+fieldsCateg.get("OFFI_MOODYS_DOMESTIC_STAT").toString()+"</OFFI_MO_STAT_L>";
+}
+if(fieldsCateg.get("OFFI_MOODYS_FOREIGN_STAT")!=null &&
+fieldsCateg.get("OFFI_MOODYS_FOREIGN_STAT").length()>0){
+OUTPUT+="<OFFI_MO_STAT_F>"+fieldsCateg.get("OFFI_MOODYS_FOREIGN_STAT").toString()+"</OFFI_MO_STAT_F>";
+}
+if(fieldsCateg.get("OFFI_FDL_DOMESTIC_STAT")!=null &&
+fieldsCateg.get("OFFI_FDL_DOMESTIC_STAT").length()>0){
+OUTPUT+="<OFFI_FI_STAT_L>"+fieldsCateg.get("OFFI_FDL_DOMESTIC_STAT").toString()+"</OFFI_FI_STAT_L>";
+}
+if(fieldsCateg.get("OFFI_FDL_FOREIGN_STAT")!=null &&
+fieldsCateg.get("OFFI_FDL_FOREIGN_STAT").length()>0){
+OUTPUT+="<OFFI_FI_STAT_F>"+fieldsCateg.get("OFFI_FDL_FOREIGN_STAT").toString()+"</OFFI_FI_STAT_F>";
+}
+OUTPUT+="</REFINITIV_REQ_RATINGS>";
+} 
+else
+{
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ_RATINGS><REF_ID_R>" + VREQ_OID + 
+"</REF_ID_R><REF_STATUS_R>FAILED</REF_STATUS_R><REF_DATE_R>"+ date2.format(date) +"</REF_DATE_R><REF_MSG_R>Refinitiv refuses the request with error message: "+ fieldsMap.get("Error Message") +"</REF_MSG_R>" +
+"<SPI_DOMESTIC_CODE></SPI_DOMESTIC_CODE>"+
+"<SPI_DOMESTIC_DATE></SPI_DOMESTIC_DATE>"+
+"<SPI_DOMESTIC_OID></SPI_DOMESTIC_OID>"+
+"<SPI_DOMESTIC_VAL></SPI_DOMESTIC_VAL>"+
+"<SPI_FOREIGN_CODE></SPI_FOREIGN_CODE>"+
+"<SPI_FOREIGN_DATE></SPI_FOREIGN_DATE>"+
+"<SPI_FOREIGN_OID></SPI_FOREIGN_OID>"+
+"<SPI_FOREIGN_VAL></SPI_FOREIGN_VAL>"+
+"<MCD_DOMESTIC_CODE></MCD_DOMESTIC_CODE>"+
+"<MCD_DOMESTIC_DATE></MCD_DOMESTIC_DATE>"+
+"<MCD_DOMESTIC_OID></MCD_DOMESTIC_OID>"+
+"<MCD_DOMESTIC_VAL></MCD_DOMESTIC_VAL>"+
+"<MCD_FOREIGN_CODE></MCD_FOREIGN_CODE>"+
+"<MCD_FOREIGN_DATE></MCD_FOREIGN_DATE>"+
+"<MCD_FOREIGN_OID></MCD_FOREIGN_OID>"+
+"<MCD_FOREIGN_VAL></MCD_FOREIGN_VAL>"+
+"<MIS_DOMESTIC_CODE></MIS_DOMESTIC_CODE>"+
+"<MIS_DOMESTIC_DATE></MIS_DOMESTIC_DATE>"+
+"<MIS_DOMESTIC_OID></MIS_DOMESTIC_OID>"+
+"<MIS_DOMESTIC_VAL></MIS_DOMESTIC_VAL>"+
+"<MIS_FOREIGN_CODE></MIS_FOREIGN_CODE>"+
+"<MIS_FOREIGN_DATE></MIS_FOREIGN_DATE>"+
+"<MIS_FOREIGN_OID></MIS_FOREIGN_OID>"+
+"<MIS_FOREIGN_VAL></MIS_FOREIGN_VAL>"+
+"<MSU_DOMESTIC_CODE></MSU_DOMESTIC_CODE>"+
+"<MSU_DOMESTIC_DATE></MSU_DOMESTIC_DATE>"+
+"<MSU_DOMESTIC_OID></MSU_DOMESTIC_OID>"+
+"<MSU_DOMESTIC_VAL></MSU_DOMESTIC_VAL>"+
+"<MSU_FOREIGN_CODE></MSU_FOREIGN_CODE>"+
+"<MSU_FOREIGN_DATE></MSU_FOREIGN_DATE>"+
+"<MSU_FOREIGN_OID></MSU_FOREIGN_OID>"+
+"<MSU_FOREIGN_VAL></MSU_FOREIGN_VAL>"+
+"<MLD_DOMESTIC_CODE></MLD_DOMESTIC_CODE>"+
+"<MLD_DOMESTIC_DATE></MLD_DOMESTIC_DATE>"+
+"<MLD_DOMESTIC_OID></MLD_DOMESTIC_OID>"+
+"<MLD_DOMESTIC_VAL></MLD_DOMESTIC_VAL>"+
+"<MLD_FOREIGN_CODE></MLD_FOREIGN_CODE>"+
+"<MLD_FOREIGN_DATE></MLD_FOREIGN_DATE>"+
+"<MLD_FOREIGN_OID></MLD_FOREIGN_OID>"+
+"<MLD_FOREIGN_VAL></MLD_FOREIGN_VAL>"+
+"<MBT_DOMESTIC_CODE></MBT_DOMESTIC_CODE>"+
+"<MBT_DOMESTIC_DATE></MBT_DOMESTIC_DATE>"+
+"<MBT_DOMESTIC_OID></MBT_DOMESTIC_OID>"+
+"<MBT_DOMESTIC_VAL></MBT_DOMESTIC_VAL>"+
+"<MBT_FOREIGN_CODE></MBT_FOREIGN_CODE>"+
+"<MBT_FOREIGN_DATE></MBT_FOREIGN_DATE>"+
+"<MBT_FOREIGN_OID></MBT_FOREIGN_OID>"+
+"<MBT_FOREIGN_VAL></MBT_FOREIGN_VAL>"+
+"<MBD_DOMESTIC_CODE></MBD_DOMESTIC_CODE>"+
+"<MBD_DOMESTIC_DATE></MBD_DOMESTIC_DATE>"+
+"<MBD_DOMESTIC_OID></MBD_DOMESTIC_OID>"+
+"<MBD_DOMESTIC_VAL></MBD_DOMESTIC_VAL>"+
+"<MBD_FOREIGN_CODE></MBD_FOREIGN_CODE>"+
+"<MBD_FOREIGN_DATE></MBD_FOREIGN_DATE>"+
+"<MBD_FOREIGN_OID></MBD_FOREIGN_OID>"+
+"<MBD_FOREIGN_VAL></MBD_FOREIGN_VAL>"+
+"<MJB_DOMESTIC_CODE></MJB_DOMESTIC_CODE>"+
+"<MJB_DOMESTIC_DATE></MJB_DOMESTIC_DATE>"+
+"<MJB_DOMESTIC_OID></MJB_DOMESTIC_OID>"+
+"<MJB_DOMESTIC_VAL></MJB_DOMESTIC_VAL>"+
+"<MJB_FOREIGN_CODE></MJB_FOREIGN_CODE>"+
+"<MJB_FOREIGN_DATE></MJB_FOREIGN_DATE>"+
+"<MJB_FOREIGN_OID></MJB_FOREIGN_OID>"+
+"<MJB_FOREIGN_VAL></MJB_FOREIGN_VAL>"+
+"<FDL_DOMESTIC_CODE></FDL_DOMESTIC_CODE>"+
+"<FDL_DOMESTIC_DATE></FDL_DOMESTIC_DATE>"+
+"<FDL_DOMESTIC_OID></FDL_DOMESTIC_OID>"+
+"<FDL_DOMESTIC_VAL></FDL_DOMESTIC_VAL>"+
+"<FDL_FOREIGN_CODE></FDL_FOREIGN_CODE>"+
+"<FDL_FOREIGN_DATE></FDL_FOREIGN_DATE>"+
+"<FDL_FOREIGN_OID></FDL_FOREIGN_OID>"+
+"<FDL_FOREIGN_VAL></FDL_FOREIGN_VAL>"+
+"<FSU_DOMESTIC_CODE></FSU_DOMESTIC_CODE>"+
+"<FSU_DOMESTIC_DATE></FSU_DOMESTIC_DATE>"+
+"<FSU_DOMESTIC_OID></FSU_DOMESTIC_OID>"+
+"<FSU_DOMESTIC_VAL></FSU_DOMESTIC_VAL>"+
+"<FSU_FOREIGN_CODE></FSU_FOREIGN_CODE>"+
+"<FSU_FOREIGN_DATE></FSU_FOREIGN_DATE>"+
+"<FSU_FOREIGN_OID></FSU_FOREIGN_OID>"+
+"<FSU_FOREIGN_VAL></FSU_FOREIGN_VAL>"+
+"<FIS_DOMESTIC_CODE></FIS_DOMESTIC_CODE>"+
+"<FIS_DOMESTIC_DATE></FIS_DOMESTIC_DATE>"+
+"<FIS_DOMESTIC_OID></FIS_DOMESTIC_OID>"+
+"<FIS_DOMESTIC_VAL></FIS_DOMESTIC_VAL>"+
+"<FIS_FOREIGN_CODE></FIS_FOREIGN_CODE>"+
+"<FIS_FOREIGN_DATE></FIS_FOREIGN_DATE>"+
+"<FIS_FOREIGN_OID></FIS_FOREIGN_OID>"+
+"<FIS_FOREIGN_VAL></FIS_FOREIGN_VAL>"+
+"<FBD_DOMESTIC_CODE></FBD_DOMESTIC_CODE>"+
+"<FBD_DOMESTIC_DATE></FBD_DOMESTIC_DATE>"+
+"<FBD_DOMESTIC_OID></FBD_DOMESTIC_OID>"+
+"<FBD_DOMESTIC_VAL></FBD_DOMESTIC_VAL>"+
+"<FBD_FOREIGN_CODE></FBD_FOREIGN_CODE>"+
+"<FBD_FOREIGN_DATE></FBD_FOREIGN_DATE>"+
+"<FBD_FOREIGN_OID></FBD_FOREIGN_OID>"+
+"<FBD_FOREIGN_VAL></FBD_FOREIGN_VAL>"+
+"<FJB_DOMESTIC_CODE></FJB_DOMESTIC_CODE>"+
+"<FJB_DOMESTIC_DATE></FJB_DOMESTIC_DATE>"+
+"<FJB_DOMESTIC_OID></FJB_DOMESTIC_OID>"+
+"<FJB_DOMESTIC_VAL></FJB_DOMESTIC_VAL>"+
+"<FJB_FOREIGN_CODE></FJB_FOREIGN_CODE>"+
+"<FJB_FOREIGN_DATE></FJB_FOREIGN_DATE>"+
+"<FJB_FOREIGN_OID></FJB_FOREIGN_OID>"+
+"<FJB_FOREIGN_VAL></FJB_FOREIGN_VAL>"+
+"<RFNT_SP_OID_L></RFNT_SP_OID_L>"+
+"<RFNT_SP_OID_F></RFNT_SP_OID_F>"+
+"<RFNT_MO_OID_L></RFNT_MO_OID_L>"+
+"<RFNT_MO_OID_F></RFNT_MO_OID_F>"+
+"<RFNT_FI_OID_L></RFNT_FI_OID_L>"+
+"<RFNT_FI_OID_F></RFNT_FI_OID_F>"+
+"<OFFI_SP_OID_L></OFFI_SP_OID_L>"+
+"<OFFI_SP_OID_F></OFFI_SP_OID_F>"+
+"<OFFI_MO_OID_L></OFFI_MO_OID_L>"+
+"<OFFI_MO_OID_F></OFFI_MO_OID_F>"+
+"<OFFI_FI_OID_L></OFFI_FI_OID_L>"+
+"<OFFI_FI_OID_F></OFFI_FI_OID_F>"+
+"<RFNT_SP_CDE_L></RFNT_SP_CDE_L>"+
+"<RFNT_SP_CDE_F></RFNT_SP_CDE_F>"+
+"<RFNT_MO_CDE_L></RFNT_MO_CDE_L>"+
+"<RFNT_MO_CDE_F></RFNT_MO_CDE_F>"+
+"<RFNT_FI_CDE_L></RFNT_FI_CDE_L>"+
+"<RFNT_FI_CDE_F></RFNT_FI_CDE_F>"+
+"<OFFI_SP_CDE_L></OFFI_SP_CDE_L>"+
+"<OFFI_SP_CDE_F></OFFI_SP_CDE_F>"+
+"<OFFI_MO_CDE_L></OFFI_MO_CDE_L>"+
+"<OFFI_MO_CDE_F></OFFI_MO_CDE_F>"+
+"<OFFI_FI_CDE_L></OFFI_FI_CDE_L>"+
+"<OFFI_FI_CDE_F></OFFI_FI_CDE_F>"+
+"<RFNT_SP_VAL_L></RFNT_SP_VAL_L>"+
+"<RFNT_SP_VAL_F></RFNT_SP_VAL_F>"+
+"<RFNT_MO_VAL_L></RFNT_MO_VAL_L>"+
+"<RFNT_MO_VAL_F></RFNT_MO_VAL_F>"+
+"<RFNT_FI_VAL_L></RFNT_FI_VAL_L>"+
+"<RFNT_FI_VAL_F></RFNT_FI_VAL_F>"+
+"<OFFI_SP_VAL_L></OFFI_SP_VAL_L>"+
+"<OFFI_SP_VAL_F></OFFI_SP_VAL_F>"+
+"<OFFI_MO_VAL_L></OFFI_MO_VAL_L>"+
+"<OFFI_MO_VAL_F></OFFI_MO_VAL_F>"+
+"<OFFI_FI_VAL_L></OFFI_FI_VAL_L>"+
+"<OFFI_FI_VAL_F></OFFI_FI_VAL_F>"+
+"<OFFI_SP_DAT_L></OFFI_SP_DAT_L>"+
+"<OFFI_SP_DAT_F></OFFI_SP_DAT_F>"+
+"<OFFI_MO_DAT_L></OFFI_MO_DAT_L>"+
+"<OFFI_MO_DAT_F></OFFI_MO_DAT_F>"+
+"<OFFI_FI_DAT_L></OFFI_FI_DAT_L>"+
+"<OFFI_FI_DAT_F></OFFI_FI_DAT_F>"+
+"<OFFI_SP_STAT_L></OFFI_SP_STAT_L>"+
+"<OFFI_SP_STAT_F></OFFI_SP_STAT_F>"+
+"<OFFI_MO_STAT_L></OFFI_MO_STAT_L>"+
+"<OFFI_MO_STAT_F></OFFI_MO_STAT_F>"+
+"<OFFI_FI_STAT_L></OFFI_FI_STAT_L>"+
+"<OFFI_FI_STAT_F></OFFI_FI_STAT_F>"+
+"</REFINITIV_REQ_RATINGS>";
+}
+
+logger.error("[Refinitiv_Request RATINGS OUTPUT]: "+ OUTPUT);
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="613" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="614">["OUTPUT"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="615">variables["OUTPUT"]</name>
+<stringValue id="616">OUTPUT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="617" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="618">variables["VREQ_OID"]</name>
+<stringValue id="619">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="620" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="621">variables["fieldsCateg"]</name>
+<stringValue id="622">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="623" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="624">variables["fieldsMap"]</name>
+<stringValue id="625">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="626" type="java.util.HashSet">
+<item id="627" type="com.j2fe.workflow.definition.Transition">
+<name id="628">goto-next</name>
+<source id="629">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="630">Refinitiv_Ratings_relations</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="631">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="632" type="java.util.HashSet">
+<item id="633" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="634">["fieldsCateg"]@java/util/Map@</UITypeHint>
+<input>true</input>
+<name id="635">input["fieldsCateg"]</name>
+<stringValue id="636">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="637" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="638">name</name>
+<stringValue id="639">Refinitiv_Ratings_relations</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="640" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="641">["fieldsCateg"]@java/util/Map@</UITypeHint>
+<input>false</input>
+<name id="642">output["fieldsCateg"]</name>
+<stringValue id="643">fieldsCateg</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="644" type="java.util.HashSet">
+<item id="645" type="com.j2fe.workflow.definition.Transition">
+<name id="646">Y</name>
+<source idref="546"/>
+<target idref="629"/>
+</item>
+</sources>
+<targets id="647" type="java.util.HashSet">
+<item idref="627"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="606"/>
+</item>
+</sources>
+<targets id="648" type="java.util.HashSet">
+<item idref="604"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="584"/>
+</item>
+<item idref="582"/>
+</sources>
+<targets id="649" type="java.util.HashSet">
+<item id="650" type="com.j2fe.workflow.definition.Transition">
+<name id="651">goto-next</name>
+<source idref="584"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="645"/>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="323"/>
+</item>
+</sources>
+<targets id="652" type="java.util.HashSet">
+<item idref="321"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="316"/>
+</item>
+<item id="653" type="com.j2fe.workflow.definition.Transition">
+<name id="654">goto-next</name>
+<source id="655">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="656">set Error Message</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="657">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="658" type="java.util.HashSet">
+<item id="659" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="660">statements</name>
+<stringValue id="661">String errorMessage="Unable to load response, can not read file";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="662" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="663">["errorMessage"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="664">variables["errorMessage"]</name>
+<stringValue id="665">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="666" type="java.util.HashSet">
+<item id="667" type="com.j2fe.workflow.definition.Transition">
+<name id="668">end-of-file</name>
+<source idref="167"/>
+<target idref="655"/>
+</item>
+</sources>
+<targets id="669" type="java.util.HashSet">
+<item idref="653"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="316"/>
+</item>
+<item id="670" type="com.j2fe.workflow.definition.Transition">
+<name id="671">goto-next</name>
+<source id="672">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="673">set Error Message</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="674">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="675" type="java.util.HashSet">
+<item id="676" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="677">statements</name>
+<stringValue id="678">String errorMessage="Request Type Error";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="679" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="680">["errorMessage"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="681">variables["errorMessage"]</name>
+<stringValue id="682">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="683" type="java.util.HashSet">
+<item id="684" type="com.j2fe.workflow.definition.Transition">
+<name id="685">error</name>
+<source idref="144"/>
+<target idref="672"/>
+</item>
+</sources>
+<targets id="686" type="java.util.HashSet">
+<item idref="670"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="316"/>
+</item>
+<item idref="314"/>
+<item id="687" type="com.j2fe.workflow.definition.Transition">
+<name id="688">goto-next</name>
+<source id="689">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="690">set Error Message</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="691">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="692" type="java.util.HashSet">
+<item id="693" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="694">statements</name>
+<stringValue id="695">String errorMessage="Unable to load response, can not read file";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="696" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="697">["errorMessage"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="698">variables["errorMessage"]</name>
+<stringValue id="699">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="700" type="java.util.HashSet">
+<item id="701" type="com.j2fe.workflow.definition.Transition">
+<name id="702">error</name>
+<source idref="186"/>
+<target idref="689"/>
+</item>
+</sources>
+<targets id="703" type="java.util.HashSet">
+<item idref="687"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="316"/>
+</item>
+</sources>
+<targets id="704" type="java.util.HashSet">
+<item id="705" type="com.j2fe.workflow.definition.Transition">
+<name id="706">ToSplit</name>
+<source idref="316"/>
+<target id="707">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="708">Request Type</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="709">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="710" type="java.util.HashSet">
+<item id="711" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="712">caseItem</name>
+<stringValue id="713">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="714" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="715">defaultItem</name>
+<stringValue id="716">error</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="717" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="718">nullTransition</name>
+<stringValue id="719">error</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="720" type="java.util.HashSet">
+<item idref="705"/>
+</sources>
+<targets id="721" type="java.util.HashSet">
+<item id="722" type="com.j2fe.workflow.definition.Transition">
+<name id="723">error</name>
+<source idref="707"/>
+<target id="724">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="725">Update KO Request</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="726">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="727" type="java.util.HashSet">
+<item id="728" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="729">database</name>
+<stringValue id="730">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="731" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="732">["1"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="733">mappedParameters["1"]</name>
+<stringValue id="734">FAILED</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="735" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="736">["2"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="737">mappedParameters["2"]</name>
+<stringValue id="738">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="739" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="740">["3"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="741">mappedParameters["3"]</name>
+<stringValue id="742">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="743" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="744">querySQL</name>
+<stringValue id="745">UPDATE FT_T_VREQ SET VND_RQST_STAT_TYP=:status, LAST_CHG_TMS=sysdate,VND_RQST_STAT_TXT=:errorMessage  WHERE VND_RQST_OID=:vreqOid</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="746" type="java.util.HashSet">
+<item idref="722"/>
+<item id="747" type="com.j2fe.workflow.definition.Transition">
+<name id="748">goto-next</name>
+<source id="749">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="750">Insert ALG1</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="751">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="752" type="java.util.HashSet">
+<item id="753" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="754">database</name>
+<stringValue id="755">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="756" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="757">["1"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="758">mappedParameters["1"]</name>
+<stringValue id="759">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="760" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="761">["2"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="762">mappedParameters["2"]</name>
+<stringValue id="763">idType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="764" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="765">["3"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="766">mappedParameters["3"]</name>
+<stringValue id="767">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="768" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="769">querySQL</name>
+<stringValue id="770">INSERT INTO "KYTL_GC"."TABLEALERTGENER" (ALG1_OID, PROCESO, ALD1_OID, MENSAJE, TIPO, PROCESADO, DATA_STAT_TYP, LAST_CHG_TMS, START_TMS, LAST_CHG_USR_ID) VALUES (new_oid, 'PETICION_REFINITIV_EMISIONES', (select ALD1_OID from ft_t_ald1 where ID_DEF_ALERT = 'EXCELROW' and data_stat_typ='ACTIVE'), '|Load Failed|'||:id||'|'||:idType||'|'||:errorMessage, 'CELDAEXCEL', 'N', 'ACTIVE', sysdate, sysdate, 'AlertasBarrido.jar')</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="771" type="java.util.HashSet">
+<item id="772" type="com.j2fe.workflow.definition.Transition">
+<name id="773">issueRequest</name>
+<source idref="707"/>
+<target idref="749"/>
+</item>
+<item id="774" type="com.j2fe.workflow.definition.Transition">
+<name id="775">optionsfuturesRequest</name>
+<source idref="707"/>
+<target idref="749"/>
+</item>
+</sources>
+<targets id="776" type="java.util.HashSet">
+<item idref="747"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="724"/>
+</item>
+<item id="777" type="com.j2fe.workflow.definition.Transition">
+<name id="778">goto-next</name>
+<source id="779">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="780">set Error XML</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="781">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="782" type="java.util.HashSet">
+<item id="783" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="784">statements</name>
+<objectValue id="785" type="java.lang.String"><![CDATA[import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Date date = Calendar.getInstance().getTime();
+SimpleDateFormat date2 = new SimpleDateFormat("dd-MM-yyyy  HH.mm.ss");
+
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ_RATINGS><REF_ID_R>" + VREQ_OID + 
+"</REF_ID_R><REF_STATUS_R>FAILED</REF_STATUS_R><REF_DATE_R>"+ date2.format(date) +"</REF_DATE_R><REF_MSG_R>"+errorMessage +"</REF_MSG_R>" +
+"<SPI_DOMESTIC_CODE/>"+
+"<SPI_DOMESTIC_DATE/>"+
+"<SPI_DOMESTIC_OID/>"+
+"<SPI_DOMESTIC_VAL/>"+
+"<SPI_FOREIGN_CODE/>"+
+"<SPI_FOREIGN_DATE/>"+
+"<SPI_FOREIGN_OID/>"+
+"<SPI_FOREIGN_VAL/>"+
+"<MCD_DOMESTIC_CODE/>"+
+"<MCD_DOMESTIC_DATE/>"+
+"<MCD_DOMESTIC_OID/>"+
+"<MCD_DOMESTIC_VAL/>"+
+"<MCD_FOREIGN_CODE/>"+
+"<MCD_FOREIGN_DATE/>"+
+"<MCD_FOREIGN_OID/>"+
+"<MCD_FOREIGN_VAL/>"+
+"<MIS_DOMESTIC_CODE/>"+
+"<MIS_DOMESTIC_DATE/>"+
+"<MIS_DOMESTIC_OID/>"+
+"<MIS_DOMESTIC_VAL/>"+
+"<MIS_FOREIGN_CODE/>"+
+"<MIS_FOREIGN_DATE/>"+
+"<MIS_FOREIGN_OID/>"+
+"<MIS_FOREIGN_VAL/>"+
+"<MSU_DOMESTIC_CODE/>"+
+"<MSU_DOMESTIC_DATE/>"+
+"<MSU_DOMESTIC_OID/>"+
+"<MSU_DOMESTIC_VAL/>"+
+"<MSU_FOREIGN_CODE/>"+
+"<MSU_FOREIGN_DATE/>"+
+"<MSU_FOREIGN_OID/>"+
+"<MSU_FOREIGN_VAL/>"+
+"<MLD_DOMESTIC_CODE/>"+
+"<MLD_DOMESTIC_DATE/>"+
+"<MLD_DOMESTIC_OID/>"+
+"<MLD_DOMESTIC_VAL/>"+
+"<MLD_FOREIGN_CODE/>"+
+"<MLD_FOREIGN_DATE/>"+
+"<MLD_FOREIGN_OID/>"+
+"<MLD_FOREIGN_VAL/>"+
+"<MBT_DOMESTIC_CODE/>"+
+"<MBT_DOMESTIC_DATE/>"+
+"<MBT_DOMESTIC_OID/>"+
+"<MBT_DOMESTIC_VAL/>"+
+"<MBT_FOREIGN_CODE/>"+
+"<MBT_FOREIGN_DATE/>"+
+"<MBT_FOREIGN_OID/>"+
+"<MBT_FOREIGN_VAL/>"+
+"<MBD_DOMESTIC_CODE/>"+
+"<MBD_DOMESTIC_DATE/>"+
+"<MBD_DOMESTIC_OID/>"+
+"<MBD_DOMESTIC_VAL/>"+
+"<MBD_FOREIGN_CODE/>"+
+"<MBD_FOREIGN_DATE/>"+
+"<MBD_FOREIGN_OID/>"+
+"<MBD_FOREIGN_VAL/>"+
+"<MJB_DOMESTIC_CODE/>"+
+"<MJB_DOMESTIC_DATE/>"+
+"<MJB_DOMESTIC_OID/>"+
+"<MJB_DOMESTIC_VAL/>"+
+"<MJB_FOREIGN_CODE/>"+
+"<MJB_FOREIGN_DATE/>"+
+"<MJB_FOREIGN_OID/>"+
+"<MJB_FOREIGN_VAL/>"+
+"<FDL_DOMESTIC_CODE/>"+
+"<FDL_DOMESTIC_DATE/>"+
+"<FDL_DOMESTIC_OID/>"+
+"<FDL_DOMESTIC_VAL/>"+
+"<FDL_FOREIGN_CODE/>"+
+"<FDL_FOREIGN_DATE/>"+
+"<FDL_FOREIGN_OID/>"+
+"<FDL_FOREIGN_VAL/>"+
+"<FSU_DOMESTIC_CODE/>"+
+"<FSU_DOMESTIC_DATE/>"+
+"<FSU_DOMESTIC_OID/>"+
+"<FSU_DOMESTIC_VAL/>"+
+"<FSU_FOREIGN_CODE/>"+
+"<FSU_FOREIGN_DATE/>"+
+"<FSU_FOREIGN_OID/>"+
+"<FSU_FOREIGN_VAL/>"+
+"<FIS_DOMESTIC_CODE/>"+
+"<FIS_DOMESTIC_DATE/>"+
+"<FIS_DOMESTIC_OID/>"+
+"<FIS_DOMESTIC_VAL/>"+
+"<FIS_FOREIGN_CODE/>"+
+"<FIS_FOREIGN_DATE/>"+
+"<FIS_FOREIGN_OID/>"+
+"<FIS_FOREIGN_VAL/>"+
+"<FBD_DOMESTIC_CODE/>"+
+"<FBD_DOMESTIC_DATE/>"+
+"<FBD_DOMESTIC_OID/>"+
+"<FBD_DOMESTIC_VAL/>"+
+"<FBD_FOREIGN_CODE/>"+
+"<FBD_FOREIGN_DATE/>"+
+"<FBD_FOREIGN_OID/>"+
+"<FBD_FOREIGN_VAL/>"+
+"<FJB_DOMESTIC_CODE/>"+
+"<FJB_DOMESTIC_DATE/>"+
+"<FJB_DOMESTIC_OID/>"+
+"<FJB_DOMESTIC_VAL/>"+
+"<FJB_FOREIGN_CODE/>"+
+"<FJB_FOREIGN_DATE/>"+
+"<FJB_FOREIGN_OID/>"+
+"<FJB_FOREIGN_VAL/>"+
+"<RFNT_SP_OID_L/>"+
+"<RFNT_SP_OID_F/>"+
+"<RFNT_MO_OID_L/>"+
+"<RFNT_MO_OID_F/>"+
+"<RFNT_FI_OID_L/>"+
+"<RFNT_FI_OID_F/>"+
+"<OFFI_SP_OID_L/>"+
+"<OFFI_SP_OID_F/>"+
+"<OFFI_MO_OID_L/>"+
+"<OFFI_MO_OID_F/>"+
+"<OFFI_FI_OID_L/>"+
+"<OFFI_FI_OID_F/>"+
+"<RFNT_SP_CDE_L/>"+
+"<RFNT_SP_CDE_F/>"+
+"<RFNT_MO_CDE_L/>"+
+"<RFNT_MO_CDE_F/>"+
+"<RFNT_FI_CDE_L/>"+
+"<RFNT_FI_CDE_F/>"+
+"<OFFI_SP_CDE_L/>"+
+"<OFFI_SP_CDE_F/>"+
+"<OFFI_MO_CDE_L/>"+
+"<OFFI_MO_CDE_F/>"+
+"<OFFI_FI_CDE_L/>"+
+"<OFFI_FI_CDE_F/>"+
+"<RFNT_SP_VAL_L/>"+
+"<RFNT_SP_VAL_F/>"+
+"<RFNT_MO_VAL_L/>"+
+"<RFNT_MO_VAL_F/>"+
+"<RFNT_FI_VAL_L/>"+
+"<RFNT_FI_VAL_F/>"+
+"<OFFI_SP_VAL_L/>"+
+"<OFFI_SP_VAL_F/>"+
+"<OFFI_MO_VAL_L/>"+
+"<OFFI_MO_VAL_F/>"+
+"<OFFI_FI_VAL_L/>"+
+"<OFFI_FI_VAL_F/>"+
+"<OFFI_SP_DAT_L/>"+
+"<OFFI_SP_DAT_F/>"+
+"<OFFI_MO_DAT_L/>"+
+"<OFFI_MO_DAT_F/>"+
+"<OFFI_FI_DAT_L/>"+
+"<OFFI_FI_DAT_F/>"+
+"<OFFI_SP_STAT_L/>"+
+"<OFFI_SP_STAT_F/>"+
+"<OFFI_MO_STAT_L/>"+
+"<OFFI_MO_STAT_F/>"+
+"<OFFI_FI_STAT_L/>"+
+"<OFFI_FI_STAT_F/>"+
+"</REFINITIV_REQ_RATINGS>";]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="786" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="787">["OUTPUT"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="788">variables["OUTPUT"]</name>
+<stringValue id="789">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="790" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="791">variables["VREQ_OID"]</name>
+<stringValue id="792">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="793" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="794">variables["errorMessage"]</name>
+<stringValue id="795">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="796" type="java.util.HashSet">
+<item id="797" type="com.j2fe.workflow.definition.Transition">
+<name id="798">ratingsRequest</name>
+<source idref="707"/>
+<target idref="779"/>
+</item>
+</sources>
+<targets id="799" type="java.util.HashSet">
+<item idref="777"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="724"/>
+</item>
+<item id="800" type="com.j2fe.workflow.definition.Transition">
+<name id="801">goto-next</name>
+<source id="802">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="803">set Error XML</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="804">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="805" type="java.util.HashSet">
+<item id="806" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="807">statements</name>
+<stringValue id="808"><![CDATA[import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Date date = Calendar.getInstance().getTime();
+SimpleDateFormat date2 = new SimpleDateFormat("dd-MM-yyyy  HH.mm.ss");
+
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ><REF_ID>" + VREQ_OID + 
+"</REF_ID><REF_STATUS>FAILED</REF_STATUS><REF_DATE>"+ date2.format(date) +"</REF_DATE><REF_MSG>"+errorMessage +"</REF_MSG>" +
+"<REF_RLEI/>" +
+"<REF_RCRISK/>" + 
+"<REF_RAC/>" + 
+"<REF_RESCD/>" +
+"<REF_RBSCD/>" + 
+"<REF_RIGCD/>" + 
+"<REF_TRICD/>" + 
+"<REF_TRACD/>" + 
+"<REF_TRLET/>" + 
+"<REF_TRLETD/>" + 
+"<REF_TRLEST/>" + 
+"<REF_TRLESTD/>" + 
+"</REFINITIV_REQ>";
+]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="809" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="810">["OUTPUT"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="811">variables["OUTPUT"]</name>
+<stringValue id="812">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="813" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="814">variables["VREQ_OID"]</name>
+<stringValue id="815">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="816" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="817">variables["errorMessage"]</name>
+<stringValue id="818">errorMessage</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="819" type="java.util.HashSet">
+<item id="820" type="com.j2fe.workflow.definition.Transition">
+<name id="821">issuerRequest</name>
+<source idref="707"/>
+<target idref="802"/>
+</item>
+</sources>
+<targets id="822" type="java.util.HashSet">
+<item idref="800"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="724"/>
+</item>
+</sources>
+<targets id="823" type="java.util.HashSet">
+<item id="824" type="com.j2fe.workflow.definition.Transition">
+<name id="825">goto-next</name>
+<source idref="724"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="772"/>
+<item idref="820"/>
+<item idref="774"/>
+<item idref="797"/>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="200"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="186"/>
+</item>
+</sources>
+<targets id="826" type="java.util.HashSet">
+<item idref="701"/>
+<item idref="184"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="167"/>
+</item>
+</sources>
+<targets id="827" type="java.util.HashSet">
+<item idref="667"/>
+<item idref="165"/>
+<item id="828" type="com.j2fe.workflow.definition.Transition">
+<name id="829">has-messages-(keystreaming)</name>
+<source idref="167"/>
+<target idref="160"/>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="160"/>
+</item>
+<item idref="828"/>
+</sources>
+<targets id="830" type="java.util.HashSet">
+<item idref="158"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="144"/>
+</item>
+</sources>
+<targets id="831" type="java.util.HashSet">
+<item idref="684"/>
+<item id="832" type="com.j2fe.workflow.definition.Transition">
+<name id="833">issueRequest</name>
+<source idref="144"/>
+<target id="834">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="835">Load Issue</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="836">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="837" type="java.util.HashSet">
+<item id="838" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="839">["JAVA"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="840">input["JAVA"]</name>
+<stringValue id="841">JAVA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="842" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="843">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="844">input["env"]</name>
+<stringValue id="845">env</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="846" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="847">["file"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="848">input["file"]</name>
+<stringValue id="849">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="850" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="851">["id"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="852">input["id"]</name>
+<stringValue id="853">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="854" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="855">["idType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="856">input["idType"]</name>
+<stringValue id="857">idType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="858" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="859">["path"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="860">input["path"]</name>
+<stringValue id="861">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="862" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="863">["requestType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="864">input["requestType"]</name>
+<stringValue id="865">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="866" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="867">["vreqOid"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="868">input["vreqOid"]</name>
+<stringValue id="869">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="870" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="871">name</name>
+<stringValue id="872">Load_Refinitiv_Response</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="873" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="874">["JobId"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="875">output["JobId"]</name>
+<stringValue id="876">jobIdIssue</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="877" type="java.util.HashSet">
+<item idref="832"/>
+<item id="878" type="com.j2fe.workflow.definition.Transition">
+<name id="879">issueSearch</name>
+<source idref="144"/>
+<target idref="834"/>
+</item>
+</sources>
+<targets id="880" type="java.util.HashSet">
+<item id="881" type="com.j2fe.workflow.definition.Transition">
+<name id="882">goto-next</name>
+<source idref="834"/>
+<target id="883">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="884">Escoba</name>
+<nodeHandler>com.j2fe.general.activities.database.PLSQLprocedure</nodeHandler>
+<nodeHandlerClass id="885">com.j2fe.general.activities.database.PLSQLprocedure</nodeHandlerClass>
+<parameters id="886" type="java.util.HashSet">
+<item id="887" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="888">PLSQLQuery</name>
+<stringValue id="889">BEGIN
+  PRC_ESCOBA_SUBYACENTES();
+END</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="890" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="891">database</name>
+<stringValue id="892">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+</parameters>
+<sources id="893" type="java.util.HashSet">
+<item id="894" type="com.j2fe.workflow.definition.Transition">
+<name id="895">goto-next</name>
+<source id="896">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="897">Historificacion</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="898">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="899" type="java.util.HashSet">
+<item id="900" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="901">commandLine</name>
+<stringValue id="902">cmdHistorificaFichCarga</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="903" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="904">killTimeout</name>
+<stringValue id="905">900</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="906" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="907">waitForEnd</name>
+<stringValue id="908">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="909" type="java.util.HashSet">
+<item id="910" type="com.j2fe.workflow.definition.Transition">
+<name id="911">goto-next</name>
+<source id="912">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="913">Java LoadDerivative</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="914">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="915" type="java.util.HashSet">
+<item id="916" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="917">commandLine</name>
+<stringValue id="918">cmdLoadDerivative</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="919" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="920">killTimeout</name>
+<stringValue id="921">900</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="922" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="923">waitForEnd</name>
+<stringValue id="924">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="925" type="java.util.HashSet">
+<item id="926" type="com.j2fe.workflow.definition.Transition">
+<name id="927">goto-next</name>
+<source id="928">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="929">Java OpenFigi</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="930">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="931" type="java.util.HashSet">
+<item id="932" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="933">commandLine</name>
+<stringValue id="934">cmdOpenFigi</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="935" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="936">killTimeout</name>
+<stringValue id="937">900</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="938" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="939">waitForEnd</name>
+<stringValue id="940">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="941" type="java.util.HashSet">
+<item id="942" type="com.j2fe.workflow.definition.Transition">
+<name id="943">goto-next</name>
+<source id="944">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="945">Java Fitlrado</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="946">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="947" type="java.util.HashSet">
+<item id="948" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="949">commandLine</name>
+<stringValue id="950">cmdFiltrado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="951" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="952">killTimeout</name>
+<stringValue id="953">900</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="954" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="955">waitForEnd</name>
+<stringValue id="956">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="957" type="java.util.HashSet">
+<item id="958" type="com.j2fe.workflow.definition.Transition">
+<name id="959">goto-next</name>
+<source id="960">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="961">Mueve fichero recibido de Refinitiv</name>
+<nodeHandler>com.j2fe.general.activities.CommandLine</nodeHandler>
+<nodeHandlerClass id="962">com.j2fe.general.activities.CommandLine</nodeHandlerClass>
+<parameters id="963" type="java.util.HashSet">
+<item id="964" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="965">commandLine</name>
+<stringValue id="966">cmdCopiaFichRefinitiv</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="967" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="968">killTimeout</name>
+<stringValue id="969">900</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="970" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="971">waitForEnd</name>
+<stringValue id="972">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="973" type="java.util.HashSet">
+<item id="974" type="com.j2fe.workflow.definition.Transition">
+<name id="975">goto-next</name>
+<source id="976">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="977">Prepare java call</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="978">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="979" type="java.util.HashSet">
+<item id="980" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="981">statements</name>
+<objectValue id="982" type="java.lang.String">import org.apache.log4j.Logger;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.regex.*;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import org.xml.sax.SAXException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+ 
+Logger logger = Logger.getLogger("Refinitiv_Request - OptionsFutures");
+String cmdFiltrado="";
+String cmdOpenFigi="";
+String cmdLoadDerivative="";
+String cmdHistorificaFichCarga="mv "+pathOut+"*.txt "+pathOut+"old";
+String cmdCopiaFichRefinitiv="cp "+pathOut+"*.txt "+pathOut+"old";
+	
+String JAR="/"+env+"/kytl/online/multipais/multicanal/jar/";
+String LIB="/"+env+"/kytl/online/multipais/multicanal/lib/";
+String LogPropertiesFilter ="/"+env+"/kytl/online/multipais/multicanal/dat/properties/log4jrefinitivDataFilter.properties";
+String LogPropertiesOpenFigi ="/"+env+"/kytl/online/multipais/multicanal/dat/properties/log4jrefinitivEnricherOnline.properties";
+String LogPropertiesLoadDerivatives ="/"+env+"/kytl/online/multipais/multicanal/dat/properties/log4jrefinitivderivativesloaderOnline.properties";
+
+String LIBRERIAS_PROCESOS_JAVA=LIB+"spring-context-5.2.5.RELEASE.jar:"+
+LIB+"spring-aop-5.2.5.RELEASE.jar:"+
+LIB+"spring-beans-5.2.5.RELEASE.jar:"+
+LIB+"spring-expression-5.2.5.RELEASE.jar:"+
+LIB+"spring-boot-starter-2.2.6.RELEASE.jar:"+
+LIB+"spring-boot-2.2.6.RELEASE.jar:"+
+LIB+"spring-boot-autoconfigure-2.2.6.RELEASE.jar:"+
+LIB+"spring-boot-starter-logging-2.2.6.RELEASE.jar:"+
+LIB+"logback-classic-1.2.3.jar:"+
+LIB+"logback-core-1.2.3.jar:"+
+LIB+"log4j-to-slf4j-2.12.1.jar:"+
+LIB+"log4j-api-2.12.1.jar:"+
+LIB+"jul-to-slf4j-1.7.30.jar:"+
+LIB+"jakarta.annotation-api-1.3.5.jar:"+
+LIB+"snakeyaml-1.25.jar:"+
+LIB+"spring-boot-starter-data-jpa-1.5.14.RELEASE.jar:"+
+LIB+"spring-boot-starter-aop-1.5.14.RELEASE.jar:"+
+LIB+"aspectjweaver-1.8.13.jar:"+
+LIB+"spring-boot-starter-jdbc-1.5.14.RELEASE.jar:"+
+LIB+"tomcat-jdbc-8.5.31.jar:"+
+LIB+"tomcat-juli-8.5.31.jar:"+
+LIB+"spring-jdbc-4.3.18.RELEASE.jar:"+
+LIB+"hibernate-core-5.0.12.Final.jar:"+
+LIB+"jboss-logging-3.3.0.Final.jar:"+
+LIB+"hibernate-jpa-2.1-api-1.0.0.Final.jar:"+
+LIB+"antlr-2.7.7.jar:"+
+LIB+"jandex-2.0.0.Final.jar:"+
+LIB+"dom4j-1.6.1.jar:"+
+LIB+"xml-apis-1.0.b2.jar:"+
+LIB+"hibernate-commons-annotations-5.0.1.Final.jar:"+
+LIB+"hibernate-entitymanager-5.0.12.Final.jar:"+
+LIB+"javax.transaction-api-1.2.jar:"+
+LIB+"spring-data-jpa-1.11.13.RELEASE.jar:"+
+LIB+"spring-data-commons-1.13.13.RELEASE.jar:"+
+LIB+"spring-orm-4.3.18.RELEASE.jar:"+
+LIB+"spring-tx-4.3.18.RELEASE.jar:"+
+LIB+"slf4j-api-1.7.25.jar:"+
+LIB+"jcl-over-slf4j-1.7.25.jar:"+
+LIB+"spring-aspects-4.3.18.RELEASE.jar:"+
+LIB+"spring-boot-starter-actuator-1.5.14.RELEASE.jar:"+
+LIB+"spring-boot-actuator-1.5.14.RELEASE.jar:"+
+LIB+"jackson-databind-2.8.11.2.jar:"+
+LIB+"jackson-annotations-2.8.0.jar:"+
+LIB+"jackson-core-2.8.10.jar:"+
+LIB+"spring-core-5.2.5.RELEASE.jar:"+
+LIB+"spring-jcl-5.2.5.RELEASE.jar:"+
+LIB+"log4j.jar:"+
+LIB+"javassist-3.28.0-GA.jar:"+
+LIB+"ojdbc6.jar:"+
+LIB+"httpclient-4.5.12.jar:"+
+LIB+"httpcore-4.4.13.jar:"+
+LIB+"commons-logging-1.2.jar:"+
+LIB+"commons-codec-1.11.jar:"+
+LIB+"gson-2.6.2.jar:"+
+JAR+"ConexionBD.jar:"+
+LIB+"spring-context-support-4.3.18.RELEASE.jar:";
+
+cmdOpenFigi = JAVA+" -Dfile.encoding=UTF8 -Dorg.jboss.logging.provider=log4j -cp "+
+LIBRERIAS_PROCESOS_JAVA+
+JAR +"XMASToken-0.0.1.jar:"+
+JAR+"openFigiEnricher.jar com.bbva.kytl.EnricherProcess "
++env+" "+LogPropertiesOpenFigi+" "+pathOut+" Derivados_Filtrado_ " +pathOut+ " DELETE " +pathOut+"old DERIVADO" ;
+
+logger.error("[Refinitiv_Request OpenFigi]: "+ cmdOpenFigi);
+
+if (vreqOid.equals("OPTIONS_FUTURES_ENRICHMENT")){
+		cmdFiltrado = JAVA+" -Dfile.encoding=UTF8 -Dorg.jboss.logging.provider=log4j -cp "+
+		LIBRERIAS_PROCESOS_JAVA+
+		JAR+"refinitivFilter.jar com.bbva.kytl.MainProcess "
+		+LogPropertiesFilter+" ONLINE "+pathOut+" .txt " +pathOut+ " " +pathOut+"old DELETE" ;
+		
+		cmdLoadDerivative = JAVA+" -Dfile.encoding=UTF8 -Dorg.jboss.logging.provider=log4j -cp "+
+		LIBRERIAS_PROCESOS_JAVA+
+		JAR+"refinitivDerivativesLoader.jar com.bbva.kytl.refinitivderivativesloader.LoaderProcess "
+		+LogPropertiesLoadDerivatives+" ONLINE "+pathOut+" .txt";
+		logger.error("[Refinitiv_Request Load Derivative]: "+ cmdLoadDerivative);
+} else{
+
+		cmdFiltrado = JAVA+" -Dfile.encoding=UTF8 -Dorg.jboss.logging.provider=log4j -cp "+
+		LIBRERIAS_PROCESOS_JAVA+
+		JAR+"refinitivFilter.jar com.bbva.kytl.MainProcess "
+		+LogPropertiesFilter+" ONLINE "+pathOut+" "+ fileOut +" " +pathOut+ " " +pathOut+"old DELETE " + vreqOid;
+		
+		
+		cmdLoadDerivative = JAVA+" -Dfile.encoding=UTF8 -Dorg.jboss.logging.provider=log4j -cp "+
+		LIBRERIAS_PROCESOS_JAVA+
+		JAR+"refinitivDerivativesLoader.jar com.bbva.kytl.refinitivderivativesloader.LoaderProcess "
+		+LogPropertiesLoadDerivatives+" BATCH "+pathOut+" .txt " + vreqOid;
+		
+		logger.error("[Refinitiv_Request Load Derivative]: "+ cmdLoadDerivative);
+}
+
+
+
+</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="983" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="984">["JAVA"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="985">variables["JAVA"]</name>
+<stringValue id="986">JAVA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="987" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="988">variables["cmdCopiaFichRefinitiv"]</name>
+<stringValue id="989">cmdCopiaFichRefinitiv</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="990" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="991">variables["cmdFiltrado"]</name>
+<stringValue id="992">cmdFiltrado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="993" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="994">variables["cmdHistorificaFichCarga"]</name>
+<stringValue id="995">cmdHistorificaFichCarga</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="996" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="997">variables["cmdLoadDerivative"]</name>
+<stringValue id="998">cmdLoadDerivative</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="999" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1000">["cmdOpenFigi"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="1001">variables["cmdOpenFigi"]</name>
+<stringValue id="1002">cmdOpenFigi</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1003" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1004">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1005">variables["env"]</name>
+<stringValue id="1006">env</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1007" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1008">["fileOut"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1009">variables["fileOut"]</name>
+<stringValue id="1010">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1011" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1012">["fileOut"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1013">variables["fileOut"]</name>
+<stringValue id="1014">fileOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1015" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1016">["id"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1017">variables["id"]</name>
+<stringValue id="1018">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1019" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1020">variables["pathOut"]</name>
+<stringValue id="1021">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1022" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1023">["pathOut"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1024">variables["pathOut"]</name>
+<stringValue id="1025">pathOut</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1026" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1027">["requestType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1028">variables["requestType"]</name>
+<stringValue id="1029">requestType</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1030" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1031">variables["vreqOid"]</name>
+<stringValue id="1032">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1033" type="java.util.HashSet">
+<item id="1034" type="com.j2fe.workflow.definition.Transition">
+<name id="1035">optionsfuturesRequest</name>
+<source idref="144"/>
+<target idref="976"/>
+</item>
+</sources>
+<targets id="1036" type="java.util.HashSet">
+<item idref="974"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="960"/>
+</item>
+</sources>
+<targets id="1037" type="java.util.HashSet">
+<item idref="958"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="944"/>
+</item>
+</sources>
+<targets id="1038" type="java.util.HashSet">
+<item idref="942"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="928"/>
+</item>
+</sources>
+<targets id="1039" type="java.util.HashSet">
+<item idref="926"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="912"/>
+</item>
+</sources>
+<targets id="1040" type="java.util.HashSet">
+<item idref="910"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="896"/>
+</item>
+</sources>
+<targets id="1041" type="java.util.HashSet">
+<item idref="894"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="883"/>
+</item>
+<item idref="881"/>
+</sources>
+<targets id="1042" type="java.util.HashSet">
+<item id="1043" type="com.j2fe.workflow.definition.Transition">
+<name id="1044">goto-next</name>
+<source idref="883"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="878"/>
+<item idref="142"/>
+<item idref="1034"/>
+<item idref="390"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="123"/>
+</item>
+</sources>
+<targets id="1045" type="java.util.HashSet">
+<item idref="335"/>
+<item idref="121"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="107"/>
+</item>
+</sources>
+<targets id="1046" type="java.util.HashSet">
+<item idref="105"/>
+<item id="1047" type="com.j2fe.workflow.definition.Transition">
+<name id="1048">online</name>
+<source idref="107"/>
+<target id="1049">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1050">BackEnd Request?</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="1051">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="1052" type="java.util.HashSet">
+<item id="1053" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1054">caseItem</name>
+<stringValue id="1055">requestTypeAux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1056" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1057">defaultItem</name>
+<stringValue id="1058">online</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1059" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1060">nullTransition</name>
+<stringValue id="1061">online</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="1062" type="java.util.HashSet">
+<item idref="1047"/>
+</sources>
+<targets id="1063" type="java.util.HashSet">
+<item id="1064" type="com.j2fe.workflow.definition.Transition">
+<name id="1065">issuerRequestBE</name>
+<source idref="1049"/>
+<target idref="83"/>
+</item>
+<item id="1066" type="com.j2fe.workflow.definition.Transition">
+<name id="1067">online</name>
+<source idref="1049"/>
+<target id="1068">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1069">Read Issuers line to map</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="1070">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="1071" type="java.util.HashSet">
+<item id="1072" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1073">statements</name>
+<stringValue id="1074"><![CDATA[import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Map fieldsMap = new LinkedHashMap();
+
+String[] fieldsArray = fieldsList.split(",");
+String[] lineArray = fileLine.split("\\|");
+int fieldCounter = 0;
+//declaramos mapa vacio
+for (String field : fieldsArray) {
+	fieldsMap.put(field,"");
+}
+
+for (String field : fieldsArray) {
+	if (fieldCounter < lineArray.length){
+		fieldsMap.put(field,lineArray[fieldCounter]);
+	}
+	fieldCounter++;
+}
+
+
+String ActivityCode = fieldsMap.get("TRBC Activity Code").toString();
+String EntitySubtype = fieldsMap.get("Legal Entity SubType").toString();]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1075" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1076">["ActivityCode"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1077">variables["ActivityCode"]</name>
+<stringValue id="1078">ActivityCode</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1079" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1080">["EntitySubtype"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1081">variables["EntitySubtype"]</name>
+<stringValue id="1082">EntitySubtype</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1083" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1084">variables["fieldsList"]</name>
+<stringValue id="1085">FirstColumnResultList</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1086" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="1087">variables["fieldsMap"]</name>
+<stringValue id="1088">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1089" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1090">["fileLine"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1091">variables["fileLine"]</name>
+<stringValue id="1092">messages</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1093" type="java.util.HashSet">
+<item idref="1066"/>
+</sources>
+<targets id="1094" type="java.util.HashSet">
+<item id="1095" type="com.j2fe.workflow.definition.Transition">
+<name id="1096">goto-next</name>
+<source idref="1068"/>
+<target id="1097">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1098">Calculo Asset Allocation</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="1099">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="1100" type="java.util.HashSet">
+<item id="1101" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1102">["Activity_code"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1103">input["Activity_code"]</name>
+<stringValue id="1104">ActivityCode</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1105" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1106">["entity_subtype"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1107">input["entity_subtype"]</name>
+<stringValue id="1108">EntitySubtype</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1109" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1110">["id"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1111">input["id"]</name>
+<stringValue id="1112">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1113" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1114">["instMnem"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1115">input["instMnem"]</name>
+<stringValue id="1116">instMnem</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1117" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1118">name</name>
+<stringValue id="1119">UI_Refinitiv_get_Activity</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1120" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1121">["Actividad"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="1122">output["Actividad"]</name>
+<stringValue id="1123">Activity</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1124" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1125">["EntitySubtype"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="1126">output["EntitySubtype"]</name>
+<stringValue id="1127">EntitySubtype</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1128" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1129">["OUTPUT_SAA"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1130">output["OUTPUT_SAA"]</name>
+<stringValue id="1131">OUTPUT_SAA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1132" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1133">["Sector"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="1134">output["Sector"]</name>
+<stringValue id="1135">Sector</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1136" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1137">["Subsector"]@java/lang/Object@</UITypeHint>
+<input>false</input>
+<name id="1138">output["Subsector"]</name>
+<stringValue id="1139">SubSector</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1140" type="java.util.HashSet">
+<item idref="1095"/>
+</sources>
+<targets id="1141" type="java.util.HashSet">
+<item id="1142" type="com.j2fe.workflow.definition.Transition">
+<name id="1143">goto-next</name>
+<source idref="1097"/>
+<target id="1144">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1145">Set Output Issuer</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="1146">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="1147" type="java.util.HashSet">
+<item id="1148" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1149">statements</name>
+<objectValue id="1150" type="java.lang.String"><![CDATA[import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+Date date = Calendar.getInstance().getTime();
+SimpleDateFormat date2 = new SimpleDateFormat("dd-MM-yyyy  HH.mm.ss");
+
+if (fieldsMap.get("Request Status").equals("OK"))
+{
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ><REF_ID>" + VREQ_OID + 
+"</REF_ID><REF_STATUS>PROCESSED</REF_STATUS><REF_DATE>"+ date2.format(date) +"</REF_DATE><REF_MSG>The request has been correctly processed.</REF_MSG>" +
+"<REF_RLEI>" + fieldsMap.get("Entity LEI").	toString() + "</REF_RLEI>" +
+"<REF_RCRISK>" + fieldsMap.get("Country of Risk - Ultimate Parent - Primary").toString() + "</REF_RCRISK>" +
+"<REF_RAC>" + fieldsMap.get("TRBC Activity Code").toString() + "</REF_RAC>" +
+"<REF_RESCD>" +fieldsMap.get("TRBC Economic Sector Code Description").toString() +"</REF_RESCD>" +
+"<REF_RBSCD>" + fieldsMap.get("TRBC Business Sector Code Description").toString() + "</REF_RBSCD>" +
+"<REF_RIGCD>" + fieldsMap.get("TRBC Industry Group Code Description").toString() + "</REF_RIGCD>" + 
+"<REF_TRICD>" + fieldsMap.get("TRBC Industry Code Description").toString() + "</REF_TRICD>" +
+"<REF_TRACD>" + fieldsMap.get("TRBC Activity Code Description").toString() + "</REF_TRACD>" +
+"<REF_TRLET>" + fieldsMap.get("Legal Entity Type").toString() + "</REF_TRLET>" +
+"<REF_TRLETD>" + fieldsMap.get("Legal Entity Type Description").toString() + "</REF_TRLETD>" +
+"<REF_TRLEST>" + fieldsMap.get("Legal Entity SubType").toString() + "</REF_TRLEST>" +
+"<REF_TRLESTD>" + fieldsMap.get("Legal Entity SubType Description").toString() + "</REF_TRLESTD>" +
+OUTPUT_SAA + 
+"</REFINITIV_REQ>";
+} 
+else
+{
+OUTPUT="<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ><REF_ID>" + VREQ_OID + 
+"</REF_ID><REF_STATUS>FAILED</REF_STATUS><REF_DATE>"+ date2.format(date) +"</REF_DATE><REF_MSG>Refinitiv refuses the request with error message: "+ fieldsMap.get("Error Message") +"</REF_MSG>" +
+"<REF_RLEI/>" +
+"<REF_RCRISK/>" + 
+"<REF_RAC/>" + 
+"<REF_RESCD/>" +
+"<REF_RBSCD/>" + 
+"<REF_RIGCD/>" + 
+"<REF_TRICD/>" + 
+"<REF_TRACD/>" + 
+"<REF_TRLET/>" + 
+"<REF_TRLETD/>" + 
+"<REF_TRLEST/>" + 
+"<REF_TRLESTD/>" + 
+"<REF_ACTIVITY_ASSET/>" + 
+"<REF_ACTIVITY_ASSET_CLVALUE/>"+ 
+"<REF_ACTIVITY_ASSET_INDCLSETID/>" +
+"<REF_ACTIVITY_ASSET_CLSFOID/>" +
+"<REF_ACTIVITY_ASSET_DATASRCID/>"+
+"<REF_SECTOR_ASSET/>"+
+"<REF_SECTOR_ASSET_CLVALUE/>"+
+"<REF_SECTOR_ASSET_INDCLSETID/>" +
+"<REF_SECTOR_ASSET_CLSFOID/>" +
+"<REF_SECTOR_ASSET_DATASRCID/>"+
+"<REF_SSECTOR_ASSET/>"+
+"<REF_SSECTOR_ASSET_CLVALUE/>"+
+"<REF_SSECTOR_ASSET_INDCLSETID/>" +
+"<REF_SSECTOR_ASSET_CLSFOID/>" +
+"<REF_SSECTOR_ASSET_DATASRCID/>"+
+"<REF_ERROR_ASSET/>" +
+"</REFINITIV_REQ>";
+}]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="1151" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1152">["Activity"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1153">variables["Activity"]</name>
+<stringValue id="1154">Activity</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1155" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1156">["OUTPUT"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1157">variables["OUTPUT"]</name>
+<stringValue id="1158">OUTPUT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1159" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1160">["OUTPUT_SAA"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1161">variables["OUTPUT_SAA"]</name>
+<stringValue id="1162">OUTPUT_SAA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1163" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1164">["Sector"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1165">variables["Sector"]</name>
+<stringValue id="1166">Sector</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1167" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1168">["SubSector"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1169">variables["SubSector"]</name>
+<stringValue id="1170">SubSector</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1171" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1172">variables["VREQ_OID"]</name>
+<stringValue id="1173">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1174" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1175">variables["fieldsMap"]</name>
+<stringValue id="1176">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1177" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="1178">variables["fieldsMap"]</name>
+<stringValue id="1179">fieldsMap</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1180" type="java.util.HashSet">
+<item idref="1142"/>
+</sources>
+<targets id="1181" type="java.util.HashSet">
+<item id="1182" type="com.j2fe.workflow.definition.Transition">
+<name id="1183">goto-next</name>
+<source idref="1144"/>
+<target id="1184">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1185">Update Vendor Request</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="1186">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="1187" type="java.util.HashSet">
+<item id="1188" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1189">database</name>
+<stringValue id="1190">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="1191" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1192">mappedParameters["1"]</name>
+<stringValue id="1193">OUTPUT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1194" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1195">["2"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="1196">mappedParameters["2"]</name>
+<stringValue id="1197">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1198" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1199">querySQL</name>
+<stringValue id="1200">UPDATE FT_T_VREQ SET VND_RQST_STAT_TYP ='PROCESSED', VND_RQST_STAT_TXT =:OUTPUT WHERE VND_RQST_OID =:vreqOid</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="1201" type="java.util.HashSet">
+<item idref="1182"/>
+</sources>
+<targets id="1202" type="java.util.HashSet">
+<item id="1203" type="com.j2fe.workflow.definition.Transition">
+<name id="1204">goto-next</name>
+<source idref="1184"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="83"/>
+</item>
+<item idref="1064"/>
+</sources>
+<targets id="1205" type="java.util.HashSet">
+<item idref="81"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="45"/>
+</item>
+</sources>
+<targets id="1206" type="java.util.HashSet">
+<item idref="43"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="29"/>
+</item>
+</sources>
+<targets id="1207" type="java.util.HashSet">
+<item idref="27"/>
+<item id="1208" type="com.j2fe.workflow.definition.Transition">
+<name id="1209">issuerRequestBE</name>
+<source idref="29"/>
+<target id="1210">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1211">query VREQ</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="1212">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="1213" type="java.util.HashSet">
+<item id="1214" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1215">statements</name>
+<stringValue id="1216"><![CDATA[String queryVreq="";
+String status="";
+String[] fileLineAux= fileLine.split("\\|");
+String vreqTxt="";
+
+
+if ( fileLine.contains("ERROR") ){
+ 	status="FAILED";
+
+	for (int i = 0; i < fileLineAux.length; i++){
+		if (fileLineAux[i].equals("ERROR") && i + 1 < fileLineAux.length){
+			vreqTxt= fileLineAux[i + 1];
+			break;
+		}
+	}
+
+}else {
+	status="PROCESSED";
+	vreqTxt="Refinitiv request processed successfully";
+}
+
+
+queryVreq = "UPDATE FT_T_VREQ SET VND_RQST_STAT_TYP='"+status +"', VND_RQST_STAT_TXT='"+vreqTxt +"', LAST_CHG_TMS=SYSDATE, LAST_CHG_USR_ID='ALTA:ROL:EMISOR:RF' WHERE VND_RQST_OID='"+vreqOid +"' and VND_RQST_STAT_TYP='PENDING'";]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1217" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1218">variables["fileLine"]</name>
+<stringValue id="1219">messages</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1220" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="1221">variables["queryVreq"]</name>
+<stringValue id="1222">queryVreq</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1223" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1224">variables["vreqOid"]</name>
+<stringValue id="1225">vreqOid</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1226" type="java.util.HashSet">
+<item idref="1208"/>
+</sources>
+<targets id="1227" type="java.util.HashSet">
+<item id="1228" type="com.j2fe.workflow.definition.Transition">
+<name id="1229">goto-next</name>
+<source idref="1210"/>
+<target id="1230">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1231">Update Vendor Request</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="1232">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="1233" type="java.util.HashSet">
+<item id="1234" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1235">database</name>
+<stringValue id="1236">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="1237" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1238">querySQL</name>
+<stringValue id="1239">queryVreq</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1240" type="java.util.HashSet">
+<item idref="1228"/>
+</sources>
+<targets id="1241" type="java.util.HashSet">
+<item id="1242" type="com.j2fe.workflow.definition.Transition">
+<name id="1243">goto-next</name>
+<source idref="1230"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="8"/>
+</item>
+<item idref="435"/>
+<item idref="1043"/>
+<item idref="650"/>
+<item idref="824"/>
+<item idref="1203"/>
+<item idref="1242"/>
+<item idref="471"/>
+</sources>
+<targets id="1244" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+</sources>
+<targets id="1245" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="1246">Custom/RDR/Fileloading/Refinitiv</group>
+<haltOnError>true</haltOnError>
+<lastChangeUser id="1247">user1</lastChangeUser>
+<lastUpdate id="1248">2026-09-23T11:02:06.000+0200</lastUpdate>
+<name id="1249">Refinitiv_Request_Response</name>
+<optimize>true</optimize>
+<parameter id="1250" type="java.util.HashMap">
+<entry>
+<key id="1251" type="java.lang.String">OUTPUT</key>
+<value id="1252" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1253">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1254">Salida a la interfaz de los campos devueltos por Refinitiv</description>
+<input>false</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="1255" type="java.lang.String">id</key>
+<value id="1256" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1257">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1258">id</description>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="1259" type="java.lang.String">idType</key>
+<value id="1260" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1261">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1262">idType</description>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="1263" type="java.lang.String">instMnem</key>
+<value id="1264" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1265">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="1266" type="java.lang.String">requestType</key>
+<value id="1267" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1268">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1269">requestType</description>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="1270" type="java.lang.String">vreqOid</key>
+<value id="1271" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="1272">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1273">vreqOid</description>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+</parameter>
+<permissions id="1274" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="291"/>
+<status>DEVELOPMENT</status>
+<variables id="1275" type="java.util.HashMap">
+<entry>
+<key id="1276" type="java.lang.String">JAVA</key>
+<value id="1277" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1278">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1279" type="java.lang.String">OUTPUT</key>
+<value id="1280" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1281">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1282">Salida a la interfaz de los campos devueltos por Refinitiv</description>
+<persistent>false</persistent>
+<value id="1283" type="java.lang.String"><![CDATA[<?xml version='1.0' encoding='utf-8'?><REFINITIV_REQ><REFINITIV_Error>"Exception requesting issuer "</REFINITIV_Error></REFINITIV_REQ>]]></value>
+</value>
+</entry>
+<entry>
+<key id="1284" type="java.lang.String">cmdCopiaFichRefinitiv</key>
+<value id="1285" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1286">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1287" type="java.lang.String">cmdFiltrado</key>
+<value id="1288" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1289">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1290" type="java.lang.String">cmdHistorificaFichCarga</key>
+<value id="1291" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1292">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1293" type="java.lang.String">cmdLoadDerivative</key>
+<value id="1294" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1295">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1296" type="java.lang.String">cmdOpenFigi</key>
+<value id="1297" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1298">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1299" type="java.lang.String">env</key>
+<value id="1300" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1301">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1302" type="java.lang.String">fieldsCateg</key>
+<value id="1303" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1304">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1305" type="java.lang.String">fieldsMap</key>
+<value id="1306" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1307">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<description id="1308">fieldsMap</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1309" type="java.lang.String">fileOut</key>
+<value id="1310" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1311">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1312">fileOut</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1313" type="java.lang.String">id</key>
+<value id="1314" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1315">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1316">id</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1317" type="java.lang.String">idType</key>
+<value id="1318" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1319">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1320">idType</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1321" type="java.lang.String">instMnem</key>
+<value id="1322" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1323">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1324" type="java.lang.String">jobIdIssue</key>
+<value id="1325" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1326">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1327">jobIdIssue</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1328" type="java.lang.String">messages</key>
+<value id="1329" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1330">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<description id="1331">messages</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1332" type="java.lang.String">nivelLog</key>
+<value id="1333" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1334">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1335" type="java.lang.String">pathOut</key>
+<value id="1336" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1337">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1338">pathOut</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1339" type="java.lang.String">requestType</key>
+<value id="1340" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1341">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1342">requestType</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="1343" type="java.lang.String">requestTypeAux</key>
+<value id="1344" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1345">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1346">requestTypeAux</description>
+<persistent>true</persistent>
+<value id="1347" type="java.lang.String">false</value>
+</value>
+</entry>
+<entry>
+<key id="1348" type="java.lang.String">vreqOid</key>
+<value id="1349" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1350">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="1351">vreqOid</description>
+<persistent>true</persistent>
+</value>
+</entry>
+</variables>
+<version>39</version>
+</com.j2fe.workflow.definition.Workflow>

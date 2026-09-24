@@ -16,12 +16,13 @@ de 3 jobs encadenados por evento, sin filewatchers ni ramas paralelas.
 * **Ámbito técnico:** 1 cadena Control-M (`RDR_BATCH_EMISORES_REFINITIV`), 3 jobs de tipo OS, todos ejecutando
   el motor genérico `GSProcess.sh` con distinto `Param1`/`.properties`, encadenados por evento (sin
   filewatcher). Todos los jobs se ejecutan en `pr-rdr.igrupobbva` bajo el usuario `xakytl1p`.
-* **Fuera de alcance:** la implementación interna de los workflows GoldenSource (`Refinitiv_Request_Response`,
-  `BBG_Refinitiv_Batch`) y de las tablas de negocio que actualizan — documentadas únicamente por declaración
-  del usuario en esta sesión, sin fichero fuente verificable (ver sección 4, gap G1, y sección 9); la cadena
-  hermana `RDR_CARGA_REFINITIV_Multi` (integración incremental independiente, ver `salidas/rdr_carga_refinitiv_multi/`);
-  el canal de comunicación técnico con la plataforma Refinitiv (protocolo, autenticación); y el consumo
-  posterior de los datos actualizados en GoldenSource por otros sistemas.
+* **Fuera de alcance:** la implementación interna de los sub-workflows de carga de ratings
+  (`Refinitiv_Load_Ratings` y relacionados) y del workflow `BBG_Refinitiv_Batch` del tercer job — la mecánica
+  de `Refinitiv_Request_Response` en sí ya está confirmada con fichero real (ver sección 4, gap G1, y
+  sección 9); la cadena hermana `RDR_CARGA_REFINITIV_Multi` (integración incremental independiente, ver
+  `salidas/rdr_carga_refinitiv_multi/`); el canal de comunicación técnico con la plataforma Refinitiv
+  (protocolo, autenticación); y el consumo posterior de los datos actualizados en GoldenSource por otros
+  sistemas.
 
 ## 3. Requisitos detectados
 
@@ -32,13 +33,13 @@ de 3 jobs encadenados por evento, sin filewatchers ni ramas paralelas.
 | R3 | `GS_BBG_REFINITIV_BATCH` (23:00h) ejecuta `GSProcess.sh RDR_BBG_Refinitiv_Batch`. Exige el evento de R2 (eliminar en "No"). Fin de cadena — sin sucesor. Genera `RDR_BATCH_EMISORES_REFINITIV_GS_BBG_REFINITIV_BATCH_OK`. |
 | R4 | Los 3 jobs son criticidad `W` (aviso día siguiente), máximo de relanzamientos 0 (sin reintento automático), retención en entorno activo 3 días. Protocolo de fallo: notificar a ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`) y abrir ticket Remedy. |
 | R5 | Ningún job de la cadena genera fichero de salida en disco ni evento hacia sistemas externos al propio folder. El resultado es un impacto interno en base de datos GoldenSource (`GSDM-1`) — ver R6 y gap G1. |
-| R6 | *(Declaración del usuario en sesión, sin fichero fuente verificable — ver sección 9)*: `RDR_REFINITIV_BATCH_REQUEST` dispara el workflow GoldenSource `Refinitiv_Request_Response` (`requestType=issuerRequest`, `vreqOid=BATCH_ISSUER`, `idType=BATCH`); `GS_REFINITIV_REQ_RES` dispara el mismo workflow con `requestType=ratingsRequest`, `vreqOid=BATCH_RATINGS`, `idType=ORG_ID` (`id=MULTI` — ver nota de inconsistencia en sección 9); `GS_BBG_REFINITIV_BATCH` dispara `BBG_Refinitiv_Batch` (módulo `Custom/RDR/Riesgo_Emisor` v4), que actualiza `FT_T_FIRT` (ratings), publica en `FT_T_RLT1` con estado `PENDING_ESB` para difusión ESB, marca `CALCULATE_REU` para recálculo, y genera 2 CSV de fallos (`..._failures_toUser_...`, `..._failures_toANS_...`). |
+| R6 | **`RDR_REFINITIV_BATCH_REQUEST` y `GS_REFINITIV_REQ_RES` confirmados con el workflow real `Refinitiv_Request_Response.wkf`** (ver sección 9): es un workflow genérico compartido por varios tipos de solicitud a Refinitiv (`issueRequest`, `optionsfuturesRequest`, `issueSearch`, `issuerRequest`/`issuerRequestBE`, `ratingsRequest`/`ratingsRequestBE`), seleccionados por `switch(requestType)` + `vreqOid`. Confirma `requestType=issuerRequest`, `vreqOid=BATCH_ISSUER` para el primer job, y `requestType=ratingsRequest`, `vreqOid=BATCH_RATINGS` para el segundo. El workflow construye el comando del cliente Java (`RDR_Refinitiv_Request.jar`, clase `Request`), espera y lee el fichero de respuesta, y él mismo solo actualiza `FT_T_VREQ` (estado de la solicitud: `PROCESSED`/error) y `TABLEALERTGENER` (alerta de fallo, `PROCESO='PETICION_REFINITIV_EMISIONES'`). Para `BATCH_RATINGS`, delega la carga real en un **sub-workflow `Refinitiv_Load_Ratings`** (más `Refinitiv_Ratings_oids`, `Refinitiv_Ratings_relations`, `Grabar-VREQ_VRPM` — este último coincide con `FT_T_VRPM` ya declarado), cuyo contenido no viene en este fichero: la actualización real de `FT_T_FIRT`/`FT_T_RLT1`/`FT_T_RTNG` sigue sin confirmar documentalmente. `GS_BBG_REFINITIV_BATCH` dispara un workflow distinto, `BBG_Refinitiv_Batch` (módulo `Custom/RDR/Riesgo_Emisor` v4) — **no incluido en la evidencia recibida, sigue como declaración del usuario sin fichero fuente** (que actualiza `FT_T_FIRT`, publica en `FT_T_RLT1` con estado `PENDING_ESB`, marca `CALCULATE_REU`, y genera 2 CSV de fallos). El parámetro `idType=ORG_ID`/`id=MULTI` (`GS_REFINITIV_REQ_RES`) no aparece en este workflow (se recibe como variable externa desde el `.properties`, no incluido) — la inconsistencia de la sección 9 sigue sin resolver. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G1 | ¿Cuál es la lógica de negocio real detrás de `GSProcess.sh` para los 3 `Param1`? | Declarada por el usuario en 3 rondas de esta sesión (workflows, tablas, SQL — ver R6), **sin fichero `.properties` ni script fuente adjuntado en `documentos_fuente/`** pese a haberse solicitado explícitamente 2 veces. Se documenta como confirmado por declaración de usuario en sesión, con gap de trazabilidad documental registrado como riesgo (sección 9). |
+| G1 | ¿Cuál es la lógica de negocio real detrás de `GSProcess.sh` para los 3 `Param1`? | **Parcialmente resuelto (2026-09-24) con el workflow real `Refinitiv_Request_Response.wkf`** — confirma la mecánica de los 2 primeros jobs (ver R6): construcción y envío de la solicitud a Refinitiv, actualización de `FT_T_VREQ` y alertas en `TABLEALERTGENER`. La carga real en las tablas de ratings queda delegada a sub-workflows no incluidos en la evidencia (`Refinitiv_Load_Ratings` y otros — ver R6), y el tercer job (`BBG_Refinitiv_Batch`) sigue sin fichero fuente verificable. Gap de trazabilidad documental restante registrado como riesgo (sección 9). |
 | G2 | ¿El resultado de la cadena es un fichero/tabla o un impacto interno? | Confirmado: impacto interno en BD GoldenSource (`GSDM-1`), sin fichero de salida ni evento externo. |
 | G3 | ¿Es esta cadena una variante de `RDR_CARGA_REFINITIV_Multi` o una integración independiente? | Confirmado: integraciones funcionalmente independientes — esta cadena es la extracción periódica masiva diaria (batch), la otra procesa altas incrementales vía fichero. |
 | G4 | ¿Hay validación de que Refinitiv respondió con datos válidos? | Confirmado: no. Solo se valida el código de retorno (`RC=0`) del script; no hay inspección de contenido de la respuesta. Documentado como riesgo (sección 9). |
@@ -63,8 +64,12 @@ de 3 jobs encadenados por evento, sin filewatchers ni ramas paralelas.
   Run As `xakytl1p`, sin filewatcher ni recurso más allá de `MAX-LPRDR501` (cantidad 1, total 100).
 * **Encadenamiento:** por evento Control-M puro (sin dependencia de fichero), "eliminar en No" en los 2
   eventos de entrada (R2 y R3).
-* **Impacto en datos:** según R6, tablas GoldenSource `FT_T_FIRT`, `FT_T_RTNG`, `FT_T_RVXR`, `FT_T_RTVL`,
-  `FT_T_VREQ`, `FT_T_VRPM`, `FT_T_PAR1`, `FT_T_RLT1` — **no verificado documentalmente** (ver sección 9).
+* **Impacto en datos:** `FT_T_VREQ` (estado de solicitud) y `TABLEALERTGENER` (alertas de fallo) **confirmados
+  con el workflow real** `Refinitiv_Request_Response.wkf`; `FT_T_PAR1` confirmado como tabla de solo lectura
+  (parámetros de configuración `REFINITIV_PARAMS`). El resto de tablas declaradas —`FT_T_FIRT`, `FT_T_RTNG`,
+  `FT_T_RVXR`, `FT_T_RTVL`, `FT_T_VRPM`, `FT_T_RLT1`— dependen de sub-workflows no incluidos en la evidencia
+  (`Refinitiv_Load_Ratings`, `Refinitiv_Ratings_oids`, `Refinitiv_Ratings_relations`, `Grabar-VREQ_VRPM`) y
+  del workflow `BBG_Refinitiv_Batch` del tercer job — **siguen sin verificación documental** (ver sección 9).
 
 ## 7. Especificación de testing
 
@@ -96,13 +101,14 @@ en esta cadena lineal.
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-* **Riesgo de trazabilidad documental (G1/G6 de la ronda de preguntas):** todo el detalle de workflows,
-  tablas y SQL de GoldenSource (R6) proviene de una declaración directa del usuario en esta sesión. Pese a
-  haberse solicitado explícitamente en 2 rondas, no se ha adjuntado ningún fichero `.properties` ni script
-  fuente en `documentos_fuente/`, y una cita de rutas locales (`C:\RDR\kdd-nfq-rdr-project-206\...`) como
-  supuesta evidencia "del repositorio" se verificó como inexistente en las 7 ramas del repositorio Git. Se
-  recomienda, antes de dar este detalle por definitivo en un entorno de producción, obtener y versionar el
-  fichero `.properties` real de cada job.
+* **Riesgo de trazabilidad documental (G1, parcialmente cerrado):** el workflow real `Refinitiv_Request_Response.wkf`
+  (2026-09-24) confirma con código la mecánica de los 2 primeros jobs de la cadena (ver R6). Sigue sin
+  fichero fuente verificable: (a) el contenido de los sub-workflows que él mismo invoca para la carga de
+  ratings (`Refinitiv_Load_Ratings`, `Refinitiv_Ratings_oids`, `Refinitiv_Ratings_relations`,
+  `Grabar-VREQ_VRPM`), que son los que tocarían `FT_T_FIRT`/`FT_T_RLT1`/`FT_T_RTNG`; y (b) el workflow
+  `BBG_Refinitiv_Batch` del tercer job (`GS_BBG_REFINITIV_BATCH`), que sigue documentado únicamente por
+  declaración del usuario en sesión. Antes de dar ese detalle por definitivo en producción, se recomienda
+  obtener esos ficheros de workflow.
 * **Ausencia de validación de contenido (G4):** la cadena solo valida `RC=0` del script; una respuesta de
   Refinitiv vacía, incompleta o con error de negocio pero con `RC=0` no se detectaría automáticamente.
 * **Inconsistencia menor detectada (no resuelta):** según la declaración del usuario, `RDR_Refinitiv_REQ_RES.properties`
