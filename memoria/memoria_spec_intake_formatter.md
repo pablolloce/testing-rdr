@@ -63,6 +63,3 @@
 
 | Supuesto | Proceso | Usuario | Estado | Comentario |
 |----------|---------|---------|--------|------------|
-| Es normal que alguna/todas las categorías de RDR_Asset_Control.sh no tengan `.req` en fin de semana (la cadena corre L-D) | rdr_sendbbg_asset | miguel.saavedra | Pendiente | Sin verificar por falta de acceso a histórico de Monitorización y a filesystem de logs; usuario decidió avanzar sin resolverlo, registrado como hipótesis no confirmada en spec.md §4, sin caso de prueba asociado |
-| El código de error exacto de MEGENV0001.sh (105/110/301 u otro) que corresponde al escenario "fichero .tar origen no encontrado" | rdr_sendbbg_asset | miguel.saavedra | Pendiente | No confirmado documentalmente; TC-003 de casos_prueba.xml sirve para determinarlo empíricamente la primera vez que se ejecute |
-| Mecanismo exacto de la purga de +6 meses en MEKYTL1300 (RDR_ExtraccionDUCOMASTERDATA) | rdr_extraccionducomasterdata | miguel.saavedra | Pendiente | Sin acceso a la versión completa de producción de INFORMACION_HISTORIFICACIONES.IDX (solo muestra parcial de integrado, sin la clave); dado que RAMERC0068.sh solo admite un DIR_ORI/OPERACION por clave, es dudoso que la purga de /backup ocurra en la misma invocación que traslada el fichero nuevo — usuario decidió avanzar sin resolverlo, registrado como hallazgo en spec.md §4/§9 |
