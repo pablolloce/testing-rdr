@@ -328,34 +328,27 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-12" tipo="happy_path">
-    <nombre>Purga de históricos CSV con más de 7 días</nombre>
-    <objetivo>Verificar que MEKYTL1053 elimina de LAGR/old/ los ficheros CSV con antigüedad superior a 7 días y respeta los que están dentro del periodo de retención.</objetivo>
+    <nombre>Verificación del estado real de MEKYTL1053 y crecimiento de LAGR/old/</nombre>
+    <objetivo>Determinar si la purga de históricos CSV (documentada para MEKYTL1053, probablemente decomisado según su ficha EX-005-03 — IP fija antigua y sin periodicidad activa) realmente se ejecuta en producción, y si LAGR/old/ crece sin control en su ausencia.</objetivo>
     <precondiciones>
-      <precondicion>Directorio LAGR/old/ poblado con ficheros BBVAContracts_yyyymmdd.csv de antigüedades controladas.</precondicion>
-      <precondicion>MEKYTL1052 ejecutado con éxito en la pasada actual.</precondicion>
-      <precondicion>Permisos de borrado sobre LAGR/old/.</precondicion>
+      <precondicion>Directorio LAGR/old/ poblado con ficheros BBVAContracts_yyyymmdd.csv de antigüedades controladas, acumulados a lo largo de varias semanas.</precondicion>
+      <precondicion>Acceso al inventario de jobs activos de Control-M para confirmar si MEKYTL1053 aparece o no en la planificación real.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fichero_6_dias" valor="BBVAContracts_yyyymmdd.csv con 6 días de antigüedad — debe conservarse"/>
-      <dato campo="fichero_7_dias" valor="BBVAContracts_yyyymmdd.csv con 7 días exactos — comportamiento límite a documentar"/>
-      <dato campo="fichero_8_dias" valor="BBVAContracts_yyyymmdd.csv con 8 días de antigüedad — debe borrarse"/>
-      <dato campo="fichero_30_dias" valor="BBVAContracts_yyyymmdd.csv con 30 días de antigüedad — debe borrarse"/>
-      <dato campo="fichero_gz" valor="BBVAContracts_yyyymmdd.gz — no debe verse afectado"/>
-      <dato campo="retencion" valor="7 días"/>
+      <dato campo="ficheros_csv_antiguos" valor="BBVAContracts_yyyymmdd.csv con antigüedades de 6, 8, 30 y 60+ días"/>
+      <dato campo="fichero_gz" valor="BBVAContracts_yyyymmdd.gz — no debe verse afectado en ningún escenario"/>
+      <dato campo="retencion_documentada" valor="7 días"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Preparar LAGR/old/ con ficheros CSV de 6, 7, 8 y 30 días de antigüedad, más un fichero .gz de historificación del XML.</paso>
-      <paso numero="2">Registrar el inventario inicial del directorio.</paso>
-      <paso numero="3">Ejecutar MEKYTL1053.</paso>
-      <paso numero="4">Verificar que el fichero de 6 días permanece.</paso>
-      <paso numero="5">Verificar que los ficheros de 8 y 30 días han sido eliminados.</paso>
-      <paso numero="6">Documentar el tratamiento del fichero de 7 días exactos (inclusivo o exclusivo).</paso>
-      <paso numero="7">Verificar que el fichero .gz no ha sido afectado por la purga.</paso>
+      <paso numero="1">Confirmar en Control-M si MEKYTL1053 existe como job planificado y activo.</paso>
+      <paso numero="2">Registrar el inventario de LAGR/old/ en dos fechas separadas por al menos 2-3 semanas de ejecuciones normales de la cadena.</paso>
+      <paso numero="3">Comparar ambos inventarios: si los CSV de más de 7 días siguen presentes en el segundo registro, la purga no está operando.</paso>
+      <paso numero="4">Verificar que los ficheros .gz de historificación del XML no se ven afectados en ningún caso.</paso>
     </pasos>
-    <resultadoEsperado>Los CSV de 8 y 30 días eliminados; el de 6 días conservado; el comportamiento en el límite de 7 días documentado; los ficheros .gz intactos.</resultadoEsperado>
-    <tipoValidacion>Comparación del inventario de LAGR/old/ antes y después de la ejecución; verificación de que el criterio de borrado se aplica solo a los CSV.</tipoValidacion>
-    <criterioAceptacion>Ningún fichero dentro del periodo de retención eliminado y ningún fichero .gz afectado.</criterioAceptacion>
-    <posibilidadFallo>Media — un criterio de borrado demasiado amplio podría alcanzar los .gz de historificación del XML, que no tienen política de retención documentada.</posibilidadFallo>
+    <resultadoEsperado>Si MEKYTL1053 no aparece en Control-M (resultado esperado según la evidencia de esta sesión), el directorio LAGR/old/ acumulará CSV de más de 7 días sin que nada los elimine — confirmando el riesgo documentado, no un comportamiento a "pasar" o "fallar" en el sentido tradicional. Los ficheros .gz permanecen intactos en todo momento.</resultadoEsperado>
+    <tipoValidacion>Consulta del inventario de jobs en Control-M; comparación del inventario de LAGR/old/ en dos fechas.</tipoValidacion>
+    <criterioAceptacion>Se documenta si la purga opera o no realmente; si no opera, se registra como riesgo confirmado en producción, no como fallo de este caso.</criterioAceptacion>
+    <posibilidadFallo>Que MEKYTL1053 sí aparezca activo en Control-M pese a lo indicado por su ficha, lo que contradiría la conclusión de esta sesión y obligaría a revisar el riesgo.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-13" tipo="borde">

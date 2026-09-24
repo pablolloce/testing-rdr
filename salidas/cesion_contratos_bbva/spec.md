@@ -253,9 +253,12 @@ ramas de distribución.
 | **PXVA** (nueva, R-23) | `MEKYTL1307` | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/` |
 | Mentor | `FW_BBVAContracts_RDR_2` → `MEKYTL0896` → `MEKYTL0954` | **DECOMISADA** (pero ver nota sobre el `.properties` arriba) |
 
-(*) `MEKYTL1053` no aparece en el export real de Control-M (`Workspace_204.xml`) — no está confirmado
-que exista como job independiente; podría estar decomisado o su función de purga absorbida en
-`MEKYTL1052`.
+(*) `MEKYTL1053` — **resuelto: probablemente decomisado o nunca migrado a la infraestructura
+actual.** Su ficha EX-005-03 real muestra `MÁQUINA ORIGEN: 22.156.148.85` (IP fija antigua, no la
+VIPA `pr-rdr.igrupobbva` que usan todos los demás jobs vigentes de esta cadena) y el campo
+"Reglas Planificación/Periodicidad" completamente en blanco (a diferencia de todas las demás
+fichas de esta cadena, que declaran "M X J V S"). Ambas señales son consistentes con su ausencia
+del export real de Control-M (`Workspace_204.xml`).
 
 **Las dependencias son de orden, no de éxito.** La ficha encadena Ibor → S3 → EYMI y CSV →
 historificación → purga como secuencias predecesor-sucesor, lo que a primera vista sugiere que
@@ -316,14 +319,15 @@ particularidad que más confusión genera en la documentación:
 |-----|---------|----------|
 | `MEKYTL1051` | Envío del CSV a `v1128metr1` | **Mensual** — calendario `MX3_1MART_M`, primer martes de mes, un único envío al mes |
 | `MEKYTL1052` | Historificación en `LAGR/old/BBVAContracts_yyyymmdd.csv` | **Diaria** — en cada ejecución de la cadena |
-| `MEKYTL1053` | Purga de históricos con más de 7 días | **Diaria** — sucesor de `MEKYTL1052` |
+| `MEKYTL1053` | Purga de históricos con más de 7 días | Documentada como **Diaria** — sucesor de `MEKYTL1052`, pero probablemente decomisado (ver §4.5): ausente del export real, con ficha propia que declara IP fija antigua y sin periodicidad activa |
 
 El CSV se genera y se historifica en cada pasada de la cadena, pero solo se transmite al sistema
 de reporting una vez al mes. `MEKYTL1052` tiene dos predecesores con calendarios distintos
 —`MEKYTL1051` (mensual) y `MEKYTL1104` (M X J V)— y, al ser las dependencias de orden y no de
-éxito (§4.5), se ejecuta a diario sin quedar bloqueado por el predecesor mensual. Lo mismo
-aplica a `MEKYTL1053`, lo que garantiza que la purga a 7 días opera de forma continua y el
-directorio de históricos no crece sin control.
+éxito (§4.5), se ejecuta a diario sin quedar bloqueado por el predecesor mensual. La
+documentación original describía lo mismo para `MEKYTL1053`, pero al estar probablemente
+decomisado, la purga a 7 días de `LAGR/old/` puede no estar operando realmente — riesgo real a
+verificar en producción (TC-12), no una garantía asumida.
 
 La retención de 7 días sobre una historificación diaria implica que `LAGR/old/` mantiene en
 régimen estacionario del orden de 6 a 7 ficheros CSV.
@@ -393,12 +397,14 @@ Reconciliando contra la cobertura de esta especificación:
 declarados en la ficha, **al menos 3 (`MEKYTL1246`, `MEKYTL1264`, `MEKYTL1307`) resultaron ser
 ramas de distribución activas no detectadas**, no decomisadas — un error de la hipótesis
 original, corregido en esta sesión con evidencia real (export + 3 fichas EX-005-03). La rama
-Mentor (3 jobs) sí se confirma decomisada, consistente con su ausencia del export. El inventario
-de jobs activos queda cerrado: los 23 jobs del export están todos documentados en esta
-especificación, salvo la duda sobre `MEKYTL1053` (nota en §4.5). No se ha reconciliado la cifra
-exacta de "30 pasos declarados" contra los 23 activos + 3 decomisados + 1053, dado que la ficha
-original no está disponible para un cotejo línea a línea; la cobertura de pruebas se basa en el
-export real, no en el recuento declarado.
+Mentor (3 jobs) sí se confirma decomisada, consistente con su ausencia del export. `MEKYTL1053`
+(purga de históricos CSV) también queda resuelto como probable decomisión: su propia ficha
+EX-005-03 declara una IP fija antigua (`22.156.148.85`) y periodicidad en blanco, a diferencia de
+todas las demás fichas vigentes de esta cadena (nota en §4.5). El inventario de jobs activos
+queda así cerrado: los 23 jobs del export están todos documentados en esta especificación. No se
+ha reconciliado la cifra exacta de "30 pasos declarados" contra los 23 activos + 4 decomisados
+(3 de Mentor + `MEKYTL1053`), dado que la ficha original no está disponible para un cotejo línea
+a línea; la cobertura de pruebas se basa en el export real, no en el recuento declarado.
 
 ---
 
@@ -564,7 +570,7 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 | RG-06 | No ejecución de `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` (criticidad W, aviso al día siguiente) | Acumulación de ficheros en `/unload/transmisiones/XIRM/rdr/` sin alerta inmediata | Monitorizar el volumen del directorio en pasarela (§4.7, TC-14) |
 | RG-07 | Ficheros residuales de una ejecución anterior en `LAGR/` | El filewatcher arrancaría la cadena con datos obsoletos | Verificar que la historificación de la pasada anterior dejó el directorio limpio (TC-16) |
 | RG-08 | **Resuelto, con corrección relevante:** el recuento de 30 pasos de la ficha no solo incluye jobs decomisados (rama Mentor, 3 jobs) — también incluía 3 ramas de distribución reales (`MEKYTL1246`/GMIP, `MEKYTL1264`/THOR, `MEKYTL1307`/PXVA) que se habían asumido erróneamente como decomisadas | La hipótesis original habría dejado 3 destinos reales sin especificar ni cubrir con pruebas | Cerrado: export real de Control-M + 3 fichas EX-005-03 (§4.5, §4.9, R-21/R-22/R-23, TC-19) |
-| RG-13 | `MEKYTL1053` (purga de históricos CSV, documentada extensamente en §4.6) no aparece en el export real de Control-M | No se puede confirmar si la purga a 7 días sigue operando como job independiente, si está decomisado, o si su función se absorbió en `MEKYTL1052` | Confirmar con Control-M/el usuario el estado real de `MEKYTL1053` (§4.5) |
+| RG-13 | ~~`MEKYTL1053` no aparece en el export real de Control-M~~ — **resuelto**: su ficha real muestra IP fija antigua (`22.156.148.85`, no la VIPA vigente) y periodicidad en blanco, consistente con estar decomisado o nunca migrado | Si la purga a 7 días de `LAGR/old/` ya no se ejecuta, el directorio de históricos podría crecer sin control | Cerrado documentalmente (§4.5); verificar en producción que el volumen de `LAGR/old/` no crece sin límite (TC-12) |
 | RG-09 | Cadencias distintas dentro de la rama CSV (envío mensual, historificación diaria) | Riesgo de interpretar como fallo la ausencia de envío en una pasada diaria | Documentado en §4.6; verificado en TC-11 |
 | RG-10 | Dependencias de orden y no de éxito en toda la cadena | Un envío fallido no detiene la cadena: el fallo puede pasar desapercibido y la historificación ejecutarse igualmente | Verificar que el circuito de aviso a ANS RDR cubre el fallo individual de cada job de envío (§4.5, TC-09) |
 | RG-11 | Documento fuente centrado en la lógica `daybefore` de cadenas decomisadas | Riesgo de que revisiones futuras deriven requisitos de una lógica que ya no aplica | Documentado explícitamente en §2.2 |
@@ -613,7 +619,8 @@ distinta a la que constaba en la sesión anterior:
 5. **Cerrado.** El `.properties` real de `MEKYTL0895` (entorno "ei") contiene la generación
    completa del fichero de Mentor, pero el usuario reconfirma que para `RDR_BBVACONTRACTS_new`
    esa generación está decomisada, con independencia de esos pasos en el `.properties` (RG-03).
-6. **Nuevo gap abierto:** `MEKYTL1053` (purga de históricos CSV) no aparece en el export real de
-   Control-M pese a estar documentado extensamente — estado real sin confirmar (RG-13).
+6. **Cerrado.** `MEKYTL1053` (purga de históricos CSV) no aparece en el export real de Control-M;
+   su propia ficha EX-005-03 (IP fija antigua, periodicidad en blanco) confirma que probablemente
+   está decomisado o nunca se migró a la infraestructura vigente (RG-13).
 7. **Definición de los entornos de ejecución** (RG-12) — decisión de proyecto, no de verificación
    técnica, sigue pendiente.
