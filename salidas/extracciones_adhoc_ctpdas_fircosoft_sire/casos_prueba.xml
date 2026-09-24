@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extracciones_adhoc_ctpdas_fircosoft_sire" fecha="2026-09-24" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ejecución paralela por tiempo de EXTRACCION_CPTDAS y EXTRACCION_THIRDPARTYS</nombre>
+    <objetivo>Verificar que ambos jobs se disparan de forma independiente por reloj (sin dependencia secuencial entre sí) en las cadenas diaria y de fin de semana.</objetivo>
+    <precondiciones>
+      <precondicion>Cadenas RDR_EXTRACCION_CTPDAS_D/_W dadas de alta e inyectadas en la malla vía PLAN_1200.</precondicion>
+      <precondicion>VIPA pr-rdr.igrupobbva operativa, balanceando entre lprdr501/lprdr602.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="GSProcess.sh" valor="parámetros ExtraccionGenericaCPTY / ExtraccionGenericaTHIRDPARTIES"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que EXTRACCION_THIRDPARTYS arranca a las 01:00 AM (diaria) / 03:00 AM (fin de semana) sin esperar ningún evento.</paso>
+      <paso numero="2">Verificar que EXTRACCION_CPTDAS arranca a las 01:05 AM (diaria) / 03:05 AM (fin de semana) sin esperar ningún evento, incluido el de EXTRACCION_THIRDPARTYS.</paso>
+      <paso numero="3">Confirmar que ambos terminan OK de forma independiente.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs se ejecutan en sus horarios respectivos sin bloquearse entre sí; ningún fallo de uno impide la ejecución del otro.</resultadoEsperado>
+    <tipoValidacion>Estado OK de ambos jobs + verificación de que no hay eventos cruzados entre ellos en Control-M.</tipoValidacion>
+    <criterioAceptacion>Topología de ejecución paralela por tiempo confirmada, sin dependencia secuencial real.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales; un fallo de despliegue asimétrico entre lprdr501/lprdr602 (RISK-ADHOC-001) podría causar fallos intermitentes según el nodo que balancee la ejecución.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Ciclo completo de transformación y envío a Fircosoft</nombre>
+    <objetivo>Verificar el ciclo end-to-end: extracción genérica común → RDR_Transformacion_FS.sh → Batch_Fircosoft_AAAAMMDD.txt → envío por MEKYTL1261 a México.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_TRANSFORMACION_FS de la cadena correspondiente (_new o _FINSEM_S_new) completado con éxito.</precondicion>
+      <precondicion>Contenido válido en /fichtemcomp/$env/descargas/kytl/extracciongenerica/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Batch_Fircosoft_AAAAMMDD.txt" valor="generado por RDR_Transformacion_Fircosoft.jar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_Transformacion_FS.sh genera Batch_Fircosoft_AAAAMMDD.txt en /fichtemcomp/$env/descargas/kytl/Fircosoft/.</paso>
+      <paso numero="2">Verificar que MEKYTL1261 (variante diaria o sábado según corresponda) espera el evento cross-chain correcto (RDR_DAILY_EXGEN_CPARTYS_RDR_TRANSFORMACION_FS_LWRDR601_OK o el equivalente de FINSEM_S) antes de las 06:00 AM.</paso>
+      <paso numero="3">Confirmar que MEKYTL1261 selecciona el fichero con fecha de creación más reciente que cumpla la máscara Batch_Fircosoft_YYYYMMDD.txt.</paso>
+      <paso numero="4">Verificar la transmisión Connect:Direct (BINARY, PUT, rpl) a fsbrdrmxp.mex.igrupobbva:/Fircosoft_rdr/RDR_Batch/0003/Input/, con codificación ASCII en tránsito y UTF-8 en destino.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se transforma, selecciona y transmite correctamente a México, respetando la dependencia cross-chain y el horario mínimo de las 06:00 AM.</resultadoEsperado>
+    <tipoValidacion>Estado OK de RDR_Transformacion_FS, presencia del fichero en la carpeta Fircosoft local, estado OK de MEKYTL1261, confirmación de recepción en destino si es accesible.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin incidencias, respetando ambas condiciones (hora + evento cross-chain).</criterioAceptacion>
+    <posibilidadFallo>Si RDR_TRANSFORMACION_FS falla o se retrasa más allá de las 06:00 AM, MEKYTL1261 queda bloqueado esperando el evento — comportamiento esperado, no un fallo de esta prueba.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="happy_path">
+    <nombre>Ciclo completo de RDR_SIRE_new: generación, envío, purga e historificación</nombre>
+    <objetivo>Verificar el ciclo end-to-end de la cadena SIRE: RDR_SIRE_IN → FICHERO_EMISI → MEKYTL0072 → (MEKYTL0072_SND → MEKYTL0072_DEL) en paralelo con MEKYTL0933.</objetivo>
+    <precondiciones>
+      <precondicion>Motor GoldenSource Fileloading Engine operativo (executeBbvaEvent.sh, evento EventSireEmisi).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="emisi.csv" valor="generado en /fichtemcomp/pr/descargas/kytl/sire_files/"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que RDR_SIRE_IN (Dummy) se ejecuta sin prerrequisitos y publica RDR_SIRE_IN_OK_new.</paso>
+      <paso numero="2">Verificar que FICHERO_EMISI genera emisi.csv a las 19:00h y publica RDR_SIRE_FICHERO_EMISI_OK_new.</paso>
+      <paso numero="3">Verificar que MEKYTL0072 transmite emisi.csv a 150.100.151.41 (sireapb1mx) con el patrón emisiDDMMYYYYCC.csv, y publica RDR_SIRE_MEKYTL0072_OK_new.</paso>
+      <paso numero="4">Verificar en paralelo: (a) MEKYTL0072_SND → MEKYTL0072_DEL purgan el fichero temporal en lpftp503, y (b) MEKYTL0933 historifica emisi.csv en sire_files/old/emisi_yyyymmdd.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Las 2 ramas paralelas (purga en pasarela e historificación local) completan correctamente tras el envío exitoso, sin interferir entre sí.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 6 jobs de la cadena + verificación de presencia/ausencia de ficheros en cada ruta correspondiente.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, ambas ramas paralelas confirmadas.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Los eventos cross-chain se consumen sin destruir la señal (columna Eliminar = No)</nombre>
+    <objetivo>Confirmar que los prerrequisitos que consumen eventos generados por otra cadena (Fircosoft: evento de RDR_TRANSFORMACION_FS; SIRE interno: eventos entre jobs propios) no borran la señal original al consumirla, y aclarar si EXTRACCION_THIRDPARTYS de _D publica o no evento de salida (GAP-ADHOC-003).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de MEKYTL1261 (ambas variantes) y de la cadena RDR_SIRE_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Columna Eliminar de los prerrequisitos" valor="documentada como 'No' en MEKYTL1261, FICHERO_EMISI, MEKYTL0072, MEKYTL0072_SND, MEKYTL0072_DEL"/>
+      <dato campo="EXTRACCION_THIRDPARTYS (_D)" valor="sin bloque de Acciones/Eventos de Salida documentado, a diferencia de _W"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar en Control-M que el evento consumido por MEKYTL1261 sigue existiendo después de su ejecución (no se elimina).</paso>
+      <paso numero="2">Repetir la verificación para los eventos internos de la cadena RDR_SIRE_new.</paso>
+      <paso numero="3">Inspeccionar la pestaña Acciones de EXTRACCION_THIRDPARTYS en RDR_EXTRACCION_CTPDAS_D y confirmar si publica o no algún evento de salida (comparar con la variante _W, que sí publica RDR_EXTRACCION_CTPDAS_W_EXTRACCION_THIRDPARTYS_OK).</paso>
+    </pasos>
+    <resultadoEsperado>Los eventos cross-chain persisten tras su consumo (comportamiento "No eliminar" confirmado); se determina si EXTRACCION_THIRDPARTYS de _D publica evento de salida o no.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición real de Control-M (pestañas Prerrequisitos y Acciones).</tipoValidacion>
+    <criterioAceptacion>Comportamiento "No eliminar" confirmado; GAP-ADHOC-003 resuelto con el resultado del paso 3, actualizando spec.md si difiere de lo documentado.</criterioAceptacion>
+    <posibilidadFallo>Si algún evento se eliminara al consumirse, podría romper otros consumidores no documentados de la cadena origen — sería un defecto de diseño a escalar a ANS RDR.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>¿Generan EXTRACCION_CPTDAS/EXTRACCION_THIRDPARTYS los ficheros de origen de la Extracción Genérica de Contrapartidas? (GAP-ADHOC-001)</nombre>
+    <objetivo>Confirmar o refutar la hipótesis de que estos 2 jobs son la ficha de job ausente para la generación de ThirdParties.xml/ExtraccionContingencia.xml, documentada como "proceso interno RDR sin ficha" en salidas/extraccion_generica_contrapartidas/spec.md.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al script GSProcess.sh o a sus logs de ejecución con el parámetro ExtraccionGenericaCPTY/ExtraccionGenericaTHIRDPARTIES.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ThirdParties.xml, ExtraccionContingencia.xml" valor="verificar si su timestamp de generación coincide con la ejecución de EXTRACCION_THIRDPARTYS (01:00/03:00h) y EXTRACCION_CPTDAS (01:05/03:05h)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras una ejecución real de EXTRACCION_CPTDAS y EXTRACCION_THIRDPARTYS, verificar si ThirdParties.xml y ExtraccionContingencia.xml aparecen o se actualizan en la ruta esperada inmediatamente después.</paso>
+      <paso numero="2">Si es posible, inspeccionar el log/salida del script GSProcess.sh con esos parámetros para confirmar si invoca los jars ExtraccionGenericaCPTY.jar/ExtraccionGenericaOtherEntities.jar.</paso>
+      <paso numero="3">Documentar el resultado (confirmado / refutado) y reconciliar el horario (00:05h vs. 01:00-01:05h/03:00-03:05h) si se confirma la relación.</paso>
+    </pasos>
+    <resultadoEsperado>Se determina de forma concluyente si estos jobs son o no la generación real de los ficheros de origen de la extracción genérica.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs/timestamps reales + confirmación funcional si es necesario.</tipoValidacion>
+    <criterioAceptacion>Relación confirmada o refutada con evidencia real; actualizar ambos documentos de spec (este y el de Extracción Genérica de Contrapartidas) según el resultado.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí — cualquiera de las dos resoluciones es válida, el caso simplemente cierra el gap documental.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>¿Sigue RDR_SIRE_new enviando datos de Contrapartidas, o ha pasado a ser un canal de Emisiones? (GAP-ADHOC-004)</nombre>
+    <objetivo>Confirmar si RDR_SIRE_new, pese a su nombre y agrupación en el documento fuente, sigue siendo parte del alcance funcional de "Contrapartidas" o si, tras el decomiso de FICHERO_CPTDA/MEKYTL0071 (ctpda.csv), ha pasado a ser exclusivamente un canal de Emisiones (emisi.csv) sin relación con Contrapartidas.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre el contenido de emisi.csv.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="emisi.csv" valor="contenido no confirmado; generado por executeBbvaEvent.sh vía GoldenSource Fileloading Engine, mecanismo distinto a la extracción genérica de Contrapartidas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo funcional o el responsable de SIRE si emisi.csv contiene datos de Emisiones, Contrapartidas, o ambos.</paso>
+      <paso numero="2">Si contiene datos de Contrapartidas, documentar la relación con la extracción genérica común; si no, confirmar que el envío real de Contrapartidas a SIRE vive únicamente en la rama RDR_TRANSFORMACION_SIRE de RDR_DAILY_EXGEN_CPARTYS_new.</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si RDR_SIRE_new pertenece realmente al alcance de "Contrapartidas" o si el documento fuente agrupa bajo el mismo título un proceso que ya ha migrado a otro dominio de datos (Emisiones).</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa; inspección del diccionario de campos de emisi.csv si se aporta.</tipoValidacion>
+    <criterioAceptacion>Naturaleza de RDR_SIRE_new aclarada con evidencia o respuesta funcional, documentada en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí; el caso cierra un gap documental de alcance/nomenclatura.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Limitación de evidencia: diccionario de campos de Batch_Fircosoft.txt (GAP-ADHOC-002)</nombre>
+    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba de validación de contenido campo a campo para Batch_Fircosoft_AAAAMMDD.txt, al no disponer de la hoja XSLT_FIRCO ni de un diccionario de campos confirmado.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional de contenido.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="XSLT_FIRCO" valor="nombre de fichero .xsl resuelto en tiempo de ejecución desde credentials.xml, no aportado ni fijo en el script"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Solicitar el contenido de la hoja XSLT_FIRCO vigente, o un Batch_Fircosoft.txt real de referencia.</paso>
+      <paso numero="2">Si se obtiene, diseñar el caso de prueba de validación de contenido/formato equivalente a los ya existentes para otros ficheros de destino de este proceso.</paso>
+    </pasos>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la hoja XSLT o de un fichero de referencia real.</resultadoEsperado>
+    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-ADHOC-002 hasta recibir evidencia.</criterioAceptacion>
+    <posibilidadFallo>No se fuerza un diccionario de campos inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Confirmación de ausencia real de MEKYTL0320, MEKYTL1216 y FICHERO_CPTDA/MEKYTL0071 (decomisados)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de las cadenas Fircosoft y SIRE, que los jobs decomisados siguen sin existir en la definición real de Control-M.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de las cadenas RDR_FIRCOSOFT_CPARTYS_DAILY_PRO_new, _S_PRO_new y RDR_SIRE_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0320, MEKYTL1216, FICHERO_CPTDA, MEKYTL0071" valor="verificar ausencia en la definición real; decomisados según Fast Track 28/07/2025 (Fircosoft) e historial de RDR_SIRE_new"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar MEKYTL0320 y MEKYTL1216 en las cadenas Fircosoft, y FICHERO_CPTDA/MEKYTL0071 en RDR_SIRE_new.</paso>
+      <paso numero="2">Confirmar que ninguno existe como job activo.</paso>
+    </pasos>
+    <resultadoEsperado>Ninguno de los 4 jobs decomisados existe en las cadenas reales, confirmando que MEKYTL1261 y el ciclo FICHERO_EMISI/MEKYTL0072 son los únicos mecanismos vigentes.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada, o si alguno reaparece, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si alguno reapareciera, indicaría un cambio real (posible reactivación) a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
