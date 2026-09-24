@@ -15,16 +15,15 @@ el resultado. Secuencia lineal de 5 jobs, Martes a Sábado a las 04:00 AM.
 * **Ámbito técnico:** 1 cadena Control-M (`RDR_DUCO_CPTY`), 5 jobs de tipo OS: 1 extractor (`GSProcess.sh`
   → jar `ExtraccionGenericaOtherEntities`), 1 orquestador de envío, 1 transmisión real (Connect Direct), 1
   limpieza de pasarela y 1 historificación comprimida. Ejecutados en `pr-rdr.igrupobbva` y `lpftp501`.
-* **Fuera de alcance:** el consumo de `DUCOCPTY.csv` por la plataforma DUCO una vez recibido; el
-  significado exacto del código de criticidad de cadena `F` (ver sección 4, gap G1 — omitido por
-  instrucción explícita del usuario, al no estar verificado); y la definición completa de la lógica interna
-  del workflow GoldenSource más allá de lo confirmado por el diccionario de campos del propio documento
-  fuente.
+* **Fuera de alcance:** el consumo de `DUCOCPTY.csv` por la plataforma DUCO una vez recibido; y la
+  definición completa de la lógica interna del workflow GoldenSource más allá de lo confirmado por el
+  diccionario de campos del propio documento fuente.
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
+| R0 | **Criticidad de cadena confirmada como `S`** (ficha real "Consulta de Cadena RDR_DUCO_CPTY" en Control-M, campo "Criticidad" = "Aviso al día siguiente incluso si es festivo") — coincide con la criticidad de la mayoría de sus jobs (R1, R3, R4). El `F` del documento fuente original queda identificado como errata de transcripción (probable OCR del PDF original) — ver gap G1, resuelto. |
 | R1 | `RDR_DUCOCPTY_GSPROCESS` (04:00 AM, Martes-Sábado) ejecuta `GSProcess.sh ExtraccionGenerica DUCOCPTY` bajo `xakytl1p`. Invoca el jar `ExtraccionGenericaOtherEntities` (clase `Ppal`), que genera `DUCOCPTY.csv.tmp` y lo renombra a `DUCOCPTY.csv`. Criticidad de job **S** (aviso día siguiente incluso festivo). Sin predecesor — inicio de cadena. |
 | R2 | `MEKYTL1151` (Run As `xsramer1`) orquesta el envío vía `MEGENV0001.sh`, exige el evento de R1. Criticidad de job **C** (aviso inmediato). |
 | R3 | `MEKYTL1151_SND` (Run As `xtprox1p`, host `lpftp501`) ejecuta `LPFTPEXCA0000.sh` — transmisión real por **Connect Direct** desde la pasarela Middleware CIB hacia DUCO (alias `duco_bbva_upload`, obligatorio por ser destino externo a la red BBVA). Criticidad de job **S**. |
@@ -37,7 +36,7 @@ el resultado. Secuencia lineal de 5 jobs, Martes a Sábado a las 04:00 AM.
 
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G1 | ¿Qué significa la criticidad de cadena `F`? | **Omitido por instrucción explícita del usuario**: "todo lo que sea de criticidad no es relevante para el caso... lo que sí esté verificado ponlo". No se documenta el significado de `F` al no estar verificado; sí se documentan las criticidades de job confirmadas (S/C/W, ver R1-R5). |
+| G1 | ¿Qué significa la criticidad de cadena `F`? | **Resuelto con evidencia real.** Ficha real de Control-M ("Consulta de Cadena RDR_DUCO_CPTY", pestaña de Instrucciones de Ejecución): el campo Criticidad muestra "Aviso al día siguiente incluso si es festivo" (**S**), no `F`. El `F` del documento fuente original era una errata de transcripción; la criticidad de cadena real y vigente es `S` — ver R0. |
 | G2 | ¿`MEKYTL1150` depende de `MEKYTL1151_DEL` únicamente, o también de `MEKYTL1151`? | Confirmado: depende únicamente de `MEKYTL1151_DEL` (evento `RDR_DUCO_CPTY_MEKYTL1151_DEL_OK`). La referencia `MEKYTL1151_DEL / MEKYTL1151` de la tabla-resumen de la cadena es una inconsistencia documental de esa tabla, no del grafo real. |
 | G3 | ¿Qué ocurre si `DUCOCPTY.csv` resulta con 0 filas? | **Confirmado con código fuente real** (`Ppal.java`, `FicheroExtraccion.java`, aportados y verificados en sesión — ver `documentos_fuente/codigo_fuente_duco/`): se publica un fichero vacío (solo cabecera/pie) sin ningún control que lo impida (R7). |
 
@@ -87,14 +86,15 @@ a TC-007 cubre el 100% de las transiciones documentadas.
 * **Inconsistencia documental en la tabla-resumen (G2):** el predecesor de `MEKYTL1150` aparece con doble
   referencia en la tabla-resumen de la cadena; el grafo real y el evento técnico confirman un único
   predecesor (`MEKYTL1151_DEL`).
-* **Criticidad de cadena `F` sin definir (G1):** por decisión del usuario, no se documenta su significado;
-  cualquier automatización de escalado que dependa de ese código a nivel de cadena queda sin cobertura
-  explícita en esta especificación.
+* **Errata detectada en el documento fuente original (G1, ya resuelta):** el documento de análisis declaraba
+  criticidad de cadena `F`; la ficha real de Control-M confirma `S`. Se deja constancia de la discrepancia
+  por si el mismo documento fuente contiene otras erratas similares aún no detectadas.
 * **Máximo de relanzamientos = 0** en todos los jobs (confirmado en las fichas individuales) — sin
   reintento automático, rearranque manual vía ANS RDR.
 
 ## 10. Conclusión y requisitos de cierre
 
-Los 3 gaps identificados (G1-G3) están resueltos: G1 omitido por instrucción explícita del usuario (sin
-evidencia verificada), G2 y G3 confirmados con evidencia real (documento fuente y código fuente
-respectivamente, este último aportado y verificado en sesión). No quedan preguntas sin responder.
+Los 3 gaps identificados (G1-G3) están resueltos con evidencia real: G1 con la ficha de Control-M de la
+cadena (criticidad `S`, corrige el `F` del documento fuente), G2 con el documento fuente (grafo real) y G3
+con código fuente (aportado y verificado en sesión). No quedan preguntas sin responder ni riesgos de
+criticidad sin resolver.
