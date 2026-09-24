@@ -527,3 +527,12 @@ databa de una versión preliminar. La evidencia real también reveló hallazgos 
 aún sin motivo confirmado
 (`MEKYTL1020`, `MEKYTL1181`); soft-failure genérico en `MEKYTL1154`; RISK-CTPY-002: destino "Proactive"
 documentado sin implementación real en Control-M para `MEKYTL0292`), registrados en la sección 9.
+
+**Estado: COMPLETA Y CERRADA (2026-09-24).** El usuario confirmó el cierre de esta salida dentro de su alcance
+declarado en la sección 2 — las 3 cadenas están documentadas al 100% de sus jobs reales, sin gaps abiertos.
+Quedan 3 exclusiones de alcance explícitas y conscientes (no gaps): rutas/nombres de fichero exactos de cada
+uno de los ~55 destinos de `_new` (el documento fuente remite a "7 subtablas completas" no aportadas), la
+lógica interna de los jars Java más allá de su función observable, y el detalle profundo de las cadenas
+externas de Fircosoft (ya cubierto en `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/spec.md`). Cualquier
+evidencia adicional sobre estos 3 puntos podría reabrir una ampliación de alcance, pero no una corrección de lo
+ya documentado.
