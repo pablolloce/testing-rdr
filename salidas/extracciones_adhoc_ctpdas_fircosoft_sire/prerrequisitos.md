@@ -6,8 +6,9 @@
   (confirmado, GAP-ADHOC-001 resuelto).
 - Bloque Fircosoft: requiere que la extracción genérica común (`RDR_DAILY_EXGEN_CPARTYS_new`/`_FINSEM_S_new`)
   haya completado `RDR_TRANSFORMACION_FS` y que exista contenido válido en
-  `/fichtemcomp/$env/descargas/kytl/extracciongenerica/` antes de que `RDR_Transformacion_FS.sh` pueda generar
-  `Batch_Fircosoft_${AAAAMMDD}.txt`.
+  `/fichtemcomp/$env/descargas/kytl/extracciongenerica/` antes de que la cadena `GSProcess.sh` →
+  `TransformacionesExtraccionCTPDA.sh` (script compartido parametrizado, confirmado con `.properties` real —
+  ver GAP-ADHOC-002 en `spec.md` §1.2) pueda generar `Batch_Fircosoft_${AAAAMMDD}.txt`.
 - Bloque SIRE: no depende de la extracción genérica — requiere que el motor GoldenSource Fileloading Engine
   (`executeBbvaEvent.sh`, evento `EventSireEmisi`) esté operativo de forma independiente.
 
@@ -17,8 +18,11 @@
 - VIPA `pr-rdr.igrupobbva` balanceando entre `lprdr501`/`lprdr602` — `GSProcess.sh` (bloque SW) debe estar
   desplegado físicamente en ambas máquinas (RISK-ADHOC-001). No usar la IP estática histórica
   `22.156.148.85` (prohibición explícita del documento fuente).
-- Jar `RDR_Transformacion_Fircosoft.jar` (clase `TransformacionFS.BatchFircosoft`) operativo, invocado por
-  `RDR_Transformacion_FS.sh`, con hoja `XSLT_FIRCO` resuelta en tiempo de ejecución desde `credentials.xml`.
+- Script compartido `TransformacionesExtraccionCTPDA.sh` (mismo script parametrizado desde julio 2024 que
+  atiende las 13+ ramas de `_new`) operativo para la rama Fircosoft, con hoja XSLT fija `Batch_FircoSoft.xsl`
+  (confirmado por el `.properties` real `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` — GAP-ADHOC-002).
+  Pendiente de reconciliar con una evidencia previa que atribuía este paso a un script/jar distinto
+  (`RDR_Transformacion_FS.sh`/`RDR_Transformacion_Fircosoft.jar`) — ver nota en `spec.md` §1.2.
 - Pasarela `lpftp503` operativa para `MEKYTL1261` (Fircosoft) y `MEKYTL0072_SND`/`_DEL` (SIRE) — Connect:Direct,
   nodo remoto `CDLVPAPBTWBMX01` (Fircosoft).
 - Servidor destino Fircosoft: `fsbrdrmxp.mex.igrupobbva`, ruta `/Fircosoft_rdr/RDR_Batch/0003/Input/`.

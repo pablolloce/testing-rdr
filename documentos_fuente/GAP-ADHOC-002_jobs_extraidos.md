@@ -119,3 +119,69 @@ genérico `GSProcess.sh` + nombre exacto del `.properties`), pero **el gap en s�
 real. Con el nombre exacto ya confirmado, pedir
 `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` es ahora una solicitud concreta y dirigida, no una
 búsqueda a ciegas.
+
+## Addendum 2 (2026-09-24) — contenido real de `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties`
+
+> Fuente: `GAP-ADHOC-002_TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` (fichero real, aportado por el
+> usuario tras confirmar la ruta).
+
+```
+MOD_EJECUCION=TransformacionesExtraccionCTPDA_FIRCOSOFT
+Servicio=TransformacionesExtraccionCTPDA
+Accion=VariablesGlobales
+NomScript=LanzaScriptBash
+ArgScri1=TransformacionesExtraccionCTPDA.sh
+ArgScri2=Batch_FircoSoft.xsl/
+ArgScri3=Fircosoft/Batch_Fircosoft_@@FECHA@@/.txt
+ArgScri4=ei/KYTL_RDR_EXTRACTION_CPARTYS_
+ArgScri5=
+Accion=Script
+```
+
+**Interpretación con base en el código real de `GSProcess.sh`** (`documentos_fuente/GAP-ADHOC-001_GSProcess.sh`,
+verificado línea a línea):
+
+- La clave `NomScript` coincide con el patrón `case \`expr substr $element 1 4\` in "NomS")` (línea 622 del
+  script) → asigna `NombreScript="LanzaScriptBash"`.
+- Al llegar al segundo bloque `Accion=Script` (línea 346-350), `GSProcess.sh` ejecuta literalmente:
+  ```
+  $SCRIPT/Generico.sh LanzaScriptBash TransformacionesExtraccionCTPDA.sh Batch_FircoSoft.xsl/ \
+    Fircosoft/Batch_Fircosoft_@@FECHA@@/.txt ei/KYTL_RDR_EXTRACTION_CPARTYS_ ""
+  ```
+- Es decir: **el script realmente invocado es `TransformacionesExtraccionCTPDA.sh`** (pasado como `ArgScri1`,
+  primer argumento tras el nombre de lanzador genérico `LanzaScriptBash`), no `RDR_Transformacion_FS.sh` como
+  indicaba el documento fuente original. Esto **coincide exactamente** con el dato ya documentado de forma
+  independiente en `salidas/extraccion_generica_contrapartidas/prerrequisitos.md`: *"Script único de
+  transformación `TransformacionesExtraccionCTPDA.sh` (desde julio 2024, parametrizado) operativo para las 13+
+  ramas de `_new`"* — la rama Fircosoft es, con esta evidencia, una parametrización más de ese mismo script
+  compartido.
+- **`XSLT_FIRCO` queda resuelto como argumento fijo, no dinámico:** `Batch_FircoSoft.xsl` (`ArgScri2`) — esto
+  **corrige** la documentación previa, que asumía que la hoja XSLT "se resuelve en tiempo de ejecución desde
+  `credentials.xml` (no fija en script)". Con esta evidencia, el nombre de la hoja **sí está fijo**, como
+  argumento del `.properties`.
+- `ArgScri3` confirma el patrón de nombre de fichero de salida: `Fircosoft/Batch_Fircosoft_@@FECHA@@.txt`
+  (con `@@FECHA@@` como placeholder de fecha, y una barra sobrante en la captura literal del `.properties`,
+  probablemente cosmética/de formato interno del parser).
+- `ArgScri4` (`ei/KYTL_RDR_EXTRACTION_CPARTYS_`) sugiere el prefijo del fichero de origen — nomenclatura
+  distinta a `ThirdParties.xml`/`ExtraccionContingencia.xml` ya conocidos; no se puede confirmar sin más
+  contexto si es un alias, un fichero intermedio adicional, o una referencia heredada/desactualizada dentro del
+  propio `.properties` (el prefijo `ei` coincide con uno de los códigos de entorno de `GSProcess.sh`
+  `de`/`ei`/`pp`/`pr`, lo cual sería anómalo en un `.properties` de producción — posible resto de plantilla no
+  limpiado, a validar).
+
+**Posible tensión con evidencia previa:** el bloque de arriba (§1.2 de `spec.md`) da por **"confirmado con
+`RDR_Transformacion_FS.sh` real"** que el flujo es `RDR_Transformacion_FS.sh → java -jar
+RDR_Transformacion_Fircosoft.jar clase TransformacionFS.BatchFircosoft`. Esta nueva evidencia apunta a que el
+script real invocado por el job Control-M es `TransformacionesExtraccionCTPDA.sh`, no
+`RDR_Transformacion_FS.sh`. La hipótesis más consistente con toda la evidencia (incluyendo el dato ya
+documentado sobre el script compartido desde julio 2024) es que `RDR_Transformacion_FS.sh` fue el script
+**dedicado anterior** (pre-julio 2024), sustituido por el script compartido parametrizado — mismo patrón de
+"decomiso y sustitución" ya visto en GAP-ADHOC-004 (`FICHERO_CPTDA`/`MEKYTL0071` → `FICHERO_EMISI`/`MEKYTL0072`).
+**No confirmado — pendiente de validar con el usuario o con el contenido real de
+`TransformacionesExtraccionCTPDA.sh`.**
+
+**Balance para GAP-ADHOC-002:** mecanismo de invocación completo y literal ya confirmado (mismo nivel que
+GAP-ADHOC-001). El nombre exacto de la hoja XSLT (`Batch_FircoSoft.xsl`) también queda confirmado. **El
+diccionario de campos en sí sigue sin resolverse** — se necesitaría el contenido de `Batch_FircoSoft.xsl` (que
+por ser una hoja de transformación XSLT mostraría directamente el mapeo campo a campo) para cerrar el gap
+definitivamente.
