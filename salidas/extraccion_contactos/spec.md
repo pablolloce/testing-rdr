@@ -251,9 +251,14 @@ No existe el escenario de fichero parcial silencioso: o se genera el universo co
 genera nada. Es la única salvaguarda de integridad del proceso, dado que no hay validación
 posterior (§4.7).
 
-El argumento `ArgJava3=20` del properties es, previsiblemente, el tamaño del pool de hilos —el
-mismo valor aparece en la configuración de Contratos BBVA—, pero el documento no lo confirma y
-no se ha verificado contra el código.
+**Confirmado con el `.properties` real (2026-09-24): `ArgJava3=20`.** El fichero
+`ExtraccionGenericaCONT.properties` real confirma el valor literal (posición 3 de los argumentos
+Java, entre `ArgJava2`=ruta del log4j y `ArgJava4`=directorio de salida), invocando la misma clase
+`extracciongenericaotherentities.Ppal` del jar `ExtraccionGenericaOtherEntities.jar` que en otros
+procesos de extracción genérica (p. ej. Contratos BBVA), donde aparece el mismo valor. El valor ya
+no depende de una analogía con otro proceso — es el real de este `.properties`. Su interpretación
+como tamaño del pool de hilos sigue siendo la lectura más razonable dada la posición y el motor
+compartido, pero continúa sin confirmar contra el código fuente de `Ppal`/`MyThreadCpty`.
 
 ### 4.5 Disponibilización a IHS Markit vía DataX
 
@@ -425,14 +430,18 @@ SAIT).
 `MEKYTL1190` usa el ODATE de ejecución para estampar la fecha en el nombre del fichero
 historificado.
 
-> **Nada borra el fichero depositado en la pasarela.** `MEKYTL1189` copia
-> `RDR_contactosSAIT.xml` a `lpftp503:/unload/transmisiones/KYTL/` y `MEKYTL1189_SND` lo
-> transmite desde allí a SAIT, pero la cadena no contiene ningún job de limpieza en la pasarela
-> —a diferencia de `RDR_BBVACONTRACTS_new`, que sí tiene `MEXIRM1104_DEL` para ese cometido—.
-> El usuario indica que *"o se sobrescribe el fichero o tiene que haber un job de
-> historificación"*. Como el fichero se deposita siempre con el mismo nombre, la hipótesis más
-> probable es la sobrescritura diaria; pero no está documentado y, de no ser así, los ficheros
-> se acumularían indefinidamente en la pasarela. Queda como punto abierto (ver §8 — Riesgos).
+> **Resuelto con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` (2026-09-24): sobrescritura
+> diaria confirmada, no acumulación.** Ningún job borra el fichero depositado en la pasarela, pero
+> tampoco hace falta: `MEKYTL1189` copia siempre `RDR_contactosSAIT.xml` (nombre fijo, sin fecha)
+> a `lpftp503:/unload/transmisiones/KYTL/RDR_contactosSAIT.xml` (también nombre fijo, sin fecha en
+> el destino intermedio) — cada ejecución sobrescribe el fichero de la anterior en la pasarela. El
+> nombre con fecha (`RDR_contactosSAIT._YYYYMMDD.xml`, según la ficha real de `MEKYTL1189_SND` —
+> obsérvese el punto extra antes del guion bajo, inconsistente con el resto de la documentación,
+> probable errata de transcripción de la ficha) solo se aplica en el **segundo salto**, al
+> transmitir desde la pasarela hacia el destino final en `150.100.230.96`. A diferencia de
+> `RDR_BBVACONTRACTS_new` (que sí tiene `MEXIRM1104_DEL` para su pasarela), aquí la limpieza no
+> hace falta un job dedicado porque el propio mecanismo de copia con nombre fijo cumple la misma
+> función.
 
 ### 4.9 Jobs ejecutados como `root`
 
@@ -664,7 +673,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | Filtro de México (`sait.xsl`) | TC-07, TC-08, TC-09, TC-10, TC-17 | Completa — la hoja de estilo y las queries están disponibles íntegras |
 | Integridad ante fallo | TC-04, TC-05, TC-14 | Completa |
 | Disponibilización para IHS Markit | TC-06 | Completa hasta el directorio de disponibilización; la transferencia la controla el sistema destino y no es verificable desde RDR |
-| Distribución a SAIT | TC-11 | Parcial — ídem, y sin job de limpieza en pasarela que verificar |
+| Distribución a SAIT | TC-11 | Completa hasta el destino final en SAIT (150.100.230.96); el mecanismo de la pasarela (sobrescritura por nombre fijo) ya confirmado con fichas reales |
 | Historificación y purga | TC-12, TC-13 | Completa |
 | Control de cadena y reejecución | TC-01, TC-14, TC-15 | Completa |
 
@@ -713,7 +722,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-02 | **R-21 prohíbe el fichero de SAIT vacío, pero ningún control de la cadena lo impide.** Si ningún contacto cumple el filtro de México, `sait.xsl` emite una salida vacía sin error y la cadena la distribuye cerrando en OK | Incumplimiento silencioso de un requisito explícito: SAIT recibiría un fichero sin contactos que podría interpretar como ausencia total de datos | Añadir una comprobación de contenido mínimo entre la transformación y `MEKYTL1189` (filewatcher con tamaño mínimo, validación o control en el propio script). Es el riesgo de mayor prioridad del proceso; TC-10 lo verifica como fallo |
 | RG-03 | Tres jobs se ejecutan como `root`, uno de ellos con `rm -r` recursivo | Borrado con privilegios elevados sobre una ruta que la documentación escribe de dos formas distintas | Verificar la ruta real del job en Control-M antes de operar sobre entorno real (§4.9) |
 | RG-04 | Dependencias de éxito en cadena lineal con SAIT después de la rama de Markit | Un fallo en la disponibilización deja a SAIT sin fichero ese día pese a estar ya generado | Documentado en §4.1; valorar si el orden de las ramas es el deseado |
-| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` | Si no se sobrescribe, los ficheros se acumulan indefinidamente en `/unload/transmisiones/KYTL/` | Confirmar el mecanismo de limpieza en pasarela (§4.8) |
+| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` — **resuelto**: fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` confirman nombre fijo en origen y en destino intermedio, por lo que cada ejecución sobrescribe la anterior, sin acumulación | N/A — riesgo cerrado | Sobrescritura diaria confirmada (§4.8, TC-11) |
 | RG-06 | La exclusión `A15` de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Confirmar si es intencionado; si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
 | RG-07 | `sait.xsl` vuelca los atributos como texto en lugar de copiarlos | Defecto latente: si se añadiera un atributo al XML de contactos, el fichero de SAIT se corrompería en silencio | Corregir la hoja añadiendo una plantilla `match="@*"` con `<xsl:copy/>`, o documentar la restricción de no usar atributos (§4.6) |
 | RG-08 | `AgreementsAssociated` y `SCIsAssociated` se emiten vacíos, a diferencia del resto de elementos | Incoherencia estructural en el fichero de SAIT; un consumidor estricto podría rechazarlos | Documentado en §4.5; confirmar que SAIT los tolera |
@@ -788,9 +797,15 @@ en 2020 — al dejar de formar parte del grupo, sus contactos se excluyen explí
 extracción. Sigue sin confirmarse solo si la ausencia de filtro por estado de la asignación
 (`DATA_STAT_TYP`) es deliberada o un descuido — comportamiento verificable con TC-18.
 
+**Cerrado con evidencia real (2026-09-24), además de la exclusión `A15`.** El mecanismo de la
+pasarela `lpftp503` (RG-05) y el valor de `ArgJava3=20` (§4.4) quedan confirmados con las fichas
+reales de `MEKYTL1189`/`MEKYTL1189_SND` y el `.properties` real de `ExtraccionGenericaCONT`,
+respectivamente.
+
 **Puntos abiertos, ninguno bloqueante:**
 
 1. **Nivel de `StarDate` y `LastChangeDate`** (§5.1). El usuario no dispone del dato; se asume
    el nivel evidenciado por `sait.xsl` y TC-02 lo verifica contra un fichero real.
-2. **Mecanismo de limpieza en la pasarela** (RG-05).
-3. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
+2. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
+3. **Interpretación de `ArgJava3` como tamaño de pool de hilos** (§4.4): el valor está confirmado,
+   su función exacta no, a falta del código fuente de `Ppal`/`MyThreadCpty`.
