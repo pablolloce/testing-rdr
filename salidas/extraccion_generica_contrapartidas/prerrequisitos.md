@@ -38,10 +38,11 @@
   `RDR_TRANSFORMACION_*`, deduplicación, unión), `xsramer1` (mayoría de envíos y jobs `RAMERC0068.sh`),
   `xpctma1` (filewatchers), `xtsftp1`/`xtprox1p` (jobs `_SND`/`_DEL` en la pasarela), y **`root`** para 3 jobs
   concretos (`MEKYTL0781`, `MEKYTL1020`, `MEKYTL1181`) — ver riesgo en `spec.md` sección 9.
-- Usuarios de ejecución reales confirmados en `_FINSEM_D_new` (GAP-CTPY-002/006, evidencia real, 50 jobs):
+- Usuarios de ejecución reales confirmados en `_FINSEM_D_new` (GAP-CTPY-002/006, evidencia real, 50/50 jobs):
   mismo patrón que `_new` — `xakytl1p` (transformaciones, unión), `xsramer1` (mayoría de envíos y
   `RAMERC0068.sh`, incluido `MEKYTL0292`), `xpctma1` (filewatchers), `xtprox1p` (`MEKYTL1094_SND`/`_DEL` en la
-  pasarela `lpftp501`). Usuario de ejecución de `MEKYTL0289` sigue sin confirmar (GAP-CTPY-002, aún abierto).
+  pasarela `lpftp501`). `MEKYTL0289` no requiere usuario de ejecución: confirmado que no existe como job en la
+  cadena real (GAP-CTPY-002, resuelto por ausencia en el listado de navegación del folder).
 
 ## Flujos previos que deben haberse completado
 
@@ -51,11 +52,10 @@
   `MONITOR_BKYTL001_505-606` como disparador — verificar en cualquier prueba conjunta de ambas cadenas que no
   haya una condición de carrera o un solapamiento no documentado entre sus dos arranques (viernes 22:00 vs.
   sábado 22:00, consecutivos).
-- **Importante (limitación de cobertura restante, reducida):** `MEKYTL0292` de `_FINSEM_D_new` ya tiene ficha
-  real (job Dummy, sin comando ni evento de salida — ver `spec.md` GAP-CTPY-006 y RISK-CTPY-002). Solo
-  `MEKYTL0289` sigue sin ficha técnica ni captura real de Control-M (GAP-CTPY-002, aún abierto) — no se puede
-  diseñar un caso de prueba fiable sobre ese job concreto hasta obtenerla. La cadena `_new` ya no tiene esta
-  limitación (GAP-CTPY-001 resuelto).
+- **Nota (limitación de cobertura ya cerrada):** `_FINSEM_D_new` tiene ahora sus 50 jobs reales confirmados
+  con ficha técnica (GAP-CTPY-001, 002 y 006 resueltos, igual que `_new`). `MEKYTL0289` (uno de los 16 jobs
+  originalmente listados por el documento fuente en el diccionario semanal) **no existe** en la cadena real —
+  no diseñar ningún caso de prueba que asuma su ejecución; el diccionario semanal real reparte a 15 destinos.
 - **Importante:** antes de cualquier prueba que dé por hecho un envío real a "Proactive" desde `MEKYTL0292`,
   confirmar con el equipo funcional si ese envío existe fuera de Control-M — la evidencia real muestra un job
   Dummy sin destino configurado (GAP-CTPY-006, RISK-CTPY-002 en `spec.md`).

@@ -164,23 +164,23 @@
     <posibilidadFallo>Si alguno de los dos apareciera de nuevo, indicaría un cambio real en la cadena a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Limitación de evidencia: MEKYTL0289 (diccionario semanal) sigue sin ficha propia (GAP-CTPY-002)</nombre>
-    <objetivo>Documentar explícitamente que, pese a la segunda ronda de evidencia real (250 capturas/50 jobs de _FINSEM_D_new, que sí confirmó la ficha real de MEKYTL0292 — ver TC-012), MEKYTL0289 sigue sin aparecer ni como job ni como evento, por lo que no se puede diseñar un caso de prueba fiable sobre él.</objetivo>
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de ausencia real de MEKYTL0289 en _FINSEM_D_new (GAP-CTPY-002)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de la cadena _FINSEM_D_new, que MEKYTL0289 sigue sin existir en la definición real de Control-M, tal como se confirmó con las 250 capturas y el listado de navegación del folder aportados en esta ronda.</objetivo>
     <precondiciones>
-      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
+      <precondicion>Acceso a la definición real de Control-M (o al listado de navegación del folder) de la cadena _FINSEM_D_new.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="MEKYTL0289" valor="sin ficha propia; ausente también en las 250 capturas de GAP-CTPY-002 (documentos_fuente/GAP-CTPY-002_jobs_extraidos.md), que cubren 50 jobs de la cadena sin huecos ni duplicados"/>
+      <dato campo="MEKYTL0289" valor="verificar ausencia en la definición real; confirmado ausente en documentos_fuente/GAP-CTPY-002_jobs_extraidos.md (250 capturas) y en documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png (listado exhaustivo de los 50 jobs del folder)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar la ficha técnica de MEKYTL0289, o una confirmación explícita de que ya no existe en la cadena real.</paso>
-      <paso numero="2">Si se obtiene la ficha, diseñar el caso de prueba de envío equivalente al resto de los jobs del diccionario semanal (mismo formato que documentos_fuente/GAP-CTPY-002_jobs_extraidos.md).</paso>
+      <paso numero="1">Buscar MEKYTL0289 en el listado de navegación del folder KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new en Control-M.</paso>
+      <paso numero="2">Confirmar que no existe como job activo (ni como ningún otro tipo de objeto del folder).</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha técnica o de una confirmación de ausencia definitiva equivalente en firmeza a la aplicada en GAP-CTPY-004/007.</resultadoEsperado>
-    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-CTPY-002 hasta recibir evidencia. No se cierra por analogía con GAP-CTPY-004/007 porque, a diferencia de esos casos, no hay una declaración explícita de cobertura del 100% de los 48 pasos declarados de la cadena.</criterioAceptacion>
-    <posibilidadFallo>No se fuerza un destino inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL0289 no existe en la cadena real, confirmando que la tabla de destinos del documento funcional (wiki), que lo lista como envío Proactive vigente, sigue desactualizada en este punto salvo que se haya corregido explícitamente. El diccionario semanal real reparte a 15 destinos, no 16.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del listado de navegación del folder o de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada, o si reapareciera, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si el job reapareciera, indicaría un cambio real en la cadena a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-012" tipo="conflicto_integridad">
