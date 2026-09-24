@@ -220,15 +220,19 @@ ramas de distribución.
 > predecesor `MEKYTL0895` y sucesor `MEKYTL0953` igual que el resto — ver R-21/R-22/R-23. El
 > nodo de reparto tiene por tanto **8 ramas de distribución**, no 5 ni 6.
 >
-> **Pendiente de aclarar — no confirmado en esta sesión:** el `.properties` real de
-> `transformarBBVAContracts` (aportado en esta sesión) **sigue conteniendo la cadena completa de
-> generación del fichero de Mentor** (`Agreements_To_Mentor.xsl`, `Agreements_To_Mentor_Productos.xsl`,
-> `Agreements_Normalize.xsl`, `Agreements_Nodes.xsl`, con sus pasos de `MoverFichero`/`Borrar`),
-> contradiciendo la confirmación previa del usuario de que "esa generación se ha eliminado". El
-> `.properties` aportado usa rutas de entorno `ei` (`/fichtemcomp/ei/...`), no `pr`, por lo que
-> no se puede confirmar si la generación de Mentor sigue realmente activa en producción o si el
-> entorno `pr` ya la tiene eliminada. **Queda como gap abierto**, no resuelto por falta de
-> confirmación del usuario sobre cuál de las dos hipótesis aplica.
+> **Generación de Mentor — reconfirmado como decomisado (cerrado).** El `.properties` real de
+> `transformarBBVAContracts` (entorno `ei`, aportado en esta sesión) sigue conteniendo la cadena
+> completa de generación del fichero de Mentor (`Agreements_To_Mentor.xsl`,
+> `Agreements_To_Mentor_Productos.xsl`, `Agreements_Normalize.xsl`, `Agreements_Nodes.xsl`, con sus
+> pasos de `MoverFichero`/`Borrar`), lo que en un primer momento pareció contradecir la
+> confirmación previa de que "esa generación se ha eliminado". **El usuario confirma
+> explícitamente que, para la cadena `RDR_BBVACONTRACTS_new` en concreto, toda la generación de
+> ficheros hacia Mentor está decomisada**, con independencia de que esos pasos sigan presentes en
+> el `.properties` de entorno `ei` (código inerte/no ejecutado en producción, o entorno
+> desactualizado — no se profundiza más al no ser relevante). **Esta decomisión es específica de
+> `RDR_BBVACONTRACTS_new`** y no se extiende a otros procesos RDR que sí envían activamente a
+> Mentor (p. ej. `MEKYTL1266` en Envío de Calendarios a Modelity, `MEKYTL1146` en
+> `RDR_ISSUES_RE_PRO_new`), confirmados como ramas vivas en esta misma sesión.
 >
 > **Confirmado en el mismo `.properties`:** tras los pasos relativos a Mentor, `MEKYTL0895`
 > normaliza `BBVAContracts.xml` in situ con `Agreements_Nodes.xsl` (fichero temporal +
@@ -554,7 +558,7 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 |----|--------|---------|-------------------------------|
 | RG-01 | ~~Ventana del filewatcher `FW_BBVAContracts_RDR_1`~~ — **resuelto**: export real confirma 14:00–15:30, compatible con el arranque a las 13:00 | — | Cerrado (§4.1) |
 | RG-02 | **Confirmado, crítico:** el flag "Force OK" de `VALIDACION_XSD_EXTRACT_BBVA` está activo (`ON NOTOK → DOACTION OK`) | Un XML que no cumpla el XSD **llega igualmente** a los 8 sistemas consumidores (XCTT, Ibor, S3/ADA, EYMI, Smart Data, IHS Markit, GMIP, THOR, PXVA) sin ningún otro control de calidad de contenido en toda la cadena | Decisión de negocio/gobierno: confirmar si es intencional o corregir la configuración del job en Control-M antes de asumir que el XSD protege algo (§4.4) |
-| RG-03 | **Confirmado, no resuelto:** el `.properties` real de `MEKYTL0895` (entorno "ei") sigue conteniendo íntegra la cadena de generación del fichero de Mentor, contradiciendo la confirmación previa de que "ya no se genera" | Si el `.properties` de producción coincide con el de "ei", `MEKYTL0895` genera código muerto (o activo) que nadie consume; si no coincide, la documentación de §4.5 queda desactualizada en cuanto al entorno | Confirmar con el usuario/equipo si el `.properties` de `pr` difiere del de `ei` aportado en sesión (§4.5, TC-08) |
+| RG-03 | ~~`.properties` de `MEKYTL0895` (entorno "ei") contiene la cadena de generación de Mentor~~ — **resuelto**: el usuario reconfirma que, para `RDR_BBVACONTRACTS_new`, toda generación de ficheros hacia Mentor está decomisada, con independencia de esos pasos en el `.properties` de "ei" | — | Cerrado (§4.5). Decomisión específica de esta cadena, no extensible a otros procesos RDR con Mentor activo |
 | RG-04 | Documentación de la cadena con los nombres antiguos `MEKYTL1104_DEL` / `MEKYTL1104_S_DEL`, renombrados a `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` el 12/09/25 | Búsquedas en Control-M por el nombre antiguo no encuentran los jobs | Actualizar la documentación de la cadena (§4.7) |
 | RG-05 | Script de los jobs de borrado sin identificar ("a determinar por Service Support") | No es posible verificar qué borra exactamente ni con qué criterio de nombre | Solicitar la identificación del script a Service Support (§4.7) |
 | RG-06 | No ejecución de `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` (criticidad W, aviso al día siguiente) | Acumulación de ficheros en `/unload/transmisiones/XIRM/rdr/` sin alerta inmediata | Monitorizar el volumen del directorio en pasarela (§4.7, TC-14) |
@@ -606,10 +610,9 @@ distinta a la que constaba en la sesión anterior:
    fichas EX-005-03 — no decomisadas. Se han añadido como R-21/R-22/R-23 y TC-19.
 4. **Job que aplica `BBVA_Contrats_CSV.xsl` — cerrado.** Es el propio `MEKYTL0895`
    (`transformarBBVAContracts.properties`), no un job independiente (R-09, R-11, §4.5, §4.6).
-5. **Nuevo gap abierto (no existía antes de esta sesión):** el `.properties` real de
-   `MEKYTL0895` (entorno "ei") sigue conteniendo la generación completa del fichero de Mentor,
-   contradiciendo la confirmación previa de que "ya no se genera" — no se ha podido determinar si
-   el `.properties` de producción difiere (RG-03).
+5. **Cerrado.** El `.properties` real de `MEKYTL0895` (entorno "ei") contiene la generación
+   completa del fichero de Mentor, pero el usuario reconfirma que para `RDR_BBVACONTRACTS_new`
+   esa generación está decomisada, con independencia de esos pasos en el `.properties` (RG-03).
 6. **Nuevo gap abierto:** `MEKYTL1053` (purga de históricos CSV) no aparece en el export real de
    Control-M pese a estar documentado extensamente — estado real sin confirmar (RG-13).
 7. **Definición de los entornos de ejecución** (RG-12) — decisión de proyecto, no de verificación
