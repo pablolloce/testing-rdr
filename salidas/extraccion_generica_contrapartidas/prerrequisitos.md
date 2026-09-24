@@ -30,6 +30,10 @@
 - Pasarela de transmisión externa operativa en `lpftp501`/`lpftp503` (scripts `LPFTPEXCA0000.sh`/
   `LPFTPEXCA0002.sh`) para los jobs `_SND`/`_DEL` de `_new` (`MEKYTL0282`, `MEKYTL0878`, `MEKYTL0879`,
   `MEKYTL1093`).
+- Ruta de backup local `/fichtemcomp/pr/descargas/kytl/extracciongenerica/backup` en `pr-rdr.igrupobbva`
+  disponible y con permisos de escritura para `MEKYTL0781` (compartido por las 3 cadenas) — GAP-CTPY-005
+  resuelto: es un backup puramente local del fichero `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml`, sin envío a
+  ningún sistema externo.
 
 ## Roles y permisos
 
@@ -37,7 +41,9 @@
 - Usuarios de ejecución reales confirmados en `_new` (GAP-CTPY-001, evidencia real): `xakytl1p` (transformaciones
   `RDR_TRANSFORMACION_*`, deduplicación, unión), `xsramer1` (mayoría de envíos y jobs `RAMERC0068.sh`),
   `xpctma1` (filewatchers), `xtsftp1`/`xtprox1p` (jobs `_SND`/`_DEL` en la pasarela), y **`root`** para 3 jobs
-  concretos (`MEKYTL0781`, `MEKYTL1020`, `MEKYTL1181`) — ver riesgo en `spec.md` sección 9.
+  concretos. Para `MEKYTL0781` el `root` está justificado (GAP-CTPY-005 resuelto: compresión + movimiento de
+  fichero a nivel de sistema). Para `MEKYTL1020`/`MEKYTL1181` sigue sin confirmar — ver riesgo en `spec.md`
+  sección 9.
 - Usuarios de ejecución reales confirmados en `_FINSEM_D_new` (GAP-CTPY-002/006, evidencia real, 50/50 jobs):
   mismo patrón que `_new` — `xakytl1p` (transformaciones, unión), `xsramer1` (mayoría de envíos y
   `RAMERC0068.sh`, incluido `MEKYTL0292`), `xpctma1` (filewatchers), `xtprox1p` (`MEKYTL1094_SND`/`_DEL` en la

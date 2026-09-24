@@ -244,4 +244,23 @@
     <posibilidadFallo>Riesgo real de proceso: validar el cambio en una sola cadena y darlo por bueno para las 3 podría ocultar una regresión específica de otra cadena (p. ej. por diferencias en el volumen de datos de sábado/domingo vs. diario).</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>Confirmación de que MEKYTL0781 es un backup local sin envío externo (GAP-CTPY-005)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de las 3 cadenas, que MEKYTL0781 sigue comprimiendo y moviendo KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml a una ruta de backup local (misma VIPA), sin transmitirlo a ningún sistema externo, tal como confirmó el usuario para GAP-CTPY-005.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de MEKYTL0781 (compartido por las 3 cadenas) y al sistema de ficheros de pr-rdr.igrupobbva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml" valor="generado en /fichtemcomp/pr/descargas/kytl/extracciongenerica"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras la ejecución de MEKYTL0781, verificar que el fichero comprimido aparece en /fichtemcomp/pr/descargas/kytl/extracciongenerica/backup.</paso>
+      <paso numero="2">Confirmar que no hay ningún evento de salida ni transmisión a un sistema externo asociado a este job (pestaña Acciones vacía, sin pasarela).</paso>
+    </pasos>
+    <resultadoEsperado>El fichero queda comprimido y archivado localmente en la ruta de backup, dentro de la misma VIPA; no hay evidencia de envío a ningún sistema externo.</resultadoEsperado>
+    <tipoValidacion>Inspección del sistema de ficheros de pr-rdr.igrupobbva + definición real de Control-M de MEKYTL0781.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de backup local confirmado; si apareciera un envío externo, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro se detectara un envío externo real, indicaría un cambio de comportamiento a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

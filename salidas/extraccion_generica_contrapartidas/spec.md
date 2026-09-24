@@ -23,7 +23,9 @@
 > que enumera de forma exhaustiva y definitiva todos los jobs de la cadena real — confirma que la cadena tiene
 > exactamente 50 jobs (los mismos 50 ya identificados en las 250 capturas) y que `MEKYTL0289` **no existe** como
 > job en esta cadena, cerrando GAP-CTPY-002 por ausencia confirmada con el mismo nivel de certeza que
-> GAP-CTPY-004/007. Quedan abiertos GAP-CTPY-003 y GAP-CTPY-005 — ver sección 4.
+> GAP-CTPY-004/007. El usuario confirmó además, en respuesta literal, el comportamiento real de `MEKYTL0781`
+> (comprime `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` y lo mueve a una ruta de backup dentro de la misma VIPA
+> `pr-rdr.igrupobbva`, sin envío externo), cerrando GAP-CTPY-005. Queda abierto GAP-CTPY-003 — ver sección 4.
 
 ## 1. Resumen ejecutivo
 
@@ -345,10 +347,12 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
   en ninguna de las 506 capturas que cubren los 101 pasos reales de `_new` — se confirma que está realmente
   eliminado; la tabla de destinos del wiki funcional (que lo lista como envío PRIIPS activo) está
   desactualizada en este punto.
-- **GAP-CTPY-005 (destino "Rating backup" sin confirmar) — abierto.** La captura real de `MEKYTL0781`
-  confirma que el job no tiene ningún evento de salida configurado (pestaña Acciones vacía) y que corre como
-  usuario `root` — pero sigue sin confirmarse si algún sistema externo consume ese backup o es puramente
-  defensivo.
+- **GAP-CTPY-005 (destino "Rating backup" sin confirmar) — RESUELTO.** Confirmado por el usuario: `MEKYTL0781`
+  comprime el fichero `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` (generado en
+  `/fichtemcomp/pr/descargas/kytl/extracciongenerica` de la VIPA `pr-rdr.igrupobbva`) y lo mueve a
+  `/fichtemcomp/pr/descargas/kytl/extracciongenerica/backup`. Es un **backup puramente local**, dentro de la
+  misma VIPA — no hay envío a ningún sistema externo. Coherente con la captura real (sin evento de salida
+  configurado) y explica por qué corre como `root` (operación de sistema de ficheros, no de negocio).
 - **GAP-CTPY-006 (destino "Proactive" ambiguo) — resuelto con hallazgo relevante (discrepancia documentada).**
   La ficha real de `MEKYTL0292` (250 capturas, GAP-CTPY-002) muestra un job **Dummy**, sin comando ni script,
   sin evento de salida configurado y sin ningún dato visible sobre un destino "Proactive". La asunción del
@@ -383,7 +387,7 @@ genere un jar Java distinto en cada caso.
 | PRIIPS (delta emisores) | `_new`, `_FINSEM_D` | Diaria + Domingo |
 | Ábaco (oficinas internas/FAMM) | `_new`, `_FINSEM_D` | Domingo (ambas instancias) |
 | Fircosoft | `_new`, `_FINSEM_S` (cadenas externas) | Diaria + Sábado |
-| Rating (backup `MEKYTL0781`) | `_new`, `_FINSEM_S`, `_FINSEM_D` | Diaria + Sábado + Domingo — GAP-CTPY-005 |
+| Rating (backup local `MEKYTL0781`, sin envío externo) | `_new`, `_FINSEM_S`, `_FINSEM_D` | Diaria + Sábado + Domingo |
 | Diccionario (variantes diaria/semanal) | `_new` (genera ambos), `_FINSEM_D` (fan-out semanal, 15 destinos) | Domingo el fan-out mayor |
 
 **Jobs compartidos entre las 3 cadenas** (mismo script físico, instancia propia por cadena):
@@ -406,6 +410,11 @@ salida. No eliminar la fila "Diccionario" de la tabla de destinos (los otros 15 
 tienen envío real confirmado o presumible), pero tratar el destino Proactive específico como no confirmado
 hasta verificación funcional externa (ver RISK-CTPY-002).
 
+**Confirmado por GAP-CTPY-005 (respuesta literal del usuario):** `MEKYTL0781` no envía el fichero
+`KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` a ningún sistema externo — lo comprime y lo mueve a
+`/fichtemcomp/pr/descargas/kytl/extracciongenerica/backup`, dentro de la misma VIPA `pr-rdr.igrupobbva` donde se
+genera. Es un backup puramente local/defensivo, coherente en las 3 cadenas (mismo job compartido).
+
 ## 7. Especificación de testing
 
 **Estrategia:** dado el volumen del proceso (3 cadenas, ~150 jobs, 45+ destinos) y que más de la mitad de los
@@ -420,7 +429,7 @@ Referencia de casos por tipo:
 - `borde`: TC-004, TC-006.
 - `error_funcional`: TC-005, TC-010.
 - `conflicto_integridad`: TC-008, TC-012.
-- `regresion`: TC-007, TC-009, TC-011.
+- `regresion`: TC-007, TC-009, TC-011, TC-013.
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -438,13 +447,16 @@ Referencia de casos por tipo:
 | GAP-CTPY-004 (histórico, ya resuelto) | TC-008 | Confirma la inconsistencia de `MEKYTL0449`, ya resuelta con GAP-CTPY-001 |
 | MEKYTL1154 (soft-failure genérico) | TC-010 | Confirma que un fallo real de creación del `.ctl` queda enmascarado como OK |
 | GAP-CTPY-004/007 (regresión) | TC-011 | Confirma que `MEKYTL0449`/`RDR_TRANSFORMACION_RGA` siguen sin existir en revisiones futuras |
+| GAP-CTPY-005 (`MEKYTL0781`, backup local, ya resuelto) | TC-013 | Confirma en revisiones futuras que el backup Rating sigue siendo local, sin envío externo |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps abiertos: GAP-CTPY-003, 005** (sección 4). GAP-CTPY-001, 004 y 007 quedaron resueltos con las 506
-   capturas reales de `_new`; GAP-CTPY-002 y GAP-CTPY-006 quedaron resueltos con las 250 capturas reales de
+1. **Gap abierto: GAP-CTPY-003** (sección 4). GAP-CTPY-001, 004 y 007 quedaron resueltos con las 506 capturas
+   reales de `_new`; GAP-CTPY-002 y GAP-CTPY-006 quedaron resueltos con las 250 capturas reales de
    `_FINSEM_D_new` y el listado de navegación del folder (`MEKYTL0292` confirmado con hallazgo de discrepancia,
-   `MEKYTL0289` confirmado no-existente por ausencia en el listado exhaustivo del folder).
+   `MEKYTL0289` confirmado no-existente por ausencia en el listado exhaustivo del folder); GAP-CTPY-005 quedó
+   resuelto con la confirmación literal del usuario sobre el comportamiento real de `MEKYTL0781` (backup local
+   sin envío externo).
 2. **RISK-CTPY-001 — limpieza por comodín en `MEKYTL0879_DEL`.** El comando real es
    `cd /unload/transmisiones/KYTL/ ; rm -f *ctpda* ; rm -f *MEKYTL0879*`. El patrón `*ctpda*` no es específico
    de este job: `RDR_TRANSFORMACION_SIRE` genera ficheros `ctpdaDDMMYYYYCC.csv` que también podrían transitar
@@ -452,8 +464,10 @@ Referencia de casos por tipo:
    borrar ficheros de la rama SIRE antes de que su propio job de limpieza los procese. No confirmado como
    incidente real, es un riesgo de diseño por comodín demasiado amplio.
 3. **3 jobs ejecutan como usuario `root`** (`MEKYTL0781`, `MEKYTL1020`, `MEKYTL1181`) — atípico frente al resto
-   de la cadena, que corre como `xakytl1p`/`xsramer1`/`xpctma1`. No es necesariamente un defecto, pero merece
-   revisión de necesidad real de privilegio elevado.
+   de la cadena, que corre como `xakytl1p`/`xsramer1`/`xpctma1`. Para `MEKYTL0781` el uso de `root` es coherente
+   con GAP-CTPY-005 (resuelto): es una operación de compresión + movimiento de fichero a nivel de sistema, no de
+   negocio. Para `MEKYTL1020`/`MEKYTL1181` no está confirmado el motivo, y sigue mereciendo revisión de
+   necesidad real de privilegio elevado.
 4. **`MEKYTL1154` tiene soft-failure genérico** ("Cuándo Job completado No OK → Marcar como OK", sin acotar a
    un código de retorno) — mismo patrón amplio ya visto como riesgo en otros procesos de este intake (p. ej.
    GUIDO): cualquier fallo real de este job (que crea el fichero de control
@@ -489,7 +503,9 @@ folder aportados por el usuario en rondas posteriores). De los 7 gaps abiertos e
 resueltos** (GAP-CTPY-001 con evidencia real completa; GAP-CTPY-004 y GAP-CTPY-007 por ausencia confirmada en
 esa misma evidencia; GAP-CTPY-002 por ausencia confirmada de `MEKYTL0289` tanto en las 250 capturas como en el
 listado exhaustivo del folder; GAP-CTPY-006 con ficha real de `MEKYTL0292` que revela una discrepancia con el
-documento funcional) y **2 siguen abiertos** (GAP-CTPY-003 y GAP-CTPY-005). La evidencia real también reveló
-hallazgos de riesgo no preguntados (RISK-CTPY-001: limpieza por comodín potencialmente cruzada con la rama
-SIRE; ejecución como `root` de 3 jobs; soft-failure genérico en `MEKYTL1154`; RISK-CTPY-002: destino
-"Proactive" documentado sin implementación real en Control-M para `MEKYTL0292`), registrados en la sección 9.
+documento funcional; GAP-CTPY-005 con la confirmación literal del usuario de que `MEKYTL0781` es un backup
+local, sin envío externo) y **1 sigue abierto** (GAP-CTPY-003, la query de detalle de `ThirdParties.xml`). La
+evidencia real también reveló hallazgos de riesgo no preguntados (RISK-CTPY-001: limpieza por comodín
+potencialmente cruzada con la rama SIRE; ejecución como `root` de 2 jobs aún sin motivo confirmado
+(`MEKYTL1020`, `MEKYTL1181`); soft-failure genérico en `MEKYTL1154`; RISK-CTPY-002: destino "Proactive"
+documentado sin implementación real en Control-M para `MEKYTL0292`), registrados en la sección 9.
