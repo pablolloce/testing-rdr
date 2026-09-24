@@ -9,8 +9,12 @@
   `emisiones_filter.xml` con evidencia documental verificable — el detalle de esquemas XSD aportado en
   sesión no está respaldado por fichero fuente (ver `spec.md`, gap G7 y sección 9).
 - Los 3 esquemas XSD (`xsd_emisiones_batch.xsd` para `ISSUE`/`ISSUERESTO`, `Baskets_Schema.xsd` para
-  `BASKET`, `RDR_XSD_Generico.xsd` para `CPARTY`) deben estar disponibles en el servidor de ejecución para
-  que `RDR_Validacion_XSD.sh` pueda validar — su ubicación real no está confirmada documentalmente.
+  `BASKET`, `RDR_XSD_Generico.xsd` para `CPARTY`) deben estar disponibles en
+  `/$ENV/kytl/online/multipais/multicanal/dat/properties/` del servidor de ejecución — ruta confirmada con
+  el script real `RDR_Validacion_XSD.sh` (ver `spec.md`, gap G7). El propio script también necesita
+  `/$ENV/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` (para resolver el directorio de
+  logs) y espacio suficiente en `RUTABASE` para los ficheros de trozos temporales (`*trozo_N.xml`) durante
+  el troceado.
 
 ## Configuración e infraestructura
 

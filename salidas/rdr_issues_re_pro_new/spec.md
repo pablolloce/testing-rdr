@@ -63,6 +63,7 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
 | R17 | Varios jobs (`MEKYTL0844`, `MEKYTL1105`, `MEKYTL0986`, etc.) tienen "Librería Origen" = `RA` / `A definir por RA` — placeholder sin resolver en la ficha fuente, confirmado por el usuario, sin significado funcional (gap G4). |
 | R18 | El evento `..._NO_OK` de `RDR_ISSUES_RE_PRO` no tiene consumidor documentado en este material — confirmado como huérfano, pensado para mallas globales de error fuera de alcance (gap G5). |
 | R19 | 3 eventos de sincronización con sistemas externos quedan fuera de alcance: `IHSM_RDR_ISSUES` (R4/`MEKYTL1105`), `GC_TESO` (R12/`MEKYTL1125`), cadena global SHS (R13/`MEKYTL1171`) (gap G6). |
+| R20 | **Hallazgo confirmado por código real (`RDR_Validacion_XSD.sh`), no solicitado:** el validador XSD (`MEKYTL0811`/`RDRKYTL002`) solo falla (`RC≠0`) ante un desbalance estructural de etiquetas (XML mal formado); una violación real del esquema XSD detectada por `xmllint` se registra en el log pero **nunca** hace fallar el script — siempre termina en `RC=0`. Un `emisiones.xml`/`emisiones.resto.xml` bien formado pero inválido según el XSD dispara igualmente las 5/8 ramas de envío con datos que no cumplen el esquema (gap G7, riesgo en sección 9). |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
@@ -74,7 +75,7 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
 | G4 | Varios jobs tienen "Librería Origen" = `RA` — ¿es un placeholder o un valor real? | Confirmado: placeholder sin resolver en la ficha fuente, sin significado funcional a documentar (R17). |
 | G5 | El evento `..._NO_OK` de `RDR_ISSUES_RE_PRO` no tiene consumidor en este documento — ¿existe una rama de error no incluida? | Confirmado: evento huérfano en este documento, consumido (presumiblemente) por mallas globales de error fuera de alcance (R18). |
 | G6 | 3 puntos de sincronización externos (`IHSM_RDR_ISSUES`, `GC_TESO`, SHS global) — ¿fuera de alcance o dependencia a validar? | Confirmado: los 3 quedan fuera de alcance directo de esta especificación (R19). |
-| G7 | Diccionario de datos de `emisiones.xml`/`emisiones.resto.xml`/`emisiones_filter.xml`, esquemas XSD y algoritmo del validador — ¿confirmado o no? | **Tratamiento mixto, tras 3 rondas de resolución de gaps (ver `documentos_fuente/resolucion_preguntas_refinitiv_ronda1/2/3.md`):** el detalle de esquemas XSD (`xsd_emisiones_batch.xsd`, `Baskets_Schema.xsd`, `RDR_XSD_Generico.xsd`) y el algoritmo interno de `RDR_Validacion_XSD.sh` (troceado `awk` en bloques de 1.000 registros + `xmllint` en paralelo, máx. 20 concurrentes) se documentan como **declaración del usuario en sesión, sin fichero fuente verificable** — las rutas `C:\RDR\kdd-nfq-rdr-project-206\...` citadas como evidencia se comprobaron inexistentes en las 7 ramas del repositorio Git (`git fetch --all` + búsqueda cruzada, sin resultado). La vinculación exacta cadena↔plantilla XSLT (`Extraccion_Emisiones.xsl`) queda explícitamente **no confirmada**, por decisión del propio usuario al no existir evidencia de invocación específica. |
+| G7 | Diccionario de datos de `emisiones.xml`/`emisiones.resto.xml`/`emisiones_filter.xml`, esquemas XSD y algoritmo del validador — ¿confirmado o no? | **Algoritmo del validador resuelto por completo (2026-09-24) con el script real `RDR_Validacion_XSD.sh`**: confirma exactamente el troceado por `awk` en bloques de 1.000 registros (`maxRecs=1000`) y la validación en paralelo con `xmllint --schema`, máx. 20 procesos simultáneos (`MAX_PARALLEL_JOBS=20`). Confirma también la asociación exacta tipo↔XSD: `RDR_XSD_Generico.xsd` (`CPARTY`), `Baskets_Schema.xsd` (`BASKET`), `xsd_emisiones_batch.xsd` (compartido por `ISSUE` e `ISSUERESTO`), todos en `/$ENV/kytl/online/multipais/multicanal/dat/properties/`. **Hallazgo no solicitado (ver R20, sección 9):** el script solo falla el job (`exit 1`) ante un desbalance estructural de etiquetas (`estructura_xml()`, chequeo previo al troceado); una violación de esquema detectada por `xmllint` en la fase de `validacion()` se registra en el log con estadísticas detalladas, pero nunca hace fallar el script — siempre termina con `exit 0`. El diccionario de datos de los 3 ficheros XML y la vinculación exacta cadena↔plantilla XSLT (`Extraccion_Emisiones.xsl`) quedan, aparte de esto, explícitamente **no confirmados**, por decisión del propio usuario al no existir evidencia de invocación específica. |
 
 ## 5. Especificación funcional
 
@@ -102,7 +103,10 @@ política de rearranque: no se relanza ante error, solo se notifica.
 * **Folder Control-M:** `KYTL0000-RDR_ISSUES_RE_PRO_new`, servidor `MERCADOS-4`.
 * **Motor de extracción:** `GSProcess.sh` + `.properties` (`ExtraccionGenericaEMISI_ALL`,
   `ExtraccionGenericaEMISI_RESTO`, `TransforEmisiones`); motor de envío genérico `MEGENV0001.sh`
-  (parametrizado por job); motor de historificación `RAMERC0068.sh`; validador `RDR_Validacion_XSD.sh`.
+  (parametrizado por job); motor de historificación `RAMERC0068.sh`; validador `RDR_Validacion_XSD.sh`
+  (confirmado con script real, ver gap G7/R20): troceado `awk` en bloques de 1.000 registros, validación
+  `xmllint --schema` en paralelo (máx. 20 procesos), pero **solo el chequeo estructural previo puede hacer
+  fallar el job — un incumplimiento real del XSD nunca produce `RC≠0`**.
 * **Filewatchers:** `ctmfw '<ruta>' CREATE <tamaño_min> <sleep> <monitor_time> <file_age> <timeout>` — sin
   validación de contenido, solo presencia/tamaño/estabilidad (mismo patrón de riesgo ya documentado en
   otros procesos RDR de este proyecto).
@@ -123,8 +127,8 @@ el 100% del grafo, más un caso end-to-end:
   por TC-002, TC-009, TC-010, TC-011.
 - El cierre final (`MEKYTL1028`/`MEKYTL1029`) queda cubierto por TC-012 y el propio TC-020 (e2e).
 - Los 2 filewatchers (timeout y alerta) quedan cubiertos por TC-003 y TC-004.
-- Los 2 validadores XSD quedan cubiertos por TC-005 y TC-013 (con la limitación de evidencia de G7
-  explicitada en el propio caso).
+- Los 2 validadores XSD quedan cubiertos, para el caso de XML mal formado, por TC-005 y TC-013; el caso de
+  XML bien formado pero inválido según el XSD (R20, no detiene la cadena) queda cubierto por el nuevo TC-021.
 - Las excepciones/particularidades transversales (Mentor sin relanzamiento, evento huérfano, placeholder
   `RA`, criticidad de cadena "A") quedan cubiertas por TC-014 a TC-018.
 
@@ -152,13 +156,24 @@ ejecutable tal cual está definido, con pasos y datos concretos.
 | `regresion` | La inconsistencia textual de `MEKYTL0981` ("ReportingEngine") no afecta al cableado real de dependencias. | TC-018 |
 | `borde` | Envío a Terminals ES/MX: el flag se genera y transmite correctamente aunque el fichero de datos ya se haya enviado antes. | TC-019 |
 | `conflicto_integridad` | `MEKYTL1028` no dispara hasta que ambos bloques (1 y 2) confirman su cierre, aunque uno termine mucho antes que el otro. | TC-012 |
+| `error_funcional` | Un fichero bien formado pero inválido según el XSD no detiene la cadena (RC=0) y las ramas de envío se disparan igualmente — confirmado por código real (R20). | TC-021 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-* **Riesgo de trazabilidad documental (G7):** el detalle de esquemas XSD y el algoritmo del validador
-  provienen de una declaración del usuario en sesión; una cita de rutas locales de Windows como supuesta
-  evidencia "del repositorio" se verificó inexistente en las 7 ramas de este repositorio Git. La
-  vinculación cadena↔XSLT concreta queda explícitamente sin confirmar.
+* **Riesgo de trazabilidad documental (G7, algoritmo del validador cerrado 2026-09-24):** el algoritmo de
+  `RDR_Validacion_XSD.sh` (troceado, paralelismo, asociación tipo↔XSD) queda confirmado con el script real,
+  tras haberse documentado inicialmente solo por declaración del usuario en sesión (una cita de rutas
+  locales de Windows como supuesta evidencia "del repositorio" se había verificado inexistente en las 7
+  ramas de este repositorio Git). El diccionario de datos de los 3 XML y la vinculación cadena↔XSLT
+  concreta siguen explícitamente sin confirmar.
+* **Validación XSD sin efecto sobre el resultado del job (R20, hallazgo confirmado por código real):** el
+  script solo hace fallar `MEKYTL0811`/`RDRKYTL002` ante un desbalance estructural de etiquetas (chequeo
+  `estructura_xml()` previo al troceado). Una violación real del esquema XSD, detectada por `xmllint` en la
+  fase de validación en paralelo, se registra con detalle en el log pero **nunca** produce `RC≠0`: el script
+  siempre termina con `exit 0`. Esto significa que un `emisiones.xml`/`emisiones.resto.xml` bien formado
+  pero que no cumple el XSD (tipo de dato incorrecto, campo obligatorio ausente, etc.) dispara igualmente
+  las 5/8 ramas de envío con datos inválidos según el esquema, sin que Control-M lo detecte ni lo bloquee —
+  la única forma de detectarlo es revisar manualmente el contenido del log de `RDR_Validacion_XSD.sh`.
 * **Evento huérfano (G5):** `..._NO_OK` de `RDR_ISSUES_RE_PRO` no tiene consumidor documentado en esta
   cadena — si la malla global de error fuera de alcance no existe o falla, un error en el disparador inicial
   del bloque 1 podría no generar ninguna alerta operativa más allá del filewatcher.
@@ -179,6 +194,10 @@ ejecutable tal cual está definido, con pasos y datos concretos.
 
 Los 7 gaps identificados (G1-G7) tienen resolución explícita, con su nivel de evidencia declarado
 diferenciando entre confirmación documental verificable y declaración del usuario en sesión sin fichero
-fuente adjunto (particularmente G7). No quedan preguntas de la lista de gaps sin responder. La cobertura de
-testing (TC-001 a TC-020) cubre la totalidad de las transiciones del grafo documentado, incluyendo ambos
-bloques paralelos, la sub-convergencia interna y el cierre final común.
+fuente adjunto. El algoritmo del validador XSD (parte de G7) quedó cerrado el 2026-09-24 con el script real
+`RDR_Validacion_XSD.sh`, que además reveló un hallazgo no solicitado (R20): la validación XSD nunca hace
+fallar el job, solo el chequeo estructural previo. El diccionario de datos de los 3 XML y la vinculación
+cadena↔XSLT siguen sin confirmar. No quedan preguntas de la lista de gaps sin responder. La cobertura de
+testing (TC-001 a TC-021) cubre la totalidad de las transiciones del grafo documentado, incluyendo ambos
+bloques paralelos, la sub-convergencia interna, el cierre final común, y el nuevo escenario de validación
+XSD sin efecto sobre el resultado del job.

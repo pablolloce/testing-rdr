@@ -401,4 +401,25 @@
     <posibilidadFallo>Cualquier fallo intermedio en cualquiera de los 2 bloques impide alcanzar el cierre final en MEKYTL1029 dentro de la ventana diaria.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-021" tipo="error_funcional">
+    <nombre>Fichero bien formado pero inválido según el XSD no detiene la cadena</nombre>
+    <objetivo>Confirmar, con el script real RDR_Validacion_XSD.sh, que una violación de esquema (no de estructura) nunca produce RC≠0 y que las ramas de envío se disparan igualmente con datos inválidos.</objetivo>
+    <precondiciones>
+      <precondicion>emisiones.xml (o emisiones.resto.xml) bien formado: todas las etiquetas de apertura/cierre balanceadas, pero con un campo que incumple el XSD (p. ej. tipo de dato incorrecto o valor de enumeración no permitido en un &lt;Security&gt;).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="emisiones.xml bien formado, con un &lt;Security&gt; cuyo campo numérico contiene un valor no numérico (viola xsd_emisiones_batch.xsd sin romper el balance de etiquetas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Sustituir emisiones.xml por la variante con la violación de esquema descrita, tras el filewatcher.</paso>
+      <paso numero="2">Ejecutar MEKYTL0811 (RDR_Validacion_XSD.sh pr ISSUE) y verificar el código de retorno del job.</paso>
+      <paso numero="3">Inspeccionar el log RDR_Validacion_XSD_&lt;fecha&gt;.log y confirmar que reporta el error de xmllint (mensaje, trozo y línea original) bajo "RESULTADO VALIDACIÓN XSD".</paso>
+      <paso numero="4">Verificar el estado de las 5 ramas paralelas (MEKYTL0802, MEKYTL0844, MEKYTL0874, MEKYTL1105, MEKYTL1124).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0811 termina en RC=0 (OK) pese a la violación de esquema; el log contiene el detalle del error de xmllint; las 5 ramas paralelas se disparan igualmente, distribuyendo el registro con datos inválidos según el XSD.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC del job + inspección de contenido del log + verificación de disparo de las 5 ramas.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese al error de esquema; error visible en el log; 5/5 ramas disparadas.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado por código (R20): al no bloquear la cadena, un dato inválido según el XSD llega a los 5/8 sistemas destino sin ningún control adicional que lo detenga; solo la revisión manual del log lo expondría.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>
