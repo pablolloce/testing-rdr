@@ -14,7 +14,6 @@
 - Script `RAMERC0068.sh` desplegado en `pr-rdr.igrupobbva` para la historificación.
 - Carpeta de backup `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/backup/` disponible, con espacio y permisos de escritura para el usuario `xsramer1`.
 - Réplica de la estructura de directorios `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` disponible en `lpftp503`, confirmada contra la definición real en Control-M como ruta origen efectiva de `MEKYTL1044_SND` (independiente de `/unload/transmisiones/KYTL/`, donde deposita `MEKYTL1044`).
-- Sincronización NTP contra `ntp.bbva.es` operativa en `pr-rdr.igrupobbva` y `lpftp503.igrupobbva`, con la validación de desfase (< 200 ms) activa antes de cada transferencia — control documentado por el usuario, pendiente de evidencia operacional en vivo.
 
 ## Roles y permisos
 

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_CONCILIACION_BDI_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de los 7 jobs con ConBDI.csv presente</nombre>
+    <objetivo>Verificar que los 7 jobs se ejecutan en el orden documentado y se generan los 4 ficheros de salida.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CONCILIACION_BDI_new activa, servidor MERCADOS-4, entorno de prueba (no producción).</precondicion>
+      <precondicion>Existe ConBDI.csv en /fichtemcomp/pr/descargas/kytl/ConBDI/ con al menos 1 registro válido.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que KYTL_CONBDI_GSPROCESS_FW detecta ConBDI.csv y genera su evento OK.</paso>
+      <paso numero="2">Verificar que KYTL_CONBDI_GSPROCESS termina RC=0 y genera los 4 ficheros (Reporte_ConBDI.csv, Reporte_ConBDI_dos.csv, Reporte_ConciliacionBroker_yyyymmdd.xlsx, Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx).</paso>
+      <paso numero="3">Verificar que KYTL_CONBDI_UNIX2DOS convierte Reporte_ConBDI.csv a formato CRLF.</paso>
+      <paso numero="4">Verificar que MEKYTL0135 termina RC=0 sin envío real de red.</paso>
+      <paso numero="5">Verificar que MEKYTL0132, MEKYTL0361 y MEKYTL0812 historifican en cascada los 3 ficheros correspondientes.</paso>
+    </pasos>
+    <resultadoEsperado>Los 7 jobs terminan en OK; los 4 ficheros de salida existen; los 3 ficheros historificables quedan en old/ con máscara de fecha.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + existencia de ficheros.</tipoValidacion>
+    <criterioAceptacion>7/7 jobs OK; 3 ficheros en old/ con la fecha correcta.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de KYTL_CONBDI_GSPROCESS bloquea el resto de la cadena</nombre>
+    <objetivo>Confirmar que un fallo en la carga impide la ejecución de los jobs sucesores.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de KYTL_CONBDI_GSPROCESS (p. ej. cortando la conectividad a GoldenSource).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conexión a GoldenSource inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_CONBDI_GSPROCESS.</paso>
+      <paso numero="2">Verificar que KYTL_CONBDI_UNIX2DOS no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>KYTL_CONBDI_UNIX2DOS y el resto de jobs posteriores permanecen sin ejecutarse.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>El workflow de email no envía si el informe Broker no existe</nombre>
+    <objetivo>Confirmar el comportamiento condicional documentado en informeBroker_BDI.gsp: sin envío si el fichero no está en disco.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de eliminar Reporte_ConciliacionBroker_yyyymmdd.xlsx tras su generación y antes de la evaluación del workflow.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_ConciliacionBroker_yyyymmdd.xlsx ausente en el momento de la evaluación"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar Reporte_ConciliacionBroker_yyyymmdd.xlsx antes de que el workflow informeBroker_BDI lo evalúe.</paso>
+      <paso numero="2">Verificar que la variable interna "enviar" queda en "N".</paso>
+      <paso numero="3">Verificar que no se invoca el sub-workflow Mail ni se envía ningún correo.</paso>
+    </pasos>
+    <resultadoEsperado>No se envía ningún email; el workflow finaliza sin invocar el sub-workflow Mail — comportamiento confirmado por el propio documento fuente, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de logs del workflow GoldenSource + ausencia de email recibido.</tipoValidacion>
+    <criterioAceptacion>0 emails enviados cuando el fichero está ausente.</criterioAceptacion>
+    <posibilidadFallo>Que el workflow envíe un email vacío o con adjunto inexistente (contradiría el diseño documentado).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>El informe SWIFT no se transmite por ningún canal</nombre>
+    <objetivo>Confirmar que Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx solo se historifica, sin envío por email ni XCOM.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución completa de la cadena en entorno de prueba, no producción.</precondicion>
+      <precondicion>Acceso de lectura al buzón de correo de prueba y a los destinos XCOM configurados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx generado en la ejecución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa.</paso>
+      <paso numero="2">Verificar que no se recibe ningún email con el informe SWIFT adjunto.</paso>
+      <paso numero="3">Verificar que no aparece en ningún destino XCOM configurado.</paso>
+      <paso numero="4">Verificar que el fichero queda historificado en old/ tras MEKYTL0812.</paso>
+    </pasos>
+    <resultadoEsperado>El informe SWIFT solo existe en el directorio activo y luego en old/; no se distribuye por ningún canal automatizado — confirmado por diseño, no un gap.</resultadoEsperado>
+    <tipoValidacion>Verificación de ausencia de envío + existencia en old/.</tipoValidacion>
+    <criterioAceptacion>0 envíos del informe SWIFT; fichero presente en old/.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio ya documentado: si el área usuaria espera recibirlo automáticamente, no lo recibirá sin consulta manual.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>La transmisión XCOM en modo A DUMMY no realiza envío real</nombre>
+    <objetivo>Confirmar que MEKYTL0135 valida la interfaz sin transmitir datos reales a MVP00G215.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0135 ejecutado con normalidad tras KYTL_CONBDI_UNIX2DOS, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_ConBDI_dos.csv"/>
+      <dato campo="Destino nominal" valor="\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0135 y verificar RC=0.</paso>
+      <paso numero="2">Verificar que no existe Reporte_ConBDI_yyyymmdd.csv en el destino de red.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK sin transmisión real — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC + ausencia de fichero en destino de red.</tipoValidacion>
+    <criterioAceptacion>RC=0 y 0 ficheros nuevos en el destino.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio si en algún momento se espera un envío real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Historificación en cascada con máscara de fecha correcta en ejecuciones sucesivas</nombre>
+    <objetivo>Verificar que los 3 ficheros historificados no colisionan entre días de ejecución consecutivos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente 2 días laborables consecutivos, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días de prueba" valor="2 días laborables consecutivos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa el día 1 y verificar los 3 ficheros historificados con la fecha del día 1.</paso>
+      <paso numero="2">Ejecutar la cadena completa el día 2 y verificar que los ficheros del día 1 no se sobrescriben.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución genera sus propios ficheros historificados, sin colisión entre días.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en old/.</tipoValidacion>
+    <criterioAceptacion>6 ficheros distintos en old/ (3 por día), ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si se relanza más de una vez el mismo día.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="e2e">
+    <nombre>Ciclo completo diario incluido el envío condicional por email</nombre>
+    <objetivo>Validar el flujo end-to-end completo, incluida la evaluación del workflow de notificación.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con conectividad a GoldenSource y buzón de correo de prueba accesible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar ConBDI.csv válido en la ruta origen antes de las 00:00 AM.</paso>
+      <paso numero="2">Ejecutar la cadena completa y verificar el paso por los 7 jobs.</paso>
+      <paso numero="3">Verificar la recepción del email con el informe Broker adjunto.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina con los 7 jobs en OK y el email del informe Broker recibido.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + recepción de email.</tipoValidacion>
+    <criterioAceptacion>7/7 jobs OK; 1 email recibido con el informe Broker adjunto.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre o el envío del email.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

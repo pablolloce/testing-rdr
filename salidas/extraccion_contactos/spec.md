@@ -66,7 +66,7 @@ de filewatcher ni de validación de esquema en ningún punto.
 |-------------------|--------|
 | Recepción y procesamiento en IHS Markit y SAIT | Los sistemas destino son consumidores externos a la cadena |
 | **La transferencia de DataX hacia IHS Markit** | La monta y la controla el sistema destino, no RDR. Nombre, hora, máquina y ruta de destino pueden cambiar sin comunicarlo a RDR (§4.6) |
-| Contactos con una asignación de sucursal a la organización `A15` | Excluidos por la propia query maestra (ver §4.3) |
+| Contactos con una asignación de sucursal a la organización `A15` (**COMPASS**) | Excluidos por la propia query maestra; motivo confirmado: BBVA Compass/BBVA USA fue vendida a PNC en 2020 (ver §4.3) |
 
 ---
 
@@ -209,8 +209,10 @@ Su nombre legal se obtiene directamente:
 SELECT ORG_ID, ENT_LEG_NME FROM FT_T_ENTR WHERE TRIM(ORG_ID) = 'A15';
 ```
 
-El motivo de negocio de la exclusión sigue sin estar documentado, pero el comportamiento está
-ahora completamente especificado y es verificable (TC-18).
+**Resuelto con query real (2026-09-24): `A15` = `COMPASS`**. Motivo de negocio confirmado por el
+usuario: BBVA Compass/BBVA USA fue vendida a PNC en 2020 y ya no forma parte del grupo, de ahí que
+sus contactos se excluyan explícitamente de la extracción. El comportamiento está completamente
+especificado, verificable (TC-18), y ahora también motivado.
 
 > **La exclusión no filtra por estado de la asignación.** El `NOT EXISTS` comprueba
 > `CONTCT_ASSIGN_STAT_TYP` y `ORG_ID`, pero **no** `CNTA.DATA_STAT_TYP`. En consecuencia, un
@@ -249,9 +251,15 @@ No existe el escenario de fichero parcial silencioso: o se genera el universo co
 genera nada. Es la única salvaguarda de integridad del proceso, dado que no hay validación
 posterior (§4.7).
 
-El argumento `ArgJava3=20` del properties es, previsiblemente, el tamaño del pool de hilos —el
-mismo valor aparece en la configuración de Contratos BBVA—, pero el documento no lo confirma y
-no se ha verificado contra el código.
+**Resuelto por completo (2026-09-24): `ArgJava3=20` es el tamaño del pool de hilos.** Confirmado en
+dos pasos: el `.properties` real (`ExtraccionGenericaCONT.properties`) da el valor literal (posición
+3 de los argumentos Java), y el código fuente real de `Ppal.java` (clase `Ppal` del jar
+`ExtraccionGenericaOtherEntities.jar`) muestra literalmente `int NUM_THREADS =
+Integer.parseInt(args[2])`, usado directamente en `Executors.newFixedThreadPool(NUM_THREADS)` — el
+orden de argumentos del `main` (`args[0]`=nivel de log, `args[1]`=ruta log4j, `args[2]`=hilos,
+`args[3]`=ruta ficheros, `args[4]`=fichero salida, `args[5]`=tipo de entidad, `args[6]`=credenciales)
+coincide exactamente con el orden `ArgJava1`...`ArgJava7` del `.properties`. Ya no es una
+interpretación razonable: es un hecho confirmado por código.
 
 ### 4.5 Disponibilización a IHS Markit vía DataX
 
@@ -423,14 +431,18 @@ SAIT).
 `MEKYTL1190` usa el ODATE de ejecución para estampar la fecha en el nombre del fichero
 historificado.
 
-> **Nada borra el fichero depositado en la pasarela.** `MEKYTL1189` copia
-> `RDR_contactosSAIT.xml` a `lpftp503:/unload/transmisiones/KYTL/` y `MEKYTL1189_SND` lo
-> transmite desde allí a SAIT, pero la cadena no contiene ningún job de limpieza en la pasarela
-> —a diferencia de `RDR_BBVACONTRACTS_new`, que sí tiene `MEXIRM1104_DEL` para ese cometido—.
-> El usuario indica que *"o se sobrescribe el fichero o tiene que haber un job de
-> historificación"*. Como el fichero se deposita siempre con el mismo nombre, la hipótesis más
-> probable es la sobrescritura diaria; pero no está documentado y, de no ser así, los ficheros
-> se acumularían indefinidamente en la pasarela. Queda como punto abierto (ver §8 — Riesgos).
+> **Resuelto con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` (2026-09-24): sobrescritura
+> diaria confirmada, no acumulación.** Ningún job borra el fichero depositado en la pasarela, pero
+> tampoco hace falta: `MEKYTL1189` copia siempre `RDR_contactosSAIT.xml` (nombre fijo, sin fecha)
+> a `lpftp503:/unload/transmisiones/KYTL/RDR_contactosSAIT.xml` (también nombre fijo, sin fecha en
+> el destino intermedio) — cada ejecución sobrescribe el fichero de la anterior en la pasarela. El
+> nombre con fecha (`RDR_contactosSAIT._YYYYMMDD.xml`, según la ficha real de `MEKYTL1189_SND` —
+> obsérvese el punto extra antes del guion bajo, inconsistente con el resto de la documentación,
+> probable errata de transcripción de la ficha) solo se aplica en el **segundo salto**, al
+> transmitir desde la pasarela hacia el destino final en `150.100.230.96`. A diferencia de
+> `RDR_BBVACONTRACTS_new` (que sí tiene `MEXIRM1104_DEL` para su pasarela), aquí la limpieza no
+> hace falta un job dedicado porque el propio mecanismo de copia con nombre fijo cumple la misma
+> función.
 
 ### 4.9 Jobs ejecutados como `root`
 
@@ -662,14 +674,12 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | Filtro de México (`sait.xsl`) | TC-07, TC-08, TC-09, TC-10, TC-17 | Completa — la hoja de estilo y las queries están disponibles íntegras |
 | Integridad ante fallo | TC-04, TC-05, TC-14 | Completa |
 | Disponibilización para IHS Markit | TC-06 | Completa hasta el directorio de disponibilización; la transferencia la controla el sistema destino y no es verificable desde RDR |
-| Distribución a SAIT | TC-11 | Parcial — ídem, y sin job de limpieza en pasarela que verificar |
+| Distribución a SAIT | TC-11 | Completa hasta el destino final en SAIT (150.100.230.96); el mecanismo de la pasarela (sobrescritura por nombre fijo) ya confirmado con fichas reales |
 | Historificación y purga | TC-12, TC-13 | Completa |
 | Control de cadena y reejecución | TC-01, TC-14, TC-15 | Completa |
 
 ### 6.3 Huecos de cobertura conocidos
 
-- El motivo de negocio de la exclusión `A15` sigue sin documentar: TC-18 verifica el
-  comportamiento y la asimetría de estado, no la corrección de la regla.
 - No se ha verificado si existe restricción de unicidad en `FT_T_CAI1` para el identificador RDR
   del contacto (RG-16); TC-05 lo aborda de forma indirecta.
 - Los entornos de ejecución de pruebas no están definidos (ver `prerrequisitos.md` §7).
@@ -713,8 +723,8 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-02 | **R-21 prohíbe el fichero de SAIT vacío, pero ningún control de la cadena lo impide.** Si ningún contacto cumple el filtro de México, `sait.xsl` emite una salida vacía sin error y la cadena la distribuye cerrando en OK | Incumplimiento silencioso de un requisito explícito: SAIT recibiría un fichero sin contactos que podría interpretar como ausencia total de datos | Añadir una comprobación de contenido mínimo entre la transformación y `MEKYTL1189` (filewatcher con tamaño mínimo, validación o control en el propio script). Es el riesgo de mayor prioridad del proceso; TC-10 lo verifica como fallo |
 | RG-03 | Tres jobs se ejecutan como `root`, uno de ellos con `rm -r` recursivo | Borrado con privilegios elevados sobre una ruta que la documentación escribe de dos formas distintas | Verificar la ruta real del job en Control-M antes de operar sobre entorno real (§4.9) |
 | RG-04 | Dependencias de éxito en cadena lineal con SAIT después de la rama de Markit | Un fallo en la disponibilización deja a SAIT sin fichero ese día pese a estar ya generado | Documentado en §4.1; valorar si el orden de las ramas es el deseado |
-| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` | Si no se sobrescribe, los ficheros se acumulan indefinidamente en `/unload/transmisiones/KYTL/` | Confirmar el mecanismo de limpieza en pasarela (§4.8) |
-| RG-06 | La exclusión `A15` de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Confirmar si es intencionado; si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
+| RG-05 | Ningún job borra el fichero depositado en la pasarela `lpftp503` — **resuelto**: fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` confirman nombre fijo en origen y en destino intermedio, por lo que cada ejecución sobrescribe la anterior, sin acumulación | N/A — riesgo cerrado | Sobrescritura diaria confirmada (§4.8, TC-11) |
+| RG-06 | La exclusión `A15` (**COMPASS**, motivo confirmado: venta a PNC en 2020) de la query maestra **no filtra por `DATA_STAT_TYP`** de la asignación | Un contacto con una vinculación a `A15` dada de baja queda excluido de la extracción de forma permanente, pese a que esa sucursal ni siquiera aparecería en su bloque `Branches` | Sigue sin confirmarse si es intencionado (pregunta de intención de diseño, no verificable por código); si no lo es, añadir `AND CNTA.DATA_STAT_TYP='ACTIVE'` al `NOT EXISTS` (§4.3, TC-18) |
 | RG-07 | `sait.xsl` vuelca los atributos como texto en lugar de copiarlos | Defecto latente: si se añadiera un atributo al XML de contactos, el fichero de SAIT se corrompería en silencio | Corregir la hoja añadiendo una plantilla `match="@*"` con `<xsl:copy/>`, o documentar la restricción de no usar atributos (§4.6) |
 | RG-08 | `AgreementsAssociated` y `SCIsAssociated` se emiten vacíos, a diferencia del resto de elementos | Incoherencia estructural en el fichero de SAIT; un consumidor estricto podría rechazarlos | Documentado en §4.5; confirmar que SAIT los tolera |
 | RG-09 | Seis de nueve jobs tienen un recordatorio sin resolver en lugar de protocolo de fallo | Ante una incidencia, el operador no dispone de instrucciones en la ficha | Completar el campo de normas de rearranque en las nueve fichas (§4.10) |
@@ -727,6 +737,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
 | RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
+| RG-19 | **Resuelto con el código fuente real de `Querys.java` (2026-09-24).** El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25), pero **ninguno de los `SELECT` que el motor ejecuta contra `FT_T_ATE1` filtra por `DATA_STAT_TYP`** (`obtenerEntidades`, `obtenerExtraccion`, `obtenerFichero` — los 3 hacen `WHERE ACTION_NME = '...'` sin más condición). El campo es funcionalmente inerte para esta búsqueda: por eso la extracción sigue funcionando con normalidad pese al `INACTIVE` | El nombre del campo (`DATA_STAT_TYP=INACTIVE`) sugiere a cualquiera que revise `FT_T_ATE1` que la acción está deshabilitada, cuando en realidad no tiene ningún efecto sobre el motor — riesgo de que alguien intente "desactivar" esta extracción marcando el campo, sin que surta efecto, o de que alguien mal interprete el estado actual como una extracción parada | Ninguna: el comportamiento actual es correcto y está confirmado. Documentar que `DATA_STAT_TYP` en `FT_T_ATE1` no es un mecanismo de activación/desactivación real para este motor, para evitar confusión futura |
 
 ---
 
@@ -781,13 +792,40 @@ jobs en OK. Es una discrepancia entre requisito e implementación, no una ambig�
 documentación, y es el punto de mayor prioridad de esta especificación (RG-02). Resolverlo
 exige añadir una comprobación de contenido mínimo entre la transformación y el envío.
 
+**Cerrado con evidencia real (2026-09-24).** El motivo de negocio de la exclusión `A15` (RG-06)
+queda resuelto: `SELECT ENT_LEG_NME FROM FT_T_ENTR WHERE TRIM(ORG_ID)='A15'` confirma
+`A15 = COMPASS`, y el usuario confirma que el motivo es la venta de BBVA Compass/BBVA USA a PNC
+en 2020 — al dejar de formar parte del grupo, sus contactos se excluyen explícitamente de la
+extracción. Sigue sin confirmarse solo si la ausencia de filtro por estado de la asignación
+(`DATA_STAT_TYP`) es deliberada o un descuido — comportamiento verificable con TC-18.
+
+**Cerrado con evidencia real (2026-09-24), además de la exclusión `A15`.** El mecanismo de la
+pasarela `lpftp503` (RG-05) y el valor y función de `ArgJava3=20` (§4.4) quedan confirmados: el
+primero con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND`, el segundo con el `.properties`
+real de `ExtraccionGenericaCONT` y el código fuente real de `Ppal.java` (`NUM_THREADS =
+Integer.parseInt(args[2])`, usado en `Executors.newFixedThreadPool`).
+
+**Hallazgo nuevo, resuelto por completo (2026-09-24).** Al intentar resolver si la ausencia de
+filtro por `DATA_STAT_TYP` en la exclusión `A15` es deliberada, una consulta real sobre `FT_T_ATE1`
+reveló que el propio registro de la acción `ExtraccionCONT.sql` (la query maestra del universo de
+contactos) tiene `DATA_STAT_TYP = INACTIVE` (último cambio `15-SEP-25`, `LAST_CHG_USR_ID =
+BBVA:CUSTOMER`). Esto no aporta nada sobre el motivo de diseño de la exclusión A15 (queda sin
+resolver, ver más abajo), pero planteó una pregunta más seria: ¿el motor de extracción filtra por
+`DATA_STAT_TYP='ACTIVE'` al buscar la acción por `ACTION_NME`, o le es indiferente el estado? **El
+código fuente real de `Querys.java` lo confirma sin ambigüedad: no filtra.** Los 3 métodos que
+hacen `SELECT` sobre `FT_T_ATE1` por `ACTION_NME` (`obtenerEntidades`, `obtenerExtraccion`,
+`obtenerFichero`) no incluyen ninguna condición sobre `DATA_STAT_TYP` — cogen la fila que coincide
+con el `ACTION_NME`, esté o no marcada `INACTIVE`. El campo sí se usa como filtro en otras
+queries de la misma clase (contra `FT_T_PAR1`, para las etiquetas raíz), pero nunca sobre
+`FT_T_ATE1`. Conclusión: `DATA_STAT_TYP=INACTIVE` en el registro de `ExtraccionCONT.sql` es
+funcionalmente inerte para este motor — no es un mecanismo real de activación/desactivación, pese
+a lo que su nombre sugiere (RG-19).
+
 **Puntos abiertos, ninguno bloqueante:**
 
 1. **Nivel de `StarDate` y `LastChangeDate`** (§5.1). El usuario no dispone del dato; se asume
    el nivel evidenciado por `sait.xsl` y TC-02 lo verifica contra un fichero real.
-2. **Motivo de negocio de la exclusión `A15`** (RG-06). El comportamiento está ahora
-   completamente especificado y es verificable; lo que falta es saber qué organización es y por
-   qué se excluye, además de si la ausencia de filtro por estado de la asignación es
-   deliberada.
-3. **Mecanismo de limpieza en la pasarela** (RG-05).
-4. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
+2. **Definición de los entornos de prueba** (`prerrequisitos.md` §7).
+3. **Motivo de diseño de la asimetría `DATA_STAT_TYP` en la exclusión `A15`** (RG-06): sigue sin
+   confirmarse si es deliberado o un descuido — es una pregunta de intención de diseño, no
+   verificable por código ni por fichas.

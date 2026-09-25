@@ -14,34 +14,37 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Depositar Calendarios.csv en /fichtemcomp/pr/descargas/kytl/Modelity/ a las 22:10.</paso>
-      <paso numero="2">Esperar a que KYTL_CAL_MODELITY_FW detecte el fichero.</paso>
-      <paso numero="3">Verificar la ejecución de MEKYTL1113 (XERG), MEKYTL1090 (BONT) y MEKYTL1266 (Mentor).</paso>
-      <paso numero="4">Verificar que MEKYTL1184 y MEKYTL1311 no se ejecutan (no es viernes).</paso>
+      <paso numero="2">Esperar a que KYTL_CAL_MODELITY_FW detecte el fichero y genere su evento OK.</paso>
+      <paso numero="3">Verificar la ejecución en cadena, en este orden: MEKYTL1113 (XERG) → MEKYTL1090 (BONT) → MEKYTL1184_DUMMY (placeholder CSCF, no MEKYTL1184) → MEKYTL1266 (Mentor) → MEKYTL1311_DUMMY (placeholder TFIT, no MEKYTL1311) → MEKYTL0863 (historificación).</paso>
+      <paso numero="4">Verificar que MEKYTL1184 y MEKYTL1311 (los envíos reales de CSCF/TFIT) no se ejecutan (no es viernes), y que sus placeholders `_DUMMY` sí se ejecutan y generan el mismo evento de salida.</paso>
+      <paso numero="5">Verificar el cierre de la cadena en ENVIO_CAL_MODELITY_OUT.</paso>
     </pasos>
-    <resultadoEsperado>Calendars_AAAAMMDD.csv presente en LPNOV503/PXVA y en bonotasfs/incoming/; fichero presente en pr-mentor:/fichtemcomp/pr/descargas/eezt/; los tres jobs terminan en OK.</resultadoEsperado>
-    <tipoValidacion>Comparación de checksum origen/destino + verificación de presencia y naming de fichero en cada ruta destino.</tipoValidacion>
-    <criterioAceptacion>Los 3 ficheros destino existen, con el naming correcto y checksum idéntico al origen.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada; cualquier KO o checksum distinto invalida el caso.</posibilidadFallo>
+    <resultadoEsperado>Calendars_AAAAMMDD.csv presente en LPNOV503/PXVA y en bonotasfs/incoming/; fichero presente en pr-mentor:/fichtemcomp/pr/descargas/eezt/; fichero historificado en /old/; los 6 jobs de la cadena de ese día (FW, 1113, 1090, 1184_DUMMY, 1266, 1311_DUMMY, 0863) terminan en OK, en ese orden secuencial (confirmado por export real de Control-M, no ejecución paralela).</resultadoEsperado>
+    <tipoValidacion>Comparación de checksum origen/destino + verificación de presencia y naming de fichero en cada ruta destino + orden de finalización de jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Los 3 ficheros destino existen, con el naming correcto y checksum idéntico al origen; el fichero histórico existe en /old/; el orden de finalización respeta la cadena secuencial documentada.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO, checksum distinto, o ejecución fuera del orden secuencial esperado invalida el caso.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Filewatcher KO por timeout</nombre>
-    <objetivo>Verificar que si el fichero no llega antes de las 23:00, el filewatcher finaliza en KO y no se ejecutan los envíos.</objetivo>
+    <nombre>Filewatcher timeout: relanzamiento automático (no KO directo)</nombre>
+    <objetivo>Verificar que, ante timeout de recepción (RC=7), el filewatcher se relanza automáticamente (DOACTION RERUN, confirmado por export real de Control-M) en vez de finalizar directamente en KO, y que ningún envío se ejecuta mientras el fichero no llegue.</objetivo>
     <precondiciones>
       <precondicion>Cadena programada para el día de ejecución.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Calendarios.csv" valor="no se deposita en la ruta de origen"/>
+      <dato campo="Calendarios.csv" valor="no se deposita en la ruta de origen durante toda la ventana"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">No depositar ningún fichero en /fichtemcomp/pr/descargas/kytl/Modelity/.</paso>
-      <paso numero="2">Esperar hasta las 23:00.</paso>
-      <paso numero="3">Verificar el estado de KYTL_CAL_MODELITY_FW y de MEKYTL1113.</paso>
+      <paso numero="2">Esperar a que se cumpla el timeout de 60 minutos configurado en el filewatcher (ctmfw).</paso>
+      <paso numero="3">Verificar que KYTL_CAL_MODELITY_FW se relanza automáticamente (RERUN) en vez de quedar en KO.</paso>
+      <paso numero="4">Verificar el estado de MEKYTL1113 y sucesores (no deben ejecutarse mientras el fichero no llegue).</paso>
+      <paso numero="5">Verificar que, al agotarse la ventana horaria (23:00), el job queda en KO y se emite la alerta a ans_rdr.es@bbva.com, sin más relanzamientos — confirmado por la ficha real EX-005-03-KYTL_CAL_MODELITY_FW: el límite no es un contador de reintentos, es la propia ventana de 22:00-23:00.</paso>
     </pasos>
-    <resultadoEsperado>KYTL_CAL_MODELITY_FW termina en KO a las 23:00; MEKYTL1113 y sucesores no se ejecutan; se emite correo a ans_rdr.es@bbva.com.</resultadoEsperado>
-    <tipoValidacion>Estado del job en Control-M + verificación de recepción del correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Job en KO, ningún envío ejecutado, correo de alerta recibido con criticidad W.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: el KO es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>KYTL_CAL_MODELITY_FW se relanza automáticamente ante el primer timeout (comportamiento confirmado, no un fallo de la prueba); MEKYTL1113 y sucesores no se ejecutan mientras el fichero no llegue. Dado que el timeout interno del ctmfw (60 min) coincide con la ventana completa (22:00-23:00), el RERUN solo puede dispararse una vez antes de que se agote la ventana y el job pase a KO con alerta, tal como exige la ficha real.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M (histórico de relanzamientos) + verificación de recepción del correo de alerta al agotarse la ventana.</tipoValidacion>
+    <criterioAceptacion>El primer timeout produce un RERUN, no un KO inmediato; al agotarse la ventana (23:00) el job termina en KO con alerta, sin relanzamientos adicionales.</criterioAceptacion>
+    <posibilidadFallo>Que el job finalice en KO en el primer timeout sin relanzarse (contradiría el DOACTION RERUN confirmado en el export), o que se relance más allá de la ventana de 23:00 (contradiría la ficha real).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -60,10 +63,10 @@
       <paso numero="2">Ejecutar la cadena con el fichero depositado a tiempo.</paso>
       <paso numero="3">Verificar el estado y el código de salida de MEKYTL1113.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL1113 finaliza con código de error específico (7, 11 o 68) capturado por RAMERC0068.sh; se emite correo a ans_rdr.es@bbva.com; no hay reintento automático.</resultadoEsperado>
-    <tipoValidacion>Código de salida del script + verificación de correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Código de salida documentado presente, correo de alerta recibido, sin reintento espontáneo del job.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL1113 finaliza con código de error específico (7, 11 o 68) capturado por RAMERC0068.sh; se emite correo a ans_rdr.es@bbva.com; no hay reintento automático. **Confirmado por el grafo real (cadena estrictamente secuencial):** al fallar MEKYTL1113 (el primer envío), ningún job posterior se ejecuta — MEKYTL1090 (BONT), MEKYTL1184/MEKYTL1184_DUMMY (CSCF), MEKYTL1266 (Mentor), MEKYTL1311/MEKYTL1311_DUMMY (TFIT) y MEKYTL0863 (historificación) quedan todos bloqueados, no solo XERG.</resultadoEsperado>
+    <tipoValidacion>Código de salida del script + verificación de correo de alerta + verificación de que ningún job posterior a MEKYTL1113 se ejecuta.</tipoValidacion>
+    <criterioAceptacion>Código de salida documentado presente, correo de alerta recibido, sin reintento espontáneo del job, y 0 jobs posteriores ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso. Sería un fallo de la prueba que algún job posterior (BONT, CSCF, Mentor, TFIT, historificación) se ejecutara pese al fallo de XERG.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -225,11 +228,11 @@
       <dato campo="dia_2" valor="viernes"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena un jueves: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor e historificación.</paso>
-      <paso numero="2">Ejecutar la cadena el viernes siguiente: depositar el fichero, esperar al filewatcher, verificar XERG/BONT/Mentor/CSCF/TFIT e historificación.</paso>
-      <paso numero="3">Verificar checksum y naming en todos los destinos de ambos días.</paso>
+      <paso numero="1">Ejecutar la cadena un jueves: depositar el fichero, esperar al filewatcher, verificar la cadena secuencial completa: FW → MEKYTL1113 (XERG) → MEKYTL1090 (BONT) → MEKYTL1184_DUMMY → MEKYTL1266 (Mentor) → MEKYTL1311_DUMMY → MEKYTL0863 (historificación) → cierre.</paso>
+      <paso numero="2">Ejecutar la cadena el viernes siguiente: depositar el fichero, esperar al filewatcher, verificar la misma cadena secuencial pero con MEKYTL1184 y MEKYTL1311 (envíos reales a CSCF/TFIT) en vez de sus placeholders `_DUMMY`.</paso>
+      <paso numero="3">Verificar checksum y naming en todos los destinos de ambos días, y que el orden de finalización de los jobs respeta la secuencia documentada (no hay ejecución paralela).</paso>
     </pasos>
-    <resultadoEsperado>El jueves se distribuye a 3 destinos y se historifica; el viernes se distribuye a los 5 destinos y se historifica; todos los checksums coinciden con el origen correspondiente.</resultadoEsperado>
+    <resultadoEsperado>El jueves se distribuye a 3 destinos reales (XERG, BONT, Mentor) con los 2 placeholders CSCF/TFIT ejecutándose sin enviar nada, y se historifica; el viernes se distribuye a los 5 destinos reales y se historifica; todos los checksums coinciden con el origen correspondiente; en ambos días la ejecución respeta el orden secuencial confirmado por el export de Control-M.</resultadoEsperado>
     <tipoValidacion>Checksum + verificación de naming y rutas + estado final de todos los jobs en Control-M en ambos días.</tipoValidacion>
     <criterioAceptacion>Cadena completa ejecutada sin KOs en ambos días, todos los destinos aplicables cubiertos, historificación confirmada en ambos casos.</criterioAceptacion>
     <posibilidadFallo>Cualquier KO no esperado, checksum distinto, o destino faltante invalida el caso.</posibilidadFallo>
@@ -256,22 +259,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="borde">
-    <nombre>Rango temporal de cobertura del fichero (evidencia de muestra)</nombre>
-    <objetivo>Verificar el rango de fechas cubierto por el fichero de producción, usando como referencia el rango observado en una muestra real, dado que el parámetro operativo "N años vista" no está confirmado como regla de negocio.</objetivo>
+    <nombre>Rango temporal de cobertura del fichero (máximo por divisa, recorte de 6 años confirmado)</nombre>
+    <objetivo>Verificar que el máximo de CAL_DAY por divisa en el fichero coincide con el máximo real de FT_T_CADP para esa divisa menos 6 años exactos (mismo mes/día), confirmando el recorte de protección de formato de fecha.</objetivo>
     <precondiciones>
       <precondicion>Fichero Calendarios.csv de producción disponible para análisis.</precondicion>
+      <precondicion>Acceso de lectura a FT_T_CADP (GoldenSource) para contrastar el máximo real por CAL_ID/divisa.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Calendarios.csv (muestra real analizada 2026-09-17)" valor="251.874 filas; rango observado CAL_DAY: 2022-09-21 a 2049-12-31 (~27 años y 3 meses); festivos reales (HOLIDAY, no solo WEEKEND) poblados con profundidad de ~770-1020 por año en todos los años del rango, no solo fines de semana calculados"/>
+      <dato campo="Calendarios.csv (muestra real analizada 2026-09-17)" valor="251.874 filas, 87 divisas; máximo por divisa comprobado exactamente 6 años antes del máximo real en FT_T_CADP para esa misma divisa (mismo mes/día) — p. ej. USD: tabla 2055-11-25 / fichero 2049-11-25; EUR: tabla 2055-04-19 / fichero 2049-04-19"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Extraer el valor mínimo y máximo del campo CAL_DAY del fichero bajo prueba.</paso>
-      <paso numero="2">Comparar contra el rango observado en la muestra de referencia (2022-09-21 a 2049-12-31).</paso>
-      <paso numero="3">Si el fichero bajo prueba es una regeneración posterior, verificar si el máximo se mantiene fijo en 2049-12-31 (límite hardcodeado) o se desplaza hacia adelante (ventana relativa a la fecha de generación).</paso>
+      <paso numero="1">Extraer el valor máximo del campo CAL_DAY por divisa del fichero bajo prueba.</paso>
+      <paso numero="2">Consultar MAX(GREG_DTE) por CAL_ID en FT_T_CADP para las mismas divisas.</paso>
+      <paso numero="3">Verificar que el máximo del fichero es exactamente 6 años (mismo mes/día) anterior al máximo de la tabla para cada divisa comprobada.</paso>
     </pasos>
-    <resultadoEsperado>No hay un resultado esperado cerrado de negocio: este caso documenta el comportamiento observado en la muestra como evidencia, no como validación de una regla confirmada. Sirve para detectar si el rango cambia entre regeneraciones del fichero y así inferir si el límite es fijo o relativo.</resultadoEsperado>
-    <tipoValidacion>Extracción de min/max de CAL_DAY + comparación con la muestra de referencia documentada.</tipoValidacion>
-    <criterioAceptacion>No aplica un criterio de aceptación de pase/fallo hasta que se confirme con el equipo si el límite de 2049-12-31 es fijo o relativo a la fecha de generación (ver riesgo 7 en spec.md).</criterioAceptacion>
+    <resultadoEsperado>El máximo por divisa en el fichero es sistemáticamente 6 años anterior al máximo real en FT_T_CADP para la misma divisa — comportamiento confirmado por diseño (recorte deliberado para evitar que sistemas destino con restricciones de formato interpreten 2050-2055 como 1950-1955), no un límite único global ni una ventana relativa a la fecha de generación.</resultadoEsperado>
+    <tipoValidacion>Extracción de MAX(CAL_DAY) por divisa en el fichero + consulta MAX(GREG_DTE) por CAL_ID en FT_T_CADP + comparación del desfase.</tipoValidacion>
+    <criterioAceptacion>Desfase de exactamente 6 años (mismo mes/día) entre el máximo de FT_T_CADP y el máximo exportado, para cada divisa comprobada.</criterioAceptacion>
     <posibilidadFallo>Riesgo si el rango real difiere sustancialmente de la muestra sin explicación (p. ej. un corte prematuro del catálogo de festivos), lo que podría indicar un problema en la extracción de origen no relacionado con esta cadena de distribución.</posibilidadFallo>
   </casoDePrueba>
 

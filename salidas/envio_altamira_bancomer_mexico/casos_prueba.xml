@@ -89,22 +89,23 @@
 
   <casoDePrueba id="TC-005" tipo="duplicidad">
     <nombre>Mismo código ALID asociado a dos sucursales activas distintas</nombre>
-    <objetivo>Observar si un código ALID compartido entre dos sucursales activas distintas termina duplicado en el fichero final aplanado.</objetivo>
+    <objetivo>Confirmar que un código ALID compartido entre dos sucursales activas distintas puede terminar duplicado en el fichero final, dado que el código real de Querys.obtenerIDs() aplica el DISTINCT sobre la cadena LISTAGG agregada por combinación institución/sucursal, no sobre el ALID individual — confirmado por código fuente real (2026-09-24, ver riesgo 3 en spec.md).</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba donde se pueda dar de alta el mismo fins_id/ALID en dos sucursales activas distintas bajo org_id=1145.</precondicion>
+      <precondicion>Entorno de prueba donde se pueda dar de alta el mismo fins_id/ALID en dos sucursales activas distintas bajo org_id=1145, generando 2 combinaciones institución/sucursal distintas en la query.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="codigo_ALID_compartido" valor="mismo fins_id asociado, vía FT_T_FIRL, a dos sucursales (fins.inst_mnem) activas y con rol MAINROL distintas"/>
+      <dato campo="RDR_clientes20250726.csv (muestra real de producción)" valor="28.689 filas de datos, columna ALID (numclien) con 28.689 valores únicos — 0 duplicados en esta ejecución real, pese a que el diseño de la query lo permitiría"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dar de alta el mismo código ALID en dos sucursales activas distintas que cumplan los filtros de la query de extracción.</paso>
+      <paso numero="1">Dar de alta el mismo código ALID en dos sucursales activas distintas que cumplan los filtros de la query de extracción (de forma que generen 2 filas ALTAMIRA_MEX distintas en el resultado).</paso>
       <paso numero="2">Ejecutar GS_CODIGOS_ALTMEX.</paso>
-      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv para determinar si el código aparece una o dos veces.</paso>
+      <paso numero="3">Inspeccionar RDR_clientesYYYYMMDD.csv y confirmar que el ALID aparece en 2 líneas distintas del fichero.</paso>
     </pasos>
-    <resultadoEsperado>Documentar el comportamiento observado (caja negra): dado que la query agrega por sucursal antes de aplanar, es posible que el código aparezca duplicado como dos líneas distintas en el fichero final. No hay una regla de negocio documentada que confirme si esto es correcto o debe deduplicarse.</resultadoEsperado>
+    <resultadoEsperado>El ALID compartido aparece duplicado en el fichero (una vez por cada combinación institución/sucursal), confirmando que el DISTINCT de la query no opera a nivel de ALID individual, solo sobre la cadena LISTAGG agregada.</resultadoEsperado>
     <tipoValidacion>Inspección manual del fichero generado + conteo de apariciones del código.</tipoValidacion>
-    <criterioAceptacion>El comportamiento observado queda registrado como evidencia; no hay criterio de aceptación de pase/fallo hasta que se confirme con el equipo funcional si la duplicidad entre sucursales es aceptable.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si Altamira México trata cada línea como un alta independiente, generando un conflicto o registro duplicado en destino.</posibilidadFallo>
+    <criterioAceptacion>El comportamiento observado coincide con el confirmado por código real: duplicidad posible y no filtrada por el DISTINCT.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado: si Altamira México trata cada línea como un alta independiente, un ALID duplicado por estar en 2 sucursales generaría un conflicto o registro duplicado en destino.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="borde">
@@ -129,23 +130,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Verificación de la estructura real del fichero (un código por línea)</nombre>
-    <objetivo>Confirmar que el fichero final no conserva la agregación por `|` de la query SQL, sino un código por línea.</objetivo>
+    <nombre>Verificación de la estructura real del fichero (un código por línea, sin concatenación LISTAGG)</nombre>
+    <objetivo>Confirmar que cada línea del fichero contiene un único ALID, no una concatenación con `|` — riesgo confirmado por código real: Querys.obtenerIDs() usa LISTAGG(DISTINCT fiid.fins_id,'|') por combinación institución/sucursal, así que una combinación con más de un ALID generaría una línea con varios códigos pegados.</objetivo>
     <precondiciones>
-      <precondicion>Al menos una sucursal activa con más de un código ALID asociado.</precondicion>
+      <precondicion>Al menos una combinación institución/sucursal activa (fins.inst_mnem + eerl) con más de un código ALID asociado vía FT_T_FIRL.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="sucursal_con_multiples_codigos" valor="sucursal activa con 3 códigos ALID distintos asociados"/>
+      <dato campo="combinacion_con_multiples_codigos" valor="una misma combinación institución/sucursal con 3 códigos ALID distintos asociados en FT_T_FIID/FT_T_FIRL"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una sucursal que tenga múltiples códigos asociados.</paso>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una combinación institución/sucursal que tenga múltiples ALID asociados.</paso>
       <paso numero="2">Inspeccionar RDR_clientesYYYYMMDD.csv.</paso>
-      <paso numero="3">Verificar que cada código aparece en una línea independiente, con separador `;`, sin ningún carácter `|` en el contenido.</paso>
+      <paso numero="3">Verificar si esa línea contiene un único código o los 3 códigos concatenados con `|` en el mismo campo.</paso>
     </pasos>
-    <resultadoEsperado>El fichero contiene cabecera + una línea por código (primera columna informada, resto vacías separadas por `;`); no aparece ningún `|` en el contenido de datos.</resultadoEsperado>
+    <resultadoEsperado>Si la combinación institución/sucursal tiene varios ALID asociados, la línea del fichero contendrá los 3 códigos concatenados con `|` en un único campo (comportamiento confirmado por el código real de Querys.obtenerIDs(), no un fallo de la prueba) — rompiendo la estructura de "un código por línea" documentada en R6.</resultadoEsperado>
     <tipoValidacion>Inspección de contenido + búsqueda del carácter `|` en el fichero.</tipoValidacion>
-    <criterioAceptacion>Cero apariciones de `|` en las líneas de datos; un código por línea confirmado.</criterioAceptacion>
-    <posibilidadFallo>Fallo si aparece una lista concatenada con `|` en alguna línea, lo que indicaría un cambio no documentado en la lógica de `Ficheros.sacarFichero`.</posibilidadFallo>
+    <criterioAceptacion>Se documenta si aparece o no una concatenación `|`; en la muestra real de producción analizada no se observó ninguna, pero el escenario está confirmado como posible por diseño.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real y ya confirmado por código: si Altamira México recibe un campo con varios ALID concatenados con `|`, lo trataría como un identificador de cliente ininterpretable o inválido.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="conflicto_integridad">
@@ -207,26 +208,6 @@
     <tipoValidacion>Comparación de resultados entre ambas queries sobre el mismo conjunto de datos de prueba.</tipoValidacion>
     <criterioAceptacion>Se confirma la discrepancia; el caso documenta el comportamiento actual como riesgo de negocio abierto, pendiente de decisión funcional sobre si armonizar ambas queries.</criterioAceptacion>
     <posibilidadFallo>Riesgo de negocio: la conciliación podría no marcar como discrepancia un código que en realidad nunca se envió a Altamira México.</posibilidadFallo>
-  </casoDePrueba>
-
-  <casoDePrueba id="TC-011" tipo="borde">
-    <nombre>Verificación del formato de fecha en el comando datax-agent</nombre>
-    <objetivo>Confirmar con evidencia real (log/sysout) cómo se materializa cada parámetro de fecha del comando datax-agent, dado que ambos usan la misma variable de Control-M pero se documentan con formatos distintos.</objetivo>
-    <precondiciones>
-      <precondicion>Acceso al sysout/log de ejecución de MEKYTL1221 en un entorno real o de preproducción.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="ODATE" valor="fecha de ejecución conocida, p. ej. 2026-09-18"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Ejecutar MEKYTL1221 (o revisar una ejecución reciente) con una fecha ODATE conocida.</paso>
-      <paso numero="2">Inspeccionar el sysout/log para ver los valores reales sustituidos en gf_odate_date_id y DATE.</paso>
-      <paso numero="3">Confirmar si gf_odate_date_id se materializa como YYYYMMDD y DATE como AAMMDD, o si ambos usan el mismo formato.</paso>
-    </pasos>
-    <resultadoEsperado>Se documenta el formato real observado en cada parámetro; si difiere de lo indicado en la nota operativa del documento fuente, se actualiza la especificación técnica.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de logs de ejecución.</tipoValidacion>
-    <criterioAceptacion>Formato real confirmado y documentado para ambos parámetros.</criterioAceptacion>
-    <posibilidadFallo>Riesgo si el sistema DataX interpreta incorrectamente una fecha por una discrepancia de formato no detectada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-012" tipo="e2e">

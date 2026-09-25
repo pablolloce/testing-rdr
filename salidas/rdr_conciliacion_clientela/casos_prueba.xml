@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_CONCILIACION_CLIENTELA_new" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo con prerrequisito externo satisfecho y fichero presente</nombre>
+    <objetivo>Verificar que los 4 jobs se ejecutan en orden cuando el prerrequisito externo y el fichero de entrada están disponibles.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CONCILIACION_CLIENTELA_new activa, entorno de prueba (no producción).</precondicion>
+      <precondicion>KYTL_REF_GSPROCESS (cadena RDR_REFUNDICION_new) ya finalizado con éxito para el mismo ODATE.</precondicion>
+      <precondicion>Existe ConClientela.csv en /fichtemcomp/pr/descargas/kytl/ConClientela/ con al menos 1 registro válido.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que KYTL_CONCLI_GSPROCESS_FW detecta el fichero y genera su evento OK.</paso>
+      <paso numero="2">Verificar que KYTL_CONCLI_GSPROCESS termina RC=0 y genera Reporte_ConClientela_dos.csv.</paso>
+      <paso numero="3">Verificar que MEKYTL0131 transmite el reporte a MVP00G215.</paso>
+      <paso numero="4">Verificar que MEKYTL0130 historifica ConClientela.csv en old/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan en OK; el reporte queda transmitido y el fichero fuente historificado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M + existencia de fichero historificado.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs OK; fichero en old/ con la fecha correcta.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Ausencia de ConClientela.csv detiene la cadena y genera alerta</nombre>
+    <objetivo>Confirmar que la no recepción del fichero, con el prerrequisito externo ya satisfecho, detiene la cadena y notifica a ANS RDR.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL_REF_GSPROCESS ya finalizado con éxito.</precondicion>
+      <precondicion>ConClientela.csv ausente durante toda la ventana 00:00-04:00 AM, en entorno de prueba con acceso al log de alertas de ANS RDR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Ausente durante los 240 minutos de ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener ConClientela.csv ausente durante toda la ventana de KYTL_CONCLI_GSPROCESS_FW.</paso>
+      <paso numero="2">Verificar que la cadena se detiene sin ejecutar KYTL_CONCLI_GSPROCESS.</paso>
+      <paso numero="3">Verificar la generación de la notificación por correo a ans_rdr.es@bbva.com y la apertura de ticket Remedy (BZG03906).</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se detiene; se genera 1 notificación por correo y 1 ticket Remedy — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + registro de alerta/ticket.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados; 1 alerta y 1 ticket generados.</criterioAceptacion>
+    <posibilidadFallo>Que la cadena continúe pese a la ausencia del fichero (contradiría R1/G1).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="conflicto_integridad">
+    <nombre>La cadena no arranca sin la finalización previa de KYTL_REF_GSPROCESS</nombre>
+    <objetivo>Confirmar que el prerrequisito externo bloquea el arranque aunque el fichero de entrada ya esté disponible.</objetivo>
+    <precondiciones>
+      <precondicion>ConClientela.csv ya presente en la ruta de entrada.</precondicion>
+      <precondicion>KYTL_REF_GSPROCESS (RDR_REFUNDICION_new) aún no ha finalizado, en entorno de prueba, no producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado forzado" valor="ConClientela.csv presente, KYTL_REF_GSPROCESS pendiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar ConClientela.csv sin haber ejecutado KYTL_REF_GSPROCESS.</paso>
+      <paso numero="2">Verificar que KYTL_CONCLI_GSPROCESS_FW permanece en espera, sin detectar el fichero como condición suficiente para arrancar.</paso>
+      <paso numero="3">Ejecutar KYTL_REF_GSPROCESS hasta su finalización y verificar que KYTL_CONCLI_GSPROCESS_FW arranca inmediatamente después.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena no arranca hasta que ambas condiciones (fichero presente y prerrequisito externo finalizado) se cumplen.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones de Control-M.</tipoValidacion>
+    <criterioAceptacion>0 ejecuciones de KYTL_CONCLI_GSPROCESS_FW antes de que ambas condiciones se cumplan.</criterioAceptacion>
+    <posibilidadFallo>Que la cadena arranque solo con el fichero presente, ignorando el prerrequisito externo (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>MEKYTL0131 no falla si el reporte no existe</nombre>
+    <objetivo>Confirmar el comportamiento Soft Failure documentado para el envío XCOM.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL_CONCLI_GSPROCESS completado, pero Reporte_ConClientela_dos.csv eliminado antes de la ejecución de MEKYTL0131, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reporte_ConClientela_dos.csv ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar Reporte_ConClientela_dos.csv tras la finalización de KYTL_CONCLI_GSPROCESS.</paso>
+      <paso numero="2">Ejecutar MEKYTL0131 y verificar RC=0 pese a la ausencia del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0131 termina en OK sin transmitir ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>MEKYTL0130 no falla si ConClientela.csv no existe</nombre>
+    <objetivo>Confirmar el comportamiento Soft Failure documentado para la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0131 completado, pero ConClientela.csv eliminado antes de la ejecución de MEKYTL0130, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="ConClientela.csv ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar ConClientela.csv tras la finalización de MEKYTL0131.</paso>
+      <paso numero="2">Ejecutar MEKYTL0130 y verificar RC=0 pese a la ausencia del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0130 termina en OK sin historificar ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
+    <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R5).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="e2e">
+    <nombre>Ciclo completo diario incluida la dependencia externa</nombre>
+    <objetivo>Validar el flujo end-to-end completo desde la finalización de la cadena externa hasta el cierre de esta cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de ejecutar RDR_REFUNDICION_new de forma controlada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_REF_GSPROCESS (RDR_REFUNDICION_new) hasta su finalización.</paso>
+      <paso numero="2">Depositar ConClientela.csv válido en la ruta de entrada.</paso>
+      <paso numero="3">Verificar el paso por los 4 jobs de esta cadena hasta su cierre.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina con los 4 jobs en OK tras satisfacerse ambas condiciones de entrada.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M de ambas cadenas.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs de esta cadena en OK tras la finalización de la cadena externa.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro de la ventana diaria.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

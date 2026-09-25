@@ -125,12 +125,11 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-05" tipo="error_funcional">
-    <nombre>XML no conforme al XSD detiene la cadena</nombre>
-    <objetivo>Verificar que VALIDACION_XSD_EXTRACT_BBVA detiene la cadena ante un fichero que no cumple el esquema, impidiendo que un XML malformado alcance los sistemas consumidores. Es la comprobación del único control de calidad del fichero en toda la cadena.</objetivo>
+    <nombre>XML no conforme al XSD NO detiene la cadena (Force OK confirmado)</nombre>
+    <objetivo>Confirmar que, pese a que VALIDACION_XSD_EXTRACT_BBVA valida BBVAContracts.xml contra el XSD, un fallo de validación se convierte automáticamente en éxito (flag "Force OK" activo, confirmado por export real de Control-M: ON NOTOK → DOACTION OK) y la cadena continúa hacia los 6 destinos.</objetivo>
     <precondiciones>
       <precondicion>Existe un BBVAContracts.xml válido que sirve de base.</precondicion>
       <precondicion>Es posible sustituir el fichero en LAGR/ antes de la ejecución del job de validación.</precondicion>
-      <precondicion>El job de validación está configurado para detener la cadena ante fallo, verificado previamente en Control-M.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="variante_1" valor="etiqueta obligatoria eliminada"/>
@@ -141,41 +140,39 @@
     <pasos>
       <paso numero="1">Generar un BBVAContracts.xml válido mediante una ejecución normal.</paso>
       <paso numero="2">Sustituirlo por la variante 1 (etiqueta obligatoria eliminada) y lanzar VALIDACION_XSD_EXTRACT_BBVA.</paso>
-      <paso numero="3">Verificar que el job termina en KO y que MEKYTL0900 no llega a ejecutarse.</paso>
+      <paso numero="3">Verificar que el job termina en OK (pese al fallo de validación interno) y que MEKYTL0900 sí llega a ejecutarse.</paso>
       <paso numero="4">Repetir los pasos 2 y 3 con la variante 2 (tipo de dato inválido).</paso>
       <paso numero="5">Repetir los pasos 2 y 3 con la variante 3 (XML truncado).</paso>
-      <paso numero="6">Verificar en las tres variantes que ningún sistema destino ha recibido el fichero.</paso>
+      <paso numero="6">Verificar en las tres variantes que el fichero inválido llega igualmente a los destinos.</paso>
     </pasos>
-    <resultadoEsperado>En las tres variantes el job de validación termina en KO y la cadena se detiene. Ningún job de envío se ejecuta y ningún destino recibe el fichero inválido.</resultadoEsperado>
-    <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh; verificación de ausencia del fichero en las siete rutas de destino.</tipoValidacion>
-    <criterioAceptacion>Las tres variantes detienen la cadena y ningún fichero inválido sale hacia destino.</criterioAceptacion>
-    <posibilidadFallo>Alta — la ficha del job documenta un flag "Force OK" que, de estar activo en Control-M, permitiría que el fichero inválido continuara por la cadena hasta los seis destinos. Este caso es el que confirma cuál de las dos configuraciones está vigente.</posibilidadFallo>
+    <resultadoEsperado>En las tres variantes el job de validación termina en OK pese al fallo real de validación (Force OK), y la cadena continúa: el fichero inválido llega a los 6 destinos — comportamiento confirmado, no un fallo de la prueba. Riesgo real: no hay ningún control de calidad de contenido efectivo en toda la cadena.</resultadoEsperado>
+    <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh (debe registrar el fallo real aunque el job termine OK); verificación de presencia del fichero inválido en las rutas de destino.</tipoValidacion>
+    <criterioAceptacion>Las tres variantes terminan en OK y el fichero llega a los destinos pese a ser inválido — confirma el comportamiento real (Force OK), no lo contrario.</criterioAceptacion>
+    <posibilidadFallo>Que el job termine en KO y detenga la cadena, lo que contradiría el export real de Control-M confirmado en sesión.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-06" tipo="negativo">
-    <nombre>Filewatcher sin fichero dentro de su ventana</nombre>
-    <objetivo>Verificar el comportamiento de FW_BBVAContracts_RDR_1 cuando BBVAContracts.xml no está disponible, y confirmar que la ventana configurada en Control-M es compatible con la hora real de arranque de la cadena.</objetivo>
+    <nombre>Filewatcher sin fichero dentro de su ventana (14:00-15:30, confirmada)</nombre>
+    <objetivo>Verificar el comportamiento de FW_BBVAContracts_RDR_1 cuando BBVAContracts.xml no está disponible dentro de su ventana real (14:00-15:30, confirmada por export de Control-M), y confirmar que ante timeout el job se marca OK automáticamente sin alerta (DOACTION OK ante COMPSTAT=7).</objetivo>
     <precondiciones>
       <precondicion>Directorio LAGR/ vacío.</precondicion>
-      <precondicion>Definición vigente de la ventana del filewatcher obtenida de Control-M.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ventana_documentada_en_ficha" valor="09:30-11:15"/>
-      <dato campo="hora_arranque_cadena" valor="13:00"/>
+      <dato campo="ventana_confirmada" valor="14:00-15:30 (TIMEFROM=1400, TIMETO=1530, export real de Control-M)"/>
+      <dato campo="hora_arranque_cadena" valor="13:00 (RDR_BBVACONTRACTS_IN)"/>
       <dato campo="fichero_vigilado" valor="/fichtemcomp/pr/descargas/kytl/LAGR/BBVAContracts.xml"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar en Control-M la ventana real configurada para FW_BBVAContracts_RDR_1 y contrastarla con la documentada en la ficha.</paso>
-      <paso numero="2">Lanzar la cadena con el directorio LAGR/ vacío y sin ejecutar la extracción.</paso>
-      <paso numero="3">Verificar el comportamiento del filewatcher al agotarse su ventana sin encontrar el fichero.</paso>
-      <paso numero="4">Verificar que ningún job sucesor se ejecuta.</paso>
-      <paso numero="5">Verificar que se emite el aviso al grupo de soporte ANS RDR.</paso>
-      <paso numero="6">Depositar manualmente el fichero dentro de la ventana y verificar que el filewatcher lo detecta y genera su evento OK.</paso>
+      <paso numero="1">Lanzar la cadena con el directorio LAGR/ vacío y sin ejecutar la extracción.</paso>
+      <paso numero="2">Verificar el comportamiento del filewatcher al agotarse su ventana (15:30) sin encontrar el fichero.</paso>
+      <paso numero="3">Confirmar que el job termina en OK pese al timeout (DOACTION OK ante COMPSTAT=7), sin generar alerta.</paso>
+      <paso numero="4">Verificar si el job sucesor (VALIDACION_XSD_EXTRACT_BBVA) llega a ejecutarse pese a la ausencia real del fichero.</paso>
+      <paso numero="5">Depositar manualmente el fichero dentro de la ventana (14:00-15:30) y verificar que el filewatcher lo detecta y genera su evento OK con normalidad.</paso>
     </pasos>
-    <resultadoEsperado>Sin fichero, el filewatcher no se satisface, la cadena no avanza y se emite el aviso correspondiente. Con el fichero depositado dentro de la ventana, el filewatcher lo detecta y habilita al job de validación. La ventana real en Control-M permite la detección después de las 13:00.</resultadoEsperado>
-    <tipoValidacion>Consulta de la definición del job en Control-M; revisión del estado del filewatcher y de sus sucesores; comprobación del registro de notificación.</tipoValidacion>
-    <criterioAceptacion>Queda documentada la ventana real vigente y se confirma que es compatible con la hora de arranque de la cadena.</criterioAceptacion>
-    <posibilidadFallo>Alta — si la ventana real coincide con la documentada (09:30-11:15), la cadena nunca podría avanzar, ya que la extracción arranca a las 13:00.</posibilidadFallo>
+    <resultadoEsperado>Sin fichero, el filewatcher agota su ventana y termina en OK igualmente (comportamiento confirmado, no un fallo de la prueba), sin ninguna alerta a ANS RDR por esta vía. Con el fichero depositado dentro de la ventana, el filewatcher lo detecta con normalidad.</resultadoEsperado>
+    <tipoValidacion>Revisión del estado del filewatcher y de sus sucesores en Control-M; confirmación de ausencia de notificación tras el timeout.</tipoValidacion>
+    <criterioAceptacion>El job termina en OK tanto si detecta el fichero como si agota la ventana sin él; no se genera alerta en ninguno de los dos casos por esta vía.</criterioAceptacion>
+    <posibilidadFallo>Que el job quede en KO ante el timeout, lo que contradiría el DOACTION OK confirmado en el export real de Control-M.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-07" tipo="happy_path">
@@ -207,8 +204,8 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-08" tipo="happy_path">
-    <nombre>Nodo de reparto MEKYTL0895 y habilitación de las ramas de distribución</nombre>
-    <objetivo>Verificar que MEKYTL0895 se ejecuta correctamente como nodo de secuencia, habilita las cinco ramas vigentes y ya no genera el fichero de Mentor.</objetivo>
+    <nombre>Nodo de reparto MEKYTL0895: habilitación de las 8 ramas de distribución y generación del CSV</nombre>
+    <objetivo>Verificar que MEKYTL0895 se ejecuta correctamente como nodo de secuencia, habilita las 8 ramas vigentes (incluidas GMIP/THOR/PXVA, identificadas en esta sesión) y genera BBVAContracts.csv internamente, sin generar el fichero de Mentor (decomisado, confirmado por el usuario pese a que el .properties de entorno "ei" conserve esos pasos).</objetivo>
     <precondiciones>
       <precondicion>MEKYTL0900 ejecutado con éxito.</precondicion>
       <precondicion>BBVAContracts.xml disponible en LAGR/.</precondicion>
@@ -217,21 +214,22 @@
     <datosEmpleados>
       <dato campo="script" valor="GSProcess.sh"/>
       <dato campo="parametro" valor="transformarBBVAContracts"/>
-      <dato campo="ramas_sucesoras" valor="MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S"/>
-      <dato campo="fichero_mentor_esperado" valor="ninguno"/>
+      <dato campo="ramas_sucesoras" valor="MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S, MEKYTL1246, MEKYTL1264, MEKYTL1307"/>
+      <dato campo="fichero_mentor_esperado" valor="ninguno (decomisado, confirmado por el usuario)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar MEKYTL0895.</paso>
       <paso numero="2">Verificar que el job termina en estado OK.</paso>
       <paso numero="3">Verificar que NO se ha creado LAGR/MENTOR/BBVAContracts_mentor.xml.</paso>
-      <paso numero="4">Verificar que los cinco jobs sucesores quedan habilitados para su ejecución.</paso>
-      <paso numero="5">Verificar que MEKYTL0886, MEKYTL1172, MEKYTL1104 y MEKYTL1104_S leen el mismo BBVAContracts.xml de LAGR/.</paso>
-      <paso numero="6">Verificar que FW_BBVAContracts_RDR_2 y MEKYTL0896 no se ejecutan por pertenecer a la rama decomisada.</paso>
+      <paso numero="4">Verificar que se genera BBVAContracts.csv en LAGR/ a partir del XML ya normalizado (Agreements_Nodes.xsl aplicado in situ).</paso>
+      <paso numero="5">Verificar que los 8 jobs sucesores (MEKYTL0886, MEKYTL1051, MEKYTL1172, MEKYTL1104, MEKYTL1104_S, MEKYTL1246, MEKYTL1264, MEKYTL1307) quedan habilitados para su ejecución.</paso>
+      <paso numero="6">Verificar que todos leen el mismo BBVAContracts.xml de LAGR/.</paso>
+      <paso numero="7">Verificar que FW_BBVAContracts_RDR_2 y MEKYTL0896 no se ejecutan por pertenecer a la rama decomisada.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL0895 termina OK sin generar el fichero de Mentor. Las cinco ramas vigentes quedan habilitadas y consumen el XML de LAGR/. La rama Mentor no se ejecuta.</resultadoEsperado>
-    <tipoValidacion>Estado de los jobs en Control-M; listado del directorio LAGR/MENTOR/; revisión de las dependencias declaradas en la estructura de la cadena.</tipoValidacion>
-    <criterioAceptacion>Ninguna escritura en LAGR/MENTOR/ y las cinco ramas vigentes habilitadas.</criterioAceptacion>
-    <posibilidadFallo>Media — el job conserva el nombre y la descripción de una transformación que ya no realiza, lo que dificulta interpretar su comportamiento esperado.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL0895 termina OK sin generar el fichero de Mentor, y genera BBVAContracts.csv. Las 8 ramas vigentes quedan habilitadas y consumen el XML de LAGR/. La rama Mentor no se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M; listado del directorio LAGR/MENTOR/; existencia y contenido de BBVAContracts.csv; revisión de las dependencias declaradas en la estructura de la cadena.</tipoValidacion>
+    <criterioAceptacion>Ninguna escritura en LAGR/MENTOR/, las 8 ramas vigentes habilitadas y BBVAContracts.csv generado.</criterioAceptacion>
+    <posibilidadFallo>Media — el .properties de entorno "ei" conserva los pasos de generación de Mentor; si el de producción coincidiera, este caso detectaría la discrepancia con la decomisión confirmada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-09" tipo="negativo">
@@ -330,34 +328,27 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-12" tipo="happy_path">
-    <nombre>Purga de históricos CSV con más de 7 días</nombre>
-    <objetivo>Verificar que MEKYTL1053 elimina de LAGR/old/ los ficheros CSV con antigüedad superior a 7 días y respeta los que están dentro del periodo de retención.</objetivo>
+    <nombre>Verificación del estado real de MEKYTL1053 y crecimiento de LAGR/old/</nombre>
+    <objetivo>Determinar si la purga de históricos CSV (documentada para MEKYTL1053, probablemente decomisado según su ficha EX-005-03 — IP fija antigua y sin periodicidad activa) realmente se ejecuta en producción, y si LAGR/old/ crece sin control en su ausencia.</objetivo>
     <precondiciones>
-      <precondicion>Directorio LAGR/old/ poblado con ficheros BBVAContracts_yyyymmdd.csv de antigüedades controladas.</precondicion>
-      <precondicion>MEKYTL1052 ejecutado con éxito en la pasada actual.</precondicion>
-      <precondicion>Permisos de borrado sobre LAGR/old/.</precondicion>
+      <precondicion>Directorio LAGR/old/ poblado con ficheros BBVAContracts_yyyymmdd.csv de antigüedades controladas, acumulados a lo largo de varias semanas.</precondicion>
+      <precondicion>Acceso al inventario de jobs activos de Control-M para confirmar si MEKYTL1053 aparece o no en la planificación real.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fichero_6_dias" valor="BBVAContracts_yyyymmdd.csv con 6 días de antigüedad — debe conservarse"/>
-      <dato campo="fichero_7_dias" valor="BBVAContracts_yyyymmdd.csv con 7 días exactos — comportamiento límite a documentar"/>
-      <dato campo="fichero_8_dias" valor="BBVAContracts_yyyymmdd.csv con 8 días de antigüedad — debe borrarse"/>
-      <dato campo="fichero_30_dias" valor="BBVAContracts_yyyymmdd.csv con 30 días de antigüedad — debe borrarse"/>
-      <dato campo="fichero_gz" valor="BBVAContracts_yyyymmdd.gz — no debe verse afectado"/>
-      <dato campo="retencion" valor="7 días"/>
+      <dato campo="ficheros_csv_antiguos" valor="BBVAContracts_yyyymmdd.csv con antigüedades de 6, 8, 30 y 60+ días"/>
+      <dato campo="fichero_gz" valor="BBVAContracts_yyyymmdd.gz — no debe verse afectado en ningún escenario"/>
+      <dato campo="retencion_documentada" valor="7 días"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Preparar LAGR/old/ con ficheros CSV de 6, 7, 8 y 30 días de antigüedad, más un fichero .gz de historificación del XML.</paso>
-      <paso numero="2">Registrar el inventario inicial del directorio.</paso>
-      <paso numero="3">Ejecutar MEKYTL1053.</paso>
-      <paso numero="4">Verificar que el fichero de 6 días permanece.</paso>
-      <paso numero="5">Verificar que los ficheros de 8 y 30 días han sido eliminados.</paso>
-      <paso numero="6">Documentar el tratamiento del fichero de 7 días exactos (inclusivo o exclusivo).</paso>
-      <paso numero="7">Verificar que el fichero .gz no ha sido afectado por la purga.</paso>
+      <paso numero="1">Confirmar en Control-M si MEKYTL1053 existe como job planificado y activo.</paso>
+      <paso numero="2">Registrar el inventario de LAGR/old/ en dos fechas separadas por al menos 2-3 semanas de ejecuciones normales de la cadena.</paso>
+      <paso numero="3">Comparar ambos inventarios: si los CSV de más de 7 días siguen presentes en el segundo registro, la purga no está operando.</paso>
+      <paso numero="4">Verificar que los ficheros .gz de historificación del XML no se ven afectados en ningún caso.</paso>
     </pasos>
-    <resultadoEsperado>Los CSV de 8 y 30 días eliminados; el de 6 días conservado; el comportamiento en el límite de 7 días documentado; los ficheros .gz intactos.</resultadoEsperado>
-    <tipoValidacion>Comparación del inventario de LAGR/old/ antes y después de la ejecución; verificación de que el criterio de borrado se aplica solo a los CSV.</tipoValidacion>
-    <criterioAceptacion>Ningún fichero dentro del periodo de retención eliminado y ningún fichero .gz afectado.</criterioAceptacion>
-    <posibilidadFallo>Media — un criterio de borrado demasiado amplio podría alcanzar los .gz de historificación del XML, que no tienen política de retención documentada.</posibilidadFallo>
+    <resultadoEsperado>Si MEKYTL1053 no aparece en Control-M (resultado esperado según la evidencia de esta sesión), el directorio LAGR/old/ acumulará CSV de más de 7 días sin que nada los elimine — confirmando el riesgo documentado, no un comportamiento a "pasar" o "fallar" en el sentido tradicional. Los ficheros .gz permanecen intactos en todo momento.</resultadoEsperado>
+    <tipoValidacion>Consulta del inventario de jobs en Control-M; comparación del inventario de LAGR/old/ en dos fechas.</tipoValidacion>
+    <criterioAceptacion>Se documenta si la purga opera o no realmente; si no opera, se registra como riesgo confirmado en producción, no como fallo de este caso.</criterioAceptacion>
+    <posibilidadFallo>Que MEKYTL1053 sí aparezca activo en Control-M pese a lo indicado por su ficha, lo que contradiría la conclusión de esta sesión y obligaría a revisar el riesgo.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-13" tipo="borde">
@@ -534,16 +525,40 @@
       <paso numero="1">Registrar el contenido de la ruta de destino de Mentor antes de la ejecución.</paso>
       <paso numero="2">Ejecutar la cadena completa.</paso>
       <paso numero="3">Verificar que FW_BBVAContracts_RDR_2, MEKYTL0896 y MEKYTL0954 no se ejecutan.</paso>
-      <paso numero="4">Verificar que no se crea el directorio LAGR/MENTOR/ ni ningún fichero en su interior.</paso>
-      <paso numero="5">Verificar que la ruta de destino de Mentor no ha recibido ningún fichero nuevo.</paso>
+      <paso numero="4">Verificar que no se crea el directorio LAGR/MENTOR/ ni ningún fichero en su interior (decomisado, confirmado por el usuario pese a que el .properties de entorno "ei" conserve esos pasos internamente).</paso>
+      <paso numero="5">Verificar que la ruta de destino de Mentor (`pr-mentor.igrupobbva`) no ha recibido ningún fichero nuevo.</paso>
       <paso numero="6">Verificar que las cadenas RDR_BBVAContracts_M y RDR_BBVAContracts_L no están planificadas ni se han ejecutado.</paso>
       <paso numero="7">Verificar que las cadenas de respuesta ACK/NACK no están activas.</paso>
-      <paso numero="8">Contrastar el inventario de jobs activos con los 21 pasos vigentes identificados en la especificación.</paso>
+      <paso numero="8">Contrastar el inventario de jobs activos con los 23 jobs confirmados por el export real de Control-M (spec.md §4.9).</paso>
     </pasos>
-    <resultadoEsperado>Ningún job de la rama Mentor se ejecuta, no se crea el directorio intermedio, la ruta de destino de Mentor no recibe ficheros y las cadenas incrementales y de respuesta permanecen inactivas. El inventario de jobs activos coincide con los pasos vigentes documentados.</resultadoEsperado>
+    <resultadoEsperado>Ningún job de la rama Mentor se ejecuta, no se crea el directorio intermedio, la ruta de destino de Mentor no recibe ficheros y las cadenas incrementales y de respuesta permanecen inactivas. El inventario de jobs activos coincide con los 23 confirmados en spec.md §4.9.</resultadoEsperado>
     <tipoValidacion>Estado de los jobs en Control-M; listado de LAGR/MENTOR/ y de la ruta de destino de Mentor antes y después; revisión de la planificación de las cadenas decomisadas; contraste del inventario de jobs activos.</tipoValidacion>
-    <criterioAceptacion>Cero ficheros nuevos en la ruta de Mentor, cero jobs de la rama decomisada en ejecución, y el inventario de jobs activos sin discrepancias respecto a lo documentado.</criterioAceptacion>
-    <posibilidadFallo>Media — MEKYTL0895 conserva el nombre y la descripción de la transformación a Mentor pese a ya no generarla, por lo que una configuración parcialmente revertida podría reactivar la escritura en LAGR/MENTOR/.</posibilidadFallo>
+    <criterioAceptacion>Cero ficheros nuevos en la ruta de Mentor, cero jobs de la rama decomisada en ejecución, y el inventario de jobs activos sin discrepancias respecto a los 23 documentados.</criterioAceptacion>
+    <posibilidadFallo>Media — si el .properties de producción coincidiera con el de entorno "ei" analizado en sesión y realmente se ejecutara, generaría el fichero de Mentor pese a la decomisión confirmada; este caso lo detectaría.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-19" tipo="happy_path">
+    <nombre>Ramas de distribución GMIP, NOVA THOR y PXVA (identificadas en esta sesión)</nombre>
+    <objetivo>Verificar que MEKYTL1246, MEKYTL1264 y MEKYTL1307 — 3 ramas de distribución reales confirmadas por export de Control-M y fichas EX-005-03, no decomisadas como se asumía — transmiten correctamente BBVAContracts.xml a sus 3 destinos NOVA respectivos.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0895 ejecutado con éxito, BBVAContracts.xml disponible en LAGR/.</precondicion>
+      <precondicion>Conectividad de red operativa hacia novatransferbatch.igrupobbva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL1246 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/GMIP/gmipfs/incoming/rdr/BBVAContracts_yyyymmdd.xml"/>
+      <dato campo="MEKYTL1264 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/THOR/thorfs/incoming/RDR/ContratosBBVA/BBVAContracts_yyyymmdd.xml"/>
+      <dato campo="MEKYTL1307 destino" valor="novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/BBVAContracts_yyyymmdd.xml"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1246, MEKYTL1264 y MEKYTL1307 tras la finalización de MEKYTL0895.</paso>
+      <paso numero="2">Verificar que los 3 jobs terminan en OK.</paso>
+      <paso numero="3">Verificar la presencia del fichero BBVAContracts_yyyymmdd.xml en las 3 rutas de destino (GMIP, THOR, PXVA), con el ODATE correcto en el nombre.</paso>
+      <paso numero="4">Verificar que MEKYTL0953 (historificación final) espera la finalización en OK de los 3 jobs como parte de su condición de entrada (AND con el resto de predecesores).</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan en OK y el fichero llega a las 3 rutas NOVA correspondientes con el naming correcto; MEKYTL0953 no se dispara hasta que los 3 (y el resto de predecesores) confirman su OK.</resultadoEsperado>
+    <tipoValidacion>Estado de los 3 jobs en Control-M + verificación de presencia y naming de fichero en cada ruta destino.</tipoValidacion>
+    <criterioAceptacion>3/3 ficheros presentes en destino con naming correcto; MEKYTL0953 bloqueado hasta que los 3 confirman OK.</criterioAceptacion>
+    <posibilidadFallo>Que alguno de los 3 jobs no esté realmente activo en producción pese a aparecer en el export analizado, o que el destino real difiera del documentado en la ficha EX-005-03 correspondiente.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
