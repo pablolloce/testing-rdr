@@ -48,7 +48,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
-| G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Parcialmente resuelto con código fuente real** (`PpalAltas.java` — punto de entrada real, `Ficheros.java`, `Ficheros2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4. Confirma la lectura del CSV, el escapado XML y hallazgos de rigor no buscados (pérdida silenciosa de subcampos `~`, un solo fichero CSV procesado por ejecución, jar genérico reutilizado por varios procesos). **No** se han aportado `GenerarXML_version1`/`GenerarXML_version2` — las clases que realmente construyen el XML de salida (el "Layout" en sí) — gap abierto, sí relevante para el resto de la cadena: sin ellas no se puede confirmar la estructura del XML que consume `RDR_XMLReader`. |
+| G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto con código fuente real** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4/§6.5. Confirma la estructura completa del XML (`PARTYSETUP`>`GLOBALS`>`GLOBAL`>`LOCALS`>`LOCAL`>`OPERATIVES`>`OPERATIVE`, coherente con los prefijos `GL`/`LO`/`OP` del CSV) y un **hallazgo grave**: `version1` y `version2` interpretan de forma incompatible las mismas columnas `GL.14.01.*`/`GL.14.02.*` (regulación DFA/SFTR) — ver §9. Cuál de las 2 se invoca realmente (`args[2]="G"` o no, en `GSProcess.sh`/`.properties`) no se ha podido confirmar con el material disponible y es la pregunta más importante para saber si el dato regulatorio sale bien o mal etiquetado. |
 
 ## 5. Especificación funcional
 
@@ -332,13 +332,72 @@ Clases analizadas: `PpalAltas` (punto de entrada real, `main(String[] args)`), `
   `PpalAltas.main` solo instancia `Ficheros`, nunca `Ficheros2` — o es código muerto para este proceso, o
   pertenece a otro punto de entrada de este mismo jar genérico (coherente con el hallazgo de reutilización
   por `SCFF`/`GENERICO_CTP`) que no se ha aportado. No se puede confirmar cuál de las dos sin más material.
-- **Gap abierto, relevante (G6):** no se han aportado `GenerarXML_version1`/`GenerarXML_version2` — las
-  clases que realmente construyen cada fragmento XML a partir del `HashMap` de una fila. Sin ellas no se
-  puede confirmar: qué elementos/etiquetas XML produce, cómo mapea las columnas `GL.`/`LO.`/`OP.` del CSV
-  a nodos XML, si el resultado es un XML bien formado con un único elemento raíz, ni qué hace `version2`
-  (`"G"`) distinto de `version1`. A diferencia de los gaps opcionales anteriores, este sí es relevante para
-  poder verificar el contrato de entrada de `Workflow(RDR_XMLReader)` (siguiente paso de R8) — pedir esas 2
-  clases para cerrarlo del todo.
+### 6.5 `GenerarXML_version1`/`GenerarXML_version2` — el "Layout" real, confirmado con código fuente real
+
+Clases analizadas: `GenerarXML_version1.obtenerXML_version1()` (1847 líneas), `GenerarXML_version2.obtenerXML_version2()`
+(1253 líneas) — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`. Ambas reciben el
+`HashMap<String,String>` de una fila del CSV (clave = nombre de columna de la cabecera, `GL.XX`/`LO.XX`/`OP.XX`)
+y devuelven el fragmento XML de esa fila como `String`, construido por concatenación directa (sin librería
+XML) con comprobación previa de "campo no vacío" antes de cada etiqueta.
+
+- **Estructura confirmada del XML — jerarquía real de 3 niveles, no solo 3 grupos de columnas:** ambas
+  versiones generan la misma estructura de raíz:
+  `<PARTYSETUP><AUDIT_INFORMATION><USER>{Usuario}</USER></AUDIT_INFORMATION><GLOBALS><GLOBAL>...<LOCALS><LOCAL>...<OPERATIVES><OPERATIVE>...</OPERATIVE></OPERATIVES></LOCAL></LOCALS></GLOBAL></GLOBALS></PARTYSETUP>`.
+  Esto confirma que los prefijos `GL`/`LO`/`OP` del diccionario de `CSVLine` (§6.3) no son grupos arbitrarios:
+  representan literalmente 3 niveles jerárquicos del modelo de datos de contraparte — **G**lobal (nivel
+  entidad/fondo), **L**ocal (nivel entidad local/sucursal) y **O**perative (nivel operativo/cuenta) —, cada
+  uno anidado dentro del anterior.
+- **Hallazgo — XML sin elemento raíz único para el lote completo:** `Peticiones.generaCSVAltaFondos()`
+  (§6.3) concatena con `"\n"` el resultado de esta función para cada fila del CSV. Como cada fila produce
+  su **propio** `<PARTYSETUP>...</PARTYSETUP>` completo, el fichero final contiene tantos elementos raíz
+  `PARTYSETUP` como fondos válidos haya en el lote — **no es un XML bien formado como documento único**
+  (un parser XML estándar lo rechazaría por tener múltiples elementos raíz). `Workflow(RDR_XMLReader)`
+  (siguiente paso, aún no analizado) debe procesarlo como una secuencia de fragmentos, no como un XML
+  válido de un solo documento — a confirmar con ese workflow.
+- **Hallazgo grave — `version1` y `version2` interpretan de forma incompatible las mismas columnas
+  `GL.14.01.*`/`GL.14.02.*` (regulación DFA/SFTR):**
+  - `Fondo.mapeaCampos()` (§6.3) escribe estas columnas como **tríos** (`TYPE`, `CLASSIFICATION`, `VALUE`):
+    p. ej. para `USPERSON`, `GL_14_01_01="DFA"`, `GL_14_01_02="USPERSON"`, `GL_14_01_03=<valor real>`.
+  - **`GenerarXML_version2` lee correctamente el trío**: solo emite el bloque `<REGULATION>` si las 3
+    columnas están presentes a la vez, usando literalmente `GL.14.01.01`→`<TYPE>`, `GL.14.01.02`→`<CLASSIFICATION>`,
+    `GL.14.01.03`→`<VALUE>` (y lo mismo para `GL.14.02.01/02/03`→SFTR). Coincide exactamente con lo que
+    escribe `Fondo`.
+  - **`GenerarXML_version1` trata cada una de las 11 columnas `GL.14.01.01`...`GL.14.01.11` (y las 6
+    `GL.14.02.01`...`GL.14.02.06`) como un flag independiente**, con una `CLASSIFICATION` distinta
+    hardcodeada por posición (`RR_COM`, `RR_CRD`, `SEC_CRD`, `ENDUSEXP`, `RR_EQD`, `SEC_EQD`, `FINENT`,
+    `RR_FX`, `RR_IRS`, `SPECIENT`, `USPERSON` para el primer bloque; `RR_CREM`, `EMIRCAT`, `EMISEC`,
+    `INDICYN`, `FINALEM`, `MANPARTY` para el segundo), usando el **valor bruto de esa columna** como
+    `<VALUE>`. Con los datos reales que produce `Fondo` (columna 1 = literal `"DFA"`/`"SFTR"`, columna 2 =
+    literal `"USPERSON"`/`"MANUALSFTR"`, columna 3 = el indicador real), `version1` generaría 3 bloques
+    `<REGULATION>` mal etiquetados por fondo: uno con `CLASSIFICATION=RR_COM`/`VALUE="DFA"`, otro con
+    `CLASSIFICATION=RR_CRD`/`VALUE="USPERSON"`, y el indicador real (columna 3) etiquetado como
+    `CLASSIFICATION=SEC_CRD` en vez de `USPERSON` — **ninguno de los 3 sería correcto**, y el dato de
+    negocio real quedaría bajo una clasificación regulatoria equivocada.
+  - **Cuál de las 2 versiones se invoca realmente depende de `args[2]` (`PpalAltas`, §6.4): `"G"` selecciona
+    `version2` (correcta); cualquier otro valor u omitirlo usa `version1` (incompatible con el productor
+    actual del CSV).** No se ha aportado el `.properties`/configuración de `GSProcess.sh` que fija este
+    argumento para `RDR_PR_BDICLIENREG_RESP_new` — **es la pregunta más importante de todo este análisis**:
+    si en producción se invoca sin `"G"`, cada alta de fondo estaría generando datos regulatorios DFA/SFTR
+    incorrectos en Investors Plan desde que ambas piezas (CSV y XML) coexisten con este desajuste.
+  - Indicio indirecto (no concluyente): `version2` es más corta (1253 líneas vs. 1847) y contiene un
+    comentario fechado `// AÑADIDO 20161019 PARA QUE COJA EL TIPO DE OPERATIVA` — sugiere que `version2` ha
+    seguido recibiendo mantenimiento activo más recientemente que `version1`, pero esto no confirma cuál
+    está realmente en uso hoy.
+- **Otros hallazgos confirmados por código (ambas versiones, mismo patrón):**
+  - **Fechas mal formadas se sustituyen silenciosamente por la fecha del sistema, no por vacío ni error.**
+    Los 3 campos de fecha (`GL.04`/fecha de nacimiento de la entidad, `LO.15`/fecha de validación de
+    no-residencia, `LO.19.01`/fecha de nacimiento fiscal) se parsean de `dd/MM/yyyy` a `yyyyMMdd`; si el
+    parseo falla (`ParseException`), el código usa `new Date()` (fecha de ejecución) como valor de
+    sustitución — un dato de fecha incorrecto o mal formateado en el CSV se convertiría silenciosamente en
+    "hoy", sin distinguirse de un dato real.
+  - Los identificadores fiscales (`LO.19.01`-`LO.19.16`) y de entidad (`LO.20.01`-`LO.20.04`,
+    `GL.09.01`-`GL.09.04`) confirman el resto del diccionario funcional que `CSVLine` (§6.3) no explicaba:
+    p. ej. `LO.19.02`=C.I.F., `LO.19.03`=CURP, `LO.19.05`=D.N.I, `LO.19.15`=RFC, `LO.20.01`=ALID,
+    `GL.09.01`=LEIID, `GL.09.03`=MARKITID.
+  - Un bloque de código para `LO.16.01.01`/`LO.16.01.02` (clasificación FATCA) está comentado dos veces con
+    la nota `// REVISAR CON BELEN INICIO`/`FIN`, con 2 variantes distintas de qué `CLASSIFICATION` aplicar
+    según el valor de `GL.05` — señal de una decisión de negocio que quedó sin resolver del todo en el
+    propio código, y que la versión activa hoy (la última sin comentar) puede no ser la definitiva.
 
 ## 7. Especificación de testing
 
@@ -359,6 +418,17 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
+* **[PRIORIDAD MÁXIMA] `version1`/`version2` de `GenerarXML` interpretan de forma incompatible las columnas
+  de regulación DFA/SFTR (confirmado por código, §6.5):** `Fondo.mapeaCampos()` escribe `GL.14.01.01-03` y
+  `GL.14.02.01-03` como tríos `(TYPE, CLASSIFICATION, VALUE)`. `GenerarXML_version2` los lee correctamente
+  como tríos; `GenerarXML_version1` los trata como 11+6 flags independientes con una `CLASSIFICATION`
+  hardcodeada distinta por posición — con los datos reales de `Fondo`, generaría 3 bloques `<REGULATION>`
+  por fondo, todos con `CLASSIFICATION`/`VALUE` incorrectos (ninguno etiquetado como `USPERSON`/`SFTR`, el
+  indicador real de negocio quedaría bajo `SEC_CRD`/`MANPARTY`). Cuál de las 2 versiones se invoca en
+  producción depende de `args[2]="G"` en la llamada real desde `GSProcess.sh`, dato no confirmado con el
+  material disponible. **Si se invoca sin `"G"` (usando `version1`), cada alta de fondo estaría generando
+  datos regulatorios incorrectos en Investors Plan** — es el hallazgo de mayor impacto potencial de todo
+  R8/R9 y debería verificarse cuanto antes contra la configuración real de Control-M/`.properties`.
 * **Dependencia de un lock file externo no controlado por esta malla:** un `controlSCF.txt` huérfano (no
   limpiado por el proceso externo tras un fallo de SCF/Investors Plan) bloquearía indefinidamente el
   procesamiento de respuestas sin generar ninguna alerta desde esta cadena — riesgo documentado, no un gap
@@ -447,10 +517,14 @@ CSV siempre vacías, la ausencia total de fichero si 0 fondos son válidos, el f
 vacío, y 2 erratas baked-in en el código del jar (§9). El gap técnico G6 (`CSVToXML_Layout.jar`, segundo
 paso de R8) queda **parcialmente resuelto**: el punto de entrada real (`PpalAltas`) confirma la lectura del
 CSV, el escapado XML y varios hallazgos de rigor (pérdida silenciosa de subcampos `~`, un solo CSV procesado
-por ejecución, jar genérico reutilizado por procesos no identificados), pero **faltan
-`GenerarXML_version1`/`GenerarXML_version2`** — las clases que construyen el XML de salida en sí — señalado
-como gap relevante (no solo opcional), porque sin ellas no se puede verificar el contrato de entrada del
-siguiente paso (`Workflow(RDR_XMLReader)`). Siguen pendientes, para el resto de la cadena de R8
+por ejecución) queda **resuelto** con `GenerarXML_version1`/`GenerarXML_version2` (§6.5): confirma la
+estructura completa del XML (jerarquía real `GLOBAL`>`LOCAL`>`OPERATIVE`, coherente con los prefijos del
+CSV) y descubre el **hallazgo de mayor prioridad de toda la sesión sobre este proceso**: `version1` y
+`version2` interpretan de forma incompatible los mismos campos de regulación DFA/SFTR, y cuál de las 2 se
+invoca realmente en producción (parámetro `args[2]` de `GSProcess.sh`, no confirmado con el material
+disponible) determina si esos datos regulatorios salen correctos o mal etiquetados (§9) — recomendado
+verificarlo cuanto antes contra la configuración real de Control-M, independientemente de si se continúa o
+no con el resto de esta auditoría. Siguen pendientes, para el resto de la cadena de R8
 (`Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`,
 `Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para R9, los gaps técnicos aún no
 abordados en esta sesión.
