@@ -282,6 +282,14 @@ formato de 29 columnas) y de un desacople de mecanismo de invocación aún más 
 faltando el único dato que cerraría el gap con prueba funcional: el `emisi.csv` real, para comparar
 estructura/dominio directamente contra `ctpda.csv`.
 
+**Documentación oficial completa (2026-09-25):** 5 fichas oficiales EX-005-03 (`MEKYTL0072`,
+`MEKYTL0072_SND`, `MEKYTL0933`, `MEKYTL0072_DEL`, `FICHERO_EMISI`) confirman todo lo ya documentado y añaden un
+dato reforzante: la limpieza en pasarela de `MEKYTL0072_DEL` usa `/unload/transmisiones/RDR/`, **carpeta
+distinta** de `/unload/transmisiones/KYTL/` (usada por la limpieza de `ctpda`/`MEKYTL0879_DEL` en la cadena de
+Contrapartidas) — las dos ramas no solo usan mecanismos de invocación distintos, sino también rutas de staging
+físicamente separadas en la pasarela. Documentación de la cadena `RDR_SIRE_new` ahora completa por partida
+doble (Control-M + EX-005-03) para los 6 jobs. **No aporta contenido de `emisi.csv` — el gap sigue abierto.**
+
 ## 2. Alcance del proceso
 
 **Ámbito funcional:** documentar las 5 cadenas del documento fuente como un único proceso — generación

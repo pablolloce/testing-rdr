@@ -99,3 +99,37 @@ de `credentials.xml`**:
 nueva y potencialmente más eficiente** para gaps pendientes: si existen fichas EX-005-03 equivalentes para
 otros scripts (p. ej. `RDR_Transformacion_FS.sh`/`GSProcess.sh` con `PARM1` completo, para GAP-ADHOC-002),
 podrían resolver esos gaps de forma más directa que las capturas manuales de Control-M.
+
+## Addendum 3 (2026-09-25) — fichas oficiales EX-005-03 del resto de la cadena `RDR_SIRE_new`
+
+> Fuentes: 5 fichas oficiales "Descripción de Scripts" (EX-005-03) — `FICHERO_EMISI` (repetida, mismo
+> contenido que el Addendum 2), `MEKYTL0072`, `MEKYTL0072_SND`, `MEKYTL0933`, `MEKYTL0072_DEL`. Completan la
+> documentación oficial de los 6 jobs de la cadena (`RDR_SIRE_IN` es Dummy, sin script asociado).
+
+**Re-confirman todo lo ya sabido** (rutas, predecesores/sucesores, periodicidad, criticidad W, soporte ANS
+RDR) y añaden detalle operativo nuevo, sin aportar contenido de `emisi.csv`:
+
+- **`MEKYTL0072`**: confirma el fichero origen (`/fichtemcomp/pr/descargas/kytl/sire_files/emisi.csv`) y el
+  destino final: servidor `150.100.151.41` (`sireapb1mx`), ruta
+  `/SIRE/COM/ESP_MEX/RECEPCION/RDR/emisiDDMMYYYYCC.csv` (con secuencial `CC` desde 01). Nota histórica: cambio
+  de IP destino de `150.100.151.15` a `150.100.151.41` el 27/04/2024 — coincide exactamente con la fecha ya
+  documentada en `spec.md`.
+- **`MEKYTL0072_SND`**: confirma que pertenece a la estructura genérica **`TRANSMISIONES_CIB_KYTL`** (no a
+  `RDR_SIRE_new`) — mismo patrón de las demás transmisiones por pasarela ya vistas en el proceso hermano.
+  Fichero origen con comodín `emisi*.csv`, mismo destino que `MEKYTL0072`.
+- **`MEKYTL0933`**: confirma exactamente la ruta de historificación ya documentada:
+  `/fichtemcomp/pr/descargas/kytl/sire_files/` → `/fichtemcomp/pr/descargas/kytl/sire_files/old/emisi_yyyymmdd.csv`.
+- **`MEKYTL0072_DEL`**: limpia el fichero transmitido en la pasarela, en la ruta
+  **`/unload/transmisiones/RDR/`** — **distinta** de `/unload/transmisiones/KYTL/`, la carpeta usada por la
+  limpieza de `ctpda`/`MEKYTL0879_DEL` en la cadena de Contrapartidas (`GAP-CTPY-001_jobs_extraidos.md`). Es un
+  dato reforzante nuevo para GAP-ADHOC-004: **las dos ramas (SIRE/Emisiones vs. Contrapartidas) no solo usan
+  mecanismos de invocación distintos, sino también carpetas de staging físicamente separadas en la pasarela**
+  — reduce aún más el riesgo de que compartan o mezclen ficheros. La descripción del job incluye además un
+  nombre de fichero de ejemplo con fecha fija (`emisi04022026.csv`) — parece un resto de plantilla/ejemplo no
+  parametrizado en la redacción de la ficha, no un nombre fijo real (contradiría el propio patrón
+  `emisiDDMMYYYYCC.csv` documentado en el mismo conjunto de fichas).
+
+**Balance:** documentación oficial de la cadena `RDR_SIRE_new` ahora completa por partida doble (Control-M +
+EX-005-03) para los 6 jobs. Refuerza aún más el desacople de GAP-ADHOC-004 (mecanismo Y rutas físicas
+distintas), pero **sigue sin resolver el gap en sí** — sigue haciendo falta el `emisi.csv` real para comparar
+contenido/dominio de datos contra `ctpda.csv`.
