@@ -49,7 +49,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto con código fuente real** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4/§6.5. Confirma la estructura completa del XML (`PARTYSETUP`>`GLOBALS`>`GLOBAL`>`LOCALS`>`LOCAL`>`OPERATIVES`>`OPERATIVE`, coherente con los prefijos `GL`/`LO`/`OP` del CSV) y un **hallazgo grave**: `version1` y `version2` interpretan de forma incompatible las mismas columnas `GL.14.01.*`/`GL.14.02.*` (regulación DFA/SFTR) — ver §9. Cuál de las 2 se invoca realmente (`args[2]="G"` o no, en `GSProcess.sh`/`.properties`) no se ha podido confirmar con el material disponible y es la pregunta más importante para saber si el dato regulatorio sale bien o mal etiquetado. |
-| G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Prácticamente resuelto con `.wkf` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows reales de la rama `OTHER` (detección de duplicado por contenido, validación de Legal Name duplicado para no-subsidiarias, validación de oficina activa) quedan confirmados en detalle en §6.7, con 2 hallazgos de fallo silencioso (fail-open) y 1 de nombre de nodo que no corresponde a su código real. **Solo** queda sin aportar `"Basic Message Processing"` — el subworkflow que aplicaría el alta real en GoldenSource — como único cabo suelto, no bloqueante para el resto del análisis. |
+| G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
 
 ## 5. Especificación funcional
 
@@ -465,11 +465,10 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
 - **Estado del propio workflow:** el `.wkf` exportado declara `<status>DEVELOPMENT</status>` — no se ha
   confirmado si este campo refleja el estado real del ciclo de vida del workflow en el entorno de
   producción o es un valor de metadatos sin relación con el entorno de ejecución real.
-- **Gap abierto, no bloqueante:** de los subworkflows invocados por la rama `OTHER`/`ValidacionOficinas`,
-  `Duplicate XMLReader`, `OTHER` y `ValidacionOficinas` quedan confirmados con código real — ver §6.7. Solo
-  falta `"Basic Message Processing"` (el subworkflow que aplicaría el alta real en GoldenSource) y
-  `Duplicate Delete XMLReader` (no aportado; se infiere por nombre y posición en el flujo que registra el
-  mensaje como procesado, sin confirmación directa de su código).
+- **Cabo suelto menor, no bloqueante:** `Duplicate Delete XMLReader` no se ha aportado directamente; se
+  infiere por nombre y posición en el flujo (mismo patrón que `Duplicate XMLReader`, §6.7a) que registra el
+  mensaje como ya procesado, sin confirmación directa de su código. El resto de subworkflows de esta rama
+  (`OTHER`, `ValidacionOficinas`, `"Basic Message Processing"`) quedan confirmados en §6.7/§6.8.
 
 ### 6.7 Subworkflows de la rama `OTHER` de `RDR_XMLReader` — confirmado con `.wkf` real
 
@@ -536,6 +535,54 @@ de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa 
   - **Hallazgo (fail-open):** si el parseo inicial del XML (extracción de `<OFFICE>`) lanza una excepción, la
     rama `false` salta directamente a `Stop` **sin validar ninguna oficina y sin registrar ningún error** —
     un XML con formato inesperado no bloquea nada, se trata como si todas las oficinas fueran válidas.
+
+### 6.8 `"Basic Message Processing"` — motor genérico de aplicación en GoldenSource (confirmado con `.gsp` real)
+
+Workflow analizado: `Basic Message Processing(copy)` (grupo **`Custom/Moca`** — no `Custom/RDR/Layout_Setup`
+como el resto de la cadena — exportado en formato `.gsp`, versión 8.7.1.106 del producto GoldenSource —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/Basic_Message_Processing.gsp`).
+
+- **Qué hace:** es el motor genérico de traducción y aplicación de mensajes del propio producto GoldenSource,
+  no un desarrollo específico de RDR. Recibe el mensaje `alta` (parámetro `Message`, o `messageArray` si son
+  varios) desde `RDR_XMLReader` (§6.6) y:
+  1. Lo traduce con la activity estándar `Translation` (contra la configuración de mapeo del producto,
+     referenciada aquí solo por la conexión `jdbc/GSDM-1`, no por su contenido).
+  2. Comprueba si el filtro genérico de entrada de GoldenSource lo marca como `filteredFromGSDM`; si es así y
+     `ProcessFilteredMessages` no está activado, cierra la transacción como "filtrada" sin aplicar nada.
+  3. Si no está filtrado, lo aplica realmente contra el modelo de datos mediante `ProcessTransaction`, usando
+     el motor `engine/TPS-1` (mensajes normales) o `engine/TPS-UI` (si `IsWorkstationMessage`, mensajes de
+     estación de trabajo).
+  4. Cierra la transacción (`CloseTransaction`) y, salvo que `CheckForDoNotPostFlag` esté activo, dispara
+     eventos de publicación interna (`TriggerPublishing`) para los sistemas suscritos a GoldenSource.
+  - Existe una rama paralela para `messageArray` (varios mensajes en una sola invocación) con la misma
+    lógica de traducción/filtro/aplicación/publicación por cada elemento, más una llamada a un subworkflow
+    `"Store Vendor Data"` (no aportado) cuando el valor de `Severity` no es `50` — el significado exacto de
+    ese valor de severidad no está documentado en este material y no se puede confirmar sin más contexto.
+- **Qué recibe/produce:** recibe `Message`/`messageArray`, `MessageType`, `TransactionId`, `MessageMetaData`,
+  `IsWorkstationMessage`, `ProcessFilteredMessages`, `CheckForDoNotPostFlag`; produce `Severity` (entero, sin
+  diccionario de valores confirmado), `Processed` (mensajes ya aplicados, tipo binario) y actualiza
+  `CheckForDoNotPostFlag`.
+- **Campos de salida afectados — límite real del análisis:** la aplicación campo a campo sobre las tablas
+  `FT_T_*` de GoldenSource ocurre **dentro** del motor de traducción/transacciones del propio producto
+  (activities `Translation`/`ProcessTransaction`, engines `TPS-1`/`TPS-UI`), gobernado por plantillas de
+  mapeo internas de GoldenSource — no por código Java/BeanShell propio de RDR. Este es el límite natural de
+  lo que un artefacto de aplicación puede mostrar: el detalle campo a campo de esa traducción vive en
+  configuración de producto, no en la cadena de jars/workflows custom analizada en esta sesión. No se
+  considera un gap abierto — es la frontera esperada entre "lo que RDR desarrolla" y "lo que el producto
+  GoldenSource ya trae".
+- **Qué pasa si falla:**
+  - Mensaje marcado como filtrado por GoldenSource y sin `ProcessFilteredMessages` activo → transacción
+    cerrada como "filtrada", sin aplicar el alta y sin publicar el evento de alta (solo el de "filtrado").
+  - `ProcessedEntityInformations` vacío tras el procesamiento → no se dispara ningún evento de publicación;
+    no se puede confirmar con este material si equivale a "no se aplicó nada" o a "se aplicó sin entidades
+    que notificar".
+  - `CheckForDoNotPostFlag` activo → publicación de eventos omitida explícitamente aunque el mensaje sí se
+    haya aplicado — modo silencioso intencionado; no se ha confirmado en la cadena vista hasta ahora quién
+    fija esa variable antes de invocar este workflow.
+  - **Hallazgo de reutilización genérica (mismo patrón que §6.4/§6.6):** el nombre (`Basic Message
+    Processing(copy)`) y, sobre todo, el grupo (`Custom/Moca`, no `Custom/RDR/...`) indican que es una copia
+    de un workflow estándar de GoldenSource potencialmente compartida con otra aplicación ("Moca") además de
+    con RDR.
 
 ## 7. Especificación de testing
 
@@ -662,6 +709,18 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 * **`new_oid` en `OTHER` depende de un sinónimo/función no verificado (confirmado por código, §6.7b):** la
   generación del identificador de rechazo (`RLT_OID`) usa `select new_oid from dual`, cuyo comportamiento
   real no puede confirmarse sin ver la definición de base de datos correspondiente.
+* **Mensajes filtrados por el motor genérico de GoldenSource se cierran sin publicar el alta, sin alerta
+  específica (confirmado por `.gsp` real, §6.8):** si `"Basic Message Processing"` marca un mensaje como
+  `filteredFromGSDM` y `ProcessFilteredMessages` no está activo, la transacción se cierra como "filtrada" sin
+  aplicar el alta ni publicar el evento correspondiente — no se ha confirmado qué reglas del producto
+  GoldenSource activan ese filtro genérico ni si hay visibilidad operativa de estos casos.
+* **`CheckForDoNotPostFlag` puede aplicar un alta sin publicar el evento de notificación (confirmado por
+  `.gsp` real, §6.8):** modo silencioso intencionado del motor genérico; no se ha confirmado en esta sesión
+  quién fija esa variable antes de invocar el workflow para este proceso concreto.
+* **`"Basic Message Processing"` pertenece al grupo `Custom/Moca`, no a `Custom/RDR/...` (confirmado por
+  `.gsp` real, §6.8):** mismo patrón de reutilización genérica ya visto en `CSVToXML_Layout.jar` (§6.4) y en
+  las ramas muertas `RFN`/`COMPASS` de `RDR_XMLReader` (§6.6) — es un motor de plataforma compartido, no
+  exclusivo de esta cadena.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -688,15 +747,18 @@ de forma incompatible los mismos campos de regulación DFA/SFTR, y cuál de las 
 producción (parámetro `args[2]` de `GSProcess.sh`, no confirmado con el material disponible) determina si
 esos datos regulatorios salen correctos o mal etiquetados (§9) — recomendado verificarlo cuanto antes contra
 la configuración real de Control-M, independientemente de si se continúa o no con el resto de esta
-auditoría. El gap técnico G7 (`Workflow(RDR_XMLReader)`, tercer paso de R8) queda **prácticamente resuelto**
-con los `.wkf` reales (§6.6/§6.7): confirma el flujo completo de lectura/split/iteración/detección de
+auditoría. El gap técnico G7 (`Workflow(RDR_XMLReader)`, tercer paso de R8) queda **resuelto** con los
+`.wkf`/`.gsp` reales (§6.6/§6.7/§6.8): confirma el flujo completo de lectura/split/iteración/detección de
 duplicados/clasificación por entidad, y un hallazgo que conecta directamente con G6 — el campo `USER` que
 decide la clasificación siempre vale el literal `FUND_LOADER` para este proceso, así que las ramas
 `RFN`/`COMPASS` de este mismo workflow son código muerto aquí, solo aplica `OTHER`/`Validacion Oficinas`. Los
 3 subworkflows de esa rama (`Duplicate XMLReader`, `OTHER`, `ValidacionOficinas`) quedan confirmados con
 código real (§6.7), con 2 hallazgos de fallo silencioso ("fail-open" ante error de BD o de parseo) y 1 de
-nombre de nodo que no corresponde a su código (`"Borrar oficinas del XML"` no borra nada). Solo queda sin
-aportar `"Basic Message Processing"` (el subworkflow que aplicaría el alta real en GoldenSource), cabo suelto
-no bloqueante. Siguen pendientes, para el resto de la cadena de R8 (`Script(Historificar)`,
+nombre de nodo que no corresponde a su código (`"Borrar oficinas del XML"` no borra nada).
+`"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación del propio
+producto GoldenSource (grupo `Custom/Moca`, no específico de RDR) — confirma que la aplicación campo a campo
+sobre `FT_T_*` vive en la configuración de plataforma (`Translation`/`ProcessTransaction`), fuera del alcance
+de la cadena de jars/workflows custom de RDR; esto cierra el análisis en su límite natural, no como gap
+pendiente. Siguen pendientes, para el resto de la cadena de R8 (`Script(Historificar)`,
 `Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`,
 `Property(GestionAlertas)`) y para R9, los gaps técnicos aún no abordados en esta sesión.
