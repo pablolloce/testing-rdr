@@ -198,6 +198,82 @@ provoca duplicidad, qué debe ocurrir, y qué validación confirma que la prueba
 generan datos sintéticos, deja definido: qué campo se replica, cuántas veces se repite, qué
 valor se considera conflicto, y qué resultado confirma que la detección funciona.
 
+### 7) Rigor técnico: nombrar un artefacto no es analizarlo
+
+La parte técnica debe someterse al **mismo nivel de exigencia que la funcional**. Hoy el error
+típico es inventariar: listar clases Java, `.properties`, SQL, scripts, tablas de configuración,
+librerías y argumentos sin explicar para qué sirven dentro del proceso. Un inventario no es un
+análisis.
+
+**Por cada artefacto técnico, la especificación debe poder responder:**
+
+- Qué hace dentro de este proceso, no en general.
+- Qué recibe y qué produce.
+- **Qué campos del fichero de salida se ven afectados por él.**
+- Qué ocurre si falla, si falta o si cambia.
+
+Si no puedes responder a esas cuatro cosas, es un gap: pregunta al usuario antes de cerrar, igual
+que harías con una regla de negocio sin confirmar.
+
+**Antes de pedir nada, agota el documento fuente.** Si la documentación del proceso ya explica un
+artefacto al nivel que exigen las cuatro preguntas anteriores, el análisis técnico de ese
+artefacto está hecho: no pidas el fichero ni preguntes por él. Solo se pide material adicional
+cuando el documento **lo nombra sin explicarlo**, lo explica de forma incompleta, o se contradice.
+Esta regla no convierte cada proceso en una recogida de ficheros: es un remedio para los huecos,
+no un trámite.
+
+**Cuando falte, analiza tú los artefactos; al usuario pídele el fichero, no la explicación.** Cuando tengas un
+script, un `.properties`, una query o una hoja de transformación, tu trabajo es leerlos y deducir
+de ellos qué hacen: qué invoca cada uno, qué argumentos pasa, a qué otros ficheros llama y dónde
+acaba cada parámetro. No hagas al usuario explicar línea a línea algo que está escrito en un
+fichero que él puede facilitarte entero.
+
+**Sigue la cadena de llamadas.** Un script llama a otro script, un `.properties` declara un jar y
+un fichero de configuración de log, una query referencia tablas. Recorre esa cadena hasta donde
+llegue el material disponible y **documenta el mapa resultante**: qué fichero llama a cuál y con
+qué. Cuando la cadena se corte porque falta un fichero, pídelo por su nombre.
+
+**Deducir del fichero es analizar; deducir del nombre, no.** Trazar un argumento leyendo el script
+que lo consume es análisis válido y debe recogerse indicando de dónde sale. Suponer su significado
+por cómo se llama, o porque en otro proceso vale lo mismo, es una suposición y está prohibida
+igual que en la parte funcional. Si tras leer todo el material disponible un parámetro sigue sin
+explicación, decláralo explícitamente como desconocido en vez de aproximarlo.
+
+**La configuración que determina comportamiento es material de la especificación, no una
+referencia.** Si un `.properties`, un fichero de log o una tabla de parámetros decide qué hace el
+proceso, no basta con nombrarlo: hay que documentar su contenido relevante. Decir "el fichero de
+configuración del log es X" sin decir qué hay dentro deja el análisis a medias.
+
+#### Criterio de profundidad
+
+No todo merece el mismo detalle, y exigirlo genera ruido. El criterio es:
+
+> **¿Cambiaría el fichero de salida si este artefacto cambiara?**
+
+| Respuesta | Tratamiento |
+|---|---|
+| Sí | Análisis completo: las cuatro preguntas de arriba, con los campos que impacta |
+| No | Basta con nombrarlo en la sección técnica |
+
+Una hoja de transformación, una query, una tabla de la que se leen etiquetas o parámetros, o una
+clase que altera el orden o la integridad de la salida, cambian el fichero: van con análisis
+completo. Un driver de base de datos o una librería de logging, no: se nombran y se sigue.
+
+#### Preguntas técnicas obligatorias
+
+Respóndelas tú mismo siempre que el material disponible lo permita. Pregunta al usuario solo por
+**los ficheros que te falten para poder responderlas**, y aplica el mismo bloqueo que en la parte
+funcional: sin respuesta, no se cierra la especificación.
+
+- ¿Qué hace exactamente cada script, clase o jar que ejecuta la cadena, y sobre qué datos actúa?
+- ¿Qué significa cada argumento o parámetro que recibe?
+- ¿Dónde vive la lógica que construye la salida: en el código desplegado, en base de datos, en un
+  fichero de configuración, en una hoja de transformación?
+- ¿Qué campos de la salida produce o modifica cada artefacto?
+- ¿Qué ficheros de configuración condicionan el comportamiento y qué contienen?
+- ¿Qué se escribe en los logs, dónde, y qué indica que la ejecución ha ido bien?
+- ¿Qué pasa si un artefacto falla a mitad: salida parcial, salida vacía, o nada?
+
 ## Estructura de salida esperada
 
 Por cada proceso analizado, crea la carpeta `salidas/<nombre_proceso>/` (nombre en minúsculas,
@@ -209,7 +285,9 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 3. Requisitos detectados
 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 5. Especificación funcional
-6. Especificación técnica
+6. Especificación técnica — no un inventario de componentes, sino un análisis de qué hace cada
+   uno, qué campos de la salida impacta y qué ocurre si falla. Ver "Reglas obligatorias" 7 para el
+   nivel de detalle exigido y el criterio de profundidad
 7. Especificación de testing: explica la estrategia de pruebas y los casos definidos en
    `casos_prueba.xml` (referenciando su ID), y confirma explícitamente que:
    - cada caso es ejecutable tal cual está definido — pasos concretos, datos concretos, resultado
