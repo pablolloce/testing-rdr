@@ -50,6 +50,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto con código fuente real** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4/§6.5. Confirma la estructura completa del XML (`PARTYSETUP`>`GLOBALS`>`GLOBAL`>`LOCALS`>`LOCAL`>`OPERATIVES`>`OPERATIVE`, coherente con los prefijos `GL`/`LO`/`OP` del CSV) y un **hallazgo grave**: `version1` y `version2` interpretan de forma incompatible las mismas columnas `GL.14.01.*`/`GL.14.02.*` (regulación DFA/SFTR) — ver §9. Cuál de las 2 se invoca realmente (`args[2]="G"` o no, en `GSProcess.sh`/`.properties`) no se ha podido confirmar con el material disponible y es la pregunta más importante para saber si el dato regulatorio sale bien o mal etiquetado. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
+| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Parcialmente resuelto con el `.sh` real** (`GSProcess.sh` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9. Confirma que `GSProcess.sh` es un **motor genérico transversal** (usado por R6, R7, R8 y R9 por igual, con el `%%PARM1` de Control-M seleccionando qué `.properties` ejecutar) y que `Script(Historificar)`/`Script(MoverFicheros)` **no son scripts independientes**: son llamadas a funciones `Historificar`/`MoverFicheros` definidas dentro de `Generico.sh` (no aportado). También descubre un **hallazgo transversal importante**: por defecto, un fallo en cualquier paso (Java/Script/Evento/Property) **no detiene los pasos siguientes** del `.properties` — solo lo hace si esa línea concreta (o una variable global anterior) trae `Stop=Ok` — ver §9. Sigue abierto, no bloqueante para lo ya cerrado pero sí para completar R8: `Generico.sh` (funciones `Historificar`/`MoverFicheros`) y el propio `RDR_AltaFondos.properties` (que fijaría, entre otras cosas, la clase Java exacta y los argumentos de G5/G6, y si cada paso tiene `Stop=Ok`). |
 
 ## 5. Especificación funcional
 
@@ -584,6 +585,65 @@ como el resto de la cadena — exportado en formato `.gsp`, versión 8.7.1.106 d
     de un workflow estándar de GoldenSource potencialmente compartida con otra aplicación ("Moca") además de
     con RDR.
 
+### 6.9 `GSProcess.sh` — motor genérico transversal de Control-M (confirmado con `.sh` real)
+
+Script analizado: `GSProcess.sh` (ruta real `/$env/kytl/online/multipais/multicanal/scrt/GSProcess.sh`, `$env` según
+host — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GSProcess.sh`). Es el mismo script que Control-M
+invoca para **R6, R7, R8 y R9 por igual** (`GSProcess.sh clientelaBDI_Altas_response`,
+`GSProcess.sh Investors_Client_Reg_resp`, `GSProcess.sh RDR_AltaFondos`,
+`GSProcess.sh GestionAlertas_ALERT_IP_SSI`) — confirmado también por 2 exports reales de Control-M
+(`Workspace_589_folder_T.xml`/`Workspace_274_folder_M.xml`, variantes de tarde/mañana de la misma malla).
+
+- **Qué hace:** es un **motor genérico**, sin lógica de negocio propia: recibe un único parámetro
+  (`MOD_EJECUCION`, p. ej. `RDR_AltaFondos`), calcula el entorno de ejecución a partir del hostname
+  (`pr`/`pp`/`ei`/`de`), y ejecuta línea a línea el fichero de configuración
+  `$CONF/<MOD_EJECUCION>.properties` (no aportado, para ninguno de los 4 procesos de esta cadena). Cada línea
+  marcada `Accion=Java|Scri|Even|Prop|Vari` dispara uno de 4 tipos de paso:
+  1. **`Java`**: construye un classpath (`NomPaquete1..3` → jars en `$JAR`, `Libreria1..15` → librerías en
+     `$LIB_PATH`) y ejecuta `java ... -cp <paquetes>:<librerías> $CLASE $ARGUMENTOS_JAVA`, donde `$CLASE`
+     (clave `NomClase`) y cada `ArgJava1..10` (con su `PreArgJava1..10` opcional, un prefijo de ruta) vienen
+     del propio `.properties`. **Esto confirma el mecanismo exacto detrás de G5/G6**: la clase invocada
+     directamente por Control-M es la que diga `NomClase` en `RDR_AltaFondos.properties` (no necesariamente
+     un `Main` separado de `Peticiones`/`PpalAltas`), y los argumentos posicionales (`args[0]`, `args[1]`...)
+     son, en orden, `ArgJava1`, `ArgJava2`, etc. — coherente con el `args[2]`/`args[3]` ya especulado en G6.
+     Sin el `.properties` real no se puede confirmar el valor exacto de esos argumentos.
+  2. **`Script`**: ejecuta `$SCRIPT/Delta.sh <arg>` si `NombreScript="Delta"`, o si no,
+     `$SCRIPT/Generico.sh <NombreScript> <args con sus prefijos>`. **Hallazgo clave para G8**: esto confirma
+     que `Script(Historificar)` y `Script(MoverFicheros)` de la tabla de R8 **no son scripts independientes**
+     — son llamadas a funciones llamadas `Historificar`/`MoverFicheros` dentro de un único fichero
+     `Generico.sh` (no aportado), con argumentos definidos también en `RDR_AltaFondos.properties`.
+  3. **`Evento`**: ejecuta `executeBbvaEvent.sh <tipo> $CREDENTIALS $FICH_PROPERTIES`, con casos especiales
+     para `MDX`, `Workflow` (genera un `.properties` temporal solo para ese workflow y lo borra después de
+     invocarlo), `Reporte` y `Errores`. Es el mecanismo real detrás de todos los `Workflow(...)` de esta
+     sesión, incluido `RDR_XMLReader`.
+  4. **`Property`**: copia una plantilla `<NomProperty>.properties` a un fichero temporal con sufijo de
+     fecha/hora, sustituye placeholders con `sed` a partir de pares `clave-valor` (`ArgProp1..50`, formato
+     `"mapa1-mapa2"`), y **se auto-invoca recursivamente** (`$SCRIPT/GSProcess.sh <fichero temporal>`) antes
+     de borrar el temporal. Es el mecanismo real detrás de `Property(GestionAlertas)`: una sub-ejecución
+     completa de `GSProcess.sh` con su propio `.properties` generado al vuelo, no aportado tampoco.
+- **Qué recibe/produce:** recibe `MOD_EJECUCION` (nombre del `.properties`, sin extensión); produce logs
+  (`$LOG/execute_<MOD_EJECUCION>_<fecha>.log`, `_tmp.log`, y el acumulado diario `execute_<fecha>.log`) y el
+  código de salida del proceso Control-M (`exit 0`/`exit 1`). No produce ningún dato de negocio por sí mismo.
+- **Campos de salida afectados:** ninguno directamente — los afecta cada paso Java/Script/Evento que invoca,
+  ya analizados en sus propias subsecciones (o pendientes: `Generico.sh`).
+- **Qué pasa si falla — hallazgo transversal importante, no exclusivo de R8:** cada paso captura su código de
+  salida (`$RESULT`); si no es `0`, incrementa un contador global `Errores` y lo registra en log, pero **por
+  defecto no detiene los pasos siguientes** del mismo `.properties` — solo aborta inmediatamente (`exit 1`,
+  cortando toda la cadena) si esa línea concreta trae `Stop=Ok` (`StopJav`/`StopScr`/`StopEve`/`StopProp`) o
+  si una línea `Vari` anterior fijó una variable global `Stop=Ok`. Al final, si `$Errores` es mayor que 0 el
+  proceso completo devuelve `exit 1` (marcando el job de Control-M como fallido), **pero para entonces todos
+  los pasos posteriores ya se han ejecutado igualmente**, salvo que el `Stop=Ok` de un paso concreto lo haya
+  cortado antes. Esto significa que si, p. ej., `AltaFondos_Genera_csv` no genera CSV por tener 0 fondos
+  válidos (§6.3), no se puede confirmar con este material si `CSVToXML_Layout`/`RDR_XMLReader`/`Historificar`
+  siguen ejecutándose igualmente (contra un fichero inexistente/desactualizado) o si la cadena se corta ahí
+  — depende exclusivamente del `Stop=Ok` que tenga esa línea en `RDR_AltaFondos.properties`, no aportado.
+  Este mismo riesgo aplica igual a R6, R7 y R9, que comparten el mismo motor.
+- **Gap abierto, no bloqueante para lo ya cerrado, bloqueante para completar R8:** no se ha aportado
+  `Generico.sh` (funciones `Historificar`/`MoverFicheros`) ni ninguno de los `.properties` reales
+  (`RDR_AltaFondos.properties`, `clientelaBDI_Altas_response.properties`,
+  `Investors_Client_Reg_resp.properties`, `GestionAlertas_ALERT_IP_SSI.properties`) — sin ellos no se puede
+  confirmar la clase/argumentos exactos de cada paso Java, ni si cada paso tiene `Stop=Ok`.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -721,6 +781,17 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `.gsp` real, §6.8):** mismo patrón de reutilización genérica ya visto en `CSVToXML_Layout.jar` (§6.4) y en
   las ramas muertas `RFN`/`COMPASS` de `RDR_XMLReader` (§6.6) — es un motor de plataforma compartido, no
   exclusivo de esta cadena.
+* **Un fallo en un paso de `GSProcess.sh` no detiene los pasos siguientes por defecto (confirmado por `.sh`
+  real, §6.9) — riesgo transversal a R6, R7, R8 y R9:** cada paso (Java/Script/Evento/Property) solo aborta
+  toda la cadena si su línea trae `Stop=Ok`; si no, el fallo solo se cuenta y se registra en log, y la cadena
+  sigue con el siguiente paso. Sin el `.properties` real de cada proceso no se puede confirmar qué pasos
+  tienen `Stop=Ok` y cuáles no — es decir, no se puede confirmar si un fallo temprano (p. ej. `AltaFondos_
+  Genera_csv` sin CSV por 0 fondos válidos, §6.3) realmente frena el resto de la cadena de R8 o si esta sigue
+  ejecutándose igual contra datos inexistentes/desactualizados.
+* **`Script(Historificar)`/`Script(MoverFicheros)` no son scripts independientes (confirmado por `.sh` real,
+  §6.9):** son llamadas a funciones dentro de un fichero compartido `Generico.sh` (no aportado) — cualquier
+  cambio en esas funciones afecta potencialmente a otros procesos RDR que también las invoquen, no solo a
+  esta cadena.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -759,6 +830,13 @@ nombre de nodo que no corresponde a su código (`"Borrar oficinas del XML"` no b
 producto GoldenSource (grupo `Custom/Moca`, no específico de RDR) — confirma que la aplicación campo a campo
 sobre `FT_T_*` vive en la configuración de plataforma (`Translation`/`ProcessTransaction`), fuera del alcance
 de la cadena de jars/workflows custom de RDR; esto cierra el análisis en su límite natural, no como gap
-pendiente. Siguen pendientes, para el resto de la cadena de R8 (`Script(Historificar)`,
-`Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`,
-`Property(GestionAlertas)`) y para R9, los gaps técnicos aún no abordados en esta sesión.
+pendiente. El gap técnico G8 (`GSProcess.sh`, motor detrás de R6/R7/R8/R9) queda **parcialmente resuelto**
+con el `.sh` real (§6.9): confirma que es un motor genérico transversal, sin lógica de negocio propia, que
+ejecuta un `.properties` específico de cada proceso (ninguno aportado) y que `Script(Historificar)`/
+`Script(MoverFicheros)` no son scripts independientes sino funciones de un `Generico.sh` compartido (no
+aportado); descubre además un **hallazgo transversal a toda la sesión**: por defecto un fallo en un paso no
+detiene los siguientes salvo que ese paso tenga `Stop=Ok` configurado, algo que no se puede confirmar sin los
+`.properties` reales. Siguen pendientes, para el resto de la cadena de R8 (`Generico.sh` con las funciones
+`Historificar`/`MoverFicheros`, `AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`,
+`Property(GestionAlertas)`, y los `.properties` reales de cada proceso) y para R9, los gaps técnicos aún no
+abordados en esta sesión.
