@@ -24,16 +24,16 @@
 
   <casoDePrueba id="TC-002" tipo="happy_path">
     <nombre>Ciclo completo de transformación y envío a Fircosoft</nombre>
-    <objetivo>Verificar el ciclo end-to-end: extracción genérica común → RDR_Transformacion_FS.sh → Batch_Fircosoft_AAAAMMDD.txt → envío por MEKYTL1261 a México.</objetivo>
+    <objetivo>Verificar el ciclo end-to-end: extracción genérica común → GSProcess.sh (TransformacionesExtraccionCTPDA_FIRCOSOFT) → TransformacionesExtraccionCTPDA.sh + Batch_FircoSoft.xsl → Batch_Fircosoft_AAAAMMDD.txt → envío por MEKYTL1261 a México.</objetivo>
     <precondiciones>
       <precondicion>RDR_TRANSFORMACION_FS de la cadena correspondiente (_new o _FINSEM_S_new) completado con éxito.</precondicion>
       <precondicion>Contenido válido en /fichtemcomp/$env/descargas/kytl/extracciongenerica/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Batch_Fircosoft_AAAAMMDD.txt" valor="generado por RDR_Transformacion_Fircosoft.jar"/>
+      <dato campo="Batch_Fircosoft_AAAAMMDD.txt" valor="generado por TransformacionesExtraccionCTPDA.sh aplicando Batch_FircoSoft.xsl (confirmado, GAP-ADHOC-002 resuelto)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar que RDR_Transformacion_FS.sh genera Batch_Fircosoft_AAAAMMDD.txt en /fichtemcomp/$env/descargas/kytl/Fircosoft/.</paso>
+      <paso numero="1">Confirmar que la cadena GSProcess.sh → TransformacionesExtraccionCTPDA.sh genera Batch_Fircosoft_AAAAMMDD.txt en /fichtemcomp/$env/descargas/kytl/Fircosoft/.</paso>
       <paso numero="2">Verificar que MEKYTL1261 (variante diaria o sábado según corresponda) espera el evento cross-chain correcto (RDR_DAILY_EXGEN_CPARTYS_RDR_TRANSFORMACION_FS_LWRDR601_OK o el equivalente de FINSEM_S) antes de las 06:00 AM.</paso>
       <paso numero="3">Confirmar que MEKYTL1261 selecciona el fichero con fecha de creación más reciente que cumpla la máscara Batch_Fircosoft_YYYYMMDD.txt.</paso>
       <paso numero="4">Verificar la transmisión Connect:Direct (BINARY, PUT, rpl) a fsbrdrmxp.mex.igrupobbva:/Fircosoft_rdr/RDR_Batch/0003/Input/, con codificación ASCII en tránsito y UTF-8 en destino.</paso>
@@ -127,23 +127,36 @@
     <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí; el caso cierra un gap documental de alcance/nomenclatura.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
-    <nombre>Limitación de evidencia: diccionario de campos de Batch_Fircosoft.txt (GAP-ADHOC-002)</nombre>
-    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba de validación de contenido campo a campo para Batch_Fircosoft_AAAAMMDD.txt, al no disponer de la hoja XSLT_FIRCO ni de un diccionario de campos confirmado.</objetivo>
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Validación campo a campo de Batch_Fircosoft.txt contra la hoja XSLT real (GAP-ADHOC-002 resuelto)</nombre>
+    <objetivo>Confirmar que cada línea generada en Batch_Fircosoft_AAAAMMDD.txt respeta exactamente el diccionario de 8 campos definido en Batch_FircoSoft.xsl, y que solo se incluyen operativos con sucursal México.</objetivo>
     <precondiciones>
-      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional de contenido.</precondicion>
+      <precondicion>RDR_TRANSFORMACION_FS completado con éxito y Batch_Fircosoft_AAAAMMDD.txt generado.</precondicion>
+      <precondicion>Hoja real Batch_FircoSoft.xsl disponible como referencia (documentos_fuente/GAP-ADHOC-002_Batch_FircoSoft.xsl).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="XSLT_FIRCO" valor="nombre de fichero .xsl resuelto en tiempo de ejecución desde credentials.xml, no aportado ni fijo en el script"/>
+      <dato campo="Formato de salida" valor="texto plano, un registro por línea, campos delimitados por '|' (pipe)"/>
+      <dato campo="Filtro de origen" valor="solo /GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE con BRANCHES/BRANCH/Branch='MEX'"/>
+      <dato campo="Campo 1" valor="RDR_Code_Operative_Mnem (código operativo)"/>
+      <dato campo="Campo 2" valor="constante fija '0074'"/>
+      <dato campo="Campo 3" valor="RDR_Code_Operative_Mnem (repetido)"/>
+      <dato campo="Campo 4" valor="Legal_Name (nivel GLOBAL, normalizado)"/>
+      <dato campo="Campo 5" valor="Residence = concatenación Address + Num_Ext + Num_Int + Colony + Postal_Code (FISCAL_ADDRESS)"/>
+      <dato campo="Campo 6" valor="City_Town (FISCAL_ADDRESS)"/>
+      <dato campo="Campo 7" valor="State (FISCAL_ADDRESS)"/>
+      <dato campo="Campo 8" valor="Country_of_Residence_Code (FISCAL_ADDRESS)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar el contenido de la hoja XSLT_FIRCO vigente, o un Batch_Fircosoft.txt real de referencia.</paso>
-      <paso numero="2">Si se obtiene, diseñar el caso de prueba de validación de contenido/formato equivalente a los ya existentes para otros ficheros de destino de este proceso.</paso>
+      <paso numero="1">Confirmar que cada línea de Batch_Fircosoft_AAAAMMDD.txt tiene exactamente 8 campos separados por '|'.</paso>
+      <paso numero="2">Confirmar que el campo 2 es siempre el literal fijo "0074" en todas las líneas.</paso>
+      <paso numero="3">Confirmar que los campos 1 y 3 son idénticos entre sí en cada línea (mismo RDR_Code_Operative_Mnem repetido).</paso>
+      <paso numero="4">Confirmar, contra el fichero de extracción genérica de origen (ExtraccionContingencia.xml/ThirdParties.xml), que solo aparecen en Batch_Fircosoft.txt los operativos cuya sucursal (BRANCHES/BRANCH/Branch) sea 'MEX' — ningún operativo de otra sucursal debe aparecer.</paso>
+      <paso numero="5">Confirmar que el campo 5 (Residence) es la concatenación de los 5 subcampos de FISCAL_ADDRESS en el orden Address, Num_Ext, Num_Int, Colony, Postal_Code, separados por espacio.</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la hoja XSLT o de un fichero de referencia real.</resultadoEsperado>
-    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-ADHOC-002 hasta recibir evidencia.</criterioAceptacion>
-    <posibilidadFallo>No se fuerza un diccionario de campos inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+    <resultadoEsperado>Batch_Fircosoft_AAAAMMDD.txt contiene únicamente el subconjunto de 8 campos definido en Batch_FircoSoft.xsl para operativos con sucursal México — no lleva el diccionario completo de Contrapartidas (305 elementos), sino un extracto específico y reducido para Fircosoft.</resultadoEsperado>
+    <tipoValidacion>Comparación campo a campo entre Batch_Fircosoft_AAAAMMDD.txt real y el resultado esperado de aplicar Batch_FircoSoft.xsl al XML de origen.</tipoValidacion>
+    <criterioAceptacion>100% de las líneas cumplen el formato de 8 campos, el filtro de sucursal MEX, y el mapeo exacto documentado.</criterioAceptacion>
+    <posibilidadFallo>Un cambio no documentado en Batch_FircoSoft.xsl (nueva versión desplegada) haría que esta validación quedase desactualizada — repetir la comprobación de la hoja XSLT ante cualquier incidencia de formato.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="regresion">

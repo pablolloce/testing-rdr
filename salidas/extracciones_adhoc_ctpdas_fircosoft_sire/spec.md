@@ -144,13 +144,36 @@ El mismo patrón de transformación genérica→específica (vía `Transformacio
 se reutiliza, según lo ya documentado en el proceso hermano, para las 13+ ramas: `fonetics`, `salesforce`,
 `mgcyg`, `mentor`, `sire`, `sicor`, `fich_act_eco_total`/`diario`, `dicc_con_total`/`diario`, entre otras.
 
-**GAP-ADHOC-002:** el mecanismo de invocación queda ahora confirmado con evidencia literal completa (ficha
-Control-M + ficha EX-005-03 + `.properties` real, verificado contra el código fuente de `GSProcess.sh`), mismo
-nivel de certeza que cerró GAP-ADHOC-001. También queda confirmado el nombre exacto de la hoja XSLT:
-`Batch_FircoSoft.xsl` (fijo, no dinámico — corrige la documentación previa). **Sigue sin confirmarse el
-diccionario de campos exacto**: no se sabe si `Batch_Fircosoft.txt` lleva el mismo diccionario completo de
-Contrapartidas (305 elementos) o un subconjunto/formato propio de Fircosoft. Para cerrar el gap en sí hace falta
-el contenido del propio `Batch_FircoSoft.xsl` (una hoja XSLT mostraría directamente el mapeo campo a campo).
+**GAP-ADHOC-002 RESUELTO (2026-09-24) — diccionario de campos confirmado con evidencia literal completa.**
+El mecanismo de invocación quedó confirmado (ficha Control-M + ficha EX-005-03 + `.properties` real), y el
+usuario aportó el contenido real de `Batch_FircoSoft.xsl`
+(`documentos_fuente/GAP-ADHOC-002_Batch_FircoSoft.xsl`), que resuelve el gap en sí de forma definitiva:
+
+**`Batch_Fircosoft_${AAAAMMDD}.txt` NO lleva el diccionario completo de Contrapartidas (305 elementos)** — es un
+extracto específico y reducido de **8 campos**, delimitados por `|` (pipe), uno por línea, generado únicamente
+para los operativos cuya sucursal (`BRANCHES/BRANCH/Branch`) sea **`MEX`** (filtro explícito en el XSLT):
+
+| # | Campo | Origen en el XML de extracción genérica |
+|---|---|---|
+| 1 | Código operativo | `OPERATIVE/RDR_Code_Operative_Mnem` |
+| 2 | Constante fija | Literal `"0074"` |
+| 3 | Código operativo (repetido) | `OPERATIVE/RDR_Code_Operative_Mnem` |
+| 4 | Razón social | `GLOBAL/Legal_Name` (normalizado) |
+| 5 | Domicilio (concatenado) | `FISCAL_ADDRESS`: `Address` + `Num_Ext` + `Num_Int` + `Colony` + `Postal_Code` |
+| 6 | Ciudad | `FISCAL_ADDRESS/City_Town` |
+| 7 | Estado | `FISCAL_ADDRESS/State` |
+| 8 | Código de país de residencia | `FISCAL_ADDRESS/Country_of_Residence_Code` |
+
+La estructura de origen que recorre la hoja es `/GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE` — coherente
+con el modelo GLOBAL/LOCAL/OPERATIVE ya conocido de `ExtraccionContingencia.xml`/`ThirdParties.xml`
+(GAP-ADHOC-001). Cada `GLOBAL` puede generar varias líneas de salida (una por cada `OPERATIVE` con sucursal
+México dentro de sus `LOCAL`/`OPERATIVES`).
+
+Con esto, GAP-ADHOC-002 queda cerrado con el mismo nivel de evidencia literal que cerró GAP-ADHOC-001 (código
+fuente real, sin inferencia). La tensión señalada arriba sobre `RDR_Transformacion_FS.sh` vs.
+`TransformacionesExtraccionCTPDA.sh` queda como nota histórica sin impacto en el cierre: el `.properties` y la
+hoja XSLT reales son la fuente de verdad del mecanismo vigente, independientemente de qué script se documentara
+originalmente.
 
 **Envío (`MEKYTL1261`, ambas cadenas):**
 
@@ -309,10 +332,12 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
   semana), no el "00:05h" aproximado del documento fuente original de "Extracción Genérica de Contrapartidas"
   (actualizado también en ese spec). El listado de navegación de ambos folders (26 capturas reales,
   `documentos_fuente/GAP-ADHOC-001_jobs_extraidos.md`) ya había descartado un tercer job oculto.
-- **GAP-ADHOC-002 (diccionario de campos de `Batch_Fircosoft.txt`) — abierto.** Confirmado el mecanismo
-  (extracción genérica → `RDR_Transformacion_Fircosoft.jar` → XSLT → fichero), pero no el diccionario de
-  campos exacto resultante — la hoja XSLT se resuelve en tiempo de ejecución (no fija en el script) y no se ha
-  aportado su contenido.
+- **GAP-ADHOC-002 (diccionario de campos de `Batch_Fircosoft.txt`) — RESUELTO (2026-09-24).** Cadena de
+  invocación real reconstruida con evidencia literal completa (ficha Control-M + ficha EX-005-03 + `.properties`
+  real + código de `GSProcess.sh`): `GSProcess.sh` → `TransformacionesExtraccionCTPDA.sh` (script compartido
+  parametrizado) aplicando la hoja `Batch_FircoSoft.xsl` (contenido real aportado). El diccionario resultante es
+  un extracto reducido de **8 campos** delimitados por `|`, solo para operativos con sucursal `MEX` — no lleva
+  el diccionario completo de Contrapartidas (305 elementos). Ver tabla completa en §1.2.
 - **GAP-ADHOC-003 (`EXTRACCION_THIRDPARTYS` de `_D` sin evento de salida documentado) — RESUELTO por
   confirmación directa.** 26 capturas reales de Control-M confirman que la pestaña Acciones de
   `EXTRACCION_THIRDPARTYS` en `RDR_EXTRACCION_CTPDAS_D` está genuinamente vacía (sin eventos) — comportamiento
@@ -365,15 +390,14 @@ usaba `xtprox1p`/`xtsftp1` según el job).
 ## 7. Especificación de testing
 
 **Estrategia:** dado que las 5 cadenas ya cuentan con ficha técnica completa (no evidencia parcial), los casos
-de prueba cubren el ciclo funcional de cada bloque y confirman explícitamente los 4 gaps abiertos en vez de
-forzar una respuesta. Casos completos en `casos_prueba.xml`.
+de prueba cubren el ciclo funcional de cada bloque y confirman explícitamente los gaps (resueltos o abiertos)
+en vez de forzar una respuesta. Casos completos en `casos_prueba.xml`.
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001, TC-002, TC-003.
 - `borde`: TC-004.
 - `conflicto_integridad`: TC-006.
-- `datos_sinteticos`: TC-007.
-- `regresion`: TC-005, TC-008.
+- `regresion`: TC-005, TC-007, TC-008.
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -387,13 +411,14 @@ Referencia de casos por tipo:
 | GAP-ADHOC-003 (evento de salida de EXTRACCION_THIRDPARTYS en \_D, ya resuelto) | TC-004 | Confirma en revisiones futuras que la ausencia de evento sigue siendo real, no una omisión |
 | GAP-ADHOC-001 (relación con generación de origen, ya resuelto) | TC-005 | Confirma en revisiones futuras que EXTRACCION_CPTDAS/THIRDPARTYS siguen generando los ficheros de la extracción genérica |
 | GAP-ADHOC-004 (naturaleza actual de RDR_SIRE_new, reforzado por evidencia real) | TC-006 | Confirma funcionalmente si RDR_SIRE_new sigue enviando Contrapartidas o solo Emisiones — desacople técnico ya confirmado |
-| GAP-ADHOC-002 (diccionario de Batch_Fircosoft.txt) | TC-007 | Documenta la limitación en vez de inventar el diccionario de campos |
+| GAP-ADHOC-002 (diccionario de Batch_Fircosoft.txt, ya resuelto) | TC-007 | Confirma en revisiones futuras el mapeo exacto de 8 campos y el filtro por sucursal MEX definidos en Batch_FircoSoft.xsl |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps abiertos: GAP-ADHOC-002, 004** (sección 4) — ninguno bloquea la generación de esta especificación.
-   GAP-ADHOC-003 quedó resuelto con 26 capturas reales de Control-M; GAP-ADHOC-001 quedó resuelto con el
-   contenido real de los 2 ficheros `.properties` invocados por `GSProcess.sh`.
+1. **Gap abierto: GAP-ADHOC-004** (sección 4) — no bloquea la generación de esta especificación.
+   GAP-ADHOC-001 y GAP-ADHOC-003 quedaron resueltos con evidencia real de Control-M y el contenido de los
+   ficheros `.properties` invocados por `GSProcess.sh`; GAP-ADHOC-002 quedó resuelto con el contenido real de
+   `Batch_FircoSoft.xsl` (2026-09-24).
 2. **RISK-ADHOC-001 — Alta disponibilidad de scripts en ambas máquinas físicas.** El documento exige
    explícitamente que `GSProcess.sh` (extracción SW) esté desplegado en `lprdr501` **y** `lprdr602` para
    garantizar el balanceo de la VIPA `pr-rdr.igrupobbva`. Un despliegue desincronizado entre ambas máquinas
@@ -417,18 +442,22 @@ Referencia de casos por tipo:
 Se documentan las 5 cadenas del bloque "Extracciones ad hoc de Contrapartidas: SW, Fircosoft, SIRE" como un
 único proceso, con ficha técnica completa en los 3 bloques temáticos. El bloque Fircosoft queda completamente
 conectado y confirmado con el proceso "Extracción Genérica de Contrapartidas" ya analizado (mismo origen de
-datos, transformación confirmada con script real). El bloque "SW" (extracción) queda también **confirmado**
-como la ficha de job que faltaba para la generación de `ThirdParties.xml`/`ExtraccionContingencia.xml` de ese
-mismo proceso (GAP-ADHOC-001, resuelto): una segunda ronda de 26 capturas reales de Control-M descartó que
-exista un tercer job oculto en cualquiera de los 2 folders y confirmó GAP-ADHOC-003 (ausencia real de evento
-de salida en `EXTRACCION_THIRDPARTYS` de `_D`); una tercera ronda con el código fuente real de `GSProcess.sh`
-identificó los 2 ficheros `.properties` que contenían la lógica real, y una cuarta ronda con el contenido de
-esos 2 ficheros confirmó de forma literal y exacta (mismos jars, misma carpeta de salida, mismos tipos) que
-`EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` son esa generación real, superando también el desfase de horario
-inicial. El bloque SIRE revela un hallazgo relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre
-y agrupación en este documento, parece haber dejado de enviar Contrapartidas a SIRE (sustituida por un envío de
-Emisiones con mecanismo y fuente de datos distintos) — GAP-ADHOC-004. Una ronda posterior de 33 capturas reales
-de Control-M reforzó esta hipótesis (desacople técnico total confirmado, naming `EventSireEmisi`), pero el
-usuario decidió explícitamente mantener el gap abierto por no ser evidencia funcional del contenido de datos.
-Quedan 2 gaps abiertos (GAP-ADHOC-002 y 004) y 3 riesgos registrados (RISK-ADHOC-001 a 003), ninguno
-bloqueante para el testing funcional documentado en `casos_prueba.xml`.
+datos, transformación confirmada con evidencia literal completa: ficha Control-M, ficha EX-005-03, `.properties`
+real y la hoja `Batch_FircoSoft.xsl` real — GAP-ADHOC-002 resuelto, diccionario de 8 campos confirmado). El
+bloque "SW" (extracción) queda también **confirmado** como la ficha de job que faltaba para la generación de
+`ThirdParties.xml`/`ExtraccionContingencia.xml` de ese mismo proceso (GAP-ADHOC-001, resuelto): una segunda
+ronda de 26 capturas reales de Control-M descartó que exista un tercer job oculto en cualquiera de los 2
+folders y confirmó GAP-ADHOC-003 (ausencia real de evento de salida en `EXTRACCION_THIRDPARTYS` de `_D`); una
+tercera ronda con el código fuente real de `GSProcess.sh` identificó los 2 ficheros `.properties` que
+contenían la lógica real, y una cuarta ronda con el contenido de esos 2 ficheros confirmó de forma literal y
+exacta (mismos jars, misma carpeta de salida, mismos tipos) que `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS`
+son esa generación real, superando también el desfase de horario inicial. El bloque SIRE revela un hallazgo
+relevante no preguntado: la cadena `RDR_SIRE_new`, pese a su nombre y agrupación en este documento, parece
+haber dejado de enviar Contrapartidas a SIRE (sustituida por un envío de Emisiones con mecanismo y fuente de
+datos distintos) — GAP-ADHOC-004. Rondas posteriores (33 + 31 capturas reales de Control-M, el `ctpda.csv` real
+con dominio Contrapartidas/Banxico confirmado, y el script `executeBbvaEvent.sh` real) reforzaron esta
+hipótesis (desacople técnico total confirmado, naming `EventSireEmisi`, mecanismo de invocación nativo de
+GoldenSource Fileloading Engine en vez de la familia KYTL), pero el usuario decidió explícitamente mantener el
+gap abierto por no ser evidencia funcional del contenido de datos — falta el `emisi.csv` real para comparar
+directamente contra `ctpda.csv`. Queda 1 gap abierto (GAP-ADHOC-004) y 3 riesgos registrados (RISK-ADHOC-001 a
+003), ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`.

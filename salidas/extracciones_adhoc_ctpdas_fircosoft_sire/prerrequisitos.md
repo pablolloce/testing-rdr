@@ -20,9 +20,10 @@
   `22.156.148.85` (prohibición explícita del documento fuente).
 - Script compartido `TransformacionesExtraccionCTPDA.sh` (mismo script parametrizado desde julio 2024 que
   atiende las 13+ ramas de `_new`) operativo para la rama Fircosoft, con hoja XSLT fija `Batch_FircoSoft.xsl`
-  (confirmado por el `.properties` real `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` — GAP-ADHOC-002).
-  Pendiente de reconciliar con una evidencia previa que atribuía este paso a un script/jar distinto
-  (`RDR_Transformacion_FS.sh`/`RDR_Transformacion_Fircosoft.jar`) — ver nota en `spec.md` §1.2.
+  (confirmado por el `.properties` real y por el contenido real de la propia hoja — GAP-ADHOC-002 **resuelto**:
+  diccionario de 8 campos, filtro por sucursal `MEX`, ver `spec.md` §1.2). Queda como nota histórica sin
+  impacto en el cierre una evidencia previa que atribuía este paso a un script/jar distinto
+  (`RDR_Transformacion_FS.sh`/`RDR_Transformacion_Fircosoft.jar`).
 - Pasarela `lpftp503` operativa para `MEKYTL1261` (Fircosoft) y `MEKYTL0072_SND`/`_DEL` (SIRE) — Connect:Direct,
   nodo remoto `CDLVPAPBTWBMX01` (Fircosoft).
 - Servidor destino Fircosoft: `fsbrdrmxp.mex.igrupobbva`, ruta `/Fircosoft_rdr/RDR_Batch/0003/Input/`.
