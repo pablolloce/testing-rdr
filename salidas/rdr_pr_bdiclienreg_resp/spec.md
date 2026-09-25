@@ -47,6 +47,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
+| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Parcialmente resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. Confirma el diccionario completo de columnas (~193 fijas + bloques repetidos por sucursal/oficina) y descubre un camino de negocio no documentado (fondos de canal `DigitalCrossSelling` tratados aparte). **No** se ha aportado la clase orquestadora que decide qué query ejecutar, cómo se puebla cada campo de `CSVLine` ni la ruta/nombre real del CSV resultante — gap abierto, no bloqueante. |
 
 ## 5. Especificación funcional
 
@@ -172,6 +173,63 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
   existe algún otro camino de negocio en este jar aparte de `AltaRegisterLEIRequest`. Pedir esa clase (o el
   `Main.java` del jar) para cerrar el 100 % del flujo.
 
+### 6.3 `AltaFondos_Genera_csv.jar` (primer paso de R8) — parcialmente confirmado con código fuente real
+
+Clases analizadas: `csv.CSVLine`, `jdbc.QuerysStr`, `jdbc.QueryExec` (versión propia de este jar, con
+queries distintas de §6.1/§6.2 aunque con el mismo nombre de clase) —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`.
+
+- **Selección de fondos — dos caminos de negocio no documentados hasta ahora:** `selectFondosPosibles()`
+  selecciona fondos con `FT_T_VREQ.VND_RQST_XREF_ID_CTXT_TYP='FundLEI'`/`VND_RQST_STAT_TYP='ALTA_FONDO_PEND'`
+  **excluyendo** `VND_RQST_CORR_ID='DigitalCrossSelling'`; `selectFondosPosiblesDCS()` es la query
+  complementaria exacta, **solo** para `VND_RQST_CORR_ID='DigitalCrossSelling'`. Es decir, el jar distingue
+  explícitamente entre fondos de alta "normal" y fondos originados por el canal Digital Cross Selling — esta
+  distinción no aparece en ningún punto de la spec ni del documento fuente hasta este análisis. No se ha
+  confirmado (por falta de la clase orquestadora) si ambos caminos generan el mismo CSV con la misma
+  estructura, o si difieren en algo más allá del origen de los fondos seleccionados.
+- **Delimitador del CSV configurable en BD, no hardcodeado:** `selectSplitter()`
+  (`SELECT PAR1_VALUE FROM FT_T_PAR1 WHERE PARAMETER_CTXT_TYP='STR_SPLIT' AND PAR1_NME='STR_SPLIT_FONDOS'`)
+  obtiene el carácter separador real desde una tabla de parámetros de GoldenSource — coherente con el
+  constructor `CSVLine(String splitter)`, que recibe ese valor como argumento en vez de tenerlo fijo en
+  código.
+- **Diccionario completo del CSV intermedio, confirmado por `CSVLine` (getCabecera`/`getCSVLine`):** el
+  fichero tiene 3 grupos de columnas fijas con prefijo `GL.` (32 columnas), `LO.` (57 columnas) y `OP.`
+  (104 columnas) — 193 columnas fijas en total, cada una con su propio getter/setter en la clase (el
+  significado funcional de qué representa cada prefijo/grupo no está confirmado por el material disponible:
+  no hay comentarios ni documento fuente que lo explique). A continuación, la cabecera añade un bloque
+  repetido `OP.16.<NN>` (una columna por sucursal, hasta el máximo de sucursales de la ejecución,
+  `maxBranch`) y, tras él, un bloque repetido de 6 columnas por oficina (`OP.17.<NN>` a `OP.22.<NN>`, hasta
+  el máximo de oficinas, `maxOf`) — el número de columnas totales del CSV es, por tanto, **variable entre
+  ejecuciones**, dependiente de cuántas sucursales/oficinas tenga el fondo con más de cada una en ese lote.
+  Los valores que faltan (fondo con menos sucursales/oficinas que el máximo del lote) se rellenan con campos
+  vacíos entre separadores, no se omite la columna.
+- **Hallazgo — errata baked-in en el propio nombre de campo y en la cabecera real:** el campo declarado
+  como `LO_16_01202` (getter/setter `getLO_16_01202()`/`setLO_16_01202()`) rompe el patrón `LO_16_0N_0M` del
+  resto del grupo — la cabecera real que genera el jar contiene literalmente el texto `LO.16.01202` en esa
+  posición, en vez de `LO.16.02.02` como cabría esperar por el patrón. No es un error de transcripción de
+  esta sesión: está en el código fuente del jar tal cual, y por tanto en el fichero real que se distribuye.
+  No se puede saber sin más contexto si el sistema consumidor ya espera esta cabecera exacta (y por tanto es
+  intocable) o si es un defecto arrastrado sin corregir — señalado como hallazgo, no como gap a cerrar aquí.
+- **Campos de salida afectados:** el CSV completo generado por este jar (estructura descrita arriba); es la
+  entrada del siguiente paso de la cadena (`CSVToXML_Layout.jar`, aún no analizado en esta sesión).
+- **Qué pasa si falla/falta/cambia:** no confirmado — depende de la clase orquestadora (no aportada). No se
+  ha localizado en el material disponible ningún control de fichero vacío (0 fondos pendientes) ni de
+  campos obligatorios sin valor.
+- **Hallazgo menor:** `CSVLine.getLinea()` está definido pero siempre devuelve una cadena vacía — un método
+  sin implementar o ya en desuso; no se ha confirmado si algo lo invoca todavía.
+- **Nota de calidad de código (no funcional):** a diferencia de las clases `QuerysStr`/`QueryExec` de §6.1 y
+  §6.2 (que usan `PreparedStatement` con parámetros), esta versión de `QuerysStr` construye las queries por
+  concatenación directa de cadenas (`"... = '"+oid+"'"`), incluida la de `insertVREQ_BDIClient_Req`. No se ha
+  detectado que ningún valor externo/no confiable llegue a estos parámetros según el material disponible,
+  pero es una práctica de codificación distinta y potencialmente más frágil que la de los otros 2 jars de
+  esta misma cadena.
+- **Errata adicional detectada:** `insertVREQ_BDIClient_Req` inserta `DATA_SRC_ID='INVESTORS_LEI_REPONSE'`
+  (falta la "S" de "RESPONSE") — mismo patrón de erratas ya visto en el nombre de campo `LO_16_01202`.
+- **Gap abierto, no bloqueante (G5):** sin la clase orquestadora, no se puede confirmar el flujo completo:
+  qué query se ejecuta primero, cómo se puebla cada campo de `CSVLine` a partir de los datos de cada fondo,
+  ni la ruta/nombre de fichero real del CSV resultante. Pedir esa clase (o el `Main.java` del jar) para
+  cerrar el 100 % del flujo.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -221,16 +279,34 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `ACTIVE` para ese LEI, se produciría una excepción no distinguida de cualquier otro fallo del proceso
   (capturada de forma genérica, marca la petición como `ERROR` con el mensaje de la excepción Java, sin un
   código de error de negocio específico).
+* **Camino de negocio no documentado para fondos `DigitalCrossSelling` (confirmado por código, §6.3):**
+  `AltaFondos_Genera_csv.jar` selecciona por separado los fondos de alta con `VND_RQST_CORR_ID='DigitalCrossSelling'`
+  frente al resto — ninguna spec ni documento fuente menciona este canal ni si su tratamiento posterior
+  difiere en algo. A confirmar con negocio/usuario qué distingue realmente a este canal en el resto de la
+  cadena (R8/R9).
+* **Estructura del CSV intermedio de tamaño variable entre ejecuciones (confirmado por código, §6.3):** el
+  número de columnas de `CSVLine` cambia según el máximo de sucursales/oficinas del lote — cualquier
+  validación de "número de columnas esperado" en pasos posteriores (`CSVToXML_Layout.jar`) debe tenerlo en
+  cuenta; no se ha confirmado si lo hace.
+* **Erratas baked-in en el propio código del jar (confirmado, §6.3):** el campo/cabecera `LO.16.01202` (en
+  vez del patrón esperado `LO.16.02.02`) y el valor `DATA_SRC_ID='INVESTORS_LEI_REPONSE'` (sin la "S" de
+  "RESPONSE") están en el código fuente tal cual, no son erratas de transcripción de esta sesión — a
+  confirmar si el sistema consumidor ya depende de estos valores exactos antes de plantear corregirlos.
 
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
 (`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
-salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap técnico G4
-(`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
-LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
-decisión completo — señalado como no bloqueante. Quedan abiertos, como riesgos nuevos descubiertos por este
-análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas, la historificación de
-ficheros vacíos como si fueran un procesamiento exitoso, el país hardcodeado a `ES` en el alta de LEI, y la
-ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI (§9). Sigue pendiente, para los
-siguientes artefactos de esta misma cadena (R8, R9), el gap técnico aún no abordado en esta sesión.
+salvo el punto de entrada (`Main.java`), señalado como no bloqueante. Los gaps técnicos G4
+(`Investors_Client_Reg_resp.jar`) y G5 (`AltaFondos_Genera_csv.jar`, primer paso de R8) quedan **parcialmente
+resueltos**: el modelo de datos, el diccionario de campos y las piezas de negocio confirmadas por código real
+están documentados, pero en ambos falta la clase orquestadora del jar para cerrar el flujo de decisión
+completo — señalado como no bloqueante en los dos casos. Quedan abiertos, como riesgos nuevos descubiertos
+por este análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas, la
+historificación de ficheros vacíos como si fueran un procesamiento exitoso, el país hardcodeado a `ES` en el
+alta de LEI, la ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI, el camino de
+negocio no documentado para fondos `DigitalCrossSelling`, el tamaño variable del CSV intermedio entre
+ejecuciones, y 2 erratas baked-in en el código del jar (§9). Siguen pendientes, para el resto de la cadena de
+R8 (`CSVToXML_Layout.jar`, `Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`,
+`AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para
+R9, los gaps técnicos aún no abordados en esta sesión.
