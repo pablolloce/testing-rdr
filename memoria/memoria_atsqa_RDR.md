@@ -107,7 +107,39 @@ de forma reversible, usuarios reales y un correo personal. **Por eso no están e
 La misma regla aplica a lo que generemos: el `brief_atsqa.md` se versiona, así que nombra las
 credenciales pero nunca sus valores.
 
-## 9. Cómo usar esta memoria al preparar pruebas de un proceso
+## 9. Hallazgos de la primera ejecución real (2026-09-23/24)
+
+Primer intento de ejecutar una prueba en una máquina con AtSQA instalado. **No se llegó a validar
+ningún caso**, pero el intento dejó cinco hechos que ahorran tiempo a quien venga después.
+
+**El código de salida del proceso Java no refleja el resultado de la prueba.** Termina en 0 tanto
+si los pasos pasan como si no. Cualquier script que decida en función del código de salida dará
+falsos verdes. Para saber si una prueba ha fallado hay que leer el informe o el log del framework.
+Esto condiciona cualquier automatización: no se puede encadenar AtSQA a nada que reaccione a un
+fallo sin parsear su salida.
+
+**La carpeta `Executions` de la instalación es el testigo fiable.** Si el framework ejecuta, deja
+constancia ahí. Vacía o sin ficheros de la fecha significa que no ha ejecutado nada, por mucho que
+el proceso haya terminado sin error.
+
+**El bloque de navegador es obligatorio en el XML aunque la prueba no navegue**, y la máquina de
+ejecución necesita Chrome o Chromium y su driver instalados. Es un coste fijo que se paga también
+en las pruebas que solo miran un fichero.
+
+**Las aserciones de DOM no sirven contra ficheros en disco.** Localizan el elemento a través del
+driver del navegador. Para comprobar contenido en un fichero hay que usar búsqueda de texto.
+
+**No existe forma nativa de afirmar nada sobre la estructura de un XML**: ni contar nodos de un
+tipo, ni comparar dos recuentos. Eso obliga a un helper externo o no se hace. Es el matiz más
+importante sobre §4: dentro de la validación de ficheros, buscar texto y contar líneas funciona;
+validar estructura, no.
+
+**Sobre la primera prueba que se monte:** debe incluir un caso que demuestre que sabe ponerse en
+rojo. Una prueba que solo sabe pasar no demuestra nada. En este intento, cuatro ficheros —uno
+correcto, uno con el defecto buscado, uno mal formado y uno vacío— dieron los cuatro el mismo
+resultado, y eso fue lo que destapó que nada se estaba ejecutando.
+
+## 10. Cómo usar esta memoria al preparar pruebas de un proceso
 
 1. El proceso debe tener antes `spec.md` y `casos_prueba.xml` cerrados.
 2. Triar los casos en los cuatro grupos de §4 y confirmar el triaje con el usuario.
