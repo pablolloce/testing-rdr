@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_DUCO_CPTY" fecha="2026-09-24" usuario="miguel.saavedra">
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ejecución diaria estándar con contrapartidas activas válidas</nombre>
+    <objetivo>Verificar que la cadena genera, envía, limpia e historifica correctamente el fichero de contrapartidas en un día de ejecución normal.</objetivo>
+    <precondiciones>
+      <precondicion>Existen en `fins` al menos 2 contrapartidas con `data_stat_typ='ACTIVE'`, `rel_typ='OPERATIVE'` y `finsrl_typ='CPARTY'`.</precondicion>
+      <precondicion>Cada una de esas 2 contrapartidas tiene exactamente una fila en `roleid` con `finsrl_id_ctxt_typ='MUREXID'` no nula.</precondicion>
+      <precondicion>El directorio `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOCPTY/` existe y es escribible por `xakytl1p`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY001, CPTY002"/>
+      <dato campo="ROLE_TYPE" valor="MUREXID"/>
+      <dato campo="Fecha de ejecución" valor="2026-09-29 (martes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `RDR_DUCOCPTY_GSPROCESS` se dispara después de las 04:00 AM del 2026-09-29 y finaliza en OK.</paso>
+      <paso numero="2">Verificar que `DUCOCPTY.csv` contiene exactamente 2 filas, una por cada `FINSID` (CPTY001, CPTY002).</paso>
+      <paso numero="3">Confirmar que `MEKYTL1151` finaliza en OK tras el evento de `RDR_DUCOCPTY_GSPROCESS`.</paso>
+      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK y que el fichero llega a `Ipftp501:/unload/transmisiones/KYTL/DUCOCPTY.csv`.</paso>
+      <paso numero="5">Confirmar que `MEKYTL1151_DEL` finaliza en OK y que no quedan ficheros temporales en la pasarela.</paso>
+      <paso numero="6">Confirmar que `MEKYTL1150` finaliza en OK y que existe `old/DUCOCPTY_20260929.csv.gz`.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs finalizan en OK; `DUCOCPTY.csv` contiene exactamente las 2 filas esperadas; el fichero histórico `old/DUCOCPTY_20260929.csv.gz` existe.</resultadoEsperado>
+    <tipoValidacion>Validación funcional de extremo a extremo sobre estados de job y ficheros de salida.</tipoValidacion>
+    <criterioAceptacion>Ningún job termina en NOTOK y el fichero histórico comprimido existe con el contenido esperado.</criterioAceptacion>
+    <posibilidadFallo>Si falta alguna fila en el CSV, si el envío no llega a destino, o si el histórico no existe, el caso falla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Exclusión de contraparte activa sin rol ni alias</nombre>
+    <objetivo>Verificar que una contraparte activa pero sin ningún rol ni alias asociado queda excluida de `DUCOCPTY.csv`, conforme al filtro de selección documentado.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una contraparte (`FINSID=CPTY003`) con `data_stat_typ='ACTIVE'` en `fins`, sin ninguna fila en `roleid` ni en `aliasid`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY003"/>
+      <dato campo="Filas en roleid/aliasid" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `CPTY003` no tiene ninguna fila en `roleid` ni en `aliasid`.</paso>
+      <paso numero="2">Ejecutar `RDR_DUCOCPTY_GSPROCESS`.</paso>
+      <paso numero="3">Buscar en `DUCOCPTY.csv` una fila con `FINSID=CPTY003`.</paso>
+    </pasos>
+    <resultadoEsperado>No existe ninguna fila con `FINSID=CPTY003` en `DUCOCPTY.csv`.</resultadoEsperado>
+    <tipoValidacion>Validación de regla de negocio (filtro de rol/alias no nulos).</tipoValidacion>
+    <criterioAceptacion>Ausencia total de `CPTY003` en el fichero de salida, sin que el job falle.</criterioAceptacion>
+    <posibilidadFallo>Si `CPTY003` aparece en el CSV, el filtro de exclusión no funciona como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo del job disparador RDR_DUCOCPTY_GSPROCESS</nombre>
+    <objetivo>Verificar que un fallo en la ejecución de GSProcess.sh detiene la cadena y no permite avanzar a MEKYTL1151.</objetivo>
+    <precondiciones>
+      <precondicion>Es posible forzar en entorno de pruebas la indisponibilidad de la conexión a base de datos que usa el jar `ExtraccionGenericaOtherEntities.jar` durante la ejecución de `RDR_DUCOCPTY_GSPROCESS`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición forzada" valor="Conexión Oracle no disponible durante la ejecución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar la indisponibilidad de la conexión a base de datos antes de la ventana de disparo (04:00 AM).</paso>
+      <paso numero="2">Dejar que Control-M dispare `RDR_DUCOCPTY_GSPROCESS` en su ventana normal.</paso>
+      <paso numero="3">Verificar el estado final del job en Control-M.</paso>
+      <paso numero="4">Verificar el estado de `MEKYTL1151`.</paso>
+    </pasos>
+    <resultadoEsperado>`RDR_DUCOCPTY_GSPROCESS` finaliza en NOTOK; el evento de salida no se genera; `MEKYTL1151` permanece en espera sin ejecutarse.</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de errores y propagación de estado de fallo.</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al disparador se ejecuta tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Si la cadena avanza pese al fallo del disparador, el manejo de errores está roto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Contraparte activa sin ninguna plaza asociada en ft_t_enfr</nombre>
+    <objetivo>Verificar que una contraparte activa sin ninguna fila en ft_t_enfr genera las 26 columnas BRANCH_STATUS vacías, sin error.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una contraparte (`FINSID=CPTY004`) activa, con rol `MUREXID` no nulo, y sin ninguna fila en `ft_t_enfr`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY004"/>
+      <dato campo="Filas en ft_t_enfr" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `CPTY004` no tiene ninguna fila en `ft_t_enfr`.</paso>
+      <paso numero="2">Ejecutar la cadena completa hasta la generación del CSV.</paso>
+      <paso numero="3">Localizar la fila de `CPTY004` en `DUCOCPTY.csv`.</paso>
+      <paso numero="4">Contar cuántas de las 26 columnas BRANCH_STATUS (SPAIN, MILAN, NEW_YORK, ...) tienen valor no vacío.</paso>
+    </pasos>
+    <resultadoEsperado>La fila de `CPTY004` existe en el CSV, con las 26 columnas BRANCH_STATUS vacías y el resto de campos poblados normalmente.</resultadoEsperado>
+    <tipoValidacion>Validación de borde sobre el pivote PIVOT de `ft_t_enfr`.</tipoValidacion>
+    <criterioAceptacion>La fila existe, ninguna de las 26 columnas de plaza tiene valor, y el job finaliza en OK.</criterioAceptacion>
+    <posibilidadFallo>Si el job falla o alguna columna BRANCH_STATUS trae un valor inesperado, el caso falla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Contraparte con múltiples contextos de rol genera múltiples filas legítimas</nombre>
+    <objetivo>Confirmar que una misma contraparte activa con 3 contextos de rol distintos (MUREXID, MARKITBIC, STARID) genera 3 filas independientes en el CSV, comportamiento esperado y no un defecto de deduplicación.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una contraparte (`FINSID=CPTY005`) activa con 3 filas en `roleid`: una con `finsrl_id_ctxt_typ='MUREXID'`, otra `'MARKITBIC'`, otra `'STARID'`, todas no nulas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY005"/>
+      <dato campo="roleid fila 1" valor="finsrl_id_ctxt_typ=MUREXID"/>
+      <dato campo="roleid fila 2" valor="finsrl_id_ctxt_typ=MARKITBIC"/>
+      <dato campo="roleid fila 3" valor="finsrl_id_ctxt_typ=STARID"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las 3 filas de `roleid` descritas para `CPTY005`.</paso>
+      <paso numero="2">Ejecutar la cadena completa hasta la generación del CSV.</paso>
+      <paso numero="3">Contar en `DUCOCPTY.csv` cuántas filas tienen `FINSID=CPTY005`.</paso>
+      <paso numero="4">Verificar que solo la fila con `ROLE_TYPE=STARID` tiene los campos `ALIAS_TYPE`/`ALIAS_ID`/`ALIAS_DATA_SRC`/`ALIAS_STATUS` poblados.</paso>
+    </pasos>
+    <resultadoEsperado>Existen exactamente 3 filas con `FINSID=CPTY005`, una por cada `ROLE_TYPE`, y únicamente la fila `STARID` trae los campos `ALIAS_*` poblados.</resultadoEsperado>
+    <tipoValidacion>Validación de comportamiento confirmado (una fila por contexto de rol, sin deduplicación por institución).</tipoValidacion>
+    <criterioAceptacion>Se observan exactamente 3 filas para `CPTY005`, y los campos `ALIAS_*` cumplen la regla de poblado condicional.</criterioAceptacion>
+    <posibilidadFallo>Si aparece una sola fila fusionada, o si los campos `ALIAS_*` aparecen poblados en filas distintas de `STARID`, el comportamiento difiere del confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Fallo de compresión tras movimiento exitoso en MEKYTL1150</nombre>
+    <objetivo>Confirmar el riesgo documentado: un fallo del paso de compresión (gzip) tras un movimiento (mv) exitoso deja el .csv sin comprimir en destino y bloquea la reejecución automática.</objetivo>
+    <precondiciones>
+      <precondicion>Existe `DUCOCPTY.csv` en `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOCPTY/` con contenido válido.</precondicion>
+      <precondicion>Es posible interrumpir o forzar el fallo del comando `gzip` invocado por `RAMERC0068.sh` justo después de que el `mv` haya finalizado, en entorno de pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero origen" valor="DUCOCPTY.csv"/>
+      <dato campo="Condición forzada" valor="Fallo de gzip inmediatamente después del mv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo del comando `gzip` que se ejecuta tras el `mv` dentro de `MEKYTL1150`.</paso>
+      <paso numero="2">Ejecutar `MEKYTL1150`.</paso>
+      <paso numero="3">Verificar el código de salida del job.</paso>
+      <paso numero="4">Verificar si existe `old/DUCOCPTY_YYYYMMDD.csv` (sin comprimir) en el destino.</paso>
+      <paso numero="5">Verificar si `DUCOCPTY.csv` sigue existiendo en la ruta origen.</paso>
+      <paso numero="6">Reejecutar manualmente `MEKYTL1150` sin corregir el estado.</paso>
+      <paso numero="7">Verificar el código de salida de la reejecución.</paso>
+    </pasos>
+    <resultadoEsperado>El primer intento finaliza con código de salida 16; `old/DUCOCPTY_YYYYMMDD.csv` existe sin comprimir; `DUCOCPTY.csv` ya no existe en el origen; la reejecución del paso 6 finaliza con código de salida 6 (no hay ficheros que historificar).</resultadoEsperado>
+    <tipoValidacion>Validación de riesgo de integridad confirmado por lectura del código fuente de `RAMERC0068.sh`.</tipoValidacion>
+    <criterioAceptacion>Se observan exactamente los códigos de salida 16 y 6 descritos, confirmando el hallazgo documentado en spec.md §6/§9.</criterioAceptacion>
+    <posibilidadFallo>Si el sistema recupera automáticamente el estado o la reejecución tiene éxito, el hallazgo documentado quedaría invalidado y debería revisarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Contrapartidas con el mismo LEI_ID pero distinto FINSID no se deduplican</nombre>
+    <objetivo>Verificar que la repetición deliberada del campo LEI_ID en 3 contrapartidas distintas no provoca ninguna fusión ni pérdida de filas: cada FINSID debe seguir generando su propia fila.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 3 contrapartidas activas distintas (`FINSID=CPTY010`, `CPTY011`, `CPTY012`), cada una con rol `MUREXID` no nulo, y las 3 con el mismo `LEI_ID='DUPLICATELEI001'` en `leiG`.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY010, CPTY011, CPTY012"/>
+      <dato campo="LEI_ID (repetido)" valor="DUPLICATELEI001"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar las 3 contrapartidas con el mismo `LEI_ID='DUPLICATELEI001'`.</paso>
+      <paso numero="2">Ejecutar la cadena completa hasta la generación del CSV.</paso>
+      <paso numero="3">Contar en `DUCOCPTY.csv` cuántas filas tienen `LEI_ID='DUPLICATELEI001'`.</paso>
+      <paso numero="4">Verificar que cada una de esas filas tiene un `FINSID` distinto correspondiente a su contraparte de origen.</paso>
+    </pasos>
+    <resultadoEsperado>Existen exactamente 3 filas con `LEI_ID='DUPLICATELEI001'`, cada una con un `FINSID` distinto (`CPTY010`, `CPTY011`, `CPTY012`).</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de datos sintéticos repetidos en un campo no clave (LEI_ID).</tipoValidacion>
+    <criterioAceptacion>Las 3 filas aparecen íntegras y diferenciadas pese a compartir el mismo LEI_ID.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso deduplicara por LEI_ID en vez de por FINSID, alguna de las 3 contrapartidas faltaría en el CSV resultante.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>MEKYTL1150 mantiene la dependencia real de MEKYTL1151_DEL_OK tras republicación del plan</nombre>
+    <objetivo>Verificar que, tras una republicación o migración del plan Control-M, MEKYTL1150 sigue exigiendo el evento RDR_DUCOCPTY_MEKYTL1151_DEL_OK como prerrequisito, y no revierte al evento de MEKYTL1151 que indica (desactualizada) la ficha de cadena del gestor documental.</objetivo>
+    <precondiciones>
+      <precondicion>`MEKYTL1150` exige actualmente el evento `RDR_DUCOCPTY_MEKYTL1151_DEL_OK` como único prerrequisito (confirmado en sesión de análisis).</precondicion>
+      <precondicion>Existe un evento de republicación de plan disponible para pruebas en el entorno de pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Evento prerrequisito esperado" valor="RDR_DUCOCPTY_MEKYTL1151_DEL_OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar como línea base el evento de prerrequisito actual de `MEKYTL1150`.</paso>
+      <paso numero="2">Ejecutar la republicación/migración del plan Control-M sobre el folder `KYTL0000-RDR_DUCO_CPTY` en el entorno de pruebas.</paso>
+      <paso numero="3">Consultar de nuevo la pestaña Prerrequisitos de `MEKYTL1150` tras la republicación.</paso>
+    </pasos>
+    <resultadoEsperado>El evento de prerrequisito de `MEKYTL1150` sigue siendo `RDR_DUCOCPTY_MEKYTL1151_DEL_OK` tras la republicación.</resultadoEsperado>
+    <tipoValidacion>Prueba de regresión sobre configuración de dependencias, motivada por la discrepancia detectada entre Control-M y el gestor documental.</tipoValidacion>
+    <criterioAceptacion>El evento de prerrequisito coincide con la línea base tras la republicación.</criterioAceptacion>
+    <posibilidadFallo>Si el evento cambia a uno asociado a `MEKYTL1151` (no `_DEL`), la cadena se dispararía prematuramente, antes de completarse la limpieza en pasarela.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ejecución end-to-end de la cadena completa en ventana real (martes a sábado)</nombre>
+    <objetivo>Validar el funcionamiento completo de los 5 jobs de la cadena, desde el disparo horario hasta la historificación final, en un día perteneciente a la ventana de planificación real confirmada.</objetivo>
+    <precondiciones>
+      <precondicion>El día de ejecución de prueba es martes, miércoles, jueves, viernes o sábado (ventana real confirmada; nunca domingo ni lunes).</precondicion>
+      <precondicion>Existen datos válidos en las tablas Oracle de origen para al menos 2 contrapartidas procesables.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="2026-10-01 (jueves)"/>
+      <dato campo="FINSID" valor="CPTY020, CPTY021"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que `RDR_DUCOCPTY_GSPROCESS` se dispara después de las 04:00 AM del 2026-10-01 y finaliza en OK.</paso>
+      <paso numero="2">Confirmar que `DUCOCPTY.csv` contiene las filas esperadas para `CPTY020` y `CPTY021`.</paso>
+      <paso numero="3">Confirmar que `MEKYTL1151` finaliza en OK tras el evento del disparador.</paso>
+      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK y que el fichero llega a `Ipftp501`.</paso>
+      <paso numero="5">Confirmar que `MEKYTL1151_DEL` finaliza en OK.</paso>
+      <paso numero="6">Confirmar que `MEKYTL1150` se dispara solo tras el evento de `MEKYTL1151_DEL` y finaliza en OK.</paso>
+      <paso numero="7">Verificar que `old/DUCOCPTY_20261001.csv.gz` existe y no está vacío.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs finalizan en OK en el orden documentado; `old/DUCOCPTY_20261001.csv.gz` existe con contenido no vacío.</resultadoEsperado>
+    <tipoValidacion>Validación end-to-end de la cadena completa: encadenamiento de eventos y resultado final.</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs aparecen en estado OK en Control-M y el fichero histórico final existe con contenido.</criterioAceptacion>
+    <posibilidadFallo>Cualquier job en NOTOK o cualquier discrepancia en el fichero final invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+</casosDePrueba>

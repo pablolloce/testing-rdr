@@ -1,0 +1,626 @@
+# Especificación — Proceso de Cesión de Contratos BBVA (Legal Agreements)
+
+> - Proceso: Extracción y distribución de Contratos Marco / Legal Agreements de BBVA SA
+> - Cadena cubierta: `RDR_BBVACONTRACTS_new` (M X J V S, 13:00)
+> - Cadenas excluidas por decomisión (confirmado por el usuario): `RDR_BBVAContracts_M`,
+>   `RDR_BBVAContracts_L`, `RESPUESTA_MENTOR_LA_BBVA_M`, `DIF_MENTOR_BBVA_new`
+> - Destino excluido por decomisión (confirmado por el usuario): Mentor — ya no recibe
+>   contratos por esta vía, la carga se hace vía online
+> - Usuario: pablo.llorente
+> - Fecha de generación: 2026-09-22
+> - Documentos fuente analizados:
+>   - `c84fbd0b-Cesion_de_agreements_BBVA-Bancomer.docx` (análisis Fase 1)
+>   - `4e944ab3-MEKYTL1104_DEL.pdf` (ficha de job)
+>   - `ab4bf80f-MEKYTL1104_S_DEL.pdf` (ficha de job)
+
+---
+
+## 1. Resumen ejecutivo
+
+El proceso "Cesión de Contratos BBVA" extrae de la plataforma GoldenSource RDR (esquema Oracle
+`KYTL_GC`) el universo completo de Contratos Marco / Legal Agreements de BBVA SA, lo materializa
+en un único documento XML (`BBVAContracts.xml`) y lo distribuye a los sistemas consumidores de
+la entidad.
+
+La extracción no pasa por ningún evento GoldenSource: es una query SQL directa
+(`ExtraccionContingenciaCONTRBBVA.sql`, 4.679 líneas) ejecutada vía JDBC desde una clase Java
+que construye el XML con `XMLELEMENT`/`XMLFOREST` dentro de Oracle. La query referencia 19
+tablas —tabla conductora `FT_T_LAGR`— y produce 337 campos de salida distintos.
+
+Tras la extracción, la cadena valida el XML contra su XSD y lo reparte de forma secuencial a
+los destinos vigentes: XCTT, Ibor, S3/Cloud (ADA), EYMI, Smart Data (Cloudera) e IHS Markit
+(vía pasarela SFTP). En paralelo genera un fichero CSV reducido a cuatro columnas que se
+historifica a diario y se envía una única vez al mes a un sistema de reporting (`v1128metr1`).
+La cadena cierra con la historificación comprimida del XML y el borrado del fichero en la
+pasarela.
+
+El análisis original documentaba tres cadenas. Tras la confirmación del usuario, **solo
+`RDR_BBVACONTRACTS_new` sigue viva**: las cadenas incrementales a Mentor (`_M` y `_L`) y sus
+cadenas de respuesta ACK/NACK están decomisadas, al igual que el propio destino Mentor.
+
+---
+
+## 2. Alcance del proceso
+
+### 2.1 Dentro del alcance
+
+| Elemento | Detalle |
+|----------|---------|
+| Cadena Control-M | `RDR_BBVACONTRACTS_new`, servidor MERCADOS-4, máquina `pr-rdr.igrupobbva` |
+| Periodicidad | Martes, miércoles, jueves, viernes y sábado a las 13:00 |
+| Extracción | `EXTRACCIONGENERICACONTRBBVA` → `ExtraccionContingenciaCONTRBBVA.sql` sobre `KYTL_GC` |
+| Generación de fichero | `BBVAContracts.xml` en `/fichtemcomp/pr/descargas/kytl/LAGR/` |
+| Validación | `VALIDACION_XSD_EXTRACT_BBVA` contra XSD `ValidationBBVAContracts` |
+| Transformación | `MEKYTL0895` (`GSProcess.sh transformarBBVAContracts`) — nodo de reparto |
+| Generación del CSV | Transformador XSL `BBVA_Contrats_CSV.xsl` sobre `BBVAContracts.xml` |
+| Distribución | XCTT, Ibor, S3/Cloud ADA, EYMI, Smart Data/Cloudera, IHS Markit, CSV a `v1128metr1` |
+| Historificación y purga | `MEKYTL0953` (.gz final), `MEKYTL1052` (CSV diario), `MEKYTL1053` (purga >7 días) |
+| Borrado en pasarela | `MEXIRM1104_DEL` y `MEXIRM1104_S_DEL` (ex `MEKYTL1104_DEL` / `MEKYTL1104_S_DEL`) |
+
+### 2.2 Fuera del alcance
+
+| Elemento excluido | Motivo |
+|-------------------|--------|
+| `RDR_BBVAContracts_M` (envío incremental diario a Mentor, L-V 06:00) | Decomisada — confirmado por el usuario |
+| `RDR_BBVAContracts_L` (envío semanal a Mentor, lunes 13:00) | Decomisada — confirmado por el usuario |
+| `RESPUESTA_MENTOR_LA_BBVA_M` y `DIF_MENTOR_BBVA_new` (ACK/NACK) | Decomisadas junto con Mentor |
+| Rama Mentor de `_new`: `FW_BBVAContracts_RDR_2` → `MEKYTL0896` → `MEKYTL0954` | Mentor ya no recibe contratos por esta vía (carga online) |
+| Jobs `MEKYTL1252` / `MEKYTL1255` (CSV de IDs para Mentor) | Pertenecían exclusivamente a `_M` y `_L`, decomisadas |
+| Recepción y procesamiento en los sistemas destino | Los envíos no entran en el target de este proyecto (confirmado por el usuario) |
+| Alerta de `MEXIRM1104_SND` si no ejecuta antes de las 17:00 | No aplica a este proyecto (confirmado por el usuario) |
+| Lógica `daybefore` (proyecto SDATOOL-46848) | Solo aplicaba a `_M` y `_L`; `_new` extrae el universo completo sin filtrar |
+
+> **Nota sobre la lógica `daybefore`:** el documento fuente dedica un apartado extenso a la
+> ventana de altas/modificaciones (reglas por franja horaria y día de la semana, exclusión de
+> contratos CLS y SWIFT). Esa lógica pertenece a `ExtraccionContingenciaCONTRBBVA_CLOB.sql`,
+> usada únicamente por las cadenas `_M` y `_L`. Al estar ambas decomisadas, no se derivan
+> requisitos ni casos de prueba de ella. Se deja constancia aquí porque el documento fuente la
+> presenta como lógica central del proceso y podría inducir a error en revisiones futuras: en
+> `RDR_BBVACONTRACTS_new` **no hay filtro temporal ni exclusión de CLS/SWIFT**.
+
+---
+
+## 3. Requisitos detectados
+
+| ID | Requisito |
+|----|-----------|
+| R-01 | La cadena `RDR_BBVACONTRACTS_new` arranca a las 13:00 los martes, miércoles, jueves, viernes y sábado, y ejecuta sus pasos de forma secuencial, un job tras otro. |
+| R-02 | `EXTRACCIONGENERICACONTRBBVA` ejecuta `GSProcess.sh` con parámetro `ExtraccionGenericaCONTRBBVA` bajo el usuario `xakytl1p`, lanzando la clase Java `Ppal` del jar `ExtraccionGenericaOtherEntities.jar` contra Oracle `KYTL_GC` vía `ojdbc8`. |
+| R-03 | La extracción genera `ExtraccionContingenciaCONTRBBVA.xml.tmp`, lo renombra a `.xml` y el script `CopiarFichero` lo copia como `BBVAContracts.xml` al directorio `/fichtemcomp/pr/descargas/kytl/LAGR/`. |
+| R-04 | El XML resultante contiene los 337 campos de salida definidos por la query, construidos a partir de 19 tablas de `KYTL_GC` con `FT_T_LAGR` como tabla conductora y raíz `nettingContractArray`. |
+| R-05 | La cadena `_new` extrae el universo completo de contratos: no aplica filtro `daybefore` ni exclusión CLS/SWIFT. |
+| R-06 | El filewatcher `FW_BBVAContracts_RDR_1` detecta la presencia de `BBVAContracts.xml` y habilita la continuación de la cadena. |
+| R-07 | `VALIDACION_XSD_EXTRACT_BBVA` valida `BBVAContracts.xml` contra el XSD `ValidationBBVAContracts` mediante `GenericValidator.sh`. **Confirmado por export real de Control-M:** el job tiene configurada la acción `ON CODE="NOTOK" → DOACTION ACTION="OK"` — un fallo de validación se convierte automáticamente en éxito y la cadena **continúa**, entregando el fichero a los 8 destinos aunque no sea válido según el XSD. |
+| R-08 | `MEKYTL0900` envía `BBVAContracts.xml` a la landing zone de XCTT mediante `MEGENV0001.sh` (usuario `xsramer1`), nombrando el fichero destino `BBVAContracts_YYYYMMDD.xml`. |
+| R-09 | `MEKYTL0895` ejecuta `GSProcess.sh transformarBBVAContracts` y actúa como nodo de reparto: es predecesor de **8 ramas de distribución** (XCTT, Ibor→S3→EYMI, CSV/reporting, Smart Data, IHS Markit, GMIP, THOR, PXVA — ver R-21/R-22/R-23). Internamente (confirmado por su `.properties`), tras generar el fichero de Mentor (ver nota de verificación en §4.5) normaliza `BBVAContracts.xml` in situ con `Agreements_Nodes.xsl` y **es el propio job el que genera `BBVAContracts.csv` aplicando `BBVA_Contrats_CSV.xsl`** — no es un job independiente. |
+| R-10 | `MEKYTL0886` envía el XML a Ibor (`/unload/eyvr/IN/Ibor/`) sin historificar; `MEKYTL0892` lo envía al bucket S3 de ADA; `MEKYTL0543` lo envía a EYMI (`eymip015`) y cierra la rama como job Dummy. |
+| R-11 | `BBVAContracts.csv` se genera aplicando el transformador `BBVA_Contrats_CSV.xsl` sobre `BBVAContracts.xml` (tras la normalización con `Agreements_Nodes.xsl`), con cabecera y cuatro columnas separadas por `;`: `RDR_ID`, `idStar`, `contractType`, `contractDescription`. **Confirmado: el job que ejecuta esta transformación es `MEKYTL0895` mismo (ver R-09), no un job separado.** |
+| R-12 | `MEKYTL1051` envía `BBVAContracts.csv` a `v1128metr1` **una única vez al mes** (calendario `MX3_1MART_M`, primer martes de mes). |
+| R-13 | `MEKYTL1052` historifica el CSV en `LAGR/old/BBVAContracts_yyyymmdd.csv` **todos los días** de ejecución de la cadena, y `MEKYTL1053` purga los históricos CSV con más de 7 días. |
+| R-14 | `MEKYTL1172` envía el XML a Smart Data / Cloudera como `RDR_EBDM_BBVAContracts_yyyymmdd.xml`. |
+| R-15 | `MEKYTL1104` (M X J V) deposita el XML en la pasarela `LPFTP501/502` y `MEXIRM1104_SND` lo transmite por SFTP a `SFTP-PROD.CAPPITECH.COM` (IHS Markit). La variante sábado (`MEKYTL1104_S` / `MEXIRM1104_S_SND`) opera con `ODATE+2`. |
+| R-16 | `MEXIRM1104_DEL` y `MEXIRM1104_S_DEL` borran `BBVAContracts_${AAAAMMDD}.xml` de la ruta `rdr` de la pasarela `LPFTP501/502` una vez el fichero ha sido enviado a destino. Su nivel de criticidad es **W** (aviso al día siguiente). |
+| R-17 | `MEKYTL0953` historifica `BBVAContracts.xml` como `.gz` en `LAGR/old/`. **Predecesores reales confirmados por export de Control-M** (condición AND, con OR solo entre las 2 variantes de IHS Markit): `MEKYTL0543`, `MEKYTL1172`, `MEKYTL1246`, `MEKYTL1264`, `MEKYTL1307`, y (`MEKYTL1104` **O** `MEKYTL1104_S`) — 5 ramas obligatorias más una de las 2 variantes sabatinas/laborables de IHS Markit. |
+| R-18 | Si la extracción falla, la cadena se para. No hay reintento automático ni ejecución degradada. |
+| R-19 | El fallo de un envío no impide la ejecución de los jobs sucesores: las dependencias declaradas son de orden, no de éxito. |
+| R-20 | La rama de distribución a Mentor está decomisada: ningún fichero de contratos debe salir hacia `pr-mentor.igrupobbva` por esta cadena. |
+| R-21 | **Confirmado por ficha real (EX-005-03-MEKYTL1246) — rama no documentada hasta esta sesión.** `MEKYTL1246` (predecesor `MEKYTL0895`, sucesor `MEKYTL0953`, M X J V S, criticidad W) envía `BBVAContracts.xml` vía `MEGENV0001.sh` a `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/GMIP/gmipfs/incoming/rdr/BBVAContracts_yyyymmdd.xml`. |
+| R-22 | **Confirmado por ficha real (EX-005-03-MEKYTL1264) — rama no documentada hasta esta sesión.** `MEKYTL1264` (mismos predecesor/sucesor/periodicidad/criticidad que R-21) envía el mismo fichero a NOVA THOR: `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/THOR/thorfs/incoming/RDR/ContratosBBVA/BBVAContracts_yyyymmdd.xml`. |
+| R-23 | **Confirmado por ficha real (EX-005-03-MEKYTL1307) — rama no documentada hasta esta sesión.** `MEKYTL1307` (mismos predecesor/sucesor/periodicidad/criticidad que R-21) envía el mismo fichero a PXVA: `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/BBVAContracts_yyyymmdd.xml`. |
+
+---
+
+## 4. Especificación funcional
+
+### 4.1 Arranque y secuencia de ejecución
+
+La cadena se dispara a las 13:00 (M X J V S) con el job `EXTRACCIONGENERICACONTRBBVA` y, a
+partir de ahí, cada job se ejecuta cuando le llega el turno en la secuencia. No existe una
+planificación horaria independiente por job: la hora real de ejecución de cada paso depende del
+tiempo que consuman los anteriores.
+
+> **Ventana de `FW_BBVAContracts_RDR_1`: confirmada con export real de Control-M.** El export del
+> Workspace de la cadena (`INCOND`/`OUTCOND`/`TIMEFROM`/`TIMETO` por job) muestra que la ventana
+> vigente del filewatcher es **14:00–15:30** (`TIMEFROM="1400" TIMETO="1530"`, chequeo cíclico
+> cada 15 min), no el 09:30–11:15 que declaraba el documento fuente original — esa cifra queda
+> identificada como errata/desactualización documental. Esta ventana es coherente con la
+> secuencia real: `RDR_BBVACONTRACTS_IN` (dummy de entrada) dispara a las **13:00**
+> (`TIMEFROM="1300"`), tras lo cual se ejecuta la extracción (`EXTRACCIONGENERICACONTRBBVA`), y
+> el filewatcher activa su propia ventana una hora después, a las 14:00, dejando margen para que
+> la extracción termine. No hay conflicto entre el arranque a las 13:00 y la ventana del
+> filewatcher: son dos franjas distintas y compatibles. **Hallazgo adicional confirmado por el
+> mismo export:** ante timeout del filewatcher (`COMPSTAT=7`), Control-M tiene configurada la
+> acción `DOACTION ACTION="OK"` — el timeout se convierte automáticamente en éxito, sin alertar
+> ni detener la cadena (patrón de "soft failure silencioso" ya visto en otros procesos RDR).
+> Nótese que `FW_BBVAContracts_RDR_2` pertenece a la rama Mentor, decomisada, por lo que no se
+> verifica su ventana.
+
+Del mismo modo, el job `MEKYTL1104` declara periodicidad propia "M X J V, 14:00": debe
+entenderse como la franja horaria en la que habitualmente se alcanza ese paso dentro de la
+secuencia iniciada a las 13:00, no como un disparo independiente.
+
+### 4.2 Extracción genérica (`EXTRACCIONGENERICACONTRBBVA`)
+
+El job lanza `GSProcess.sh` desde `/pr/kytl/online/multipais/multicanal/scrt/` con el parámetro
+`ExtraccionGenericaCONTRBBVA`. La configuración reside en
+`ExtraccionGenericaCONTRBBVA.properties` y define dos pasos:
+
+**Paso 1 — Acción Java.** Clase `Ppal` del jar `ExtraccionGenericaOtherEntities.jar`, con
+código de entidad `CONTRBBVA`. Abre conexión JDBC contra Oracle (`ojdbc8.jar`, pool
+`commons-dbcp`), ejecuta `ExtraccionContingenciaCONTRBBVA.sql` y vuelca el resultado —un único
+documento `XMLTYPE` con raíz `nettingContractArray`— a
+`/fichtemcomp/pr/descargas/kytl/extracciongenerica/ExtraccionContingenciaCONTRBBVA.xml.tmp`,
+que renombra a `.xml` al terminar. Las librerías `xdb.jar` y `xmlparserv2` dan soporte a
+`XMLELEMENT`/`XMLTYPE`.
+
+**Paso 2 — Acción Script.** `CopiarFichero` copia
+`CONTRBBVA/ExtraccionContingenciaCONTRBBVA.xml` a `LAGR/BBVAContracts.xml`. Este segundo
+fichero es el que consume el resto de la cadena.
+
+El uso de un fichero temporal `.tmp` renombrado al final es deliberado: evita que el filewatcher
+detecte un XML a medio escribir.
+
+### 4.3 La query de extracción
+
+`ExtraccionContingenciaCONTRBBVA.sql` es un único `SELECT` de 4.679 líneas que construye el
+documento XML mediante `XMLELEMENT`/`XMLFOREST` anidados. Características relevantes para el
+diseño de pruebas:
+
+- **Tabla conductora:** `KYTL_GC.FT_T_LAGR` (el contrato marco). Un contrato sin fila en
+  `FT_T_LAGR` no aparece en la salida bajo ninguna circunstancia.
+- **19 tablas referenciadas**, de las cuales las cinco que más campos aportan son `FT_T_LAGR`
+  (155 campos), `FT_T_LAAN` (74, anexos CSA/colateral), `FT_T_LPS1` (60, parámetros y cláusulas
+  en modelo EAV), `FT_T_LAX1` (47, extensiones de anexo) y `FT_T_LAT1` (29, atributos del
+  contrato en modelo EAV).
+- **6 tablas auxiliares usadas solo como filtro** (`FT_T_FIID`, `FT_T_FIST`, `FT_T_FRID`,
+  `FT_T_RTNG`, `FT_T_RTVL`, `FT_T_IDMV`): no aportan campos de salida pero condicionan qué
+  contratos aparecen.
+- **337 campos de salida distintos.**
+
+La presencia de dos tablas en modelo EAV (`FT_T_LPS1` y `FT_T_LAT1`, 89 campos entre ambas)
+implica que un mismo contrato puede aportar un número variable de filas según qué parámetros y
+atributos tenga informados. Es el punto más sensible del proceso para pruebas con datos
+sintéticos: un contrato mínimo produce un XML muy distinto de uno con todos los parámetros
+informados.
+
+### 4.4 Validación XSD
+
+`VALIDACION_XSD_EXTRACT_BBVA` ejecuta `GenericValidator.sh` con parámetro
+`ValidationBBVAContracts` sobre `LAGR/BBVAContracts.xml`.
+
+> **Confirmado con export real de Control-M — el flag "Force OK" está activo.** El análisis de
+> Fase 1 marcaba este job con `forzar_ok: true` ("Force OK") en el diagrama y el YAML de linaje.
+> En una ronda anterior de esta sesión, el usuario había indicado que el comportamiento real era
+> el contrario (que el fallo de XSD sí detiene la cadena). **El export del Workspace de
+> Control-M, confirmado explícitamente por el usuario como correcto, muestra lo contrario:**
+> ```xml
+> <ON STMT="*" CODE="NOTOK">
+>     <DOACTION ACTION="OK"/>
+> </ON>
+> ```
+> Es decir, el documento fuente original tenía razón: el flag "Force OK" **sí está activo**, y un
+> XML que no valide contra el XSD se convierte en éxito y continúa hacia los 6 destinos. La
+> respuesta anterior del usuario en esta sesión queda corregida por esta evidencia de mayor
+> rango (export en vivo de Control-M frente a una declaración verbal sin fichero fuente).
+
+Esta diferencia es material: con "Force OK" confirmado, el XSD **no protege a los sistemas
+consumidores de recibir un fichero malformado** — es un control de calidad presente pero
+inoperante. Ningún otro job de la cadena valida el contenido del fichero antes de distribuirlo.
+
+### 4.5 Nodo de reparto (`MEKYTL0895`) y ramas de distribución
+
+`MEKYTL0895` ejecuta `GSProcess.sh transformarBBVAContracts` y es el predecesor común de las
+ramas de distribución.
+
+> **Corrección importante (2026-09-24) — el recuento de "cinco/seis ramas" era incompleto.**
+> Se creía que `MEKYTL1246`, `MEKYTL1264` y `MEKYTL1307` eran 3 de los ~8 pasos declarados en la
+> ficha (30) y no identificados en el análisis original, y se habían dado por decomisados junto
+> con la rama Mentor (§4.9). **El export real de Control-M y las 3 fichas EX-005-03
+> correspondientes confirman lo contrario: son 3 ramas de distribución reales y activas**,
+> predecesor `MEKYTL0895` y sucesor `MEKYTL0953` igual que el resto — ver R-21/R-22/R-23. El
+> nodo de reparto tiene por tanto **8 ramas de distribución**, no 5 ni 6.
+>
+> **Generación de Mentor — reconfirmado como decomisado (cerrado).** El `.properties` real de
+> `transformarBBVAContracts` (entorno `ei`, aportado en esta sesión) sigue conteniendo la cadena
+> completa de generación del fichero de Mentor (`Agreements_To_Mentor.xsl`,
+> `Agreements_To_Mentor_Productos.xsl`, `Agreements_Normalize.xsl`, `Agreements_Nodes.xsl`, con sus
+> pasos de `MoverFichero`/`Borrar`), lo que en un primer momento pareció contradecir la
+> confirmación previa de que "esa generación se ha eliminado". **El usuario confirma
+> explícitamente que, para la cadena `RDR_BBVACONTRACTS_new` en concreto, toda la generación de
+> ficheros hacia Mentor está decomisada**, con independencia de que esos pasos sigan presentes en
+> el `.properties` de entorno `ei` (código inerte/no ejecutado en producción, o entorno
+> desactualizado — no se profundiza más al no ser relevante). **Esta decomisión es específica de
+> `RDR_BBVACONTRACTS_new`** y no se extiende a otros procesos RDR que sí envían activamente a
+> Mentor (p. ej. `MEKYTL1266` en Envío de Calendarios a Modelity, `MEKYTL1146` en
+> `RDR_ISSUES_RE_PRO_new`), confirmados como ramas vivas en esta misma sesión.
+>
+> **Confirmado en el mismo `.properties`:** tras los pasos relativos a Mentor, `MEKYTL0895`
+> normaliza `BBVAContracts.xml` in situ con `Agreements_Nodes.xsl` (fichero temporal +
+> `MoverFichero`) y a continuación **genera `BBVAContracts.csv` aplicando `BBVA_Contrats_CSV.xsl`
+> sobre ese mismo XML ya normalizado** — es el propio `MEKYTL0895` el job que produce el CSV, no
+> un job independiente (cierra R-11).
+
+| Rama | Jobs | Destino |
+|------|------|---------|
+| XCTT | `MEKYTL0900` (predecesor de `MEKYTL0895`, no sucesor) | landing zone XCTT `/incoming/rdr/agreements/` |
+| Ibor → S3 → EYMI | `MEKYTL0886` → `MEKYTL0892` → `MEKYTL0543` | `/unload/eyvr/IN/Ibor/`, bucket `ada-eu-south-2-data-live-ho-staging-in`, `eymip015` |
+| CSV reporting | `MEKYTL1051` → `MEKYTL1052` → `MEKYTL1053`(*) | `v1128metr1:\DATDPTO1\...\SC000353\` |
+| Smart Data | `MEKYTL1172` | `pr-bigdata-cib.igrupobbva:/usr/local/pr/cloudera/staging/01/rdr/` |
+| IHS Markit | `MEKYTL1104` → `MEXIRM1104_SND` → `MEXIRM1104_DEL` | pasarela `LPFTP501/502` → `SFTP-PROD.CAPPITECH.COM:/Inbound/RefData/` |
+| IHS Markit (sábado) | `MEKYTL1104_S` → `MEXIRM1104_S_SND` → `MEXIRM1104_S_DEL` | mismo destino, `ODATE+2` |
+| **GMIP** (nueva, R-21) | `MEKYTL1246` | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/GMIP/gmipfs/incoming/rdr/` |
+| **NOVA THOR** (nueva, R-22) | `MEKYTL1264` | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/THOR/thorfs/incoming/RDR/ContratosBBVA/` |
+| **PXVA** (nueva, R-23) | `MEKYTL1307` | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/` |
+| Mentor | `FW_BBVAContracts_RDR_2` → `MEKYTL0896` → `MEKYTL0954` | **DECOMISADA** (pero ver nota sobre el `.properties` arriba) |
+
+(*) `MEKYTL1053` — **resuelto: probablemente decomisado o nunca migrado a la infraestructura
+actual.** Su ficha EX-005-03 real muestra `MÁQUINA ORIGEN: 22.156.148.85` (IP fija antigua, no la
+VIPA `pr-rdr.igrupobbva` que usan todos los demás jobs vigentes de esta cadena) y el campo
+"Reglas Planificación/Periodicidad" completamente en blanco (a diferencia de todas las demás
+fichas de esta cadena, que declaran "M X J V S"). Ambas señales son consistentes con su ausencia
+del export real de Control-M (`Workspace_204.xml`).
+
+**Las dependencias son de orden, no de éxito.** La ficha encadena Ibor → S3 → EYMI y CSV →
+historificación → purga como secuencias predecesor-sucesor, lo que a primera vista sugiere que
+un fallo en Ibor dejaría sin ejecutar S3 y EYMI. El usuario confirma que **el sucesor arranca
+aunque el predecesor termine en KO**: la dependencia establece el orden de ejecución, no
+condiciona el arranque al resultado. Esto hace compatible el encadenamiento documentado con el
+aislamiento de envíos, y tiene dos consecuencias para el diseño de pruebas:
+
+1. Un fallo de envío aislado no detiene la cadena ni las ramas paralelas — debe verificarse que
+   los jobs posteriores llegan a ejecutarse (TC-09).
+2. Los jobs con predecesores de calendario restringido (`MEKYTL1052` espera a `MEKYTL1051`, que
+   solo corre el primer martes de mes; `MEKYTL0953` espera a `MEKYTL1104_S`, que solo corre los
+   sábados) **no quedan bloqueados** los días en que ese predecesor no se ejecuta. Es lo que
+   permite que la historificación del CSV sea diaria pese a que el envío sea mensual (§4.6).
+
+`MEKYTL0543` (envío a EYMI) figura en la ficha con sucesor "— (dummy)". El usuario confirma que
+es un job Dummy de Control-M que únicamente informa el fin de la rama, sin más información
+asociada. Su ejecución correcta no implica que EYMI haya recibido el fichero: solo que la rama
+ha terminado.
+
+### 4.6 Fichero CSV a reporting
+
+**Generación.** `BBVAContracts.csv` se produce aplicando el transformador
+`BBVA_Contrats_CSV.xsl` sobre el fichero total `BBVAContracts.xml`, como parte de los pasos
+internos del propio `MEKYTL0895` (`transformarBBVAContracts.properties`, confirmado por el
+`.properties` real — ver §4.5), no de un job independiente. La transformación:
+
+1. Añade una cabecera con los cuatro campos: `RDR_ID;idStar;contractType;contractDescription`
+2. Recorre todos los legal agreements contenidos en el XML
+3. Añade cada campo recuperándolo del XML, separados por `;`
+4. Incluye un salto de línea tras la descripción del contrato
+
+| Columna | Descripción | Ejemplo |
+|---------|-------------|---------|
+| `RDR_ID` | Identificador del contrato en RDR | `3237323139` |
+| `idStar` | Código STAR del firmante externo | `A28015865` |
+| `contractType` | Tipo de contrato | `CMOF97` |
+| `contractDescription` | Descripción del contrato | `TELEFONICA S.A.` |
+
+Ejemplo de contenido real:
+
+```
+RDR_ID;idStar;contractType;contractDescription
+39285164;280360066;ISDA02ENG;RAIFFEISENLANDESBANK OBEROSTERREICH
+39285222;A28905065;CMOF13;ACTIA SYSTEMS S.A.
+323836;280320002;ISDA92;
+32373633;;ISDA92;
+```
+
+Obsérvese que `idStar` y `contractDescription` pueden venir vacíos: el CSV mantiene los tres
+separadores en todas las líneas, dejando el campo en blanco. Esto es comportamiento esperado y
+no debe tratarse como fichero malformado (TC-10).
+
+**Distribución e historificación.** La rama tiene dos cadencias distintas, y esta es la
+particularidad que más confusión genera en la documentación:
+
+| Job | Función | Cadencia |
+|-----|---------|----------|
+| `MEKYTL1051` | Envío del CSV a `v1128metr1` | **Mensual** — calendario `MX3_1MART_M`, primer martes de mes, un único envío al mes |
+| `MEKYTL1052` | Historificación en `LAGR/old/BBVAContracts_yyyymmdd.csv` | **Diaria** — en cada ejecución de la cadena |
+| `MEKYTL1053` | Purga de históricos con más de 7 días | Documentada como **Diaria** — sucesor de `MEKYTL1052`, pero probablemente decomisado (ver §4.5): ausente del export real, con ficha propia que declara IP fija antigua y sin periodicidad activa |
+
+El CSV se genera y se historifica en cada pasada de la cadena, pero solo se transmite al sistema
+de reporting una vez al mes. `MEKYTL1052` tiene dos predecesores con calendarios distintos
+—`MEKYTL1051` (mensual) y `MEKYTL1104` (M X J V)— y, al ser las dependencias de orden y no de
+éxito (§4.5), se ejecuta a diario sin quedar bloqueado por el predecesor mensual. La
+documentación original describía lo mismo para `MEKYTL1053`, pero al estar probablemente
+decomisado, la purga a 7 días de `LAGR/old/` puede no estar operando realmente — riesgo real a
+verificar en producción (TC-12), no una garantía asumida.
+
+La retención de 7 días sobre una historificación diaria implica que `LAGR/old/` mantiene en
+régimen estacionario del orden de 6 a 7 ficheros CSV.
+
+### 4.7 Rama IHS Markit y borrado en pasarela
+
+La distribución a IHS Markit es la única que sale de la red interna y la única con un paso de
+limpieza explícito:
+
+1. `MEKYTL1104` (M X J V) deposita `BBVAContracts.xml` en
+   `LPFTP501/502:/unload/transmisiones/XIRM/rdr/BBVAContracts_yyyymmdd.xml` (usuario `xtprox1p`).
+2. `MEXIRM1104_SND` transmite el fichero por SFTP a
+   `SFTP-PROD.CAPPITECH.COM:/Inbound/RefData/BBVAContracts.xml` (usuario `xtprox1d`).
+3. `MEXIRM1104_DEL` borra el fichero de la ruta `rdr` de la pasarela una vez enviado a destino.
+
+La variante sabatina replica los tres pasos (`MEKYTL1104_S` → `MEXIRM1104_S_SND` →
+`MEXIRM1104_S_DEL`) operando con `ODATE+2`, confirmado por el usuario como comportamiento
+correcto: el fichero del sábado se transmite con fecha de proceso desplazada dos días para
+alinearse con el calendario del destino externo.
+
+**Sobre los jobs de borrado.** Sus fichas (`EX-005-03`) precisan varios puntos que el análisis
+de Fase 1 no recogía:
+
+- Ambos fueron **renombrados el 12/09/25**: `MEKYTL1104_DEL` → `MEXIRM1104_DEL` y
+  `MEKYTL1104_S_DEL` → `MEXIRM1104_S_DEL`. La documentación de la cadena sigue usando los
+  nombres antiguos; en Control-M deben buscarse por el nombre nuevo.
+- Se ejecutan en la máquina `LPFTP501/502`, no en `pr-rdr.igrupobbva` como el resto de la
+  cadena.
+- La librería origen figura como "A determinar por Service Support": el script concreto no está
+  identificado en la ficha.
+- Su **nivel de criticidad es W** (aviso al día siguiente), el más bajo de los tres niveles.
+  Esto es coherente con su función: si el borrado no se produce, el fichero ya ha sido
+  transmitido a IHS Markit y el impacto es de acumulación en la pasarela, no de pérdida de
+  servicio.
+- La norma de rearranque de ambos es avisar a ANS RDR (BZG03906, `ans_rdr.es@bbva.com`, cola
+  Remedy ANS RDR).
+- No tienen sucesores: cierran su rama.
+
+Al ser el borrado posterior al envío y no condicionar a ningún job, su no ejecución deja
+ficheros acumulándose en `/unload/transmisiones/XIRM/rdr/` sin detener la cadena. La
+verificación correspondiente (TC-14) debe comprobar tanto que el fichero desaparece de la
+pasarela como que ha sido transmitido antes del borrado.
+
+### 4.8 Historificación final
+
+`MEKYTL0953` ejecuta `RAMERC0068.sh` con parámetro `MEKYTL0953` y comprime `BBVAContracts.xml`
+a `LAGR/old/BBVAContracts_yyyymmdd.gz`. Tiene tres predecesores —`MEKYTL1172` (Smart Data),
+`MEKYTL1104` y `MEKYTL1104_S`— por lo que actúa como punto de cierre de la cadena. Al igual que
+en el caso de `MEKYTL1052`, el predecesor `MEKYTL1104_S` solo se ejecuta los sábados, y la
+naturaleza de las dependencias (orden, no éxito) permite que la historificación se complete los
+días laborables (TC-15).
+
+### 4.9 Pasos de la cadena y cobertura documental
+
+**Actualizado con export real de Control-M (`Workspace_204.xml`, 2026-09-24).** La suposición
+original — que los pasos no documentados eran todos jobs decomisados — **era solo parcialmente
+correcta**. El export lista **23 jobs activos** en el folder `KYTL0000-RDR_BBVACONTRACTS_new`.
+Reconciliando contra la cobertura de esta especificación:
+
+| Situación | Nº | Detalle |
+|-----------|----|---------|
+| Documentados con ficha técnica y confirmados activos en el export | 23 | 18 del análisis original + `MEXIRM1104_DEL`/`MEXIRM1104_S_DEL` (2) + `MEKYTL1246`/`MEKYTL1264`/`MEKYTL1307` (3, identificados en esta sesión, **no decomisados**) — coincide exactamente con el total de jobs activos del export |
+| Nombrados sin ficha, fuera de alcance (decomisados, rama Mentor) | 3 | `FW_BBVAContracts_RDR_2`, `MEKYTL0896`, `MEKYTL0954` — confirmado: ausentes del export real |
+| Documentado en el análisis original pero ausente del export real | 1 | `MEKYTL1053` (purga) — no aparece como job independiente; ver nota en §4.5 |
+
+**Conclusión revisada:** de los pasos que el análisis original no lograba ubicar frente a los 30
+declarados en la ficha, **al menos 3 (`MEKYTL1246`, `MEKYTL1264`, `MEKYTL1307`) resultaron ser
+ramas de distribución activas no detectadas**, no decomisadas — un error de la hipótesis
+original, corregido en esta sesión con evidencia real (export + 3 fichas EX-005-03). La rama
+Mentor (3 jobs) sí se confirma decomisada, consistente con su ausencia del export. `MEKYTL1053`
+(purga de históricos CSV) también queda resuelto como probable decomisión: su propia ficha
+EX-005-03 declara una IP fija antigua (`22.156.148.85`) y periodicidad en blanco, a diferencia de
+todas las demás fichas vigentes de esta cadena (nota en §4.5). El inventario de jobs activos
+queda así cerrado: los 23 jobs del export están todos documentados en esta especificación. No se
+ha reconciliado la cifra exacta de "30 pasos declarados" contra los 23 activos + 4 decomisados
+(3 de Mentor + `MEKYTL1053`), dado que la ficha original no está disponible para un cotejo línea
+a línea; la cobertura de pruebas se basa en el export real, no en el recuento declarado.
+
+---
+
+## 5. Especificación técnica
+
+| Elemento | Valor |
+|----------|-------|
+| Aplicación | KYTL |
+| Servidor origen | `pr-rdr.igrupobbva` (activo en `lprdr501` y `lprdr602`) |
+| Máquina de los jobs de borrado | `LPFTP501/502` |
+| Usuarios de ejecución | `xakytl1p` (extracción), `xsramer1` (envío XCTT), `xtprox1p` (pasarela), `xtprox1d` (SFTP Markit) |
+| Servidor Control-M | MERCADOS-4 |
+| Estructura Control-M | `RDR_BBVACONTRACTS_new` |
+| Grupo de soporte | ANS RDR (BZG03906), `ans_rdr.es@bbva.com`, cola Remedy ANS RDR |
+| Esquema Oracle | `KYTL_GC` (plataforma GoldenSource RDR) |
+| Tabla conductora | `FT_T_LAGR` |
+| Nº de tablas origen | 19 (+6 auxiliares solo de filtro) |
+| Nº de campos de salida | 337 |
+| Query | `ExtraccionContingenciaCONTRBBVA.sql` (4.679 líneas) |
+| Clase Java | `Ppal` (jar `ExtraccionGenericaOtherEntities.jar`) |
+| Driver JDBC | `ojdbc8.jar` |
+| Librerías XML | `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar` |
+| Pool de conexiones | `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar` |
+| Transformador CSV | `BBVA_Contrats_CSV.xsl` |
+| Fichero intermedio | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONTRBBVA/ExtraccionContingenciaCONTRBBVA.xml` |
+| Fichero de trabajo | `/fichtemcomp/pr/descargas/kytl/LAGR/BBVAContracts.xml` |
+| Raíz del XML | `nettingContractArray` |
+| Directorio de históricos | `/fichtemcomp/pr/descargas/kytl/LAGR/old/` |
+| Retención de históricos CSV | 7 días (`MEKYTL1053`) |
+| Calendario del envío CSV | `MX3_1MART_M` (primer martes de mes) |
+
+### 5.1 Tablas origen y aportación de campos
+
+| Tabla | Rol | Campos de salida |
+|-------|-----|------------------|
+| `FT_T_LAGR` | Maestra de Contratos Marco (Legal Agreements) | 155 |
+| `FT_T_LAAN` | Anexos del contrato (CSA / colateral) | 74 |
+| `FT_T_LPS1` | Parámetros y cláusulas del contrato (EAV) | 60 |
+| `FT_T_LAX1` | Extensiones de anexo (monedas, ratings, scope) | 47 |
+| `FT_T_LAT1` | Atributos del contrato (EAV) | 29 |
+| `FT_T_LPX1` | Parámetros de anexo (horarios, colateral, delivery) | 28 |
+| `FT_T_ISSU` | Emisiones / monedas de instrumento | 13 |
+| `FT_T_LAAP` | Parámetros adicionales de anexo | 13 |
+| `FT_T_INCL` | Catálogo de clasificación (legal opinion / netting) | 6 |
+| `FT_T_LACD` | Detalle de colateral | 4 |
+| `FT_T_FND1` | Flags de opinión legal | 2 |
+| `FT_T_EIST` | Tipos de instrumento externo | 2 |
+| `FT_T_LAID` | Identificadores del acuerdo legal (RDR_ID) | 1 |
+| `FT_T_LRT1` | Comentarios de anexo | 1 |
+| `FT_T_ISTY` | Tipo de emisión (catálogo) | 1 |
+| `FT_T_LARS` | Restricciones del acuerdo | 1 |
+| `FT_T_ISCD` | Catálogo de código de emisión | 1 |
+| `FT_T_LAAT` | Umbrales de anexo (margin call) | 1 |
+| `FT_T_FLAR` | Vista de garantías agregada | 1 |
+| `FT_T_FIID`, `FT_T_FIST`, `FT_T_FRID`, `FT_T_RTNG`, `FT_T_RTVL`, `FT_T_IDMV` | Auxiliares — solo filtrado en subconsultas | 0 |
+
+### 5.2 Rutas de destino
+
+| Destino | Ruta |
+|---------|------|
+| XCTT | `/usr/local/pr/nova/landingzone/XCTT/.../incoming/rdr/agreements/BBVAContracts_YYYYMMDD.xml` |
+| Ibor | `/unload/eyvr/IN/Ibor/BBVAContracts_YYYYMMDD.xml` |
+| S3 / Cloud ADA | `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/BBVAContracts_YYYYMMDD.xml` |
+| EYMI | `/fichtemcomp/pr/descargas/eymi/pr/in/eymip015/BBVAContracts_YYYYMMDD.xml` |
+| Smart Data / Cloudera | `pr-bigdata-cib.igrupobbva:/usr/local/pr/cloudera/staging/01/rdr/RDR_EBDM_BBVAContracts_yyyymmdd.xml` |
+| Pasarela IHS Markit | `LPFTP501/502:/unload/transmisiones/XIRM/rdr/BBVAContracts_yyyymmdd.xml` |
+| IHS Markit (externo) | `SFTP-PROD.CAPPITECH.COM:/Inbound/RefData/BBVAContracts.xml` |
+| Reporting CSV | `v1128metr1:\DATDPTO1\...\SC000353\BBVAContracts_yyyymmdd.csv` |
+| GMIP (`MEKYTL1246`) | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/GMIP/gmipfs/incoming/rdr/BBVAContracts_yyyymmdd.xml` |
+| NOVA THOR (`MEKYTL1264`) | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/THOR/thorfs/incoming/RDR/ContratosBBVA/BBVAContracts_yyyymmdd.xml` |
+| PXVA (`MEKYTL1307`) | `novatransferbatch.igrupobbva:/usr/local/pr/nova/landingzone/PXVA/pxva/incoming/rdr/BBVAContracts_yyyymmdd.xml` |
+
+---
+
+## 6. Especificación de testing
+
+### 6.1 Estrategia
+
+El proyecto no cubre la recepción en los sistemas destino. La verificación de cada envío se
+limita a comprobar que el job termina correctamente y que el fichero queda depositado en la
+ruta de salida con el nombre esperado. El peso de las pruebas recae por tanto en cuatro
+bloques:
+
+1. **Extracción y contenido del XML** — que la query produzca el fichero correcto a partir de
+   los datos de GoldenSource (TC-02, TC-03, TC-04, TC-17).
+2. **Ausencia real de barrera de validación** — confirmar que, pese a validar contra el XSD, un
+   fichero malformado **no** detiene la cadena (TC-05), dado que el flag "Force OK" está activo
+   y es el único control de calidad de contenido en toda la cadena.
+3. **Transformación a CSV** — que el XSL produzca las cuatro columnas correctas incluyendo el
+   tratamiento de campos vacíos (TC-10).
+4. **Lógica de control de la cadena** — secuencia, dependencias de orden frente a éxito,
+   cadencias distintas dentro de una misma rama, reejecución, historificación, purga y borrado
+   en pasarela (TC-01, TC-06 a TC-09, TC-11 a TC-16, TC-18).
+
+Los datos sintéticos son viables (confirmado por el usuario), lo que permite construir juegos
+de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
+
+### 6.2 Cobertura por bloque funcional
+
+| Bloque | Casos | Cobertura |
+|--------|-------|-----------|
+| Extracción Oracle → XML | TC-02, TC-03, TC-04, TC-17 | Completa |
+| Validación XSD (confirmado: no bloquea, Force OK activo) | TC-05 | Completa |
+| Control de cadena (FW, secuencia, reejecución) | TC-01, TC-06, TC-16 | Completa — ventana del FW confirmada por export real (§4.1) |
+| Reparto y aislamiento de envíos | TC-07, TC-08, TC-09, TC-18 | Parcial — la recepción en destino está fuera de target |
+| Rama CSV (generación, envío mensual, historificación diaria, purga) | TC-10, TC-11, TC-12 | Completa |
+| Rama IHS Markit (envío, sábado, borrado en pasarela) | TC-13, TC-14 | Completa |
+| Historificación final | TC-15 | Completa |
+
+### 6.3 Huecos de cobertura conocidos
+
+- Los ≈8 pasos declarados en Control-M y no identificados se dan por decomisados según
+  confirmación del usuario. El export real del Workspace (23 jobs activos, ver §4.9) confirma
+  que la rama Mentor (`FW_BBVAContracts_RDR_2`, `MEKYTL0896`, `MEKYTL0954`) no aparece en la
+  definición vigente, lo que apoya la teoría de decomisión sin cerrarla numéricamente del todo
+  (no se ha reconciliado cifra a cifra el recuento original de 30 pasos frente a los 23 activos).
+  Si el inventario completo mostrara algún job activo no recogido aquí, quedaría sin cobertura.
+- Los entornos de ejecución de pruebas no están definidos (ver `prerrequisitos.md` §7).
+- El script concreto de `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` no está identificado ("a
+  determinar por Service Support"): TC-14 verifica el efecto, no la implementación.
+
+---
+
+## 7. Trazabilidad requisito ↔ caso de prueba
+
+| Requisito | Casos de prueba |
+|-----------|-----------------|
+| R-01 | TC-01, TC-06 |
+| R-02 | TC-01, TC-02, TC-04 |
+| R-03 | TC-02, TC-16 |
+| R-04 | TC-02, TC-17 |
+| R-05 | TC-02, TC-17 |
+| R-06 | TC-01, TC-06 |
+| R-07 | TC-05 |
+| R-08 | TC-07 |
+| R-09 | TC-08, TC-18 |
+| R-10 | TC-08, TC-09 |
+| R-11 | TC-10 |
+| R-12 | TC-11 |
+| R-13 | TC-11, TC-12 |
+| R-14 | TC-08 |
+| R-15 | TC-13 |
+| R-16 | TC-14 |
+| R-17 | TC-15, TC-19 |
+| R-18 | TC-04 |
+| R-19 | TC-09, TC-11, TC-15 |
+| R-20 | TC-18 |
+| R-21 | TC-19 |
+| R-22 | TC-19 |
+| R-23 | TC-19 |
+
+---
+
+## 8. Riesgos, duplicidades y escenarios de fallo
+
+| ID | Riesgo | Impacto | Mitigación / acción requerida |
+|----|--------|---------|-------------------------------|
+| RG-01 | ~~Ventana del filewatcher `FW_BBVAContracts_RDR_1`~~ — **resuelto**: export real confirma 14:00–15:30, compatible con el arranque a las 13:00 | — | Cerrado (§4.1) |
+| RG-02 | **Confirmado, crítico:** el flag "Force OK" de `VALIDACION_XSD_EXTRACT_BBVA` está activo (`ON NOTOK → DOACTION OK`) | Un XML que no cumpla el XSD **llega igualmente** a los 8 sistemas consumidores (XCTT, Ibor, S3/ADA, EYMI, Smart Data, IHS Markit, GMIP, THOR, PXVA) sin ningún otro control de calidad de contenido en toda la cadena | Decisión de negocio/gobierno: confirmar si es intencional o corregir la configuración del job en Control-M antes de asumir que el XSD protege algo (§4.4) |
+| RG-03 | ~~`.properties` de `MEKYTL0895` (entorno "ei") contiene la cadena de generación de Mentor~~ — **resuelto**: el usuario reconfirma que, para `RDR_BBVACONTRACTS_new`, toda generación de ficheros hacia Mentor está decomisada, con independencia de esos pasos en el `.properties` de "ei" | — | Cerrado (§4.5). Decomisión específica de esta cadena, no extensible a otros procesos RDR con Mentor activo |
+| RG-04 | Documentación de la cadena con los nombres antiguos `MEKYTL1104_DEL` / `MEKYTL1104_S_DEL`, renombrados a `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` el 12/09/25 | Búsquedas en Control-M por el nombre antiguo no encuentran los jobs | Actualizar la documentación de la cadena (§4.7) |
+| RG-05 | Script de los jobs de borrado sin identificar ("a determinar por Service Support") | No es posible verificar qué borra exactamente ni con qué criterio de nombre | Solicitar la identificación del script a Service Support (§4.7) |
+| RG-06 | No ejecución de `MEXIRM1104_DEL` / `MEXIRM1104_S_DEL` (criticidad W, aviso al día siguiente) | Acumulación de ficheros en `/unload/transmisiones/XIRM/rdr/` sin alerta inmediata | Monitorizar el volumen del directorio en pasarela (§4.7, TC-14) |
+| RG-07 | Ficheros residuales de una ejecución anterior en `LAGR/` | El filewatcher arrancaría la cadena con datos obsoletos | Verificar que la historificación de la pasada anterior dejó el directorio limpio (TC-16) |
+| RG-08 | **Resuelto, con corrección relevante:** el recuento de 30 pasos de la ficha no solo incluye jobs decomisados (rama Mentor, 3 jobs) — también incluía 3 ramas de distribución reales (`MEKYTL1246`/GMIP, `MEKYTL1264`/THOR, `MEKYTL1307`/PXVA) que se habían asumido erróneamente como decomisadas | La hipótesis original habría dejado 3 destinos reales sin especificar ni cubrir con pruebas | Cerrado: export real de Control-M + 3 fichas EX-005-03 (§4.5, §4.9, R-21/R-22/R-23, TC-19) |
+| RG-13 | ~~`MEKYTL1053` no aparece en el export real de Control-M~~ — **resuelto**: su ficha real muestra IP fija antigua (`22.156.148.85`, no la VIPA vigente) y periodicidad en blanco, consistente con estar decomisado o nunca migrado | Si la purga a 7 días de `LAGR/old/` ya no se ejecuta, el directorio de históricos podría crecer sin control | Cerrado documentalmente (§4.5); verificar en producción que el volumen de `LAGR/old/` no crece sin límite (TC-12) |
+| RG-09 | Cadencias distintas dentro de la rama CSV (envío mensual, historificación diaria) | Riesgo de interpretar como fallo la ausencia de envío en una pasada diaria | Documentado en §4.6; verificado en TC-11 |
+| RG-10 | Dependencias de orden y no de éxito en toda la cadena | Un envío fallido no detiene la cadena: el fallo puede pasar desapercibido y la historificación ejecutarse igualmente | Verificar que el circuito de aviso a ANS RDR cubre el fallo individual de cada job de envío (§4.5, TC-09) |
+| RG-11 | Documento fuente centrado en la lógica `daybefore` de cadenas decomisadas | Riesgo de que revisiones futuras deriven requisitos de una lógica que ya no aplica | Documentado explícitamente en §2.2 |
+| RG-12 | Entornos de ejecución de pruebas sin definir | Las pruebas no son ejecutables hasta que se determinen | Definir entornos antes de la fase de ejecución (`prerrequisitos.md` §7) |
+
+---
+
+## 9. Conclusión y requisitos de cierre
+
+La especificación cubre la cadena `RDR_BBVACONTRACTS_new` una vez retirado del alcance todo lo
+relativo a Mentor y a las cadenas incrementales `_M` y `_L`, decomisadas. El proceso resultante
+es una extracción única con **8 ramas de distribución** (XCTT, Ibor→S3→EYMI, CSV/reporting,
+Smart Data, IHS Markit, GMIP, NOVA THOR y PXVA — las 3 últimas identificadas en esta sesión con
+evidencia real, ver más abajo), sin filtro temporal y sin exclusiones de tipo de contrato.
+
+Todos los gaps funcionales detectados durante el análisis han quedado cerrados en sesión: el
+productor y la estructura del CSV (transformador `BBVA_Contrats_CSV.xsl` sobre el XML total),
+la doble cadencia de la rama CSV (envío mensual, historificación diaria), la naturaleza de las
+dependencias de Control-M (orden y no éxito, lo que explica que jobs con predecesores de
+calendario restringido se ejecuten a diario), el comportamiento del XSD ante fallo, el
+protocolo ante fallo de extracción, la función de los jobs de borrado en pasarela y su
+renombrado, y el estado actual de `MEKYTL0895`.
+
+**Actualización con export real de Control-M (2026-09-24):** los dos puntos de verificación
+documental más críticos quedan resueltos con evidencia real, uno de ellos con una conclusión
+distinta a la que constaba en la sesión anterior:
+
+1. **Ventana de `FW_BBVAContracts_RDR_1` — cerrado.** El export confirma 14:00–15:30,
+   compatible con el arranque de la cadena a las 13:00 (RG-01, §4.1).
+2. **Flag "Force OK" del job de validación XSD — cerrado, pero con conclusión invertida.** El
+   export confirma que el flag **sí está activo** (`ON NOTOK → DOACTION OK`): el documento fuente
+   original tenía razón, y la respuesta que el usuario había dado antes en esta sesión (que el
+   fallo de XSD detiene la cadena) queda corregida por esta evidencia de mayor rango. El XSD
+   **no** protege a los sistemas consumidores de un fichero malformado (RG-02, §4.4).
+
+**Actualización adicional con fichas EX-005-03 reales (2026-09-24):**
+
+3. **Inventario de jobs activos en Control-M — cerrado, con hallazgo relevante (RG-08).** Los 23
+   jobs activos del export coinciden exactamente con los ahora documentados en esta
+   especificación. La hipótesis original ("los pasos no identificados son decomisados") era solo
+   parcialmente correcta: 3 de ellos (`MEKYTL1246`, `MEKYTL1264`, `MEKYTL1307`) resultaron ser
+   ramas de distribución reales y activas hacia GMIP, NOVA THOR y PXVA, confirmadas con sus
+   fichas EX-005-03 — no decomisadas. Se han añadido como R-21/R-22/R-23 y TC-19.
+4. **Job que aplica `BBVA_Contrats_CSV.xsl` — cerrado.** Es el propio `MEKYTL0895`
+   (`transformarBBVAContracts.properties`), no un job independiente (R-09, R-11, §4.5, §4.6).
+5. **Cerrado.** El `.properties` real de `MEKYTL0895` (entorno "ei") contiene la generación
+   completa del fichero de Mentor, pero el usuario reconfirma que para `RDR_BBVACONTRACTS_new`
+   esa generación está decomisada, con independencia de esos pasos en el `.properties` (RG-03).
+6. **Cerrado.** `MEKYTL1053` (purga de históricos CSV) no aparece en el export real de Control-M;
+   su propia ficha EX-005-03 (IP fija antigua, periodicidad en blanco) confirma que probablemente
+   está decomisado o nunca se migró a la infraestructura vigente (RG-13).
+7. **Definición de los entornos de ejecución** (RG-12) — decisión de proyecto, no de verificación
+   técnica, sigue pendiente.

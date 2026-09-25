@@ -12,7 +12,7 @@ El proceso P-035 extrae datos de la entidad `FINS` en RDR y los transforma en un
 
 * **Ámbito funcional:** Distribución diaria del fichero de conciliación (`CONCILIA_*.txt`) generado a partir de la entidad `FINS` en RDR hacia el sistema Altamira de la franquicia BBVA Colombia, para el cuadre contable/operacional de dicha entidad.
 * **Ámbito técnico:** Cadena Control-M `RDR_ALTAMIRA_COLOMBIA_SEND` con 5 jobs (1 extracción Java, 1 filewatcher, 2 saltos de transmisión, 1 historificación). Se ejecuta sobre `pr-rdr.igrupobbva` (extracción, filewatcher, Salto 1 e historificación) y `lpftp503` (Salto 2), con destino final `82.255.60.120`, servidor Control-M `MERCADOS-4`.
-* **Fuera de alcance:** El consumo del fichero por el sistema Altamira en Colombia. El detalle interno de la lógica de negocio Java empaquetada en `RDR_ConciliaColombia.jar` (solo se dispone del JAR compilado, sin código fuente descompilado).
+* **Fuera de alcance:** El consumo del fichero por el sistema Altamira en Colombia. El contenido del paquete PL/SQL `PCK_CON_ALT_COL.PR_MAIN` (invocado por la clase `ColombiaConciliacion`, del lado de recepción/conciliación, fuera del alcance de esta cadena de envío).
 
 ## 3. Requisitos detectados
 
@@ -35,7 +35,7 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 - **Filewatcher:** confirmado que es una herramienta nativa de Control-M (no invoca la clase Java); la descripción Java (JDK17, `ColombiaEnvio`) corresponde al job de extracción.
 - **Estructura del fichero:** confirmada por muestra real (`CONCILIA_20260907.txt`) — una única columna, un identificador numérico de 8 dígitos por línea, sin separador ni cabecera.
 - **Clave de duplicidad:** el identificador de 8 dígitos es la clave lógica única de cada línea.
-- **Manejo de duplicados dentro del JAR:** no verificable con la evidencia disponible (solo se dispone del índice comprimido del JAR, sin código fuente descompilado) — limitación de evidencia, no gap de diseño confirmado.
+- **Manejo de duplicados dentro del JAR — resuelto (2026-09-24) con el código fuente real de `ColombiaEnvio.java`.** La query que construye la lista de identificadores a escribir en `CONCILIA_AAAAMMDD.txt` (`obtenerIDs()`, en `Querys.java`) es un `SELECT DISTINCT FINS_ID`. La deduplicación no depende de ninguna lógica Java posterior: es estructuralmente imposible que el fichero generado contenga un identificador de 8 dígitos repetido, porque la propia consulta SQL ya lo garantiza en origen.
 - **Relanzamiento cíclico "Máximo: 0":** en Control-M, dentro de un bloque de relanzamiento cíclico, `0` significa *sin límite* de relanzamientos, no "cero reintentos"; el sondeo cada 5 minutos es la frecuencia normal del filewatcher.
 - **Fichero no recibido:** si no llega, el resto de la cadena no se ejecuta (confirmado a nivel funcional; la hora exacta de corte de la ventana no está documentada).
 - **Ruta origen del Salto 2 (`MEKYTL1044_SND`):** confirmado por el usuario contra la definición real en Control-M — `MEKYTL1044_SND` efectivamente lee de `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/send/` en `lpftp503`. No es un error de documentación: existe una réplica real de esa estructura de directorios en `lpftp503`, independiente de la ruta `/unload/transmisiones/KYTL/` donde `MEKYTL1044` deposita el fichero.
@@ -44,7 +44,7 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 
 ## 5. Especificación funcional
 
-**Entidad principal:** `FINS`, extraída de la base de datos RDR mediante la clase Java `ColombiaEnvio` (`RDR_ConciliaColombia.jar` + `ConexionBD.jar`, JDK17), usando el fichero de trazabilidad `log4jAltamiraColombiaConciliacion.properties`.
+**Entidad principal:** `FINS`, extraída de la base de datos RDR mediante la clase Java `ColombiaEnvio` (`RDR_ConciliaColombia.jar` + `ConexionBD.jar`, JDK17), usando el fichero de trazabilidad `log4jAltamiraColombiaConciliacion.properties`. La consulta real (`Querys.obtenerIDs()`) es un `SELECT DISTINCT FINS_ID` sobre `FT_T_FIID`/`FT_T_FINS` filtrado por `FINS_ID_CTXT_TYP='ID_ALTAMIRA_COL'`, longitud 8, estado activo, y pertenencia a la entidad `ORG_ID='9020'` — el `DISTINCT` garantiza que el fichero generado nunca contiene duplicados.
 
 **Estructura real de `CONCILIA_AAAAMMDD.txt`:**
 
@@ -71,7 +71,6 @@ Se realizaron 18 preguntas iniciales más varias sub-preguntas de aclaración en
 - **Script de transmisión (ambos saltos):** `MEGENV0001.sh`, `PARM1=MEKYTL1044` (compartido, confirmado correcto en ambos jobs), formato ASCII, acción `REPLACE`.
 - **Script de historificación:** `RAMERC0068.sh`, mueve de `/send/` a `/send/backup/`.
 - **Usuarios de ejecución (Run As):** `xakytl1p` (extracción), `xpctma1` (filewatcher), `xsramer1` (ambos saltos e historificación).
-- **Mitigación de desfase horario:** NTP contra `ntp.bbva.es` en ambos servidores, con abortado de transferencia si el desfase supera 200 ms (documentado por el usuario, pendiente de evidencia operacional en vivo).
 - **Gestión de errores:** sin reintento automático (máximo de relanzamientos: 0 en sentido estricto de reintento-tras-fallo en los jobs de transferencia e historificación); notificación a `ans_rdr.es@bbva.com`, criticidad W (aviso día siguiente).
 - **Concurrencia:** sin mecanismo de lock/PID/semáforo documentado — mismo gap que Calendarios.
 
@@ -83,14 +82,14 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 - `happy_path`: TC-001 (ciclo diario completo).
 - `negativo`: TC-002 (fichero no llega, cadena no se ejecuta).
 - `error_funcional`: TC-003 (fallo de transmisión en Salto 1 con precaución de reproceso), TC-004 (saturación/permisos de `/backup/`).
-- `borde`: TC-005 (desfase NTP > 200ms), TC-009 (confirmación de la réplica de directorios usada como ruta origen del Salto 2).
-- `duplicidad`: TC-006 (identificador de 8 dígitos repetido, exploratorio/caja negra).
-- `datos_sinteticos`: TC-007 (repetición legítima entre ficheros de días distintos vs. duplicado dentro del mismo fichero).
+- `borde`: TC-009 (confirmación de la réplica de directorios usada como ruta origen del Salto 2).
+- `duplicidad`: TC-006 (confirmar que `CONCILIA_AAAAMMDD.txt` nunca contiene un identificador de 8 dígitos repetido, por el `SELECT DISTINCT` real de `obtenerIDs()`).
+- `datos_sinteticos`: TC-007 (repetición legítima del mismo identificador entre ficheros de días distintos, comportamiento normal y esperado).
 - `conflicto_integridad`: TC-008 (ausencia de validación de integridad más allá de `REPLACE`).
 - `regresion`: TC-010 (fichero vacío/parcial no detectado), TC-011 (relanzamiento de `MEKYTL1044` sin verificar el fichero tras abend de `MEKYTL1044_SND`), TC-012 (ejecuciones concurrentes).
 - `e2e`: TC-013 (ciclo diario completo).
 
-**Confirmación de ejecutabilidad:** cada caso especifica datos concretos (fichero, identificadores de 8 dígitos, rutas, servidores), pasos numerados y un resultado esperado verificable. En los casos TC-006 y TC-008 el resultado esperado se documenta explícitamente como "comportamiento a observar" (caja negra) en vez de "comportamiento validado", dado que la lógica interna del JAR y la ausencia de checksum son limitaciones de evidencia ya reconocidas — esto no resta ejecutabilidad al caso, solo acota su interpretación.
+**Confirmación de ejecutabilidad:** cada caso especifica datos concretos (fichero, identificadores de 8 dígitos, rutas, servidores), pasos numerados y un resultado esperado verificable. En TC-008 el resultado esperado se documenta explícitamente como "comportamiento a observar" (caja negra), dado que la ausencia de checksum es una limitación de evidencia ya reconocida — esto no resta ejecutabilidad al caso, solo acota su interpretación. TC-006 ya no es exploratorio: el `SELECT DISTINCT` real de `obtenerIDs()` permite documentar un resultado esperado confirmado.
 
 **Confirmación de cobertura completa:** el conjunto de casos cubre:
 - El camino feliz completo de los 5 jobs (TC-001, ampliado por TC-013 como E2E con verificación de historificación).
@@ -106,24 +105,22 @@ Referencia de casos por tipo (`tipo` en `casos_prueba.xml`):
 | R1 (extracción) | TC-001, TC-013 | Genera `CONCILIA_AAAAMMDD.txt` con identificadores de 8 dígitos válidos |
 | R2 (filewatcher) | TC-002, TC-010 | Detecta la llegada; documenta que no detecta fichero vacío/parcial (gap confirmado) |
 | R3 (Salto 1) | TC-001, TC-003, TC-013 | Transmisión correcta a `lpftp503`; comportamiento ante fallo de transmisión |
-| R4 (Salto 2) | TC-001, TC-005, TC-009, TC-013 | Transmisión correcta al destino final; desfase NTP; confirmación de la réplica de directorios usada como ruta origen |
+| R4 (Salto 2) | TC-001, TC-009, TC-013 | Transmisión correcta al destino final; confirmación de la réplica de directorios usada como ruta origen |
 | R5 (historificación) | TC-004, TC-013 | Backup correcto; comportamiento ante saturación/permisos |
 | R6 (alertas) | TC-002, TC-003, TC-004 | Notificación a ANS RDR con criticidad W ante cualquier fallo |
-| R7 (clave/duplicidad) | TC-006, TC-007 | Comportamiento observado ante identificador repetido (caja negra) |
-| R8 (NTP) | TC-005 | Verifica el control documentado de desfase horario |
+| R7 (clave/duplicidad) | TC-006, TC-007 | Ausencia de duplicados dentro del fichero confirmada (`SELECT DISTINCT`); repetición legítima entre ficheros de días distintos |
 | Riesgos de diseño (concurrencia, integridad) | TC-008, TC-011, TC-012 | Documentan el comportamiento actual como riesgo abierto, no como validación superada |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
 1. **Naming documentado incorrectamente en el PDF de especificación** (`CONCILIA_YYYDDMM.txt`, con solo 3 "Y") frente al patrón real en ejecución (`CONCILIA_AAAAMMDD.txt`, confirmado por `.properties` y por el fichero real de producción). Riesgo documental, no de ejecución.
-2. **Manejo de duplicados del identificador de 8 dígitos dentro de `RDR_ConciliaColombia.jar` no verificable**: solo se dispone del JAR compilado, sin código fuente. El comportamiento ante duplicados debe tratarse como observación de caja negra (TC-006), no como validación de un comportamiento ya conocido.
+2. **Manejo de duplicados del identificador de 8 dígitos — resuelto.** El código fuente real de `ColombiaEnvio.java`/`Querys.java` confirma que `obtenerIDs()` usa `SELECT DISTINCT`: el fichero generado no puede contener duplicados, por diseño de la propia consulta (TC-006 verifica este hecho, ya no es caja negra).
 3. **Sin validación de integridad de copia más allá de `REPLACE`** en ninguno de los dos saltos (mismo patrón de gap que en Calendarios).
 4. **Filewatcher sin hora de corte exacta documentada**: solo se sabe que si el fichero no llega, el resto de la cadena no se ejecuta; la hora exacta de fin de ventana no está documentada.
-5. **Mitigación NTP documentada mediante respuesta del usuario, no verificada directamente por el agente** — se registra como control documentado, pendiente de evidencia operacional en vivo.
-6. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
-7. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
-8. **Sin protección de concurrencia** (mismo gap que Calendarios).
+5. **Riesgo de reproceso con fichero incorrecto**: si `MEKYTL1044_SND` aborta, no debe relanzarse `MEKYTL1044` sin verificar si el fichero origen sigue disponible o fue sustituido por una ejecución posterior (dado que `REPLACE` sobrescribe sin versionado). El procedimiento documentado para esto es un campo de texto plantilla sin rellenar ("revisar instrucciones en campo descripción"), por lo que **ni siquiera hay un procedimiento manual completo documentado**, más allá de la alerta genérica a ANS RDR.
+6. **Saturación del subdirectorio `/backup/`**: si se llena o pierde permisos para `xsramer1`, `MEKYTL1045` falla.
+7. **Sin protección de concurrencia** (mismo gap que Calendarios).
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos, incluida la ruta origen del Salto 2 (confirmada contra la definición real en Control-M). No quedan riesgos de ruta/topología sin resolver; los riesgos restantes (documentales, de evidencia limitada sobre el JAR, o de diseño ya confirmados por analogía con Calendarios) están descritos en la sección 9 y no impiden ejecutar la matriz de pruebas definida.
+La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario para todos los puntos, incluida la ruta origen del Salto 2 (confirmada contra la definición real en Control-M) y el manejo de duplicados dentro del JAR (resuelto el 2026-09-24 con el código fuente real: `SELECT DISTINCT` en `obtenerIDs()`). No quedan riesgos de ruta/topología ni de duplicidad sin resolver; los riesgos restantes (documentales, o de diseño ya confirmados por analogía con Calendarios) están descritos en la sección 9 y no impiden ejecutar la matriz de pruebas definida.
