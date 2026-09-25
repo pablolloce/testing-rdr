@@ -45,6 +45,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 |-----|----------|------------|
 | G1 | ¿Qué proceso gestiona el ciclo de vida de `controlSCF.txt` (quién lo crea y cuándo se limpia)? | Confirmado (Q7.1): proceso externo a esta malla, perteneciente a SCF/Investors Plan — R4. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
+| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 
 ## 5. Especificación funcional
 
@@ -74,6 +75,58 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
   `AltaFondos_Genera_csv.jar`, `CSVToXML_Layout.jar`, `AltaFondos_CuadreCarga.jar`.
 * **Recursos cuantitativos:** cada job consume 1 unidad de `MAX-LPRDR501` (total 100).
 
+### 6.1 `clientelaBDI_Altas_response.jar` (R6) — confirmado con código fuente real
+
+Clases analizadas: `jdbc.QuerysStr`, `jdbc.QueryExec`, `ficheros.RespuestaCliente`, `ficheros.ProcesaFichero`
+(`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Los mensajes de log del jar llevan el prefijo
+`AltaFondos_RDR::...` (nombre heredado/compartido con el motor de alta de fondos, R8 — no indica que compartan
+código, solo el mismo paquete de utilidades de log).
+
+- **Qué hace en este proceso:** `ProcesaFichero` lee el `.txt` de respuesta de BDI línea a línea. Cada línea es
+  un registro de **ancho fijo de 600 caracteres** (suma de las 29 longitudes de campo declaradas en
+  `RespuestaCliente`: `LEI, HORA, NOMCLI, NACIMIENTO, DOMI_FISC, PLAZA_FISC, PROVI, PAIS_RESI, PAIS_NAC, CNAE,
+  FORM_SOCI, IDIOMA, PLAZAINT, INST_CODE, TIP_BANCO, BROKER, BIC, CCLIEN_RE, POSTAL_CDE, DES_DISPLA, FILLER,
+  COD_TES, NOMCORTO, CCLIENT, BDICODE, NUMFOLIO, COD_ACK, COD_ERROR, DESC_ERROR, FILLER_OUT`), sin delimitador,
+  segmentado por `substring` según esas longitudes exactas. Por cada línea válida, identifica la petición
+  original en `FT_T_VREQ`/`FT_T_UTD1` por la combinación `LEI`+`HORA` (contexto `CLIENTELABDI_ALTAS`, estado
+  `BDI_LINE_SENT`), actualiza el estado de esa petición al código de acuse `COD_ACK` recibido (o a
+  `ERROR_PROC_RESP` si falla el procesado), e inserta cada uno de los 29 campos de la respuesta como
+  atributos individuales en `FT_T_UTD1`. Al final del fichero, marca como `NO_RESPONSE` en `FT_T_VREQ` las
+  peticiones (agrupadas por `HORA`) que no recibieron respuesta en él.
+- **Qué recibe/produce:** recibe el `.txt` de respuesta (ruta de entrada/histórico/error inyectadas al
+  constructor de `ProcesaFichero`, no fijadas en las clases aportadas — ver gap de `Main.java` en G3). No
+  produce ningún fichero de salida: su "salida" son actualizaciones directas en GoldenSource.
+- **Campos de salida afectados (no hay CSV/XML de salida propio, la salida es BD):**
+  - `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT`/`LAST_CHG_TMS`/`LAST_CHG_USR_ID` — pasa de
+    `BDI_LINE_SENT` a `PROCESSING_RESP`, y finalmente al valor de `COD_ACK` recibido (éxito) o
+    `ERROR_PROC_RESP`/`NO_RESPONSE` (fallo/ausencia).
+  - `FT_T_UTD1` — 29 filas nuevas por respuesta procesada (`UTD_USAGE_TYP='FIELD_RESP'`, `UTD_ID_PURP_TYP`
+    = nombre de cada campo, `DATA_SRC_ID='CLIENTELABDI_RESP'`).
+- **Qué pasa si falla, falta o cambia (confirmado por código):**
+  - Fichero inexistente o sin contenido → se registra en log y no se procesa nada; el fichero se mueve
+    igualmente a la ruta de histórico (el `Directorio.mueveFichero` está fuera del `if`/`else` de contenido,
+    dentro del mismo `try`) — es decir, un fichero vacío **se historifica como si se hubiera procesado con
+    éxito**, sin ninguna marca que lo distinga de una ejecución con datos.
+  - Línea nula, vacía o de menos de 100 caracteres → se descarta **silenciosamente** (solo trazada en log);
+    no se registra ningún error en GoldenSource ni se cuenta como respuesta a tratar.
+  - **Hallazgo (defecto latente, no buscado):** la única validación de longitud de línea es `length()<100`,
+    muy por debajo de los 600 caracteres reales del formato. Una línea truncada entre 100 y 599 caracteres
+    pasa ese filtro y entra en `segmentaMensaje()`, donde el `substring` por offsets fijos lanzará una
+    excepción (capturada de forma genérica) al superar el límite de la cadena — `ok` queda `false` y, como
+    `procesaRespuesta()` retorna inmediatamente si `ok==false` (antes de identificar la petición), **esa
+    respuesta se pierde sin dejar ningún rastro en `FT_T_VREQ`/`FT_T_UTD1`, ni siquiera como
+    `ERROR_PROC_RESP`** — no hay forma de detectar desde GoldenSource que una respuesta llegó truncada.
+  - Excepción durante la identificación de la petición o la inserción de atributos → se marca la petición
+    como `ERROR_PROC_RESP` con la descripción del error (si ya se había identificado el `LEI`+`HORA`); si el
+    fallo ocurre en `insertaAtributos()` (recorre los 29 campos sin interrumpirse ante un fallo individual),
+    solo queda registrado el mensaje del **último** campo que falló, no de los anteriores.
+  - Excepción no controlada durante el bucle de `ProcesaFichero.procesar()` → el fichero se mueve a la ruta
+    de error (`rutaSendError`) en vez de a histórico.
+- **Gap opcional, no bloqueante (G3):** no se ha aportado `Main.java` (o el punto de entrada real del jar),
+  por lo que las rutas exactas de entrada/histórico/error y el mecanismo de invocación desde
+  `GSProcess.sh clientelaBDI_Altas_response` quedan confirmados solo por el patrón de nombres de las cadenas
+  de log (`ClientelaBDI_Altas/response`, coincidente con R2), no por el fichero de configuración/entrada real.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -102,7 +155,23 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   documentada de diferenciar ambas causas desde el resultado del job.
 * **Patrón transversal P-021 (R13):** sin validación de integridad de negocio ni protección de concurrencia
   propia de la malla, más allá del lock externo.
+* **Respuesta truncada de BDI se pierde sin rastro (confirmado por código, §6.1):** `clientelaBDI_Altas_response.jar`
+  solo descarta explícitamente las líneas de menos de 100 caracteres; una línea truncada entre 100 y 599
+  caracteres (el formato real es de 600) provoca una excepción de segmentación que hace perder esa respuesta
+  **sin dejar ningún rastro en `FT_T_VREQ`/`FT_T_UTD1`**, ni siquiera como `ERROR_PROC_RESP` — la petición
+  original queda indefinidamente en `BDI_LINE_SENT` hasta que, si nunca llega una respuesta válida, se marca
+  `NO_RESPONSE` en un ciclo posterior. No hay caso de prueba que ejercite hoy este escenario (hueco de
+  cobertura, no cerrado con un TC nuevo desde esta spec).
+* **Fichero de respuesta vacío se historifica como éxito (confirmado por código, §6.1):** si el `.txt` de
+  respuesta no tiene contenido, `clientelaBDI_Altas_response.jar` lo mueve igualmente a la ruta de histórico,
+  sin ninguna marca que lo distinga de un procesamiento real con datos.
 
 ## 10. Conclusión y requisitos de cierre
 
-Los 2 gaps (G1 y el transversal G2) tienen resolución explícita. No quedan preguntas sin responder.
+Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
+(`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
+salvo el punto de entrada (`Main.java`), señalado como no bloqueante. Quedan abiertos, como riesgos nuevos
+descubiertos por este análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas
+y la historificación de ficheros vacíos como si fueran un procesamiento exitoso (§9). Siguen pendientes,
+para los siguientes artefactos de esta misma cadena (R7, R8, R9), los gaps técnicos aún no abordados en esta
+sesión.
