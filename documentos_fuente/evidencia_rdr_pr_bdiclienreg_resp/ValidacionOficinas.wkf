@@ -1,0 +1,745 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">RDR_nfq-ValidOfiicnas v5</comment>
+<description id="2">Valida las oficinas incluidas en la plantilla de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa línea de carga se descarta.</description>
+<endNode id="3">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="4">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="5">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="6" type="java.util.HashSet">
+<item id="7" type="com.j2fe.workflow.definition.Transition">
+<name id="8">goto-next</name>
+<source id="9">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="10">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="11">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="12">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="13" type="java.util.HashSet">
+<item id="14" type="com.j2fe.workflow.definition.Transition">
+<name id="15">end-loop</name>
+<source id="16">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="17">For Loop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.ForEach</nodeHandler>
+<nodeHandlerClass id="18">com.j2fe.workflow.handler.impl.ForEach</nodeHandlerClass>
+<parameters id="19" type="java.util.HashSet">
+<item id="20" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="21">counter</name>
+<stringValue id="22">pubCounter</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="23" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="24">counter</name>
+<stringValue id="25">pubCounter</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="26" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="27">input</name>
+<stringValue id="28">idOficinas</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="29" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="30">output</name>
+<stringValue id="31">identificador</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="32" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="33">resetOnEnd</name>
+<stringValue id="34">true</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="35" type="java.util.HashSet">
+<item id="36" type="com.j2fe.workflow.definition.Transition">
+<name id="37">ToSplit</name>
+<source id="38">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="39">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="40">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="41">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="42" type="java.util.HashSet">
+<item id="43" type="com.j2fe.workflow.definition.Transition">
+<name id="44">goto-next</name>
+<source id="45">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="46">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="47">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="48">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="49" type="java.util.HashSet">
+<item id="50" type="com.j2fe.workflow.definition.Transition">
+<name id="51">goto-next</name>
+<source id="52">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="53">Borrar oficinas del XML</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="54">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="55" type="java.util.HashSet">
+<item id="56" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="57">statements</name>
+<stringValue id="58">import org.apache.log4j.Logger; 
+Logger logger = Logger.getLogger("ValidacionOficinas");
+logger.error("Empieza workflow ValidacionOficinas");
+
+try{
+errors = errors + 1;
+return "goto-next";
+}catch(Exception e){
+logger.error("Catch ValidacionOficinas");
+return "goto-next";
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="59" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="60">["errors"]@java/lang/Integer@</UITypeHint>
+<input>true</input>
+<name id="61">variables["errors"]</name>
+<stringValue id="62">errors</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="63" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="64">["errors"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="65">variables["errors"]</name>
+<stringValue id="66">errors</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="67" type="java.util.HashSet">
+<item id="68" type="com.j2fe.workflow.definition.Transition">
+<name id="69">goto-next</name>
+<source id="70">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="71">Insert RLT1</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="72">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="73" type="java.util.HashSet">
+<item id="74" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="75">database</name>
+<stringValue id="76">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="77" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="78">querySQL</name>
+<stringValue id="79">insercion</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="80" type="java.util.HashSet">
+<item id="81" type="com.j2fe.workflow.definition.Transition">
+<name id="82">goto-next</name>
+<source id="83">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="84">Generar INSERT</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="85">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="86" type="java.util.HashSet">
+<item id="87" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="88">statements</name>
+<stringValue id="89">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("ValidacionOficinas");
+
+String insercion="";
+String cad_mostrar="Esta oficina está INACTIVA";
+
+
+
+ insercion = "insert into FT_T_RLT1 (RLT_OID, JOB_ID, TRN_ID, RECORD_SEQ_NUM, RLT_STATUS, RLT_DIF_STAT, RLT_DIF_ACC, MESSAGE_RLT, RLT_FIELD, RLT_PURP_TYP, DATA_SRC_APP, SRC_FIELD, SRC_VALUE, GS_FIELD, GS_VALUE, MAIN_ENTITY_NME, MAIN_ENTITY_ID, START_TMS, END_TMS, LAST_CHG_TMS, LAST_CHG_USR_ID) select new_oid, '"+JobId+"', null, null , 0, null, null , '"+cad_mostrar +"', null, 'NACK', 'CARGA_CPARTY', null, null, null, null, 'Id Oficina',q'$"+ Identificador +"$', systimestamp, null, systimestamp, '" + User + "' from dual";
+ 
+
+logger.error("*** INSERT RLT1 OTHER CPTY Existe oficina: "+insercion );
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="90" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="91">variables["Identificador"]</name>
+<stringValue id="92">identificador</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="93" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="94">["JobId"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="95">variables["JobId"]</name>
+<stringValue id="96">JobId</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="97" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="98">["User"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="99">variables["User"]</name>
+<stringValue id="100">User</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="101" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="102">["insercion"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="103">variables["insercion"]</name>
+<stringValue id="104">insercion</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="105" type="java.util.HashSet">
+<item id="106" type="com.j2fe.workflow.definition.Transition">
+<name id="107">goto-next</name>
+<source id="108">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="109">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="110">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="111">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="112" type="java.util.HashSet">
+<item id="113" type="com.j2fe.workflow.definition.Transition">
+<name id="114">goto-next</name>
+<source id="115">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="116">Log y valores 1</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="117">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="118" type="java.util.HashSet">
+<item id="119" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="120">statements</name>
+<stringValue id="121">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("validacionOficinas");
+
+
+logger.error("No se obtuvo resultado de la consulta");</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="122" type="java.util.HashSet">
+<item id="123" type="com.j2fe.workflow.definition.Transition">
+<name id="124">nothing-found</name>
+<source id="125">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="126">Database Select (Xor Split)</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="127">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="128" type="java.util.HashSet">
+<item id="129" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="130">database</name>
+<stringValue id="131">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="132" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="133">["01"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="134">mappedParameters["01"]</name>
+<stringValue id="135">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="136" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="137">mappedParameters["02"]</name>
+<stringValue id="138">branch</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="139" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="140">querySQL</name>
+<stringValue id="141">select * from ft_t_subd
+where SUBDIV_ID = ?
+and ORG_ID = ?
+and END_TMS is null
+and DATA_STAT_TYP = 'ACTIVE'</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="142" type="java.util.HashSet">
+<item id="143" type="com.j2fe.workflow.definition.Transition">
+<name id="144">goto-next</name>
+<source id="145">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="146">Dividir Branch e id</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="147">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="148" type="java.util.HashSet">
+<item id="149" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="150">statements</name>
+<stringValue id="151">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("ValidacionOficinas");
+
+String[]  datos  = identificador.split("\\|",-1);
+
+String id = datos[0];
+String branch = datos[1];
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="152" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="153">variables["branch"]</name>
+<stringValue id="154">branch</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="155" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="156">["id"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="157">variables["id"]</name>
+<stringValue id="158">id</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="159" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="160">["identificador"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="161">variables["identificador"]</name>
+<stringValue id="162">identificador</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="163" type="java.util.HashSet">
+<item id="164" type="com.j2fe.workflow.definition.Transition">
+<name id="165">loop</name>
+<source idref="16"/>
+<target idref="145"/>
+</item>
+</sources>
+<targets id="166" type="java.util.HashSet">
+<item idref="143"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="125"/>
+</item>
+</sources>
+<targets id="167" type="java.util.HashSet">
+<item idref="123"/>
+<item id="168" type="com.j2fe.workflow.definition.Transition">
+<name id="169">rows-found</name>
+<source idref="125"/>
+<target id="170">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="171">Log y valores 1</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="172">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="173" type="java.util.HashSet">
+<item id="174" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="175">statements</name>
+<stringValue id="176">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("validacionOficinas");
+
+logger.error("Se obtuvo resultado de la consulta");</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="177" type="java.util.HashSet">
+<item idref="168"/>
+</sources>
+<targets id="178" type="java.util.HashSet">
+<item id="179" type="com.j2fe.workflow.definition.Transition">
+<name id="180">goto-next</name>
+<source idref="170"/>
+<target idref="45"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="115"/>
+</item>
+</sources>
+<targets id="181" type="java.util.HashSet">
+<item idref="113"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="108"/>
+</item>
+</sources>
+<targets id="182" type="java.util.HashSet">
+<item idref="106"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="83"/>
+</item>
+</sources>
+<targets id="183" type="java.util.HashSet">
+<item idref="81"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="70"/>
+</item>
+</sources>
+<targets id="184" type="java.util.HashSet">
+<item idref="68"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="52"/>
+</item>
+</sources>
+<targets id="185" type="java.util.HashSet">
+<item idref="50"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="45"/>
+</item>
+<item idref="179"/>
+</sources>
+<targets id="186" type="java.util.HashSet">
+<item idref="43"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="38"/>
+</item>
+<item id="187" type="com.j2fe.workflow.definition.Transition">
+<name id="188">true</name>
+<source id="189">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="190">Type FinancialInstitution</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="191">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="192" type="java.util.HashSet">
+<item id="193" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="194">statements</name>
+<objectValue id="195" type="java.lang.String"><![CDATA[import java.io.StringReader;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
+
+import org.apache.log4j.Logger; 
+Logger logger = Logger.getLogger("ValidacionOficinas");
+logger.error("Empieza workflow ValidacionOficinas");
+
+try{
+DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance(); 		
+DocumentBuilder builder;  
+Document document;
+
+    builder = factory.newDocumentBuilder();  
+	String message2 = String.copyValueOf(message.toCharArray());
+	 message2 =message2.trim().replaceFirst("^([\\W]+)<","<");	  
+	message2 = message2.replace("<!DOCTYPE STREET_REF SYSTEM \"fti://repository/dtd/STREET_REF\">", "");   
+	document =  builder.parse(new InputSource(new StringReader(message2)));      
+	document.getDocumentElement().normalize();		
+	
+	NodeList nList = document.getElementsByTagName("OFFICE");
+	int numeroIdentifiers = nList.getLength();
+	String [] lista  = new String[numeroIdentifiers] ;
+
+	for (int j = 0; j < nList.getLength(); j++) {		
+		Node nodeSegment = nList.item(j);
+		if(nodeSegment.getNodeType() == Node.ELEMENT_NODE){
+			Element segmento = (Element) nodeSegment;
+			String identifier= segmento.getElementsByTagName("IDENTIFIER").item(0).getTextContent();
+			
+			String identiBranch = "";
+
+			if(identifier != null && identifier.length() != 0){
+				identiBranch = identiBranch +identifier;
+			}
+			String branch= segmento.getElementsByTagName("BRANCH").item(0).getTextContent();
+			if(branch != null && branch.length() != 0){
+				identiBranch = identiBranch +"|"+branch;
+			}
+			lista[j] =identiBranch;
+			
+		}
+	}
+
+idOficinas = lista;
+return true;
+
+}catch(Exception e){
+logger.error("Catch ValidacionOficinas");
+return false;
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="196" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="197">["idOficinas"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="198">variables["idOficinas"]</name>
+<stringValue id="199">idOficinas</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="200" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="201">variables["idOficinas"]</name>
+<stringValue id="202">idOficinas</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="203" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="204">["message"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="205">variables["message"]</name>
+<stringValue id="206">MensajeXML</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="207" type="java.util.HashSet">
+<item id="208" type="com.j2fe.workflow.definition.Transition">
+<name id="209">goto-next</name>
+<source id="210">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="211">variables</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="212">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="213" type="java.util.HashSet">
+<item id="214" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="215">statements</name>
+<stringValue id="216">pubCounter = 0;</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="217" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="218">variables["pubCounter"]</name>
+<stringValue id="219">pubCounter</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="220" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="221">variables["pubCounter"]</name>
+<stringValue id="222">pubCounter</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="223" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="224">variables["segmentos"]</name>
+<stringValue id="225">segmentos</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="226" type="java.util.HashSet">
+<item id="227" type="com.j2fe.workflow.definition.Transition">
+<name id="228">goto-next</name>
+<source id="229">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="230">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="231">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="232" type="java.util.HashSet">
+</sources>
+<targets id="233" type="java.util.HashSet">
+<item idref="227"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="210"/>
+</item>
+</sources>
+<targets id="234" type="java.util.HashSet">
+<item idref="208"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="189"/>
+</item>
+</sources>
+<targets id="235" type="java.util.HashSet">
+<item id="236" type="com.j2fe.workflow.definition.Transition">
+<name id="237">false</name>
+<source idref="189"/>
+<target idref="9"/>
+</item>
+<item idref="187"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="38"/>
+</item>
+</sources>
+<targets id="238" type="java.util.HashSet">
+<item idref="36"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="16"/>
+</item>
+</sources>
+<targets id="239" type="java.util.HashSet">
+<item idref="14"/>
+<item idref="164"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="9"/>
+</item>
+<item idref="236"/>
+</sources>
+<targets id="240" type="java.util.HashSet">
+<item idref="7"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="3"/>
+</item>
+</sources>
+<targets id="241" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="242">Custom/RDR/Layout_Setup</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="243">KYTL_GC</lastChangeUser>
+<lastUpdate id="244">2023-08-26T08:50:37.000+0200</lastUpdate>
+<name id="245">ValidacionOficinas</name>
+<optimize>true</optimize>
+<parameter id="246" type="java.util.HashMap">
+<entry>
+<key id="247" type="java.lang.String">JobId</key>
+<value id="248" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="249">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="250" type="java.lang.String">MensajeXML</key>
+<value id="251" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="252">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="253" type="java.lang.String">User</key>
+<value id="254" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="255">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="256" type="java.lang.String">errors</key>
+<value id="257" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="258">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="259" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="229"/>
+<status>RELEASED</status>
+<variables id="260" type="java.util.HashMap">
+<entry>
+<key id="261" type="java.lang.String">JobId</key>
+<value id="262" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="263">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="264" type="java.lang.String">MensajeXML</key>
+<value id="265" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="266">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="267" type="java.lang.String">User</key>
+<value id="268" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="269">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="270" type="java.lang.String">errors</key>
+<value id="271" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="272">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="273" type="java.lang.String">idOficinas</key>
+<value id="274" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="275">[Ljava.lang.Object;</className>
+<clazz>[Ljava.lang.Object;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="276" type="java.lang.String">pubCounter</key>
+<value id="277" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="278">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>1</version>
+</com.j2fe.workflow.definition.Workflow>
