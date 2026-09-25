@@ -46,6 +46,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G1 | ¿Qué proceso gestiona el ciclo de vida de `controlSCF.txt` (quién lo crea y cuándo se limpia)? | Confirmado (Q7.1): proceso externo a esta malla, perteneciente a SCF/Investors Plan — R4. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
+| G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 
 ## 5. Especificación funcional
 
@@ -127,6 +128,50 @@ código, solo el mismo paquete de utilidades de log).
   `GSProcess.sh clientelaBDI_Altas_response` quedan confirmados solo por el patrón de nombres de las cadenas
   de log (`ClientelaBDI_Altas/response`, coincidente con R2), no por el fichero de configuración/entrada real.
 
+### 6.2 `Investors_Client_Reg_resp.jar` (R7) — parcialmente confirmado con código fuente real
+
+Clases analizadas: `jdbc.QuerysStr`, `jdbc.QueryExec` (versión propia de este jar, con queries distintas de
+las de §6.1 aunque con el mismo nombre de clase) y `leirequest.AltaRegisterLEIRequest`
+(`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Todos los registros que
+escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es el código fuente real del job.
+
+- **Modelo de datos confirmado (por las queries disponibles, sin la clase orquestadora):** el jar trabaja
+  sobre peticiones de alta de nuevos clientes agrupadas por fecha de fichero
+  (`FT_T_VREQ.VND_RQST_XREF_ID_CTXT_TYP='FILE_DATE'`/`STAT_TYP='NEW_CLIENTS'`), cada una con 1+ fondos
+  asociados por `FundLEI`/`NEW_CLIENT` (`selectPeticionesPosibles`/`selectFundsPendientes`). Para localizar la
+  respuesta de BDI de un fondo reutiliza el mismo contexto `CLIENTELABDI_ALTAS` que identifica el jar de R6
+  (`selectRespuestaBDI`, misma combinación `LEI`+`HORA`) — es decir, este jar depende funcionalmente de que
+  R6 ya haya procesado la respuesta y dejado sus atributos en `FT_T_UTD1` (`descargaAtributosRespuesta`,
+  filtro `UTD_USAGE_TYP='FIELD_RESP'`). También consulta duplicidad de identificadores Murex/Star activos
+  para un código de tesorería (`selectDuplicateMurexStar`, `LISTAGG` sobre `FT_T_FRID`), aunque no se ha
+  confirmado con la clase orquestadora en qué punto del flujo se usa ni qué se hace con el resultado.
+- **`AltaRegisterLEIRequest` — qué hace en este proceso:** dado un fondo ya identificado (`oidFondo`) y su
+  LEI, descarga sus atributos previos de `FT_T_UTD1` (`selectFondosAtributos`), y registra una **nueva
+  solicitud downstream** de tipo `LEI_REGISTER` en `FT_T_VREQ` (`insertVREQ_LEIReg_Req`), con 7 atributos en
+  `FT_T_UTD1` (`UTD_USAGE_TYP='FIELD'`, `DATA_SRC_ID='INVESTORSPLAN_FUNDS'`): `PAIS`, `ENTIDAD` (de
+  `ENTR_OWN`), `PERSCTPN` (de `CCLIENT`), `DOCUMPS` (de `LEI_CODE`), `INICVIG`/`FINVIG` (fecha de inicio/fin
+  de vigencia del LEI, consultadas en `FT_T_LEI1` por el propio LEI) y `FILLER` (vacío).
+- **Hallazgo no buscado — `PAIS` hardcodeado a `'ES'`:** el código conserva, comentada, la línea original
+  `PAIS = this.atributos.get("COUNTRY")` y la sustituye por `PAIS = "ES";` con el comentario explícito "Se
+  deja pais por defecto ES para todo lo enviado a Clientela." Es una decisión de negocio deliberada (no un
+  descuido), pero no está documentada en ningún punto de la spec ni del documento fuente: **toda solicitud
+  de registro de LEI que pase por este jar declara España como país, independientemente del país real del
+  fondo/cliente**. Queda como riesgo a confirmar con negocio si esto sigue siendo intencionado (ver §9).
+- **Campos de salida afectados:** no genera fichero; su salida es `FT_T_VREQ` (nueva fila `LEI_REGISTER`,
+  estado `PENDING` o `ERROR`) y `FT_T_UTD1` (7 atributos nuevos por fondo, `DATA_SRC_ID='INVESTORSPLAN_FUNDS'`).
+- **Qué pasa si falla (confirmado por código):** cualquier excepción durante `procesaAlta()` (incluida la
+  ausencia de fecha de vigencia del LEI — `res.get(0)` sin comprobar que el `Vector` tenga al menos un
+  elemento, lo que lanzaría `ArrayIndexOutOfBoundsException` si `FT_T_LEI1` no tiene fila `ACTIVE` para ese
+  LEI) marca `error=true` y, si ya se había generado el `oidNew`, actualiza esa petición a estado `ERROR`
+  con la descripción de la excepción (`updateVREQDescripByOid`). Un fallo en la inserción de un atributo
+  individual (`insertaAtributo`) no interrumpe la inserción de los siguientes atributos, solo marca el error
+  global — mismo patrón de "solo queda el último error" que en `clientelaBDI_Altas_response.jar` (§6.1).
+- **Gap abierto, no bloqueante (G4):** sin la clase orquestadora de este jar (equivalente a `ProcesaFichero`
+  en §6.1), no se puede confirmar: (a) qué decide que un fondo concreto necesita alta de LEI (¿todos los de
+  `selectFundsPendientes`, o solo un subconjunto según `selectDuplicateMurexStar`/`getStatusVREQ`?); (b) si
+  existe algún otro camino de negocio en este jar aparte de `AltaRegisterLEIRequest`. Pedir esa clase (o el
+  `Main.java` del jar) para cerrar el 100 % del flujo.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -165,13 +210,27 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 * **Fichero de respuesta vacío se historifica como éxito (confirmado por código, §6.1):** si el `.txt` de
   respuesta no tiene contenido, `clientelaBDI_Altas_response.jar` lo mueve igualmente a la ruta de histórico,
   sin ninguna marca que lo distinga de un procesamiento real con datos.
+* **`PAIS` hardcodeado a `'ES'` en el alta de registro de LEI (confirmado por código, §6.2):**
+  `Investors_Client_Reg_resp.jar` (clase `AltaRegisterLEIRequest`) declara siempre España como país en la
+  solicitud `LEI_REGISTER`, sustituyendo deliberadamente (código original comentado) el valor real del
+  fondo/cliente. Es una decisión de negocio, no un defecto, pero no estaba documentada — a confirmar con
+  negocio si sigue siendo la regla vigente, especialmente para fondos/clientes no españoles.
+* **Ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI (confirmado por código,
+  §6.2):** `AltaRegisterLEIRequest` asume que `obtenerFechaInicioVigenciaLEI`/`obtenerFechaFinVigenciaLEI`
+  devuelven al menos una fila (`res.get(0)` sin comprobar `size()`); si `FT_T_LEI1` no tiene una fila
+  `ACTIVE` para ese LEI, se produciría una excepción no distinguida de cualquier otro fallo del proceso
+  (capturada de forma genérica, marca la petición como `ERROR` con el mensaje de la excepción Java, sin un
+  código de error de negocio específico).
 
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
 (`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
-salvo el punto de entrada (`Main.java`), señalado como no bloqueante. Quedan abiertos, como riesgos nuevos
-descubiertos por este análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas
-y la historificación de ficheros vacíos como si fueran un procesamiento exitoso (§9). Siguen pendientes,
-para los siguientes artefactos de esta misma cadena (R7, R8, R9), los gaps técnicos aún no abordados en esta
-sesión.
+salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap técnico G4
+(`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
+LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
+decisión completo — señalado como no bloqueante. Quedan abiertos, como riesgos nuevos descubiertos por este
+análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas, la historificación de
+ficheros vacíos como si fueran un procesamiento exitoso, el país hardcodeado a `ES` en el alta de LEI, y la
+ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI (§9). Sigue pendiente, para los
+siguientes artefactos de esta misma cadena (R8, R9), el gap técnico aún no abordado en esta sesión.
