@@ -107,24 +107,25 @@
     <posibilidadFallo>Si el contenido cambiara (nuevo jar, nueva carpeta), indicaría un cambio real en el proceso a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
-    <nombre>¿Sigue RDR_SIRE_new enviando datos de Contrapartidas, o ha pasado a ser un canal de Emisiones? (GAP-ADHOC-004)</nombre>
-    <objetivo>Confirmar si RDR_SIRE_new, pese a su nombre y agrupación en el documento fuente, sigue siendo parte del alcance funcional de "Contrapartidas" o si, tras el decomiso de FICHERO_CPTDA/MEKYTL0071 (ctpda.csv), ha pasado a ser exclusivamente un canal de Emisiones (emisi.csv) sin relación con Contrapartidas. El desacople técnico ya está confirmado con evidencia real (33 capturas de Control-M, documentos_fuente/GAP-ADHOC-004_jobs_extraidos.md); falta la confirmación funcional del contenido de datos.</objetivo>
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>RDR_SIRE_new es un canal de Emisiones, no de Contrapartidas (GAP-ADHOC-004 cerrado)</nombre>
+    <objetivo>Confirmar en revisiones futuras que RDR_SIRE_new, pese a su nombre y agrupación en el documento fuente, es un canal de Emisiones (emisi.csv) desacoplado de "Extracción Genérica de Contrapartidas" — cerrado por decisión explícita del usuario (2026-09-25) con evidencia estructural/técnica acumulada en 5 rondas, sin llegar a confirmación de contenido de datos (emisi.csv real no disponible).</objetivo>
     <precondiciones>
-      <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre el contenido de emisi.csv.</precondicion>
+      <precondicion>Ninguna — caso de regresión documental sobre evidencia ya recopilada.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="emisi.csv" valor="contenido no confirmado a nivel funcional; generado por executeBbvaEvent.sh (evento EventSireEmisi) vía GoldenSource Fileloading Engine, mecanismo distinto a la extracción genérica de Contrapartidas"/>
-      <dato campo="RDR_SIRE_IN (cabeza de cadena)" valor="confirmado con evidencia real: sin ningún prerrequisito — la cadena está totalmente desacoplada de RDR_DAILY_EXGEN_CPARTYS_new/_FINSEM_S_new/_FINSEM_D_new"/>
+      <dato campo="Evidencia acumulada" valor="decomiso de FICHERO_CPTDA/MEKYTL0071 (ctpda.csv) sustituido por FICHERO_EMISI/MEKYTL0072 (emisi.csv); RDR_SIRE_IN sin prerrequisito alguno (desacople total); evento GoldenSource literal EventSireEmisi; mecanismo GoldenSource Fileloading Engine (no GSProcess.sh/familia KYTL); rutas de staging en pasarela físicamente distintas (/unload/transmisiones/RDR/ vs /unload/transmisiones/KYTL/)"/>
+      <dato campo="emisi.csv" valor="contenido NO confirmado a nivel funcional — no disponible; cierre basado en evidencia estructural, no en inspección directa del dato"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar con el equipo funcional o el responsable de SIRE si emisi.csv contiene datos de Emisiones, Contrapartidas, o ambos.</paso>
-      <paso numero="2">Si contiene datos de Contrapartidas, documentar la relación con la extracción genérica común (pese al desacople técnico ya confirmado); si no, confirmar que el envío real de Contrapartidas a SIRE vive únicamente en la rama RDR_TRANSFORMACION_SIRE de RDR_DAILY_EXGEN_CPARTYS_new.</paso>
+      <paso numero="1">Confirmar que RDR_SIRE_IN sigue sin prerrequisito alguno hacia las 3 cadenas de Extracción Genérica de Contrapartidas.</paso>
+      <paso numero="2">Confirmar que el envío real de Contrapartidas a SIRE sigue viviendo únicamente en la rama RDR_TRANSFORMACION_SIRE de RDR_DAILY_EXGEN_CPARTYS_new (ver salidas/extraccion_generica_contrapartidas/spec.md §1.2).</paso>
+      <paso numero="3">Si en algún momento se obtiene el emisi.csv real, comparar contra GAP-ADHOC-004_ctpda.csv para una confirmación de contenido que este caso no llega a cubrir.</paso>
     </pasos>
-    <resultadoEsperado>Se aclara si RDR_SIRE_new pertenece realmente al alcance de "Contrapartidas" o si el documento fuente agrupa bajo el mismo título un proceso que ya ha migrado a otro dominio de datos (Emisiones).</resultadoEsperado>
-    <tipoValidacion>Confirmación funcional directa; inspección del diccionario de campos de emisi.csv si se aporta.</tipoValidacion>
-    <criterioAceptacion>Naturaleza de RDR_SIRE_new aclarada con evidencia o respuesta funcional, documentada en una futura actualización de spec.md.</criterioAceptacion>
-    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí; el caso cierra un gap documental de alcance/nomenclatura.</posibilidadFallo>
+    <resultadoEsperado>RDR_SIRE_new se mantiene como canal de Emisiones estructuralmente desacoplado de Contrapartidas, salvo evidencia de contenido en contrario.</resultadoEsperado>
+    <tipoValidacion>Confirmación estructural (topología, mecanismo, rutas) — no de contenido de datos.</tipoValidacion>
+    <criterioAceptacion>La evidencia estructural acumulada se mantiene sin contradicción en revisiones futuras.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro aparece evidencia de que emisi.csv sí contiene datos de Contrapartidas, este cierre debería reabrirse.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">
