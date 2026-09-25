@@ -49,6 +49,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto con código fuente real** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4/§6.5. Confirma la estructura completa del XML (`PARTYSETUP`>`GLOBALS`>`GLOBAL`>`LOCALS`>`LOCAL`>`OPERATIVES`>`OPERATIVE`, coherente con los prefijos `GL`/`LO`/`OP` del CSV) y un **hallazgo grave**: `version1` y `version2` interpretan de forma incompatible las mismas columnas `GL.14.01.*`/`GL.14.02.*` (regulación DFA/SFTR) — ver §9. Cuál de las 2 se invoca realmente (`args[2]="G"` o no, en `GSProcess.sh`/`.properties`) no se ha podido confirmar con el material disponible y es la pregunta más importante para saber si el dato regulatorio sale bien o mal etiquetado. |
+| G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Parcialmente resuelto con el `.wkf` real** (`XMLReader.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena, deben pertenecer a otro proceso que reutiliza el mismo workflow. **No** se han aportado los sub-workflows invocados (`Duplicate XMLReader`, `Duplicate Delete XMLReader`, `OTHER`, `ValidacionOficinas`, `Basic Message Processing`) — sin ellos no se puede confirmar el detalle final de qué se aplica en GoldenSource ni el comportamiento exacto ante un fallo dentro de un mensaje individual. |
 
 ## 5. Especificación funcional
 
@@ -399,6 +400,77 @@ XML) con comprobación previa de "campo no vacío" antes de cada etiqueta.
     según el valor de `GL.05` — señal de una decisión de negocio que quedó sin resolver del todo en el
     propio código, y que la versión activa hoy (la última sin comentar) puede no ser la definitiva.
 
+### 6.6 `Workflow(RDR_XMLReader)` (tercer paso de R8) — parcialmente confirmado con `.wkf` real
+
+Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, exportado 2025-07-12 —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/XMLReader.wkf`).
+
+- **Qué hace en este proceso (flujo confirmado):**
+  1. `Create Job` (`configInfo="Carga de contrapartidas"`) inicia el job de Streetlamp; `Inicializar
+     Variables` fija `counter=0`, `MsgTyp="XML"`, `errors=0`.
+  2. `Open File` (`businessFeed="XMLReaderBF"`) abre el fichero recibido en el parámetro `File`
+     (`java.net.URI`, obligatorio) — el mismo fichero que escribe `CSVToXML_Layout.jar` (§6.4/§6.5).
+  3. `File Split Condition` (`bulk=10000`, `dataSource`/`keyDataSource=jdbc/GSDM-1`) separa el contenido en
+     mensajes individuales (variable `Messages`) — es el paso que resuelve la falta de un elemento raíz único
+     del fichero (§6.5): trata cada `<PARTYSETUP>...</PARTYSETUP>` concatenado como un mensaje independiente,
+     no como un XML de documento único.
+     - **Hallazgo — nombre de configuración de tipo "prueba" en un flujo de producción:** el parámetro
+       `businessFeed` de este nodo tiene el valor literal **`PruebaCompas`** (no `XMLReaderBF` como en `Open
+       File`, ni ningún nombre claramente de producción). Puede ser residuo de una configuración de pruebas
+       que nunca se renombró, o un nombre de negocio real no evidente — a confirmar con el equipo
+       responsable del workflow antes de asumir que es inocuo.
+     - Sin mensajes (`end-of-file`) → cierra el job directamente (`Close Job`) sin procesar nada.
+  4. Con mensajes, `For Loop` itera cada uno (`Messages`→`Output`, acumula en `IncrementedObjects`). Por
+     cada iteración: `counter++`; `alta = Output.message` (el fragmento `<PARTYSETUP>` de ese mensaje);
+     `ExecuteXPath` extrae `/PARTYSETUP/AUDIT_INFORMATION/USER` a la variable `User`.
+  5. **Detección de duplicados antes de procesar:** subworkflow `Duplicate XMLReader` (input `JobId`,
+     `MensajeXML=alta`; output `MensajeTxt`, `duplicate`). Si `duplicate` es verdadero, el mensaje se
+     descarta con un solo log (`"XMLReader - Duplicate: "+alta`) y se continúa con el siguiente, **sin
+     contarlo como error ni reintentarlo**.
+  6. Si no es duplicado, `Take ENTITY name` (BeanShell) clasifica la entidad según el prefijo del valor de
+     `User`: si empieza por `"RFN"` → `EntityName="RFN"`; si empieza por `"COMPASS"` → `EntityName="COMPASS"`;
+     en cualquier otro caso (incluido `User` nulo/vacío) → `EntityName="empty"`. El valor devuelto selecciona
+     directamente la rama siguiente (subworkflow `RFN`, o la secuencia `Validacion Oficinas`→`OTHER`).
+     - **Hallazgo que conecta con G6/§6.4 — la rama `RFN`/`COMPASS` es código muerto para este proceso.**
+       `CSVToXML_Layout.jar` (`PpalAltas`, §6.4) rellena el campo `USER` del XML **siempre** con el literal
+       fijo `FUND_LOADER` (extraído del nombre del CSV `<fecha>@FUND_LOADER.csv`, §6.3) — nunca con un valor
+       que empiece por `"RFN"` o `"COMPASS"`. Por tanto, para `RDR_PR_BDICLIENREG_RESP_new` /
+       `GS_INVESTORS_ALTAFONDOS`, `EntityName` **siempre** resuelve a `"empty"` (rama `OTHER`/`Validacion
+       Oficinas`): las ramas `RFN` y `COMPASS` de este mismo workflow pertenecen a otro/s proceso/s que lo
+       reutilizan con un `USER` distinto (coherente con el hallazgo de reutilización genérica de
+       `CSVToXML_Layout.jar`, §6.4) y no se ejercitan nunca desde esta cadena.
+  7. Rama `OTHER`/`Validacion Oficinas` (la única real para este proceso): invoca los subworkflows
+     `ValidacionOficinas` y `OTHER` (input `JobId`/`alta`/`errors`, ambos `CallSubWorkflow`) antes de
+     continuar — no se ha aportado el contenido de ninguno de los dos, así que no se puede confirmar qué
+     validan ni qué actualizan en `errors`.
+  8. Independientemente de la rama, el mensaje se procesa como transacción real: `Create Transaction`
+     (Streetlamp, `correlationId=counter`, `flushImmediate=true`) → `Create Message Object`
+     (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (el nombre
+     sugiere que es este subworkflow, no aportado, el que realmente aplica el alta de la contraparte en
+     GoldenSource) → `Duplicate Delete XMLReader` (mismo patrón de nombre que el chequeo de duplicados del
+     paso 5 — presumiblemente registra el mensaje como ya procesado, para que un reenvío futuro del mismo
+     `alta` sí se detecte como duplicado en el paso 5).
+  9. Al agotarse `Messages`, `Close Job` cierra el job de Streetlamp y el workflow termina (`Stop`).
+- **Campos de salida afectados:** no genera fichero; su efecto es la actualización real de GoldenSource vía
+  `"Basic Message Processing"` (no confirmado en detalle, gap abierto) para cada mensaje no duplicado.
+- **Qué pasa si falla:**
+  - Fallo en `Open File`/`File Split Condition` (transición `error`) → va directamente a `Close Job`, sin
+    procesar ningún mensaje del fichero — no se ha localizado ninguna alerta específica más allá del cierre
+    del job.
+  - Mensaje duplicado → descartado silenciosamente (log únicamente), sin incrementar ningún contador visible
+    de "duplicados detectados" en las variables globales.
+  - Fallo dentro de `"Basic Message Processing"` (activación `TRANSACTIONAL`) para un mensaje concreto: no
+    confirmado si aborta solo ese mensaje (y el bucle continúa con el siguiente) o interrumpe todo el job —
+    depende del comportamiento de ese subworkflow, no aportado.
+- **Estado del propio workflow:** el `.wkf` exportado declara `<status>DEVELOPMENT</status>` — no se ha
+  confirmado si este campo refleja el estado real del ciclo de vida del workflow en el entorno de
+  producción o es un valor de metadatos sin relación con el entorno de ejecución real.
+- **Gap abierto, relevante (G7):** no se han aportado los subworkflows `Duplicate XMLReader`, `Duplicate
+  Delete XMLReader`, `OTHER`, `ValidacionOficinas` ni `"Basic Message Processing"` — sin ellos no se puede
+  confirmar qué valida cada uno, qué actualiza `errors`, ni el detalle exacto de qué campos/tablas de
+  GoldenSource modifica el alta real de la contraparte. Pedir esos `.wkf`/clases para cerrar el 100% de esta
+  pieza de la cadena.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -497,6 +569,21 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   (confirmado por código, §6.4):** el parámetro `args[3]` admite valores `SCFF`/`GENERICO_CTP` además de
   `IP` (usado aquí) — el mismo jar puede estar en uso por otra/s cadena/s de RDR, con su propia clase
   `Ficheros2` (encoding y modo de escritura distintos) potencialmente asociada a esos otros contextos.
+* **Duplicados descartados sin contador ni alerta visible (confirmado por `.wkf` real, §6.6):**
+  `Workflow(RDR_XMLReader)` detecta duplicados mensaje a mensaje (subworkflow `Duplicate XMLReader`) y los
+  descarta con un solo log, sin incrementar ningún contador de duplicados en las variables globales del
+  workflow ni generar alerta — una alta legítima reenviada tras un fallo parcial anterior podría descartarse
+  silenciosamente en vez de reprocesarse, si el mecanismo de "Duplicate Delete XMLReader" (no aportado) no
+  se ejecutó correctamente en el intento previo.
+* **Nombre de configuración de apariencia de prueba en un flujo de producción (confirmado por `.wkf` real,
+  §6.6):** el nodo `File Split Condition` de `Workflow(RDR_XMLReader)` usa `businessFeed="PruebaCompas"` —
+  a confirmar con el equipo responsable si es un nombre heredado de pruebas nunca renombrado o un nombre de
+  negocio real.
+* **Ramas `RFN`/`COMPASS` de `Workflow(RDR_XMLReader)` nunca se ejercitan desde esta cadena (confirmado por
+  código cruzado, §6.4 + §6.6):** el campo `USER` que decide esa clasificación siempre vale el literal
+  `FUND_LOADER` en los mensajes que produce `CSVToXML_Layout.jar` para este proceso — cualquier caso de
+  prueba que intente ejercitar esas 2 ramas específicamente desde `RDR_PR_BDICLIENREG_RESP_new` estaría mal
+  planteado; solo la rama `OTHER`/`Validacion Oficinas` aplica aquí.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -515,16 +602,21 @@ vacío en las fechas de vigencia del LEI, el camino de negocio unificado pero no
 `DigitalCrossSelling`, el tamaño variable del CSV intermedio entre ejecuciones, la mayoría de columnas del
 CSV siempre vacías, la ausencia total de fichero si 0 fondos son válidos, el fallo silencioso ante separador
 vacío, y 2 erratas baked-in en el código del jar (§9). El gap técnico G6 (`CSVToXML_Layout.jar`, segundo
-paso de R8) queda **parcialmente resuelto**: el punto de entrada real (`PpalAltas`) confirma la lectura del
-CSV, el escapado XML y varios hallazgos de rigor (pérdida silenciosa de subcampos `~`, un solo CSV procesado
-por ejecución) queda **resuelto** con `GenerarXML_version1`/`GenerarXML_version2` (§6.5): confirma la
-estructura completa del XML (jerarquía real `GLOBAL`>`LOCAL`>`OPERATIVE`, coherente con los prefijos del
-CSV) y descubre el **hallazgo de mayor prioridad de toda la sesión sobre este proceso**: `version1` y
-`version2` interpretan de forma incompatible los mismos campos de regulación DFA/SFTR, y cuál de las 2 se
-invoca realmente en producción (parámetro `args[2]` de `GSProcess.sh`, no confirmado con el material
-disponible) determina si esos datos regulatorios salen correctos o mal etiquetados (§9) — recomendado
-verificarlo cuanto antes contra la configuración real de Control-M, independientemente de si se continúa o
-no con el resto de esta auditoría. Siguen pendientes, para el resto de la cadena de R8
-(`Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`,
-`Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para R9, los gaps técnicos aún no
-abordados en esta sesión.
+paso de R8) queda **resuelto**: el punto de entrada real (`PpalAltas`) confirma la lectura del CSV y el
+escapado XML (§6.4), y `GenerarXML_version1`/`GenerarXML_version2` (§6.5) confirman la estructura completa
+del XML (jerarquía real `GLOBAL`>`LOCAL`>`OPERATIVE`, coherente con los prefijos del CSV) y descubren el
+**hallazgo de mayor prioridad de toda la sesión sobre este proceso**: `version1` y `version2` interpretan
+de forma incompatible los mismos campos de regulación DFA/SFTR, y cuál de las 2 se invoca realmente en
+producción (parámetro `args[2]` de `GSProcess.sh`, no confirmado con el material disponible) determina si
+esos datos regulatorios salen correctos o mal etiquetados (§9) — recomendado verificarlo cuanto antes contra
+la configuración real de Control-M, independientemente de si se continúa o no con el resto de esta
+auditoría. El gap técnico G7 (`Workflow(RDR_XMLReader)`, tercer paso de R8) queda **parcialmente resuelto**
+con el `.wkf` real (§6.6): confirma el flujo completo de lectura/split/iteración/detección de
+duplicados/clasificación por entidad, y un hallazgo que conecta directamente con G6 — el campo `USER` que
+decide la clasificación siempre vale el literal `FUND_LOADER` para este proceso, así que las ramas
+`RFN`/`COMPASS` de este mismo workflow son código muerto aquí, solo aplica `OTHER`/`Validacion Oficinas`.
+Faltan los subworkflows invocados (`Duplicate XMLReader`, `Duplicate Delete XMLReader`, `OTHER`,
+`ValidacionOficinas`, `Basic Message Processing`) para confirmar el detalle final de qué se aplica en
+GoldenSource. Siguen pendientes, para el resto de la cadena de R8 (`Script(Historificar)`,
+`Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`,
+`Property(GestionAlertas)`) y para R9, los gaps técnicos aún no abordados en esta sesión.
