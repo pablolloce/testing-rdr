@@ -47,7 +47,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
-| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Parcialmente resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. Confirma el diccionario completo de columnas (~193 fijas + bloques repetidos por sucursal/oficina) y descubre un camino de negocio no documentado (fondos de canal `DigitalCrossSelling` tratados aparte). **No** se ha aportado la clase orquestadora que decide qué query ejecutar, cómo se puebla cada campo de `CSVLine` ni la ruta/nombre real del CSV resultante — gap abierto, no bloqueante. |
+| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
 
 ## 5. Especificación funcional
 
@@ -173,20 +173,58 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
   existe algún otro camino de negocio en este jar aparte de `AltaRegisterLEIRequest`. Pedir esa clase (o el
   `Main.java` del jar) para cerrar el 100 % del flujo.
 
-### 6.3 `AltaFondos_Genera_csv.jar` (primer paso de R8) — parcialmente confirmado con código fuente real
+### 6.3 `AltaFondos_Genera_csv.jar` (primer paso de R8) — confirmado con código fuente real
 
-Clases analizadas: `csv.CSVLine`, `jdbc.QuerysStr`, `jdbc.QueryExec` (versión propia de este jar, con
-queries distintas de §6.1/§6.2 aunque con el mismo nombre de clase) —
+Clases analizadas: `peticiones.Peticiones` (orquestador), `peticiones.Fondo`, `csv.CSVLine`, `jdbc.QuerysStr`,
+`jdbc.QueryExec` (versión propia de este jar, con queries distintas de §6.1/§6.2 aunque con el mismo nombre
+de clase), `tools.DateUtil`, `tools.FicherosCLS` —
 `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`.
 
-- **Selección de fondos — dos caminos de negocio no documentados hasta ahora:** `selectFondosPosibles()`
-  selecciona fondos con `FT_T_VREQ.VND_RQST_XREF_ID_CTXT_TYP='FundLEI'`/`VND_RQST_STAT_TYP='ALTA_FONDO_PEND'`
-  **excluyendo** `VND_RQST_CORR_ID='DigitalCrossSelling'`; `selectFondosPosiblesDCS()` es la query
-  complementaria exacta, **solo** para `VND_RQST_CORR_ID='DigitalCrossSelling'`. Es decir, el jar distingue
-  explícitamente entre fondos de alta "normal" y fondos originados por el canal Digital Cross Selling — esta
-  distinción no aparece en ningún punto de la spec ni del documento fuente hasta este análisis. No se ha
-  confirmado (por falta de la clase orquestadora) si ambos caminos generan el mismo CSV con la misma
-  estructura, o si difieren en algo más allá del origen de los fondos seleccionados.
+- **Flujo completo confirmado (`Peticiones.procesaPeticiones(String DCS)` + `generaCSVAltaFondos()`):**
+  1. Según el parámetro `DCS` recibido (`"DCS"` o cualquier otro valor), ejecuta `selectFondosPosiblesDCS()`
+     o `selectFondosPosibles()` — confirma que **es el mismo flujo invocado 2 veces** (una por canal), no 2
+     jars distintos: la distinción "Digital Cross Selling" vs. resto es solo el origen de los fondos
+     seleccionados, sin más lógica diferenciada en el resto del flujo (mismo `Fondo`/`CSVLine` para ambos).
+     Esta distinción de canal no aparece en ningún punto de la spec ni del documento fuente hasta este
+     análisis.
+  2. Por cada fondo (`VND_RQST_OID`), crea un objeto `Fondo` y llama a `procesaFondo()`: marca la petición
+     como `GENERATING_CSV_LINE`, descarga **todos** sus atributos de `FT_T_UTD1` (agrupados por clave en un
+     `HashMap<String, Vector<String>>` — una clave puede tener varios valores, como `BRANCH`/`OFFICE`), y
+     llama a `mapeaCampos()`.
+  3. `mapeaCampos()` obtiene el separador real (`selectSplitter()`) y mapea explícitamente, de atributo a
+     campo de `CSVLine`, un subconjunto de las 193 columnas fijas: p. ej. `NAME`→`GL_03`/`LO_03`/`OP_41`
+     (truncado a 60 caracteres si es más largo), `LEI_CODE`→`GL_09_01_01`/`02` (con literal `"LEIID"`),
+     `COUNTRY`→`GL_12`/`LO_07`/`OP_13`, `BDI_CODE`→`OP_08_01_01`/`02` (recortado a los últimos 6 caracteres),
+     `COD_STAR`/`COD_MUREX`/`ACRONYM`/`CTMID`/`SWIFT`/`ALERT_CODE`→bloques `OP_24_0N_*` (cada uno con un
+     literal identificador de tipo, p. ej. `"STARID"`/`"MUREXID"`/`"SWIFTID"`), entre otros ~30 atributos
+     más. Los valores `BRANCH`/`OFFICE` (multivaluados) se añaden con `addBranch`/`addOffice` (este último
+     partiendo cada valor por `\|`) — de aquí salen los bloques repetidos `OP.16`/`OP.17`-`OP.22` de la
+     cabecera (§6.3 anterior). Si el fondo se marca inválido (`validFund=false`, p. ej. por excepción durante
+     el mapeo), la petición pasa a `ERROR_CSV_LINE_GEN` con la descripción del error; si no, a
+     `GENERATED_CSV_LINE`.
+  4. **Hallazgo — la mayoría de las 193 columnas fijas del diccionario (§6.3 anterior) quedan siempre
+     vacías.** `mapeaCampos()` solo puebla explícitamente unas ~35-40 de las 193 columnas fijas; el resto
+     conserva el valor por defecto (`""`) de `CSVLine` en todo caso — no hay ninguna otra clase en el
+     material disponible que las rellene. No se puede confirmar si esas columnas son consumidas
+     (vacías, por diseño) por `CSVToXML_Layout.jar` (siguiente paso, aún no analizado) o si son vestigiales.
+  5. `Peticiones.generaCSVAltaFondos()`: si **0 fondos resultaron válidos** (`numOks==0`), la función
+     retorna sin generar ningún fichero — a diferencia de otros motores de extracción genérica RDR ya
+     analizados en esta sesión (`ExtraccionGenericaOtherEntities`/`ExtraccionGenericaUnificada`), que
+     publican el fichero incondicionalmente incluso vacío, **este generador no publica nada en absoluto**
+     si no hay fondos válidos que cargar.
+  6. Si hay al menos 1 fondo válido, el nombre del fichero es
+     `<AAAAMMDDHHMMSS>@FUND_LOADER.csv` (`DateUtil.FechaSistemaCompletaString()`, hora del sistema en el
+     momento de generación, sin relación con el `ODATE` de Control-M), escrito en `carpetaSalida+"/"+nombre`
+     (`carpetaSalida` es un parámetro del constructor de `Peticiones`, cuyo origen no se ha confirmado sin
+     la clase `Main`). La cabecera (`maxOficinas`/`maxBranches` calculados como el máximo **entre los fondos
+     válidos**) se toma del primer fondo de la lista (`Fondos.get(0)`) — asume que todos los fondos generan
+     la misma cabecera exacta (coherente con el mismo `CSVLine`/mismo splitter para todos). Codificación
+     UTF-8 (`FicherosCLS.writeVectorInFileBoolean`).
+- **Hallazgo menor — bug cosmético en la identificación inicial:** `Peticiones.procesaPeticiones` construye
+  cada `Fondo` con `oid = peticiones.get(i)[0]` y **`LEI = peticiones.get(i)[0]`** (el mismo índice, en vez
+  de `[1]`, que sería el `VND_RQST_XREF_ID` real). El valor queda sobrescrito de inmediato dentro de
+  `Fondo.procesaFondo()` con el `LEI_CODE` real obtenido de BD, así que no tiene impacto funcional — solo
+  hace que el primer mensaje de log ("Analizando LEI: ...") muestre el OID en vez del LEI real.
 - **Delimitador del CSV configurable en BD, no hardcodeado:** `selectSplitter()`
   (`SELECT PAR1_VALUE FROM FT_T_PAR1 WHERE PARAMETER_CTXT_TYP='STR_SPLIT' AND PAR1_NME='STR_SPLIT_FONDOS'`)
   obtiene el carácter separador real desde una tabla de parámetros de GoldenSource — coherente con el
@@ -212,9 +250,14 @@ queries distintas de §6.1/§6.2 aunque con el mismo nombre de clase) —
   intocable) o si es un defecto arrastrado sin corregir — señalado como hallazgo, no como gap a cerrar aquí.
 - **Campos de salida afectados:** el CSV completo generado por este jar (estructura descrita arriba); es la
   entrada del siguiente paso de la cadena (`CSVToXML_Layout.jar`, aún no analizado en esta sesión).
-- **Qué pasa si falla/falta/cambia:** no confirmado — depende de la clase orquestadora (no aportada). No se
-  ha localizado en el material disponible ningún control de fichero vacío (0 fondos pendientes) ni de
-  campos obligatorios sin valor.
+- **Qué pasa si falla/falta/cambia (confirmado por código, ver flujo arriba):** un fondo individual con
+  excepción en `mapeaCampos()`/`procesaFondo()` se marca `ERROR_CSV_LINE_GEN` y **se excluye del CSV**, sin
+  detener el procesamiento de los demás fondos del lote. Si **todos** los fondos del lote fallan (0 válidos),
+  **no se genera ningún fichero**, ni siquiera vacío o con solo cabecera — comportamiento opuesto al de los
+  motores de extracción genérica ya vistos en esta sesión, que publican incondicionalmente. Un fallo al
+  obtener el separador (`selectSplitter()`) se registra pero no impide continuar: `CSVLine` se construye
+  igualmente con un `splitter` vacío (`""`), lo que generaría un CSV **sin separador entre campos** en vez
+  de fallar de forma visible — riesgo silencioso no buscado (ver §9).
 - **Hallazgo menor:** `CSVLine.getLinea()` está definido pero siempre devuelve una cadena vacía — un método
   sin implementar o ya en desuso; no se ha confirmado si algo lo invoca todavía.
 - **Nota de calidad de código (no funcional):** a diferencia de las clases `QuerysStr`/`QueryExec` de §6.1 y
@@ -225,10 +268,9 @@ queries distintas de §6.1/§6.2 aunque con el mismo nombre de clase) —
   esta misma cadena.
 - **Errata adicional detectada:** `insertVREQ_BDIClient_Req` inserta `DATA_SRC_ID='INVESTORS_LEI_REPONSE'`
   (falta la "S" de "RESPONSE") — mismo patrón de erratas ya visto en el nombre de campo `LO_16_01202`.
-- **Gap abierto, no bloqueante (G5):** sin la clase orquestadora, no se puede confirmar el flujo completo:
-  qué query se ejecuta primero, cómo se puebla cada campo de `CSVLine` a partir de los datos de cada fondo,
-  ni la ruta/nombre de fichero real del CSV resultante. Pedir esa clase (o el `Main.java` del jar) para
-  cerrar el 100 % del flujo.
+- **Gap opcional, no bloqueante (G5):** no se ha aportado la clase `Main`/punto de entrada del jar, por lo
+  que el origen exacto del parámetro `DCS` (¿se invoca el jar 2 veces desde `GSProcess.sh`, una por canal?)
+  y el valor real de `carpetaSalida` quedan sin confirmar por fichero de configuración/entrada real.
 
 ## 7. Especificación de testing
 
@@ -279,15 +321,26 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `ACTIVE` para ese LEI, se produciría una excepción no distinguida de cualquier otro fallo del proceso
   (capturada de forma genérica, marca la petición como `ERROR` con el mensaje de la excepción Java, sin un
   código de error de negocio específico).
-* **Camino de negocio no documentado para fondos `DigitalCrossSelling` (confirmado por código, §6.3):**
-  `AltaFondos_Genera_csv.jar` selecciona por separado los fondos de alta con `VND_RQST_CORR_ID='DigitalCrossSelling'`
-  frente al resto — ninguna spec ni documento fuente menciona este canal ni si su tratamiento posterior
-  difiere en algo. A confirmar con negocio/usuario qué distingue realmente a este canal en el resto de la
-  cadena (R8/R9).
+* **Camino de negocio de fondos `DigitalCrossSelling`, sin documentar hasta ahora (confirmado por código,
+  §6.3):** `Peticiones.procesaPeticiones(DCS)` invoca el mismo flujo completo (mismo `Fondo`/`CSVLine`) dos
+  veces, una por canal — la única diferencia real es el origen de los fondos seleccionados
+  (`VND_RQST_CORR_ID='DigitalCrossSelling'` o el resto). Ninguna spec ni documento fuente menciona este
+  canal; a confirmar con negocio/usuario si el resto de la cadena (R8/R9) también lo trata de forma
+  unificada o si en algún punto posterior sí diverge.
 * **Estructura del CSV intermedio de tamaño variable entre ejecuciones (confirmado por código, §6.3):** el
   número de columnas de `CSVLine` cambia según el máximo de sucursales/oficinas del lote — cualquier
   validación de "número de columnas esperado" en pasos posteriores (`CSVToXML_Layout.jar`) debe tenerlo en
   cuenta; no se ha confirmado si lo hace.
+* **La mayoría de las 193 columnas fijas del CSV quedan siempre vacías (confirmado por código, §6.3):**
+  `mapeaCampos()` solo puebla ~35-40 de ellas; no se ha confirmado si el resto es consumido como "vacío por
+  diseño" por `CSVToXML_Layout.jar` o si son columnas vestigiales del formato.
+* **Ausencia de fichero si 0 fondos son válidos, sin ningún fichero ni siquiera vacío (confirmado por
+  código, §6.3):** comportamiento distinto al de otros motores de extracción genérica ya analizados en
+  esta sesión (que publican incondicionalmente, incluso vacíos) — si un paso posterior de la cadena espera
+  siempre un fichero de entrada, este escenario podría no estar contemplado.
+* **Fallo silencioso al obtener el separador del CSV (confirmado por código, §6.3):** si
+  `selectSplitter()` no devuelve fila, `CSVLine` se construye con separador vacío (`""`) sin ningún error
+  visible, lo que generaría un CSV sin delimitador entre campos en vez de fallar de forma explícita.
 * **Erratas baked-in en el propio código del jar (confirmado, §6.3):** el campo/cabecera `LO.16.01202` (en
   vez del patrón esperado `LO.16.02.02`) y el valor `DATA_SRC_ID='INVESTORS_LEI_REPONSE'` (sin la "S" de
   "RESPONSE") están en el código fuente tal cual, no son erratas de transcripción de esta sesión — a
@@ -297,16 +350,19 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
 (`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
-salvo el punto de entrada (`Main.java`), señalado como no bloqueante. Los gaps técnicos G4
-(`Investors_Client_Reg_resp.jar`) y G5 (`AltaFondos_Genera_csv.jar`, primer paso de R8) quedan **parcialmente
-resueltos**: el modelo de datos, el diccionario de campos y las piezas de negocio confirmadas por código real
-están documentados, pero en ambos falta la clase orquestadora del jar para cerrar el flujo de decisión
-completo — señalado como no bloqueante en los dos casos. Quedan abiertos, como riesgos nuevos descubiertos
-por este análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas, la
-historificación de ficheros vacíos como si fueran un procesamiento exitoso, el país hardcodeado a `ES` en el
-alta de LEI, la ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI, el camino de
-negocio no documentado para fondos `DigitalCrossSelling`, el tamaño variable del CSV intermedio entre
-ejecuciones, y 2 erratas baked-in en el código del jar (§9). Siguen pendientes, para el resto de la cadena de
-R8 (`CSVToXML_Layout.jar`, `Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`,
+salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap técnico G4
+(`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
+LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
+decisión completo — señalado como no bloqueante. El gap técnico G5 (`AltaFondos_Genera_csv.jar`, primer paso
+de R8) queda **resuelto** con el flujo completo confirmado (`Peticiones`/`Fondo`/`CSVLine`), salvo el punto
+de entrada (`Main.java`, origen del parámetro `DCS` y de `carpetaSalida`), señalado como no bloqueante.
+Quedan abiertos, como riesgos nuevos descubiertos por este análisis (no como preguntas pendientes): la
+pérdida silenciosa de respuestas truncadas, la historificación de ficheros vacíos como si fueran un
+procesamiento exitoso, el país hardcodeado a `ES` en el alta de LEI, la ausencia de comprobación de resultado
+vacío en las fechas de vigencia del LEI, el camino de negocio unificado pero no documentado para fondos
+`DigitalCrossSelling`, el tamaño variable del CSV intermedio entre ejecuciones, la mayoría de columnas del
+CSV siempre vacías, la ausencia total de fichero si 0 fondos son válidos, el fallo silencioso ante separador
+vacío, y 2 erratas baked-in en el código del jar (§9). Siguen pendientes, para el resto de la cadena de R8
+(`CSVToXML_Layout.jar`, `Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`,
 `AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para
 R9, los gaps técnicos aún no abordados en esta sesión.
