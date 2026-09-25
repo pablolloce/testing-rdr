@@ -40,7 +40,8 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 ## Salida mínima requerida
 
 Por proceso, crea `salidas/<nombre_proceso>/` con tres ficheros:
-- `spec.md`: resumen ejecutivo, alcance, requisitos, gaps y preguntas (con respuestas),
+- `spec.md`: resumen ejecutivo, alcance (siempre en 3 puntos: ámbito funcional, ámbito técnico y
+  fuera de alcance — ver detalle en `copilot-instructions.md`), requisitos, gaps y preguntas (con respuestas),
   especificación funcional/técnica/de testing, validaciones (resumen), duplicidades/errores y
   conclusión. La especificación de testing debe explicar los casos (referenciando su ID en
   `casos_prueba.xml`) y confirmar explícitamente que son ejecutables tal cual están definidos y

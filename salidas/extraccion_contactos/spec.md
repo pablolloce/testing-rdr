@@ -431,6 +431,56 @@ SAIT).
 `MEKYTL1190` usa el ODATE de ejecución para estampar la fecha en el nombre del fichero
 historificado.
 
+#### Motor genérico de transmisión (`MEGENV0001.sh`)
+
+El script que `MEKYTL1189` usa para copiar `RDR_contactosSAIT.xml` a la pasarela no está
+archivado en la evidencia de este proceso, sino en la de otro:
+`documentos_fuente/evidencia_rdr_envio_cliex/MEGENV0001.sh`. Es, sin embargo, el mismo motor
+genérico de envíos/recogidas reutilizado por distintas cadenas — su cabecera lo declara
+explícitamente (`APLICACION: TODAS`) — por lo que su análisis es válido aquí:
+
+- Es un motor `ksh` **parametrizado por `<CLAVE>`** (`CLAVE_ENTRADA=${1}`, primer argumento):
+  no es específico de ningún job, sino que la clave de invocación (para `MEKYTL1189`,
+  previsiblemente el propio nombre del job o un código equivalente) identifica qué
+  configuración de envío aplicar.
+- Detecta el entorno de ejecución por el nombre de la máquina (`d`→`de`, `i`→`ei`, `w`→`pp`,
+  `p`→`pr`) y **decide el protocolo de transmisión (`XCOM`, `SFTP`/`FTP` o `CONNECT DIRECT`) y
+  el resto de parámetros del envío a partir de un fichero `.idx`**
+  (`${rutaIDX}/${CLAVE_ENTRADA}.idx`) que la función `SF_MEGENV0001_genera_IDX` genera
+  dinámicamente contra base de datos (invocación de un jar con acción `NEW`), con caída a un
+  `.idx` de backup (`idx/bck/${CLAVE_ENTRADA}.idx`) si esa generación falla o el fichero
+  resulta vacío. Del `.idx` se leen, entre otras, las variables `PROTOCOLO`, `SENTIDO_ENVIO`
+  (`PUT`/`GET`/`MGET`), `RUTA_ORIGEN`, `RUTA_DESTINO`, `MAQUINA_DESTINO`, `FALLA_NO_FICHERO` y
+  la lista de ficheros a enviar.
+- **El nombre de fichero destino se construye vía parámetros de renombrado.** Cada entrada de
+  la lista de ficheros a enviar tiene la forma `"fichero":tipo_renomb:renomb`: `tipo_renomb`
+  fija el modo (`P` prefijo, `S` sufijo, `M` renombrar por máscara, `R` renombrar completo) y
+  `renomb` el valor a aplicar. Es este mecanismo — y no lógica escrita en el propio
+  `MEGENV0001.sh` — el que en la práctica produciría, para la rama SAIT, el nombre con fecha
+  del fichero en destino (§4.8).
+- Según el `PROTOCOLO` leído del `.idx`, el script despacha a funciones (`ENVIO_FICH_XCOM`,
+  `ENVIO_FICH_SFTP`, `ENVIO_FICH_CD`) que **no están definidas en este fichero**: se cargan por
+  `.` (dot-source) al arrancar desde cuatro módulos externos —
+  `SF_MEGENV0001_XCOM.mod`, `SF_MEGENV0001_SFTP.mod`, `SF_MEGENV0001_CD.mod` y
+  `SF_MEGENV0001_PARAMS.mod` (este último, para la carga de variables y la validación de
+  parámetros).
+- El catálogo de errores del script (función `GetExitCode`) contempla el código **302 —
+  "ERROR DE COINCIDENCIA DE TAMAÑO ENTRE EL FICHERO EN ORIGEN Y DESTINO"** — junto a otros
+  errores de envío, historificación y compresión (101 a 307) y de configuración (1, 20, 110,
+  400, 500). Si se dispara, el script registra el mensaje en el log operativo y termina con
+  `exit 302`.
+
+> **Gap abierto — no se cierra con este análisis.** La cadena de llamadas se corta exactamente
+> en el punto donde viviría la comparación de tamaños: las funciones que podrían invocar
+> `GetExitCode 302` están en los `.mod` (`SF_MEGENV0001_XCOM.mod`, `SF_MEGENV0001_SFTP.mod`,
+> `SF_MEGENV0001_CD.mod`, `SF_MEGENV0001_PARAMS.mod`), y el `.idx` que fija el `PROTOCOLO` y los
+> parámetros de renombrado realmente usados por `MEKYTL1189` se genera dinámicamente contra
+> base de datos. Ninguno de los dos elementos está en el repositorio. **No puede confirmarse
+> con lo disponible si el chequeo de tamaño (302) se ejecuta de hecho en el envío de
+> `RDR_contactosSAIT.xml` a la pasarela**, ni qué protocolo concreto usa esa transmisión.
+> Cerrarlo exige aportar esos `.mod` o la ficha con el valor real de `CLAVE_ENTRADA` con el que
+> se invoca `MEGENV0001.sh` desde `MEKYTL1189`.
+
 > **Resuelto con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` (2026-09-24): sobrescritura
 > diaria confirmada, no acumulación.** Ningún job borra el fichero depositado en la pasarela, pero
 > tampoco hace falta: `MEKYTL1189` copia siempre `RDR_contactosSAIT.xml` (nombre fijo, sin fecha)
@@ -523,7 +573,7 @@ preparación de entornos lo despliegue con ese nombre exacto.
 | Fichero completo | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/ExtraccionContingenciaCONT.xml` |
 | Fichero SAIT | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/SAIT/RDR_contactosSAIT.xml` |
 | Hoja de estilo | `/pr/kytl/online/multipais/multicanal/dat/properties/sait.xsl` |
-| Scripts utilitarios | `RAMERC0068.sh` (historificación), `MEGENV0001.sh` (transmisión) |
+| Scripts utilitarios | `RAMERC0068.sh` (historificación), `MEGENV0001.sh` (transmisión, motor genérico analizado en §4.8) |
 | Retención de históricos | 7 días en ambas ramas |
 
 ### 5.1 Diccionario de bloques del XML de contactos
@@ -737,6 +787,7 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
 | RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
+| RG-20 | **Gap abierto.** `MEGENV0001.sh`, el motor que usa `MEKYTL1189` para copiar el fichero a la pasarela, contempla un código 302 de comparación de tamaños origen/destino, pero la lógica que lo dispararía vive en los `.mod` (`SF_MEGENV0001_XCOM.mod`/`_SFTP.mod`/`_CD.mod`/`_PARAMS.mod`) y en el `.idx` generado dinámicamente vía BD — ninguno de los dos está en el repositorio | No puede confirmarse si el chequeo de tamaño se ejecuta realmente en el envío de `RDR_contactosSAIT.xml`, ni qué protocolo (XCOM/SFTP/CD) usa en la práctica esa transmisión | Aportar los `.mod` citados o la ficha con el valor real de `CLAVE_ENTRADA` con el que se invoca `MEGENV0001.sh` desde `MEKYTL1189` (§4.8) |
 | RG-19 | **Resuelto con el código fuente real de `Querys.java` (2026-09-24).** El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25), pero **ninguno de los `SELECT` que el motor ejecuta contra `FT_T_ATE1` filtra por `DATA_STAT_TYP`** (`obtenerEntidades`, `obtenerExtraccion`, `obtenerFichero` — los 3 hacen `WHERE ACTION_NME = '...'` sin más condición). El campo es funcionalmente inerte para esta búsqueda: por eso la extracción sigue funcionando con normalidad pese al `INACTIVE` | El nombre del campo (`DATA_STAT_TYP=INACTIVE`) sugiere a cualquiera que revise `FT_T_ATE1` que la acción está deshabilitada, cuando en realidad no tiene ningún efecto sobre el motor — riesgo de que alguien intente "desactivar" esta extracción marcando el campo, sin que surta efecto, o de que alguien mal interprete el estado actual como una extracción parada | Ninguna: el comportamiento actual es correcto y está confirmado. Documentar que `DATA_STAT_TYP` en `FT_T_ATE1` no es un mecanismo de activación/desactivación real para este motor, para evitar confusión futura |
 
 ---
@@ -829,3 +880,6 @@ a lo que su nombre sugiere (RG-19).
 3. **Motivo de diseño de la asimetría `DATA_STAT_TYP` en la exclusión `A15`** (RG-06): sigue sin
    confirmarse si es deliberado o un descuido — es una pregunta de intención de diseño, no
    verificable por código ni por fichas.
+4. **Si el chequeo de tamaño (302) de `MEGENV0001.sh` se ejecuta realmente en el envío de
+   `RDR_contactosSAIT.xml` a la pasarela** (RG-20, §4.8): depende de los `.mod` del motor y del
+   `.idx` generado vía BD, ninguno de los dos disponible en el repositorio.

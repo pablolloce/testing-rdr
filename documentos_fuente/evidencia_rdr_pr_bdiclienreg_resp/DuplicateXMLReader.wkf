@@ -1,0 +1,523 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">RDR_Migra_Oracle19</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>TRANSACTIONAL</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">Close Job</name>
+<nodeHandler>com.j2fe.streetlamp.activities.CloseJob</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.streetlamp.activities.CloseJob</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">jobId</name>
+<stringValue id="14">JobIdInterno</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="15" type="java.util.HashSet">
+<item id="16" type="com.j2fe.workflow.definition.Transition">
+<name id="17">goto-next</name>
+<source id="18">
+<activation>TRANSACTIONAL</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="19">Insercion JAVA</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="20">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="21" type="java.util.HashSet">
+<item id="22" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="23">statements</name>
+<objectValue id="24" type="java.lang.String"><![CDATA[import org.apache.log4j.Logger;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.regex.*;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import org.xml.sax.SAXException;
+
+//Declaracion del mensaje
+Logger logger = Logger.getLogger("DuplicateXMLReader");
+Connection dbConnection = null;
+Statement statement = null;
+String insertTableSQL = null;
+Boolean duplicate = false;
+
+		String pathpro = "/pr/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathpre = "/pp/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathint = "/ei/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathdev = "/de/kytl/online/multipais/multicanal/cfg/entorno/";
+		String path = "";
+		String env = "";
+		File folderpro = new File(pathpro);
+		File folderpre = new File(pathpre);
+		File folderint = new File(pathint);
+		File folderdev = new File(pathdev);
+
+		if (folderpro.exists()){
+			path = pathpro + "credentials.xml";
+			env = "pr";
+		}
+		else if (folderpre.exists()){
+			path = pathpre + "credentials.xml";
+			env = "pp";
+		}
+		else if (folderint.exists()){
+			path = pathint + "credentials.xml";
+			env = "ei";
+		}
+		else if (folderdev.exists()){
+			path = pathdev + "credentials.xml";
+			env = "de";
+		}
+
+		File archivo = null;
+		FileReader fr = null;
+		BufferedReader br = null;
+
+		archivo = new File(path);
+		fr = new FileReader(archivo);
+		br = new BufferedReader(fr);
+
+		// Lectura del fichero
+		String linea;
+		String fich = "";
+		while ((linea = br.readLine()) != null)
+			fich = fich + linea;
+
+		// System.out.println(fich);
+		fr.close();
+
+		String host=null;
+		String host2=null;
+		String port=null;
+		String sid = null;
+		String userdb=null;
+		String passdb=null;
+
+		Pattern patronAux = Pattern.compile("<database>(.*?)</database>");
+		Matcher matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			fich = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<sid>(.*?)</sid>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			sid = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<host>(.*?)</host>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			host = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<host2>(.*?)</host2>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			host2 = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<port>(.*?)</port>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			port = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<gcuserapp>(.*?)</gcuserapp>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			userdb = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<gcpassapp>(.*?)</gcpassapp>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			passdb = matchAux.group(1);
+		}
+		
+		String urldb = null;
+			
+		if ("de".equals(env) || "ei".equals(env)) {
+			urldb = "jdbc:oracle:thin:@" + host + ":" + port + "/" + sid;
+		} else {
+			urldb = "jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)"
+					+ "(ADDRESS = (PROTOCOL = TCP)(HOST =" + host + ")(PORT = " + port + " )) "
+					+ "(ADDRESS = (PROTOCOL = TCP)(HOST =" + host2 + ")(PORT = " + port +"))) "
+					+ "(CONNECT_DATA=(SERVICE_NAME=" +sid + ")))";
+		}
+
+private static final String DB_DRIVER = "oracle.jdbc.driver.OracleDriver";
+private static final String DB_CONNECTION = urldb;
+private static final String DB_USER = userdb;
+private static final String DB_PASSWORD = passdb;
+
+String MensajeTxtAux = MensajeXML.replaceAll("<[^>]+>","");
+String MensajeTxt ="";
+
+if(MensajeTxtAux.length() >= 3900 ) {
+	MensajeTxt = MensajeTxtAux.subString(0, 3900);
+}else{
+	MensajeTxt = MensajeTxtAux;
+}
+
+try 
+{
+	insertTableSQL = "Insert into FT_T_RRM1 (MSG_REQ,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,DATA_STAT_TYP,DATA_SRC_ID) values ('"+MensajeTxt+"', sysdate,null,sysdate,'BBVA:CUSTOMER','ACTIVE','XMLRequest')";
+	Connection dbConnection = null;
+	Class.forName(DB_DRIVER);
+	dbConnection = DriverManager.getConnection(DB_CONNECTION, DB_USER,DB_PASSWORD);
+	statement = dbConnection.createStatement();
+
+	System.out.println(insertTableSQL);
+
+	// execute insert SQL stetement
+	statement.executeUpdate(insertTableSQL);
+
+	System.out.println("Record is inserted into table!");
+
+} catch (SQLException e) 
+{
+	logger.error("*** EJECUCION DUPLICADO: "+e.getMessage());
+	if(e.getErrorCode() == 1 )
+	{
+        	//duplicate primary key 
+		duplicate = true;
+    	}
+
+} finally {
+
+	if (statement != null) 
+	{
+		statement.close();
+	}
+
+	if (dbConnection != null) {
+		dbConnection.close();
+	}
+
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="25" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="26">variables["MensajeTxt"]</name>
+<stringValue id="27">MensajeTxt</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="28" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="29">["MensajeXML"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="30">variables["MensajeXML"]</name>
+<stringValue id="31">MensajeXML</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="32" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="33">variables["duplicate"]</name>
+<stringValue id="34">duplicate</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="35" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="36">variables["fecha"]</name>
+<stringValue id="37">fecha</stringValue>
+<type>VARIABLE</type>
+<variablePart id="38">[0]["FECHA"]</variablePart>
+</item>
+<item id="39" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="40">variables["insertTableSQL"]</name>
+<stringValue id="41">insertTableSQL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="42" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="43">variables["passdb"]</name>
+<stringValue id="44">passdb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="45" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="46">["select"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="47">variables["select"]</name>
+<stringValue id="48">select</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="49" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="50">variables["str"]</name>
+<stringValue id="51">str</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="52" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="53">variables["strtext"]</name>
+<stringValue id="54">strtext</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="55" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="56">variables["urldb"]</name>
+<stringValue id="57">urldb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="58" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="59">variables["userdb"]</name>
+<stringValue id="60">userdb</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="61" type="java.util.HashSet">
+<item id="62" type="com.j2fe.workflow.definition.Transition">
+<name id="63">rows-found</name>
+<source id="64">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="65">Get Fecha</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="66">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="67" type="java.util.HashSet">
+<item id="68" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="69">database</name>
+<stringValue id="70">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="71" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="72">indexedParameters[0]</name>
+<stringValue id="73">JobId</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="74" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="75">mappedResult</name>
+<stringValue id="76">fecha</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="77" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="78">querySQL</name>
+<stringValue id="79">select finsid ||'-'|| fec FECHA
+from 
+(select ? finsid, TO_CHAR(SYSTIMESTAMP, 'DDMMYY-HH24:MI:SS') fec from dual)</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="80" type="java.util.HashSet">
+<item id="81" type="com.j2fe.workflow.definition.Transition">
+<name id="82">goto-next</name>
+<source id="83">
+<activation>TRANSACTIONAL</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="84">Create Job</name>
+<nodeHandler>com.j2fe.streetlamp.activities.CreateJob</nodeHandler>
+<nodeHandlerClass id="85">com.j2fe.streetlamp.activities.CreateJob</nodeHandlerClass>
+<parameters id="86" type="java.util.HashSet">
+<item id="87" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="88">configInfo</name>
+<stringValue id="89">Duplicate XMLReader</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="90" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="91">flushImmediate</name>
+<stringValue id="92">true</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="93" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="94">jobId</name>
+<stringValue id="95">JobIdInterno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="96" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="97">parentJobId</name>
+<stringValue id="98">JobId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="99" type="java.util.HashSet">
+<item id="100" type="com.j2fe.workflow.definition.Transition">
+<name id="101">goto-next</name>
+<source id="102">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="103">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="104">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="105" type="java.util.HashSet">
+</sources>
+<targets id="106" type="java.util.HashSet">
+<item idref="100"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="83"/>
+</item>
+</sources>
+<targets id="107" type="java.util.HashSet">
+<item idref="81"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="64"/>
+</item>
+</sources>
+<targets id="108" type="java.util.HashSet">
+<item id="109" type="com.j2fe.workflow.definition.Transition">
+<name id="110">nothing-found</name>
+<source idref="64"/>
+<target idref="8"/>
+</item>
+<item idref="62"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="18"/>
+</item>
+</sources>
+<targets id="111" type="java.util.HashSet">
+<item idref="16"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="8"/>
+</item>
+<item idref="109"/>
+</sources>
+<targets id="112" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+</sources>
+<targets id="113" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="114">Custom/RDR/Layout_Setup</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="115">KYTL_GC</lastChangeUser>
+<lastUpdate id="116">2022-11-05T07:50:08.000+0100</lastUpdate>
+<name id="117">DuplicateXMLReader</name>
+<optimize>true</optimize>
+<parameter id="118" type="java.util.HashMap">
+<entry>
+<key id="119" type="java.lang.String">JobId</key>
+<value id="120" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="121">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="122" type="java.lang.String">MensajeTxt</key>
+<value id="123" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="124">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<input>false</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="125" type="java.lang.String">MensajeXML</key>
+<value id="126" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="127">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="128" type="java.lang.String">duplicate</key>
+<value id="129" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="130">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<input>false</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="131" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="102"/>
+<status>RELEASED</status>
+<variables id="132" type="java.util.HashMap">
+<entry>
+<key id="133" type="java.lang.String">JobId</key>
+<value id="134" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="135">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="136" type="java.lang.String">MensajeTxt</key>
+<value id="137" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="138">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="139" type="java.lang.String">MensajeXML</key>
+<value id="140" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="141">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="142" type="java.lang.String">duplicate</key>
+<value id="143" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="144">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>3</version>
+</com.j2fe.workflow.definition.Workflow>

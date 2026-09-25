@@ -65,6 +65,31 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 * **Folder Control-M:** `KYTL0000-RDR_CARGA_BAJA_NIVELES_new`, servidor `MERCADOS-4`, disparo 03:00 AM L-V.
 * **Motor:** `GSProcess.sh bajaniveles` → `bajaniveles.properties` → evento `RDR_BajaCpartiesGL.gsp` →
   workflow `BajaCpartiesGL` (v4, `Custom/RDR/Integracion_MGC-GS/Bajas`) contra `jdbc/GSDM-1`.
+* **Contenido de `bajaniveles.properties` (capa de parametrización, documento fuente línea 536):**
+  invocado por `GSProcess.sh` con la opción `bajaniveles`, fija:
+  * `Ruta base = /fichtemcomp/pr/descargas/kytl/`: directorio raíz donde `KYTL_BNIVEL_GSPROCESS` lee y
+    escribe los ficheros de esta cadena (subcarpeta `bajaniveles/`, ver R4-R7).
+  * `Delta/MDX = No`: desactiva el procesamiento incremental — cada ejecución evalúa el universo completo
+    de contrapartidas contra `ft_t_firl`/`ft_t_fins`, no solo las modificadas desde la última corrida
+    (relevante para R2: las 2 fases `SELECT DISTINCT` de `BajaCpartiesGL.gsp` no dependen de un delta
+    previo).
+  * `Workflow = Si` con `NomWorkflow = RDR_BajaCpartiesGL`: habilita el motor de workflows y es el
+    parámetro que decide qué evento de negocio se dispara — el `.properties` inyecta este nombre
+    simbólico en `RDR_BajaCpartiesGL.gsp` (clase `com.j2fe.event.GenericEvent`), que a su vez desencadena
+    el workflow `BajaCpartiesGL` descrito en R2/R3. Sin `Workflow=Si` o con `NomWorkflow` apuntando a otro
+    evento, el job no dispararía la inactivación jerárquica de contrapartidas.
+  * `NomEvento = Reporte`: tras finalizar el workflow, es la acción que compila los 2 ficheros de salida
+    de la cadena (`Reporte_bajaniveles.csv`, `Reporte_bajaniveles_dos.csv`, R4).
+  * Post-procesado `Unix2Dos` sobre `bajaniveles/Reporte_bajaniveles.csv`: convierte los saltos de línea
+    LF→CRLF del reporte principal antes de su historificación por `MEKYTL0351` — afecta solo a la
+    codificación del fichero, no a su contenido ni a las columnas del reporte secundario
+    (`Reporte_bajaniveles_dos.csv`, que no pasa por esta conversión).
+  * **Qué pasa si falla/falta/cambia:** si el fichero `bajaniveles.properties` faltara o estuviera mal
+    configurado, `GSProcess.sh bajaniveles` no tendría a qué evento delegar (`NomWorkflow`) ni sobre qué
+    ruta operar, y `KYTL_BNIVEL_GSPROCESS` no podría completar ni la baja lógica (R2/R3) ni la generación
+    de los 2 reportes (R4). El material disponible no documenta el comportamiento exacto de `GSProcess.sh`
+    ante un `.properties` ausente o corrupto (código de salida, log específico) — se deja como dato no
+    confirmado, sin inventarlo.
 * **Historificación/transmisión:** `RAMERC0068.sh` (jobs 2 y 4) y `MEGENV0001.sh` (job 3, modo `A DUMMY`).
 * **Recursos:** los 4 jobs consumen `MAX-LPRDR501` (1 unidad cada uno).
 * **Dependencia saliente real:** evento externo desde `KYTL_BNIVEL_GSPROCESS` hacia `RDR_BAJAS_CPARTY_IN`
