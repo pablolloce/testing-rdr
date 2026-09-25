@@ -48,6 +48,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Único cabo suelto, no bloqueante: no se ha aportado la clase `Main`/punto de entrada que invoca `Peticiones` (de dónde vienen el parámetro `DCS` y `carpetaSalida`). |
+| G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Parcialmente resuelto con código fuente real** (`PpalAltas.java` — punto de entrada real, `Ficheros.java`, `Ficheros2.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`). Ver §6.4. Confirma la lectura del CSV, el escapado XML y hallazgos de rigor no buscados (pérdida silenciosa de subcampos `~`, un solo fichero CSV procesado por ejecución, jar genérico reutilizado por varios procesos). **No** se han aportado `GenerarXML_version1`/`GenerarXML_version2` — las clases que realmente construyen el XML de salida (el "Layout" en sí) — gap abierto, sí relevante para el resto de la cadena: sin ellas no se puede confirmar la estructura del XML que consume `RDR_XMLReader`. |
 
 ## 5. Especificación funcional
 
@@ -272,6 +273,73 @@ de clase), `tools.DateUtil`, `tools.FicherosCLS` —
   que el origen exacto del parámetro `DCS` (¿se invoca el jar 2 veces desde `GSProcess.sh`, una por canal?)
   y el valor real de `carpetaSalida` quedan sin confirmar por fichero de configuración/entrada real.
 
+### 6.4 `CSVToXML_Layout.jar` (segundo paso de R8) — parcialmente confirmado con código fuente real
+
+Clases analizadas: `PpalAltas` (punto de entrada real, `main(String[] args)`), `Ficheros`, `Ficheros2` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`.
+
+- **Argumentos confirmados por el punto de entrada real:** `args[0]`=directorio de entrada (el mismo
+  `carpetaSalida` de §6.3), `args[1]`=ruta/nombre del fichero XML de salida, `args[2]` opcional
+  (`"G"` selecciona `GenerarXML_version2`, cualquier otro valor u omitido usa `GenerarXML_version1`),
+  `args[3]` opcional (selecciona la clave de `FT_T_PAR1` para el separador: `"IP"`→`STR_SPLIT_FONDOS`,
+  `"SCFF"`→`STR_SPLIT_SCFF`, `"GENERICO_CTP"`→`STR_SPLIT_GENERICO_CTP`, cualquier otro valor → separador
+  fijo `;`).
+- **Hallazgo — jar genérico reutilizado por varios procesos, no exclusivo de la alta de fondos:** la
+  existencia de claves `SCFF`/`GENERICO_CTP` (además de `IP`, la usada aquí) confirma que
+  `CSVToXML_Layout.jar` es un motor CSV→XML compartido por, al menos, otro/s proceso/s RDR distinto/s de
+  este — no se ha identificado cuál/es en el material disponible. Es coherente con el uso de la misma clave
+  `STR_SPLIT_FONDOS` que ya vimos en `AltaFondos_Genera_csv.jar` (§6.3): ambos jars están de acuerdo en el
+  separador real usado para este proceso concreto (`args[3]="IP"`).
+- **Selección de fichero de entrada — solo se procesa 1 CSV por ejecución:** `PpalAltas.main` lista todos
+  los ficheros de `args[0]` y recorre el array completo, pero la variable que apunta al fichero a procesar
+  (`ficheroEntrada`) se sobrescribe en cada `.csv` encontrado — si hubiera más de un `.csv` en el directorio
+  de entrada en el momento de la ejecución, **solo se procesaría el último according al orden de
+  `File.listFiles()`** (no garantizado alfabético ni cronológico por la JVM), el resto se ignorarían sin
+  aviso. No se ha confirmado si el directorio de entrada puede contener más de un CSV en la práctica (p. ej.
+  si `AltaFondos_Genera_csv.jar` se invoca 2 veces por canal, IP y DCS, antes de que este jar limpie el
+  directorio — ver Script(MoverFicheros)/Script(Historificar), aún no analizados).
+- **`Usuario` no es un usuario: es la etiqueta fija `FUND_LOADER` extraída del nombre del fichero.** El
+  código extrae la subcadena entre `@` y los últimos 4 caracteres del nombre del CSV
+  (`<fecha>@FUND_LOADER.csv`, confirmado en §6.3) — es decir, siempre produce el literal `FUND_LOADER`, no
+  un usuario real pese al nombre de la variable. Se pasa tal cual a `GenerarXML_version1`/`_version2` (no
+  confirmado con qué propósito, al no tener esas clases).
+- **Lectura del CSV y escapado XML (`Ficheros.obtenerDatos`):** lee el fichero en UTF-8, separa cada línea
+  por el separador dinámico (mismo mecanismo de `FT_T_PAR1` que en §6.3, con su propia conexión `ConDB`
+  independiente), usa la primera línea como cabecera y construye un `HashMap<String,String>` por fila
+  (clave = nombre de columna de la cabecera). Cada valor de campo se escapa para XML: los 5 caracteres
+  especiales (`< > " & '`), un conjunto fijo de caracteres acentuados (aparentemente para forzar su paso
+  literal, afectados por mojibake en el propio código fuente aportado) y cualquier carácter por encima de
+  `0x7e` como entidad numérica (`&#NNN;`).
+- **Hallazgo — pérdida silenciosa de subcampos separados por `~`:** cada valor de campo se vuelve a separar
+  internamente por `~` (`str_linea[i].split("~")`), pero el bucle que recorre esos sub-valores
+  **sobrescribe la variable `dato` en cada iteración**, de forma que **solo se conserva el último
+  sub-valor** — cualquier contenido anterior al último `~` de un campo se pierde sin error ni aviso. No se
+  ha confirmado si algún campo real de `CSVLine` (§6.3) puede llegar a contener un `~` en producción (por
+  ejemplo, en campos de texto libre como `NAME`/`ADDRESS`, cuyo valor viene directamente de atributos de
+  GoldenSource sin validar su contenido) — si ocurriera, este jar truncaría el dato sin que la cadena lo
+  detecte en ningún punto posterior.
+- **Escritura del XML:** concatena el resultado de `GenerarXML_version1`/`_version2` de todas las filas con
+  `"\n"` entre cada una, y sobrescribe por completo (`FileOutputStream` sin *append*, UTF-8) el fichero de
+  salida — no hay declaración XML (`<?xml ...?>`) ni elemento raíz visibles en este nivel del código; si
+  existen, deben venir del propio contenido que devuelven `GenerarXML_version1`/`_version2`.
+- **Qué pasa si falla:** si no hay ningún `.csv` en el directorio de entrada, `System.exit(1)` — fallo duro,
+  sin generar el XML. Cualquier excepción de lectura/escritura se captura con `printStackTrace()` sin volver
+  a lanzarse — el proceso podría continuar (o terminar con el XML incompleto) sin un código de salida no
+  cero que lo refleje, dependiendo de en qué punto ocurra.
+- **Clase `Ficheros2` — no usada por este punto de entrada:** casi idéntica a `Ficheros`, pero con 3
+  diferencias: separador fijo `;` (sin consulta a `FT_T_PAR1`), escapado XML sin el conjunto de caracteres
+  acentuados, y escritura en modo **añadir** (`append=true`) con codificación **ISO-8859-1** (no UTF-8).
+  `PpalAltas.main` solo instancia `Ficheros`, nunca `Ficheros2` — o es código muerto para este proceso, o
+  pertenece a otro punto de entrada de este mismo jar genérico (coherente con el hallazgo de reutilización
+  por `SCFF`/`GENERICO_CTP`) que no se ha aportado. No se puede confirmar cuál de las dos sin más material.
+- **Gap abierto, relevante (G6):** no se han aportado `GenerarXML_version1`/`GenerarXML_version2` — las
+  clases que realmente construyen cada fragmento XML a partir del `HashMap` de una fila. Sin ellas no se
+  puede confirmar: qué elementos/etiquetas XML produce, cómo mapea las columnas `GL.`/`LO.`/`OP.` del CSV
+  a nodos XML, si el resultado es un XML bien formado con un único elemento raíz, ni qué hace `version2`
+  (`"G"`) distinto de `version1`. A diferencia de los gaps opcionales anteriores, este sí es relevante para
+  poder verificar el contrato de entrada de `Workflow(RDR_XMLReader)` (siguiente paso de R8) — pedir esas 2
+  clases para cerrarlo del todo.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
@@ -345,6 +413,20 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   vez del patrón esperado `LO.16.02.02`) y el valor `DATA_SRC_ID='INVESTORS_LEI_REPONSE'` (sin la "S" de
   "RESPONSE") están en el código fuente tal cual, no son erratas de transcripción de esta sesión — a
   confirmar si el sistema consumidor ya depende de estos valores exactos antes de plantear corregirlos.
+* **Pérdida silenciosa de subcampos separados por `~` en `CSVToXML_Layout.jar` (confirmado por código,
+  §6.4):** si algún valor de campo de `AltaFondos_Genera_csv.jar` contuviera un `~` (posible en campos de
+  texto libre como `NAME`/`ADDRESS`, sin validar su contenido en ningún punto de la cadena), solo el
+  sub-valor tras el último `~` llegaría al XML — el resto se pierde sin error. Prioridad alta si algún dato
+  real de GoldenSource puede contener ese carácter.
+* **`CSVToXML_Layout.jar` solo procesa 1 fichero CSV por ejecución (confirmado por código, §6.4):** si el
+  directorio de entrada llegara a tener más de un `.csv` a la vez (p. ej. por los 2 canales de §6.3, IP y
+  DCS, antes de que se limpie el directorio), solo se procesaría uno de ellos, sin aviso ni error — a
+  confirmar contra `Script(Historificar)`/`Script(MoverFicheros)` (aún no analizados) si esto puede llegar
+  a ocurrir en la práctica.
+* **`CSVToXML_Layout.jar` es un motor genérico compartido con otros procesos RDR no identificados
+  (confirmado por código, §6.4):** el parámetro `args[3]` admite valores `SCFF`/`GENERICO_CTP` además de
+  `IP` (usado aquí) — el mismo jar puede estar en uso por otra/s cadena/s de RDR, con su propia clase
+  `Ficheros2` (encoding y modo de escritura distintos) potencialmente asociada a esos otros contextos.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -362,7 +444,13 @@ procesamiento exitoso, el país hardcodeado a `ES` en el alta de LEI, la ausenci
 vacío en las fechas de vigencia del LEI, el camino de negocio unificado pero no documentado para fondos
 `DigitalCrossSelling`, el tamaño variable del CSV intermedio entre ejecuciones, la mayoría de columnas del
 CSV siempre vacías, la ausencia total de fichero si 0 fondos son válidos, el fallo silencioso ante separador
-vacío, y 2 erratas baked-in en el código del jar (§9). Siguen pendientes, para el resto de la cadena de R8
-(`CSVToXML_Layout.jar`, `Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`,
-`AltaFondos_CuadreCarga.jar`, `Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para
-R9, los gaps técnicos aún no abordados en esta sesión.
+vacío, y 2 erratas baked-in en el código del jar (§9). El gap técnico G6 (`CSVToXML_Layout.jar`, segundo
+paso de R8) queda **parcialmente resuelto**: el punto de entrada real (`PpalAltas`) confirma la lectura del
+CSV, el escapado XML y varios hallazgos de rigor (pérdida silenciosa de subcampos `~`, un solo CSV procesado
+por ejecución, jar genérico reutilizado por procesos no identificados), pero **faltan
+`GenerarXML_version1`/`GenerarXML_version2`** — las clases que construyen el XML de salida en sí — señalado
+como gap relevante (no solo opcional), porque sin ellas no se puede verificar el contrato de entrada del
+siguiente paso (`Workflow(RDR_XMLReader)`). Siguen pendientes, para el resto de la cadena de R8
+(`Workflow(RDR_XMLReader)`, `Script(Historificar)`, `Script(MoverFicheros)`, `AltaFondos_CuadreCarga.jar`,
+`Workflow(RDR_AltaFondos_Enriquecimientos)`, `Property(GestionAlertas)`) y para R9, los gaps técnicos aún no
+abordados en esta sesión.
