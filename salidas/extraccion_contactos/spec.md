@@ -470,16 +470,23 @@ explícitamente (`APLICACION: TODAS`) — por lo que su análisis es válido aqu
   400, 500). Si se dispara, el script registra el mensaje en el log operativo y termina con
   `exit 302`.
 
-> **Gap abierto — no se cierra con este análisis.** La cadena de llamadas se corta exactamente
-> en el punto donde viviría la comparación de tamaños: las funciones que podrían invocar
-> `GetExitCode 302` están en los `.mod` (`SF_MEGENV0001_XCOM.mod`, `SF_MEGENV0001_SFTP.mod`,
-> `SF_MEGENV0001_CD.mod`, `SF_MEGENV0001_PARAMS.mod`), y el `.idx` que fija el `PROTOCOLO` y los
-> parámetros de renombrado realmente usados por `MEKYTL1189` se genera dinámicamente contra
-> base de datos. Ninguno de los dos elementos está en el repositorio. **No puede confirmarse
-> con lo disponible si el chequeo de tamaño (302) se ejecuta de hecho en el envío de
-> `RDR_contactosSAIT.xml` a la pasarela**, ni qué protocolo concreto usa esa transmisión.
-> Cerrarlo exige aportar esos `.mod` o la ficha con el valor real de `CLAVE_ENTRADA` con el que
-> se invoca `MEGENV0001.sh` desde `MEKYTL1189`.
+> **Parcialmente resuelto (2026-09-28) con el export real del folder Control-M
+> (`Workspace_544.xml`, `documentos_fuente/evidencia_rdr_extraccion_contactos/`).** Ambos jobs
+> (`MEKYTL1189` y `MEKYTL1189_SND`, `MEMNAME=MEGENV0001.sh`) tienen `<VARIABLE NAME="%%PARM1"
+> VALUE="MEKYTL1189"/>`, y `%%PARM1` es el argumento que Control-M pasa como `$1` al script — se
+> confirma así, sin ambigüedad, que **`CLAVE_ENTRADA="MEKYTL1189"` en los dos saltos**. Dato no
+> obvio: no cada job usa su propia clave (`MEKYTL1189_SND` podría haber tenido la suya), sino que
+> **ambos comparten el mismo `.idx`**, `${rutaIDX}/MEKYTL1189.idx`.
+>
+> Esto **no cierra el gap por completo**: conocer la clave solo dice *cuál* `.idx` consultar, no
+> su contenido. El `.idx` se genera dinámicamente contra base de datos (no es un fichero estático
+> versionado en ningún repositorio), y la lógica que podría invocar `GetExitCode 302` sigue
+> viviendo en los 4 `.mod` (`SF_MEGENV0001_XCOM.mod`, `SF_MEGENV0001_SFTP.mod`,
+> `SF_MEGENV0001_CD.mod`, `SF_MEGENV0001_PARAMS.mod`), ninguno aportado todavía. **Sigue sin
+> poder confirmarse** si el chequeo de tamaño (302) se ejecuta de hecho en el envío de
+> `RDR_contactosSAIT.xml`, ni qué protocolo concreto usa esa transmisión. Cerrarlo exige aportar
+> esos 4 `.mod`, o el contenido real de `MEKYTL1189.idx` (p. ej. vía consulta a BD o al equipo
+> responsable de la pasarela).
 
 > **Resuelto con las fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` (2026-09-24): sobrescritura
 > diaria confirmada, no acumulación.** Ningún job borra el fichero depositado en la pasarela, pero
@@ -787,7 +794,8 @@ de cada uno— y nunca por diff posicional entre ejecuciones.
 | RG-17 | La entrega a IHS Markit depende de una transferencia que monta y modifica el sistema destino sin comunicarlo a RDR | Un cambio de nombre, hora o ruta en destino puede romper la entrega sin que la cadena lo detecte: todos sus jobs seguirían terminando en OK | Registrar el DataObject `x_kytlcontacts_1` como referencia de la entrega y acordar con el destino un aviso ante cambios (§4.5) |
 | RG-18 | El directorio `CONT/` lo comparten esta cadena y el flujo que produce `DominiosContactosRDR.csv` para BPS & Fraud | Cualquier operación con comodines sobre ese directorio afectaría a un flujo ajeno. Hoy no ocurre, porque la historificación usa máscara y la purga opera sobre `backup/` | Documentado en §4.5; tenerlo presente ante cualquier cambio en los jobs de mantenimiento |
 | RG-16 | `ContactRDRId` se resuelve con una subconsulta escalar sin garantía de unicidad | Si un contacto tuviera dos filas activas en `FT_T_CAI1` con `CONTACTID`/`RDR`, la consulta daría `ORA-01427`, la extracción fallaría entera y la cadena se detendría | Verificar que existe una restricción de unicidad en `FT_T_CAI1` para esa combinación; si no la hay, acotar la subconsulta (§5.1) |
-| RG-20 | **Gap abierto.** `MEGENV0001.sh`, el motor que usa `MEKYTL1189` para copiar el fichero a la pasarela, contempla un código 302 de comparación de tamaños origen/destino, pero la lógica que lo dispararía vive en los `.mod` (`SF_MEGENV0001_XCOM.mod`/`_SFTP.mod`/`_CD.mod`/`_PARAMS.mod`) y en el `.idx` generado dinámicamente vía BD — ninguno de los dos está en el repositorio | No puede confirmarse si el chequeo de tamaño se ejecuta realmente en el envío de `RDR_contactosSAIT.xml`, ni qué protocolo (XCOM/SFTP/CD) usa en la práctica esa transmisión | Aportar los `.mod` citados o la ficha con el valor real de `CLAVE_ENTRADA` con el que se invoca `MEGENV0001.sh` desde `MEKYTL1189` (§4.8) |
+| RG-21 | **Hallazgo nuevo (2026-09-28), no documentado antes en ningún proceso del repositorio.** El export real del folder Control-M (`Workspace_544.xml`) muestra que `MEKYTL1027` (historificación de la rama DataX, §4.8) declara, además de su `OUTCOND` propio, un segundo `OUTCOND` llamado `RDR_DAILY_EXGEN_CPARTYS_new_MEKYTL1021_OK-37` — perteneciente a otro folder Control-M (`RDR_DAILY_EXGEN_CPARTYS_new`), ninguno de cuyos ficheros forma parte de la evidencia de este proceso ni de ningún otro ya auditado en este repositorio (`grep` sobre `salidas/`/`documentos_fuente/` no encuentra ninguna otra referencia) | No puede confirmarse si este `OUTCOND` es un fan-out real y activo (esta cadena alimentando a `RDR_DAILY_EXGEN_CPARTYS_new` como prerrequisito) o un resto de una versión anterior del folder que ya no se consume — cualquiera de los 2 escenarios queda fuera del alcance documentado hasta ahora de `RDR_EXTRACCION_CONTACTOS` | Pedir la definición del folder `RDR_DAILY_EXGEN_CPARTYS_new` (o confirmación directa del equipo Control-M) para saber si esta condición de salida está realmente en uso — no bloqueante para el resto de esta especificación |
+| RG-20 | **Parcialmente resuelto (2026-09-28).** El export real del folder Control-M (`Workspace_544.xml`) confirma vía `%%PARM1` que `CLAVE_ENTRADA="MEKYTL1189"` — y, dato no obvio, **el mismo valor** se usa tanto en `MEKYTL1189` como en `MEKYTL1189_SND` (ambos saltos comparten el mismo `.idx`, `MEKYTL1189.idx`). Pero conocer la clave no resuelve por sí solo la pregunta de fondo: el `.idx` se genera dinámicamente contra BD, no es un fichero estático en el repositorio, y la lógica de los códigos 302 sigue viviendo en los `.mod` (`SF_MEGENV0001_XCOM.mod`/`_SFTP.mod`/`_CD.mod`/`_PARAMS.mod`), tampoco aportados | Sigue sin poder confirmarse si el chequeo de tamaño se ejecuta realmente en el envío de `RDR_contactosSAIT.xml`, ni qué protocolo (XCOM/SFTP/CD) usa en la práctica esa transmisión — la clave solo dice *cuál* `.idx` mirar, no su contenido | Aportar los 4 `.mod` citados, o el contenido real de `MEKYTL1189.idx` (p. ej. vía consulta a BD o al equipo de la pasarela) — ver §4.8 |
 | RG-19 | **Resuelto con el código fuente real de `Querys.java` (2026-09-24).** El registro de la acción `ExtraccionCONT.sql` en `FT_T_ATE1` tiene `DATA_STAT_TYP=INACTIVE` (último cambio 15-SEP-25), pero **ninguno de los `SELECT` que el motor ejecuta contra `FT_T_ATE1` filtra por `DATA_STAT_TYP`** (`obtenerEntidades`, `obtenerExtraccion`, `obtenerFichero` — los 3 hacen `WHERE ACTION_NME = '...'` sin más condición). El campo es funcionalmente inerte para esta búsqueda: por eso la extracción sigue funcionando con normalidad pese al `INACTIVE` | El nombre del campo (`DATA_STAT_TYP=INACTIVE`) sugiere a cualquiera que revise `FT_T_ATE1` que la acción está deshabilitada, cuando en realidad no tiene ningún efecto sobre el motor — riesgo de que alguien intente "desactivar" esta extracción marcando el campo, sin que surta efecto, o de que alguien mal interprete el estado actual como una extracción parada | Ninguna: el comportamiento actual es correcto y está confirmado. Documentar que `DATA_STAT_TYP` en `FT_T_ATE1` no es un mecanismo de activación/desactivación real para este motor, para evitar confusión futura |
 
 ---
@@ -881,5 +889,11 @@ a lo que su nombre sugiere (RG-19).
    confirmarse si es deliberado o un descuido — es una pregunta de intención de diseño, no
    verificable por código ni por fichas.
 4. **Si el chequeo de tamaño (302) de `MEGENV0001.sh` se ejecuta realmente en el envío de
-   `RDR_contactosSAIT.xml` a la pasarela** (RG-20, §4.8): depende de los `.mod` del motor y del
-   `.idx` generado vía BD, ninguno de los dos disponible en el repositorio.
+   `RDR_contactosSAIT.xml` a la pasarela** (RG-20, §4.8): el export real de Control-M confirmó
+   `CLAVE_ENTRADA="MEKYTL1189"` (mismo valor en los 2 saltos), pero eso solo identifica qué
+   `.idx` mirar, no su contenido — sigue dependiendo de los 4 `.mod` del motor o del contenido
+   real de `MEKYTL1189.idx`, ninguno de los dos disponible todavía.
+5. **Fan-out no confirmado hacia `RDR_DAILY_EXGEN_CPARTYS_new`** (RG-21, §8): el export de
+   Control-M muestra un `OUTCOND` de `MEKYTL1027` perteneciente a ese otro folder, no
+   documentado hasta ahora en ningún proceso de este repositorio. Requeriría la definición de
+   ese folder para confirmar si el fan-out está realmente activo.
