@@ -41,7 +41,7 @@ automatizado — ver gap G1).
 |-----|----------|------------|
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
 | G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
-| G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `ConBDI.java`/`ConDB.java`.** Confirma la orquestación completa (lectura, validación de 45 campos, batching a 100 registros, multi-hilo, registro de errores de formato en `FT_T_RLT1`) y revela que la lógica de detección de discrepancias BDI-vs-GoldenSource está codificada pero comentada/inactiva en esta versión. **Sigue abierto:** el método que realmente carga en GoldenSource (`executeCONBDI_Hilos`) no está en el `ConDB.java` aportado — ese fichero solo trae las 4 queries de reporting del informe Broker (§6.5), no los métodos que `ConBDI.java` invoca para la carga. Ver §6.4. |
+| G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Resuelto (2026-09-28), en el límite de lo alcanzable desde código Java, con la versión completa real de `ConDB.java`.** `executeCONBDI_Hilos` llama al procedimiento almacenado Oracle **`CONBDI2`** (`{call CONBDI2(?,?,...,?)}`, 21 parámetros: los 20 campos extraídos por `ConBDI.java` + `FLD_JOB_ID`) por cada registro válido — confirma el nombre exacto del procedimiento y su firma completa. También confirma, con SQL literal, `obtenerBDIs` (query que lista los códigos BDI activos en GoldenSource, `FT_T_FIID`/`FINS_ID_CTXT_TYP='BDIID'`), `crearJOB`/`cerrarJOB` (INSERT/UPDATE literales sobre `FT_T_JBLG`) e `insertRLT1BDI` (INSERT literal sobre `FT_T_RLT1`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio procedimiento `CONBDI2` (qué hace exactamente dentro de la base de datos con esos 21 parámetros) vive en Oracle, no en este código Java — cerrarlo del todo exigiría un export de PL/SQL de BD, no un fichero de aplicación. Ver §6.4. |
 | G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `InformeBroker.java`/`ConDB.java`.** El informe Broker queda cerrado por completo: 4 hojas (`NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`), cada una con su query real y columnas exactas — ver §6.5. **Sigue abierto:** el informe SWIFT no aparece en ningún punto de este código — requeriría el jar/clase que lo genera, no identificado en el material disponible. |
 
 ## 5. Especificación funcional
@@ -177,9 +177,12 @@ fileNameConBDI=Reporte_ConBDI.csv
   medianoche ni un relanzamiento el mismo día que ejercite este filtro temporal — se señala como hueco de
   cobertura (no se crea el caso de prueba desde esta spec).
 
-### 6.4 `RDR_PLSQL.jar` (clase `ConBDI`, paquete raíz) y `jdbc.ConDB` — G3 parcialmente resuelto
+### 6.4 `RDR_PLSQL.jar` (clase `ConBDI`, paquete raíz) y `jdbc.ConDB` — G3 resuelto
 
-Código fuente real aportado por el usuario (`ConBDI.java`, `ConDB.java`).
+Código fuente real aportado por el usuario (`ConBDI.java`, y la versión completa de `ConDB.java` —
+`documentos_fuente/codigo_fuente_conciliacion_p021/ConDB.java`, compartida con `ConClientela`/`ConContrato460`
+de las cadenas hermanas — ver `salidas/rdr_conciliacion_clientela/spec.md` §6.2 y
+`salidas/rdr_refundicion/spec.md` §6.1).
 
 * **Qué hace:** `ConBDI.java` es la clase orquestadora invocada por el paso 4 del pipeline (§6.1). Lee
   `ConBDI_processed.csv` (`args[0]`, codificación `ISO-8859-1`) línea a línea, saltando la cabecera.
@@ -196,15 +199,22 @@ Código fuente real aportado por el usuario (`ConBDI.java`, `ConDB.java`).
   las añade a una lista `errorConci` que inserta al final en `FT_T_RLT1` vía `obj_ConDB.insertRLT1BDI(...,
   "Codigo BDI en RDR que no es valido")` — confirma el mecanismo real de registro de errores de formato,
   coherente con el patrón `FT_T_RLT1`/`RLT_PURP_TYP='REPORTES'`/`DATA_SRC_APP='BDI'` ya visto en §6.3.
-* **Campos de salida afectados — G3 sigue sin cerrar del todo:** el método que realmente ejecuta la carga
-  en GoldenSource, `obj_ConDB.executeCONBDI_Hilos(...)`, **no está definido en el `ConDB.java`
-  aportado** — ese fichero solo contiene 4 métodos de consulta de reporting (`getBrokerNotBDI`,
-  `getBrokerNotRDR`, `getBrokerBDIRDR`, `getBrokerName`, ver §6.5) usados por `InformeBroker.java`, no
-  por `ConBDI.java`. Tampoco están `obtenerBDIs`, `crearJOB`, `cerrarJOB` ni `insertRLT1BDI`, todos
-  invocados por `ConBDI.java` pero ausentes de este fichero. **No se inventa su contenido:** el `ConDB.java`
-  aportado no es la implementación completa de la clase que usa `ConBDI.java` — probablemente existe una
-  versión más completa de `ConDB` (o una clase homónima en otro punto del código) que si contiene esos
-  métodos. Cerrar G3 del todo seguiría exigiendo esa implementación completa.
+* **Campos de salida afectados — G3 resuelto (2026-09-28) con la versión completa de `ConDB.java`:**
+  `executeCONBDI_Hilos` invoca el procedimiento almacenado Oracle **`CONBDI2`**
+  (`{call CONBDI2(?,?,...,?)}`, 21 parámetros posicionales: los 20 campos extraídos por `ConBDI.java`, en
+  el mismo orden, más `FLD_JOB_ID` como último parámetro) por cada registro del lote — esta es la llamada
+  real que carga los datos limpios en GoldenSource. `obtenerBDIs` confirma también su query exacta:
+  `SELECT DISTINCT FINS_ID BDI_ID FROM FT_T_FIID WHERE FINS_ID_CTXT_TYP='BDIID' AND
+  DATA_STAT_TYP='ACTIVE'` — la lista de códigos BDI activos en GoldenSource usada (aunque de forma
+  inactiva, ver hallazgo de prioridad alta más abajo) para la comparación `noConci`. `crearJOB`/`cerrarJOB`
+  confirman el INSERT/UPDATE literal sobre `FT_T_JBLG` (con todas sus columnas), e `insertRLT1BDI` el
+  INSERT literal sobre `FT_T_RLT1` (`RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='BDI'`,
+  `SRC_FIELD='BDI Id Fichero'`, `GS_FIELD='BDI Id en RDR'`, `MAIN_ENTITY_NME='BDI Id en RDR'`,
+  `LAST_CHG_USR_ID='BBVA:CUSTOMER'`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio
+  procedimiento `CONBDI2` — qué hace exactamente con esos 21 parámetros dentro de la base de datos, y qué
+  columnas de GoldenSource actualiza más allá de la llamada — vive en Oracle, no en este código Java;
+  cerrarlo del todo exigiría un export de PL/SQL de base de datos, un tipo de artefacto distinto al
+  código de aplicación reunido hasta ahora.
 * **Hallazgo [PRIORIDAD ALTA] — lógica de detección de discrepancias inactiva en esta versión:**
   `ConBDI.java` sí calcula qué códigos BDI existen en GoldenSource (`obtenerBDIs`) pero no aparecen en el
   fichero de entrada (`noConci`, líneas 187-196), pero el bloque completo que insertaría esos registros en
@@ -216,12 +226,13 @@ Código fuente real aportado por el usuario (`ConBDI.java`, `ConDB.java`).
   intencionado (deshabilitado a propósito) o un resto de una versión anterior sin terminar de limpiar;
   tampoco se puede descartar que esté reactivado en una versión más reciente del jar desplegado en
   producción — este hallazgo se limita al código fuente aportado en esta sesión.
-* **Qué pasa si falla:** una línea con recuento de campos distinto de 45 no aborta el proceso — se
-  descarta y se registra como error (arriba). No hay evidencia en este fichero de qué ocurre si
-  `executeCONBDI_Hilos` lanza una excepción SQL dentro de un hilo (no capturada explícitamente en el
-  `Runnable`, lo que en Java terminaría ese hilo silenciosamente sin detener los demás ni el proceso
-  principal, salvo manejador de excepciones no capturadas configurado a nivel de JVM — no confirmable sin
-  el código de `executeCONBDI_Hilos`).
+* **Qué pasa si falla — confirmado con la versión completa de `ConDB.java`:** una línea con recuento de
+  campos distinto de 45 no aborta el proceso — se descarta y se registra como error (arriba).
+  `executeCONBDI_Hilos` sí captura la `SQLException` de cada llamada a `CONBDI2` (`catch` alrededor de
+  todo el bucle, con `printStackTrace()`) — pero solo hay un único `catch` para el bucle completo del
+  lote de 100: si una llamada falla, la excepción se registra en log y **el resto de registros de ese
+  mismo lote no se ejecutan** (el bucle se corta ahí), aunque los demás hilos/lotes en paralelo continúen
+  normalmente. No hay alerta operativa diferenciada más allá del `printStackTrace()` en log.
 * **`ConDB.ObtenerCredenciales()`:** confirma un mecanismo de credenciales paralelo al de `Generico.sh`
   (`traducir_creden`, visto en R8 de `rdr_pr_bdiclienreg_resp`), pero distinto: aquí es Java puro, lee
   `credentials.xml` de la ruta de entorno correspondiente (`/pr/`, `/pp/`, `/ei/`, `/de/` +
@@ -324,10 +335,11 @@ informe SWIFT no se transmite por ningún canal.
   captura su propia `SQLException` y devuelve lista vacía; un fallo de query y "sin discrepancias reales"
   son indistinguibles en el Excel resultante — ninguna alerta operativa diferenciada.
 * **Gaps técnicos (regla 7):** G2 (`fillingRules_ConBDI.csv`) queda **resuelto**, con una corrección
-  importante sobre la interpretación de la marca `USAR` (ver §6.2) — ver §6.2. G3 (procedimientos
-  PL/SQL de `RDR_PLSQL.jar`) y G4 (columnas del informe SWIFT) quedan **parcialmente resueltos**: la
-  orquestación y el informe Broker están cerrados con código real (§6.4/§6.5), pero la carga real en
-  GoldenSource y el informe SWIFT siguen sin material que los documente.
+  importante sobre la interpretación de la marca `USAR` (ver §6.2). **G3 queda resuelto** (2026-09-28) con
+  la versión completa de `ConDB.java`: el procedimiento `CONBDI2` y las queries/inserts que lo rodean
+  quedan confirmados a nivel de aplicación — solo el cuerpo interno del procedimiento en Oracle queda
+  fuera de alcance, un tipo de artefacto distinto (§6.4). G4 queda **parcialmente resuelto**: el informe
+  Broker está cerrado por completo (§6.5), el informe SWIFT sigue sin material que lo documente.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -336,13 +348,15 @@ El gap funcional G1 queda confirmado con evidencia ya presente en el propio docu
 `fillingRules_ConBDI.csv`) queda **resuelto**, con una corrección sobre la ronda anterior: el código real
 de `ConBDI.java` muestra que `ConBDI_processed.csv` conserva las 45 columnas originales (no solo las 22
 marcadas `USAR`), por lo que esa marca no significa "campo incluido en la salida" como se había asumido
-(§6.2). **G3 y G4 quedan parcialmente resueltos (2026-09-28) con el código fuente real de
-`ConBDI.java`/`ConDB.java`/`InformeBroker.java`:** la orquestación completa de la carga (validación,
-batching, multi-hilo, registro de errores) y el informe Broker completo (4 hojas, columnas y filtros
-exactos) están cerrados — ver §6.4/§6.5. Sigue abierta la carga real en GoldenSource (el método
-`executeCONBDI_Hilos` no está en el `ConDB.java` aportado) y el informe SWIFT (no aparece en ningún
-fichero de esta ronda). Hallazgo nuevo de prioridad alta: la detección de discrepancias BDI-vs-GoldenSource
-está codificada pero inactiva (comentada) en la versión de `ConBDI.java` aportada (§6.4, §9). También
-queda documentado, como riesgo abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura
-de testing sobre el filtro temporal de `queryConBDI` (§6.3, §9) y la diferencia de ventana temporal frente
-a `ConClientela` (§9).
+(§6.2). **G3 queda resuelto (2026-09-28) con la versión completa real de `ConDB.java`:** confirma el
+procedimiento `CONBDI2` (21 parámetros), la query de `obtenerBDIs`, y el INSERT/UPDATE literales de
+`crearJOB`/`cerrarJOB`/`insertRLT1BDI` — solo el cuerpo interno de `CONBDI2` en Oracle queda fuera de
+alcance de este código de aplicación (§6.4). **G4 queda parcialmente resuelto** con el código fuente real
+de `ConBDI.java`/`InformeBroker.java`: la orquestación completa de la carga (validación, batching,
+multi-hilo, registro de errores) y el informe Broker completo (4 hojas, columnas y filtros exactos) están
+cerrados — ver §6.4/§6.5. Sigue abierto el informe SWIFT (no aparece en ningún fichero de esta ronda).
+Hallazgo nuevo de prioridad alta: la detección de discrepancias BDI-vs-GoldenSource está codificada pero
+inactiva (comentada) en la versión de `ConBDI.java` aportada (§6.4, §9). También queda documentado, como
+riesgo abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura de testing sobre el
+filtro temporal de `queryConBDI` (§6.3, §9) y la diferencia de ventana temporal frente a `ConClientela`
+(§9).
