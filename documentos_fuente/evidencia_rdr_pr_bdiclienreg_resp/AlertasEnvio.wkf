@@ -1,0 +1,3278 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>true</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">Persist</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">Close Job</name>
+<nodeHandler>com.j2fe.streetlamp.activities.CloseJob</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.streetlamp.activities.CloseJob</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">jobId</name>
+<stringValue id="14">jobId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="15" type="java.util.HashSet">
+<item id="16" type="com.j2fe.workflow.definition.Transition">
+<name id="17">end-loop</name>
+<source id="18">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="19">For Each PROCESOS</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.ForEach</nodeHandler>
+<nodeHandlerClass id="20">com.j2fe.workflow.handler.impl.ForEach</nodeHandlerClass>
+<parameters id="21" type="java.util.HashSet">
+<item id="22" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="23">counter</name>
+<stringValue id="24">counterProcesos</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="25" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="26">counter</name>
+<stringValue id="27">counterProcesos</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="28" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="29">input</name>
+<stringValue id="30">PROCESOS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="31" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="32">output</name>
+<stringValue id="33">PROCESO</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="34" type="java.util.HashSet">
+<item id="35" type="com.j2fe.workflow.definition.Transition">
+<name id="36">goto-next</name>
+<source id="37">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="38">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="39">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="40" type="java.util.HashSet">
+<item id="41" type="com.j2fe.workflow.definition.Transition">
+<name id="42">KO</name>
+<source id="43">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="44">Validacion Ruta</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="45">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="46" type="java.util.HashSet">
+<item id="47" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="48">statements</name>
+<stringValue id="49"><![CDATA[import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("AlertaEnvio");
+
+if (RUTA!= null && RUTA.length > 0){
+	return "OK";
+} else {
+	return "KO";
+}]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="50" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="51">variables["RUTA"]</name>
+<stringValue id="52">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="53" type="java.util.HashSet">
+<item id="54" type="com.j2fe.workflow.definition.Transition">
+<name id="55">goto-next</name>
+<source id="56">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="57">Update PENDING</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="58">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="59" type="java.util.HashSet">
+<item id="60" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="61">database</name>
+<stringValue id="62">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="63" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="64">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="65">mappedParameters["01"]</name>
+<stringValue id="66">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="67">["PROCESO"]</variablePart>
+</item>
+<item id="68" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="69">querySQL</name>
+<stringValue id="70">UPDATE FT_T_REP1 SET SEND_PEND = 'N' WHERE PROCESO=?</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="71" type="java.util.HashSet">
+<item id="72" type="com.j2fe.workflow.definition.Transition">
+<name id="73">goto-next</name>
+<source id="74">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="75">Ruta REP1</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="76">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="77" type="java.util.HashSet">
+<item id="78" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="79">database</name>
+<stringValue id="80">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="81" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="82">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="83">mappedParameters["01"]</name>
+<stringValue id="84">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="85">["PROCESO"]</variablePart>
+</item>
+<item id="86" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="87">mappedResult</name>
+<stringValue id="88">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="89" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="90">querySQL</name>
+<stringValue id="91">SELECT RUTA FROM FT_T_REP1 REP1 WHERE REP1.PROCESO=?
+</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="92" type="java.util.HashSet">
+<item id="93" type="com.j2fe.workflow.definition.Transition">
+<name id="94">goto-next</name>
+<source id="95">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="96">Variables</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="97">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="98" type="java.util.HashSet">
+<item id="99" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="100">statements</name>
+<stringValue id="101">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertaEnvio");
+logger.info(" -Proceso: " + PROCESO.get("PROCESO"));
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="102" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="103">["PROCESO"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="104">variables["PROCESO"]</name>
+<stringValue id="105">PROCESO</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="106" type="java.util.HashSet">
+<item id="107" type="com.j2fe.workflow.definition.Transition">
+<name id="108">loop</name>
+<source idref="18"/>
+<target idref="95"/>
+</item>
+</sources>
+<targets id="109" type="java.util.HashSet">
+<item idref="93"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="74"/>
+</item>
+</sources>
+<targets id="110" type="java.util.HashSet">
+<item idref="72"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="56"/>
+</item>
+</sources>
+<targets id="111" type="java.util.HashSet">
+<item idref="54"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="43"/>
+</item>
+</sources>
+<targets id="112" type="java.util.HashSet">
+<item idref="41"/>
+<item id="113" type="com.j2fe.workflow.definition.Transition">
+<name id="114">OK</name>
+<source idref="43"/>
+<target id="115">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="116">File REP1</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="117">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="118" type="java.util.HashSet">
+<item id="119" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="120">database</name>
+<stringValue id="121">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="122" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="123">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="124">mappedParameters["01"]</name>
+<stringValue id="125">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="126">["PROCESO"]</variablePart>
+</item>
+<item id="127" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="128">mappedResult</name>
+<stringValue id="129">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="130" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="131">querySQL</name>
+<stringValue id="132">SELECT SHORT_PROCESS FROM FT_T_REP1 REP1 WHERE REP1.PROCESO=?
+</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="133" type="java.util.HashSet">
+<item idref="113"/>
+</sources>
+<targets id="134" type="java.util.HashSet">
+<item id="135" type="com.j2fe.workflow.definition.Transition">
+<name id="136">goto-next</name>
+<source idref="115"/>
+<target id="137">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="138">Adapt Fec Format</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="139">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="140" type="java.util.HashSet">
+<item id="141" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="142">statements</name>
+<stringValue id="143">import java.text.SimpleDateFormat;
+import java.util.Date;
+
+String nameFile = SH_PROC[0].get("SHORT_PROCESS");
+
+if(nameFile .contains("YYYYMMDD")){
+	Date myDate = new Date();
+	String fec=new SimpleDateFormat("yyyyMMdd").format(myDate);
+	String res = nameFile.replace("YYYYMMDD", fec);
+	SH_PROC[0].put("SHORT_PROCESS", res);
+}
+resultado = "OK";
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="144" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="145">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="146">variables["SH_PROC"]</name>
+<stringValue id="147">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="148" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="149">variables["SH_PROC"]</name>
+<stringValue id="150">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="151" type="java.util.HashSet">
+<item idref="135"/>
+</sources>
+<targets id="152" type="java.util.HashSet">
+<item id="153" type="com.j2fe.workflow.definition.Transition">
+<name id="154">goto-next</name>
+<source idref="137"/>
+<target id="155">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="156">Validate OK</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="157">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="158" type="java.util.HashSet">
+<item id="159" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="160">statements</name>
+<stringValue id="161">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("GestionAlertas - Validate env");
+
+if (env == null || env.length() == 0){
+	resultado = "KO";
+	return "KO";
+} else {
+	reultado = "OK";
+	return "OK";
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="162" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="163">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="164">variables["env"]</name>
+<stringValue id="165">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="166" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="167">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="168">variables["resultado"]</name>
+<stringValue id="169">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="170" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="171">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="172">variables["resultado"]</name>
+<stringValue id="173">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="174" type="java.util.HashSet">
+<item idref="153"/>
+</sources>
+<targets id="175" type="java.util.HashSet">
+<item id="176" type="com.j2fe.workflow.definition.Transition">
+<name id="177">KO</name>
+<source idref="155"/>
+<target idref="37"/>
+</item>
+<item id="178" type="com.j2fe.workflow.definition.Transition">
+<name id="179">OK</name>
+<source idref="155"/>
+<target id="180">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="181">Set Directory</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="182">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="183" type="java.util.HashSet">
+<item id="184" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="185">statements</name>
+<stringValue id="186">import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attachment] directory: "+directory);
+
+resultado = "OK";
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="187" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="188">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="189">variables["FileMail"]</name>
+<stringValue id="190">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="191" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="192">variables["RUTA"]</name>
+<stringValue id="193">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="194" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="195">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="196">variables["env"]</name>
+<stringValue id="197">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="198" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="199">["filename"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="200">variables["filename"]</name>
+<stringValue id="201">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="202" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="203">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="204">variables["nameFile"]</name>
+<stringValue id="205">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="206" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="207">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="208">variables["resultado"]</name>
+<stringValue id="209">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="210" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="211">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="212">variables["resultado"]</name>
+<stringValue id="213">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="214" type="java.util.HashSet">
+<item idref="178"/>
+</sources>
+<targets id="215" type="java.util.HashSet">
+<item id="216" type="com.j2fe.workflow.definition.Transition">
+<name id="217">goto-next</name>
+<source idref="180"/>
+<target id="218">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="219">Variables 1</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="220">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="221" type="java.util.HashSet">
+<item id="222" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="223">statements</name>
+<stringValue id="224">import java.io.File;
+import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get environment");
+
+int counterDestinatarios=0;
+FinishProcName = PROCESO.get("PROCESO");
+FinishProcStatus = "OK";
+FinishShortProcess = SH_PROC[0].get("SHORT_PROCESS");
+
+
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="225" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="226">["FinishPrcoName"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="227">variables["FinishPrcoName"]</name>
+<stringValue id="228">FinishProcName</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="229" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="230">["FinishProcName"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="231">variables["FinishProcName"]</name>
+<stringValue id="232">FinishProcName</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="233" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="234">["FinishProcStatus"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="235">variables["FinishProcStatus"]</name>
+<stringValue id="236">FinishProcStatus</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="237" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="238">["FinishShortProcess"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="239">variables["FinishShortProcess"]</name>
+<stringValue id="240">FinishShortProcess</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="241" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="242">["PROCESO"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="243">variables["PROCESO"]</name>
+<stringValue id="244">PROCESO</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="245" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="246">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="247">variables["SH_PROC"]</name>
+<stringValue id="248">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="249" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="250">["counterDestinatarios"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="251">variables["counterDestinatarios"]</name>
+<stringValue id="252">counterDestinatarios</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="253" type="java.util.HashSet">
+<item idref="216"/>
+</sources>
+<targets id="254" type="java.util.HashSet">
+<item id="255" type="com.j2fe.workflow.definition.Transition">
+<name id="256">goto-next</name>
+<source idref="218"/>
+<target id="257">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="258">Get MAILS Parameters</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="259">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="260" type="java.util.HashSet">
+<item id="261" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="262">database</name>
+<stringValue id="263">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="264" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="265">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="266">mappedParameters["01"]</name>
+<stringValue id="267">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="268">["PROCESO"]</variablePart>
+</item>
+<item id="269" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="270">mappedResult</name>
+<stringValue id="271">MAILS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="272" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="273">querySQL</name>
+<stringValue id="274">SELECT ALM1.DIRECCION 
+  FROM FT_T_ALU1 ALU1 
+  JOIN FT_T_ALR1 ALR1 
+    ON ALU1.ALU1_OID = ALR1.ALU1_OID 
+  JOIN FT_T_ALM1 ALM1 
+    ON ALM1.ALM1_OID = ALR1.ALM1_OID 
+ WHERE ALU1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALR1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALR1.PROCESO=?  
+ GROUP BY ALM1.DIRECCION</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="275" type="java.util.HashSet">
+<item idref="255"/>
+</sources>
+<targets id="276" type="java.util.HashSet">
+<item id="277" type="com.j2fe.workflow.definition.Transition">
+<name id="278">goto-next</name>
+<source idref="257"/>
+<target id="279">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="280">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="281">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="282" type="java.util.HashSet">
+<item id="283" type="com.j2fe.workflow.definition.Transition">
+<name id="284">KO</name>
+<source id="285">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="286">Validate EMAIL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="287">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="288" type="java.util.HashSet">
+<item id="289" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="290">statements</name>
+<stringValue id="291">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("GestionAlertas - Validate env");
+
+String addess = MAIL.get("DIRECCION");
+
+if (addess == null || addess.length() == 0){
+	resultado = "KO";
+	return "KO";
+} else {
+	resultado = "OK";
+	return "OK";
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="292" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="293">variables["MAIL"]</name>
+<stringValue id="294">MAIL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="295" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="296">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="297">variables["resultado"]</name>
+<stringValue id="298">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="299" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="300">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="301">variables["resultado"]</name>
+<stringValue id="302">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="303" type="java.util.HashSet">
+<item id="304" type="com.j2fe.workflow.definition.Transition">
+<name id="305">loop</name>
+<source id="306">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="307">For Each MAILS</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.ForEach</nodeHandler>
+<nodeHandlerClass id="308">com.j2fe.workflow.handler.impl.ForEach</nodeHandlerClass>
+<parameters id="309" type="java.util.HashSet">
+<item id="310" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="311">counter</name>
+<stringValue id="312">counterDestinatarios</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="313" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="314">counter</name>
+<stringValue id="315">counterDestinatarios</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="316" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="317">input</name>
+<stringValue id="318">MAILS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="319" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="320">output</name>
+<stringValue id="321">MAIL</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="322" type="java.util.HashSet">
+<item id="323" type="com.j2fe.workflow.definition.Transition">
+<name id="324">goto-next</name>
+<source idref="279"/>
+<target idref="306"/>
+</item>
+</sources>
+<targets id="325" type="java.util.HashSet">
+<item id="326" type="com.j2fe.workflow.definition.Transition">
+<name id="327">end-loop</name>
+<source idref="306"/>
+<target idref="37"/>
+</item>
+<item idref="304"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="285"/>
+</item>
+</sources>
+<targets id="328" type="java.util.HashSet">
+<item idref="283"/>
+<item id="329" type="com.j2fe.workflow.definition.Transition">
+<name id="330">OK</name>
+<source idref="285"/>
+<target id="331">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="332">Get TIPOS_ENVIO</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="333">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="334" type="java.util.HashSet">
+<item id="335" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="336">database</name>
+<stringValue id="337">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="338" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="339">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="340">mappedParameters["01"]</name>
+<stringValue id="341">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="342">["PROCESO"]</variablePart>
+</item>
+<item id="343" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="344">["02"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="345">mappedParameters["02"]</name>
+<stringValue id="346">MAIL</stringValue>
+<type>VARIABLE</type>
+<variablePart id="347">["DIRECCION"]</variablePart>
+</item>
+<item id="348" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="349">mappedResult</name>
+<stringValue id="350">TIPOS_ENVIO</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="351" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="352">querySQL</name>
+<stringValue id="353">SELECT ALR1.TIPO_ENVIO 
+  FROM FT_T_ALU1 ALU1  
+  JOIN FT_T_ALR1 ALR1 
+    ON ALU1.ALU1_OID = ALR1.ALU1_OID 
+  JOIN FT_T_ALM1 ALM1 
+    ON ALM1.ALM1_OID = ALR1.ALM1_OID 
+ WHERE ALU1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALR1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.MEDIO_ENVIO = 'EMAIL'
+   AND ALR1.PROCESO=? 
+   AND ALM1.DIRECCION = ? 
+ GROUP BY ALR1.TIPO_ENVIO</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="354" type="java.util.HashSet">
+<item idref="329"/>
+</sources>
+<targets id="355" type="java.util.HashSet">
+<item id="356" type="com.j2fe.workflow.definition.Transition">
+<name id="357">goto-next</name>
+<source idref="331"/>
+<target id="358">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="359">Variables 2</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="360">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="361" type="java.util.HashSet">
+<item id="362" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="363">statements</name>
+<stringValue id="364">import java.io.File;
+import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get Tipo Envio");
+
+int counterTipoEnvio=0;
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="365" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="366">["counterTipoEnvio"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="367">variables["counterTipoEnvio"]</name>
+<stringValue id="368">counterTipoEnvio</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="369" type="java.util.HashSet">
+<item idref="356"/>
+</sources>
+<targets id="370" type="java.util.HashSet">
+<item id="371" type="com.j2fe.workflow.definition.Transition">
+<name id="372">goto-next</name>
+<source idref="358"/>
+<target id="373">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="374">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="375">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="376" type="java.util.HashSet">
+<item id="377" type="com.j2fe.workflow.definition.Transition">
+<name id="378">KO</name>
+<source id="379">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="380">Validate MAIL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="381">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="382" type="java.util.HashSet">
+<item id="383" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="384">statements</name>
+<stringValue id="385"><![CDATA[import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Validate mail");
+
+boolean destinationOK = false;
+boolean subjectOK = false;
+boolean bodyOK = false;
+boolean enviarOK = false;
+
+// Mirar destinatarios
+if (destination != null && !destination.isEmpty())
+{
+   destinationOK = true;
+}
+
+// Mirar asunto
+if (subject != null && !subject.isEmpty())
+{
+ subjectOK = true;
+}
+else
+{
+ subjectOK = false;
+}
+
+// Mirar cuerpo
+if (body != null && !body.isEmpty())
+{
+ bodyOK = true;
+}
+else
+{
+ bodyOK = false;
+}
+
+//Mirar envio
+if (enviar != null && enviar.equals("S")){
+	enviarOK=true;
+}else{
+	enviarOK=false;
+}
+
+logger.error("Destination OK : " + destinationOK); 
+logger.error("Subject OK : " + subjectOK);
+logger.error("Body OK : " + mailOK);
+
+if (destinationOK && subjectOK && bodyOK && enviarOK)
+{
+ validaemail = "OK";
+ return "OK";
+}
+else
+{
+ validaemail = "KO";
+ return "KO";
+}]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="386" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="387">variables["body"]</name>
+<stringValue id="388">MAIL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="389" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="390">variables["destination"]</name>
+<stringValue id="391">destination</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="392" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="393">variables["env"]</name>
+<stringValue id="394">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="395" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="396">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="397">variables["enviar"]</name>
+<stringValue id="398">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="399" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="400">["subject"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="401">variables["subject"]</name>
+<stringValue id="402">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="403" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="404">["validaemail"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="405">variables["validaemail"]</name>
+<stringValue id="406">validaemail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="407" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="408">["validaemail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="409">variables["validaemail"]</name>
+<stringValue id="410">validaemail</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="411" type="java.util.HashSet">
+<item id="412" type="com.j2fe.workflow.definition.Transition">
+<name id="413">OK</name>
+<source id="414">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="415">Validate PERIODICIDAD</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="416">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="417" type="java.util.HashSet">
+<item id="418" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="419">statements</name>
+<stringValue id="420">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("GestionAlertas - Validate env");
+
+String periodicidad = PERIODICIDAD[0].get("PERIODICIDAD");
+
+if(periodicidad.contains("PARCIAL")){
+	if(body.contains("No existen datos a enviar")){
+		return "KO";
+	}
+	return "OK";
+}else{
+	return "OK";
+}</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="421" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="422">["PERIODICIDAD"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="423">variables["PERIODICIDAD"]</name>
+<stringValue id="424">PERIODICIDAD</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="425" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="426">["body"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="427">variables["body"]</name>
+<stringValue id="428">body</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="429" type="java.util.HashSet">
+<item id="430" type="com.j2fe.workflow.definition.Transition">
+<name id="431">goto-next</name>
+<source id="432">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="433">Call Subworkflow</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="434">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="435" type="java.util.HashSet">
+<item id="436" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="437">["body"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="438">input["body"]</name>
+<stringValue id="439">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="440" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="441">["proceso"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="442">input["proceso"]</name>
+<stringValue id="443">FinishProcName</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="444" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="445">["subject"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="446">input["subject"]</name>
+<stringValue id="447">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="448" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="449">name</name>
+<stringValue id="450">AlertasEnvioExcepciones</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="451" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="452">output["body"]</name>
+<stringValue id="453">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="454" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="455">output["subject"]</name>
+<stringValue id="456">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="457" type="java.util.HashSet">
+<item id="458" type="com.j2fe.workflow.definition.Transition">
+<name id="459">goto-next</name>
+<source id="460">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="461">Generar Mail</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="462">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="463" type="java.util.HashSet">
+<item id="464" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="465">statements</name>
+<stringValue id="466">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Mail variables");
+
+String body ="";
+String subject = "";
+String destination = "";
+
+destination = MAIL.get("DIRECCION");
+subject = "[RDR Reportes] - " +PROCESO.get("PROCESO");
+body = txtBody;
+
+
+
+logger.error("destination : " + destination );
+logger.error("subject: " + subject);
+logger.error("body: " + body);
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="467" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="468">variables["MAIL"]</name>
+<stringValue id="469">MAIL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="470" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="471">variables["PROCESO"]</name>
+<stringValue id="472">PROCESO</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="473" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="474">["body"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="475">variables["body"]</name>
+<stringValue id="476">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="477" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="478">["destination"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="479">variables["destination"]</name>
+<stringValue id="480">destination</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="481" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="482">["subject"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="483">variables["subject"]</name>
+<stringValue id="484">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="485" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="486">["txtBody"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="487">variables["txtBody"]</name>
+<stringValue id="488">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="489" type="java.util.HashSet">
+<item id="490" type="com.j2fe.workflow.definition.Transition">
+<name id="491">ToSplit</name>
+<source id="492">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="493">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="494">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="495">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="496" type="java.util.HashSet">
+<item id="497" type="com.j2fe.workflow.definition.Transition">
+<name id="498">goto-next</name>
+<source id="499">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="500">Get attach CUERPO</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="501">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="502" type="java.util.HashSet">
+<item id="503" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="504">statements</name>
+<objectValue id="505" type="java.lang.String"><![CDATA[import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+import java.io.FileReader;
+import java.io.BufferedReader;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attachment] directory: "+directory);
+
+resultado = "KO";
+enviar = "N";
+
+String short_proc = SH_PROC[0].get("SHORT_PROCESS");
+String aux="";
+
+if(short_proc != null && short_proc.length() > 0){
+	aux="CUERPO_" + SH_PROC[0].get("SHORT_PROCESS")+".txt";
+	try{
+		File carpeta = new File(directory);
+		if(carpeta.exists()){
+			for (File fich : carpeta.listFiles()) {
+				if (fich.isDirectory()==false) {
+					if (fich.getName().equals(aux)) {	
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							resultado = "OK";
+							enviar = "S";
+						}
+						break;
+					}
+				}
+			}
+		}else{
+			resultado = "KO";
+		}
+	}catch(Exception e){
+		resultado = "KO";
+	}
+} else {
+	resultado = "KO";
+}
+
+if("S".equals(enviar)){
+	File archivo = null;
+	FileReader fr = null;
+	BufferedReader br = null;
+	txtBody ="";
+	try {
+		archivo = new File (FileMail);
+		fr = new FileReader (archivo);
+		br = new BufferedReader(fr);
+		// Lectura del fichero
+		String linea;
+		while((linea=br.readLine())!=null){
+			txtBody += linea+"\r\n";
+		}
+		//Quitamos el contenido de FileMail para que no se envie el archivo.
+		nameFile = "";
+		FileMail = "";
+	}catch(Exception e){
+		       logger.error("[AlertasEnvio - Get attach CUERPO] error:"+ e.toString());
+			enviar="N";
+	}finally{
+		try{                    
+			if( null != fr ){   
+		       	fr.close();     
+		       }                  
+		}catch (Exception e2){ 
+		       e2.printStackTrace();
+		}
+	}
+}
+
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="506" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="507">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="508">variables["FileMail"]</name>
+<stringValue id="509">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="510" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="511">variables["RUTA"]</name>
+<stringValue id="512">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="513" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="514">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="515">variables["SH_PROC"]</name>
+<stringValue id="516">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="517" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="518">["aux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="519">variables["aux"]</name>
+<stringValue id="520">auxiliar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="521" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="522">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="523">variables["env"]</name>
+<stringValue id="524">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="525" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="526">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="527">variables["enviar"]</name>
+<stringValue id="528">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="529" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="530">variables["enviar"]</name>
+<stringValue id="531">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="532" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="533">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="534">variables["nameFile"]</name>
+<stringValue id="535">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="536" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="537">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="538">variables["resultado"]</name>
+<stringValue id="539">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="540" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="541">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="542">variables["resultado"]</name>
+<stringValue id="543">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="544" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="545">["txtBody"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="546">variables["txtBody"]</name>
+<stringValue id="547">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="548" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="549">variables["txtBody"]</name>
+<stringValue id="550">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="551" type="java.util.HashSet">
+<item id="552" type="com.j2fe.workflow.definition.Transition">
+<name id="553">CUERPO</name>
+<source id="554">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="555">Validate TIPO_ENVIO</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="556">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="557" type="java.util.HashSet">
+<item id="558" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="559">statements</name>
+<stringValue id="560">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("GestionAlertas - Validate env");
+
+String tipoenvio = TIPO_ENVIO.get("TIPO_ENVIO");
+tipoenv = TIPO_ENVIO.get("TIPO_ENVIO");
+
+if (tipoenvio == null || tipoenvio.length() == 0){
+	resultado = "KO";
+	return "KO";
+} else if (tipoenvio.equals("EXCEL")){
+	resultado = "EXCEL";
+	return "EXCEL";
+}else if (tipoenvio.equals("WORD")){
+	resultado = "WORD";
+	return "WORD";
+}else if (tipoenvio.equals("TXT")){
+	resultado = "TXT";
+	return "TXT";
+}else if (tipoenvio.equals("DAT")){
+	resultado = "DAT";
+	return "DAT";
+}else if (tipoenvio.equals("CUERPO")){
+	resultado = "CUERPO";
+	return "CUERPO";
+} else {
+	resultado = "KO";
+	return "KO";
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="561" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="562">["TIPO_ENVIO"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="563">variables["TIPO_ENVIO"]</name>
+<stringValue id="564">TIPO_ENVIO</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="565" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="566">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="567">variables["resultado"]</name>
+<stringValue id="568">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="569" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="570">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="571">variables["resultado"]</name>
+<stringValue id="572">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="573" type="java.util.HashSet">
+<item id="574" type="com.j2fe.workflow.definition.Transition">
+<name id="575">OK</name>
+<source id="576">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="577">Validate PERIODICIDAD</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="578">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="579" type="java.util.HashSet">
+<item id="580" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="581">statements</name>
+<stringValue id="582">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("GestionAlertas - Validate env");
+
+String periodicidad = PERIODICIDAD[0].get("PERIODICIDAD");
+int daysago = Integer.parseInt( DAYSLASTSEND[0].get("DAYSLASTSEND") );
+int dayscompare = 99999;
+int enviototal =0;
+
+if(null == periodicidad){
+	resultado = "KO";
+	return "KO";
+}
+
+if("DIARIA".equals(periodicidad) || "DIARIA_PARCIAL".equals(periodicidad)){
+	dayscompare  = 1;
+}else if("SEMANAL".equals(periodicidad)|| "SEMANAL_PARCIAL".equals(periodicidad) ){
+	dayscompare  = 7;
+}else if("MENSUAL".equals(periodicidad) || "MENSUAL_PARCIAL".equals(periodicidad) ){
+	dayscompare  = 30;
+}else if("ENVIOTOTAL".equals(periodicidad) || "ENVIOTOTAL_PARCIAL".equals(periodicidad) ){
+	enviototal = 1;
+}else{
+	//Periodicidad no definida
+	resultado = "KO";
+	return "KO";
+}
+
+
+if(daysago >= dayscompare || enviototal ==1){
+	resultado = "OK";
+	return "OK";
+}else{
+	resultado = "KO";
+	return "KO";
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="583" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="584">["DAYSLASTSEND"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="585">variables["DAYSLASTSEND"]</name>
+<stringValue id="586">DAYSLASTSEND</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="587" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="588">["PERIODICIDAD"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="589">variables["PERIODICIDAD"]</name>
+<stringValue id="590">PERIODICIDAD</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="591" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="592">["daysago"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="593">variables["daysago"]</name>
+<stringValue id="594">daysago</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="595" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="596">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="597">variables["resultado"]</name>
+<stringValue id="598">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="599" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="600">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="601">variables["resultado"]</name>
+<stringValue id="602">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="603" type="java.util.HashSet">
+<item id="604" type="com.j2fe.workflow.definition.Transition">
+<name id="605">goto-next</name>
+<source id="606">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="607">Get Days Last Send</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="608">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="609" type="java.util.HashSet">
+<item id="610" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="611">database</name>
+<stringValue id="612">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="613" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="614">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="615">mappedParameters["01"]</name>
+<stringValue id="616">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="617">["PROCESO"]</variablePart>
+</item>
+<item id="618" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="619">["02"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="620">mappedParameters["02"]</name>
+<stringValue id="621">MAIL</stringValue>
+<type>VARIABLE</type>
+<variablePart id="622">["DIRECCION"]</variablePart>
+</item>
+<item id="623" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="624">["03"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="625">mappedParameters["03"]</name>
+<stringValue id="626">TIPO_ENVIO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="627">["TIPO_ENVIO"]</variablePart>
+</item>
+<item id="628" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="629">mappedResult</name>
+<stringValue id="630">DAYSLASTSEND</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="631" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="632">querySQL</name>
+<stringValue id="633">SELECT TO_CHAR(TRUNC(SYSDATE) - TRUNC(NVL(ALR1.LAST_SEND_TMS, TO_DATE('19700101', 'YYYYMMDD')))) AS DAYSLASTSEND
+  FROM FT_T_ALU1 ALU1  
+  JOIN FT_T_ALR1 ALR1 
+    ON ALU1.ALU1_OID = ALR1.ALU1_OID 
+  JOIN FT_T_ALM1 ALM1 
+    ON ALM1.ALM1_OID = ALR1.ALM1_OID 
+ WHERE ALU1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALR1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.MEDIO_ENVIO = 'EMAIL'
+   AND ALR1.PROCESO=? 
+   AND ALM1.DIRECCION = ? 
+   AND ALR1.TIPO_ENVIO = ?
+ GROUP BY (TRUNC(SYSDATE) - TRUNC(NVL(ALR1.LAST_SEND_TMS, TO_DATE('19700101', 'YYYYMMDD'))))
+ ORDER BY  (TRUNC(SYSDATE) - TRUNC(NVL(ALR1.LAST_SEND_TMS, TO_DATE('19700101', 'YYYYMMDD')))) DESC</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="634" type="java.util.HashSet">
+<item id="635" type="com.j2fe.workflow.definition.Transition">
+<name id="636">goto-next</name>
+<source id="637">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="638">Get PERIODICIDAD</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="639">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="640" type="java.util.HashSet">
+<item id="641" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="642">database</name>
+<stringValue id="643">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="644" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="645">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="646">mappedParameters["01"]</name>
+<stringValue id="647">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="648">["PROCESO"]</variablePart>
+</item>
+<item id="649" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="650">["02"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="651">mappedParameters["02"]</name>
+<stringValue id="652">MAIL</stringValue>
+<type>VARIABLE</type>
+<variablePart id="653">["DIRECCION"]</variablePart>
+</item>
+<item id="654" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="655">["03"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="656">mappedParameters["03"]</name>
+<stringValue id="657">TIPO_ENVIO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="658">["TIPO_ENVIO"]</variablePart>
+</item>
+<item id="659" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="660">mappedResult</name>
+<stringValue id="661">PERIODICIDAD</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="662" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="663">querySQL</name>
+<stringValue id="664">SELECT ALR1.PERIODICIDAD
+  FROM FT_T_ALU1 ALU1  
+  JOIN FT_T_ALR1 ALR1 
+    ON ALU1.ALU1_OID = ALR1.ALU1_OID 
+  JOIN FT_T_ALM1 ALM1 
+    ON ALM1.ALM1_OID = ALR1.ALM1_OID 
+ WHERE ALU1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALR1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.DATA_STAT_TYP = 'ACTIVE' 
+   AND ALM1.MEDIO_ENVIO = 'EMAIL'
+   AND ALR1.PROCESO=? 
+   AND ALM1.DIRECCION = ? 
+   AND ALR1.TIPO_ENVIO = ?
+ GROUP BY ALR1.PERIODICIDAD</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="665" type="java.util.HashSet">
+<item id="666" type="com.j2fe.workflow.definition.Transition">
+<name id="667">loop</name>
+<source id="668">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="669">For Each TIPOS_ENVIO</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.ForEach</nodeHandler>
+<nodeHandlerClass id="670">com.j2fe.workflow.handler.impl.ForEach</nodeHandlerClass>
+<parameters id="671" type="java.util.HashSet">
+<item id="672" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="673">counter</name>
+<stringValue id="674">counterTipoEnvio</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="675" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="676">counter</name>
+<stringValue id="677">counterTipoEnvio</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="678" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="679">input</name>
+<stringValue id="680">TIPOS_ENVIO</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="681" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="682">output</name>
+<stringValue id="683">TIPO_ENVIO</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="684" type="java.util.HashSet">
+<item id="685" type="com.j2fe.workflow.definition.Transition">
+<name id="686">goto-next</name>
+<source idref="373"/>
+<target idref="668"/>
+</item>
+</sources>
+<targets id="687" type="java.util.HashSet">
+<item id="688" type="com.j2fe.workflow.definition.Transition">
+<name id="689">end-loop</name>
+<source idref="668"/>
+<target idref="279"/>
+</item>
+<item idref="666"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="637"/>
+</item>
+</sources>
+<targets id="690" type="java.util.HashSet">
+<item idref="635"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="606"/>
+</item>
+</sources>
+<targets id="691" type="java.util.HashSet">
+<item idref="604"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="576"/>
+</item>
+</sources>
+<targets id="692" type="java.util.HashSet">
+<item id="693" type="com.j2fe.workflow.definition.Transition">
+<name id="694">KO</name>
+<source idref="576"/>
+<target idref="373"/>
+</item>
+<item idref="574"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="554"/>
+</item>
+</sources>
+<targets id="695" type="java.util.HashSet">
+<item idref="552"/>
+<item id="696" type="com.j2fe.workflow.definition.Transition">
+<name id="697">DAT</name>
+<source idref="554"/>
+<target id="698">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="699">Get attach DAT</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="700">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="701" type="java.util.HashSet">
+<item id="702" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="703">statements</name>
+<objectValue id="704" type="java.lang.String"><![CDATA[import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String FileBody="";
+	   FileMail="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attac DAT] directory: "+directory);
+
+resultado = "KO";
+enviar = "N";
+
+String short_proc = SH_PROC[0].get("SHORT_PROCESS");
+String auxAdjunto="";
+String auxCuerpo="";
+
+boolean existeAdjunto=false;
+boolean existeCuerpo=false;
+
+if(short_proc != null && short_proc.length() > 0){
+	auxAdjunto=SH_PROC[0].get("SHORT_PROCESS")+".dat";
+	auxCuerpo = "BODY_" + SH_PROC[0].get("SHORT_PROCESS") + ".txt";
+	try{
+		File carpeta = new File(directory);
+		if(carpeta.exists()){
+			for (File fich : carpeta.listFiles()) {
+					if (fich.isDirectory()==false) {
+					if (fich.getName().equals(auxAdjunto)) {	
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							existeAdjunto=true;
+						}
+					}else if(fich.getName().equals(auxCuerpo)){
+						if (fich.exists()){
+							FileBody = fich.toString();
+							existeCuerpo=true;
+						}
+					}
+				}
+			}
+		}else{
+			resultado = "KO";
+		}
+	}catch(Exception e){
+		resultado = "KO";
+	}
+} else {
+	resultado = "KO";
+}
+
+if(existeCuerpo){
+	File archivo = null;
+	FileReader fr = null;
+	BufferedReader br = null;
+	txtBody ="";
+	try {
+		archivo = new File (FileBody);
+		fr = new FileReader (archivo);
+		br = new BufferedReader(fr);
+		// Lectura del fichero
+		String linea="";
+		while((linea=br.readLine())!=null){
+			txtBody += linea+"\r\n";
+		}
+		resultado = "OK";
+		enviar = "S";
+	}catch(Exception e){
+		    logger.error("[AlertasEnvio - Reading Body] error:"+ e.toString());
+			enviar="N";
+	}finally{
+		try{                    
+			if( null != fr ){   
+		       	fr.close();     
+		       }                  
+		}catch (Exception e2){ 
+		       e2.printStackTrace();
+		}
+	}
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="705" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="706">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="707">variables["FileMail"]</name>
+<stringValue id="708">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="709" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="710">variables["RUTA"]</name>
+<stringValue id="711">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="712" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="713">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="714">variables["SH_PROC"]</name>
+<stringValue id="715">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="716" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="717">["aux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="718">variables["aux"]</name>
+<stringValue id="719">auxiliar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="720" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="721">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="722">variables["env"]</name>
+<stringValue id="723">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="724" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="725">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="726">variables["enviar"]</name>
+<stringValue id="727">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="728" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="729">variables["enviar"]</name>
+<stringValue id="730">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="731" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="732">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="733">variables["nameFile"]</name>
+<stringValue id="734">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="735" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="736">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="737">variables["resultado"]</name>
+<stringValue id="738">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="739" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="740">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="741">variables["resultado"]</name>
+<stringValue id="742">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="743" type="java.util.HashSet">
+<item idref="696"/>
+</sources>
+<targets id="744" type="java.util.HashSet">
+<item id="745" type="com.j2fe.workflow.definition.Transition">
+<name id="746">goto-next</name>
+<source idref="698"/>
+<target idref="492"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="747" type="com.j2fe.workflow.definition.Transition">
+<name id="748">EXCEL</name>
+<source idref="554"/>
+<target id="749">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="750">Get attach EXCEL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="751">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="752" type="java.util.HashSet">
+<item id="753" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="754">statements</name>
+<objectValue id="755" type="java.lang.String"><![CDATA[import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String FileBody="";
+	   FileMail="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attac EXCEL] directory: "+directory);
+
+resultado = "KO";
+enviar = "N";
+
+String short_proc = SH_PROC[0].get("SHORT_PROCESS");
+String auxAdjunto="";
+String auxAdjunto2="";
+String auxCuerpo="";
+
+boolean existeAdjunto=false;
+boolean existeCuerpo=false;
+
+if(short_proc != null && short_proc.length() > 0){
+	auxAdjunto  =SH_PROC[0].get("SHORT_PROCESS")+".xlsx";
+	auxAdjunto2=SH_PROC[0].get("SHORT_PROCESS")+".xlsm";
+
+	auxCuerpo = "BODY_" + SH_PROC[0].get("SHORT_PROCESS") + ".txt";
+	try{
+		File carpeta = new File(directory);
+		if(carpeta.exists()){
+			for (File fich : carpeta.listFiles()) {
+				if (fich.isDirectory()==false) {
+					if (fich.getName().equals(auxAdjunto)) {	
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							existeAdjunto=true;
+						}
+					}else if(fich.getName().equals(auxAdjunto2)) {
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							existeAdjunto=true;
+						}
+					}else if(fich.getName().equals(auxCuerpo)){
+						if (fich.exists()){
+							FileBody = fich.toString();
+							existeCuerpo=true;
+						}
+					}
+				}
+			}
+		}else{
+			resultado = "KO";
+		}
+	}catch(Exception e){
+		resultado = "KO";
+	}
+} else {
+	resultado = "KO";
+}
+if(existeCuerpo){
+	File archivo = null;
+	FileReader fr = null;
+	BufferedReader br = null;
+	txtBody ="";
+	try {
+		archivo = new File (FileBody);
+		fr = new FileReader (archivo);
+		br = new BufferedReader(fr);
+		// Lectura del fichero
+		String linea="";
+		while((linea=br.readLine())!=null){
+			txtBody += linea+"\r\n";
+		}
+		resultado = "OK";
+		enviar = "S";
+	}catch(Exception e){
+		    logger.error("[AlertasEnvio - Reading Body] error:"+ e.toString());
+			enviar="N";
+	}finally{
+		try{                    
+			if( null != fr ){   
+		       	fr.close();     
+		       }                  
+		}catch (Exception e2){ 
+		       e2.printStackTrace();
+		}
+	}
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="756" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="757">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="758">variables["FileMail"]</name>
+<stringValue id="759">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="760" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="761">variables["RUTA"]</name>
+<stringValue id="762">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="763" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="764">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="765">variables["SH_PROC"]</name>
+<stringValue id="766">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="767" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="768">["aux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="769">variables["aux"]</name>
+<stringValue id="770">auxiliar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="771" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="772">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="773">variables["env"]</name>
+<stringValue id="774">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="775" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="776">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="777">variables["enviar"]</name>
+<stringValue id="778">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="779" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="780">variables["enviar"]</name>
+<stringValue id="781">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="782" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="783">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="784">variables["nameFile"]</name>
+<stringValue id="785">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="786" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="787">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="788">variables["resultado"]</name>
+<stringValue id="789">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="790" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="791">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="792">variables["resultado"]</name>
+<stringValue id="793">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="794" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="795">["txtBody"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="796">variables["txtBody"]</name>
+<stringValue id="797">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="798" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="799">["txtBody"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="800">variables["txtBody"]</name>
+<stringValue id="801">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="802" type="java.util.HashSet">
+<item idref="747"/>
+</sources>
+<targets id="803" type="java.util.HashSet">
+<item id="804" type="com.j2fe.workflow.definition.Transition">
+<name id="805">goto-next</name>
+<source idref="749"/>
+<target idref="492"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="806" type="com.j2fe.workflow.definition.Transition">
+<name id="807">KO</name>
+<source idref="554"/>
+<target idref="373"/>
+</item>
+<item id="808" type="com.j2fe.workflow.definition.Transition">
+<name id="809">TXT</name>
+<source idref="554"/>
+<target id="810">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="811">Get attach TXT</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="812">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="813" type="java.util.HashSet">
+<item id="814" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="815">statements</name>
+<objectValue id="816" type="java.lang.String"><![CDATA[import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String FileBody="";
+	   FileMail="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attac TXT] directory: "+directory);
+
+resultado = "KO";
+enviar = "N";
+
+String short_proc = SH_PROC[0].get("SHORT_PROCESS");
+String auxAdjunto="";
+String auxCuerpo="";
+
+boolean existeAdjunto=false;
+boolean existeCuerpo=false;
+
+if(short_proc != null && short_proc.length() > 0){
+	auxAdjunto=SH_PROC[0].get("SHORT_PROCESS")+".txt";
+	auxCuerpo = "BODY_" + SH_PROC[0].get("SHORT_PROCESS") + ".txt";
+	try{
+		File carpeta = new File(directory);
+		if(carpeta.exists()){
+			for (File fich : carpeta.listFiles()) {
+				if (fich.isDirectory()==false) {
+					if (fich.getName().equals(auxAdjunto)) {	
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							existeAdjunto=true;
+						}
+					}else if(fich.getName().equals(auxCuerpo)){
+						if (fich.exists()){
+							FileBody = fich.toString();
+							existeCuerpo=true;
+						}
+					}
+				}
+			}
+		}else{
+			resultado = "KO";
+		}
+	}catch(Exception e){
+		resultado = "KO";
+	}
+} else {
+	resultado = "KO";
+}
+
+if(existeCuerpo){
+	File archivo = null;
+	FileReader fr = null;
+	BufferedReader br = null;
+	txtBody ="";
+	try {
+		archivo = new File (FileBody);
+		fr = new FileReader (archivo);
+		br = new BufferedReader(fr);
+		// Lectura del fichero
+		String linea="";
+		while((linea=br.readLine())!=null){
+			txtBody += linea+"\r\n";
+		}
+		resultado = "OK";
+		enviar = "S";
+	}catch(Exception e){
+		    logger.error("[AlertasEnvio - Reading Body] error:"+ e.toString());
+			enviar="N";
+	}finally{
+		try{                    
+			if( null != fr ){   
+		       	fr.close();     
+		       }                  
+		}catch (Exception e2){ 
+		       e2.printStackTrace();
+		}
+	}
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="817" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="818">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="819">variables["FileMail"]</name>
+<stringValue id="820">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="821" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="822">variables["RUTA"]</name>
+<stringValue id="823">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="824" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="825">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="826">variables["SH_PROC"]</name>
+<stringValue id="827">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="828" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="829">["aux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="830">variables["aux"]</name>
+<stringValue id="831">auxiliar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="832" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="833">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="834">variables["env"]</name>
+<stringValue id="835">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="836" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="837">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="838">variables["enviar"]</name>
+<stringValue id="839">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="840" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="841">variables["enviar"]</name>
+<stringValue id="842">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="843" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="844">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="845">variables["nameFile"]</name>
+<stringValue id="846">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="847" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="848">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="849">variables["resultado"]</name>
+<stringValue id="850">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="851" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="852">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="853">variables["resultado"]</name>
+<stringValue id="854">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="855" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="856">["txtBody"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="857">variables["txtBody"]</name>
+<stringValue id="858">txtBody</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="859" type="java.util.HashSet">
+<item idref="808"/>
+</sources>
+<targets id="860" type="java.util.HashSet">
+<item id="861" type="com.j2fe.workflow.definition.Transition">
+<name id="862">goto-next</name>
+<source idref="810"/>
+<target idref="492"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="863" type="com.j2fe.workflow.definition.Transition">
+<name id="864">WORD</name>
+<source idref="554"/>
+<target id="865">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="866">Get attach WORD</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="867">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="868" type="java.util.HashSet">
+<item id="869" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="870">statements</name>
+<objectValue id="871" type="java.lang.String"><![CDATA[import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.apache.log4j.Logger;
+import java.io.File;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Get attachment");
+
+String nameFile ="";
+String FileBody="";
+	   FileMail="";
+String directory = RUTA[0].get("RUTA");
+Pattern pattern = Pattern.compile("\\$ENV");
+Matcher matcher = pattern.matcher(directory);
+
+directory  = matcher.replaceAll(env);
+logger.error("[AlertasEnvio - Get attac WORD] directory: "+directory);
+
+resultado = "KO";
+enviar = "N";
+
+String short_proc = SH_PROC[0].get("SHORT_PROCESS");
+String auxAdjunto="";
+String auxCuerpo="";
+
+boolean existeAdjunto=false;
+boolean existeCuerpo=false;
+
+if(short_proc != null && short_proc.length() > 0){
+	auxAdjunto=SH_PROC[0].get("SHORT_PROCESS")+".docx";
+	auxCuerpo = "BODY_" + SH_PROC[0].get("SHORT_PROCESS") + ".txt";
+	try{
+		File carpeta = new File(directory);
+		if(carpeta.exists()){
+			for (File fich : carpeta.listFiles()) {
+				if (fich.isDirectory()==false) {
+					if (fich.getName().equals(auxAdjunto)) {	
+						if (fich.exists()){
+							nameFile = fich.getName();
+							FileMail = fich.toString();
+							logger.error("[AlertasEnvio - Get attachment] nameFile: "+ nameFile);
+							existeAdjunto=true;
+						}
+					}else if(fich.getName().equals(auxCuerpo)){
+						if (fich.exists()){
+							FileBody = fich.toString();
+							existeCuerpo=true;
+						}
+					}
+				}
+			}
+		}else{
+			resultado = "KO";
+		}
+	}catch(Exception e){
+		resultado = "KO";
+	}
+} else {
+	resultado = "KO";
+}
+
+if(existeCuerpo){
+	File archivo = null;
+	FileReader fr = null;
+	BufferedReader br = null;
+	txtBody ="";
+	try {
+		archivo = new File (FileBody);
+		fr = new FileReader (archivo);
+		br = new BufferedReader(fr);
+		// Lectura del fichero
+		String linea="";
+		while((linea=br.readLine())!=null){
+			txtBody += linea+"\r\n";
+		}
+		resultado = "OK";
+		enviar = "S";
+	}catch(Exception e){
+		    logger.error("[AlertasEnvio - Reading Body] error:"+ e.toString());
+			enviar="N";
+	}finally{
+		try{                    
+			if( null != fr ){   
+		       	fr.close();     
+		       }                  
+		}catch (Exception e2){ 
+		       e2.printStackTrace();
+		}
+	}
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="872" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="873">["FileMail"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="874">variables["FileMail"]</name>
+<stringValue id="875">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="876" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="877">variables["RUTA"]</name>
+<stringValue id="878">RUTA</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="879" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="880">["SH_PROC"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="881">variables["SH_PROC"]</name>
+<stringValue id="882">SHORT_PROCESS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="883" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="884">["aux"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="885">variables["aux"]</name>
+<stringValue id="886">auxiliar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="887" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="888">["env"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="889">variables["env"]</name>
+<stringValue id="890">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="891" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="892">["enviar"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="893">variables["enviar"]</name>
+<stringValue id="894">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="895" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="896">variables["enviar"]</name>
+<stringValue id="897">enviar</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="898" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="899">["nameFile"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="900">variables["nameFile"]</name>
+<stringValue id="901">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="902" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="903">["resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="904">variables["resultado"]</name>
+<stringValue id="905">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="906" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="907">["resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="908">variables["resultado"]</name>
+<stringValue id="909">resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="910" type="java.util.HashSet">
+<item idref="863"/>
+</sources>
+<targets id="911" type="java.util.HashSet">
+<item id="912" type="com.j2fe.workflow.definition.Transition">
+<name id="913">goto-next</name>
+<source idref="865"/>
+<target idref="492"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="499"/>
+</item>
+</sources>
+<targets id="914" type="java.util.HashSet">
+<item idref="497"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="492"/>
+</item>
+<item idref="745"/>
+<item idref="804"/>
+<item idref="861"/>
+<item idref="912"/>
+</sources>
+<targets id="915" type="java.util.HashSet">
+<item idref="490"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="460"/>
+</item>
+</sources>
+<targets id="916" type="java.util.HashSet">
+<item idref="458"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="432"/>
+</item>
+</sources>
+<targets id="917" type="java.util.HashSet">
+<item idref="430"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="414"/>
+</item>
+</sources>
+<targets id="918" type="java.util.HashSet">
+<item id="919" type="com.j2fe.workflow.definition.Transition">
+<name id="920">KO</name>
+<source idref="414"/>
+<target idref="373"/>
+</item>
+<item idref="412"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="379"/>
+</item>
+</sources>
+<targets id="921" type="java.util.HashSet">
+<item idref="377"/>
+<item id="922" type="com.j2fe.workflow.definition.Transition">
+<name id="923">OK</name>
+<source idref="379"/>
+<target id="924">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="925">SendMail_Llamada</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="926">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="927" type="java.util.HashSet">
+<item id="928" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="929">statements</name>
+<stringValue id="930">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - SendMail");
+
+logger.error("Enviando correo a ..."+ destination);
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="931" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="932">variables["destination"]</name>
+<stringValue id="933">destination</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="934" type="java.util.HashSet">
+<item idref="922"/>
+</sources>
+<targets id="935" type="java.util.HashSet">
+<item id="936" type="com.j2fe.workflow.definition.Transition">
+<name id="937">goto-next</name>
+<source idref="924"/>
+<target id="938">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="939">Send Mail</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="940">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="941" type="java.util.HashSet">
+<item id="942" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="943">["Destination"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="944">input["Destination"]</name>
+<stringValue id="945">destination</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="946" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="947">["FileMail"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="948">input["FileMail"]</name>
+<stringValue id="949">FileMail</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="950" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="951">["Mail"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="952">input["Mail"]</name>
+<stringValue id="953">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="954" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="955">["NameFile"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="956">input["NameFile"]</name>
+<stringValue id="957">nameFile</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="958" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="959">["Subject"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="960">input["Subject"]</name>
+<stringValue id="961">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="962" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="963">name</name>
+<stringValue id="964">Mail</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="965" type="java.util.HashSet">
+<item idref="936"/>
+</sources>
+<targets id="966" type="java.util.HashSet">
+<item id="967" type="com.j2fe.workflow.definition.Transition">
+<name id="968">goto-next</name>
+<source idref="938"/>
+<target id="969">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="970">Update LAST_SEND</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="971">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="972" type="java.util.HashSet">
+<item id="973" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="974">database</name>
+<stringValue id="975">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="976" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="977">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="978">mappedParameters["01"]</name>
+<stringValue id="979">PROCESO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="980">["PROCESO"]</variablePart>
+</item>
+<item id="981" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="982">["02"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="983">mappedParameters["02"]</name>
+<stringValue id="984">TIPO_ENVIO</stringValue>
+<type>VARIABLE</type>
+<variablePart id="985">["TIPO_ENVIO"]</variablePart>
+</item>
+<item id="986" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="987">["03"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="988">mappedParameters["03"]</name>
+<stringValue id="989">MAIL</stringValue>
+<type>VARIABLE</type>
+<variablePart id="990">["DIRECCION"]</variablePart>
+</item>
+<item id="991" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="992">querySQL</name>
+<stringValue id="993">UPDATE FT_T_ALR1
+   SET LAST_SEND_TMS = SYSDATE
+ WHERE DATA_STAT_TYP = 'ACTIVE'
+   AND PROCESO = ?
+   AND TIPO_ENVIO = ?
+   AND ALM1_OID IN (SELECT ALM1_OID
+                      FROM FT_T_ALM1
+                     WHERE MEDIO_ENVIO = 'EMAIL'
+                       AND DIRECCION = ?
+                       AND DATA_STAT_TYP = 'ACTIVE')
+   AND ALU1_OID IN (SELECT ALU1_OID
+                      FROM FT_T_ALU1
+                     WHERE DATA_STAT_TYP = 'ACTIVE')</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="994" type="java.util.HashSet">
+<item idref="967"/>
+</sources>
+<targets id="995" type="java.util.HashSet">
+<item id="996" type="com.j2fe.workflow.definition.Transition">
+<name id="997">goto-next</name>
+<source idref="969"/>
+<target id="998">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="999">SendMailLog</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="1000">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="1001" type="java.util.HashSet">
+<item id="1002" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1003">statements</name>
+<stringValue id="1004">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - SendMail");
+
+logger.error("Correo enviado. "+ PROCESO.get("PROCESO"));
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1005" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1006">variables["PROCESO"]</name>
+<stringValue id="1007">PROCESO</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1008" type="java.util.HashSet">
+<item idref="996"/>
+</sources>
+<targets id="1009" type="java.util.HashSet">
+<item id="1010" type="com.j2fe.workflow.definition.Transition">
+<name id="1011">goto-next</name>
+<source idref="998"/>
+<target idref="373"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="373"/>
+</item>
+<item idref="919"/>
+<item idref="693"/>
+<item idref="806"/>
+<item idref="1010"/>
+<item idref="371"/>
+</sources>
+<targets id="1012" type="java.util.HashSet">
+<item idref="685"/>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="279"/>
+</item>
+<item idref="688"/>
+<item idref="277"/>
+</sources>
+<targets id="1013" type="java.util.HashSet">
+<item idref="323"/>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="37"/>
+</item>
+<item idref="176"/>
+<item idref="326"/>
+<item id="1014" type="com.j2fe.workflow.definition.Transition">
+<name id="1015">goto-next</name>
+<source id="1016">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1017">Procesos REP1</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="1018">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="1019" type="java.util.HashSet">
+<item id="1020" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1021">database</name>
+<stringValue id="1022">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="1023" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="1024">mappedResult</name>
+<stringValue id="1025">PROCESOS</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1026" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1027">querySQL</name>
+<stringValue id="1028">SELECT PROCESO 
+  FROM FT_T_REP1 
+WHERE DATA_STAT_TYP = 'ACTIVE'
+     AND SEND_PEND = 'Y'</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="1029" type="java.util.HashSet">
+<item id="1030" type="com.j2fe.workflow.definition.Transition">
+<name id="1031">goto-next</name>
+<source id="1032">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1033">Variables</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="1034">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="1035" type="java.util.HashSet">
+<item id="1036" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="1037">statements</name>
+<stringValue id="1038">import java.io.File;
+import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("ComposeEmail - Get environment");
+logger.error(" -Entorno enviado por el GSProcess: " + Entorno);
+if (Entorno==null){
+	Entorno = "no";
+
+	String pathpro = "/pr/kytl/online/multipais/multicanal/cfg/entorno/";
+	String pathpre = "/pp/kytl/online/multipais/multicanal/cfg/entorno/";
+	String pathint = "/ei/kytl/online/multipais/multicanal/cfg/entorno/";
+	String pathdev = "/de/kytl/online/multipais/multicanal/cfg/entorno/";
+	File folderpro = new File(pathpro);
+	File folderpre = new File(pathpre);
+	File folderint = new File(pathint);
+	File folderdev = new File(pathdev);
+
+	if (folderpro.exists())
+		Entorno = "pr";
+	else if (folderpre.exists())
+		Entorno = "pp";
+	else if (folderint.exists())
+		Entorno = "ei";
+	else if (folderdev.exists())
+		Entorno = "de";
+}
+
+int counterProcesos=0;
+int counterDestinatarios = 0;
+int counterTipoEnvio = 0;
+
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="1039" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1040">["Entorno"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="1041">variables["Entorno"]</name>
+<stringValue id="1042">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1043" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1044">["Entorno"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="1045">variables["Entorno"]</name>
+<stringValue id="1046">Entorno</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="1047" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="1048">["counterProcesos"]@java/lang/Integer@</UITypeHint>
+<input>false</input>
+<name id="1049">variables["counterProcesos"]</name>
+<stringValue id="1050">counterProcesos</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1051" type="java.util.HashSet">
+<item id="1052" type="com.j2fe.workflow.definition.Transition">
+<name id="1053">goto-next</name>
+<source id="1054">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1055">Create Job</name>
+<nodeHandler>com.j2fe.streetlamp.activities.CreateJob</nodeHandler>
+<nodeHandlerClass id="1056">com.j2fe.streetlamp.activities.CreateJob</nodeHandlerClass>
+<parameters id="1057" type="java.util.HashSet">
+<item id="1058" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="1059">jobId</name>
+<stringValue id="1060">jobId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="1061" type="java.util.HashSet">
+<item id="1062" type="com.j2fe.workflow.definition.Transition">
+<name id="1063">goto-next</name>
+<source id="1064">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="1065">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="1066">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="1067" type="java.util.HashSet">
+</sources>
+<targets id="1068" type="java.util.HashSet">
+<item idref="1062"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="1054"/>
+</item>
+</sources>
+<targets id="1069" type="java.util.HashSet">
+<item idref="1052"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="1032"/>
+</item>
+</sources>
+<targets id="1070" type="java.util.HashSet">
+<item idref="1030"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="1016"/>
+</item>
+</sources>
+<targets id="1071" type="java.util.HashSet">
+<item idref="1014"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="37"/>
+</item>
+</sources>
+<targets id="1072" type="java.util.HashSet">
+<item idref="35"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="18"/>
+</item>
+</sources>
+<targets id="1073" type="java.util.HashSet">
+<item idref="16"/>
+<item idref="107"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="8"/>
+</item>
+</sources>
+<targets id="1074" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+</sources>
+<targets id="1075" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="1076">Custom/RDR/Common</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="1077">user1</lastChangeUser>
+<lastUpdate id="1078">2022-11-05T07:49:16.000+0100</lastUpdate>
+<name id="1079">AlertasEnvio</name>
+<optimize>true</optimize>
+<parameter id="1080" type="java.util.HashMap">
+</parameter>
+<permissions id="1081" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="1064"/>
+<status>RELEASED</status>
+<variables id="1082" type="java.util.HashMap">
+<entry>
+<key id="1083" type="java.lang.String">DAYSLASTSEND</key>
+<value id="1084" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1085">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1086" type="java.lang.String">Entorno</key>
+<value id="1087" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1088">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1089" type="java.lang.String">FileMail</key>
+<value id="1090" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1091">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1092" type="java.lang.String">FinishProcName</key>
+<value id="1093" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1094">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1095" type="java.lang.String">FinishProcStatus</key>
+<value id="1096" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1097">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1098" type="java.lang.String">FinishShortProcess</key>
+<value id="1099" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1100">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1101" type="java.lang.String">MAIL</key>
+<value id="1102" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1103">java.util.Map</className>
+<clazz>java.util.Map</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1104" type="java.lang.String">MAILS</key>
+<value id="1105" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1106">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1107" type="java.lang.String">PERIODICIDAD</key>
+<value id="1108" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1109">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1110" type="java.lang.String">PROCESO</key>
+<value id="1111" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1112">java.util.Map</className>
+<clazz>java.util.Map</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1113" type="java.lang.String">PROCESOS</key>
+<value id="1114" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1115">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1116" type="java.lang.String">RES_PRUEBA</key>
+<value id="1117" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1118">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1119" type="java.lang.String">RUTA</key>
+<value id="1120" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1121">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1122" type="java.lang.String">SHORT_PROCESS</key>
+<value id="1123" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1124">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1125" type="java.lang.String">TIPOS_ENVIO</key>
+<value id="1126" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1127">[Ljava.util.Map;</className>
+<clazz>[Ljava.util.Map;</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1128" type="java.lang.String">TIPO_ENVIO</key>
+<value id="1129" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1130">java.util.Map</className>
+<clazz>java.util.Map</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1131" type="java.lang.String">auxiliar</key>
+<value id="1132" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1133">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1134" type="java.lang.String">body</key>
+<value id="1135" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1136">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1137" type="java.lang.String">counterDestinatarios</key>
+<value id="1138" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1139">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+<value id="1140" type="java.lang.Integer">0</value>
+</value>
+</entry>
+<entry>
+<key id="1141" type="java.lang.String">counterProcesos</key>
+<value id="1142" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1143">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+<value idref="1140"/></value>
+</entry>
+<entry>
+<key id="1144" type="java.lang.String">counterTipoEnvio</key>
+<value id="1145" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1146">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1147" type="java.lang.String">daysago</key>
+<value id="1148" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1149">java.lang.Integer</className>
+<clazz>java.lang.Integer</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1150" type="java.lang.String">destination</key>
+<value id="1151" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1152">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1153" type="java.lang.String">enviar</key>
+<value id="1154" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1155">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1156" type="java.lang.String">jobId</key>
+<value id="1157" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1158">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1159" type="java.lang.String">nameFile</key>
+<value id="1160" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1161">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1162" type="java.lang.String">resultado</key>
+<value id="1163" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1164">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1165" type="java.lang.String">subject</key>
+<value id="1166" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1167">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1168" type="java.lang.String">tipenv</key>
+<value id="1169" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1170">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1171" type="java.lang.String">txtBody</key>
+<value id="1172" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1173">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="1174" type="java.lang.String">validaemail</key>
+<value id="1175" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="1176">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>10</version>
+</com.j2fe.workflow.definition.Workflow>

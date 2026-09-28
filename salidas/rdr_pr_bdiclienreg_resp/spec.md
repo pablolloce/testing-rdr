@@ -50,7 +50,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
-| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo con el `.sh`/`.properties` reales** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12. Confirma que `GSProcess.sh` es un **motor genérico transversal** (usado por R6, R7, R8 y R9 por igual) y que `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`, ahora confirmadas con código: `Historificar` copia el fichero con sufijo `_yyyymmdd` antes de la extensión; `MoverFicheros` mueve (`mv -f origen/*.* destino`) todo lo que tenga extensión. `RDR_AltaFondos.properties` confirma además el orden y argumentos reales de **todo R8**: `main.Main` (Genera_csv y CuadreCarga, §6.10), los `args` exactos de G5/G6, `Historificar` invocado 2 veces (XML y CSV por separado), `MoverFicheros` archivando ambos a `.../old`, y `Property(GestionAlertas)` disparado **2 veces siempre** (variante `_ERROR` y variante normal). Con `GestionAlertas.properties` real (§6.12) se confirma **por qué** se dispara siempre 2 veces sin depender del contador de errores: es una plantilla genérica de 3 pasos (barrido de alertas → informe → envío) reutilizada con un identificador de proceso distinto cada vez (placeholder `PROCESOS`, sustituido por `GSProcess.sh`) — se ejecuta siempre para ambos identificadores, y es el contenido de las tablas de alertas (no aportado, dentro de los jars `RDR_AlertasBarrido`/`RDR_AlertasCocinado`) lo que determina si hay algo real que reportar en cada una. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Único cabo suelto, no bloqueante: el código de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` y del workflow `RDR_AlertasEnvio`. |
+| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes; quedan solo, como residuales de código no aportado, `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real). |
 
 ## 5. Especificación funcional
 
@@ -697,23 +697,122 @@ Workflow analizado: `RDR_AltaFondos_Enriquecimientos` (grupo `Custom/RDR/AltaFon
   `FILE_DATE` está en estado `FONDOS_CUADRE_OK` (el estado que, por nombre, coincide con la salida esperada de
   `AltaFondos_CuadreCarga.jar`, no aportado, quinto paso de R8). Por cada fondo encontrado, extrae su
   mnemónico operativo (`INST_MNEM`) y el identificador de la petición (`VND_RQST_OID`), y llama al
-  subworkflow `RDR_AltaFondos_Autocalc_PARTY` (no aportado) con esos 2 valores — el propio nombre del
-  subworkflow sugiere un recálculo/derivación automática de atributos a nivel de `PARTY` para el fondo recién
-  cuadrado, pero su contenido real no está disponible.
+  subworkflow `RDR_AltaFondos_Autocalc_PARTY` — confirmado con `.wkf` real, ver §6.13.
 - **Qué recibe/produce:** no declara parámetros de entrada propios (arranca directamente con la query
   interna); produce, por cada fondo encontrado, una invocación de `RDR_AltaFondos_Autocalc_PARTY` con
   `mnemOperativo`/`vreqOid`.
-- **Campos de salida afectados:** no confirmable con este material — el efecto real sobre GoldenSource vive
-  dentro de `RDR_AltaFondos_Autocalc_PARTY`, no aportado.
+- **Campos de salida afectados:** el efecto real sobre GoldenSource vive dentro de
+  `RDR_AltaFondos_Autocalc_PARTY` — ver §6.13.
 - **Qué pasa si falla:** si no hay ningún fondo en `FONDOS_CUADRE_OK`/`FUND_LOADED`, el workflow termina de
   inmediato sin error (`nothing-found` → `Stop`) — comportamiento normal, no un fallo. Si
   `RDR_AltaFondos_Autocalc_PARTY` fallara para un fondo concreto dentro del bucle, no hay ninguna rama de
   gestión de error visible en este `.wkf` tras el `Call Subworkflow` — no se puede confirmar si eso detiene el
-  resto del bucle o si GoldenSource simplemente propaga la excepción, sin el contenido del subworkflow.
+  resto del bucle o si GoldenSource simplemente propaga la excepción.
 - **Estado del propio workflow:** declara `<status>DEVELOPMENT</status>`, mismo patrón ya señalado en
   `RDR_XMLReader` (§6.6) — no confirmado si refleja el ciclo de vida real en producción.
-- **Gap abierto, no bloqueante:** falta `RDR_AltaFondos_Autocalc_PARTY` para confirmar qué enriquece
-  realmente este paso.
+
+### 6.13 `Workflow(RDR_AltaFondos_Autocalc_PARTY)` — confirmado con `.wkf` real
+
+Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondos`, versión 18, **estado
+`RELEASED`** — a diferencia de `RDR_XMLReader`/`RDR_AltaFondos_Enriquecimientos`, en `DEVELOPMENT` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_AltaFondos_Autocalc_PARTY.wkf`).
+
+- **Qué hace:** marca la petición como `PROCESSING_AUTOCALC` en `FT_T_VREQ`; recorre la jerarquía de la
+  contraparte (Operativo→Local→Global) vía `FT_T_FIRL` para obtener sus 3 mnemónicos; invoca 3 subworkflows de
+  cálculo regulatorio no aportados (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`,
+  `OperativeRegulatoryInformation`) — a la vista de las variables globales que declara el propio workflow
+  (`counterpartyTypeUnderDFA`, `cpartyTypeUnderEmir`, `euPersonIndicator`, `finalCounterpartyUnderEmir`,
+  `mififirm`, `parentCompanyCountry`), su función es derivar automáticamente la clasificación regulatoria
+  (DFA/EMIR/MiFID, indicador de persona UE, país de la matriz) del fondo a los 3 niveles de jerarquía; lanza el
+  evento `RDR_AltaFondos_ROL` (asignación de rol) y el subworkflow `PartySetupDifusion` (acción `INSERT`,
+  difusión del alta a sistemas dependientes); si el mnemónico operativo fue originado por `SCF` (Investors
+  Plan externo, confirmado vía `FT_T_UTD1.LAST_CHG_USR_ID='SCF'`) y la contraparte sigue activa/pendiente de
+  inactivar, invoca además `RDR_AltaSCF_Marca` (no aportado); finalmente marca la petición como `GENERATED_FUND`.
+- **Qué recibe/produce:** recibe `mnemOperativo`/`vreqOid` (ambos `String`, obligatorios, únicos parámetros
+  declarados); actualiza el estado de la petición en `FT_T_VREQ` (`PROCESSING_AUTOCALC`→`GENERATED_FUND`) y
+  delega el enriquecimiento real en los 6 subworkflows/evento invocados, ninguno aportado.
+- **Campos de salida afectados:** `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT`; el resto (clasificación
+  regulatoria real, rol asignado, difusión de `PartySetup`) vive dentro de los subworkflows no aportados.
+- **Qué pasa si falla:** no hay ninguna rama de gestión de error entre las llamadas a subworkflow — si
+  cualquiera de los 6 (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`,
+  `OperativeRegulatoryInformation`, evento `RDR_AltaFondos_ROL`, `PartySetupDifusion`, `RDR_AltaSCF_Marca`)
+  fallara, no se puede confirmar si el fallo se propaga (dejando la petición congelada en
+  `PROCESSING_AUTOCALC`, sin llegar nunca a `GENERATED_FUND`) o si GoldenSource lo gestiona de otro modo.
+- **Gap abierto, no bloqueante:** los 6 subworkflows/evento internos no aportados.
+
+### 6.14 `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` — confirmado a nivel de queries (sin `main.Ppal`)
+
+Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars (paquete `jdbc`, distintos entre sí —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`). No se ha aportado la clase orquestadora
+`main.Ppal` de ninguno de los 2 — el análisis siguiente se apoya en las queries reales, no en el flujo de
+control completo.
+
+- **Qué hace `RDR_AlertasBarrido.jar` (`QuerysStr_AlertasBarrido.java`):** barre `FT_T_TPG1` (registros
+  pendientes con `END_TMS IS NULL`, filtrables por `PROCESO`, ordenados por
+  `PROCESO, ID_DEF_ALERT, JOB_ID, REGISTRO, CLAVE`) — **esta es la tabla de origen real de las alertas**,
+  corrigiendo la hipótesis anterior de esta misma sesión (§6.12 en su versión previa) que especulaba con
+  `FT_T_RLT1`: son tablas distintas e independientes, sin relación confirmada entre ellas. Por cada registro
+  resuelto contra `FT_T_ALD1` (diccionario de definiciones de alerta, `ID_DEF_ALERT`→`DESCRIP_LARGA`), inserta
+  una fila nueva en `FT_T_ALG1` (`insertALG1`: cola de mensajes, `PROCESADO='N'`, `DATA_STAT_TYP='ACTIVE'`) y
+  cierra el `FT_T_TPG1` de origen (`queryMarcadoTPG1`, `END_TMS=SYSDATE`) para no volver a barrerlo. También
+  genera estadísticas agregadas (`queryGeneraEstadisticas`: cuenta mensajes `PROCESADO='N'` de tipo `MENSAJE`
+  por proceso/definición).
+- **Qué hace `RDR_AlertasCocinado.jar` (`QuerysStr_AlertasCocinado.java`+`QuerysConfig.java`,
+  `marcaProceso="AlertasCocinado.jar"`):** localiza en `FT_T_REP1` (catálogo de informes: plantilla Excel,
+  ruta, query, cabecera, `SHORT_PROCESS`) los procesos con al menos un destinatario de email activo (join
+  `FT_T_ALR1`/`FT_T_ALM1` con `MEDIO_ENVIO='EMAIL'`), filtrando por el `PROCESO` recibido; consulta los
+  mensajes pendientes (`FT_T_ALG1.PROCESADO='N'`) de ese proceso; marca el informe correspondiente pendiente de
+  envío (`FT_T_REP1.SEND_PEND='Y'`, `query_REP1_MarcaPending`) y cierra los mensajes consumidos
+  (`queryMarcadoALG1`: `PROCESADO='S'`, `LAST_CHG_USR_ID='AlertasCocinado.jar'`). **Es este `SEND_PEND='Y'` el
+  que activa realmente el envío en `AlertasEnvio`** (§6.15).
+- **Qué recibe/produce:** ambos reciben el identificador de proceso vía `args[2]` (placeholder `PROCESOS`
+  sustituido, §6.9/§6.12); Barrido produce filas nuevas en `FT_T_ALG1`; Cocinado marca `FT_T_REP1.SEND_PEND`
+  y cierra los mensajes de `FT_T_ALG1` que consumió. Ambos comparten el mismo patrón de auditoría de errores
+  propios en `FT_T_RLT1` (`insertRLT1`/`insertErrorMsgRLT1`, `LAST_CHG_USR_ID='GESTION_ALERTAS'`) — uso
+  exclusivamente interno de logging de errores, no como fuente de alertas de negocio.
+- **Campos de salida afectados:** `FT_T_ALG1` (inserción/cierre), `FT_T_REP1.SEND_PEND`, `FT_T_TPG1.END_TMS`,
+  `FT_T_RLT1` (solo auditoría de errores propios de estos 2 jars).
+- **Qué pasa si falla:** los métodos de inserción capturan toda excepción SQL con un `catch (Exception e)`
+  genérico que solo registra en log — no relanzan la excepción ni marcan el proceso como fallido de forma
+  visible fuera del propio jar, mismo patrón de fallo silencioso ya visto en otros puntos de esta cadena
+  (§6.9/§9). Sin `main.Ppal` no se puede confirmar, por ejemplo, si `Cocinado` marca `SEND_PEND='Y'` incluso
+  cuando no hay mensajes pendientes en `ALG1` (lo que dispararía un intento de envío "vacío" en `AlertasEnvio`).
+- **Gap abierto, no bloqueante:** `main.Ppal` de ambos jars.
+
+### 6.15 `Workflow(AlertasEnvio)` — confirmado con `.wkf` real
+
+Workflow analizado: `AlertasEnvio` (grupo `Custom/RDR/Common`, versión 10, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/AlertasEnvio.wkf`). **Hallazgo de nomenclatura:**
+`GestionAlertas.properties` lo invoca como `NomWorkflow=RDR_AlertasEnvio`, pero el propio `.wkf` declara
+`<name>AlertasEnvio</name>` (sin el prefijo `RDR_`) — no se puede confirmar con este material si es una
+discrepancia real o si el motor de GoldenSource lo registra bajo un alias distinto de su nombre interno.
+
+- **Qué hace — hallazgo importante, matiza lo documentado en §6.12/§6.14:** el workflow **no declara ningún
+  parámetro de entrada** — no recibe el identificador de proceso concreto que disparó esta invocación. En su
+  lugar, nada más arrancar consulta él mismo `FT_T_REP1` por **todos** los procesos con
+  `DATA_STAT_TYP='ACTIVE'` y `SEND_PEND='Y'` (variable `PROCESOS`, en plural). **Es un barrido global de todos
+  los informes pendientes de envío en todo el sistema, no solo del proceso concreto (`RDR_ALTA_FONDOS`/
+  `RDR_ALTA_FONDOS_ERROR`) que disparó esta ejecución de `GestionAlertas`** — a diferencia de `Barrido`/
+  `Cocinado`, que sí están acotados al proceso vía el placeholder `PROCESOS`. Por cada proceso pendiente: valida
+  que tenga `RUTA` configurada (si no, limpia el pendiente `SEND_PEND='N'` sin enviar nada); resuelve
+  `SHORT_PROCESS` (sustituyendo el literal `YYYYMMDD` por la fecha real si aparece); por cada destinatario de
+  email (`FT_T_ALU1`/`FT_T_ALR1`/`FT_T_ALM1`) resuelve el tipo de envío (`EXCEL`/`WORD`/`TXT`/`DAT`/`CUERPO`) —
+  para `CUERPO` busca un fichero `CUERPO_<SHORT_PROCESS>.txt` en la carpeta configurada y, si existe, vuelca su
+  contenido como cuerpo del correo (sin adjunto); construye asunto (`"[RDR Reportes] - "+PROCESO`) y cuerpo,
+  valida que todos los campos estén completos y que la periodicidad no sea `PARCIAL` con cuerpo vacío ("No
+  existen datos a enviar" → no se envía); invoca el subworkflow `Mail` (no aportado, envío SMTP real) y, tras
+  enviar, actualiza `FT_T_ALR1.LAST_SEND_TMS` para ese proceso/tipo de envío/destinatario.
+- **Qué recibe/produce:** sin parámetros de entrada; produce el envío real de correos (delegado en `Mail`, no
+  aportado) y actualiza `FT_T_REP1.SEND_PEND`/`FT_T_ALR1.LAST_SEND_TMS`.
+- **Campos de salida afectados:** `FT_T_REP1.SEND_PEND` (a `'N'` cuando falta ruta), `FT_T_ALR1.LAST_SEND_TMS`
+  (tras cada envío); el contenido real del correo depende de los ficheros que haya dejado `Cocinado` en la
+  ruta configurada.
+- **Qué pasa si falla:** si `RUTA`/`env`/destinatario no son válidos, ese proceso/destinatario concreto se
+  salta silenciosamente (siguiente iteración), sin registrar error visible en este `.wkf`; si la periodicidad
+  es `PARCIAL` y el cuerpo indica "No existen datos a enviar", el envío se omite intencionadamente
+  (comportamiento esperado, no un fallo).
+- **Gap abierto, no bloqueante:** el subworkflow `Mail` (envío SMTP real) y `AlertasEnvioExcepciones` (llamado
+  antes de generar el mail final) no aportados.
 
 ### 6.12 `GestionAlertas.properties` — plantilla genérica de alertas (confirmado con `.properties` real)
 
@@ -724,29 +823,21 @@ Fichero analizado: `GestionAlertas.properties` —
   concreto: `Accion=Java` invoca `RDR_AlertasBarrido.jar` (clase `main.Ppal`) para "barrer"/detectar alertas
   pendientes; `Accion=Java` invoca `RDR_AlertasCocinado.jar` (mismo `main.Ppal`, con librerías de Excel
   `poi`/`poi-ooxml`/`xmlbeans` en el classpath) para preparar el informe de esas alertas; `Accion=Evento`
-  dispara el workflow `RDR_AlertasEnvio` (GoldenSource) para distribuirlo. El tercer argumento de ambos pasos
-  Java es el literal `PROCESOS` — un **placeholder**, no un valor real: cuando `GSProcess.sh` (§6.9) ejecuta
-  esta plantilla como `Property(GestionAlertas)`, sustituye `PROCESOS` por el identificador real del proceso
+  dispara el workflow `RDR_AlertasEnvio` (§6.15) para distribuirlo. El tercer argumento de ambos pasos Java es
+  el literal `PROCESOS` — un **placeholder**, no un valor real: cuando `GSProcess.sh` (§6.9) ejecuta esta
+  plantilla como `Property(GestionAlertas)`, sustituye `PROCESOS` por el identificador real del proceso
   (`ArgProp2` de la llamada, p. ej. `RDR_ALTA_FONDOS` o `RDR_ALTA_FONDOS_ERROR` en R8) en todo el fichero
-  temporal generado — mecanismo ya descrito en general en §6.9, ahora confirmado con el contenido real de la
-  plantilla. **Esto explica por qué `Property(GestionAlertas)` se invoca siempre 2 veces en R8** (§6.9): no es
-  que se disparen 2 alertas incondicionalmente, sino que se ejecuta la misma plantilla de barrido/informe/
-  envío una vez por cada identificador de proceso relevante (el normal y el de error) — si hay o no alertas
-  reales que reportar en cada pasada depende del contenido de las tablas que consulte `RDR_AlertasBarrido.jar`
-  (no aportado), no del propio `.properties`.
+  temporal generado. **Esto explica por qué `Property(GestionAlertas)` se invoca siempre 2 veces en R8**
+  (§6.9): se ejecuta la misma plantilla de barrido/informe una vez por cada identificador de proceso relevante
+  (el normal y el de error) — con el código real de §6.14 se confirma que si hay o no alertas reales depende
+  del contenido de `FT_T_TPG1` para ese proceso concreto. El paso final (`AlertasEnvio`, §6.15), sin embargo,
+  **no está acotado a ese proceso**: es un barrido global de todo `FT_T_REP1` pendiente, se dispare desde donde
+  se dispare.
 - **Qué recibe/produce:** recibe el identificador de proceso vía sustitución de `PROCESOS` (mecanismo de
   `GSProcess.sh`); produce sus propios logs (`log4jAlertasBarrido.properties`/`log4jAlertasCocinado.properties`)
-  y, previsiblemente, un informe de alertas (formato no confirmable sin el código de `RDR_AlertasCocinado.jar`,
-  aunque las librerías Excel cargadas apuntan a un `.xlsx`).
-- **Campos de salida afectados:** no confirmable sin el código de `RDR_AlertasBarrido.jar`/
-  `RDR_AlertasCocinado.jar`. **Hipótesis razonable, no confirmada:** dado el patrón de rechazo `NACK` ya visto
-  en `FT_T_RLT1` (`OTHER`/`ValidacionOficinas`, §6.7), es plausible que el "barrido" consulte esa misma tabla
-  filtrando por el identificador de proceso sustituido — no se afirma como hecho, solo como hipótesis a
-  verificar si se aporta el jar.
-- **Qué pasa si falla:** no confirmable — ninguno de los 2 jars ni el workflow `RDR_AlertasEnvio` están
-  aportados.
-- **Gap abierto, no bloqueante:** falta el código de `RDR_AlertasBarrido.jar`, `RDR_AlertasCocinado.jar` y el
-  `.wkf` de `RDR_AlertasEnvio`.
+  y, en última instancia, el envío de correo gestionado por `AlertasEnvio` (§6.15).
+- **Campos de salida afectados:** ver §6.14 (Barrido/Cocinado) y §6.15 (Envío).
+- **Qué pasa si falla:** ver §6.14/§6.15.
 
 ## 7. Especificación de testing
 
@@ -890,11 +981,20 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `Historificar`, `MoverFicheros`, `AltaFondos_CuadreCarga`, `RDR_AltaFondos_Enriquecimientos` y
   `GestionAlertas` (x2) se ejecutan igual, contra los ficheros que hubiera en ese momento — solo al final el
   job de Control-M queda marcado como fallido si `$Errores>0`, tras haberlo ejecutado todo.
-* **`Property(GestionAlertas)` se dispara siempre 2 veces en R8, mecanismo confirmado (§6.9/§6.12):** variante
-  `_ERROR` y variante normal, ambas en toda ejecución de `RDR_AltaFondos.properties` — es la misma plantilla
-  genérica de barrido/informe/envío ejecutada una vez por identificador de proceso (placeholder `PROCESOS`
-  sustituido por `GSProcess.sh`), no 2 alertas incondicionales; si hay algo real que reportar en cada pasada
-  depende del contenido de las tablas que consulta `RDR_AlertasBarrido.jar` (no aportado).
+* **`Property(GestionAlertas)` se dispara siempre 2 veces en R8, mecanismo confirmado de principio a fin
+  (§6.9/§6.12/§6.14/§6.15):** variante `_ERROR` y variante normal, ambas en toda ejecución de
+  `RDR_AltaFondos.properties` — `Barrido` (contra `FT_T_TPG1`) y `Cocinado` sí están acotados al identificador
+  de proceso sustituido; si hay algo real que reportar depende del contenido real de `FT_T_TPG1` para ese
+  proceso en ese momento.
+* **[Hallazgo] El envío final de `GestionAlertas` (`AlertasEnvio`) no está acotado al proceso que lo disparó —
+  es un barrido global (confirmado por `.wkf` real, §6.15):** a diferencia de `Barrido`/`Cocinado`,
+  `AlertasEnvio` no recibe ningún parámetro de proceso — consulta él mismo **todos** los procesos con
+  `FT_T_REP1.SEND_PEND='Y'` en todo el sistema. Esto significa que cualquier invocación de `GestionAlertas`
+  (la de `RDR_ALTA_FONDOS`, la de `RDR_ALTA_FONDOS_ERROR`, o la de cualquier otro proceso RDR que use este
+  mismo mecanismo compartido) puede terminar enviando el correo de un informe pendiente que en realidad viene
+  de un proceso completamente distinto — no es un defecto necesariamente, pero rompe la intuición de que "la
+  alerta de R8" y "el envío que dispara R8" son la misma cosa: quien procesa y envía el pendiente puede ser
+  cualquier ejecución de `GestionAlertas` que llegue primero, de cualquier proceso.
 * **`Historificar` solo procesa el primer fichero si el patrón con comodín coincide con más de uno (confirmado
   por código real de `Generico.sh`, §6.9) — mismo patrón que el límite de 1 CSV de `CSVToXML_Layout.jar`
   (§6.4):** el shell expande el comodín (`*.xml`/`*.csv`) antes de invocar `Generico.sh`, pero la función
@@ -959,10 +1059,15 @@ cuando el patrón con comodín coincide con más de uno (mismo patrón que el ya
 §6.4). `main.Main` (§6.10) cierra la clase orquestadora real de `AltaFondos_Genera_csv` con el hallazgo de
 fallo silencioso ya descrito. `Workflow(RDR_AltaFondos_Enriquecimientos)` (§6.11) queda **resuelto**: enriquece
 vía `RDR_AltaFondos_Autocalc_PARTY` (no aportado) cada fondo en estado `FONDOS_CUADRE_OK`/`FUND_LOADED`.
-`GestionAlertas.properties` (§6.12) queda **resuelto**: es una plantilla genérica de 3 pasos
-(barrido/informe/envío) reutilizada con un identificador de proceso distinto por invocación, lo que explica
-por completo por qué se dispara siempre 2 veces en R8. Con esto, **R8 queda funcionalmente resuelto de
-principio a fin**: solo faltan, como cabos sueltos no bloqueantes, el código de `main.Main` de
-`AltaFondos_CuadreCarga.jar` (extrapolable del ya visto), `RDR_AltaFondos_Autocalc_PARTY`, y los jars
-`RDR_AlertasBarrido`/`RDR_AlertasCocinado` con el workflow `RDR_AlertasEnvio`. Siguen pendientes, para R9, los
-gaps técnicos aún no abordados en esta sesión.
+`GestionAlertas.properties` (§6.12) queda **resuelto por completo, de punta a punta**: `RDR_AltaFondos_
+Autocalc_PARTY` (§6.13) confirma la derivación de clasificación regulatoria (DFA/EMIR/MiFID) del fondo a 3
+niveles de jerarquía; `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) confirman la tabla de origen
+real de las alertas (`FT_T_TPG1`, corrigiendo la hipótesis anterior sobre `FT_T_RLT1`) y el mecanismo completo
+de cola/marcado (`FT_T_ALG1`→`FT_T_REP1.SEND_PEND`); `AlertasEnvio` (§6.15) confirma por qué se dispara
+siempre 2 veces (plantilla acotada por proceso en Barrido/Cocinado) y descubre un hallazgo propio: el envío
+final **no está acotado al proceso que lo disparó**, es un barrido global de todo `FT_T_REP1` pendiente en
+todo el sistema. Con esto, **R8 queda funcionalmente resuelto de principio a fin, sin cabos sueltos
+bloqueantes**: solo quedan, como residuales de código no aportado, `main.Main` de `AltaFondos_CuadreCarga.jar`
+(extrapolable del ya visto en §6.10), `main.Ppal` de ambos jars de alertas, y los subworkflows internos de
+`RDR_AltaFondos_Autocalc_PARTY`/`Mail`. Siguen pendientes, para R9, los gaps técnicos aún no abordados en esta
+sesión.
