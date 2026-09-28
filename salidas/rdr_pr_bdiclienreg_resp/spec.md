@@ -47,10 +47,10 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
 | G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
-| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto con código fuente real** (`CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3. `Peticiones` es la clase orquestadora: confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos). Con `RDR_AltaFondos.properties` real (§6.9/G8) se confirman además los valores reales de invocación: la clase que ejecuta Control-M es `main.Main` (no aportada, no `Peticiones` directamente), `args[2]` es la carpeta de salida real (`/fichtemcomp/.../AltaFondos/csv`) y **`args[3]="NODCS"`** — es decir, esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. Único cabo suelto, no bloqueante: no se ha aportado el código de la clase `main.Main`. |
+| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
-| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo con el `.sh`/`.properties` reales** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9. Confirma que `GSProcess.sh` es un **motor genérico transversal** (usado por R6, R7, R8 y R9 por igual) y que `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`, ahora confirmadas con código: `Historificar` copia el fichero con sufijo `_yyyymmdd` antes de la extensión; `MoverFicheros` mueve (`mv -f origen/*.* destino`) todo lo que tenga extensión. `RDR_AltaFondos.properties` confirma además el orden y argumentos reales de **todo R8**: `main.Main` (Genera_csv y CuadreCarga), los `args` exactos de G5/G6 (ver esas filas), `Historificar` invocado 2 veces (XML y CSV por separado), `MoverFicheros` archivando ambos a `.../old`, y `Property(GestionAlertas)` disparado **2 veces siempre** (variante `_ERROR` y variante normal) — sin condicionar aparentemente al contador de errores del propio `.properties`, lo cual queda como pregunta abierta para cuando se analice `GestionAlertas` en sí. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Único cabo suelto, no bloqueante: la plantilla `GestionAlertas.properties` y el workflow que invoca. |
+| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo con el `.sh`/`.properties` reales** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12. Confirma que `GSProcess.sh` es un **motor genérico transversal** (usado por R6, R7, R8 y R9 por igual) y que `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`, ahora confirmadas con código: `Historificar` copia el fichero con sufijo `_yyyymmdd` antes de la extensión; `MoverFicheros` mueve (`mv -f origen/*.* destino`) todo lo que tenga extensión. `RDR_AltaFondos.properties` confirma además el orden y argumentos reales de **todo R8**: `main.Main` (Genera_csv y CuadreCarga, §6.10), los `args` exactos de G5/G6, `Historificar` invocado 2 veces (XML y CSV por separado), `MoverFicheros` archivando ambos a `.../old`, y `Property(GestionAlertas)` disparado **2 veces siempre** (variante `_ERROR` y variante normal). Con `GestionAlertas.properties` real (§6.12) se confirma **por qué** se dispara siempre 2 veces sin depender del contador de errores: es una plantilla genérica de 3 pasos (barrido de alertas → informe → envío) reutilizada con un identificador de proceso distinto cada vez (placeholder `PROCESOS`, sustituido por `GSProcess.sh`) — se ejecuta siempre para ambos identificadores, y es el contenido de las tablas de alertas (no aportado, dentro de los jars `RDR_AlertasBarrido`/`RDR_AlertasCocinado`) lo que determina si hay algo real que reportar en cada una. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Único cabo suelto, no bloqueante: el código de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` y del workflow `RDR_AlertasEnvio`. |
 
 ## 5. Especificación funcional
 
@@ -655,8 +655,98 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
   (o no hubiera) en ese momento. Solo al final, si `$Errores>0`, el job completo de Control-M queda marcado
   como fallido — después de haber ejecutado todo. Mismo mecanismo (motor compartido) en R6, R7 y R9, aunque
   sus `.properties` respectivos no se han aportado y podrían tener `Stop=Ok` en alguna línea.
-- **Gap abierto, no bloqueante:** siguen sin aportar el código de `main.Main` (Genera_csv/CuadreCarga), y la
-  plantilla `GestionAlertas.properties` junto con el workflow que invoca.
+- **Gap abierto, no bloqueante:** sigue sin aportar el código de `main.Main` de `AltaFondos_CuadreCarga.jar`
+  (§6.10 solo cubre la clase de `AltaFondos_Genera_csv`, aunque ambas comparten nombre y patrón de invocación
+  idénticos, así que el mecanismo de fallo silencioso descrito ahí es extrapolable con alta confianza).
+
+### 6.10 `main.Main` (orquestador real de `AltaFondos_Genera_csv.jar`) — confirmado con código real
+
+Clase analizada: `main.Main` — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/Main.java`.
+
+- **Qué hace:** configura el nivel de log4j (`args[0]`: `1`=DEBUG, `2`=INFO, `3`=ERROR, `4`=FATAL) y el propio
+  log4j (`PropertyConfigurator.configure(args[1])`), abre la conexión a BBDD (`ConDB`), y después instancia
+  `Peticiones(obj_con, carpetaSalida)` (§6.3) invocando `p.procesaPeticiones(args[3])` y
+  `p.generaCSVAltaFondos()` en secuencia. Cierra el `Statement`/`Connection` al final
+  (`cierraBBDD()`) y fuerza `System.gc()`. El propio comentario de cabecera de la clase documenta
+  explícitamente el ciclo de estados de negocio de este paso: **origen `ALTA_FONDO_PEND`** → **salida OK
+  `GENERATED_CSV_LINE`** → **salida KO `ERROR_CSV_LINE_GEN`**.
+- **Qué recibe/produce:** recibe `args[0]`=nivel de log, `args[1]`=ruta del `.properties` de log4j,
+  `args[2]`=carpeta de salida (`carpetaSalida`, confirmando el mecanismo ya visto en §6.9/G5), `args[3]`=
+  literal `"DCS"`/`"NODCS"` (pasado tal cual a `Peticiones.procesaPeticiones`). No produce nada directamente;
+  delega el 100% del trabajo real en `Peticiones` (§6.3).
+- **Campos de salida afectados:** ninguno directamente — ver §6.3 para el detalle del CSV generado.
+- **Qué pasa si falla — hallazgo de fallo silencioso a nivel de proceso completo:** si
+  `configuraDByLog()` falla (conexión a BBDD caída, `.properties` de log4j inválido, `args[0]` no numérico —
+  `Integer.parseInt` sin capturar `NumberFormatException` fuera del `try` general, aunque sí queda dentro del
+  `catch (Exception e)` exterior), el método devuelve `false`, se registra el error por log y **`main()` hace
+  `return` sin más** — no hay ningún `System.exit(1)` ni excepción sin capturar. La JVM termina con código de
+  salida **`0` (éxito)**. Esto significa que si este paso falla en su fase de arranque (antes de generar nada),
+  `GSProcess.sh` (§6.9) lo registraría como un paso **correcto** (`$RESULT="0"`), sin incrementar `Errores` ni
+  activar ningún `Stop=Ok` — el fallo sería completamente invisible para el mecanismo de detección de errores
+  de toda la cadena, no solo "no frenado" como ya se documentó en §6.9, sino directamente **no detectado**.
+  Una vez pasada la configuración inicial, cualquier fallo dentro de `Peticiones` sigue el comportamiento ya
+  descrito en §6.3.
+
+### 6.11 `Workflow(RDR_AltaFondos_Enriquecimientos)` — confirmado con `.wkf` real
+
+Workflow analizado: `RDR_AltaFondos_Enriquecimientos` (grupo `Custom/RDR/AltaFondos`, versión 4 —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_AltaFondos_Enriquecimientos.wkf`).
+
+- **Qué hace:** consulta `FT_T_VREQ` (auto-join) + `FT_T_UTD1` para localizar todas las peticiones de alta de
+  fondo cuya petición hija de tipo `FundLEI` está en estado `FUND_LOADED` **y** cuya petición padre de tipo
+  `FILE_DATE` está en estado `FONDOS_CUADRE_OK` (el estado que, por nombre, coincide con la salida esperada de
+  `AltaFondos_CuadreCarga.jar`, no aportado, quinto paso de R8). Por cada fondo encontrado, extrae su
+  mnemónico operativo (`INST_MNEM`) y el identificador de la petición (`VND_RQST_OID`), y llama al
+  subworkflow `RDR_AltaFondos_Autocalc_PARTY` (no aportado) con esos 2 valores — el propio nombre del
+  subworkflow sugiere un recálculo/derivación automática de atributos a nivel de `PARTY` para el fondo recién
+  cuadrado, pero su contenido real no está disponible.
+- **Qué recibe/produce:** no declara parámetros de entrada propios (arranca directamente con la query
+  interna); produce, por cada fondo encontrado, una invocación de `RDR_AltaFondos_Autocalc_PARTY` con
+  `mnemOperativo`/`vreqOid`.
+- **Campos de salida afectados:** no confirmable con este material — el efecto real sobre GoldenSource vive
+  dentro de `RDR_AltaFondos_Autocalc_PARTY`, no aportado.
+- **Qué pasa si falla:** si no hay ningún fondo en `FONDOS_CUADRE_OK`/`FUND_LOADED`, el workflow termina de
+  inmediato sin error (`nothing-found` → `Stop`) — comportamiento normal, no un fallo. Si
+  `RDR_AltaFondos_Autocalc_PARTY` fallara para un fondo concreto dentro del bucle, no hay ninguna rama de
+  gestión de error visible en este `.wkf` tras el `Call Subworkflow` — no se puede confirmar si eso detiene el
+  resto del bucle o si GoldenSource simplemente propaga la excepción, sin el contenido del subworkflow.
+- **Estado del propio workflow:** declara `<status>DEVELOPMENT</status>`, mismo patrón ya señalado en
+  `RDR_XMLReader` (§6.6) — no confirmado si refleja el ciclo de vida real en producción.
+- **Gap abierto, no bloqueante:** falta `RDR_AltaFondos_Autocalc_PARTY` para confirmar qué enriquece
+  realmente este paso.
+
+### 6.12 `GestionAlertas.properties` — plantilla genérica de alertas (confirmado con `.properties` real)
+
+Fichero analizado: `GestionAlertas.properties` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GestionAlertas.properties`.
+
+- **Qué hace:** es una **plantilla genérica reutilizable de 3 pasos**, no específica de ningún proceso
+  concreto: `Accion=Java` invoca `RDR_AlertasBarrido.jar` (clase `main.Ppal`) para "barrer"/detectar alertas
+  pendientes; `Accion=Java` invoca `RDR_AlertasCocinado.jar` (mismo `main.Ppal`, con librerías de Excel
+  `poi`/`poi-ooxml`/`xmlbeans` en el classpath) para preparar el informe de esas alertas; `Accion=Evento`
+  dispara el workflow `RDR_AlertasEnvio` (GoldenSource) para distribuirlo. El tercer argumento de ambos pasos
+  Java es el literal `PROCESOS` — un **placeholder**, no un valor real: cuando `GSProcess.sh` (§6.9) ejecuta
+  esta plantilla como `Property(GestionAlertas)`, sustituye `PROCESOS` por el identificador real del proceso
+  (`ArgProp2` de la llamada, p. ej. `RDR_ALTA_FONDOS` o `RDR_ALTA_FONDOS_ERROR` en R8) en todo el fichero
+  temporal generado — mecanismo ya descrito en general en §6.9, ahora confirmado con el contenido real de la
+  plantilla. **Esto explica por qué `Property(GestionAlertas)` se invoca siempre 2 veces en R8** (§6.9): no es
+  que se disparen 2 alertas incondicionalmente, sino que se ejecuta la misma plantilla de barrido/informe/
+  envío una vez por cada identificador de proceso relevante (el normal y el de error) — si hay o no alertas
+  reales que reportar en cada pasada depende del contenido de las tablas que consulte `RDR_AlertasBarrido.jar`
+  (no aportado), no del propio `.properties`.
+- **Qué recibe/produce:** recibe el identificador de proceso vía sustitución de `PROCESOS` (mecanismo de
+  `GSProcess.sh`); produce sus propios logs (`log4jAlertasBarrido.properties`/`log4jAlertasCocinado.properties`)
+  y, previsiblemente, un informe de alertas (formato no confirmable sin el código de `RDR_AlertasCocinado.jar`,
+  aunque las librerías Excel cargadas apuntan a un `.xlsx`).
+- **Campos de salida afectados:** no confirmable sin el código de `RDR_AlertasBarrido.jar`/
+  `RDR_AlertasCocinado.jar`. **Hipótesis razonable, no confirmada:** dado el patrón de rechazo `NACK` ya visto
+  en `FT_T_RLT1` (`OTHER`/`ValidacionOficinas`, §6.7), es plausible que el "barrido" consulte esa misma tabla
+  filtrando por el identificador de proceso sustituido — no se afirma como hecho, solo como hipótesis a
+  verificar si se aporta el jar.
+- **Qué pasa si falla:** no confirmable — ninguno de los 2 jars ni el workflow `RDR_AlertasEnvio` están
+  aportados.
+- **Gap abierto, no bloqueante:** falta el código de `RDR_AlertasBarrido.jar`, `RDR_AlertasCocinado.jar` y el
+  `.wkf` de `RDR_AlertasEnvio`.
 
 ## 7. Especificación de testing
 
@@ -800,15 +890,24 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `Historificar`, `MoverFicheros`, `AltaFondos_CuadreCarga`, `RDR_AltaFondos_Enriquecimientos` y
   `GestionAlertas` (x2) se ejecutan igual, contra los ficheros que hubiera en ese momento — solo al final el
   job de Control-M queda marcado como fallido si `$Errores>0`, tras haberlo ejecutado todo.
-* **`Property(GestionAlertas)` se dispara siempre 2 veces en R8, sin condicionar aparentemente al contador de
-  errores (confirmado con `.properties` real, §6.9):** variante `_ERROR` y variante normal, ambas en toda
-  ejecución de `RDR_AltaFondos.properties` — si alertan de verdad o no depende de la plantilla
-  `GestionAlertas.properties` (no aportada), pregunta abierta para cuando se analice ese artefacto.
+* **`Property(GestionAlertas)` se dispara siempre 2 veces en R8, mecanismo confirmado (§6.9/§6.12):** variante
+  `_ERROR` y variante normal, ambas en toda ejecución de `RDR_AltaFondos.properties` — es la misma plantilla
+  genérica de barrido/informe/envío ejecutada una vez por identificador de proceso (placeholder `PROCESOS`
+  sustituido por `GSProcess.sh`), no 2 alertas incondicionales; si hay algo real que reportar en cada pasada
+  depende del contenido de las tablas que consulta `RDR_AlertasBarrido.jar` (no aportado).
 * **`Historificar` solo procesa el primer fichero si el patrón con comodín coincide con más de uno (confirmado
   por código real de `Generico.sh`, §6.9) — mismo patrón que el límite de 1 CSV de `CSVToXML_Layout.jar`
   (§6.4):** el shell expande el comodín (`*.xml`/`*.csv`) antes de invocar `Generico.sh`, pero la función
   `Historificar` solo usa el primer argumento — ficheros adicionales de un ciclo anterior no archivados se
   quedarían sin historificar (aunque sí se moverían igual a `/old` vía `MoverFicheros`, que sí procesa todos).
+* **[PRIORIDAD ALTA] Un fallo de arranque en `main.Main` (`AltaFondos_Genera_csv`) termina con código de
+  salida 0 (éxito), invisible para `GSProcess.sh` (confirmado por código real, §6.10):** si la conexión a BBDD
+  o la configuración de log4j fallan, `main()` hace `return` sin `System.exit`, y la JVM sale con éxito sin
+  haber generado nada. A diferencia del resto de fallos ya documentados en esta cadena (que al menos se
+  cuentan en `$Errores` aunque no frenen la cadena, §6.9), este ni siquiera se registraría como fallo del
+  paso — el job de Control-M terminaría en verde sin que se haya generado el CSV de alta de fondos. Mismo
+  patrón de invocación en `AltaFondos_CuadreCarga.jar` (mismo `main.Main`), extrapolable con alta confianza
+  aunque su código no se ha aportado.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -818,10 +917,12 @@ salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap t�
 (`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
 LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
 decisión completo — señalado como no bloqueante. El gap técnico G5 (`AltaFondos_Genera_csv.jar`, primer paso
-de R8) queda **resuelto** con el flujo completo confirmado (`Peticiones`/`Fondo`/`CSVLine`) y, con el
-`.properties` real (§6.9), también con los valores reales de invocación: clase `main.Main` (no aportada), y
-**`args[3]="NODCS"`**, confirmando que esta ejecución concreta procesa el canal no-DCS (el canal
-`DigitalCrossSelling` sale de otra ejecución no vista). Quedan abiertos, como riesgos nuevos descubiertos por
+de R8) queda **resuelto por completo, incluida la clase orquestadora real**: `Peticiones`/`Fondo`/`CSVLine`
+confirman el flujo completo (§6.3), y `main.Main` (§6.10) confirma los valores reales de invocación —
+**`args[3]="NODCS"`** (esta ejecución concreta procesa el canal no-DCS; `DigitalCrossSelling` sale de otra
+ejecución no vista) — y descubre un hallazgo propio de alta prioridad: si la configuración inicial (BD/log4j)
+falla, el proceso Java termina con código de salida `0` (éxito) sin haber generado nada, invisible para
+`GSProcess.sh` (§9). Quedan abiertos, como riesgos nuevos descubiertos por
 este análisis (no como preguntas pendientes): la pérdida silenciosa de respuestas truncadas, la
 historificación de ficheros vacíos como si fueran un procesamiento exitoso, el país hardcodeado a `ES` en el
 alta de LEI, la ausencia de comprobación de resultado vacío en las fechas de vigencia del LEI, el camino de
@@ -853,10 +954,15 @@ negocio propia, y que `Script(Historificar)`/`Script(MoverFicheros)` son funcion
 pasos completos de R8. Descubre un **hallazgo transversal, ya no hipotético**: ninguna línea de
 `RDR_AltaFondos.properties` trae `Stop=Ok`, así que un fallo en cualquiera de sus 8 pasos nunca frena la
 cadena — todos los pasos posteriores se ejecutan igual, y solo al final el job de Control-M queda marcado
-como fallido si hubo algún error. También descubre que `Property(GestionAlertas)` se dispara siempre 2 veces
-(variante error y variante normal) sin condición aparente, y un límite de 1 fichero por invocación en
-`Historificar` cuando el patrón con comodín coincide con más de uno (mismo patrón que el ya visto en
-`CSVToXML_Layout.jar`, §6.4). Con esto, **R8 queda funcionalmente resuelto de principio a fin**: solo faltan,
-como cabos sueltos no bloqueantes, el código de `main.Main` (Genera_csv/CuadreCarga), el `.wkf` de
-`Workflow(RDR_AltaFondos_Enriquecimientos)`, y la plantilla `GestionAlertas.properties` con su workflow.
-Siguen pendientes, para R9, los gaps técnicos aún no abordados en esta sesión.
+como fallido si hubo algún error. También descubre un límite de 1 fichero por invocación en `Historificar`
+cuando el patrón con comodín coincide con más de uno (mismo patrón que el ya visto en `CSVToXML_Layout.jar`,
+§6.4). `main.Main` (§6.10) cierra la clase orquestadora real de `AltaFondos_Genera_csv` con el hallazgo de
+fallo silencioso ya descrito. `Workflow(RDR_AltaFondos_Enriquecimientos)` (§6.11) queda **resuelto**: enriquece
+vía `RDR_AltaFondos_Autocalc_PARTY` (no aportado) cada fondo en estado `FONDOS_CUADRE_OK`/`FUND_LOADED`.
+`GestionAlertas.properties` (§6.12) queda **resuelto**: es una plantilla genérica de 3 pasos
+(barrido/informe/envío) reutilizada con un identificador de proceso distinto por invocación, lo que explica
+por completo por qué se dispara siempre 2 veces en R8. Con esto, **R8 queda funcionalmente resuelto de
+principio a fin**: solo faltan, como cabos sueltos no bloqueantes, el código de `main.Main` de
+`AltaFondos_CuadreCarga.jar` (extrapolable del ya visto), `RDR_AltaFondos_Autocalc_PARTY`, y los jars
+`RDR_AlertasBarrido`/`RDR_AlertasCocinado` con el workflow `RDR_AlertasEnvio`. Siguen pendientes, para R9, los
+gaps técnicos aún no abordados en esta sesión.
