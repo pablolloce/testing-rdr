@@ -69,6 +69,20 @@ MEKYTL0949 → MEKYTL0950 (ambos Script RAMERC0068.sh, xsramer1 — historificac
 Folder: server `MERCADOS-4`, método de ejecución **"Automático"** (a diferencia de `TRANSMISIONES_CIB_RDR_SAIT`,
 que usa "User Daily específico"/`PLAN_1300`).
 
+**Contenido real de `RDR_Transformacion_SAIT.sh` (2026-09-28, script real aportado por el usuario):** misma
+familia "Transformacion" ya vista en otros procesos de esta sesión (mismo esqueleto que
+`RDR_Transformacion_PRODUCTOS.sh`, GAP-PROD-001). Lógica real:
+```bash
+java ... -cp "$JAR/$JAR_FILE:$JAR/RDRCommon.jar:...:$LIB_PATH/ucp.jar" \
+  Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION $XSLT_MENTOR
+```
+- `JAR_FILE="RDR_Transformacion_SAIT.jar"`, clase `Batch_Diario_Sait.Batch_Sait`.
+- `$FILESEXGEN`=`$FILESMENTOR`=`/fichtemcomp/$env/descargas/kytl/SAIT/` — origen y destino son la misma
+  carpeta (el nombre de variable `FILESMENTOR` es un resto vestigial de plantilla, sin relación real con Mentor).
+- `$XSLT_MENTOR`=`/$env/kytl/online/multipais/multicanal/dat/properties/` — de nuevo, solo la carpeta genérica
+  de properties, **no el nombre del `.xsl` real** (mismo patrón que `RDR_Transformacion_PRODUCTOS.sh`: el
+  nombre exacto se resuelve dentro del jar/clase, no en el script).
+
 **Discrepancia documental de `MEKYTL0357` — RESUELTA con la captura real.** La ficha EX-005-03 de este job
 tenía un texto descriptivo ("mover a `lpftp503:/unload/transmisiones/SAIT/`") que no encajaba con su propia
 tabla de pasos (que mencionaba `WVMSAITDB01`/`CDWVMSAITBD01`, contenido idéntico al de `MEKYTL0357_LISTA`). La
@@ -105,13 +119,14 @@ forma independiente, patrón consistente y no un error de diseño aparente.
   06:00 AM, usuario `xakytl1p`), que ejecuta `RDR_Transformacion_SAIT.sh`
   (`/pr/kytl/online/multipais/multicanal/scrt/`) con parámetros `fileloading` + ruta a `credentials.xml`.
   Topología completa confirmada (`RDR_DAILY_LA_PRO_IN → RDR_DAILY_LA_JAVA → MEKYTL0357 → MEKYTL0949 →
-  MEKYTL0950`), y resuelta la discrepancia documental de `MEKYTL0357` (usa `MEGENV0001.sh`, no Connect:Direct
-  directo — ver §1.1). Solo falta el contenido del propio script para llegar al mismo nivel de certeza literal
-  que GAP-ADHOC-001/002 sobre la lógica interna.
-- **GAP-SAIT-004 (diccionario de campos del XML) — ABIERTO, sin evidencia.** Se conoce ya el script exacto que
-  genera el fichero (`RDR_Transformacion_SAIT.sh`) y toda la cadena que lo invoca, pero no su contenido ni
-  ningún XSLT/mapeo asociado — sigue sin verse la estructura/etiquetas del XML de contratos. No se fuerza una
-  estructura inventada. Es el único gap que queda por resolver en este proceso.
+  MEKYTL0950`), discrepancia documental de `MEKYTL0357` resuelta (usa `MEGENV0001.sh`, ver §1.1), y contenido
+  real de `RDR_Transformacion_SAIT.sh` confirmado: jar `RDR_Transformacion_SAIT.jar`, clase
+  `Batch_Diario_Sait.Batch_Sait` — mismo nivel de certeza literal que GAP-ADHOC-001/002.
+- **GAP-SAIT-004 (diccionario de campos del XML) — ABIERTO.** El script confirma el jar/clase exactos
+  (`Batch_Diario_Sait.Batch_Sait`), pero solo pasa como argumento la **carpeta** genérica de properties, no el
+  nombre del `.xsl` real — el nombre exacto se resuelve dentro de la clase Java, fuera del alcance de esta
+  evidencia. Sigue sin verse la estructura/etiquetas del XML de contratos. No se fuerza una estructura
+  inventada. Es el único gap que queda por resolver en este proceso.
 - **GAP-SAIT-005 (validación XSD real) — RESUELTO POR AUSENCIA.** La cadena real de Control-M tiene
   exactamente los 2 jobs de transmisión/limpieza — ningún job de validación XSD dentro de
   `TRANSMISIONES_CIB_RDR_SAIT`. Si existe una validación XSD real, ocurre en la cadena de generación
@@ -122,9 +137,10 @@ forma independiente, patrón consistente y no un error de diseño aparente.
   jobs, mismo patrón de scripts genéricos de pasarela (`LPFTPEXCA0000.sh`/`LPFTPEXCA0002.sh`) ya confirmado en
   otros procesos de esta sesión — no exclusivo de SAIT.
 
-**Balance: 6 de 7 gaps resueltos con evidencia literal completa.** Solo queda abierto GAP-SAIT-004 (diccionario
-de campos del XML), que requiere el contenido del script `RDR_Transformacion_SAIT.sh` — fuera de alcance de
-esta ronda, no inventado.
+**Balance: 6 de 7 gaps resueltos con evidencia literal completa** (incluido ya el contenido real de
+`RDR_Transformacion_SAIT.sh`). Solo queda abierto GAP-SAIT-004 (diccionario de campos del XML), que requiere
+el contenido del `.xsl` real o de la clase `Batch_Diario_Sait.Batch_Sait` del jar — fuera de alcance de esta
+ronda, no inventado.
 
 ## 5. Especificación funcional
 
@@ -132,11 +148,14 @@ esta ronda, no inventado.
 estructurados, consumido por el sistema SAIT (Windows, `WVMSAITDB01`).
 
 **Origen del dato:** generado por el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new`, ejecutando
-`RDR_Transformacion_SAIT.sh` (usuario `xakytl1p`, 06:00 AM) — topología completa confirmada, ver §1.1. El
-contenido del script (y por tanto la lógica exacta de transformación) sigue sin capturarse.
+`RDR_Transformacion_SAIT.sh` (usuario `xakytl1p`, 06:00 AM) — contenido real del script confirmado: invoca
+`java -cp RDR_Transformacion_SAIT.jar:... Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION
+$XSLT_MENTOR` (ver §1.1).
 
-**Estructura del XML — GAP ABIERTO (GAP-SAIT-004):** no se dispone de diccionario de campos/etiquetas. No se
-debe asumir una estructura no confirmada.
+**Estructura del XML — GAP ABIERTO (GAP-SAIT-004):** el script confirma el jar/clase (`RDR_Transformacion_SAIT.jar`
+/ `Batch_Diario_Sait.Batch_Sait`), pero el argumento de la hoja XSLT es solo la carpeta genérica de properties,
+no el nombre del fichero — no se dispone de diccionario de campos/etiquetas. No se debe asumir una estructura
+no confirmada.
 
 **Fichero adicional sin fecha:** además del fichero fechado (`_${FECHA}.xml`), existe un fichero maestro sin
 fecha (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`) que también se historifica tras cada envío — su relación
@@ -214,9 +233,10 @@ Referencia de casos por tipo:
    (sin sufijo de fecha) se historifica junto al fechado, sin que el documento original ni las capturas
    expliquen su propósito — podría ser un fichero de referencia/plantilla mantenido en paralelo, o un artefacto
    de una versión anterior del proceso. No bloqueante, pero a confirmar si se retoma esta especificación.
-4. **Contenido del script `RDR_Transformacion_SAIT.sh` sin capturar** — impide cerrar GAP-SAIT-004
-   (diccionario de campos) con el mismo rigor que Fircosoft (GAP-ADHOC-002). Es el único paso pendiente para un
-   cierre 100% literal de todo el proceso.
+4. **Contenido de la hoja `.xsl` real (o de la clase `Batch_Diario_Sait.Batch_Sait` del jar) sin capturar** —
+   el script `RDR_Transformacion_SAIT.sh` ya está confirmado en su totalidad (contenido real aportado
+   2026-09-28), pero solo revela el jar/clase, no el nombre ni contenido del `.xsl`. Es el único paso pendiente
+   para cerrar GAP-SAIT-004 con el mismo rigor que Fircosoft (GAP-ADHOC-002).
 
 ## 10. Conclusión
 
@@ -225,11 +245,14 @@ literal completa (12 capturas de Control-M + 2 fichas oficiales EX-005-03), reso
 originales (GAP-SAIT-001, 002, 005, 006, 007). Una segunda ronda de evidencia (4 fichas oficiales EX-005-03 +
 27 capturas reales de Control-M de la cadena de generación `RDR_DAILY_LA_PRO_new`) deja **GAP-SAIT-003
 RESUELTO**: topología completa confirmada (`RDR_DAILY_LA_PRO_IN → RDR_DAILY_LA_JAVA → MEKYTL0357 → MEKYTL0949
-→ MEKYTL0950`), job y script exactos que generan el XML (`RDR_DAILY_LA_JAVA`/`RDR_Transformacion_SAIT.sh`), y
-resuelta una discrepancia documental que tenía la ficha oficial de `MEKYTL0357` (usa `MEGENV0001.sh`, sin
-duplicación funcional real con `MEKYTL0357_LISTA`). **6 de 7 gaps resueltos.** El diccionario de campos del XML
-de contratos (GAP-SAIT-004) queda como único gap abierto, con un camino muy concreto para resolverlo: conseguir
-el contenido de `RDR_Transformacion_SAIT.sh`. 2 riesgos propios registrados (RISK-SAIT-001, RISK-SAIT-002),
+→ MEKYTL0950`), job exacto que genera el XML (`RDR_DAILY_LA_JAVA`), y resuelta una discrepancia documental que
+tenía la ficha oficial de `MEKYTL0357` (usa `MEGENV0001.sh`, sin duplicación funcional real con
+`MEKYTL0357_LISTA`). Una tercera ronda (contenido real de `RDR_Transformacion_SAIT.sh`) confirma el jar
+(`RDR_Transformacion_SAIT.jar`) y la clase (`Batch_Diario_Sait.Batch_Sait`) exactos que ejecuta
+`RDR_DAILY_LA_JAVA`. **6 de 7 gaps resueltos.** El diccionario de campos del XML de contratos (GAP-SAIT-004)
+queda como único gap abierto: el script solo pasa la carpeta genérica de properties como argumento, no el
+nombre del `.xsl` real — haría falta ese fichero en sí, o el contenido de la clase Java, para cerrarlo con el
+mismo rigor que Fircosoft (GAP-ADHOC-002). 2 riesgos propios registrados (RISK-SAIT-001, RISK-SAIT-002),
 ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`. Con esta salida, ambos flujos
 del documento original ("Envío de ficheros GUIDO usuario-rol y extracción SAIT") quedan cubiertos por
 especificaciones propias.

@@ -170,8 +170,46 @@ historificación que hace por su cuenta `MEKYTL0357_LISTA` en la otra cadena. **
 historificación en 2 sitios independientes** (uno por cadena), tal como se apuntaba en el addendum anterior —
 no es un error, son 2 cadenas independientes historificando cada una su propia copia.
 
-**Balance final:** GAP-SAIT-003 (mecanismo de generación) queda **RESUELTO** con evidencia literal completa —
-topología, script exacto (`RDR_Transformacion_SAIT.sh`), usuario y cadena de eventos, todo confirmado por
-captura real. **GAP-SAIT-004 (diccionario de campos) sigue siendo el único gap abierto** — conocer el
-mecanismo de invocación no revela el contenido del script ni el mapeo de campos; haría falta el contenido de
-`RDR_Transformacion_SAIT.sh` en sí (mismo patrón que cerró Fircosoft con `Batch_FircoSoft.xsl`).
+**Balance final (previo al addendum 3):** GAP-SAIT-003 (mecanismo de generación) queda **RESUELTO** con
+evidencia literal completa. **GAP-SAIT-004 (diccionario de campos) sigue siendo el único gap abierto** — haría
+falta el contenido de `RDR_Transformacion_SAIT.sh` en sí (mismo patrón que cerró Fircosoft con
+`Batch_FircoSoft.xsl`).
+
+## Addendum 3 (2026-09-28) — contenido real de `RDR_Transformacion_SAIT.sh`
+
+> Fuente: `GAP-SAIT_RDR_Transformacion_SAIT.sh` (script real, aportado por el usuario).
+
+Script de la misma familia "Transformacion" ya vista en otros procesos de esta sesión (mismo esqueleto que
+`RDR_Transformacion_PRODUCTOS.sh`, GAP-PROD-001: detecta entorno/usuario por `/fichtemcomp/<env>`, define un
+bloque de variables `FILES*`/`XSLT_*` para múltiples destinos, y una única función `transformacion()`).
+
+**Lógica real (función `transformacion()`):**
+```bash
+java ... -cp "$JAR/$JAR_FILE:$JAR/RDRCommon.jar:$LIB_PATH/ojdbc8.jar:$LIB_PATH/serializer-2.7.2.jar:\
+$LIB_PATH/xalan-2.7.1.jar:$LIB_PATH/serializer-2.7.2.jar:$LIB_PATH/ucp.jar" \
+  Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION $XSLT_MENTOR
+```
+- `JAR_FILE="RDR_Transformacion_SAIT.jar"`, clase invocada: **`Batch_Diario_Sait.Batch_Sait`**.
+- `$FILESEXGEN` = `$FILESMENTOR` = `/fichtemcomp/$env/descargas/kytl/SAIT/` — **ambos argumentos apuntan a la
+  misma carpeta** (origen y destino coinciden). El nombre de variable `FILESMENTOR` es un resto vestigial de
+  la plantilla común (igual que `XSLT_MENTOR` más abajo) — no indica relación real con Mentor.
+- `$LOG_EXTRACTION` = ruta de logs resuelta desde `credentials.xml`.
+- `$XSLT_MENTOR` = `/$env/kytl/online/multipais/multicanal/dat/properties/` — **de nuevo, solo la carpeta
+  genérica de properties, no un nombre de fichero XSLT concreto** (mismo patrón que `RDR_Transformacion_PRODUCTOS.sh`
+  en GAP-PROD-001: todas las variables `XSLT_*` apuntan a la misma carpeta; el nombre exacto del `.xsl` se
+  resuelve dentro del propio jar/clase, no en el script).
+
+**GAP-SAIT-003 — reconfirmado con máximo nivel de evidencia** (contenido de script real, no solo captura de
+Control-M): mecanismo, jar (`RDR_Transformacion_SAIT.jar`), clase (`Batch_Diario_Sait.Batch_Sait`) y argumentos
+exactos, todos confirmados literalmente.
+
+**GAP-SAIT-004 — SIGUE ABIERTO.** El script confirma el jar/clase que hace la transformación, pero **no
+revela el nombre del fichero `.xsl` real** (solo la carpeta genérica donde vive) ni el diccionario de campos.
+Para cerrarlo definitivamente haría falta uno de:
+- El contenido de la clase `Batch_Diario_Sait.Batch_Sait` (dentro de `RDR_Transformacion_SAIT.jar`), que
+  probablemente construye el nombre del `.xsl` internamente (posible convención de nombre, no confirmada:
+  algo como `Batch_Sait.xsl` o similar, por analogía con `Batch_FircoSoft.xsl` en GAP-ADHOC-002 — **hipótesis
+  sin confirmar, no verificar por nombre sin evidencia real**).
+- El propio fichero `.xsl` real de la carpeta `/pr/kytl/online/multipais/multicanal/dat/properties/` (misma
+  carpeta donde ya se encontró `Batch_FircoSoft.xsl` — si el usuario tiene acceso a listar esa carpeta, podría
+  localizarse por búsqueda de nombre con "sait").
