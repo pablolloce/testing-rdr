@@ -37,7 +37,7 @@ Queda fuera de alcance: la implementación interna de `RDR_REFUNDICION_new` (esp
 | G1 | ¿La detención por ausencia de `ConClientela.csv` genera alerta o es un fallo silencioso? | Confirmado: genera alerta (email + ticket Remedy) — R2. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R6. Aplicable también a `RDR_PR_BDICLIENREG_RESP_new` y `RDR_REFUNDICION_new`. |
 | G3 | ¿Existe, como en `ConBDI`, un fichero `.properties.de` de despliegue (`ConClientela.properties.de` o similar) que documente los parámetros globales (`MOD_EJECUCION`, `Ruta`, `File`, `Servicio`, `SuccessAction`, flags `Delta/Preprocesado/Workflow`) del motor `ConClientela`? | **Resuelto.** El usuario aportó `ConClientela.properties`, el fichero real de despliegue (no citado en el documento fuente original, pero funcionalmente equivalente al `.properties.de` de `ConBDI`): confirma los 6 parámetros globales y el pipeline completo de 6 pasos — ver §6. Confirma además que **no existe flag `Workflow=`** en esta cadena, a diferencia de `ConBDI` (coherente con que `ConClientela` no dispara ningún workflow/email final). |
-| G4 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` en esta cadena, y qué reglas aplica el preprocesado de `ControlCargaDatos.jar`/`javacsv.jar` sobre `ConClientela.csv`? | **Parcialmente resuelto.** `ConClientela.properties` confirma los nombres concretos de clase/servicio: `controlcargadatos.ControlCase`/servicio `PreprocessedClientela` (preprocesado) y `rdr_plsql.ConClientela`/servicio `ConClientela` (carga PL/SQL), y confirma el nombre exacto del fichero de reglas, `fillingRules_ConClientela.csv` (§6). **Sigue abierto** el contenido campo a campo de ese CSV (no aportado — sería análogo a `fillingRules_ConBDI.csv`, ya cerrado en la cadena hermana) y los procedimientos PL/SQL concretos dentro de `rdr_plsql.ConClientela` (mismo hueco que G3 de `RDR_CONCILIACION_BDI_new`). |
+| G4 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` en esta cadena, y qué reglas aplica el preprocesado de `ControlCargaDatos.jar`/`javacsv.jar` sobre `ConClientela.csv`? | **Avanza significativamente (2026-09-28) con el código fuente real de `ConClientela.java`.** Confirma el ancho real del fichero procesado (97 campos), la orquestación completa (validación, batching, multi-hilo) y revela una regla de negocio no documentada hasta ahora — protección de "Cuentas Gestionadas" que bloquea la conciliación del LEI de un cliente si tiene una cuenta gestionada activa con LEI distinto — y una segunda validación de consistencia de LEI entre clientes agrupados por identificador canónico. **Sigue abierto:** el contenido de `fillingRules_ConClientela.csv` y la implementación real de `executeCONCLI_Hilos` y demás métodos de `ConDB` invocados (no definidos en los `ConDB.java` aportados hasta ahora) — la PL/SQL real de carga en GoldenSource sigue sin documentar a nivel de SQL — ver §6.2. |
 
 ## 5. Especificación funcional
 
@@ -133,6 +133,49 @@ fileNameConClientela=Reporte_ConClientela.csv
   relanzamiento el mismo día sobre este filtro — mismo hueco de cobertura que en `ConBDI`, señalado aquí
   y no cerrado con un TC nuevo desde esta spec.
 
+### 6.2 `RDR_PLSQL.jar` (clase `ConClientela`) — G4 avanza significativamente, sigue sin cerrar del todo
+
+Código fuente real aportado por el usuario (`ConClientela.java`, mismo paquete `jdbc.ConDB` que `ConBDI`
+de la cadena hermana — ver `salidas/rdr_conciliacion_bdi/spec.md` §6.4).
+
+* **Qué hace:** clase orquestadora invocada por el paso Java del pipeline (R3/§6). Lee
+  `ConClientela_processed.csv` (codificación `ISO-8859-1`), valida que cada línea tenga **exactamente 97
+  campos** (confirma por primera vez el ancho real del fichero procesado — dato nuevo, no documentado
+  hasta ahora), extrae por posición ~24 campos con nomenclatura `VCH_DBC_*`/`DBC_*` (tipo de persona,
+  tipo de cliente, documento, nombre/denominación, dirección estructurada en 6 campos — tipo de vía,
+  calle, número, resto, plaza, provincia —, código postal nacional/extranjero, país, CNAE, tipo de
+  institución, forma societaria, fecha de nacimiento/constitución, flag VIP, idioma, oficina principal,
+  flags/fechas de exportación de retenciones, y el código **LEI**), agrupa en lotes de 100 y despacha a
+  hilos paralelos vía `obj_ConDB.executeCONCLI_Hilos(...)`.
+* **Hallazgo nuevo [relevante] — regla de negocio de "Cuentas Gestionadas" no documentada hasta ahora:**
+  antes de conciliar el LEI de un cliente, el código compara el LEI que trae el fichero con el LEI actual
+  en GoldenSource (`obtenerLEIactual`). Si difieren, comprueba si ese cliente tiene una relación de
+  "Cuenta Gestionada" activa (`obtenerMA`, `cg>0`): en ese caso, **si el LEI actual no está vacío ni es
+  `"N"`, la conciliación de ese cliente se bloquea por completo** (`concilia=false`) y se reporta aparte
+  (`reportarMA`) en lugar de aplicarse — el resto de campos de ese cliente tampoco se concilian ese ciclo
+  (todo el registro se salta, no solo el LEI). Si no hay cuenta gestionada, o el LEI actual está vacío/
+  `"N"`, sí concilia normalmente (y si aplica, se marca para publicación, `publicarMA`). Es una regla de
+  protección de negocio no mencionada en ningún documento previo de este proceso — afecta directamente a
+  qué clientes se actualizan y cuáles no en cada ejecución.
+* **Segunda comprobación de integridad — consistencia de LEI entre clientes agrupados por "canónico":**
+  al final de la ejecución, para cada grupo de clientes asociados a un mismo identificador "canónico"
+  (`cliLEIsRDR`), si dentro del grupo hay más de un LEI distinto entre los clientes que sí vinieron en el
+  fichero, se inserta una discrepancia (`insertRLT1ClientelaLEI`) — una validación de consistencia de LEI
+  a nivel de grupo, independiente de la conciliación cliente a cliente.
+* **Mismo patrón de código muerto que `ConBDI` (§6.4 de `rdr_conciliacion_bdi`):** el bloque que
+  registraría en `FT_T_RLT1` los códigos de cliente presentes en GoldenSource pero ausentes del fichero
+  (`noConci`) y los errores de formato de línea (`errorConci`) está **completo pero enteramente
+  comentado** en el código real aportado — se calculan ambas listas pero ninguna se llega a insertar.
+  Mismo hallazgo [PRIORIDAD ALTA] que en `ConBDI`: no se puede confirmar si es intencionado o un resto de
+  código sin limpiar, ni si está reactivado en la versión desplegada en producción.
+* **G4 — qué sigue sin cerrar:** el contenido de `fillingRules_ConClientela.csv` (sigue sin aportar) y,
+  sobre todo, la implementación real de `executeCONCLI_Hilos`, `obtenerCLIs`, `obtenerCliLEIsRDR`,
+  `obtenerLEIactual`, `obtenerMA`, `reportarMA`, `publicarMA` e `insertRLT1ClientelaLEI` — ninguno está
+  definido en los `ConDB.java` aportados hasta ahora (que solo traen las 4 queries de reporting del
+  informe Broker de `ConBDI`, ver `salidas/rdr_conciliacion_bdi/spec.md` §6.4/§6.5). La query/procedimiento
+  PL/SQL que realmente carga en GoldenSource sigue sin documentarse a nivel de SQL, aunque la lógica de
+  negocio y orquestación alrededor de esa carga ya queda completamente clara.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 4 transiciones lineales, el comportamiento ante ausencia de fichero (con alerta,
@@ -166,20 +209,30 @@ de las transiciones documentadas.
   medianoche o un relanzamiento el mismo día puede hacer que ambas cadenas excluyan/incluyan registros de
   forma distinta entre sí, algo no cubierto hoy por ningún caso de `casos_prueba.xml` de ninguna de las 2
   cadenas (hueco de cobertura señalado, no cerrado con un TC nuevo desde esta spec).
+* **[Relevante] Regla de negocio de "Cuentas Gestionadas" no documentada hasta ahora (§6.2):**
+  `ConClientela.java` bloquea la conciliación completa de un cliente (no solo su LEI) si tiene una cuenta
+  gestionada activa con un LEI distinto del que trae el fichero — ese cliente queda excluido de la
+  actualización ese ciclo, con solo un reporte separado en lugar de una conciliación real.
+* **Mismo patrón de código muerto que `ConBDI` (§6.2, §6.4 de `rdr_conciliacion_bdi`):** la detección de
+  clientes presentes en GoldenSource pero ausentes del fichero, y de líneas con formato inválido, se
+  calcula pero el bloque que la registraría en `FT_T_RLT1` está enteramente comentado — mismo hallazgo
+  de prioridad alta que en la cadena hermana.
 * **Gaps técnicos (regla 7):** G3 (pipeline de despliegue `ConClientela.properties`) queda **resuelto**
-  con el fichero real aportado (§6). G4 queda **parcialmente resuelto**: se confirman los nombres de
-  clase/servicio y el fichero de reglas (`fillingRules_ConClientela.csv`), pero su contenido campo a
-  campo y los procedimientos PL/SQL concretos de `rdr_plsql.ConClientela` siguen sin detallar — requieren
-  el propio CSV de reglas o el jar, que no están disponibles hoy.
+  con el fichero real aportado (§6). G4 avanza significativamente con `ConClientela.java` (§6.2): la
+  orquestación y las reglas de negocio quedan documentadas, pero el contenido de
+  `fillingRules_ConClientela.csv` y la PL/SQL real de `executeCONCLI_Hilos` siguen sin detallar —
+  requieren el propio CSV de reglas o la implementación completa de `ConDB`, que no están disponibles
+  hoy.
 
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3 (pipeline
 de despliegue `ConClientela.properties`) queda **resuelto** con el fichero real aportado por el usuario
-(§6). G4 queda **parcialmente resuelto**: se confirman los nombres de clase/servicio de ambos jars y el
-nombre del fichero de reglas (`fillingRules_ConClientela.csv`), pero su contenido campo a campo y los
-procedimientos PL/SQL concretos de `rdr_plsql.ConClientela` siguen sin documentar — cabo suelto no
-bloqueante, pendiente del propio CSV de reglas o del jar. También queda documentada, como riesgo abierto,
-la diferencia de ventana temporal entre `queryConClientela` y `queryConBDI` (§6.1, §9) y el hueco de
-cobertura de testing asociado
-en ambas cadenas.
+(§6). **G4 avanza significativamente (2026-09-28) con el código fuente real de `ConClientela.java`**
+(§6.2): la orquestación completa, el ancho real del fichero procesado (97 campos) y 2 reglas de negocio
+no documentadas hasta ahora (protección de "Cuentas Gestionadas" y consistencia de LEI por grupo
+canónico) quedan cerradas. Sigue sin documentar, como cabo suelto no bloqueante, el contenido de
+`fillingRules_ConClientela.csv` y la PL/SQL real de `executeCONCLI_Hilos` (implementación de `ConDB` no
+aportada todavía). También queda documentada, como riesgo abierto, la diferencia de ventana temporal
+entre `queryConClientela` y `queryConBDI` (§6.1, §9) y el hueco de cobertura de testing asociado en ambas
+cadenas.

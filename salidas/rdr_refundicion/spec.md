@@ -41,7 +41,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
 | G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Abierto.** Ni la spec ni el documento fuente lo explican. Pendiente de pedir al usuario, o el `.gsp` del evento `Errores` — ver §6.1. |
-| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Abierto (menor).** El documento fuente solo confirma su propósito ("actualiza/valida la cartera de clientela C460"), sin el mismo nivel de detalle que `RDR_Refundicion`/`PLSQL_Load`. Pendiente de pedir su `.gsp` si se requiere el mismo nivel de análisis — ver §6.1. |
+| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Avanza de forma indirecta (2026-09-28) con el código fuente real de `ConContrato460.java`**, muy probablemente la implementación real (misma arquitectura y mensajería que `ConBDI`/`ConClientela`, referencia literal a "C460"), aunque sin un `.properties`/`.gsp` que confirme al 100% la invocación desde este workflow. Confirma su semántica de reconciliación (folio con fecha de cancelación por defecto = activo), revela una tabla `FAB1` no documentada hasta ahora, y un posible defecto de tipo de job (`crearJOB` con "C460", `cerrarJOB` con "CCL"). **Sigue abierto:** la confirmación explícita de la invocación y la PL/SQL real de `executeCONC460_Hilos` — ver §6.1. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
@@ -106,12 +106,41 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   asíncrono): ingesta asíncrona en lotes de 500 registros vía `Sub_Load`, con sincronización de cierre de
   lote — mismo patrón que `informeBroker_BDI` en `RDR_CONCILIACION_BDI_new`. Este motor ya está cubierto en
   detalle (nodo a nodo) y no requiere ampliación adicional aquí.
-* **`Workflow(RDR_Clientela460)`:** el documento fuente lo diferencia de `RDR_Refundicion` solo mínimamente,
-  como el "flujo de trabajo secundario para actualizar o validar la información de la cartera de clientela
-  (C460)". No hay en el material disponible el mismo desglose nodo-a-nodo que para `RDR_Refundicion`/
-  `PLSQL_Load` (no se documenta si dispara igualmente `PLSQL_Load` u otro workflow, ni sus fases internas).
-  Para llegar al mismo nivel de detalle haría falta pedir su `.gsp`; no se equipara aquí artificialmente el
-  nivel de análisis de ambos workflows.
+* **`Workflow(RDR_Clientela460)` — G4 avanza de forma indirecta y no 100% confirmada, código fuente real
+  aportado (`ConContrato460.java`):** el documento fuente lo diferencia de `RDR_Refundicion` solo
+  mínimamente, como el "flujo de trabajo secundario para actualizar o validar la información de la
+  cartera de clientela (C460)". No se ha aportado el `.gsp` de este workflow en sí, pero el usuario aportó
+  `ConContrato460.java`: una clase Java del mismo paquete `jdbc.ConDB` y con la misma arquitectura que
+  `ConBDI`/`ConClientela` (multi-hilo, lotes de 100, credenciales vía `ConDB`), cuyo mensaje de log interno
+  dice literalmente **"Codigo Clientela en RDR que no concilia en Clientela C460"** — la coincidencia de
+  nomenclatura (C460) y de arquitectura con las clases hermanas hace muy probable que sea la
+  implementación real detrás de este workflow, aunque **no se confirma con un `.properties`/`.gsp` que
+  la invoque explícitamente** desde `Workflow(RDR_Clientela460)` — se señala como asociación fuerte pero
+  no verificada al 100%, no como hecho confirmado.
+  - **Qué hace (si la asociación es correcta):** lee un fichero con exactamente 12 columnas, extrae
+    código de cliente, número de folio/contrato y fecha de cancelación. Para cada cliente ya existente en
+    GoldenSource (`mapMnemLocalClientelaID`), considera "conciliado" solo si aparece en el fichero **con
+    al menos un folio cuya fecha de cancelación sea el valor por defecto `"0001-01-01"`** (contrato
+    activo, no cancelado) — si no, o si el cliente no aparece en absoluto, se marca como no conciliado.
+  - **A diferencia de `ConBDI`/`ConClientela`, aquí el registro de discrepancias SÍ está activo (no
+    comentado):** inserta en `FT_T_RLT1` vía 2 métodos distintos, `insertRLT1ClientelaC460_Proceso` y
+    `insertRLT1ClientelaC460_Reporte` — una variante de proceso y otra de reporte, patrón no visto en las
+    2 cadenas hermanas.
+  - **Hallazgo nuevo — tabla `FAB1` no documentada en ningún proceso de este repositorio:** un método
+    privado (`updatesFAB1`) ejecuta una lista de queries `UPDATE` (obtenidas dinámicamente de
+    `ConDB.getUpdatesFAB1()`) contra una conexión separada — confirma que este proceso actualiza una
+    tabla con nombre `FAB1` (probablemente `FT_T_FAB1` o similar), sin que el propio código revele su
+    esquema o propósito exacto.
+  - **Hallazgo [defecto potencial, no confirmado]:** el job se abre con `crearJOB(FLD_JOB_ID,"C460",...)`
+    pero se cierra con `cerrarJOB(FLD_JOB_ID,"CCL",...)` — usa el identificador de tipo de job de
+    `ConClientela` (`"CCL"`) para cerrar un job que abrió como `"C460"`. Podría ser un error de
+    copiar-pegar entre las 2 clases hermanas; el efecto exacto sobre `FT_T_JBLG` (p. ej. si algún filtro
+    temporal de otra query depende de que el cierre quede registrado con el mismo tipo que la apertura) no
+    se puede confirmar sin más contexto — se documenta como hallazgo, no como hecho verificado.
+  - **Qué sigue sin cerrar:** la llamada real de carga PL/SQL (`executeCONC460_Hilos`) no está definida en
+    ningún `ConDB.java` aportado hasta ahora (mismo patrón que en `ConBDI`/`ConClientela`); y la
+    confirmación explícita de que `Workflow(RDR_Clientela460)` invoca esta clase concreta sigue sin un
+    `.properties`/`.gsp` que lo diga literalmente.
 * **`Evento(Errores)`:** el documento fuente lo describe como "Activa el gestor de eventos de error para
   capturar, clasificar y registrar cualquier anomalía ocurrida durante las fases previas", pero ni la spec ni
   el documento fuente explican qué ocurre con los registros que caen en él (¿se descartan, se reintentan, se
@@ -161,14 +190,23 @@ documentadas.
   la ausencia de fichero, lo que podría enmascarar un fallo silencioso en la generación del reporte (R2) hasta
   una revisión manual.
 * **Patrón transversal P-021 (R8):** sin validación de integridad ni protección de concurrencia.
+* **[Hallazgo, no confirmado] Posible defecto de tipo de job en `ConContrato460.java` (§6.1, G4):** el
+  job se abre como `"C460"` y se cierra como `"CCL"` — si es un error de copiar-pegar (probable, dada la
+  arquitectura compartida con `ConClientela`), podría afectar a cualquier consulta que filtre `FT_T_JBLG`
+  por tipo de job para C460 específicamente.
+* **Tabla `FAB1` no documentada (§6.1, G4):** `ConContrato460.java` actualiza una tabla con ese nombre sin
+  que su esquema o propósito exacto conste en ningún material de este repositorio.
 
 ## 10. Conclusión y requisitos de cierre
 
 El gap transversal (G1) tiene resolución explícita ya reutilizada de rondas anteriores. La especificación
 funcional y de orquestación de la cadena está cerrada. El gap técnico G2 (contenido de
 `fillingRules_Refundicion.csv`) queda **resuelto** con el fichero real aportado por el usuario (§6.1).
-Quedan 2 gaps técnicos abiertos y no bloqueantes, identificados al aplicar la regla de rigor técnico
-(regla 7) sobre `KYTL_REF_GSPROCESS`: G3 (comportamiento de `Evento(Errores)`) y G4 (desglose nodo-a-nodo
-de `Workflow(RDR_Clientela460)`) — ver §4 y §6.1. Ninguno afecta al resto de cadenas ya cerradas del
-sistema P-021. **Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021**, con
-estos 2 gaps técnicos pendientes de material adicional del usuario.
+**G4 avanza de forma indirecta (2026-09-28) con `ConContrato460.java`** — muy probablemente la
+implementación real de `Workflow(RDR_Clientela460)` por arquitectura y nomenclatura compartidas con
+`ConBDI`/`ConClientela`, aunque sin confirmación explícita de invocación — revelando 2 hallazgos nuevos
+(tabla `FAB1` no documentada, posible defecto de tipo de job en `crearJOB`/`cerrarJOB`). Queda 1 gap
+técnico abierto y no bloqueante: G3 (comportamiento de `Evento(Errores)`) — ver §4 y §6.1. Ninguno afecta
+al resto de cadenas ya cerradas del sistema P-021. **Con esta cadena se completa la especificación de las
+8 cadenas del sistema P-021**, con G3 pendiente de material adicional del usuario y G4 pendiente solo de
+la confirmación explícita de invocación (no de material nuevo sustantivo).
