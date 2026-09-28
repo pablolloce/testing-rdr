@@ -3,11 +3,12 @@
 ## Datos y ficheros previos
 
 - `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` debe existir en
-  `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor `LPFTP503`) antes de que `MEKYTL0357_LISTA` pueda
-  transmitirlo — lo genera el job `MEKYTL0357` de la cadena `RDR_DAILY_LA_PRO_new` (cross-chain, fuera de
-  alcance de esta especificación — GAP-SAIT-003).
-- El origen/mecanismo de generación del XML (script, jar, fuente de datos) no está documentado en esta
-  especificación; se asume externo al alcance de este proceso hasta que se capture evidencia propia.
+  `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA` pueda
+  transmitirlo — lo genera el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (06:00 AM, cross-chain,
+  mecanismo de invocación confirmado con evidencia real — GAP-SAIT-003 resuelto, ver `spec.md` §1.1).
+- El script exacto (`RDR_Transformacion_SAIT.sh`) está identificado, pero su contenido (lógica de
+  transformación, origen de datos) no está documentado en esta especificación — fuera de alcance hasta que se
+  capture evidencia propia (GAP-SAIT-004).
 
 ## Configuración e infraestructura
 

@@ -2,9 +2,12 @@
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-28.
 > Fuentes: `Envio_de_ficheros_GUIDO_usuario-rol_y_extraccion_SAIT.docx` (documento original, comparte fuente con
-> "Envío de roles GUIDO a EINS" — ver `salidas/envio_guido_roles_eins/`), 12 capturas reales de Control-M
-> (`documentos_fuente/GAP-SAIT_capturas_TRANSMISIONES_CIB_RDR_SAIT.docx`) y 2 fichas oficiales EX-005-03
-> (`GAP-SAIT_ficha_EX-005-03_MEKYTL0357_LISTA.pdf`/`_BORRA.pdf`). Detalle completo de evidencia en
+> "Envío de roles GUIDO a EINS" — ver `salidas/envio_guido_roles_eins/`), 12 capturas reales de Control-M de
+> `TRANSMISIONES_CIB_RDR_SAIT` (`documentos_fuente/GAP-SAIT_capturas_TRANSMISIONES_CIB_RDR_SAIT.docx`), 2
+> fichas oficiales EX-005-03 de esa cadena (`MEKYTL0357_LISTA`/`_BORRA`), 4 fichas oficiales EX-005-03 de la
+> cadena de generación `RDR_DAILY_LA_PRO_new` (`RDR_DAILY_LA_JAVA`, `MEKYTL0357`, `MEKYTL0949`, `MEKYTL0950`),
+> y 27 capturas reales de Control-M de esa misma cadena
+> (`documentos_fuente/GAP-SAIT_capturas_RDR_DAILY_LA_PRO_new.docx`). Detalle completo de evidencia en
 > `documentos_fuente/GAP-SAIT_jobs_extraidos.md`.
 >
 > **Este documento cubre únicamente el flujo SAIT** (extracción/transmisión de contratos), que el documento
@@ -17,8 +20,16 @@ La cadena real **`TRANSMISIONES_CIB_RDR_SAIT`** (distinta del nombre genérico "
 original) es una cadena de **transmisión pura**, de solo 2 jobs: `MEKYTL0357_LISTA` (envía por Connect:Direct
 el XML de contratos `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` a un servidor Windows externo,
 `WVMSAITDB01`) y `MEKYTL0357_BORRA` (limpieza posterior). **Esta cadena no genera el XML** — lo recibe ya
-generado, vía dependencia cross-chain, de un job `MEKYTL0357` de otra cadena, `RDR_DAILY_LA_PRO_new`, cuya
-ficha no se ha capturado en esta ronda.
+generado, vía dependencia cross-chain, de la cadena `RDR_DAILY_LA_PRO_new`.
+
+**Segunda ronda de evidencia (2026-09-28):** se confirma con capturas reales de Control-M que el XML lo genera
+el job **`RDR_DAILY_LA_JAVA`** (06:00 AM, cadena `RDR_DAILY_LA_PRO_new`), ejecutando un script dedicado,
+`RDR_Transformacion_SAIT.sh`, con la misma convención de parámetros (`fileloading` + ruta a `credentials.xml`)
+que `executeBbvaEvent.sh` usa en otros procesos de esta sesión. Tras `RDR_DAILY_LA_JAVA`, un job homónimo pero
+distinto (`MEKYTL0357`, dentro de `RDR_DAILY_LA_PRO_new` — no confundir con `MEKYTL0357_LISTA`/`_BORRA` de
+`TRANSMISIONES_CIB_RDR_SAIT`) ejecuta `MEGENV0001.sh` (mismo script genérico de envío ya visto en otros
+procesos) y dispara, en paralelo, una historificación local (`MEKYTL0949`→`MEKYTL0950`) y el evento cross-chain
+que consume la cadena de transmisión ya documentada.
 
 ## 2. Alcance del proceso
 
@@ -29,10 +40,47 @@ ficha no se ha capturado en esta ronda.
   ya documentado en otros procesos de esta sesión (p. ej. `MEKYTL0072_SND`/`_DEL` en
   `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/`, `MEKYTL1093_SND`/`_DEL` en
   `salidas/extraccion_generica_contrapartidas/`).
-* **Fuera de alcance:** la generación del XML (job `MEKYTL0357` de la cadena `RDR_DAILY_LA_PRO_new`) —
-  identificada como predecesor cross-chain real (GAP-SAIT-003), pero sin ficha propia capturada en esta ronda;
-  el diccionario de campos del XML de contratos (GAP-SAIT-004, sin evidencia); y el flujo GUIDO del documento
-  original, ya cubierto en `salidas/envio_guido_roles_eins/`.
+* **Fuera de alcance:** el detalle de testing de la cadena `RDR_DAILY_LA_PRO_new` en sí (se documenta aquí
+  únicamente lo necesario para entender el origen del XML — ver §1.1); el contenido del script
+  `RDR_Transformacion_SAIT.sh` y el diccionario de campos del XML de contratos (GAP-SAIT-004, sin evidencia);
+  y el flujo GUIDO del documento original, ya cubierto en `salidas/envio_guido_roles_eins/`.
+
+### 1.1 Cadena de generación — `RDR_DAILY_LA_PRO_new` (contexto, fuera del testing de este documento)
+
+**Topología real confirmada por captura de Control-M — estrictamente lineal, sin Fan-Out/Fan-In:**
+
+```
+RDR_DAILY_LA_PRO_IN (Dummy, sin prerrequisitos, arranca 06:00 AM)
+   ▼
+RDR_DAILY_LA_JAVA (Script RDR_Transformacion_SAIT.sh, xakytl1p)
+   │ Comando: RDR_Transformacion_SAIT.sh fileloading /pr/kytl/.../cfg/entorno/credentials.xml
+   │ Genera: /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml
+   ▼
+MEKYTL0357 (Script MEGENV0001.sh, xsramer1 — cadena RDR_DAILY_LA_PRO_new, homónimo de pero distinto de
+   │        MEKYTL0357_LISTA/_BORRA) — publica 2 eventos simultáneos, sin bifurcación visual en el folder:
+   │        1) evento interno → dispara MEKYTL0949 (ver abajo)
+   │        2) evento cross-chain RDR_DAILY_LA_PRO_new_MEKYTL0357_OK → dispara
+   │           TRANSMISIONES_CIB_RDR_SAIT.MEKYTL0357_LISTA (cadena documentada en este spec, §6)
+   ▼
+MEKYTL0949 → MEKYTL0950 (ambos Script RAMERC0068.sh, xsramer1 — historificación local secuencial,
+                          renombra con sufijo de fecha, hoja terminal del folder)
+```
+
+Folder: server `MERCADOS-4`, método de ejecución **"Automático"** (a diferencia de `TRANSMISIONES_CIB_RDR_SAIT`,
+que usa "User Daily específico"/`PLAN_1300`).
+
+**Discrepancia documental de `MEKYTL0357` — RESUELTA con la captura real.** La ficha EX-005-03 de este job
+tenía un texto descriptivo ("mover a `lpftp503:/unload/transmisiones/SAIT/`") que no encajaba con su propia
+tabla de pasos (que mencionaba `WVMSAITDB01`/`CDWVMSAITBD01`, contenido idéntico al de `MEKYTL0357_LISTA`). La
+captura real de Control-M confirma que `MEKYTL0357` ejecuta **`MEGENV0001.sh`** (mismo script genérico de
+envío interno ya visto en otros procesos de esta sesión, p. ej. `MEKYTL1061` en GUIDO) — el texto descriptivo
+era correcto; el contenido de la tabla de pasos era un artefacto de copia/plantilla entre las dos fichas
+homónimas, sin duplicación funcional real.
+
+**Hallazgo no preguntado, ahora confirmado como intencional:** el fichero se historifica en dos sitios
+independientes — una vez por `MEKYTL0949`/`MEKYTL0950` (dentro de `RDR_DAILY_LA_PRO_new`) y otra vez por
+`MEKYTL0357_LISTA` (dentro de `TRANSMISIONES_CIB_RDR_SAIT`, §6) — cada cadena historifica su propia copia de
+forma independiente, patrón consistente y no un error de diseño aparente.
 
 ## 3. Requisitos detectados
 
@@ -52,12 +100,18 @@ ficha no se ha capturado en esta ronda.
   citado en el documento original.
 - **GAP-SAIT-002 (identificador real del/los job(s)) — RESUELTO.** Son 2 jobs, `MEKYTL0357_LISTA` y
   `MEKYTL0357_BORRA` — el documento original solo describía "el job de transmisión SAIT" en singular.
-- **GAP-SAIT-003 (mecanismo que genera el XML) — PARCIALMENTE RESUELTO.** Identificado el predecesor real:
-  job `MEKYTL0357` de la cadena `RDR_DAILY_LA_PRO_new` (cross-chain). El mecanismo interno de generación
-  (script/jar, origen de datos) **no está capturado en esta ronda** — pendiente de una ficha propia de ese job
-  si se retoma esta especificación.
-- **GAP-SAIT-004 (diccionario de campos del XML) — ABIERTO, sin evidencia.** Ninguna fuente aportada muestra
-  la estructura/etiquetas del XML de contratos. No se fuerza una estructura inventada.
+- **GAP-SAIT-003 (mecanismo que genera el XML) — RESUELTO con evidencia literal.** Confirmado por captura real
+  de Control-M (27 capturas, folder completo): el job real es `RDR_DAILY_LA_JAVA` (cadena `RDR_DAILY_LA_PRO_new`,
+  06:00 AM, usuario `xakytl1p`), que ejecuta `RDR_Transformacion_SAIT.sh`
+  (`/pr/kytl/online/multipais/multicanal/scrt/`) con parámetros `fileloading` + ruta a `credentials.xml`.
+  Topología completa confirmada (`RDR_DAILY_LA_PRO_IN → RDR_DAILY_LA_JAVA → MEKYTL0357 → MEKYTL0949 →
+  MEKYTL0950`), y resuelta la discrepancia documental de `MEKYTL0357` (usa `MEGENV0001.sh`, no Connect:Direct
+  directo — ver §1.1). Solo falta el contenido del propio script para llegar al mismo nivel de certeza literal
+  que GAP-ADHOC-001/002 sobre la lógica interna.
+- **GAP-SAIT-004 (diccionario de campos del XML) — ABIERTO, sin evidencia.** Se conoce ya el script exacto que
+  genera el fichero (`RDR_Transformacion_SAIT.sh`) y toda la cadena que lo invoca, pero no su contenido ni
+  ningún XSLT/mapeo asociado — sigue sin verse la estructura/etiquetas del XML de contratos. No se fuerza una
+  estructura inventada. Es el único gap que queda por resolver en este proceso.
 - **GAP-SAIT-005 (validación XSD real) — RESUELTO POR AUSENCIA.** La cadena real de Control-M tiene
   exactamente los 2 jobs de transmisión/limpieza — ningún job de validación XSD dentro de
   `TRANSMISIONES_CIB_RDR_SAIT`. Si existe una validación XSD real, ocurre en la cadena de generación
@@ -68,17 +122,18 @@ ficha no se ha capturado en esta ronda.
   jobs, mismo patrón de scripts genéricos de pasarela (`LPFTPEXCA0000.sh`/`LPFTPEXCA0002.sh`) ya confirmado en
   otros procesos de esta sesión — no exclusivo de SAIT.
 
-**Balance:** 5 de 7 gaps resueltos con evidencia literal, 1 parcialmente resuelto (mecanismo de transmisión
-confirmado, mecanismo de generación pendiente), 1 abierto (diccionario de campos). Suficiente para documentar
-con rigor la parte de transmisión — la parte de generación queda fuera de alcance, no inventada.
+**Balance: 6 de 7 gaps resueltos con evidencia literal completa.** Solo queda abierto GAP-SAIT-004 (diccionario
+de campos del XML), que requiere el contenido del script `RDR_Transformacion_SAIT.sh` — fuera de alcance de
+esta ronda, no inventado.
 
 ## 5. Especificación funcional
 
 **Entidad:** `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` — extracto diario de contratos financieros
 estructurados, consumido por el sistema SAIT (Windows, `WVMSAITDB01`).
 
-**Origen del dato — fuera de alcance confirmado:** generado por el job `MEKYTL0357` de la cadena
-`RDR_DAILY_LA_PRO_new` (identificado por prerrequisito cross-chain real), mecanismo interno no capturado.
+**Origen del dato:** generado por el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new`, ejecutando
+`RDR_Transformacion_SAIT.sh` (usuario `xakytl1p`, 06:00 AM) — topología completa confirmada, ver §1.1. El
+contenido del script (y por tanto la lógica exacta de transformación) sigue sin capturarse.
 
 **Estructura del XML — GAP ABIERTO (GAP-SAIT-004):** no se dispone de diccionario de campos/etiquetas. No se
 debe asumir una estructura no confirmada.
@@ -148,8 +203,8 @@ Referencia de casos por tipo:
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps abiertos: GAP-SAIT-003 (parcial) y GAP-SAIT-004** (sección 4) — ninguno bloquea la generación de
-   esta especificación para la parte de transmisión, que es el ámbito confirmado de este documento.
+1. **Gap abierto: GAP-SAIT-004** (sección 4) — único gap sin resolver; no bloquea la generación de esta
+   especificación para la parte de transmisión, ya confirmada al 100% con evidencia literal.
 2. **RISK-SAIT-001 — sin soft-failure configurado, comportamiento estricto por defecto.** A diferencia de
    varios procesos de esta sesión (que enmascaran fallos de transmisión con "código ≠ 0 → OK"), aquí un fallo
    real de Connect:Direct **sí detiene la cadena** — más seguro desde el punto de vista de detección de fallos,
@@ -159,16 +214,22 @@ Referencia de casos por tipo:
    (sin sufijo de fecha) se historifica junto al fechado, sin que el documento original ni las capturas
    expliquen su propósito — podría ser un fichero de referencia/plantilla mantenido en paralelo, o un artefacto
    de una versión anterior del proceso. No bloqueante, pero a confirmar si se retoma esta especificación.
-4. **Predecesor real (`RDR_DAILY_LA_PRO_new`/`MEKYTL0357`) sin ficha propia** — impide documentar el mecanismo
-   de generación del XML y su diccionario de campos con el mismo rigor que la parte de transmisión.
+4. **Contenido del script `RDR_Transformacion_SAIT.sh` sin capturar** — impide cerrar GAP-SAIT-004
+   (diccionario de campos) con el mismo rigor que Fircosoft (GAP-ADHOC-002). Es el único paso pendiente para un
+   cierre 100% literal de todo el proceso.
 
 ## 10. Conclusión
 
 Se documenta la parte de transmisión/limpieza de la cadena `TRANSMISIONES_CIB_RDR_SAIT` (2 jobs) con evidencia
 literal completa (12 capturas de Control-M + 2 fichas oficiales EX-005-03), resolviendo 5 de los 7 gaps
-originales (GAP-SAIT-001, 002, 005, 006, 007) y avanzando parcialmente un sexto (GAP-SAIT-003: se identifica el
-predecesor cross-chain real, `RDR_DAILY_LA_PRO_new`/`MEKYTL0357`, pero no su ficha). El diccionario de campos
-del XML de contratos (GAP-SAIT-004) queda como único gap sin ningún avance. 2 riesgos propios registrados
-(RISK-SAIT-001, RISK-SAIT-002), ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`.
-Con esta salida, ambos flujos del documento original ("Envío de ficheros GUIDO usuario-rol y extracción SAIT")
-quedan cubiertos por especificaciones propias.
+originales (GAP-SAIT-001, 002, 005, 006, 007). Una segunda ronda de evidencia (4 fichas oficiales EX-005-03 +
+27 capturas reales de Control-M de la cadena de generación `RDR_DAILY_LA_PRO_new`) deja **GAP-SAIT-003
+RESUELTO**: topología completa confirmada (`RDR_DAILY_LA_PRO_IN → RDR_DAILY_LA_JAVA → MEKYTL0357 → MEKYTL0949
+→ MEKYTL0950`), job y script exactos que generan el XML (`RDR_DAILY_LA_JAVA`/`RDR_Transformacion_SAIT.sh`), y
+resuelta una discrepancia documental que tenía la ficha oficial de `MEKYTL0357` (usa `MEGENV0001.sh`, sin
+duplicación funcional real con `MEKYTL0357_LISTA`). **6 de 7 gaps resueltos.** El diccionario de campos del XML
+de contratos (GAP-SAIT-004) queda como único gap abierto, con un camino muy concreto para resolverlo: conseguir
+el contenido de `RDR_Transformacion_SAIT.sh`. 2 riesgos propios registrados (RISK-SAIT-001, RISK-SAIT-002),
+ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`. Con esta salida, ambos flujos
+del documento original ("Envío de ficheros GUIDO usuario-rol y extracción SAIT") quedan cubiertos por
+especificaciones propias.

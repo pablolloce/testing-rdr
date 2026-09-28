@@ -68,8 +68,110 @@ retención "Siempre", creados por `emuser`. Campo "Recursos Cuantitativos" con i
 original — sugiere que existe un fichero "maestro"/de referencia mantenido en paralelo al fichero fechado
 diario, de naturaleza no confirmada (a investigar si se retoma este proceso).
 
-**Balance:** 5 de 7 gaps resueltos con evidencia literal completa (mismo nivel de certeza que el resto de esta
-sesión), 1 parcialmente resuelto (GAP-SAIT-003 — mecanismo de transmisión confirmado, mecanismo de generación
-del XML pendiente), 1 sigue completamente abierto (GAP-SAIT-004, diccionario de campos). Suficiente para generar
-una salida documentando la parte de transmisión con alta confianza, dejando la generación y el diccionario de
-campos como gaps explícitos.
+**Balance (previo a este addendum):** 5 de 7 gaps resueltos con evidencia literal completa, 1 parcialmente
+resuelto (GAP-SAIT-003), 1 sigue completamente abierto (GAP-SAIT-004, diccionario de campos).
+
+## Addendum (2026-09-28) — cadena real `RDR_DAILY_LA_PRO_new`: generación y ruta completa
+
+> Fuentes: 4 fichas oficiales EX-005-03 — `RDR_DAILY_LA_JAVA`, `MEKYTL0357` (la del folder
+> `RDR_DAILY_LA_PRO_new`, homónima de los jobs `MEKYTL0357_LISTA`/`_BORRA` de `TRANSMISIONES_CIB_RDR_SAIT` pero
+> un job distinto), `MEKYTL0949`, `MEKYTL0950`. Más `RDR_DAILY_LA_PRO_new.docx` (capturas Control-M,
+> pendiente de procesar — ver nota al final).
+
+**Cadena real reconstruida, folder `RDR_DAILY_LA_PRO_new`:**
+
+```
+RDR_DAILY_LA_PRO_IN
+   ▼
+RDR_DAILY_LA_JAVA (06:00 AM, xakytl1p)
+   │ Comando: RDR_Transformacion_SAIT.sh fileloading /pr/kytl/.../cfg/entorno/credentials.xml
+   │ Genera: /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml
+   ▼
+MEKYTL0357 (xakytl1p aparente, pr-rdr.igrupobbva — ver ambigüedad de contenido abajo)
+   ├──► MEKYTL0949 → MEKYTL0950 (historificación local, rama paralela)
+   └──► TRANSMISIONES_CIB_RDR_SAIT.MEKYTL0357_LISTA (cross-chain — ya documentado)
+```
+
+**Hallazgo clave para GAP-SAIT-003/004:** el job que genera el XML es **`RDR_DAILY_LA_JAVA`**, que ejecuta un
+script dedicado, **`RDR_Transformacion_SAIT.sh`** (no `GSProcess.sh` ni `executeBbvaEvent.sh` directamente),
+con parámetros `PARM1=fileloading`, `PARM2=<credentials.xml>` — **la misma convención de 2 parámetros
+(dominio + credentials.xml) que usa `executeBbvaEvent.sh`** en GAP-ADHOC-004 (`FICHERO_EMISI`/`EventSireEmisi`).
+Esto sugiere fuertemente que `RDR_Transformacion_SAIT.sh` es, con alta probabilidad, un wrapper específico
+sobre el mismo mecanismo GoldenSource Fileloading Engine (o un script equivalente propio) — mismo patrón
+arquitectónico ya visto, pero **no confirmado literalmente sin el contenido del script**.
+
+**GAP-SAIT-003 — prácticamente RESUELTO (nivel de mecanismo):** identificado el job (`RDR_DAILY_LA_JAVA`), el
+script exacto (`RDR_Transformacion_SAIT.sh`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`), el usuario
+(`xakytl1p`) y los parámetros de invocación. Solo falta el contenido del propio script para llegar al mismo
+nivel de certeza que GAP-ADHOC-001/002.
+
+**GAP-SAIT-004 — sigue abierto.** Ahora sabemos *cómo* se invoca la generación, pero no el contenido del
+script `RDR_Transformacion_SAIT.sh` ni ningún XSLT/mapeo asociado — sigue sin verse el diccionario de campos
+del XML. El paso lógico siguiente (mismo patrón que cerró Fircosoft) sería conseguir el contenido de
+`RDR_Transformacion_SAIT.sh`.
+
+**Ambigüedad detectada en la ficha de `MEKYTL0357` (no resuelta, señalada explícitamente):** el texto
+descriptivo dice que este job mueve el fichero a `lpftp503:/unload/transmisiones/SAIT/`, pero la tabla de
+pasos (página 2) describe en su lugar un movimiento a `WVMSAITDB01`/`CDWVMSAITBD01` — contenido idéntico al ya
+documentado para `MEKYTL0357_LISTA` (de `TRANSMISIONES_CIB_RDR_SAIT`). Parece un artefacto de plantilla/
+copia-pega entre las dos fichas homónimas (mismo número de job, `0357`, en dos cadenas distintas), no una
+duplicación funcional real. No se resuelve por inferencia — queda como discrepancia documental a confirmar si
+se retoma esta cadena.
+
+**Confirma además:** `MEKYTL0357` tiene 2 sucesores en paralelo — `MEKYTL0949` (historificación local, con
+`MEKYTL0950` a continuación, renombrando ambos ficheros con sufijo de fecha en
+`/fichtemcomp/pr/descargas/kytl/SAIT/Backup/`) y `TRANSMISIONES_CIB_RDR_SAIT.MEKYTL0357_LISTA` (cross-chain, ya
+documentado). Es decir, el fichero se historifica **localmente dos veces** (una vez por `MEKYTL0357`/su propia
+ficha, otra vez por `MEKYTL0949`/`MEKYTL0950`) además de la historificación ya vista en
+`MEKYTL0357_LISTA` — patrón de historificación redundante/en capas no visto antes en esta sesión, a confirmar
+si es deliberado.
+
+## Addendum 2 (2026-09-28) — capturas reales de `RDR_DAILY_LA_PRO_new`: topología confirmada, ambigüedad resuelta
+
+> Fuente: `GAP-SAIT_capturas_RDR_DAILY_LA_PRO_new.docx` (27 capturas Control-M, folder completo + 5 jobs × 5
+> pestañas).
+
+**Topología real confirmada (imagen de navegación), estrictamente lineal, sin Fan-Out/Fan-In:**
+
+```
+RDR_DAILY_LA_PRO_IN (Dummy, sin prerrequisitos, arranca 06:00 AM)
+   ▼
+RDR_DAILY_LA_JAVA (Script RDR_Transformacion_SAIT.sh, xakytl1p) — genera el XML
+   ▼
+MEKYTL0357 (Script MEGENV0001.sh, xsramer1, PARM1=MEKYTL0357)
+   ▼
+MEKYTL0949 (Script RAMERC0068.sh, xsramer1, PARM1=MEKYTL0949) — historificación
+   ▼
+MEKYTL0950 (Script RAMERC0068.sh, xsramer1, PARM1=MEKYTL0950) — historificación, hoja terminal del folder
+```
+
+Folder: server `MERCADOS-4`, método de ejecución **"Automático"** (no "User Daily específico" como
+`TRANSMISIONES_CIB_RDR_SAIT`), Site Standard `KYTL0000_SS_PR_HR`.
+
+**Ambigüedad de `MEKYTL0357` — RESUELTA.** La ficha EX-005-03 de `MEKYTL0357` tenía un texto descriptivo
+("mover a `lpftp503:/unload/transmisiones/SAIT/`") que no encajaba con la tabla de pasos (que mencionaba
+`WVMSAITDB01`/`CDWVMSAITBD01`, contenido idéntico al de `MEKYTL0357_LISTA`). La captura real de Control-M
+confirma que **`MEKYTL0357` ejecuta `MEGENV0001.sh`** (usuario `xsramer1`) — el mismo script genérico de
+envío ya conocido de otros procesos de esta sesión (p. ej. `MEKYTL1061` en GUIDO, `MEKYTL0072` en SIRE), no
+un script de Connect:Direct externo. Esto confirma que el texto descriptivo de la ficha (envío interno a la
+pasarela) era el correcto, y que el contenido de la tabla de pasos (página 2) era efectivamente un artefacto
+de copia/plantilla desde la ficha de `MEKYTL0357_LISTA` — **queda resuelta la discrepancia**, sin
+duplicación funcional real.
+
+`MEKYTL0357` publica 2 eventos de salida: `RDR_DAILY_LA_PRO_MEKYTL0357_OK_new` (interno al folder, prerrequisito
+de `MEKYTL0949`) y **`RDR_DAILY_LA_PRO_new_MEKYTL0357_OK`** (cross-chain — exactamente el que espera
+`TRANSMISIONES_CIB_RDR_SAIT.MEKYTL0357_LISTA`, ya documentado). Ambos se generan al mismo tiempo, sin fork
+visual en el diagrama — el cruce entre cadenas ocurre vía evento, no vía una rama distinta en el propio folder.
+
+**`MEKYTL0949`/`MEKYTL0950` — confirmados como cadena de historificación local secuencial** (no en paralelo):
+`MEKYTL0949` depende de `MEKYTL0357`, y `MEKYTL0950` depende de `MEKYTL0949` — ambos con `RAMERC0068.sh`
+(mismo motor de historificación ya documentado en otros procesos de esta sesión), sin relación con la
+historificación que hace por su cuenta `MEKYTL0357_LISTA` en la otra cadena. **Queda confirmado el patrón de
+historificación en 2 sitios independientes** (uno por cadena), tal como se apuntaba en el addendum anterior —
+no es un error, son 2 cadenas independientes historificando cada una su propia copia.
+
+**Balance final:** GAP-SAIT-003 (mecanismo de generación) queda **RESUELTO** con evidencia literal completa —
+topología, script exacto (`RDR_Transformacion_SAIT.sh`), usuario y cadena de eventos, todo confirmado por
+captura real. **GAP-SAIT-004 (diccionario de campos) sigue siendo el único gap abierto** — conocer el
+mecanismo de invocación no revela el contenido del script ni el mapeo de campos; haría falta el contenido de
+`RDR_Transformacion_SAIT.sh` en sí (mismo patrón que cerró Fircosoft con `Batch_FircoSoft.xsl`).

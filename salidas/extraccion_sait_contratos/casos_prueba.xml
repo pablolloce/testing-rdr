@@ -85,20 +85,21 @@
 
   <casoDePrueba id="TC-005" tipo="datos_sinteticos">
     <nombre>Limitación de evidencia: diccionario de campos del XML de contratos (GAP-SAIT-004)</nombre>
-    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba de validación de contenido campo a campo para KYTL_RDR_EXTRACTION_contratos_Diario.xml, al no disponer del diccionario de campos ni del mecanismo de generación (RDR_DAILY_LA_PRO_new/MEKYTL0357).</objetivo>
+    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba de validación de contenido campo a campo para KYTL_RDR_EXTRACTION_contratos_Diario.xml, al no disponer del diccionario de campos ni del contenido del script generador (RDR_Transformacion_SAIT.sh). El mecanismo de invocación (job RDR_DAILY_LA_JAVA, cadena RDR_DAILY_LA_PRO_new) ya está confirmado con evidencia literal (GAP-SAIT-003 resuelto) — solo falta el contenido del script en sí.</objetivo>
     <precondiciones>
       <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional de contenido.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Diccionario de campos del XML" valor="no aportado; mecanismo de generación (RDR_DAILY_LA_PRO_new/MEKYTL0357) sin ficha propia capturada"/>
+      <dato campo="Diccionario de campos del XML" valor="no aportado"/>
+      <dato campo="Script generador" valor="RDR_Transformacion_SAIT.sh (/pr/kytl/online/multipais/multicanal/scrt/), confirmado por captura real pero sin contenido capturado"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar la ficha del job MEKYTL0357 de RDR_DAILY_LA_PRO_new, o el XSD/diccionario de campos real del XML.</paso>
+      <paso numero="1">Solicitar el contenido real de RDR_Transformacion_SAIT.sh, o el XSD/diccionario de campos real del XML.</paso>
       <paso numero="2">Si se obtiene, diseñar el caso de prueba de validación de contenido/formato equivalente a los ya existentes para otros ficheros de destino de esta sesión.</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la ficha de generación o del diccionario de campos real.</resultadoEsperado>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer del contenido del script o del diccionario de campos real.</resultadoEsperado>
     <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-SAIT-003 (parcial)/GAP-SAIT-004 hasta recibir evidencia.</criterioAceptacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-SAIT-004 hasta recibir evidencia.</criterioAceptacion>
     <posibilidadFallo>No se fuerza un diccionario de campos inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
   </casoDePrueba>
 
