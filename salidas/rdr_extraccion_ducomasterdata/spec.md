@@ -39,7 +39,7 @@ maestras de instrumentos/calendarios/productos en lugar de contrapartidas.
 |-----|----------|------------|
 | G4 | ¿La criticidad `W` de cadena y la criticidad dual `S / C` de `MEKYTL1300` son compatibles, o hay un error de modelado? | **Resuelto con evidencia documental real.** Ficha oficial EX-005-03-MEKYTL1300, exportada directamente de Control-M (fecha 23/09/2026): el bloque `NIVEL CRITICIDAD` marca únicamente `W` (`S`/`C` sin marcar). La criticidad real y vigente de `MEKYTL1300` es `W`, coincidente con la de cadena. El "S / C" del documento fuente original queda identificado como una inconsistencia/desactualización de ese documento, no como el valor operativo real. |
 | G5 | ¿Qué ocurre si `ExtraccionDUCOMASTERDATA.csv` resulta con 0 filas en las 4 secciones? | **Confirmado con código fuente real** (`Principal.java`, aportado y verificado en sesión — ver `documentos_fuente/codigo_fuente_duco/`): se publica un fichero vacío (o solo con cabecera) sin ningún control que lo impida ni bloquee la copia a DataX (R5). |
-| G6 | ¿Dónde vive exactamente (tabla/esquema) la query, cabecera y ruta de salida que `Principal.java` resuelve por `typeInfo`? | **Parcialmente cerrado.** Confirmado por código (`Principal.java`) y log (`ExtraccionDUCOMASTERDATA.log`) que la resolución es vía `OperacionesDB.obtenerQueryExtraccion()`/`obtenerHeader()`/`obtenerFicheroSalida()`, en BD y no en el jar (mismo patrón que el Planificador Genérico) — ver §6.2. **Abierto (no bloqueante):** la tabla/esquema exacto donde `OperacionesDB` lee esos valores requiere pedir al usuario `OperacionesDB.java` (importado en `Principal.java`, no aportado). |
+| G6 | ¿Dónde vive exactamente (tabla/esquema) la query, cabecera y ruta de salida que `Principal.java` resuelve por `typeInfo`? | **Resuelto por completo con el código fuente real de `OperacionesDB.java`.** Los 3 valores viven en `FT_T_ATE1`/`FT_T_PAR1`, con las queries exactas transcritas en §6.2; la clave de búsqueda (`ACTION_NME`) es `"Extraccion" + typeInfo + ".sql"` → `ExtraccionDUCOMASTERDATA.sql`, coincidiendo con el literal ya visto en el log. Hallazgo adicional: a diferencia del motor de `RDR_EXTRACCION_CONTACTOS` (`Querys.java`, RG-19 de esa spec, que **no** filtra por `DATA_STAT_TYP`), este motor sí exige `DATA_STAT_TYP='ACTIVE'` en las 3 queries de configuración — mismo patrón data-driven sobre `FT_T_ATE1`, comportamiento distinto entre motores. |
 
 ## 5. Especificación funcional
 
@@ -97,6 +97,39 @@ análogo al del **Planificador Genérico RDR** (`memoria/memoria_planificador_ge
 `FT_T_ATE1` guarda la query y `URL_OUTPUT_FILE`), aunque aquí el mecanismo de resolución es propio de
 `OperacionesDB`, no el mismo jar `ProjectMain.jar`.
 
+**G6 resuelto por completo con el código fuente real de `OperacionesDB.java`
+(`com.bbva.kytl.extraccion.jdbc.OperacionesDB`).** Los 3 métodos usan la misma clave de búsqueda,
+`actionName = "Extraccion" + typeInfo + ".sql"` (para `DUCOMASTERDATA`: `ExtraccionDUCOMASTERDATA.sql`,
+coincidiendo con el literal exacto ya visto en el log), y consultan:
+
+- `obtenerQueryExtraccion`: `SELECT clob_value FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'`
+  — la query SQL completa vive en `FT_T_ATE1.CLOB_VALUE`.
+- `obtenerHeader`: `SELECT PAR1_VALUE_CLOB FROM ft_t_par1 WHERE PARAMETER_CTXT_TYP = 'HEADER' AND ACT1_OID =
+  (SELECT ACT1_OID FROM ft_t_ate1 WHERE ACTION_NME = ?) AND DATA_STAT_TYP = 'ACTIVE'` — la cabecera vive en
+  `FT_T_PAR1.PAR1_VALUE_CLOB`, enlazada a la acción por `ACT1_OID` (FK a `FT_T_ATE1`).
+- `obtenerFicheroSalida`: `SELECT URL_OUTPUT_FILE FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'`
+  — la ruta completa del fichero de salida vive en `FT_T_ATE1.URL_OUTPUT_FILE`.
+
+**Diferencia de comportamiento entre motores data-driven, transversal al repositorio:** las 3 queries de
+`OperacionesDB` exigen explícitamente `DATA_STAT_TYP = 'ACTIVE'` sobre `FT_T_ATE1`/`FT_T_PAR1` — a
+diferencia del motor de `RDR_EXTRACCION_CONTACTOS` (`Querys.java`, ver `salidas/extraccion_contactos/spec.md`
+RG-19), que consulta la misma tabla `FT_T_ATE1` por `ACTION_NME` **sin** filtrar por ese campo. Mismo patrón
+arquitectónico (acciones data-driven registradas en `FT_T_ATE1`), 2 jars distintos (`ExtraccionGenericaUnificada`
+aquí, `ExtraccionGenericaOtherEntities.jar` allí) con comportamiento distinto ante un registro marcado
+`INACTIVE` — no es un defecto de ninguno de los 2, pero es una inconsistencia arquitectónica no documentada
+hasta ahora entre 2 motores hermanos del mismo patrón.
+
+**Asimetría confirmada en el tratamiento de errores (código real, no inferida):** `obtenerQueryExtraccion` y
+`obtenerFicheroSalida` comprueban explícitamente el resultado y lanzan `SQLException` si viene `null`/vacío
+— fallo duro, ya documentado más abajo. `obtenerHeader`, en cambio, **no tiene esa comprobación**: si no
+existe una fila `HEADER` activa en `FT_T_PAR1` para la acción, el método simplemente devuelve `null` sin
+error. `Principal.java` lo trata como caso válido y ya previsto (`@param header Cabecera CSV (puede ser
+null)`, `escribirFicheroTemporal`: `if (header != null && !header.isEmpty()) { bw.write(header); ... }`) —
+si falta la configuración de cabecera, el CSV se publica sin línea de cabecera, sin abortar el proceso.
+Es un caso manejado deliberadamente, no un fallo silencioso: se deja constancia porque compone con el
+comportamiento ya confirmado en R5/G5 (fichero publicado incluso con 0 filas) — un CSV sin cabecera y sin
+filas sería indistinguible de un fichero vacío por error.
+
 La traza real en `documentos_fuente/codigo_fuente_duco/ExtraccionDUCOMASTERDATA.log` confirma este
 comportamiento en ejecución: `OperacionesDB:47 - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql`,
 seguido de `OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA` y
@@ -114,11 +147,6 @@ seguido de `OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA` y
   `.tmp` se borra explícitamente (`escribirFicheroTemporal`) antes de propagar el error, de forma que no queda
   un fichero definitivo corrupto ni a medias — el `.csv` final solo se publica (`Files.move`, con
   `ATOMIC_MOVE`/`REPLACE_EXISTING` como fallback) si la escritura del temporal terminó sin error.
-
-**Gap opcional, no bloqueante:** para cerrar el último eslabón de la cadena de configuración — en qué tabla o
-esquema concreto vive la query/cabecera/ruta que `OperacionesDB` resuelve — haría falta pedir al usuario
-`OperacionesDB.java` (importado en `Principal.java` como `com.bbva.kytl.extraccion.jdbc.OperacionesDB`, pero
-no aportado en el material disponible).
 
 ## 7. Especificación de testing
 
@@ -151,6 +179,12 @@ de las transiciones documentadas.
   la entrega a DUCO; el consumo real queda fuera de alcance (R6).
 * **Purga de 6 meses sin papelera de seguridad documentada:** la eliminación de histórico en `backup/` es
   automática e irreversible según lo documentado, sin período de gracia adicional.
+* **Inconsistencia arquitectónica entre motores hermanos data-driven (§6.2, G6):** `OperacionesDB` (este
+  proceso) exige `DATA_STAT_TYP='ACTIVE'` al resolver query/cabecera/ruta desde `FT_T_ATE1`/`FT_T_PAR1`;
+  `Querys.java` (`RDR_EXTRACCION_CONTACTOS`, RG-19 de esa spec) consulta la misma tabla `FT_T_ATE1` sin ese
+  filtro. Mismo patrón arquitectónico, comportamiento distinto ante un registro `INACTIVE` — no es un
+  defecto de ninguno de los 2 motores, pero conviene tenerlo presente si se auditan o modifican registros
+  de `FT_T_ATE1` compartidos entre procesos.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -162,5 +196,10 @@ quedan preguntas funcionales sin responder ni riesgos de criticidad sin resolver
 Al aplicar la regla de rigor técnico (regla 7) se han cerrado además, con material ya presente en el
 repositorio: el mapeo columna-a-columna completo de las 4 secciones del diccionario de campos (§6.1) y la
 localización de la lógica de extracción (BD, vía `OperacionesDB`, no el jar) junto con su comportamiento de
-fallo real (§6.2, G6). Queda un único gap técnico abierto y explícitamente no bloqueante: G6, la tabla o
-esquema exacto donde vive esa configuración, que requeriría `OperacionesDB.java` para cerrarse del todo.
+fallo real (§6.2). **G6 queda resuelto por completo (2026-09-28) con el código fuente real de
+`OperacionesDB.java`**: las 3 tablas/columnas exactas (`FT_T_ATE1.CLOB_VALUE`, `FT_T_PAR1.PAR1_VALUE_CLOB`,
+`FT_T_ATE1.URL_OUTPUT_FILE`) quedan transcritas en §6.2, junto con 2 hallazgos adicionales — una asimetría
+de tratamiento de errores ya manejada de forma deliberada en `obtenerHeader` (sin guardia de `null`, a
+diferencia de los otros 2 métodos) y una inconsistencia arquitectónica frente al motor hermano de
+`RDR_EXTRACCION_CONTACTOS` en el filtrado por `DATA_STAT_TYP`. **No queda ningún gap técnico abierto en
+esta especificación.**
