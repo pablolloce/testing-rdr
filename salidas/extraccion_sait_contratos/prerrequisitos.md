@@ -6,9 +6,9 @@
   `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA` pueda
   transmitirlo — lo genera el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (06:00 AM, cross-chain,
   mecanismo de invocación confirmado con evidencia real — GAP-SAIT-003 resuelto, ver `spec.md` §1.1).
-- El script exacto (`RDR_Transformacion_SAIT.sh`) está identificado, pero su contenido (lógica de
-  transformación, origen de datos) no está documentado en esta especificación — fuera de alcance hasta que se
-  capture evidencia propia (GAP-SAIT-004).
+- El script (`RDR_Transformacion_SAIT.sh`) y la query Oracle real que construye el XML (`BATCH_SAIT.sql`,
+  entidad raíz `KYTL_GC.FT_T_LAGR`, excluye orígenes `Sentry`/`MENTOR`) están confirmados con evidencia
+  literal — GAP-SAIT-004 resuelto, ver `spec.md` §1.2.
 
 ## Configuración e infraestructura
 

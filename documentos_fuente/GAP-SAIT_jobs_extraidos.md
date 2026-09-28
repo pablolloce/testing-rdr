@@ -213,3 +213,49 @@ Para cerrarlo definitivamente haría falta uno de:
 - El propio fichero `.xsl` real de la carpeta `/pr/kytl/online/multipais/multicanal/dat/properties/` (misma
   carpeta donde ya se encontró `Batch_FircoSoft.xsl` — si el usuario tiene acceso a listar esa carpeta, podría
   localizarse por búsqueda de nombre con "sait").
+
+## Addendum 4 (2026-09-28) — GAP-SAIT-004 RESUELTO: query SQL real (`BATCH_SAIT.sql`)
+
+> Fuente: `GAP-SAIT_BATCH_SAIT.sql` (900 líneas, query Oracle real aportada por el usuario). Mismo tipo de
+> evidencia definitiva que cerró GAP-CTPY-003 (`ExtraccionContingenciaTHIRDPARTIES.sql`): una query SQL que
+> construye el XML directamente vía `XMLELEMENT`/`XMLAGG` de Oracle, de modo que cada `XMLELEMENT (NAME "...")`
+> es literalmente un campo/etiqueta real del XML de salida.
+
+**Entidad raíz confirmada:** `KYTL_GC.FT_T_LAGR` (alias `lagr`, "Legal Agreement" — contratos/acuerdos
+legales de GoldenSource), con filtro explícito **excluyendo** `data_src_id IN ('Sentry', 'MENTOR')` — confirma
+además que, pese a los nombres de variable vestigiales `FILESMENTOR`/`XSLT_MENTOR` vistos en
+`RDR_Transformacion_SAIT.sh`, el proceso **excluye** explícitamente los contratos de origen Mentor, no tiene
+relación funcional real con ese sistema. Query paginada (bind variables `:paginacionInicio`/
+`:paginacionResultado`/`:paginacionFinal`), resultado como CLOB (`.getClobVal() xmlResult`) — confirma que es
+literalmente la query que ejecuta la clase Java `Batch_Diario_Sait.Batch_Sait` (GAP-SAIT-003/RDR_Transformacion_SAIT.sh)
+para construir cada `<Agreement>` del XML.
+
+**Diccionario de campos — estructura completa del elemento raíz `<Agreement>`** (resumen de los bloques de
+primer nivel; detalle campo a campo completo en `GAP-SAIT_BATCH_SAIT.sql`):
+
+| Bloque XML | Contenido |
+|---|---|
+| `AgreementID` | Identificador del acuerdo (`FT_T_LAID`, fuente `Generic`) |
+| `AgmtMultiBrInd` | Indicadores de multi-sucursal (`AgmtCPMultBrInd`, `AgmtMultBrInd`) |
+| `Pty` (×2 listas) | Partes externas e internas del acuerdo — `ID`, `IDSTAR`, `AgmtClientTypInd`, `Src`, `PartyShort`, `PartyName`, `R` (rol: Matrix/Enterprise), con sub-bloques `Sub` |
+| `FinDetls` | Detalle financiero completo: `AgmtDesc`, `AgmtID`, `AgmtTyp`/`AgmtTypCve`, `AgmtStat`, `AgmtDt`, `StartDt`/`EndDt`, `AgrVersion`, `AgmtCcy`, `AgmInclExcl`, listas `AgmtTrdTyp` (inclusión/exclusión de trading), `AgmtDocID`, `AgmtCreatedTMS`, `NLS_CDE`, `Product32`, `Bancomercom`, `Tax_Gain`, `Netcash`, `AgmtRefCli`, `AgmtCNLRSN`, `AgmtObser`, `Last_Chg_Usr`/`Last_Chg_Tms` (auditoría cruzada de ~17 tablas), bloque `Other` (12 indicadores más: `AgmtAppKey`, `AgmtCollInd`, `AgmtSndInd`, `AgmtExnInd`, `AgmtConfInd`, `AgmtSucNum`, `AgmtFldNum`, `AgmtOblInd`, `AgmtBnkCliInd`, `AgmtLngFrmConf`, `AgmtBrkTyp`, `AgmtBLKStat`, `AgmtObvTxt`, `AgmtRskTxt`, `AgmtBrkName`, `RepurchaseOblig`, `Institutional_Inv`, `AccountNum`, `AccountOffice`, `AccountStatus`), `AgmtIndi` (8 pares indicador/timestamp), `AgmtSettle` (SSI), `AgmtDer` (autorización), `AgmtSig` (firma), `AgmtLegalRev` (revisión legal) |
+| `PtySecT` | Tipos de valores/producto asociados a partes (branch/sucursal) |
+| `Coll` (lista) | Colaterales/anexos: `CollID`, `Coll_Typ`, `Coll_StartTMS`, `Coll_EligblTyp`, `Coll_Vcl`, `Coll_EjctNME`/`_TMS`, `Coll_ConvTXT`/`_TMS`, `Coll_CCCExpTMS`, `Coll_ExpTMS`, `Coll_Credit_Prod` |
+| `AgmtMarket` | Mercado y submercado (`AgmtMarket`, `AgmtSubMarket`, `AgmtSubMarketCve`) |
+| `AgmtExeCntc` | Contacto ejecutivo (nombre, teléfono) |
+| `AgmtContacts` (lista) | Contactos completos: `ContactID`, `AgmtCntcFuncTyp`/`AgmtCntcFunc`, `AgmtCntcPrior`, `AgmtCntcObv`, `AgmtCntcName`, `AgmtCntcStatus`, más `RelatedElements` anidado con dirección completa (`Address`, `ZipCode`, `City`, `CountyName`/`Code`, `CountryCde`/`Nme`, `NeighborhoodNme`, `IntNum`/`ExtNum`, `TownshipNme`) y listas `Phones`/`Emails`/`Faxes` |
+| `AgmtPlazas` (lista) | Plazas/ciudades del acuerdo (`AgmtPlaza`, `AgmtPlazaCve`, `AmgtPlazaSTARID`) |
+| `AgmtProdLists` (lista) | Listas de producto (`AgmtProdListNme`, `AgmtProdListTms`, `AgmtProdListObv`) |
+| `AgmtParts` (lista) | Partes/firmantes del acuerdo: `AgmtPrtID`, `AgmtPrtNme`, `AgmtPrtContactRel`, `AgmtPrtRol`, `AgmtPrtAdmInd`, `AgmtPrtDomInd`, `AgmtPrtPodInd`/`Desc`, `AgmtPrtSigTyp`/`Desc`, `AgmtPrtSigDocTyp`, `AgmtPrtDoc`, `AgmtPrtDocEndTms`, `AgmtPrtEscDesc` |
+| `AgmtSub` | Datos de custodia/BUC (`AgmtSubCstdyNum`, `AgmtSubBUCNme`, `AgmtSubBUCStartTms`/`EndTms`) |
+| `ExternalIdentifiers` (lista) | Identificadores externos (`ExternalID`, `Data_Src_ID`), excluyendo explícitamente `Generic`/`PRODUCT32`/`Onboarding Digital` |
+
+**GAP-SAIT-004 — RESUELTO.** Diccionario de campos completo y literal confirmado por query SQL real —
+mismo nivel de evidencia que cerró GAP-CTPY-003. **Con esto, los 7 gaps de GAP-SAIT quedan resueltos.**
+
+**Nota de alcance:** esta query construye el XML de origen (probablemente el propio
+`KYTL_RDR_EXTRACTION_contratos_Diario_*.xml` que genera `RDR_DAILY_LA_JAVA`, dado que `$FILESEXGEN`=`$FILESMENTOR`
+en `RDR_Transformacion_SAIT.sh` — origen y destino son la misma carpeta, sugiriendo que la hoja XSLT hace una
+transformación menor/de paso más que una reestructuración profunda). No se ha confirmado si el XSLT aplica
+algún filtrado/renombrado adicional sobre esta estructura antes de la transmisión final a SAIT — detalle menor,
+no bloqueante para considerar el diccionario de campos resuelto.

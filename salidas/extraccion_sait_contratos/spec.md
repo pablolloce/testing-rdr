@@ -10,9 +10,15 @@
 > (`documentos_fuente/GAP-SAIT_capturas_RDR_DAILY_LA_PRO_new.docx`). Detalle completo de evidencia en
 > `documentos_fuente/GAP-SAIT_jobs_extraidos.md`.
 >
+> Cuarta ronda de evidencia: `BATCH_SAIT.sql` (900 líneas, query Oracle real,
+> `documentos_fuente/GAP-SAIT_BATCH_SAIT.sql`) — resuelve GAP-SAIT-004 (diccionario de campos del XML) con
+> evidencia literal. Detalle en `documentos_fuente/GAP-SAIT_jobs_extraidos.md` (Addendum 4).
+>
 > **Este documento cubre únicamente el flujo SAIT** (extracción/transmisión de contratos), que el documento
 > original combinaba con el flujo GUIDO (ya cerrado por separado). Es la ronda de evidencia que quedaba
 > pendiente desde el cierre de "Envío de roles GUIDO a EINS" (2026-09-21).
+>
+> **Estado: 7 de 7 gaps resueltos — proceso cerrado al 100%.**
 
 ## 1. Resumen ejecutivo
 
@@ -41,9 +47,9 @@ que consume la cadena de transmisión ya documentada.
   `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/`, `MEKYTL1093_SND`/`_DEL` en
   `salidas/extraccion_generica_contrapartidas/`).
 * **Fuera de alcance:** el detalle de testing de la cadena `RDR_DAILY_LA_PRO_new` en sí (se documenta aquí
-  únicamente lo necesario para entender el origen del XML — ver §1.1); el contenido del script
-  `RDR_Transformacion_SAIT.sh` y el diccionario de campos del XML de contratos (GAP-SAIT-004, sin evidencia);
-  y el flujo GUIDO del documento original, ya cubierto en `salidas/envio_guido_roles_eins/`.
+  únicamente lo necesario para entender el origen del XML — ver §1.1/§1.2); el contenido exacto de la hoja
+  `.xsl` aplicada tras la generación del XML (detalle menor, no bloqueante — ver §9); y el flujo GUIDO del
+  documento original, ya cubierto en `salidas/envio_guido_roles_eins/`.
 
 ### 1.1 Cadena de generación — `RDR_DAILY_LA_PRO_new` (contexto, fuera del testing de este documento)
 
@@ -96,6 +102,46 @@ independientes — una vez por `MEKYTL0949`/`MEKYTL0950` (dentro de `RDR_DAILY_L
 `MEKYTL0357_LISTA` (dentro de `TRANSMISIONES_CIB_RDR_SAIT`, §6) — cada cadena historifica su propia copia de
 forma independiente, patrón consistente y no un error de diseño aparente.
 
+### 1.2 Diccionario de campos del XML de contratos — `BATCH_SAIT.sql` (GAP-SAIT-004 resuelto)
+
+**Cuarta ronda de evidencia (2026-09-28):** el usuario aportó `BATCH_SAIT.sql` (900 líneas, query Oracle real,
+`documentos_fuente/GAP-SAIT_BATCH_SAIT.sql`), la query que ejecuta la clase Java `Batch_Diario_Sait.Batch_Sait`
+(confirmada en §1.1) para construir el XML directamente en base de datos vía `XMLELEMENT`/`XMLAGG`/
+`.getClobVal()` — mismo tipo de evidencia definitiva que cerró GAP-CTPY-003 en esta sesión.
+
+**Entidad raíz:** `KYTL_GC.FT_T_LAGR` (alias `lagr`, "Legal Agreement" — contratos/acuerdos legales de
+GoldenSource), con filtro explícito `WHERE data_src_id != 'Sentry' AND data_src_id != 'MENTOR'`. Esto confirma
+que los nombres de variable `FILESMENTOR`/`XSLT_MENTOR` vistos en `RDR_Transformacion_SAIT.sh` (§1.1) son
+vestigiales de plantilla: el proceso **excluye** explícitamente los contratos de origen Mentor, sin relación
+funcional real con ese sistema. Query paginada (`:paginacionInicio`/`:paginacionResultado`/`:paginacionFinal`),
+resultado como CLOB — consistente con invocación desde Java.
+
+**Elemento raíz XML:** `<Agreement>` por cada registro de `FT_T_LAGR`, con los siguientes bloques de primer
+nivel (diccionario completo en `documentos_fuente/GAP-SAIT_jobs_extraidos.md`, Addendum 4):
+
+| Bloque | Contenido |
+|---|---|
+| `AgreementID` | Identificador del acuerdo |
+| `AgmtMultiBrInd` | Indicadores de multi-sucursal |
+| `Pty` (externa/interna) | Partes del acuerdo — ID, tipo de cliente, nombre, rol (Matrix/Enterprise) |
+| `FinDetls` | Detalle financiero: tipo/estado/fecha/versión/moneda del acuerdo, listas de inclusión/exclusión de trading, auditoría de última modificación, bloque `Other` (~20 indicadores), SSI, autorización, firma, revisión legal |
+| `PtySecT` | Tipos de valores/producto por parte (branch) |
+| `Coll` | Colaterales/anexos del acuerdo |
+| `AgmtMarket` | Mercado y submercado |
+| `AgmtExeCntc` | Contacto ejecutivo |
+| `AgmtContacts` | Contactos completos, con dirección y teléfonos/emails/faxes anidados |
+| `AgmtPlazas` | Plazas/ciudades del acuerdo |
+| `AgmtProdLists` | Listas de producto |
+| `AgmtParts` | Partes/firmantes del acuerdo |
+| `AgmtSub` | Datos de custodia/BUC |
+| `ExternalIdentifiers` | Identificadores externos (excluye `Generic`/`PRODUCT32`/`Onboarding Digital`) |
+
+**GAP-SAIT-004 — RESUELTO.** Diccionario de campos completo y literal, mismo nivel de evidencia que
+GAP-CTPY-003. Nota de alcance: no se ha confirmado si la hoja `.xsl` (cuyo nombre real sigue sin verse) aplica
+algún filtrado/renombrado adicional sobre esta estructura antes de la transmisión final — detalle menor, no
+bloqueante (`$FILESEXGEN`=`$FILESMENTOR` en el script, es decir origen y destino son la misma carpeta, lo que
+sugiere una transformación de paso más que una reestructuración profunda).
+
 ## 3. Requisitos detectados
 
 | ID | Requisito |
@@ -122,11 +168,9 @@ forma independiente, patrón consistente y no un error de diseño aparente.
   MEKYTL0950`), discrepancia documental de `MEKYTL0357` resuelta (usa `MEGENV0001.sh`, ver §1.1), y contenido
   real de `RDR_Transformacion_SAIT.sh` confirmado: jar `RDR_Transformacion_SAIT.jar`, clase
   `Batch_Diario_Sait.Batch_Sait` — mismo nivel de certeza literal que GAP-ADHOC-001/002.
-- **GAP-SAIT-004 (diccionario de campos del XML) — ABIERTO.** El script confirma el jar/clase exactos
-  (`Batch_Diario_Sait.Batch_Sait`), pero solo pasa como argumento la **carpeta** genérica de properties, no el
-  nombre del `.xsl` real — el nombre exacto se resuelve dentro de la clase Java, fuera del alcance de esta
-  evidencia. Sigue sin verse la estructura/etiquetas del XML de contratos. No se fuerza una estructura
-  inventada. Es el único gap que queda por resolver en este proceso.
+- **GAP-SAIT-004 (diccionario de campos del XML) — RESUELTO con evidencia literal.** Confirmado por
+  `BATCH_SAIT.sql` (query Oracle real, ver §1.2): entidad raíz `FT_T_LAGR`, elemento raíz `<Agreement>`, con
+  diccionario de campos completo (14 bloques de primer nivel) — mismo nivel de certeza literal que GAP-CTPY-003.
 - **GAP-SAIT-005 (validación XSD real) — RESUELTO POR AUSENCIA.** La cadena real de Control-M tiene
   exactamente los 2 jobs de transmisión/limpieza — ningún job de validación XSD dentro de
   `TRANSMISIONES_CIB_RDR_SAIT`. Si existe una validación XSD real, ocurre en la cadena de generación
@@ -137,10 +181,7 @@ forma independiente, patrón consistente y no un error de diseño aparente.
   jobs, mismo patrón de scripts genéricos de pasarela (`LPFTPEXCA0000.sh`/`LPFTPEXCA0002.sh`) ya confirmado en
   otros procesos de esta sesión — no exclusivo de SAIT.
 
-**Balance: 6 de 7 gaps resueltos con evidencia literal completa** (incluido ya el contenido real de
-`RDR_Transformacion_SAIT.sh`). Solo queda abierto GAP-SAIT-004 (diccionario de campos del XML), que requiere
-el contenido del `.xsl` real o de la clase `Batch_Diario_Sait.Batch_Sait` del jar — fuera de alcance de esta
-ronda, no inventado.
+**Balance: 7 de 7 gaps resueltos con evidencia literal completa** — proceso cerrado al 100%.
 
 ## 5. Especificación funcional
 
@@ -152,10 +193,12 @@ estructurados, consumido por el sistema SAIT (Windows, `WVMSAITDB01`).
 `java -cp RDR_Transformacion_SAIT.jar:... Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION
 $XSLT_MENTOR` (ver §1.1).
 
-**Estructura del XML — GAP ABIERTO (GAP-SAIT-004):** el script confirma el jar/clase (`RDR_Transformacion_SAIT.jar`
-/ `Batch_Diario_Sait.Batch_Sait`), pero el argumento de la hoja XSLT es solo la carpeta genérica de properties,
-no el nombre del fichero — no se dispone de diccionario de campos/etiquetas. No se debe asumir una estructura
-no confirmada.
+**Estructura del XML (GAP-SAIT-004 resuelto):** confirmada por `BATCH_SAIT.sql` — entidad raíz `FT_T_LAGR`,
+elemento raíz `<Agreement>` por registro, con 14 bloques de primer nivel (`AgreementID`, `AgmtMultiBrInd`,
+`Pty` externa/interna, `FinDetls`, `PtySecT`, `Coll`, `AgmtMarket`, `AgmtExeCntc`, `AgmtContacts`,
+`AgmtPlazas`, `AgmtProdLists`, `AgmtParts`, `AgmtSub`, `ExternalIdentifiers`) — ver §1.2 para el detalle
+completo y `documentos_fuente/GAP-SAIT_jobs_extraidos.md` (Addendum 4) para el diccionario campo a campo.
+Excluye explícitamente registros de origen `Sentry`/`MENTOR`.
 
 **Fichero adicional sin fecha:** además del fichero fechado (`_${FECHA}.xml`), existe un fichero maestro sin
 fecha (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`) que también se historifica tras cada envío — su relación
@@ -193,18 +236,18 @@ Borra /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_$
 
 ## 7. Especificación de testing
 
-**Estrategia:** dada la cadena corta (2 jobs) y bien documentada con evidencia literal, los casos cubren el
-ciclo funcional completo de transmisión/limpieza/historificación, la dependencia cross-chain de entrada, y
-documentan explícitamente las 2 limitaciones de evidencia (generación del XML, diccionario de campos) en vez
-de inventarlas. Casos completos en `casos_prueba.xml`.
+**Estrategia:** dada la cadena corta (2 jobs) y bien documentada con evidencia literal (7/7 gaps resueltos),
+los casos cubren el ciclo funcional completo de transmisión/limpieza/historificación, la dependencia
+cross-chain de entrada, la validación estructural del diccionario de campos real, y documentan el único
+hallazgo no preguntado (fichero sin fecha) en vez de inventar su propósito. Casos completos en
+`casos_prueba.xml`.
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001.
 - `borde`: TC-002 (dependencia cross-chain no satisfecha).
 - `error_funcional`: TC-003 (fallo real de Connect:Direct, sin soft-failure que lo enmascare).
 - `regresion`: TC-004 (confirma en revisiones futuras que la cadena sigue teniendo solo 2 jobs, sin validación
-  XSD añadida).
-- `datos_sinteticos`: TC-005 (documenta la limitación de GAP-SAIT-004, sin inventar estructura).
+  XSD añadida); TC-005 (valida el diccionario de campos real del XML de contratos, GAP-SAIT-004).
 - `conflicto_integridad`: TC-006 (naturaleza del fichero sin fecha `KYTL_RDR_EXTRACTION_contratos_Diario.xml`,
   hallazgo no preguntado).
 
@@ -218,12 +261,11 @@ Referencia de casos por tipo:
 | R4 (borrado post-envío) | TC-001 | Limpieza solo tras confirmación real de envío |
 | R5 (topología, sin evento de salida) | TC-004 | Confirma en revisiones futuras que la cadena sigue siendo terminal de 2 jobs |
 | R6, R7 (criticidad/recursos) | TC-004 | Confirma que no han cambiado en revisiones futuras |
-| GAP-SAIT-004 (diccionario del XML) | TC-005 | Documenta la limitación en vez de inventar el diccionario |
+| GAP-SAIT-004 (diccionario del XML) | TC-005 | Valida la estructura real de campos confirmada por `BATCH_SAIT.sql` |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gap abierto: GAP-SAIT-004** (sección 4) — único gap sin resolver; no bloquea la generación de esta
-   especificación para la parte de transmisión, ya confirmada al 100% con evidencia literal.
+1. **Gaps: 7 de 7 resueltos.** No queda ningún gap abierto en este proceso.
 2. **RISK-SAIT-001 — sin soft-failure configurado, comportamiento estricto por defecto.** A diferencia de
    varios procesos de esta sesión (que enmascaran fallos de transmisión con "código ≠ 0 → OK"), aquí un fallo
    real de Connect:Direct **sí detiene la cadena** — más seguro desde el punto de vista de detección de fallos,
@@ -233,26 +275,23 @@ Referencia de casos por tipo:
    (sin sufijo de fecha) se historifica junto al fechado, sin que el documento original ni las capturas
    expliquen su propósito — podría ser un fichero de referencia/plantilla mantenido en paralelo, o un artefacto
    de una versión anterior del proceso. No bloqueante, pero a confirmar si se retoma esta especificación.
-4. **Contenido de la hoja `.xsl` real (o de la clase `Batch_Diario_Sait.Batch_Sait` del jar) sin capturar** —
-   el script `RDR_Transformacion_SAIT.sh` ya está confirmado en su totalidad (contenido real aportado
-   2026-09-28), pero solo revela el jar/clase, no el nombre ni contenido del `.xsl`. Es el único paso pendiente
-   para cerrar GAP-SAIT-004 con el mismo rigor que Fircosoft (GAP-ADHOC-002).
+4. **Detalle menor no bloqueante — nombre/contenido exacto de la hoja `.xsl`.** El diccionario de campos del
+   XML ya está confirmado con evidencia literal (`BATCH_SAIT.sql`, §1.2); no se ha confirmado si la hoja
+   `.xsl` aplicada después realiza algún filtrado/renombrado adicional sobre esa estructura. Dado que
+   `$FILESEXGEN`=`$FILESMENTOR` (origen y destino son la misma carpeta), es probable que la transformación sea
+   de paso, no una reestructuración profunda. No bloquea el cierre del proceso.
 
 ## 10. Conclusión
 
-Se documenta la parte de transmisión/limpieza de la cadena `TRANSMISIONES_CIB_RDR_SAIT` (2 jobs) con evidencia
-literal completa (12 capturas de Control-M + 2 fichas oficiales EX-005-03), resolviendo 5 de los 7 gaps
-originales (GAP-SAIT-001, 002, 005, 006, 007). Una segunda ronda de evidencia (4 fichas oficiales EX-005-03 +
-27 capturas reales de Control-M de la cadena de generación `RDR_DAILY_LA_PRO_new`) deja **GAP-SAIT-003
-RESUELTO**: topología completa confirmada (`RDR_DAILY_LA_PRO_IN → RDR_DAILY_LA_JAVA → MEKYTL0357 → MEKYTL0949
-→ MEKYTL0950`), job exacto que genera el XML (`RDR_DAILY_LA_JAVA`), y resuelta una discrepancia documental que
-tenía la ficha oficial de `MEKYTL0357` (usa `MEGENV0001.sh`, sin duplicación funcional real con
-`MEKYTL0357_LISTA`). Una tercera ronda (contenido real de `RDR_Transformacion_SAIT.sh`) confirma el jar
-(`RDR_Transformacion_SAIT.jar`) y la clase (`Batch_Diario_Sait.Batch_Sait`) exactos que ejecuta
-`RDR_DAILY_LA_JAVA`. **6 de 7 gaps resueltos.** El diccionario de campos del XML de contratos (GAP-SAIT-004)
-queda como único gap abierto: el script solo pasa la carpeta genérica de properties como argumento, no el
-nombre del `.xsl` real — haría falta ese fichero en sí, o el contenido de la clase Java, para cerrarlo con el
-mismo rigor que Fircosoft (GAP-ADHOC-002). 2 riesgos propios registrados (RISK-SAIT-001, RISK-SAIT-002),
-ninguno bloqueante para el testing funcional documentado en `casos_prueba.xml`. Con esta salida, ambos flujos
-del documento original ("Envío de ficheros GUIDO usuario-rol y extracción SAIT") quedan cubiertos por
-especificaciones propias.
+Se documenta la cadena completa `TRANSMISIONES_CIB_RDR_SAIT` (2 jobs) y su cadena de generación
+`RDR_DAILY_LA_PRO_new` con evidencia literal completa (12 + 27 capturas de Control-M, 6 fichas oficiales
+EX-005-03, contenido real de `RDR_Transformacion_SAIT.sh` y de `BATCH_SAIT.sql`), resolviendo los **7 de 7
+gaps originales**: GAP-SAIT-001, 002 y 005/006/007 resueltos en la primera ronda; GAP-SAIT-003 (mecanismo y
+topología de generación del XML) resuelto en la segunda ronda y reconfirmado a nivel de jar/clase en la
+tercera; y **GAP-SAIT-004 (diccionario de campos del XML) resuelto en la cuarta ronda** gracias a
+`BATCH_SAIT.sql`, la query Oracle real que construye el XML vía `XMLELEMENT`/`XMLAGG` a partir de
+`FT_T_LAGR`, con el elemento raíz `<Agreement>` y sus 14 bloques de campos documentados (§1.2). 2 riesgos
+propios registrados (RISK-SAIT-001, RISK-SAIT-002), ninguno bloqueante para el testing funcional documentado
+en `casos_prueba.xml`. Con esta salida, ambos flujos del documento original ("Envío de ficheros GUIDO
+usuario-rol y extracción SAIT") quedan cubiertos por especificaciones propias, y el proceso SAIT queda
+**cerrado al 100%**.

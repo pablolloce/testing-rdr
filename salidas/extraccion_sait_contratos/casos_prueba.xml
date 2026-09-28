@@ -83,24 +83,27 @@
     <posibilidadFallo>Si aparece un job nuevo (p. ej. de validación XSD), este caso debe fallar y motivar una actualización de la especificación.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-005" tipo="datos_sinteticos">
-    <nombre>Limitación de evidencia: diccionario de campos del XML de contratos (GAP-SAIT-004)</nombre>
-    <objetivo>Documentar explícitamente que no se puede diseñar un caso de prueba de validación de contenido campo a campo para KYTL_RDR_EXTRACTION_contratos_Diario.xml, al no disponer del diccionario de campos ni del nombre/contenido de la hoja XSLT real. El mecanismo completo de invocación (RDR_DAILY_LA_JAVA -> RDR_Transformacion_SAIT.sh -> jar RDR_Transformacion_SAIT.jar, clase Batch_Diario_Sait.Batch_Sait) ya está confirmado con evidencia literal (GAP-SAIT-003 resuelto) — solo falta el .xsl real o el contenido de esa clase Java.</objetivo>
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Validación del diccionario de campos real del XML de contratos (GAP-SAIT-004 resuelto)</nombre>
+    <objetivo>Verificar que el XML de contratos (KYTL_RDR_EXTRACTION_contratos_Diario_AAAAMMDD.xml) generado a partir de BATCH_SAIT.sql mantiene el elemento raíz &lt;Agreement&gt; con la estructura de campos confirmada por la query SQL real, incluyendo el filtro de exclusión de orígenes Sentry/MENTOR.</objetivo>
     <precondiciones>
-      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional de contenido.</precondicion>
+      <precondicion>Acceso a un XML de contratos real generado por RDR_DAILY_LA_JAVA / BATCH_SAIT.sql.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Diccionario de campos del XML" valor="no aportado"/>
-      <dato campo="Mecanismo confirmado" valor="RDR_Transformacion_SAIT.sh (contenido real aportado) invoca java -cp RDR_Transformacion_SAIT.jar Batch_Diario_Sait.Batch_Sait con la carpeta de properties como argumento, sin nombre de fichero .xsl explícito"/>
+      <dato campo="Entidad raíz" valor="KYTL_GC.FT_T_LAGR (alias lagr), con WHERE data_src_id != 'Sentry' AND data_src_id != 'MENTOR'"/>
+      <dato campo="Elemento raíz XML" valor="&lt;Agreement&gt; por cada registro de FT_T_LAGR"/>
+      <dato campo="Bloques de primer nivel esperados" valor="AgreementID, AgmtMultiBrInd, Pty (externa/interna), FinDetls, PtySecT, Coll, AgmtMarket, AgmtExeCntc, AgmtContacts, AgmtPlazas, AgmtProdLists, AgmtParts, AgmtSub, ExternalIdentifiers"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar el fichero .xsl real usado por Batch_Diario_Sait.Batch_Sait, o el XSD/diccionario de campos real del XML.</paso>
-      <paso numero="2">Si se obtiene, diseñar el caso de prueba de validación de contenido/formato equivalente a los ya existentes para otros ficheros de destino de esta sesión.</paso>
+      <paso numero="1">Confirmar que cada &lt;Agreement&gt; del XML generado corresponde a un registro de FT_T_LAGR, sin registros de origen Sentry o MENTOR.</paso>
+      <paso numero="2">Verificar la presencia y estructura de cada bloque de primer nivel listado en datosEmpleados dentro de al menos un &lt;Agreement&gt; de ejemplo.</paso>
+      <paso numero="3">Verificar en el bloque FinDetls la presencia de AgmtID, AgmtTyp, AgmtStat, AgrVersion, AgmtCcy y las listas AgmtTrdTyp (inclusión/exclusión de trading).</paso>
+      <paso numero="4">Verificar que AgmtContacts incluye el sub-bloque de dirección completo (Address, ZipCode, City, CountryCde) cuando existan contactos asociados.</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer del contenido del script o del diccionario de campos real.</resultadoEsperado>
-    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-SAIT-004 hasta recibir evidencia.</criterioAceptacion>
-    <posibilidadFallo>No se fuerza un diccionario de campos inventado para evitar un caso de prueba engañoso.</posibilidadFallo>
+    <resultadoEsperado>El XML generado respeta íntegramente la estructura de campos confirmada en BATCH_SAIT.sql; ningún &lt;Agreement&gt; corresponde a un origen Sentry/MENTOR.</resultadoEsperado>
+    <tipoValidacion>Validación estructural del XML de salida contra el diccionario de campos documentado en GAP-SAIT_jobs_extraidos.md (Addendum 4), campo a campo en los bloques críticos (FinDetls, AgmtContacts).</tipoValidacion>
+    <criterioAceptacion>Estructura completa presente y coherente con BATCH_SAIT.sql; sin registros Sentry/MENTOR; sin campos inesperados no documentados.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un bloque no documentado o un registro de origen Sentry/MENTOR, indicaría un cambio en la query real no reflejado en esta especificación.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
