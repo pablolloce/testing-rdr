@@ -40,7 +40,7 @@ automatizado — ver gap G1).
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
-| G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Abierto.** El documento fuente (líneas 930-939) describe el propósito general (enriquecimiento/formateo) pero no el contenido del fichero de reglas. Requeriría pedir `fillingRules_ConBDI.csv` al usuario para el detalle campo a campo — ver §6.2. |
+| G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
 | G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Abierto.** El documento fuente solo dice que usa JDBC (`ojdbc8.jar`) para llamar a "procedimientos almacenados" que cargan los datos en GoldenSource, sin detallar cuáles. Requeriría el jar o el detalle de esos procedimientos — ver §6.1 paso 4. |
 | G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Abierto.** El documento fuente describe el propósito de `RDR_InformeBroker.jar` (armar un Excel de auditoría/diferencias con librerías `poi`/`jxl`/`dom4j`) pero no las columnas de los 2 Excel resultantes. Requeriría el jar o las plantillas de esos informes — ver §6.1 paso 7. |
 
@@ -109,14 +109,26 @@ Pasos del pipeline, en orden:
 * **Qué recibe/produce:** recibe `$FILES/ConBDI/ConBDI.csv` (ya saneado por `QuitarNulos`) y el fichero de
   reglas `/@@ENV@@/kytl/.../properties/fillingRules_ConBDI.csv`; produce `ConBDI_processed.csv` (entrada
   del paso PL/SQL) y un log de resumen en `$LOG/ConBDI_preprocess_summary.log`.
-* **Campos de salida afectados:** el contenido exacto de `fillingRules_ConBDI.csv` (qué campo enriquece,
-  qué regla de formateo aplica a cada uno, y por tanto qué columnas de `ConBDI_processed.csv` — y en
-  cascada de `Reporte_ConBDI.csv`/`Reporte_ConBDI_dos.csv` — dependen de él) **no está disponible en el
-  material fuente**: solo se documenta su propósito general, no su detalle campo a campo. Esto queda
-  como gap abierto **G2**: para responder con precisión haría falta pedir el fichero
-  `fillingRules_ConBDI.csv` al usuario. No se inventan las reglas.
-* **Qué pasa si falla/falta/cambia:** no documentado en el material disponible; queda dentro del mismo
-  gap G2.
+* **Campos de salida afectados — G2 resuelto con el fichero real aportado por el usuario.** `fillingRules_ConBDI.csv`
+  define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte: código interno,
+  nombres cortos, código de institución/banco, BIC, dirección, plaza, país/zona IFI, etc.) mediante una
+  cabecera de nombres de campo más 3 filas de regla:
+  - Fila `NULL`: solo `COD-CLINTERN` lleva valor por defecto explícito `NULL`; el resto de campos no tiene
+    default configurado (celda vacía).
+  - Fila `POSICION(6)`: solo `COD-CLINTERN` lleva esta regla de extracción posicional — única
+    transformación no trivial de todo el fichero.
+  - Fila `USAR`: marca qué 22 de los 45 campos se vuelcan efectivamente a `ConBDI_processed.csv`:
+    `COD-CLINTERN`, `DES-NOMCORT1`, `DES-NOMCORT2`, `DES-NOMCLINT`, `COD-INSTITUC`, `COD-CBANCO`,
+    `COD-PLAZAINT`, `COD-BANCOTES`, `COD-PLAZATES`, `QNU-BIC`, `DES-CALLE`, `DES-DISPLAZA`,
+    `DES-PROVPAIS`, `CCLIEN`, `DENOMB`, `CPAISN`, `CLPANA`, `CCNAEO`, `COD-CTEARGEN`, `DES_DISPLAZ2`,
+    `COD_CDIPEX`, `DES_PLAZAIN2`. Los 23 restantes (p. ej. `XTI-BANCARIO`, `EST-CLIENTE`, `FILLER-1`,
+    `COD-COFICI`, `AUD-FMOCLINT`, `CDNITR`, `COD-CTETESOR`, `DES_PROVINCI`, etc.) quedan documentados en
+    el fichero de reglas pero sin marca `USAR` — lectura directa del propio fichero (no inferencia por
+    nombre): se interpretan como no volcados a la salida procesada.
+* **Qué pasa si falla/falta/cambia:** el fichero de reglas no documenta comportamiento ante fallo (p. ej.
+  ausencia de la marca `USAR` en tiempo de ejecución, o cambio de esquema); ese detalle vive en el código
+  de `controlcargadatos.ControlCase` (no aportado) y queda como cabo suelto no bloqueante, distinto del
+  gap G2 ya cerrado.
 
 ### 6.3 `RDR_Report.jar` (clase `CreateReport`) y `select.properties` (clave `ConBDI`)
 
@@ -197,20 +209,19 @@ informe SWIFT no se transmite por ningún canal.
 * **Hueco de cobertura de testing (§6.3):** `casos_prueba.xml` (TC-001 a TC-007) no incluye un caso que
   ejercite explícitamente la ejecución cerca de medianoche o el relanzamiento el mismo día sobre el filtro
   temporal de `queryConBDI` — señalado como gap de cobertura, no cerrado con un TC nuevo desde esta spec.
-* **Gaps técnicos abiertos (regla 7):** `fillingRules_ConBDI.csv` (G2, contenido campo a campo
-  desconocido), procedimientos PL/SQL de `RDR_PLSQL.jar` (G3, desconocidos) y columnas exactas de los 2
-  informes Excel de `RDR_InformeBroker.jar` (G4, desconocidas) permanecen sin cerrar: requieren material
-  adicional (el fichero de reglas, el detalle de los procedimientos, o el jar/plantillas de los Excel)
-  que no está disponible en el material fuente actual.
+* **Gaps técnicos (regla 7):** G2 (`fillingRules_ConBDI.csv`) queda **resuelto** con el fichero real
+  aportado por el usuario — ver §6.2. Procedimientos PL/SQL de `RDR_PLSQL.jar` (G3, desconocidos) y
+  columnas exactas de los 2 informes Excel de `RDR_InformeBroker.jar` (G4, desconocidas) permanecen sin
+  cerrar: requieren material adicional (el detalle de los procedimientos, o el jar/plantillas de los
+  Excel) que no está disponible en el material fuente actual.
 
 ## 10. Conclusión y requisitos de cierre
 
 El gap funcional G1 queda confirmado con evidencia ya presente en el propio documento fuente
-(`informeBroker_BDI.gsp`/`.wkf`) y reconfirmado por el usuario. Los gaps técnicos G2 (reglas de
-`fillingRules_ConBDI.csv`), G3 (procedimientos PL/SQL de `RDR_PLSQL.jar`) y G4 (columnas de los 2 informes
-Excel de `RDR_InformeBroker.jar`) quedan **abiertos**: el material disponible permite documentar qué hace
-cada artefacto a nivel de pipeline (§6.1-6.3) pero no su detalle campo a campo/procedimiento a
-procedimiento — cerrarlos exige pedir el fichero o material adicional citado en cada uno, no una
-explicación del usuario. También queda documentado, como riesgo abierto y no como pregunta a cerrar en
-esta sesión, el hueco de cobertura de testing sobre el filtro temporal de `queryConBDI` (§6.3, §9) y la
-diferencia de ventana temporal frente a `ConClientela` (§9).
+(`informeBroker_BDI.gsp`/`.wkf`) y reconfirmado por el usuario. El gap técnico G2 (reglas de
+`fillingRules_ConBDI.csv`) queda **resuelto** con el fichero real aportado por el usuario (§6.2). G3
+(procedimientos PL/SQL de `RDR_PLSQL.jar`) y G4 (columnas de los 2 informes Excel de
+`RDR_InformeBroker.jar`) siguen **abiertos**: cerrarlos exige el jar/detalle de los procedimientos o las
+plantillas de los Excel, material que no está disponible hoy. También queda documentado, como riesgo
+abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura de testing sobre el filtro
+temporal de `queryConBDI` (§6.3, §9) y la diferencia de ventana temporal frente a `ConClientela` (§9).

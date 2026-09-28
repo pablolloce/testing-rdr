@@ -39,15 +39,15 @@ mutuamente, sin necesidad de pregunta al usuario).
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
-| G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Abierto.** El documento fuente confirma el propósito del fichero (enriquecimiento/formateo/validación de estructura) pero no su contenido campo a campo. Pendiente de pedir al usuario el propio CSV — ver §6.1. |
+| G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
 | G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Abierto.** Ni la spec ni el documento fuente lo explican. Pendiente de pedir al usuario, o el `.gsp` del evento `Errores` — ver §6.1. |
 | G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Abierto (menor).** El documento fuente solo confirma su propósito ("actualiza/valida la cartera de clientela C460"), sin el mismo nivel de detalle que `RDR_Refundicion`/`PLSQL_Load`. Pendiente de pedir su `.gsp` si se requiere el mismo nivel de análisis — ver §6.1. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
-cadenas se citan mutuamente), sin requerir pregunta al usuario. G2, G3 y G4 son gaps técnicos internos de
+cadenas se citan mutuamente), sin requerir pregunta al usuario. G3 y G4 son gaps técnicos internos de
 `KYTL_REF_GSPROCESS` (regla 7 de rigor técnico), abiertos y no bloqueantes para el resto de la especificación
-ya cerrada.
+ya cerrada; G2 queda resuelto (§6.1).
 
 ## 5. Especificación funcional
 
@@ -92,9 +92,14 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   (`Refundicion_processed.csv`, según el parámetro global `File` del `.properties`), dejando log de auditoría
   en `$LOG/Refundicion_preprocess_summary.log`. Esta fase determina directamente el contenido de los campos
   que luego carga `PLSQL_Load`/`Sub_Load` en las tablas maestras de clientela, por lo que un fallo o cambio
-  aquí impacta el fichero de salida final. **Gap abierto (no cerrado):** el documento fuente confirma el
-  propósito de `fillingRules_Refundicion.csv` pero no transcribe su contenido campo a campo; para el detalle
-  exacto de qué regla transforma qué campo haría falta pedir al usuario ese CSV.
+  aquí impacta el fichero de salida final. **G2 resuelto:** el fichero real (`fillingRules_Refundicion.csv`)
+  aportado por el usuario define únicamente 2 campos de salida, `COD-CCLIEND` y `COD-CCLIENP`, ambos con
+  valor por defecto `NULL` y ambos marcados `USAR` (sin regla posicional ni de exclusión, a diferencia del
+  fichero equivalente de `ConBDI`, con 45 campos — ver `salidas/rdr_conciliacion_bdi/spec.md` §6.2).
+  Semántica coherente con el propósito de la cadena: unificar el código de cliente de origen
+  (`COD-CCLIENP`, previo) con el de destino (`COD-CCLIEND`) en la refundición de cartera. No documentado
+  el comportamiento ante fallo del propio `ControlCase` (código no aportado); cabo suelto no bloqueante,
+  distinto del gap G2 ya cerrado.
 * **`Workflow(RDR_Refundicion)` → Motor GoldenSource `PLSQL_Load`:** el evento `RDR_Refundicion.gsp` (paquete
   GoldenSource 8.7.1.106, `ApplicationEvent`/`GenericEvent`) recibe el `HashMap` de variables globales del
   pipeline y delega en el workflow genérico **`PLSQL_Load`** (versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`,
@@ -160,9 +165,10 @@ documentadas.
 ## 10. Conclusión y requisitos de cierre
 
 El gap transversal (G1) tiene resolución explícita ya reutilizada de rondas anteriores. La especificación
-funcional y de orquestación de la cadena está cerrada. Quedan 3 gaps técnicos abiertos y no bloqueantes,
-identificados al aplicar la regla de rigor técnico (regla 7) sobre `KYTL_REF_GSPROCESS`: G2 (contenido de
-`fillingRules_Refundicion.csv`), G3 (comportamiento de `Evento(Errores)`) y G4 (desglose nodo-a-nodo de
-`Workflow(RDR_Clientela460)`) — ver §4 y §6.1. Ninguno afecta al resto de cadenas ya cerradas del sistema
-P-021. **Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021**, con estos 3 gaps
-técnicos pendientes de material adicional del usuario.
+funcional y de orquestación de la cadena está cerrada. El gap técnico G2 (contenido de
+`fillingRules_Refundicion.csv`) queda **resuelto** con el fichero real aportado por el usuario (§6.1).
+Quedan 2 gaps técnicos abiertos y no bloqueantes, identificados al aplicar la regla de rigor técnico
+(regla 7) sobre `KYTL_REF_GSPROCESS`: G3 (comportamiento de `Evento(Errores)`) y G4 (desglose nodo-a-nodo
+de `Workflow(RDR_Clientela460)`) — ver §4 y §6.1. Ninguno afecta al resto de cadenas ya cerradas del
+sistema P-021. **Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021**, con
+estos 2 gaps técnicos pendientes de material adicional del usuario.
