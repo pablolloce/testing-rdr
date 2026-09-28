@@ -1,0 +1,4341 @@
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Internal Organization,read-only
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Internal Organization,read-only
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
+CHALReviewer,Benchmark Master,editable
+CHALReviewer,Corporate Actions,editable
+CHALReviewer,Customer Master,editable
+CHALReviewer,Data Lineage,editable
+CHALReviewer,Data Quality,editable
+CHALReviewer,Data Staging,editable
+CHALReviewer,Exception Management,editable
+CHALReviewer,Generic Setup,editable
+CHALReviewer,Miscellaneous,editable
+CHALReviewer,My WorkList,editable
+CHALReviewer,Security Master,editable
+CHALVerifier,Admin,editable
+CHALVerifier,Benchmark Master,editable
+CHALVerifier,Corporate Actions,editable
+CHALVerifier,Customer Master,editable
+CHALVerifier,Data Lineage,editable
+CHALVerifier,Data Quality,editable
+CHALVerifier,Data Staging,editable
+CHALVerifier,Exception Management,editable
+CHALVerifier,Generic Setup,editable
+CHALVerifier,Miscellaneous,editable
+CHALVerifier,My WorkList,editable
+CHALVerifier,Security Master,editable
+FixedIncome_Static_Data,Contacts,editable
+FixedIncome_Static_Data,Entities,editable
+FixedIncome_Static_Data,Exception Management,editable
+FixedIncome_Static_Data,Generic Setup,editable
+FixedIncome_Static_Data,Internal Organization,editable
+FixedIncome_Static_Data,Issue,editable
+FixedIncome_Static_Data,Legal Agreements,editable
+FixedIncome_Static_Data,Master Data,editable
+FixedIncome_Static_Data,Miscellaneous,editable
+FixedIncome_Static_Data,Security Master,editable
+FixedIncome_Static_Data,Corporate Actions,read-only
+FixedIncome_Static_Data,Instructions,read-only
+FixedIncome_Static_Data,My WorkList,read-only
+MoCA_users,Accounts,editable
+MoCA_users,Corporate Actions,editable
+MoCA_users,Exception Management,editable
+MoCA_users,Customer Master,read-only
+MoCA_users,Security Master,read-only
+RDR-CAL_DDFF_MEX,Contacts,editable
+RDR-CAL_DDFF_MEX,Entities,editable
+RDR-CAL_DDFF_MEX,Instructions,editable
+RDR-CAL_DDFF_MEX,Internal Organization,editable
+RDR-CAL_DDFF_MEX,Legal Agreements,editable
+RDR-CAL_DDFF_MEX,Master Data,editable
+RDR-CAL_DDFF_MEX,Miscellaneous,editable
+RDR-CAL_DDFF_MEX,Issue,read-only
+RDR-CAL_VALORES_MEX,Entities,read-only
+RDR-CAL_VALORES_MEX,Instructions,read-only
+RDR-CAL_VALORES_MEX,Issue,read-only
+RDR-ON_SITE,Contacts,read-only
+RDR-ON_SITE,Entities,read-only
+RDR-ON_SITE,Instructions,read-only
+RDR-ON_SITE,Legal Agreements,read-only
+RDR-SSI_CONSULTA,Contacts,read-only
+RDR-SSI_CONSULTA,Instructions,read-only
+RDR-SSI_DDFF_ESP,Contacts,editable
+RDR-SSI_DDFF_ESP,Instructions,editable
+RDR-SSI_DDFF_ESP,Corporate Actions,read-only
+RDR-SSI_DDFF_ESP,Entities,read-only
+RDR-SSI_DDFF_ESP,Exception Management,read-only
+RDR-SSI_DDFF_ESP,Generic Setup,read-only
+RDR_Agreements,Legal Agreements,editable
+RDR_Agreements_Consulta,Legal Agreements,read-only
+RDR_ROLE_BSI,Legal Agreements,editable
+RDR_Securities,Corporate Actions,editable
+RDR_Securities,Entities,editable
+RDR_Securities,Internal Organization,editable
+RDR_Securities,Issue,editable
+RDR_Securities,Legal Agreements,editable
+RDR_Securities,Master Data,editable
+RDR_Securities,Miscellaneous,editable
+RDR_Securities,Security Master,editable
+RDR_Securities_Consulta,Corporate Actions,read-only
+RDR_Securities_Consulta,Issue,read-only
+RDR_Securities_Consulta,Security Master,read-only
+RDR_Securities_MEX,Issue,editable
+RDR_readonly,Corporate Actions,read-only
+RDR_readonly,Customer Master,read-only
+RDR_readonly,Entities,read-only
+RDR_readonly,Exception Management,read-only
+RDR_readonly,Generic Setup,read-only
+RDR_readonly,Internal Organization,read-only
+RDR_readonly,Issue,read-only
+RDR_readonly,Legal Agreements,read-only
+RDR_readonly,Master Data,read-only
+RDR_readonly,Miscellaneous,read-only
+RDR_readonly,My WorkList,read-only
+RDR_readonly,Security Master,read-only
+RoleMaintenance,Admin,editable
+UserMaintenance,Admin,editable
+UserRoleMaintenance,Admin,editable
+administrators,Accounts,editable
+administrators,Admin,editable
+administrators,Benchmark Master,editable
+administrators,Contacts,editable
+administrators,Corporate Actions,editable
+administrators,Customer Master,editable
+administrators,Data Lineage,editable
+administrators,Data Quality,editable
+administrators,Data Staging,editable
+administrators,Entities,editable
+administrators,Exception Management,editable
+administrators,Generic Setup,editable
+administrators,Instructions,editable
+administrators,Internal Organization,editable
+administrators,Issue,editable
+administrators,Legal Agreements,editable
+administrators,Master Data,editable
+administrators,Miscellaneous,editable
+administrators,My WorkList,editable
+administrators,Prueba,editable
+administrators,Security Master,editable
+administrators,tabReports,editable
+ilog,Benchmark Master,editable
+ilog,Corporate Actions,editable
+ilog,Customer Master,editable
+ilog,Data Lineage,editable
+ilog,Data Quality,editable
+ilog,Data Staging,editable
+ilog,Exception Management,editable
+ilog,Generic Setup,editable
+ilog,Miscellaneous,editable
+ilog,My WorkList,editable
+ilog,Security Master,editable
+pricing,Benchmark Master,editable
+pricing,Corporate Actions,editable
+pricing,Customer Master,editable
+pricing,Data Lineage,editable
+pricing,Data Quality,editable
+pricing,Data Staging,editable
+pricing,Exception Management,editable
+pricing,Generic Setup,editable
+pricing,Miscellaneous,editable
+pricing,My WorkList,editable
+pricing,Security Master,editable
+readonly,Accounts,editable
+readonly,Benchmark Master,editable
+readonly,Contacts,editable
+readonly,Corporate Actions,editable
+readonly,Customer Master,editable
+readonly,Data Lineage,editable
+readonly,Data Quality,editable
+readonly,Data Staging,editable
+readonly,Entities,editable
+readonly,Exception Management,editable
+readonly,Generic Setup,editable
+readonly,Instructions,editable
+readonly,Internal Organization,editable
+readonly,Issue,editable
+readonly,Legal Agreements,editable
+readonly,Master Data,editable
+readonly,Miscellaneous,editable
+readonly,My WorkList,editable
+readonly,Security Master,editable
+trillium,Benchmark Master,editable
+trillium,Corporate Actions,editable
+trillium,Customer Master,editable
+trillium,Data Lineage,editable
+trillium,Data Quality,editable
+trillium,Data Staging,editable
+trillium,Exception Management,editable
+trillium,Generic Setup,editable
+trillium,Miscellaneous,editable
+trillium,My WorkList,editable
+trillium,Security Master,editable
+users,Benchmark Master,editable
+users,Corporate Actions,editable
+users,Customer Master,editable
+users,Data Lineage,editable
+users,Data Quality,editable
+users,Data Staging,editable
+users,Exception Management,editable
+users,Generic Setup,editable
+users,Miscellaneous,editable
+users,My WorkList,editable
+users,Security Master,editable
+users,Accounts,read-only
+users,Contacts,read-only
+users,Entities,read-only
+users,Instructions,read-only
+users,Internal Organization,read-only
+users,Issue,read-only
+users,Legal Agreements,read-only
+users,Master Data,read-only
+users_Static_Data,Contacts,editable
+users_Static_Data,Entities,editable
+users_Static_Data,Exception Management,editable
+users_Static_Data,Generic Setup,editable
+users_Static_Data,Instructions,editable
+users_Static_Data,Internal Organization,editable
+users_Static_Data,Issue,editable
+users_Static_Data,Legal Agreements,editable
+users_Static_Data,Master Data,editable
+users_Static_Data,Miscellaneous,editable
+users_Static_Data,Security Master,editable
+users_Static_Data,Corporate Actions,read-only
+users_Static_Data,My WorkList,read-only
