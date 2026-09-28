@@ -4,3 +4,7 @@
 # llega vía merge desde otra rama) — la da el mecanismo de sincronización con nfq, que solo
 # transplanta las rutas salidas/ y memoria/, nunca la rama completa. Ver "Modelo de ramas" en
 # .github/copilot-instructions.md.
+
+# Worktrees locales creados por el harness de Claude Code para agentes en segundo plano —
+# infraestructura de sesión, no contenido del repositorio.
+.claude/

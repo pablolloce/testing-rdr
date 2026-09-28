@@ -1,0 +1,223 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">SendMailReportv2</comment>
+<description id="2">Send a mail with a file attachment</description>
+<endNode id="3">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="4">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="5">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="6" type="java.util.HashSet">
+<item id="7" type="com.j2fe.workflow.definition.Transition">
+<name id="8">goto-next</name>
+<source id="9">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="10">Send mail Report</name>
+<nodeHandler>com.j2fe.general.activities.EMAIL</nodeHandler>
+<nodeHandlerClass id="11">com.j2fe.general.activities.EMAIL</nodeHandlerClass>
+<parameters id="12" type="java.util.HashSet">
+<item id="13" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="14">attachmentsMimeType</name>
+<objectValue id="15" type="java.lang.String">application/csv</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="16" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="17">attachmentsName[0]</name>
+<stringValue id="18">Report.csv</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="19" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="20">[0]@java/io/File@</UITypeHint>
+<input>true</input>
+<name id="21">attachments[0]</name>
+<stringValue id="22">File</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="23" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="24">emailText</name>
+<stringValue id="25">Informe adjunto</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="26" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="27">from</name>
+<stringValue id="28">moca.users.es@bbva.com</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="29" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="30">recipients[0]</name>
+<stringValue id="31">r.plaza.guijarro@bbva.com</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="32" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="33">recipients[1]</name>
+<stringValue id="34">rdr_factory@bbva.com</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="35" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="36">recipients[2]</name>
+<stringValue id="37">cesar.castillo@bbva.com</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="38" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="39">recipients[3]</name>
+<stringValue id="40">miguel.munoz@bbva.com</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="41" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="42">session</name>
+<stringValue id="43">email/MailSession</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="44" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="45">subject</name>
+<stringValue id="46">Informe diario carga contrapartidas</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="47" type="java.util.HashSet">
+<item id="48" type="com.j2fe.workflow.definition.Transition">
+<name id="49">goto-next</name>
+<source id="50">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="51">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="52">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="53" type="java.util.HashSet">
+</sources>
+<targets id="54" type="java.util.HashSet">
+<item idref="48"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="9"/>
+</item>
+</sources>
+<targets id="55" type="java.util.HashSet">
+<item idref="7"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="3"/>
+</item>
+</sources>
+<targets id="56" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="57">Custom/RDR/Reports/Load</group>
+<haltOnError>true</haltOnError>
+<lastChangeUser id="58">kytl_gc</lastChangeUser>
+<lastUpdate id="59">2022-10-31T17:32:18.000+0100</lastUpdate>
+<name id="60">SendMailReport</name>
+<optimize>true</optimize>
+<parameter id="61" type="java.util.HashMap">
+<entry>
+<key id="62" type="java.lang.String">File</key>
+<value id="63" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="64">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="65">File Report.csv</description>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="66" type="java.lang.String">File2</key>
+<value id="67" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="68">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="69">Fichero de integrado</description>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="70" type="java.lang.String">File3</key>
+<value id="71" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="72">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="73">Fichero preproduccion</description>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="74" type="java.lang.String">File4</key>
+<value id="75" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="76">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="77">Fichero produccion</description>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="78" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="50"/>
+<status>RELEASED</status>
+<variables id="79" type="java.util.HashMap">
+<entry>
+<key id="80" type="java.lang.String">File</key>
+<value id="81" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="82">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="83">File Report.csv</description>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="84" type="java.lang.String">File2</key>
+<value id="85" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="86">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="87">Fichero de integrado</description>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="88" type="java.lang.String">File3</key>
+<value id="89" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="90">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="91">Fichero preproduccion</description>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="92" type="java.lang.String">File4</key>
+<value id="93" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="94">java.io.File</className>
+<clazz>java.io.File</clazz>
+<description id="95">Fichero produccion</description>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>16</version>
+</com.j2fe.workflow.definition.Workflow>

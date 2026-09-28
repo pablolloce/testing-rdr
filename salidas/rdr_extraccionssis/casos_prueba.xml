@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_EXTRACCIONSSIS" fecha="2026-09-23" usuario="miguel.saavedra">
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ejecución diaria estándar con SSIs válidas</nombre>
+    <objetivo>Verificar que la cadena genera correctamente el XML de contingencia con el detalle de las SSIs vigentes, siguiendo el flujo completo de extracción e historificación.</objetivo>
+    <precondiciones>
+      <precondicion>La cadena KYTL0000-RDR_EXTRACCIONSSIS está planificada y activa para el día de ejecución (domingo a jueves).</precondicion>
+      <precondicion>Existen al menos 3 registros en FT_T_SSIS con DATA_STAT_TYP='ACTIVE', END_TMS nulo, y sin asignación BRANCH a la organización A15 en FT_T_SSIA.</precondicion>
+      <precondicion>Cada una de esas 3 SSIs tiene al menos una fila en FT_T_SSIR con DATA_STAT_TYP='ACTIVE'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500001, 500002, 500003"/>
+      <dato campo="FT_T_SSIS.DATA_STAT_TYP" valor="ACTIVE"/>
+      <dato campo="FT_T_SSIS.END_TMS" valor="NULL"/>
+      <dato campo="Fecha de ejecución" valor="2026-09-27 (domingo)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que GS_EXTRACCION_CONT se dispara después de las 04:00 AM sin predecesores.</paso>
+      <paso numero="2">Verificar en el log de GSProcess.sh que ExtraccionSSIs.sql devuelve exactamente los 3 SSI_OID esperados (500001, 500002, 500003) y ninguno adicional.</paso>
+      <paso numero="3">Verificar que ExtraccionContingenciaSSIs.xml.tmp contiene 3 bloques SettInstruction, uno por cada SSI_OID.</paso>
+      <paso numero="4">Confirmar que EXTRACCION_SSIS_XML_INACT y EXTRACCION_SSIS_XML finalizan en OK sin ejecutar comando de sistema operativo.</paso>
+      <paso numero="5">Confirmar que MEKYTL1024 mueve el fichero a backup/ExtraccionContingenciaSSIS_20260927.xml.</paso>
+      <paso numero="6">Abrir el XML resultante y validar que cada SettInstruction contiene los campos ActualDate, StartDate, Status, PartyId, SettMethod y al menos un bloque Participants con PartyId, Role y SecondRole poblados.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero backup/ExtraccionContingenciaSSIS_20260927.xml existe, contiene exactamente 3 bloques SettInstruction bien formados, y la cadena completa finaliza en OK.</resultadoEsperado>
+    <tipoValidacion>Validación funcional de extremo a extremo sobre fichero de salida y estados de job en Control-M.</tipoValidacion>
+    <criterioAceptacion>El XML es válido (bien formado), contiene los 3 SSI_OID esperados y ningún job de la cadena termina en NOTOK.</criterioAceptacion>
+    <posibilidadFallo>Si alguna SSI queda excluida indebidamente o el XML resulta mal formado, el caso falla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Exclusión de SSI asignada exclusivamente a BRANCH/A15</nombre>
+    <objetivo>Verificar que la query maestra excluye correctamente del procesamiento cualquier SSI con asignación de tipo BRANCH a la organización A15.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una SSI (SSI_OID=500004) con DATA_STAT_TYP='ACTIVE', END_TMS nulo, y una fila en FT_T_SSIA con SSI_ASSIGN_PURP_TYP='BRANCH' y ORG_ID='A15'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500004"/>
+      <dato campo="FT_T_SSIA.SSI_ASSIGN_PURP_TYP" valor="BRANCH"/>
+      <dato campo="FT_T_SSIA.ORG_ID" valor="A15"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar/confirmar la fila de asignación BRANCH/A15 para SSI_OID=500004 en FT_T_SSIA.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="3">Revisar la lista de SSI_OID devuelta por ExtraccionSSIs.sql (log o traza del jar).</paso>
+      <paso numero="4">Buscar en el XML resultante un bloque SettInstruction correspondiente a SSI_OID=500004.</paso>
+    </pasos>
+    <resultadoEsperado>SSI_OID=500004 no aparece en la lista de OIDs a procesar ni en el XML resultante.</resultadoEsperado>
+    <tipoValidacion>Validación de regla de negocio (filtro NOT EXISTS de la query maestra).</tipoValidacion>
+    <criterioAceptacion>Ausencia total de referencia a SSI_OID=500004 en el fichero de salida, sin que la cadena falle.</criterioAceptacion>
+    <posibilidadFallo>Si SSI_OID=500004 aparece en el XML, el filtro de exclusión no funciona como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo del job disparador GS_EXTRACCION_CONT</nombre>
+    <objetivo>Verificar que un fallo en la ejecución de GSProcess.sh (por ejemplo, por indisponibilidad de la base de datos Oracle) detiene la cadena y no permite avanzar a los jobs sucesores.</objetivo>
+    <precondiciones>
+      <precondicion>Es posible simular en entorno de pruebas la indisponibilidad de la conexión a la base de datos que usa GSProcess.sh/ExtraccionGenericaOtherEntities.jar.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición forzada" valor="Conexión Oracle no disponible durante la ejecución de GS_EXTRACCION_CONT"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar la indisponibilidad de la conexión a la base de datos justo antes de que GS_EXTRACCION_CONT invoque GSProcess.sh.</paso>
+      <paso numero="2">Dejar que Control-M dispare GS_EXTRACCION_CONT en su ventana normal.</paso>
+      <paso numero="3">Verificar el código de salida del job en Control-M.</paso>
+      <paso numero="4">Verificar el estado de EXTRACCION_SSIS_XML_INACT (debe permanecer en espera, sin ejecutarse).</paso>
+    </pasos>
+    <resultadoEsperado>GS_EXTRACCION_CONT finaliza en NOTOK; el evento RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK no se genera; EXTRACCION_SSIS_XML_INACT no se dispara; se activa la criticidad S configurada (aviso al día siguiente incluso si es festivo).</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de errores y propagación de estado de fallo en Control-M.</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior a GS_EXTRACCION_CONT se ejecuta tras el fallo, y el job queda marcado en NOTOK.</criterioAceptacion>
+    <posibilidadFallo>Si la cadena avanza pese al fallo del disparador, el manejo de errores está roto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Límite exacto de purga de 7 días en MANT_RDR_EXTRACCION_SSIS</nombre>
+    <objetivo>Verificar el comportamiento exacto de find -mtime +7 en el borde de 7 días de antigüedad.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio backup/ contiene tres ficheros de prueba con fechas de modificación controladas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero A" valor="ExtraccionContingenciaSSIS_TEST_A.xml, mtime = hoy - 6 días"/>
+      <dato campo="Fichero B" valor="ExtraccionContingenciaSSIS_TEST_B.xml, mtime = hoy - 7 días exactos"/>
+      <dato campo="Fichero C" valor="ExtraccionContingenciaSSIS_TEST_C.xml, mtime = hoy - 8 días"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar los 3 ficheros de prueba en backup/ con los mtime indicados (usando touch -d).</paso>
+      <paso numero="2">Ejecutar MANT_RDR_EXTRACCION_SSIS (o el comando find ... -mtime +7 -exec rm -r {} \; de forma aislada en entorno de pruebas).</paso>
+      <paso numero="3">Listar el contenido de backup/ tras la ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero A (6 días) permanece; el fichero C (8 días) se elimina. El fichero B (exactamente 7 días) se conserva, dado que -mtime +7 selecciona ficheros con más de 7 días completos de antigüedad (estrictamente mayor que 7), no igual a 7.</resultadoEsperado>
+    <tipoValidacion>Validación de comportamiento exacto de comando de sistema operativo (find -mtime).</tipoValidacion>
+    <criterioAceptacion>Tras la ejecución, backup/ contiene los ficheros A y B, y no contiene el fichero C.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero B se elimina o el fichero C se conserva, el comportamiento del borde no coincide con la semántica documentada de find -mtime +7.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Duplicidad de bloques Parties por ausencia de DISTINCT en Participants</nombre>
+    <objetivo>Confirmar el comportamiento documentado: dos filas ACTIVE en FT_T_SSIR para el mismo participante y la misma SSI generan dos bloques Parties duplicados en el XML, sin deduplicación.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una SSI (SSI_OID=500005) con DATA_STAT_TYP='ACTIVE', END_TMS nulo, sin asignación BRANCH/A15.</precondicion>
+      <precondicion>FT_T_SSIR contiene dos filas ACTIVE para SSI_OID=500005 con el mismo INST_MNEM (mismo participante), una con FINSRL_TYP='SELLER' y otra con FINSRL_TYP='BUYER'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500005"/>
+      <dato campo="FT_T_SSIR fila 1" valor="INST_MNEM=PARTY01, FINSRL_TYP=SELLER, DATA_STAT_TYP=ACTIVE"/>
+      <dato campo="FT_T_SSIR fila 2" valor="INST_MNEM=PARTY01, FINSRL_TYP=BUYER, DATA_STAT_TYP=ACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las dos filas ACTIVE descritas en FT_T_SSIR para SSI_OID=500005.</paso>
+      <paso numero="2">Ejecutar la cadena completa hasta la generación del XML.</paso>
+      <paso numero="3">Localizar el bloque SettInstruction correspondiente a SSI_OID=500005 en el XML.</paso>
+      <paso numero="4">Contar los bloques Parties dentro de Participants cuyo PartyId corresponde a PARTY01.</paso>
+    </pasos>
+    <resultadoEsperado>El bloque SettInstruction de SSI_OID=500005 contiene exactamente 2 bloques Parties para el mismo PartyId (PARTY01), uno con Role=SELLER y otro con Role=BUYER, sin deduplicación ni error.</resultadoEsperado>
+    <tipoValidacion>Validación de comportamiento confirmado del código fuente (ausencia de DISTINCT/GROUP BY en la subquery de Participants).</tipoValidacion>
+    <criterioAceptacion>Se observan exactamente 2 bloques Parties duplicados para PARTY01, confirmando el comportamiento documentado como hallazgo técnico en spec.md §6/§9.</criterioAceptacion>
+    <posibilidadFallo>Si solo aparece 1 bloque Parties, el comportamiento real difiere del confirmado por lectura de código y la especificación debe revisarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Sobrescritura silenciosa del backup ante reejecución en el mismo día</nombre>
+    <objetivo>Confirmar que una segunda ejecución de la cadena en el mismo día de calendario sobrescribe sin aviso el backup generado por la primera ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>La cadena ya se ejecutó con éxito una vez en el día de prueba, generando backup/ExtraccionContingenciaSSIS_20260928.xml con contenido conocido (3 SettInstruction, ver TC-001).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero backup existente" valor="ExtraccionContingenciaSSIS_20260928.xml con 3 SettInstruction (SSI_OID 500001, 500002, 500003)"/>
+      <dato campo="Segunda ejecución" valor="Solo SSI_OID=500001 activa en el momento de la reejecución (500002 y 500003 dados de baja entre ejecuciones)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar el contenido del backup de la primera ejecución (3 SettInstruction).</paso>
+      <paso numero="2">Dar de baja (END_TMS no nulo) las SSIs 500002 y 500003 en FT_T_SSIS.</paso>
+      <paso numero="3">Forzar una segunda ejecución manual de la cadena completa el mismo día de calendario.</paso>
+      <paso numero="4">Tras la segunda ejecución de MEKYTL1024, inspeccionar backup/ExtraccionContingenciaSSIS_20260928.xml.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero backup/ExtraccionContingenciaSSIS_20260928.xml queda sobrescrito con el contenido de la segunda ejecución (solo SSI_OID=500001), perdiéndose sin aviso ni error el contenido original de la primera ejecución (SSI_OID 500002 y 500003).</resultadoEsperado>
+    <tipoValidacion>Validación de riesgo de integridad confirmado (mv sin comprobación de existencia previa, nombre de fichero basado solo en YYYYMMDD).</tipoValidacion>
+    <criterioAceptacion>El backup final solo contiene el SettInstruction de SSI_OID=500001, y MEKYTL1024 finaliza en OK sin ningún error ni aviso pese a la pérdida de información de la primera ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si el sistema conservara ambos backups o fallara la segunda ejecución, el hallazgo documentado en spec.md §9 quedaría invalidado y debería revisarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>SSIs con el mismo SettID pero distinto SSI_OID generan bloques independientes</nombre>
+    <objetivo>Verificar que la repetición deliberada del campo SettID (identificador alterno RDR, FT_T_SAI1) en varias SSIs no provoca ninguna deduplicación indebida a nivel de fichero: cada SSI_OID debe seguir generando su propio bloque SettInstruction.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 3 SSIs distintas (SSI_OID=500010, 500011, 500012), todas ACTIVE, sin BRANCH/A15, cada una con una fila en FT_T_SAI1 con DATA_SRC_ID='RDR' y el mismo valor de ALT_ID (SettID) = "RDR-SETTID-DUP-001".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500010, 500011, 500012"/>
+      <dato campo="FT_T_SAI1.DATA_SRC_ID" valor="RDR"/>
+      <dato campo="FT_T_SAI1.ALT_ID (SettID)" valor="RDR-SETTID-DUP-001 (repetido en las 3 SSIs)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar las 3 filas de FT_T_SAI1 con el mismo ALT_ID='RDR-SETTID-DUP-001' para los 3 SSI_OID indicados.</paso>
+      <paso numero="2">Ejecutar la cadena completa.</paso>
+      <paso numero="3">Contar en el XML resultante cuántos bloques SettInstruction existen con SettID='RDR-SETTID-DUP-001'.</paso>
+      <paso numero="4">Verificar que cada uno de esos bloques tiene un PartyId/contenido distinto correspondiente a su SSI_OID de origen.</paso>
+    </pasos>
+    <resultadoEsperado>El XML contiene exactamente 3 bloques SettInstruction distintos con SettID='RDR-SETTID-DUP-001', cada uno con el resto de campos correspondientes a su propia SSI_OID (500010, 500011, 500012 respectivamente) — no hay fusión ni pérdida de ninguno de los tres por compartir SettID.</resultadoEsperado>
+    <tipoValidacion>Validación de manejo de datos sintéticos repetidos deliberadamente en un campo no clave (SettID) para confirmar que la clave real de procesamiento es SSI_OID, no SettID.</tipoValidacion>
+    <criterioAceptacion>Los 3 bloques SettInstruction aparecen íntegros y diferenciados en el XML pese a compartir el mismo SettID.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso deduplicara por SettID en vez de por SSI_OID, alguna de las 3 SSIs faltaría en el XML resultante.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>KYTL003D_MEKYTL1025 y KYTL003D_MEKYTL1047 permanecen como Dummy tras republicación del plan</nombre>
+    <objetivo>Verificar que, tras una republicación o migración del plan Control-M, los jobs KYTL003D_MEKYTL1025 y KYTL003D_MEKYTL1047 no se reactivan accidentalmente como jobs OS, dado que ambos fueron jobs activos en el pasado y existe una directiva explícita de mantenerlos como Dummy.</objetivo>
+    <precondiciones>
+      <precondicion>KYTL003D_MEKYTL1025 y KYTL003D_MEKYTL1047 están configurados actualmente como Dummy en Control-M (confirmado en sesión de análisis).</precondicion>
+      <precondicion>Existe un evento de republicación de plan programado o disponible para pruebas (p. ej. tras un cambio de versión del folder).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipo de job esperado (KYTL003D_MEKYTL1025)" valor="Dummy"/>
+      <dato campo="Tipo de job esperado (KYTL003D_MEKYTL1047)" valor="Dummy"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Registrar el tipo de job actual de ambos jobs (Dummy) como línea base antes de la republicación.</paso>
+      <paso numero="2">Ejecutar la republicación/migración del plan Control-M sobre el folder KYTL0000-RDR_EXTRACCIONSSIS en el entorno de pruebas.</paso>
+      <paso numero="3">Tras la republicación, consultar de nuevo el tipo de job de KYTL003D_MEKYTL1025 y KYTL003D_MEKYTL1047 en la pestaña General/Prerrequisitos de Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs siguen apareciendo como tipo Dummy tras la republicación, sin ningún script ejecutable ni ruta física asociada.</resultadoEsperado>
+    <tipoValidacion>Prueba de regresión sobre configuración de tipo de job, motivada por el antecedente documentado de reactivación accidental.</tipoValidacion>
+    <criterioAceptacion>El tipo de job de ambos jobs coincide con la línea base (Dummy) después de la republicación.</criterioAceptacion>
+    <posibilidadFallo>Si alguno de los dos jobs aparece como tipo OS tras la republicación, se estaría ejecutando físicamente una lógica de historificación de CSV no validada ni mantenida, contradiciendo la directiva operativa vigente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ejecución end-to-end de la cadena completa en ventana real (domingo a jueves)</nombre>
+    <objetivo>Validar el funcionamiento completo de los 7 jobs de la cadena, desde el disparo horario hasta la purga final, en un día perteneciente a la ventana de planificación real confirmada.</objetivo>
+    <precondiciones>
+      <precondicion>El día de ejecución de prueba es domingo, lunes, martes, miércoles o jueves (ventana real confirmada; nunca viernes ni sábado).</precondicion>
+      <precondicion>Existen datos válidos en las tablas Oracle de origen para al menos 2 SSIs procesables.</precondicion>
+      <precondicion>El directorio backup/ contiene al menos un fichero de más de 7 días de antigüedad, para validar también la purga en la misma ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="2026-09-30 (miércoles)"/>
+      <dato campo="SSI_OID" valor="500020, 500021"/>
+      <dato campo="Fichero antiguo en backup/" valor="ExtraccionContingenciaSSIS_TEST_OLD.xml, mtime = hoy - 10 días"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que GS_EXTRACCION_CONT se dispara después de las 04:00 AM del 2026-09-30 y finaliza en OK, generando el evento RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK.</paso>
+      <paso numero="2">Confirmar que EXTRACCION_SSIS_XML_INACT se dispara reactivamente, finaliza en OK sin ejecutar comando, y genera su evento de salida.</paso>
+      <paso numero="3">Confirmar que EXTRACCION_SSIS_XML se dispara reactivamente tras el paso anterior, finaliza en OK y genera su evento de salida.</paso>
+      <paso numero="4">Confirmar que MEKYTL1024 mueve el XML temporal a backup/ExtraccionContingenciaSSIS_20260930.xml con los 2 SettInstruction esperados (SSI_OID 500020 y 500021).</paso>
+      <paso numero="5">Confirmar que KYTL003D_MEKYTL1025 se dispara reactivamente, no ejecuta ningún comando (tipo Dummy) y genera su evento de salida.</paso>
+      <paso numero="6">Confirmar que KYTL003D_MEKYTL1047 se dispara reactivamente tras el paso anterior, no ejecuta ningún comando (tipo Dummy) y genera su evento de salida.</paso>
+      <paso numero="7">Confirmar que MANT_RDR_EXTRACCION_SSIS se dispara solo tras recibir ambos eventos (KYTL003D_MEKYTL1025_OK y KYTL003D_MEKYTL1047_OK), ejecuta la purga y finaliza en OK.</paso>
+      <paso numero="8">Verificar que el fichero ExtraccionContingenciaSSIS_TEST_OLD.xml (10 días de antigüedad) ha sido eliminado de backup/, y que ExtraccionContingenciaSSIS_20260930.xml (recién generado) permanece.</paso>
+    </pasos>
+    <resultadoEsperado>Los 7 jobs finalizan en OK en el orden documentado; el XML del día contiene los 2 SettInstruction esperados; el fichero antiguo de más de 7 días ha sido purgado y el fichero recién generado permanece intacto.</resultadoEsperado>
+    <tipoValidacion>Validación end-to-end de la cadena completa: encadenamiento de eventos, contenido del XML generado y efecto de la purga en la misma ejecución.</tipoValidacion>
+    <criterioAceptacion>Los 7 jobs aparecen en estado OK en Control-M, el contenido del XML coincide exactamente con las SSIs de prueba, y el estado final de backup/ refleja tanto la nueva generación como la purga correcta.</criterioAceptacion>
+    <posibilidadFallo>Cualquier job en NOTOK, cualquier discrepancia en el contenido del XML, o cualquier fichero purgado/conservado incorrectamente invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+</casosDePrueba>

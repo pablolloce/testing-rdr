@@ -1,0 +1,327 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_emisiones_mercados" fecha="2026-09-22" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Cadena 1 — Conteo con todas las fuentes disponibles</nombre>
+    <objetivo>Verificar que, con las 5 fuentes disponibles, Cuenta_Emisiones.sh genera los 3 CSV de salida con conteos mayores que 0.</objetivo>
+    <precondiciones>
+      <precondicion>Los 5 ficheros de origen (RE, SHS, RIMS, MENTOR, PRIIPS) existen en sus rutas con la fecha del día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros_origen" valor="emisiones_DDMMYYYY.xml.gz, SHS_KSHS_RTV_YYYYMMDD_0001.XML.gz, Issues_RV_YYYY_MM_DD_*.xml, EmisoresRDR_YYYYMMDD.csv, EmisoresRDR_delta_YYYYMMDD.csv, todos presentes"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar los 5 ficheros de origen antes de las 23:40.</paso>
+      <paso numero="2">Esperar la ejecución de RDR_CUENTA_EMISIONES_IN y CUENTA_EMISIONES.</paso>
+      <paso numero="3">Inspeccionar Cuenta_Registros_MMYYYY.csv, Registros_Por_Destino_MMYYYY.csv y Emisiones_Emisores_Por_Destino.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 CSV contienen una línea para el día con conteos mayores que 0 en las columnas correspondientes a cada fuente disponible.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de los 3 CSV de salida.</tipoValidacion>
+    <criterioAceptacion>Conteos coherentes con el número real de registros &lt;Security&gt;/&lt;Typ&gt; de cada fichero de origen.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada con las 5 fuentes presentes.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Cadena 1 — Fichero RE no existe (escenario sábado)</nombre>
+    <objetivo>Confirmar que la ausencia de un único fichero de origen (RE) no bloquea el conteo del resto y se informa a 0.</objetivo>
+    <precondiciones>
+      <precondicion>El resto de fuentes (SHS, RIMS, MENTOR, PRIIPS) sí están disponibles.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="emisiones_DDMMYYYY.xml.gz" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero RE del día.</paso>
+      <paso numero="2">Ejecutar CUENTA_EMISIONES.</paso>
+      <paso numero="3">Inspeccionar las columnas RE TOTAL/OPCIONES/FUTUROS/WARRANTS/RESTO en Cuenta_Registros_MMYYYY.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Las columnas de RE quedan a 0 para el día; el resto de columnas (SHS, RIMS, MENTOR, PRIIPS) mantienen su conteo real.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido del CSV de salida.</tipoValidacion>
+    <criterioAceptacion>Columnas RE=0, resto con conteo correcto, job termina OK.</criterioAceptacion>
+    <posibilidadFallo>Comportamiento esperado y documentado (rama "if -f" de cuenta() en el script real).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="negativo">
+    <nombre>Cadena 1 — Ningún fichero de origen existe</nombre>
+    <objetivo>Confirmar que, sin ninguna fuente disponible, el job termina OK con todos los conteos a 0, sin bloquear la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguno de los 5 ficheros de origen se deposita ese día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros_origen" valor="ninguno presente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar ningún fichero de origen.</paso>
+      <paso numero="2">Ejecutar CUENTA_EMISIONES.</paso>
+      <paso numero="3">Inspeccionar Cuenta_Registros_MMYYYY.csv y Registros_Por_Destino_MMYYYY.csv.</paso>
+      <paso numero="4">Verificar que ENVIO_REPORTE_EMISIONES se ejecuta igualmente con el CSV a 0.</paso>
+    </pasos>
+    <resultadoEsperado>Todas las columnas de conteo quedan a 0; el job y la cadena terminan OK; el correo se envía igualmente con un reporte de conteos 0.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de los CSV + verificación de envío del correo.</tipoValidacion>
+    <criterioAceptacion>Conteos a 0 en todas las columnas, sin error real del script ni de la cadena.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: un reporte con todos los conteos a 0 podría pasar desapercibido como "sin actividad" en vez de alertar de una posible incidencia de disponibilidad de fuentes.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="duplicidad">
+    <nombre>Cadena 1 — Relanzamiento de CUENTA_EMISIONES el mismo día (RISK-EMIS-001)</nombre>
+    <objetivo>Confirmar el riesgo RISK-EMIS-001: un relanzamiento del job el mismo día duplica la línea del día en los CSV acumulativos.</objetivo>
+    <precondiciones>
+      <precondicion>CUENTA_EMISIONES ya se ejecutó con éxito una vez ese día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Cuenta_Registros_MMYYYY.csv" valor="ya contiene una línea para la fecha de hoy"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Relanzar manualmente CUENTA_EMISIONES el mismo día.</paso>
+      <paso numero="2">Inspeccionar Cuenta_Registros_MMYYYY.csv y Registros_Por_Destino_MMYYYY.csv tras el relanzamiento.</paso>
+      <paso numero="3">Contar el número de líneas con la fecha de hoy.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos CSV contienen dos líneas con la misma fecha (FECHA/DATE_FICH) tras el relanzamiento, sin ningún mensaje de error ni control de duplicidad.</resultadoEsperado>
+    <tipoValidacion>Conteo de líneas por fecha en ambos CSV.</tipoValidacion>
+    <criterioAceptacion>Se confirma la duplicidad como comportamiento As-Is real, documentado como RISK-EMIS-001, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de negocio: el reporte mensual acumulativo queda con datos duplicados sin alerta visible en Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Cadena 1 — Correo con asunto y adjunto incorrectos (DEF-EMIS-001)</nombre>
+    <objetivo>Confirmar el defecto DEF-EMIS-001: el correo real de ENVIO_REPORTE_EMISIONES sale con el asunto y el nombre de adjunto hardcodeados en el workflow, no con los que documenta la ficha funcional.</objetivo>
+    <precondiciones>
+      <precondicion>CUENTA_EMISIONES ejecutado con éxito y Emisiones_Emisores_Por_Destino.csv generado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Emisiones_Emisores_Por_Destino.csv" valor="válido, generado en la ejecución del día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ENVIO_REPORTE_EMISIONES.</paso>
+      <paso numero="2">Recibir el correo en el buzón de uno de los 4 destinatarios reales.</paso>
+      <paso numero="3">Inspeccionar el asunto y el nombre del fichero adjunto recibido.</paso>
+    </pasos>
+    <resultadoEsperado>El correo llega con asunto "Informe diario carga contrapartidas" y adjunto nombrado "Report.csv" (con el contenido correcto de Emisiones_Emisores_Por_Destino.csv), no con "Reporte cuenta Emisiones - Emisores" / Emisiones_Emisores_Por_Destino.csv como indica la ficha funcional.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del correo real recibido (asunto + nombre de adjunto).</tipoValidacion>
+    <criterioAceptacion>Se confirma la discrepancia real, documentada como DEF-EMIS-001, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: los destinatarios pueden ignorar o filtrar el correo por su asunto engañoso, o confundirlo con el proceso de "carga contrapartidas" real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="happy_path">
+    <nombre>Cadena 2 — Ejecución normal de extracción de emisiones vigentes (14:25)</nombre>
+    <objetivo>Verificar que una ejecución ordinaria de RDR_EXTRACCION_EMISIONES_new a las 14:25 completa la extracción y genera el evento de salida.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena programada y datos de origen del Planificador Genérico disponibles.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana" valor="14:25"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de RDR_EXTRACCION_EMISIONES_IN a las 14:25.</paso>
+      <paso numero="2">Verificar la ejecución de RDR_EXTRACCION_EMISIONES (GSProcess.sh planifGenerico).</paso>
+      <paso numero="3">Verificar el evento de salida y RDR_EXTRACCION_EMISIONES_OUT.</paso>
+    </pasos>
+    <resultadoEsperado>Extracción completada correctamente; se agrega el evento RDR_EXTRACCION_EMISIONES_new_EXTRACCION_EMISIONES_OK; la cadena cierra con RDR_EXTRACCION_EMISIONES_OUT en OK.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 3 jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs terminan OK sin incidencias.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Cadena 2 — 6 ejecuciones diarias generan 6 eventos OK independientes</nombre>
+    <objetivo>Confirmar que las 6 ventanas horarias de la Cadena 2 son ejecuciones independientes que generan 6 eventos OK a lo largo del día, sin interferencia entre sí.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena activa durante toda la jornada L-V.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventanas" valor="14:25, 15:25, 16:25, 17:25, 18:20, 18:40"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar correr la cadena en sus 6 ventanas programadas.</paso>
+      <paso numero="2">Contar el número de eventos RDR_EXTRACCION_EMISIONES_new_EXTRACCION_EMISIONES_OK generados ese día.</paso>
+    </pasos>
+    <resultadoEsperado>Se generan 6 eventos OK independientes, uno por cada ventana horaria, sin que ninguna ejecución bloquee o se salte a la siguiente.</resultadoEsperado>
+    <tipoValidacion>Conteo de eventos en el histórico de Control-M del día.</tipoValidacion>
+    <criterioAceptacion>Exactamente 6 eventos OK registrados ese día.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de regresión: cualquier ventana que no dispare por solapamiento con la anterior indicaría un problema de retención/relanzamiento.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="happy_path">
+    <nombre>Cadena 3 — Extracción de emisiones vencidas (09:25)</nombre>
+    <objetivo>Verificar la ejecución única diaria de RDR_EXTRACCION_EMISIONES_VENCIDAS_new.</objetivo>
+    <precondiciones>
+      <precondicion>Datos de emisiones vencidas disponibles para el Planificador Genérico.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana" valor="09:25"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de RDR_EXTRACCION_EMISIONES_VENCIDAS_IN a las 09:25.</paso>
+      <paso numero="2">Verificar RDR_EXTRACCION_EMISIONES_VENCIDAS y el evento de salida.</paso>
+      <paso numero="3">Verificar el cierre con RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT.</paso>
+    </pasos>
+    <resultadoEsperado>Extracción de emisiones vencidas completada OK a las 09:25, cadena cerrada correctamente.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 3 jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs terminan OK.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="happy_path">
+    <nombre>Cadena 4 — Fusión de emisiones (M-S 01:00 AM)</nombre>
+    <objetivo>Verificar la ejecución normal de GS_FUSION_EMISIONES.</objetivo>
+    <precondiciones>
+      <precondicion>Día de la semana dentro de M-S (Martes a Sábado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana" valor="01:00 AM"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de GS_FUSION_EMISIONES a la 01:00 AM.</paso>
+      <paso numero="2">Verificar la ejecución de ProcesoFusion.jar (clase proceso.ProcesoDeFusion).</paso>
+      <paso numero="3">Verificar el estado final del job.</paso>
+    </pasos>
+    <resultadoEsperado>ProcesoFusion.jar ejecuta correctamente; job termina OK.</resultadoEsperado>
+    <tipoValidacion>Estado OK del job en Control-M + log de ejecución del JAR.</tipoValidacion>
+    <criterioAceptacion>Job OK sin errores en el log.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="happy_path">
+    <nombre>Cadena 5 — 5 GSProcess secuenciales OK (Sábados 06:00)</nombre>
+    <objetivo>Verificar que los 5 sub-procesos de RDR_Procesar_Emisiones.sh se ejecutan secuencialmente sin error.</objetivo>
+    <precondiciones>
+      <precondicion>Día de ejecución = Sábado (configuración real de Control-M).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana" valor="06:00 AM, sábado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de KYTL_HISTORIFICACION_EMISIONES a las 06:00 AM del sábado.</paso>
+      <paso numero="2">Verificar la ejecución secuencial de los 5 pasos (crear índices, inactivar, historificar incremental, borrar &gt;40 días, borrar índices).</paso>
+      <paso numero="3">Verificar el código de salida final del script.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 pasos se ejecutan en orden y sin error; el script termina con exit 0.</resultadoEsperado>
+    <tipoValidacion>Log borrado_emisiones_YYYY-MM-DD.log sin errores + exit code del job.</tipoValidacion>
+    <criterioAceptacion>Exit 0, log sin la cadena "error", los 5 pasos ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="error_funcional">
+    <nombre>Cadena 5 — Fallo en el paso 1 (crear índices) detiene los pasos 2-5</nombre>
+    <objetivo>Confirmar que un fallo real en el primer sub-proceso impide la ejecución de los 4 siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Condición forzada para que RDR_CrearIndices_Emisiones falle (p. ej. BBDD no disponible, simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="paso_1" valor="forzado a fallar (exit≠0)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo del paso 1.</paso>
+      <paso numero="2">Ejecutar KYTL_HISTORIFICACION_EMISIONES.</paso>
+      <paso numero="3">Verificar el código de salida del script y si los pasos 2-5 llegaron a ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>El script sale con exit -2 inmediatamente tras el fallo del paso 1; los pasos 2, 3, 4 y 5 no se ejecutan.</resultadoEsperado>
+    <tipoValidacion>Exit code del job + ausencia de logs/evidencia de ejecución de los pasos 2-5.</tipoValidacion>
+    <criterioAceptacion>Exit -2 y pasos 2-5 confirmados como no ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Cadena 5 — Paso 3 con "error" en el log detiene los pasos 4-5</nombre>
+    <objetivo>Confirmar que la detección de la cadena "error" en el log del paso 3 (no solo el exit code) detiene la ejecución de los pasos siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Pasos 1 y 2 ejecutan correctamente.</precondicion>
+      <precondicion>Condición forzada para que el log del paso 3 (RDR_Emisiones_PLSQL_INCR) contenga la cadena "error" aunque el exit code sea 0.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="log_paso_3" valor="contiene la cadena 'error' (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que el log del paso 3 contenga "error".</paso>
+      <paso numero="2">Ejecutar KYTL_HISTORIFICACION_EMISIONES.</paso>
+      <paso numero="3">Verificar el código de salida del script y si los pasos 4 y 5 llegaron a ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>El script sale con exit -2 tras detectar "error" en el log del paso 3, aunque el exit code del paso en sí fuera 0; los pasos 4 y 5 no se ejecutan.</resultadoEsperado>
+    <tipoValidacion>Exit code del job + inspección del log + ausencia de evidencia de ejecución de los pasos 4-5.</tipoValidacion>
+    <criterioAceptacion>Exit -2 y pasos 4-5 confirmados como no ejecutados, pese a que el paso 3 no falló por exit code.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: confirma el control de calidad basado en contenido del log, no solo en exit code.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="happy_path">
+    <nombre>Cadena 6 — Fichero de mercados llega a tiempo (happy path)</nombre>
+    <objetivo>Verificar el ciclo completo de la Cadena 6 cuando dictionaryMarkets.csv llega dentro de la ventana del filewatcher.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena arrancada a las 02:00 AM (RDR_MARKETS_EXT_IN).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dictionaryMarkets.csv" valor="depositado en /fichtemcomp/pr/descargas/kytl/markets/ dentro de la ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar dictionaryMarkets.csv dentro de la ventana del filewatcher.</paso>
+      <paso numero="2">Verificar que RDR_MARKETS_EXTRAC_FW detecta el fichero (código de retorno 0).</paso>
+      <paso numero="3">Verificar la ejecución de MEKYTL0857 (RAMERC0068.sh).</paso>
+      <paso numero="4">Verificar la presencia del fichero historificado en /Backup/.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_MARKETS_EXTRAC_FW termina OK (código 0) y agrega el evento de continuidad; MEKYTL0857 ejecuta e historifica el fichero a dictionaryMarkets_DDMMYYYY.csv en /Backup/; se agrega el evento RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new.</resultadoEsperado>
+    <tipoValidacion>Estado OK de ambos jobs + presencia del fichero historificado en /Backup/.</tipoValidacion>
+    <criterioAceptacion>Fichero historificado presente con el naming correcto, ambos jobs OK.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="negativo">
+    <nombre>Cadena 6 — Fichero de mercados no llega (timeout, soft-failure acotado GAP-EMIS-008)</nombre>
+    <objetivo>Confirmar el comportamiento real del soft-failure acotado de RDR_MARKETS_EXTRAC_FW ante timeout.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena arrancada a las 02:00 AM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dictionaryMarkets.csv" valor="no se deposita dentro de la ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar dictionaryMarkets.csv dentro de la ventana.</paso>
+      <paso numero="2">Esperar el timeout del filewatcher (parámetros CREATE 0 60 10 5 60).</paso>
+      <paso numero="3">Verificar el código de retorno OS real y el estado final del job.</paso>
+      <paso numero="4">Verificar si MEKYTL0857 llega a ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_MARKETS_EXTRAC_FW retorna código de retorno de OS = 7 (timeout); Control-M lo marca como OK igualmente (soft-failure acotado a ese código específico); MEKYTL0857 NO se ejecuta (no se agrega el evento de continuidad); no hay historificación ese día.</resultadoEsperado>
+    <tipoValidacion>Código de retorno del job + estado final en Control-M + ausencia de ejecución de MEKYTL0857.</tipoValidacion>
+    <criterioAceptacion>Job marcado OK pese a código de retorno 7, MEKYTL0857 confirmado como no ejecutado, confirmando el patrón acotado documentado (GAP-EMIS-008).</criterioAceptacion>
+    <posibilidadFallo>Resultado esperado y correcto según la evidencia real capturada; un código de retorno distinto de 0 o 7 indicaría un escenario no cubierto por el soft-failure y debería propagarse como KO real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="happy_path">
+    <nombre>Cadena 7 — Publicación selectiva de emisiones (M-S 03:00 AM)</nombre>
+    <objetivo>Verificar la ejecución normal de PUBLICACIONSELECTIVA_EMISIONES y el disparo del Workflow RDR_SelectivePublish.</objetivo>
+    <precondiciones>
+      <precondicion>Día de la semana dentro de M-S (Martes a Sábado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ventana" valor="03:00 AM"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de PUBLICACIONSELECTIVA_EMISIONES a las 03:00 AM.</paso>
+      <paso numero="2">Verificar el disparo del Workflow RDR_SelectivePublish con filtro IS_PUBLISH.</paso>
+      <paso numero="3">Verificar el estado final del job.</paso>
+    </pasos>
+    <resultadoEsperado>El Workflow RDR_SelectivePublish ejecuta correctamente aplicando el filtro IS_PUBLISH; job termina OK.</resultadoEsperado>
+    <tipoValidacion>Estado OK del job en Control-M + log de ejecución del Workflow.</tipoValidacion>
+    <criterioAceptacion>Job OK, publicación selectiva confirmada.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="conflicto_integridad">
+    <nombre>Cadena 6 — El naming cruzado "BASKETS" del evento de MEKYTL0857 no colisiona con Cesión de Cestas a Abaco</nombre>
+    <objetivo>Confirmar que, pese a compartir literal "BASKETS" en el nombre del evento, el evento RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new de la Cadena 6 no interfiere ni se confunde con los eventos reales de la cadena RDR_BASKETS_ABACO (Cesión de Cestas a Abaco).</objetivo>
+    <precondiciones>
+      <precondicion>Ambas cadenas (RDR_MARKETS_EXTRACCION_new y RDR_BASKETS_ABACO) activas y programadas en el mismo entorno.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="eventos" valor="RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new (Cadena 6) vs. eventos reales de RDR_BASKETS_ABACO"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0857 (Cadena 6) y confirmar el nombre exacto del evento agregado.</paso>
+      <paso numero="2">Verificar en Control-M que ningún job de la cadena RDR_BASKETS_ABACO tiene como prerrequisito ese evento.</paso>
+      <paso numero="3">Verificar que ningún job de RDR_MARKETS_EXTRACCION_new espera eventos reales de RDR_BASKETS_ABACO.</paso>
+    </pasos>
+    <resultadoEsperado>El evento RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new pertenece exclusivamente al folder KYTL0000-RDR_MARKETS_EXTRACCION_new; ningún job de otra cadena lo consume como prerrequisito; no hay colisión funcional pese a la coincidencia de nomenclatura.</resultadoEsperado>
+    <tipoValidacion>Revisión de prerrequisitos (Espera a Eventos) de todos los jobs de ambas cadenas en Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin dependencias cruzadas reales entre ambas cadenas pese al naming compartido.</criterioAceptacion>
+    <posibilidadFallo>Riesgo documental/operativo: un operador podría confundir ambos eventos en monitorización manual por el nombre compartido, aunque no haya riesgo técnico de colisión de flujo.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

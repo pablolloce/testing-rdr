@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_generica_contrapartidas" fecha="2026-09-22" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Núcleo común: generación, filewatchers y unión de ficheros (las 3 cadenas)</nombre>
+    <objetivo>Verificar que las 3 cadenas detectan correctamente ThirdParties.xml y ExtraccionContingencia.xml y los unen en un único XML.</objetivo>
+    <precondiciones>
+      <precondicion>ThirdParties.xml y ExtraccionContingencia.xml generados correctamente a las 00:05 por los jars correspondientes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ThirdParties.xml" valor="válido, generado por ExtraccionGenericaOtherEntities.jar"/>
+      <dato campo="ExtraccionContingencia.xml" valor="válido, generado por ExtraccionGenericaCPTY.jar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la generación de ambos ficheros a las 00:05.</paso>
+      <paso numero="2">Para cada una de las 3 cadenas, esperar su disparador propio (MEKYTL0334 en _new; MONITOR_BKYTL001_505-606 en las 2 semanales) en su ventana correspondiente.</paso>
+      <paso numero="3">Verificar que DAILY_THIRDPARTIES_FW y DAILY_EXTRACCION_CONTINGENCIA_FW detectan ambos ficheros.</paso>
+      <paso numero="4">Verificar que DAILY_UNION_FICHEROS genera el XML unificado.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 cadenas detectan ambos ficheros dentro de su ventana y generan el XML unificado correctamente, con el mismo comportamiento en las 3.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los filewatchers y de DAILY_UNION_FICHEROS en las 3 cadenas + verificación de contenido del XML unificado.</tipoValidacion>
+    <criterioAceptacion>Las 3 cadenas completan el núcleo común sin incidencias.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Pipeline de validación XSLT/XSD y generación de los 2 ficheros finales</nombre>
+    <objetivo>Verificar el comportamiento real del pipeline de validación añadido el 18/10/2025, incluyendo la diferencia entre VALIDACION_EXTRACCION real (_new) y DUMMY (las 2 semanales).</objetivo>
+    <precondiciones>
+      <precondicion>XML unificado generado correctamente (TC-001).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="XML unificado" valor="válido, conforme al esquema XSD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_XSLT_CPARTY y RDR_Validacion_XSD_CPARTY en cada una de las 3 cadenas.</paso>
+      <paso numero="2">En _new, verificar que VALIDACION_EXTRACCION ejecuta realmente y genera los 2 ficheros finales.</paso>
+      <paso numero="3">En _FINSEM_S_new y _FINSEM_D_new, verificar que VALIDACION_EXTRACCION es DUMMY y que los 2 ficheros finales ya existen antes de su ejecución (generados por el pipeline XSD/XSLT previo).</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 cadenas generan KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml (sin ratings) y KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml (con ratings); VALIDACION_EXTRACCION se comporta como job real solo en _new.</resultadoEsperado>
+    <tipoValidacion>Verificación de presencia y contenido de ambos ficheros finales + confirmación del tipo de job (real/DUMMY) de VALIDACION_EXTRACCION en cada cadena.</tipoValidacion>
+    <criterioAceptacion>Ambos ficheros generados correctamente en las 3 cadenas, comportamiento de VALIDACION_EXTRACCION coherente con lo documentado por cadena.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="happy_path">
+    <nombre>Ciclo completo de RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new (única cadena 100% documentada)</nombre>
+    <objetivo>Verificar el ciclo end-to-end completo de la cadena semanal de sábado, desde el disparador hasta los 5 destinos finales.</objetivo>
+    <precondiciones>
+      <precondicion>Núcleo común completado (TC-001, TC-002).</precondicion>
+      <precondicion>Cadena externa Fircosoft (MEKYTL1261_S) disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros_finales" valor="ambos generados correctamente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar la ejecución de MEKYTL0808 (S3 DataHub CIB) y MEKYTL0530 (Smart Data) como envíos directos.</paso>
+      <paso numero="2">Verificar RDR_TRANSFORMACION_FS (con predecesor doble: VALIDACION_EXTRACCION y MEKYTL1261_S externo).</paso>
+      <paso numero="3">Verificar RDR_TRANSFORMACION_FAED y sus 2 ramas: MEKYTL0272→MEKYTL0267→MEKYTL0781 (backup) y MEKYTL0285→MEKYTL0433 (envío MSC).</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 destinos (Fircosoft, MSC/Calypso, Smart Data, DataHub CIB, backup Rating) reciben o generan su fichero correspondiente sin incidencias.</resultadoEsperado>
+    <tipoValidacion>Estado OK de todos los jobs de la cadena + verificación de presencia del fichero en cada destino accesible.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, los 5 destinos confirmados.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>RDR_TRANSFORMACION_FS falla y libera sucesores (continuidad forzada)</nombre>
+    <objetivo>Confirmar el requisito documentado de que los jobs de deduplicación y transformación con esa nota liberan sucesores y continúan ante un fallo propio, en vez de detener la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_EXTRACCION completado (real o DUMMY según cadena).</precondicion>
+      <precondicion>Fallo real forzado en RDR_TRANSFORMACION_FS (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDR_TRANSFORMACION_FS" valor="forzado a fallar (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de RDR_TRANSFORMACION_FS.</paso>
+      <paso numero="2">Verificar si RDR_TRANSFORMACION_FAED y sus sucesores se liberan y ejecutan igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>Pese al fallo real de RDR_TRANSFORMACION_FS, sus sucesores se liberan manualmente/automáticamente según el procedimiento documentado y la cadena continúa hacia MSC y el backup.</resultadoEsperado>
+    <tipoValidacion>Estado KO de RDR_TRANSFORMACION_FS + estado de ejecución de sus sucesores.</tipoValidacion>
+    <criterioAceptacion>Sucesores liberados y ejecutados pese al fallo, confirmando el comportamiento documentado.</criterioAceptacion>
+    <posibilidadFallo>Si los sucesores no se liberan automáticamente, el requisito documentado implica una intervención manual — a confirmar si existe automatismo real o es un procedimiento operativo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Job de deduplicación falla y libera sucesores (ELIMINATEDUPLICATES_MENTOR)</nombre>
+    <objetivo>Confirmar el requisito R9 explícito de la ficha de los jobs de deduplicación: en caso de fallo, se deben liberar sucesores y continuar la ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_TRANSFORMACION_MENTOR completado (cadena _FINSEM_D_new).</precondicion>
+      <precondicion>Fallo real forzado en ELIMINATEDUPLICATES_MENTOR (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ELIMINATEDUPLICATES_MENTOR" valor="forzado a fallar (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de ELIMINATEDUPLICATES_MENTOR.</paso>
+      <paso numero="2">Verificar si MEKYTL0280 (historificación) y su rama continúan pese al fallo.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento coherente con la nota explícita de la ficha ("EN CASO DE FALLO SE DEBEN LIBERAR SUCESORES Y CONTINUAR CON LA EJECUCIÓN"): los sucesores se ejecutan pese al fallo del job de deduplicación.</resultadoEsperado>
+    <tipoValidacion>Estado KO de ELIMINATEDUPLICATES_MENTOR + estado de ejecución de MEKYTL0280 y sucesores.</tipoValidacion>
+    <criterioAceptacion>Sucesores ejecutados pese al fallo, confirmando el requisito documentado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio si el fallo real de deduplicación deja duplicados en el fichero final que sí se distribuye — a evaluar si la continuidad forzada es aceptable para este job en concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>MEKYTL0879_DEL: riesgo de borrado cruzado por comodín *ctpda* (RISK-CTPY-001)</nombre>
+    <objetivo>Confirmar si el comando "rm -f *ctpda*" de MEKYTL0879_DEL en la pasarela puede borrar ficheros de la rama SIRE (ctpdaDDMMYYYYCC.csv) antes de que su propio job de limpieza los procese.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0879_SND y la rama SIRE (RDR_TRANSFORMACION_SIRE → ELIMINATEDUPLICATES_SIRE → MEKYTL0281 → MEKYTL0281_SND) ejecutándose en ventanas solapadas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros en /unload/transmisiones/KYTL/" valor="coexistencia de ctpdaDDMMYYYYCC.csv (SIRE) y ficheros MEKYTL0879 en la misma ruta de pasarela, en la misma ventana temporal"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar que ambas ramas (SIRE y MEKYTL0879) tengan ficheros pendientes en /unload/transmisiones/KYTL/ al mismo tiempo.</paso>
+      <paso numero="2">Ejecutar MEKYTL0879_DEL.</paso>
+      <paso numero="3">Verificar si el fichero ctpda de SIRE sigue presente y disponible para su propio ciclo de limpieza/envío.</paso>
+    </pasos>
+    <resultadoEsperado>Si el fichero ctpda de SIRE coincide en la ruta durante la ejecución de MEKYTL0879_DEL, queda borrado por el comodín "rm -f *ctpda*" antes de que la rama SIRE lo necesite — comportamiento a confirmar como riesgo real o descartar si las rutas/tiempos nunca coinciden en producción.</resultadoEsperado>
+    <tipoValidacion>Inspección de la ruta de pasarela antes/después de MEKYTL0879_DEL + verificación del resultado de la rama SIRE.</tipoValidacion>
+    <criterioAceptacion>Se confirma o se descarta el riesgo de borrado cruzado con evidencia real, documentando el resultado en spec.md (RISK-CTPY-001).</criterioAceptacion>
+    <posibilidadFallo>Si se confirma el borrado cruzado, es un defecto real de diseño (comodín demasiado amplio) a escalar a ANS RDR.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="error_funcional">
+    <nombre>MEKYTL1154: soft-failure genérico enmascara fallo real de creación del fichero de control</nombre>
+    <objetivo>Confirmar el riesgo documentado: MEKYTL1154 tiene la regla "Cuándo Job completado No OK → Marcar como OK" sin acotar a un código de retorno específico.</objetivo>
+    <precondiciones>
+      <precondicion>SLEEP_15 completado.</precondicion>
+      <precondicion>Fallo real forzado en la creación del fichero de control KYTL_RDR_EXTRACTION_CPARTYS_%%$ODATE.ctl (p. ej. ruta sin permisos de escritura, simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ruta de control" valor="sin permisos de escritura (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que el comando previo a la ejecución de MEKYTL1154 falle al crear el fichero .ctl.</paso>
+      <paso numero="2">Ejecutar MEKYTL1154.</paso>
+      <paso numero="3">Verificar el estado final del job en Control-M y si MEKYTL1164 (sucesor) se ejecuta igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1154 termina real KO en la creación del .ctl, pero Control-M lo marca como OK (soft-failure genérico); MEKYTL1164 se ejecuta igualmente pese a que el fichero de control no se generó correctamente.</resultadoEsperado>
+    <tipoValidacion>Inspección del log real del job (no solo el estado en Control-M) + verificación de la existencia real del fichero .ctl.</tipoValidacion>
+    <criterioAceptacion>Se confirma la discrepancia entre estado Control-M (OK) y resultado real (fallo, fichero .ctl no creado) — documentado como riesgo, no como comportamiento validado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: un fallo de este tipo en producción podría pasar desapercibido si solo se monitoriza el estado de Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="regresion">
+    <nombre>Confirmación de ausencia real de MEKYTL0449 y RDR_TRANSFORMACION_RGA (GAP-CTPY-004/007)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de la cadena _new, que MEKYTL0449 y RDR_TRANSFORMACION_RGA siguen sin existir en la definición real de Control-M, tal como se confirmó con las 506 capturas de esta ronda.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de la cadena _new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0449, RDR_TRANSFORMACION_RGA" valor="verificar ausencia en la definición real"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar MEKYTL0449 y RDR_TRANSFORMACION_RGA en la definición real de Control-M de _new.</paso>
+      <paso numero="2">Confirmar que ninguno de los dos existe como job activo.</paso>
+    </pasos>
+    <resultadoEsperado>Ninguno de los dos jobs existe en la cadena real, confirmando que la tabla de destinos del documento funcional (wiki) sigue desactualizada en esos 2 puntos salvo que se haya corregido explícitamente.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada, o si alguno reaparece, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si alguno de los dos apareciera de nuevo, indicaría un cambio real en la cadena a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de ausencia real de MEKYTL0289 en _FINSEM_D_new (GAP-CTPY-002)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de la cadena _FINSEM_D_new, que MEKYTL0289 sigue sin existir en la definición real de Control-M, tal como se confirmó con las 250 capturas y el listado de navegación del folder aportados en esta ronda.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M (o al listado de navegación del folder) de la cadena _FINSEM_D_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0289" valor="verificar ausencia en la definición real; confirmado ausente en documentos_fuente/GAP-CTPY-002_jobs_extraidos.md (250 capturas) y en documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png (listado exhaustivo de los 50 jobs del folder)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar MEKYTL0289 en el listado de navegación del folder KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new en Control-M.</paso>
+      <paso numero="2">Confirmar que no existe como job activo (ni como ningún otro tipo de objeto del folder).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0289 no existe en la cadena real, confirmando que la tabla de destinos del documento funcional (wiki), que lo lista como envío Proactive vigente, sigue desactualizada en este punto salvo que se haya corregido explícitamente. El diccionario semanal real reparte a 15 destinos, no 16.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del listado de navegación del folder o de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada, o si reapareciera, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si el job reapareciera, indicaría un cambio real en la cadena a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>MEKYTL0292: discrepancia entre destino documentado (Proactive) y comportamiento real (Dummy sin envío) — GAP-CTPY-006</nombre>
+    <objetivo>Confirmar si el envío a Proactive documentado para MEKYTL0292 existe realmente fuera de Control-M, o si la ficha funcional del documento fuente está desactualizada, dado que la evidencia real (250 capturas, GAP-CTPY-002) muestra un job Dummy sin comando ni evento de salida.</objetivo>
+    <precondiciones>
+      <precondicion>Evidencia real de Control-M de MEKYTL0292 ya obtenida (documentos_fuente/GAP-CTPY-002_jobs_extraidos.md, fila 12).</precondicion>
+      <precondicion>Acceso al equipo funcional o dueño de la integración con Proactive.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0292" valor="Dummy, sin comando ni script, sin evento de salida configurado, Run As xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en Control-M (ya realizado en esta ronda) que MEKYTL0292 es un job Dummy sin comando ni evento de salida.</paso>
+      <paso numero="2">Contactar con el equipo funcional o dueño de la integración con Proactive para confirmar si el envío se realiza fuera de Control-M (proceso externo) o si ya no está vigente.</paso>
+      <paso numero="3">Si el envío existe fuera de Control-M, documentar el mecanismo real; si no existe, confirmar que la tabla de destinos del documento fuente está desactualizada en este punto (mismo patrón que GAP-CTPY-004/007).</paso>
+    </pasos>
+    <resultadoEsperado>Se determina si "Proactive" es un destino real fuera del alcance de Control-M o una referencia desactualizada del documento funcional.</resultadoEsperado>
+    <tipoValidacion>Inspección de Control-M (ya realizada) + confirmación funcional externa.</tipoValidacion>
+    <criterioAceptacion>Discrepancia resuelta con confirmación funcional, documentada en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Si no se puede contactar al equipo funcional, el gap queda abierto indefinidamente — riesgo de que un destino "fantasma" siga apareciendo en documentación sin corresponder a ningún envío real (RISK-CTPY-002).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Verificación de la inconsistencia histórica de MEKYTL0449 (GAP-CTPY-004)</nombre>
+    <objetivo>Confirmar o refutar si MEKYTL0449 está realmente eliminado (según el historial de cambios del 14/03/2026) o activo (según la tabla de destinos vigente que lo lista como envío PRIIPS).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a Control-M real de la cadena _new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL0449" valor="estado real a verificar directamente en Control-M"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar MEKYTL0449 en la definición real de Control-M de la cadena _new.</paso>
+      <paso numero="2">Si existe, verificar si está activo o desplanificado, y si genera algún envío real a PRIIPS.</paso>
+      <paso numero="3">Si no existe, confirmar cuál es el job real que hoy cubre el envío a PRIIPS documentado en la tabla de destinos.</paso>
+    </pasos>
+    <resultadoEsperado>Se determina cuál de las dos fuentes del documento (historial de cambios vs. tabla de destinos) refleja el estado real, resolviendo la inconsistencia detectada por el propio documento fuente.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Inconsistencia resuelta con evidencia real, documentada en una futura actualización del spec.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los dos resultados es un "fallo" en sí — cualquiera de las dos resoluciones es válida, el caso simplemente cierra el gap documental.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="regresion">
+    <nombre>Cambio en un script compartido (p. ej. unionFicheros.sh) no rompe ninguna de las 3 cadenas</nombre>
+    <objetivo>Confirmar que un cambio en un script físico compartido por las 3 cadenas (unionFicheros.sh, RDR_Transformacion_XSLT.sh, RDR_Validacion_XSD.sh) se valida en las 3 antes de darse por bueno, dado que una única versión del script afecta a todas simultáneamente.</objetivo>
+    <precondiciones>
+      <precondicion>Cambio pendiente de desplegar en uno de los scripts compartidos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="script_compartido" valor="nueva versión de unionFicheros.sh (ejemplo)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Desplegar el cambio del script compartido.</paso>
+      <paso numero="2">Ejecutar el núcleo común (TC-001, TC-002) en las 3 cadenas por separado, en sus respectivas ventanas.</paso>
+      <paso numero="3">Comparar el resultado en las 3 cadenas.</paso>
+    </pasos>
+    <resultadoEsperado>El comportamiento del núcleo común es idéntico y correcto en las 3 cadenas tras el cambio, sin regresión en ninguna.</resultadoEsperado>
+    <tipoValidacion>Estado OK del núcleo común en las 3 cadenas + comparación de resultados.</tipoValidacion>
+    <criterioAceptacion>Sin regresión en ninguna de las 3 cadenas.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de proceso: validar el cambio en una sola cadena y darlo por bueno para las 3 podría ocultar una regresión específica de otra cadena (p. ej. por diferencias en el volumen de datos de sábado/domingo vs. diario).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>Confirmación de que MEKYTL0781 es un backup local sin envío externo (GAP-CTPY-005)</nombre>
+    <objetivo>Confirmar de forma regresiva, en cada revisión de las 3 cadenas, que MEKYTL0781 sigue comprimiendo y moviendo KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml a una ruta de backup local (misma VIPA), sin transmitirlo a ningún sistema externo, tal como confirmó el usuario para GAP-CTPY-005.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de MEKYTL0781 (compartido por las 3 cadenas) y al sistema de ficheros de pr-rdr.igrupobbva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml" valor="generado en /fichtemcomp/pr/descargas/kytl/extracciongenerica"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras la ejecución de MEKYTL0781, verificar que el fichero comprimido aparece en /fichtemcomp/pr/descargas/kytl/extracciongenerica/backup.</paso>
+      <paso numero="2">Confirmar que no hay ningún evento de salida ni transmisión a un sistema externo asociado a este job (pestaña Acciones vacía, sin pasarela).</paso>
+    </pasos>
+    <resultadoEsperado>El fichero queda comprimido y archivado localmente en la ruta de backup, dentro de la misma VIPA; no hay evidencia de envío a ningún sistema externo.</resultadoEsperado>
+    <tipoValidacion>Inspección del sistema de ficheros de pr-rdr.igrupobbva + definición real de Control-M de MEKYTL0781.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de backup local confirmado; si apareciera un envío externo, actualizar spec.md con el nuevo estado.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro se detectara un envío externo real, indicaría un cambio de comportamiento a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

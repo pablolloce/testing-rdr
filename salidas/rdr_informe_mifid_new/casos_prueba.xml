@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_informe_mifid_new" fecha="2026-09-24" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Generación y envío correcto del informe MIFID</nombre>
+    <objetivo>Validar el camino feliz completo: al menos una contrapartida cumple el filtro de expiración, se genera el CSV, el Excel y el correo, y ambos ficheros de salida quedan historificados.</objetivo>
+    <precondiciones>
+      <precondicion>Existe al menos un registro en FT_T_FIST con stat_def_id='EXPDATE', data_stat_typ='ACTIVE', end_tms IS NULL y fecha dentro del rango del mes siguiente al actual, con su institución correspondiente en FT_T_FINS/FT_T_FIID.</precondicion>
+      <precondicion>La plantilla Reporte_informeMIFID_Plantilla.xlsx existe en /fichtemcomp/pr/descargas/kytl/informeMIFID/.</precondicion>
+      <precondicion>Acceso de lectura sobre FT_T_FINS, FT_T_FIID, FT_T_FIST, FT_T_FIRL, FT_T_IDMV con el usuario de ejecución de KYTL_INFMIFID_GSPROCESS (xakytl1p).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución" valor="TESTCORP FINANCIAL S.A., FINSID=TC00001"/>
+      <dato campo="FT_T_FIST.EXPDATE" valor="día 15 del mes siguiente al de ejecución"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar al disparo automático de KYTL_INFMIFID_GSPROCESS el tercer lunes del mes a las 02:30.</paso>
+      <paso numero="2">Verificar en Reporte_informeMIFID.csv que existe una línea con los datos de TESTCORP FINANCIAL S.A. y la cabecera fija correcta.</paso>
+      <paso numero="3">Verificar que se genera Reporte_informeMIFID_&lt;yyyyMMdd&gt;.xlsx con la hoja CtpdasExpiran conteniendo esa misma fila.</paso>
+      <paso numero="4">Confirmar la recepción del correo en elegible.mifid@bbva.com con asunto "Informe MIFID con datos economicos cerca de expirar" y el Excel adjunto.</paso>
+      <paso numero="5">Verificar que MEKYTL0353 movió el CSV a /fichtemcomp/pr/descargas/kytl/informeMIFID/old/ renombrado a Reporte_informeMIFID_&lt;yyyymmdd&gt;.csv.</paso>
+      <paso numero="6">Verificar que MEKYTL0362 movió el Excel a la misma carpeta /old/ conservando su nombre original.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan en estado OK, el CSV y el Excel se generan con la fila de TESTCORP FINANCIAL S.A., el correo se recibe con el asunto y adjunto correctos, y ambos ficheros quedan historificados en /old/ con el nombre esperado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de ejecución en Control-M + inspección de filesystem + confirmación de recepción de correo</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs están en "Ended OK"; el CSV y el Excel contienen la fila esperada; el correo llegó con asunto y adjunto correctos; ambos ficheros existen en /old/ con el nombre correcto y ya no en la ruta origen.</criterioAceptacion>
+    <posibilidadFallo>Si algún campo de FT_T_FIST (RRPP, CRNEGO, ATOTAL) está NULL para esta institución, la fila se genera igualmente con esos campos vacíos según disponibilidad de datos, sin que eso constituya un fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Sin contrapartidas próximas a expirar no se trata como error</nombre>
+    <objetivo>Confirmar que, cuando ninguna contrapartida cumple el filtro de expiración del mes siguiente, el proceso no falla: genera un CSV solo con cabecera, un Excel con la hoja vacía, y envía el correo igualmente.</objetivo>
+    <precondiciones>
+      <precondicion>No existe ningún registro en FT_T_FIST con stat_def_id='EXPDATE', data_stat_typ='ACTIVE', end_tms IS NULL y fecha dentro del rango del mes siguiente al actual.</precondicion>
+      <precondicion>La plantilla Reporte_informeMIFID_Plantilla.xlsx existe en la ruta esperada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_FIST" valor="0 registros activos con EXPDATE en el rango del mes siguiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar antes de la ejecución que no hay ningún registro que cumpla el filtro (consulta manual del mismo SQL de arrayStringSelects[16]).</paso>
+      <paso numero="2">Esperar al disparo automático de la cadena.</paso>
+      <paso numero="3">Abrir Reporte_informeMIFID.csv y verificar que contiene únicamente la línea de cabecera.</paso>
+      <paso numero="4">Abrir el Excel generado y verificar que la hoja CtpdasExpiran no tiene filas de datos.</paso>
+      <paso numero="5">Confirmar que el correo se recibió igualmente en elegible.mifid@bbva.com con el Excel adjunto.</paso>
+      <paso numero="6">Verificar en Control-M que los 3 jobs terminaron en estado OK, sin ningún fallo registrado.</paso>
+    </pasos>
+    <resultadoEsperado>El CSV contiene solo la cabecera, el Excel tiene la hoja CtpdasExpiran vacía, el correo se envía igual que en un mes con datos, y los 3 jobs terminan en OK — la ausencia de resultados no se trata como error.</resultadoEsperado>
+    <tipoValidacion>Inspección de CSV/Excel + confirmación de correo + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>CSV con solo cabecera, hoja CtpdasExpiran sin filas, correo recibido, y los 3 jobs en "Ended OK".</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según el código y el documento fuente (caso borde documentado explícitamente); fallaría si el proceso empezara a tratar el resultado vacío como error no documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Plantilla ausente corta la cadena antes de generar el Excel</nombre>
+    <objetivo>Validar que, si Reporte_informeMIFID_Plantilla.xlsx no existe en el momento de la ejecución, el job Java falla al abrir el FileInputStream y la cadena se corta sin generar el Excel, sin enviar correo y sin que MEKYTL0362 llegue a ejecutarse.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede simular de forma controlada la ausencia de la plantilla, sin afectar producción — este caso no debe ejecutarse nunca contra el directorio real de producción.</precondicion>
+      <precondicion>Existe al menos un registro que cumple el filtro de expiración, de forma que el CSV sí se genera correctamente antes del fallo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Reporte_informeMIFID_Plantilla.xlsx" valor="ausente/renombrado temporalmente en el directorio de trabajo del entorno de test"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En el entorno de test, renombrar o mover temporalmente la plantilla fuera del directorio de trabajo antes de disparar la cadena.</paso>
+      <paso numero="2">Ejecutar manualmente el flujo hasta el punto del job Java InformeMIFID.jar (o invocarlo directamente con los mismos parámetros que usa GSProcess.sh).</paso>
+      <paso numero="3">Verificar en el log del job el tipo de excepción registrada (FileNotFoundException u equivalente en la apertura del FileInputStream).</paso>
+      <paso numero="4">Confirmar que no se generó ningún fichero Reporte_informeMIFID_&lt;yyyyMMdd&gt;.xlsx.</paso>
+      <paso numero="5">Confirmar que no se envió correo ni se ejecutó MEKYTL0362.</paso>
+      <paso numero="6">Restaurar la plantilla en el entorno de test al finalizar la prueba.</paso>
+    </pasos>
+    <resultadoEsperado>El job Java termina en error por no encontrar la plantilla; no se genera el Excel; el correo no se envía; MEKYTL0362 no llega a ejecutarse porque su predecesor (el paso de generación del Excel) no completó con éxito.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + inspección de log y filesystem — no automatizable contra producción por riesgo de afectar la plantilla real</tipoValidacion>
+    <criterioAceptacion>El log muestra la excepción de fichero no encontrado; no existe el Excel de salida; no se recibió correo; MEKYTL0362 queda sin ejecutar.</criterioAceptacion>
+    <posibilidadFallo>Riesgo documentado (ver spec.md §9): si en algún punto posterior a la apertura del fichero se produjera otro fallo de escritura, la excepción podría quedar silenciada según el código analizado — este caso valida solo el punto de apertura inicial, no ese escenario posterior.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Límites exactos del filtro de fecha de expiración</nombre>
+    <objetivo>Validar el comportamiento del filtro EXPDATE en sus valores límite: un registro en el último día del mes actual debe quedar excluido, uno en el primer día del mes siguiente debe incluirse, y uno en el último día del mes siguiente debe incluirse (límite superior inclusive).</objetivo>
+    <precondiciones>
+      <precondicion>Se pueden insertar/consultar en FT_T_FIST registros con EXPDATE controlado exactamente en las 3 fechas límite descritas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución BORDE-1" valor="EXPDATE = último día del mes actual (debe quedar fuera del informe)"/>
+      <dato campo="Institución BORDE-2" valor="EXPDATE = primer día del mes siguiente (debe aparecer en el informe)"/>
+      <dato campo="Institución BORDE-3" valor="EXPDATE = último día del mes siguiente (debe aparecer en el informe)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en FT_T_FIST la presencia de las 3 instituciones sintéticas con sus fechas límite exactas antes de la ejecución.</paso>
+      <paso numero="2">Ejecutar la cadena (o replicar la consulta arrayStringSelects[16] manualmente sobre el entorno de test).</paso>
+      <paso numero="3">Verificar en el CSV/Excel generado que BORDE-1 no aparece.</paso>
+      <paso numero="4">Verificar que BORDE-2 y BORDE-3 sí aparecen, cada una en su propia fila.</paso>
+    </pasos>
+    <resultadoEsperado>BORDE-1 queda excluida del informe; BORDE-2 y BORDE-3 aparecen ambas, confirmando que el rango del filtro es [primer día del mes siguiente, último día del mes siguiente] con ambos extremos inclusive.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa + inspección del CSV/Excel generado</tipoValidacion>
+    <criterioAceptacion>BORDE-1 ausente del informe; BORDE-2 y BORDE-3 presentes, cada una en una línea distinta con sus datos correctos.</criterioAceptacion>
+    <posibilidadFallo>Si BORDE-1 apareciera en el informe, el filtro estaría incluyendo incorrectamente el mes actual; si BORDE-3 no apareciera, el límite superior se estaría aplicando como exclusive en vez de inclusive.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Institución con múltiples relaciones MGC activas aparece duplicada (Hallazgo A)</nombre>
+    <objetivo>Confirmar el hallazgo verificado en producción: una institución con más de una relación operativa activa en FT_T_FIRL aparece más de una vez en el informe final, sin ninguna deduplicación. Campo que se repite: la institución (mismo FINSID), asociada a más de un identificador MGC vía FT_T_FIRL. Por qué provoca duplicidad: el SQL no agrega ni aplica DISTINCT sobre la relación institución↔MGC, por lo que cada relación activa genera una fila independiente para la misma institución.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una institución sintética con exactamente 2 relaciones activas distintas en FT_T_FIRL, y con un registro FT_T_FIST que cumple el filtro de expiración del mes siguiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución DUP-MGC" valor="FINSID=TC00002, 2 relaciones activas en FT_T_FIRL hacia identificadores MGC distintos (MGC-A y MGC-B)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en FT_T_FIRL que la institución DUP-MGC tiene exactamente 2 relaciones activas antes de la ejecución.</paso>
+      <paso numero="2">Ejecutar la cadena (o replicar la consulta manualmente).</paso>
+      <paso numero="3">Contar en el CSV/Excel generado cuántas filas corresponden a DUP-MGC (mismo FINSID).</paso>
+      <paso numero="4">Verificar que cada una de esas filas muestra un identificador MGC distinto (MGC-A en una, MGC-B en la otra).</paso>
+    </pasos>
+    <resultadoEsperado>DUP-MGC aparece en 2 filas distintas del informe, una por cada relación activa en FT_T_FIRL, sin ningún aviso ni consolidación — comportamiento esperado dado que no existe lógica de deduplicación por institución.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa + inspección del CSV/Excel generado</tipoValidacion>
+    <criterioAceptacion>Exactamente 2 filas para FINSID=TC00002, cada una con su identificador MGC correspondiente, sin ningún mensaje de control de duplicidad en el proceso.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro se introdujera una deduplicación no documentada, este caso pasaría a fallar (solo 1 fila) y habría que tratarlo como cambio de comportamiento a validar y documentar aparte.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>No determinismo por rownum sin ORDER BY ante EXERDATE en conflicto (Hallazgo B)</nombre>
+    <objetivo>Reproducir de forma sintética el riesgo teórico identificado en el SQL: una institución con dos registros FT_T_FIST que cumplen el filtro de expiración pero con valores distintos de EXERDATE/RRPP/CRNEGO/ATOTAL. Al no existir ORDER BY antes del rownum=1 que selecciona ese dato, el valor mostrado en el informe no es determinista entre ejecuciones.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test donde se pueden insertar 2 registros FT_T_FIST en conflicto para la misma institución, ambos cumpliendo el filtro de expiración del mes siguiente, con valores de EXERDATE/RRPP/CRNEGO/ATOTAL distintos entre sí.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución CONFLICTO-1" valor="FINSID=TC00003, registro FT_T_FIST #1: EXERDATE=2026-11-01, RRPP=1000000"/>
+      <dato campo="Institución CONFLICTO-1 (2º registro)" valor="FINSID=TC00003, registro FT_T_FIST #2: EXERDATE=2026-11-15, RRPP=2000000"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar ambos registros en conflicto para la misma institución en el entorno de test.</paso>
+      <paso numero="2">Ejecutar la consulta arrayStringSelects[16] manualmente 3 veces seguidas contra el entorno de test.</paso>
+      <paso numero="3">Anotar en cada ejecución qué valor de EXERDATE/RRPP aparece para FINSID=TC00003.</paso>
+      <paso numero="4">Comparar los 3 resultados entre sí.</paso>
+    </pasos>
+    <resultadoEsperado>El valor de EXERDATE/RRPP mostrado para TC00003 puede variar entre ejecuciones (o depender del plan de ejecución de Oracle), confirmando que la selección no es determinista al no existir ORDER BY antes del rownum=1 — comportamiento documentado como riesgo de baja prioridad, actualmente dormido en producción.</resultadoEsperado>
+    <tipoValidacion>Ejecución repetida de la consulta en entorno de test + comparación de resultados — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Se documenta si el valor varía entre ejecuciones o si Oracle lo resuelve de forma estable en la práctica; en cualquier caso queda registrado como verificación del riesgo, no como aprobación/rechazo binario, dado que es un riesgo estructural del SQL y no un defecto que deba "arreglarse" en este caso de prueba.</criterioAceptacion>
+    <posibilidadFallo>El resultado puede ser estable en la práctica (mismo plan de ejecución) sin que eso invalide el riesgo estructural: la ausencia de ORDER BY sigue sin garantizar el resultado por contrato SQL, aunque el comportamiento observado no varíe en una ejecución concreta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Instituciones sintéticas con datos de negocio idénticos y distinto identificador MGC</nombre>
+    <objetivo>Confirmar que no existe control de duplicidad de contenido en ningún punto del pipeline (SQL, CSV, formateador Java): dos instituciones sintéticas con el mismo FINSID y el mismo nombre, pero asociadas a identificadores MGC distintos, se procesan y aparecen ambas en el informe sin ninguna detección. Campo que se repite: FINSID y Entity Name. Cuántas veces se repite: 2. Valor que se considera conflicto: mismo FINSID en 2 filas del informe. Resultado que confirma la detección (o su ausencia): ambas filas aparecen sin ningún aviso de duplicidad.</objetivo>
+    <precondiciones>
+      <precondicion>El directorio de trabajo está en un estado limpio antes de la prueba (sin ejecuciones previas del mismo día que puedan interferir).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución SINT-1" valor="FINSID=TC00004, Entity Name='TESTCORP SYNTHETIC S.A.', MGC Identifier=MGC-SINT-1"/>
+      <dato campo="Institución SINT-2" valor="FINSID=TC00004, Entity Name='TESTCORP SYNTHETIC S.A.', MGC Identifier=MGC-SINT-2 (mismo FINSID y nombre que SINT-1, identificador MGC distinto)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar ambos registros sintéticos con FINSID y nombre idénticos en el entorno de test.</paso>
+      <paso numero="2">Ejecutar la cadena (o replicar la consulta manualmente) sobre el entorno de test.</paso>
+      <paso numero="3">Contar en el CSV/Excel generado cuántas filas tienen FINSID=TC00004.</paso>
+      <paso numero="4">Revisar el log de la extracción y del job Java en busca de algún aviso relacionado con contenido repetido.</paso>
+    </pasos>
+    <resultadoEsperado>El informe contiene 2 filas para FINSID=TC00004 (una por cada identificador MGC), ambas con el mismo nombre de entidad; no se emite ningún aviso de duplicidad en ningún log — comportamiento esperado dado que ni el SQL ni el formateador Java implementan control de duplicidad por contenido.</resultadoEsperado>
+    <tipoValidacion>Inspección del CSV/Excel generado + revisión de logs de extracción y formateo</tipoValidacion>
+    <criterioAceptacion>Exactamente 2 filas con FINSID=TC00004 en el informe final, sin ningún mensaje de control de duplicidad en ningún log del proceso.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de código actual; fallaría solo si en el futuro se introdujera lógica de deduplicación no documentada, lo cual habría que tratar como cambio de comportamiento a validar aparte.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Estabilidad de la rama informeMIFID en el workflow genérico compartido</nombre>
+    <objetivo>Confirmar que la rama informeMIFID (nodo id="636") de GenerateReports.gsp —workflow compartido por muchos otros procesos RDR (LOPD, OFAC, bajaniveles, nlegales, cargafechasGTR/MGC/STAR, cedro, clientes, bancarización...)— sigue resolviendo correctamente al SQL arrayStringSelects[16] tras cualquier cambio futuro del workflow genérico realizado por otro equipo o para otro proceso.</objetivo>
+    <precondiciones>
+      <precondicion>Se dispone de acceso de lectura a la definición XML de GenerateReports.gsp desplegada en el entorno correspondiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Nodo de referencia" valor="id=&quot;636&quot;, Servicio=informeMIFID, referencia a arrayStringSelects[16]"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras cualquier despliegue que modifique GenerateReports.gsp, localizar el nodo id="636" en la definición XML vigente.</paso>
+      <paso numero="2">Verificar que su parámetro Servicio sigue siendo informeMIFID.</paso>
+      <paso numero="3">Verificar que la referencia de consulta sigue apuntando a arrayStringSelects[16] con el mismo contenido SQL documentado en spec.md §6.</paso>
+      <paso numero="4">Ejecutar la cadena completa y confirmar que el CSV generado mantiene la misma cabecera y estructura de columnas que en spec.md R3.</paso>
+    </pasos>
+    <resultadoEsperado>El nodo id="636" y su referencia SQL permanecen sin cambios no documentados; la estructura del CSV generado sigue siendo idéntica a la especificada.</resultadoEsperado>
+    <tipoValidacion>Inspección de la definición XML del workflow + verificación del CSV generado tras la ejecución</tipoValidacion>
+    <criterioAceptacion>Nodo id="636" presente con Servicio=informeMIFID y la misma referencia SQL; CSV con la misma cabecera y estructura documentadas.</criterioAceptacion>
+    <posibilidadFallo>Si otro proceso modifica GenerateReports.gsp de forma que renumere nodos o cambie la referencia de arrayStringSelects usada por la rama informeMIFID, este caso debe detectarlo como regresión no documentada que afecta a RDR_INFORME_MIFID_new sin que su propio equipo lo haya solicitado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ciclo mensual completo de generación y envío del informe MIFID</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo: desde el disparo mensual de KYTL_INFMIFID_GSPROCESS hasta la historificación del Excel final por MEKYTL0362.</objetivo>
+    <precondiciones>
+      <precondicion>Existe al menos una contrapartida que cumple el filtro de expiración del mes siguiente.</precondicion>
+      <precondicion>La plantilla Reporte_informeMIFID_Plantilla.xlsx existe en la ruta esperada.</precondicion>
+      <precondicion>Los destinatarios de correo (elegible.mifid@bbva.com, c014344b@bbva.com) están operativos y accesibles para confirmar recepción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Institución E2E-1" valor="FINSID=TC00005, EXPDATE dentro del mes siguiente, sin relaciones ni fechas en conflicto"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la existencia de E2E-1 en FT_T_FIST cumpliendo el filtro, antes del tercer lunes del mes.</paso>
+      <paso numero="2">Esperar el disparo automático de KYTL_INFMIFID_GSPROCESS a las 02:30.</paso>
+      <paso numero="3">Verificar que Reporte_informeMIFID.csv se generó con la fila de E2E-1.</paso>
+      <paso numero="4">Verificar que Reporte_informeMIFID_&lt;yyyyMMdd&gt;.xlsx se generó con la misma fila en la hoja CtpdasExpiran.</paso>
+      <paso numero="5">Confirmar la recepción del correo con el Excel adjunto en ambos destinatarios.</paso>
+      <paso numero="6">Verificar que MEKYTL0353 y MEKYTL0362 terminaron OK y que ambos ficheros quedaron en /old/ con el nombre esperado.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs se ejecutan en orden y terminan OK sin intervención manual, desde el disparo automático mensual hasta la historificación final de ambos ficheros.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado de los 3 jobs) + inspección de filesystem + confirmación de correo</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs están en "Ended OK"; el CSV y el Excel contienen la fila esperada; el correo llegó a ambos destinatarios; ambos ficheros están historificados en /old/.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo puntual de infraestructura (SMTP caído, filesystem sin espacio) haría fallar el paso correspondiente sin que se trate de un defecto de la lógica de negocio, pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
