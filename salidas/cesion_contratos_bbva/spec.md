@@ -574,7 +574,7 @@ de contratos controlados sobre las 19 tablas y verificar el XML campo a campo.
 | RG-09 | Cadencias distintas dentro de la rama CSV (envío mensual, historificación diaria) | Riesgo de interpretar como fallo la ausencia de envío en una pasada diaria | Documentado en §4.6; verificado en TC-11 |
 | RG-10 | Dependencias de orden y no de éxito en toda la cadena | Un envío fallido no detiene la cadena: el fallo puede pasar desapercibido y la historificación ejecutarse igualmente | Verificar que el circuito de aviso a ANS RDR cubre el fallo individual de cada job de envío (§4.5, TC-09) |
 | RG-11 | Documento fuente centrado en la lógica `daybefore` de cadenas decomisadas | Riesgo de que revisiones futuras deriven requisitos de una lógica que ya no aplica | Documentado explícitamente en §2.2 |
-| RG-12 | Entornos de ejecución de pruebas sin definir | Las pruebas no son ejecutables hasta que se determinen | Definir entornos antes de la fase de ejecución (`prerrequisitos.md` §7) |
+| RG-12 | Entornos de ejecución de pruebas sin definir | Las pruebas no son ejecutables hasta que se determinen | **Confirmado por el usuario (2026-09-28): se deja sin definir por ahora**, decisión de proyecto explícita, no un dato pendiente de investigar. Definir entornos antes de la fase de ejecución (`prerrequisitos.md` §7) |
 
 ---
 
@@ -623,4 +623,6 @@ distinta a la que constaba en la sesión anterior:
    su propia ficha EX-005-03 (IP fija antigua, periodicidad en blanco) confirma que probablemente
    está decomisado o nunca se migró a la infraestructura vigente (RG-13).
 7. **Definición de los entornos de ejecución** (RG-12) — decisión de proyecto, no de verificación
-   técnica, sigue pendiente.
+   técnica. **Confirmado explícitamente por el usuario (2026-09-28): se deja sin definir por
+   ahora.** No bloquea el resto de la especificación; bloquea únicamente la ejecución real de los
+   casos de prueba hasta que se tome esa decisión.
