@@ -51,7 +51,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
 | G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes; quedan solo, como residuales de código no aportado, `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real). |
-| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto con `.wkf` real, con una salvedad de nomenclatura** (`SSIs_Fx_Peticion.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`). Ver §6.16. **El workflow aportado se llama internamente `SSIs_Fx_Peticion`, no `RDR_SSIS_Fx_Alert_Online`** (mismo patrón de discrepancia de nombre interno/nombre de invocación ya visto en `AlertasEnvio`/`RDR_AlertasEnvio`, §6.15) — no se puede confirmar con este material si son el mismo objeto bajo alias distinto o 2 workflows distintos, pero el contenido encaja exactamente con el dominio de R9 (grupo `Custom/RDR/Alert/InvestorsPlan`, filtra `FT_T_VREQ` por `GENERATED_FUND` — el mismo estado final que dejan `main.Main`/`RDR_AltaFondos_Autocalc_PARTY` de R8, §6.10/§6.13 — excluyendo explícitamente el canal `DigitalCrossSelling`, coherente con el hallazgo de G5). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), y por cada uno lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) a un servicio externo/interno "Alert Mirror", tratando la respuesta (`ACK`/`NACK`/timeout) de forma distinta según el caso — hallazgo: solo `NACK` se registra en `FT_T_RLT1`, un timeout no deja ningún rastro auditable (ver §9). `GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` específico de este proceso, distinto del genérico `GestionAlertas.properties` ya documentado) no se ha aportado — el fichero recibido esta ronda es el mismo template genérico de R8, sin los argumentos concretos de R9 — cabo suelto no bloqueante, dado que el mecanismo ya está confirmado de punta a punta en §6.12/§6.14/§6.15. |
+| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. Sin cabos sueltos bloqueantes; quedan como residuales de código no aportado los subworkflows internos `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`. |
 
 ## 5. Especificación funcional
 
@@ -843,12 +843,12 @@ Fichero analizado: `GestionAlertas.properties` —
 ### 6.16 `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9) — confirmado con `.wkf` real, aportado como `SSIs_Fx_Peticion`
 
 Workflow analizado: `SSIs_Fx_Peticion` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 7, estado `RELEASED` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/SSIs_Fx_Peticion.wkf`). **Hallazgo de
-nomenclatura, mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15):** el `.wkf` recibido declara
-`<name>SSIs_Fx_Peticion</name>`, no `RDR_SSIS_Fx_Alert_Online` (el nombre usado en la tabla de R9, §3). No se
-puede confirmar con este material si es el mismo objeto bajo un alias de invocación distinto o si son 2
-workflows diferentes — pero el contenido encaja exactamente con el rol de R9: dominio Investors Plan/Alert,
-FX, y una condición de arranque que enlaza directamente con el final de R8 (ver abajo).
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/SSIs_Fx_Peticion.wkf`). **Nomenclatura
+confirmada, mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15):** el `.wkf` declara
+`<name>SSIs_Fx_Peticion</name>`, distinto de `RDR_SSIS_Fx_Alert_Online` (nombre usado en la tabla de R9, §3) —
+pero `GestionAlertas_ALERT_IP_SSI.properties` real (§6.17) confirma literalmente `NomWorkflow=
+RDR_SSIS_Fx_Alert_Online` en la invocación, así que **es el mismo objeto**, solo registrado/invocado bajo un
+nombre de evento distinto de su metadato `<name>` interno — patrón que se repite igual en `AlertasEnvio`.
 
 - **Qué hace:** consulta `FT_T_VREQ` por todas las peticiones de alta de fondo en estado **`GENERATED_FUND`**
   (`VND_RQST_XREF_ID_CTXT_TYP='FundLEI'`) **excluyendo explícitamente** las de `VND_RQST_CORR_ID=
@@ -882,11 +882,94 @@ FX, y una condición de arranque que enlaza directamente con el final de R8 (ver
   no se ha confirmado que se persista en ningún sitio visible en este `.wkf`. Es decir, **un timeout del
   servicio Alert Mirror es menos auditable que un rechazo explícito**: no queda el mismo rastro en la tabla de
   rechazos que consulta el resto de la cadena de alertas (§6.7/§6.14).
-- **Gap abierto, no bloqueante:** `RecepcionAlertApiRest` y `SSIs_Fx_Alta` (subworkflows de la rama `ACK`) no
-  aportados — no se puede confirmar el detalle final de qué se aplica en GoldenSource cuando el servicio Alert
-  Mirror confirma. Tampoco se ha aportado `GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` específico
-  de este proceso para el paso final `Property(GestionAlertas)` de R9) — el `.properties` recibido esta ronda
-  es el mismo template genérico ya documentado en §6.12, sin los argumentos concretos de R9.
+- **Rama `ACK` confirmada con `.wkf` real** — ver §6.18 (`RecepcionAlertApiRest`) y §6.19 (`SSIs_Fx_Alta`).
+
+### 6.17 `GestionAlertas_ALERT_IP_SSI.properties` — `.properties` real de R9 (confirmado)
+
+Fichero analizado: `GestionAlertas_ALERT_IP_SSI.properties` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`. A diferencia del `GestionAlertas.properties`
+genérico (§6.12), este es el `.properties` concreto que Control-M ejecuta para el job `FX_ALERT_ALTA_SDIS` de
+R9. Contiene solo 3 pasos: `Accion=Evento`/`NomWorkflow=RDR_SSIS_Fx_Alert_Online` (dispara `SSIs_Fx_Peticion`,
+§6.16 — **confirma la nomenclatura real de invocación**), y `Accion=Property`/`NomProperty=GestionAlertas`
+con `ArgProp1=GestionAlertas_ALERT_IP_SSI`/`ArgProp2=PROCESOS-ALERT_IP_SSI` — confirma que el identificador de
+proceso real sustituido en la plantilla genérica (§6.12) para R9 es **`ALERT_IP_SSI`**, invocado una sola vez
+(no x2 como en R8, coherente con la tabla de R9 en §3: un solo `Property(GestionAlertas)`). No contiene ningún
+paso `Accion=Java` propio — a diferencia de `RDR_AltaFondos.properties` (R8), este `.properties` de R9 se
+limita a orquestar el workflow y el paso final de alertas, sin invocar jars directamente.
+
+### 6.18 `Workflow(RecepcionAlertApiRest)` — componente compartido, confirmado con `.wkf` real
+
+Workflow analizado: `RecepcionAlertApiRest` (grupo **`Custom/RDR/Online_Setup/Alert`** — no específico de
+Investors Plan, confirma que es un **componente compartido** reutilizado por otros procesos "Alert API REST",
+no exclusivo de R9 — versión 7, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/RecepcionAlertApiRest.wkf`).
+
+- **Qué hace:** recibe el `vnd_rqst_oid` de la petición ya marcada `ACK` por `SSIs_Fx_Peticion` (§6.16) y relee
+  su `FT_T_VREQ.VND_RQST_STAT_TXT` (el XML de respuesta real de Alert Mirror). Si viene vacío, marca
+  `Estado=NACK` con mensaje genérico de error técnico. Si no, comprueba dentro del propio XML si hay
+  `//TechnicalError` o `//errorResponse/errorMessage` — si cualquiera de los dos está presente, marca
+  `Estado=NACK` con el detalle correspondiente **aunque la petición ya constara como `ACK`** a nivel de
+  `FT_T_VREQ.VND_RQST_STAT_TYP` — es decir, hay un **segundo nivel de validación** dentro del propio payload
+  que puede revertir un `ACK` aparente. Si no hay error, marca `Estado=ACK` y clasifica el `servicio` original
+  (`AlertRequestSSIsByFond` → `tipo="InvestorsPlan"`, cualquier otro → `"defecto"`, confirmando de nuevo el
+  carácter genérico/compartido del componente). Solo si `tipo=="InvestorsPlan"` continúa: recupera **todas**
+  las respuestas hijas (`FT_T_VREQ` con `DATA_SRC_ID='ALERT_IP_API_REST'` y `PRNT_VND_RQST_OID=<vnd_rqst_oid>`
+  — sugiere que `main.Peticion`/`API_REST.jar` puede generar más de una respuesta hija por petición), las
+  concatena en un único XML `<ssis>...</ssis>` y extrae cada nodo `ssiInformations` individual, serializándolo
+  de vuelta a texto — preparando así el array de SDIs que `SSIs_Fx_Alta` (§6.19) procesará una a una. Si
+  `tipo` no es `"InvestorsPlan"`, se limita a persistir el `Estado`/mensaje en la propia `FT_T_VREQ` y termina
+  (comportamiento genérico para otros consumidores del componente, fuera de alcance de este proceso).
+- **Qué recibe/produce:** recibe `vnd_rqst_oid`; produce la actualización de `FT_T_VREQ.VND_RQST_STAT_TYP`/
+  `VND_RQST_STAT_TXT` para esa petición y, en la rama Investors Plan, el array de XMLs de SDI individuales
+  consumido por `SSIs_Fx_Alta`.
+- **Campos de salida afectados:** `FT_T_VREQ` (estado/texto de la petición reevaluado); en la rama de error
+  interno (`ValidacionIP`/`true`, dentro de la sub-rama técnica), un `UPDATE FT_T_VREQ SET
+  VND_RQST_STAT_TYP='FAILED'` sobre el mismo `vnd_rqst_oid` con `DATA_SRC_ID='ALERT_IP_SSI'` — **hallazgo de
+  nombre engañoso**: la variable que contiene esa consulta se llama `insertRLT1`, pero el SQL real es un
+  `UPDATE` sobre `FT_T_VREQ`, no un `INSERT` en `FT_T_RLT1` — a diferencia del `NACK` que sí trata `SSIs_Fx_
+  Peticion` (§6.16), este fallo interno **no llega a registrarse en `FT_T_RLT1`**, solo actualiza el estado de
+  la propia petición. Mismo patrón de nodo/variable con nombre que no corresponde a su código ya visto en
+  `ValidacionOficinas` (§6.7, "Borrar oficinas del XML" que no borra nada).
+- **Qué pasa si falla:** ver arriba — los 2 niveles de fallo (respuesta vacía, error técnico/de negocio
+  embebido) se resuelven a `NACK`/`FAILED` sobre la propia `FT_T_VREQ`, sin relanzar ninguna excepción visible
+  en este `.wkf`.
+- **Gap abierto, no bloqueante:** el resto de la lógica de deduplicación (`DadaAlta?`, `countExiste`) y el
+  detalle final de cómo se registra cada SDI individual no se ha trazado en su totalidad dado el tamaño del
+  fichero (1979 líneas) — el mecanismo principal (recepción, validación de 2 niveles, extracción de SDIs) sí
+  queda confirmado.
+
+### 6.19 `Workflow(SSIs_Fx_Alta)` — confirmado con `.wkf` real
+
+Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 2, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/SSIs_Fx_Alta.wkf`).
+
+- **Qué hace:** recibe `Modo` (`"Online"` o `"Conciliacion"`), `RES` y `VREQ_OID`. En modo `Online`, recupera
+  todas las respuestas hijas de `FT_T_VREQ` (`DATA_SRC_ID='ALERT_IP_SSI'`, `PRNT_VND_RQST_OID=VREQ_OID`) y las
+  vuelca a un mapa de XMLs individuales (corrigiendo sobre la marcha la etiqueta raíz `ssiInformations`→
+  `ssiInformation`, una normalización de nombre en el propio código); en modo `Conciliacion`, en cambio, toma
+  un único XML recibido directamente como entrada, sin consulta a BBDD — sugiere que este workflow también se
+  invoca desde un flujo de conciliación no visto en esta sesión, fuera del alcance de R9. Por cada SDI (XML):
+  valida su estructura (subworkflow `SSIs_Valida_Fx`, no aportado); si es válida, extrae `accessCode`/
+  `acronym`/`codOid` por XPath y comprueba en `FT_T_FRID`/`FT_T_FIST` que la combinación acceso/acrónimo sea
+  única y tenga el flag FX relevante activo; si además ese flag fue puesto específicamente por el proceso
+  `FXFUNDS` (`FIST.LAST_CHG_USR_ID='FXFUNDS'`), sigue la rama `"Investors"` (resuelve las sucursales reales del
+  contraparte vía `FT_T_ENFR`); si no, sigue la rama `"A1"` (**hardcodea** `ORG_ID='A1'` con un `SELECT 'A1'
+  FROM DUAL`, sin consulta real — un valor fijo de sucursal para ese caso). Con la(s) sucursal(es) resueltas,
+  invoca el subworkflow `SSIs_Fx_Exec` (no aportado, ejecución real del alta) una vez por sucursal. Cualquier
+  fallo de validación (SDI inválido, combinación acceso/acrónimo no única, sin sucursales) dispara el
+  subworkflow `SSIs_Fx_Reporte` (no aportado, con `Accion="Alta"`/`Donde` indicando el punto exacto del fallo:
+  `"Valida"`, `"Cparty"` o `"Branch"`) y continúa con el siguiente SDI del lote.
+- **Qué recibe/produce:** recibe `Modo`/`RES`/`VREQ_OID`; produce, por cada SDI válido y por cada sucursal
+  resuelta, una invocación de `SSIs_Fx_Exec` (alta real, no aportada); por cada fallo, una invocación de
+  `SSIs_Fx_Reporte` (reporte de error, no aportada).
+- **Campos de salida afectados:** no confirmable más allá de las consultas de lectura — el alta real ocurre
+  dentro de `SSIs_Fx_Exec`, no aportado.
+- **Qué pasa si falla:** cada uno de los 3 puntos de validación (XML inválido, combinación acceso/acrónimo no
+  única, sin sucursales encontradas) tiene su propia rama `KO` explícita que invoca `SSIs_Fx_Reporte` y
+  continúa con el siguiente SDI — no hay fallos silenciosos detectados en este `.wkf`, a diferencia de otros
+  puntos de la cadena.
+- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` no aportados — no se
+  puede confirmar el detalle final de qué campos de GoldenSource se actualizan en el alta real de la SDI.
 
 ## 7. Especificación de testing
 
@@ -1063,10 +1146,21 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   (`KO_Tiempo`) no inserta nada en `FT_T_RLT1` — solo un mensaje interno sin persistencia confirmada. Un fondo
   cuya alerta SSI simplemente no responda a tiempo queda con menos rastro auditable que uno explícitamente
   rechazado.
-* **[R9] Discrepancia de nomenclatura `SSIs_Fx_Peticion` vs `RDR_SSIS_Fx_Alert_Online` (confirmado por `.wkf`
-  real, §6.16):** mismo patrón ya visto en `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15) — el nombre interno del
-  `.wkf` no coincide con el nombre usado para invocarlo en la documentación de la cadena; no se puede
-  confirmar con este material si es un alias del motor de GoldenSource o una discrepancia real.
+* **[R9] Discrepancia de nomenclatura `SSIs_Fx_Peticion` vs `RDR_SSIS_Fx_Alert_Online`, confirmada como patrón
+  real (no solo sospecha), con `.properties` real, §6.17:** `GestionAlertas_ALERT_IP_SSI.properties` invoca
+  literalmente `NomWorkflow=RDR_SSIS_Fx_Alert_Online`, mientras el propio `.wkf` declara internamente
+  `<name>SSIs_Fx_Peticion</name>` — mismo patrón ya visto en `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15), ahora
+  confirmado una segunda vez: el nombre de invocación de un evento GoldenSource no tiene por qué coincidir con
+  el metadato `<name>` interno del workflow que realmente se ejecuta.
+* **[R9] Un fallo de validación interno en `RecepcionAlertApiRest` puede revertir un `ACK` a `NACK`/`FAILED`
+  sin pasar por `FT_T_RLT1` (confirmado por `.wkf` real, §6.18):** a diferencia del `NACK` que `SSIs_Fx_
+  Peticion` detecta al nivel de `FT_T_VREQ.VND_RQST_STAT_TYP` (que sí inserta en `FT_T_RLT1`, §6.16), un error
+  técnico o de negocio embebido *dentro* del XML de respuesta de Alert Mirror (detectado ya con la petición
+  marcada `ACK`) solo actualiza el estado de la propia petición a `FAILED` — sin dejar rastro en la tabla de
+  rechazos que audita el resto de la cadena. Hallazgo de nombre engañoso relacionado: la variable que contiene
+  esa consulta se llama `insertRLT1`, pero el SQL real es un `UPDATE` sobre `FT_T_VREQ`, no un `INSERT` en
+  `FT_T_RLT1` — mismo patrón de nodo/variable con nombre que no corresponde a su código ya visto en
+  `ValidacionOficinas` (§6.7).
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -1131,15 +1225,19 @@ bloqueantes**: solo quedan, como residuales de código no aportado, `main.Main` 
 (extrapolable del ya visto en §6.10), `main.Ppal` de ambos jars de alertas, y los subworkflows internos de
 `RDR_AltaFondos_Autocalc_PARTY`/`Mail`.
 
-El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto con una salvedad de
-nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, no
-`RDR_SSIS_Fx_Alert_Online` — mismo patrón ya visto en `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15) — pero su
-contenido confirma exactamente el rol de R9: recoge las peticiones de fondo en estado `GENERATED_FUND` (el
-mismo estado final de R8, canal no-DCS) y dispara, por cada mnemónico con flag FX relevante, una petición REST
-síncrona a un servicio "Alert Mirror" externo/interno, con un hallazgo propio (asimetría de auditoría:
-`NACK` se registra en `FT_T_RLT1`, un timeout no). Quedan como cabos sueltos no bloqueantes los 2 subworkflows
-de la rama `ACK` (`RecepcionAlertApiRest`, `SSIs_Fx_Alta`) y el `.properties` específico de R9
-(`GestionAlertas_ALERT_IP_SSI.properties`, no aportado — el paso final `Property(GestionAlertas)` de R9 ya
-está cubierto en el mecanismo genérico de §6.12/§6.14/§6.15). **Con esto, R9 queda funcionalmente resuelto y
-la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9) no tiene más gaps técnicos abiertos, salvo los
-cabos sueltos no bloqueantes ya señalados en cada sección.**
+El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la
+confirmación de nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, pero
+`GestionAlertas_ALERT_IP_SSI.properties` real (§6.17) confirma que se invoca literalmente como
+`RDR_SSIS_Fx_Alert_Online` — mismo patrón ya confirmado en `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15), esta vez
+verificado con la propia configuración de invocación, no solo por coincidencia de contenido. Su lógica recoge
+las peticiones de fondo en estado `GENERATED_FUND` (el mismo estado final de R8, canal no-DCS) y dispara, por
+cada mnemónico con flag FX relevante, una petición REST síncrona a "Alert Mirror"; en la rama `ACK`,
+`RecepcionAlertApiRest` (§6.18, componente compartido `Custom/RDR/Online_Setup/Alert`) interpreta la respuesta
+real con una validación de 2 niveles (estado de la petición + contenido embebido del XML), y `SSIs_Fx_Alta`
+(§6.19) valida y ejecuta el alta de cada SDI recuperada, con reporte de error explícito en sus 3 puntos de
+fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
+timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
+variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
+bloqueantes; quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`.
+**Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
+no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
