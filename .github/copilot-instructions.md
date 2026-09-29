@@ -593,6 +593,37 @@ Cuando el usuario esté conforme con los artefactos generados (`spec.md`, `prerr
 Con esa confirmación, haz commit + push normal a la **rama personal** — nunca a `nfq` en este
 paso. Al ser una rama que solo usa este usuario, no hace falta comprobación de concurrencia aquí.
 
+### Nunca fusiones una rama completa en `nfq`
+
+`nfq` se actualiza **exclusivamente** por checkout de rutas explícitas. Están prohibidos, sin
+excepción y aunque el usuario lo pida sin saber lo que implica:
+
+- `git merge <rama>` sobre `nfq`
+- `git pull <rama>` sobre `nfq`
+- `git rebase` o `git cherry-pick` de una rama sobre `nfq`
+
+Una fusión completa arrastra todo lo que la rama de origen tenga, incluido `documentos_fuente/`,
+configuración local de editor y ficheros de trabajo de esa persona. Si el usuario pide fusionar
+una rama entera en `nfq`, explícale por qué no y ofrécele el sync por ruta explícita.
+
+**Verificación antes de commitear el sync.** Enumera las rutas que toca el commit y comprueba que
+**todas** están dentro del conjunto permitido. Si aparece una sola ruta fuera, no commitees:
+párate y dilo.
+
+**Verificación después de empujar.** Comprueba que el árbol de `nfq` no ha ganado nada fuera de
+las rutas permitidas. Si lo ha ganado, informa inmediatamente.
+
+**Si encuentras `nfq` ya contaminada, infórmalo; no la limpies por iniciativa propia.** Borrar en
+una rama compartida es irreversible para los demás y necesita decisión explícita del usuario. Y
+antes de proponer una limpieza, **verifica el diagnóstico contra la historia**: comprueba con
+`git log --diff-filter=A` cuándo entró realmente cada ruta sospechosa. Un fichero que lleva meses
+en `nfq` no lo ha traído el último merge, y puede ser contenido legítimo del repositorio. Un
+diagnóstico sin verificar puede llevar a borrar el trabajo de un compañero.
+
+Lo mismo aplica a las carpetas aparentemente duplicadas: dos carpetas de nombre parecido para el
+mismo proceso pueden ser **dos análisis independientes hechos en paralelo**, no una duplicación
+accidental. Compara su contenido y busca en la memoria antes de dar por descartada ninguna.
+
 ### Paso 2 — Sincronizar a `nfq` (solo si el usuario lo pide explícitamente)
 El agente **nunca** sincroniza a `nfq` como continuación automática del paso 1. Lo hace
 únicamente cuando el usuario lo pide explícitamente (p. ej. "mergea esto a nfq"), después de que
