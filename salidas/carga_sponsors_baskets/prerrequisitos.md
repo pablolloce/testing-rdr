@@ -58,3 +58,6 @@
   (TC-006), no a buscar un defecto.
 - **Importante:** `MEKYTL0988` corresponde al sponsor `BME`, no a "Cestas Generales" — verificar que
   cualquier caso de prueba o documentación adicional use la etiqueta correcta.
+- **Importante:** `FT_T_ISST.STAT_CHAR_VAL_TXT` (`STAT_DEF_ID='B_OPNRES'`) solo debe tomar 3 valores reales
+  confirmados: `OK`, `ERROR`, `NOT_LOADED` — no es una variable colgante (GAP-BASKSP-004 resuelto). Un valor
+  nulo o distinto en una prueba futura sería una regresión a investigar, no el comportamiento esperado.

@@ -91,23 +91,24 @@
     <posibilidadFallo>Un mensaje genérico igual para todos los sponsors en Split indicaría una regresión respecto al código real analizado.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
-    <nombre>Valor real de la variable statusCarga en el MERGE de FT_T_ISST (GAP-BASKSP-004)</nombre>
-    <objetivo>Determinar qué valor real se escribe en FT_T_ISST.STAT_CHAR_VAL_TXT, dado que la variable statusCarga no está declarada visiblemente en el workflow.</objetivo>
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Confirmación de los 3 valores reales de statusCarga en FT_T_ISST (GAP-BASKSP-004, resuelto)</nombre>
+    <objetivo>Confirmar en revisiones futuras que STAT_CHAR_VAL_TXT de FT_T_ISST (STAT_DEF_ID='B_OPNRES') sigue tomando únicamente los 3 valores reales ya confirmados (OK, ERROR, NOT_LOADED), sin valores nulos ni inesperados.</objetivo>
     <precondiciones>
-      <precondicion>Escenario de TC-001 (cesta ya existente) reproducido en un entorno controlado con trazas activas.</precondicion>
+      <precondicion>Acceso a un extracto real de FT_T_ISST filtrado por STAT_DEF_ID='B_OPNRES'.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="statusCarga" valor="no declarada en las variables globales del workflow"/>
+      <dato campo="Valores reales confirmados" valor="OK, ERROR, NOT_LOADED"/>
+      <dato campo="Correlación esperada" valor="LAST_CHG_USR_ID coincide con el sponsor real de cada carga (STOXX, BME, SOLACTIVE, MSCI, EURONEXT, FTSE, SP_DJ, MANUAL)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el escenario de TC-001 con logging/trazas del workflow activadas.</paso>
-      <paso numero="2">Inspeccionar el valor real insertado/actualizado en FT_T_ISST.STAT_CHAR_VAL_TXT.</paso>
-      <paso numero="3">Determinar si el valor es null, un resto de una ejecución anterior, o un valor esperado no documentado en este export.</paso>
+      <paso numero="1">Consultar FT_T_ISST filtrando por STAT_DEF_ID='B_OPNRES'.</paso>
+      <paso numero="2">Confirmar que STAT_CHAR_VAL_TXT solo contiene OK/ERROR/NOT_LOADED, sin valores nulos ni distintos.</paso>
+      <paso numero="3">Confirmar que LAST_CHG_USR_ID sigue coincidiendo con sponsors reales conocidos.</paso>
     </pasos>
-    <resultadoEsperado>Se documenta el comportamiento real observado, cerrando GAP-BASKSP-004 con evidencia de ejecución.</resultadoEsperado>
-    <tipoValidacion>Inspección directa del valor de columna tras ejecución controlada.</tipoValidacion>
-    <criterioAceptacion>Valor real documentado y explicado, sea cual sea el resultado.</criterioAceptacion>
+    <resultadoEsperado>Los 3 valores se mantienen sin cambios; ningún registro nuevo con valor nulo o inesperado.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa a FT_T_ISST.</tipoValidacion>
+    <criterioAceptacion>100% de las filas con uno de los 3 valores confirmados.</criterioAceptacion>
     <posibilidadFallo>Ninguno de los resultados es en sí un "fallo" — el caso cierra un gap documental mediante observación directa.</posibilidadFallo>
   </casoDePrueba>
 
