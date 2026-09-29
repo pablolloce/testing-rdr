@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="baja_garantias" fecha="2026-09-29" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Garantía vencida se inactiva correctamente</nombre>
+    <objetivo>Verificar el ciclo completo: el job dispara el workflow, la query SELECT encuentra la garantía vencida, y el UPDATE la inactiva con los 4 campos correctos.</objetivo>
+    <precondiciones>
+      <precondicion>Registro en FT_T_LWD1 con WARR_END_TMS = ayer, WARR_STATUS = 'Active'.</precondicion>
+      <precondicion>RDR_BajaGarantiasLA.properties y credentials.xml accesibles; GoldenSource disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="WARR_END_TMS" valor="ayer"/>
+      <dato campo="WARR_FUTURE_END_TMS" valor="NULL o futuro"/>
+      <dato campo="WARR_STATUS" valor="Active"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que KYTL_BAJAGARANT_GSPROCESS arranca a las 00:30 AM.</paso>
+      <paso numero="2">Verificar que el workflow BajaGarantiasLA ejecuta el SELECT y entra en la rama "rows-found".</paso>
+      <paso numero="3">Verificar el UPDATE: WARR_STATUS='INACTIVE', DATA_STAT_TYP='INACTIVE', LAST_CHG_USR_ID='GS:BATCH:INACTIVE', LAST_CHG_TMS=sysdate.</paso>
+      <paso numero="4">Verificar que se publica el evento RDR_BAJA_GARANTIAS_KYTL_BAJAGARANT_GSPROCESS_OK.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK; la garantía queda con los 4 campos actualizados; el log contiene "ESTADO-0-"; evento de salida publicado.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa sobre FT_T_LWD1 tras la ejecución + estado OK del job en Control-M + verificación del evento.</tipoValidacion>
+    <criterioAceptacion>Los 4 campos cambian exactamente a los valores esperados; evento publicado; sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier campo sin actualizar o evento no publicado invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Sin garantías vencidas (nothing-found)</nombre>
+    <objetivo>Verificar que, cuando no hay garantías vencidas, el workflow termina correctamente sin cambios.</objetivo>
+    <precondiciones>
+      <precondicion>Ningún registro en FT_T_LWD1 cumple el criterio de vencimiento con status != 'INACTIVE'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_LWD1" valor="sin registros vencidos pendientes de inactivar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el SELECT del workflow devuelve 0 filas.</paso>
+      <paso numero="2">Verificar que el workflow sigue la rama "nothing-found" directamente a Stop.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK sin ningún UPDATE ejecutado; se publica igualmente el evento de salida.</resultadoEsperado>
+    <tipoValidacion>Log del workflow (rama nothing-found) + estado OK del job.</tipoValidacion>
+    <criterioAceptacion>0 UPDATEs ejecutados; job OK; evento publicado.</criterioAceptacion>
+    <posibilidadFallo>Ninguna; es el comportamiento correcto ante ausencia de datos, no un fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Vencimiento exactamente hoy — operador estricto</nombre>
+    <objetivo>Confirmar que una garantía cuya fecha de vencimiento es exactamente hoy (sysdate) NO se inactiva, por el operador de comparación estrictamente menor (&lt;), no menor-o-igual.</objetivo>
+    <precondiciones>
+      <precondicion>Registro en FT_T_LWD1 con WARR_END_TMS = sysdate (hoy exacto), WARR_FUTURE_END_TMS futuro, WARR_STATUS = 'Active'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="WARR_END_TMS" valor="hoy (sysdate)"/>
+      <dato campo="WARR_FUTURE_END_TMS" valor="futuro"/>
+      <dato campo="WARR_STATUS" valor="Active"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job con este registro presente.</paso>
+      <paso numero="2">Verificar que el SELECT no incluye este registro (WARR_END_TMS &lt; sysdate es falso cuando son iguales).</paso>
+    </pasos>
+    <resultadoEsperado>El registro permanece sin cambios: WARR_STATUS sigue 'Active', LAST_CHG_TMS no se modifica. Se inactivará en la ejecución del día siguiente.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa antes/después de la ejecución, comparando LAST_CHG_TMS.</tipoValidacion>
+    <criterioAceptacion>Sin cambios en el registro; confirma el operador estricto documentado.</criterioAceptacion>
+    <posibilidadFallo>Si el registro se inactivara, indicaría un operador &lt;= en vez de &lt; — contradiría la especificación documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Ambas fechas de vencimiento NULL</nombre>
+    <objetivo>Confirmar que una garantía con WARR_END_TMS y WARR_FUTURE_END_TMS ambas NULL no se inactiva (comparación NULL &lt; sysdate es falsa en Oracle).</objetivo>
+    <precondiciones>
+      <precondicion>Registro en FT_T_LWD1 con ambas fechas NULL, WARR_STATUS = 'Active'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="WARR_END_TMS" valor="NULL"/>
+      <dato campo="WARR_FUTURE_END_TMS" valor="NULL"/>
+      <dato campo="WARR_STATUS" valor="Active"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job con este registro presente.</paso>
+      <paso numero="2">Verificar que el SELECT no incluye este registro.</paso>
+    </pasos>
+    <resultadoEsperado>El registro permanece sin cambios indefinidamente mientras ambas fechas sigan NULL.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa antes/después de la ejecución.</tipoValidacion>
+    <criterioAceptacion>Sin cambios en el registro.</criterioAceptacion>
+    <posibilidadFallo>Si se inactivara, indicaría un tratamiento distinto de NULL al documentado (p. ej. NVL aplicado en la query real, no visible en la evidencia actual).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fichero properties inexistente</nombre>
+    <objetivo>Confirmar el comportamiento de error documentado cuando RDR_BajaGarantiasLA.properties no existe.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_BajaGarantiasLA.properties eliminado o renombrado temporalmente en /$ENV/kytl/online/multipais/multicanal/dat/properties/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDR_BajaGarantiasLA.properties" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh RDR_BajaGarantiasLA sin el properties presente.</paso>
+      <paso numero="2">Verificar el código de salida y el mensaje de log.</paso>
+    </pasos>
+    <resultadoEsperado>El script termina con exit 1 y el log indica "Fichero properties no existe"; el job queda KO visible en Control-M (sin soft-failure); se envía notificación a salacib@bbva.com.</resultadoEsperado>
+    <tipoValidacion>Código de salida del script + contenido del log + notificación de correo.</tipoValidacion>
+    <criterioAceptacion>Exit 1, mensaje de error correcto, KO visible, notificación enviada.</criterioAceptacion>
+    <posibilidadFallo>Si el job se marcara OK pese al error, indicaría una "Acción Si" de soft-failure no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="error_funcional">
+    <nombre>GoldenSource o base de datos jdbc/GSDM-1 no disponible</nombre>
+    <objetivo>Confirmar el comportamiento ante fallo de conectividad con GoldenSource durante la ejecución del workflow.</objetivo>
+    <precondiciones>
+      <precondicion>Servidor GoldenSource caído o base de datos jdbc/GSDM-1 no accesible (simulado o real).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Conectividad GoldenSource/jdbc/GSDM-1" valor="fallida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar o esperar un fallo de conexión durante la ejecución.</paso>
+      <paso numero="2">Verificar el estado final del job y el log del workflow.</paso>
+    </pasos>
+    <resultadoEsperado>Error en el evento del workflow, exit 1 del script, notificación a salacib@bbva.com y al grupo Remedy ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Log de GoldenSource con error de conexión + estado KO del job en Control-M.</tipoValidacion>
+    <criterioAceptacion>Fallo real visible, sin enmascaramiento; notificaciones enviadas.</criterioAceptacion>
+    <posibilidadFallo>Ninguna adicional esperada más allá del fallo forzado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de topología aislada y ausencia de soft-failure (GAP-GARANT-001)</nombre>
+    <objetivo>Confirmar en revisiones futuras que el folder KYTL0000-RDR_BAJA_GARANTIAS sigue teniendo un único job, sin prerrequisito de evento real ni "Acción Si" de tipo soft-failure.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder KYTL0000-RDR_BAJA_GARANTIAS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados en el folder" valor="exactamente KYTL_BAJAGARANT_GSPROCESS, sin jobs adicionales"/>
+      <dato campo="Espera a Eventos" valor="vacío"/>
+      <dato campo="Acciones Si" valor="solo notificación por correo, sin código de retorno que marque OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo únicamente el job documentado.</paso>
+      <paso numero="2">Confirmar que la pestaña "Prerrequisitos" → "Espera a Eventos" sigue vacía.</paso>
+      <paso numero="3">Confirmar que "Acciones Si" no incluye ningún "código de retorno → Marcar como OK".</paso>
+    </pasos>
+    <resultadoEsperado>La topología y el comportamiento ante fallo se mantienen sin cambios respecto a lo documentado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M (captura de navegación + pestañas Prerrequisitos/Acciones).</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias respecto a la ficha documentada en spec.md §6.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un job nuevo, un evento de entrada, o una acción de soft-failure, este caso debe fallar y motivar una actualización de la especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="datos_sinteticos">
+    <nombre>Ejecución doble el mismo día — idempotencia</nombre>
+    <objetivo>Confirmar que una segunda ejecución el mismo día no vuelve a tocar registros ya inactivados en la primera.</objetivo>
+    <precondiciones>
+      <precondicion>Primera ejecución del job ya completada con éxito, con al menos una garantía inactivada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Garantía inactivada en la 1ª ejecución" valor="WARR_STATUS='INACTIVE'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar una segunda ejecución manual del job el mismo día.</paso>
+      <paso numero="2">Verificar que el SELECT del workflow devuelve 0 filas (la condición warr_status != 'INACTIVE' excluye la ya procesada).</paso>
+      <paso numero="3">Verificar que LAST_CHG_TMS de la garantía no cambia en la segunda ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>La segunda ejecución sigue la rama "nothing-found" sin ningún UPDATE adicional; LAST_CHG_TMS conserva el valor de la primera ejecución.</resultadoEsperado>
+    <tipoValidacion>Comparación de LAST_CHG_TMS antes/después de la segunda ejecución.</tipoValidacion>
+    <criterioAceptacion>Sin cambios en la segunda ejecución; confirma idempotencia real.</criterioAceptacion>
+    <posibilidadFallo>Si LAST_CHG_TMS cambiara en la segunda ejecución, indicaría que la condición warr_status != 'INACTIVE' no se aplica correctamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="datos_sinteticos">
+    <nombre>Volumen alto — 1000+ garantías vencidas</nombre>
+    <objetivo>Confirmar que el loop procesa correctamente un volumen alto de registros en una sola ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1000 registros en FT_T_LWD1 con fechas de vencimiento pasadas y WARR_STATUS != 'INACTIVE'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Volumen de registros a procesar" valor="1000+"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job con el volumen alto presente.</paso>
+      <paso numero="2">Verificar que todos los registros quedan inactivados tras la ejecución.</paso>
+      <paso numero="3">Medir la duración total de la ejecución (dato para GAP-GARANT-002, sin umbral confirmado aún).</paso>
+    </pasos>
+    <resultadoEsperado>Todos los registros quedan con WARR_STATUS='INACTIVE'; el job termina OK sin timeout.</resultadoEsperado>
+    <tipoValidacion>SELECT COUNT(*) FROM FT_T_LWD1 WHERE (criterio de vencimiento) AND warr_status != 'INACTIVE' debe devolver 0 tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>COUNT = 0 tras la ejecución; sin errores de timeout ni de recurso.</criterioAceptacion>
+    <posibilidadFallo>Un timeout o agotamiento del recurso MAX-LPRDR501 en volumen alto indicaría un límite no documentado (relacionado con GAP-GARANT-003).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Garantía reactivada manualmente vuelve a inactivarse</nombre>
+    <objetivo>Confirmar el comportamiento documentado: si una garantía inactivada por el batch se reactiva manualmente pero su fecha de vencimiento sigue en el pasado, el proceso la vuelve a inactivar en la siguiente ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Garantía previamente inactivada por el batch (WARR_STATUS='INACTIVE', LAST_CHG_USR_ID='GS:BATCH:INACTIVE').</precondicion>
+      <precondicion>WARR_STATUS cambiado manualmente a 'Active' (o cualquier valor distinto de INACTIVE) sin modificar las fechas de vencimiento.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="WARR_STATUS tras reactivación manual" valor="Active"/>
+      <dato campo="WARR_END_TMS" valor="sin cambios, sigue vencida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Reactivar manualmente la garantía sin tocar las fechas de vencimiento.</paso>
+      <paso numero="2">Esperar a la siguiente ejecución diaria del job (00:30 AM).</paso>
+      <paso numero="3">Verificar el estado de la garantía tras la ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>La garantía vuelve a quedar WARR_STATUS='INACTIVE', LAST_CHG_USR_ID='GS:BATCH:INACTIVE' — el proceso no distingue entre "nunca inactivada" y "reactivada manualmente", solo evalúa el estado y las fechas actuales.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa tras la ejecución siguiente a la reactivación manual.</tipoValidacion>
+    <criterioAceptacion>La garantía queda inactivada de nuevo, confirmando el comportamiento documentado (RISK-GARANT-002).</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados es un "fallo" técnico en sí — el caso documenta un comportamiento a confirmar con negocio (¿es intencional que el batch revierta reactivaciones manuales?), no un defecto.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
