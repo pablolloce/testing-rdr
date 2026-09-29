@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="envio_guido_roles_eins" fecha="2026-09-21" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de distribución de roles (happy path)</nombre>
+    <objetivo>Verificar que un GUIDO_IMPORT.csv válido se procesa y el OFP_ROLES_RDR.csv resultante se distribuye correctamente a EINS.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena KYTL0000-RDR_GUIDO_PR_new activa, dentro de su ventana (01:00-06:00 AM).</precondicion>
+      <precondicion>Ninguna ejecución previa pendiente ese día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="GUIDO_IMPORT.csv" valor="fichero con al menos una fila de aplicación KYTL (columna con valor ,KYTL, o ,kytl,)"/>
+      <dato campo="hora_deposito" valor="01:00 AM"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar GUIDO_IMPORT.csv en /fichtemcomp/pr/descargas/kytl/users/ a la 01:00 AM.</paso>
+      <paso numero="2">Esperar a que RDR_GUIDO_FW1 lo detecte.</paso>
+      <paso numero="3">Verificar RDR_GUIDO_CHMOD (chown/chmod sobre GUIDO_IMPORT.csv).</paso>
+      <paso numero="4">Verificar RDR_GUIDO_LOAD (limpieza del fichero + disparo del evento GoldenSource UserRoleFileProcessing).</paso>
+      <paso numero="5">Verificar que RDR_GUIDO_FW3 detecta OFP_ROLES_RDR.csv generado por GoldenSource.</paso>
+      <paso numero="6">Verificar la ejecución de MEKYTL1061.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan OK; OFP_ROLES_RDR.csv se envía vía Connect:Direct a lpnov503:/usr/local/pr/nova/landingzone/EINS/filesystempre/incoming/ renombrado OFP_ROLES_RDR_YYYYMMDD.csv; el fichero origen se historifica con mv (mismo nombre) a /fichtemcomp/pr/descargas/kytl/users/backup/.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 5 jobs en Control-M + verificación de presencia y naming del fichero en EINS + verificación de la historificación local.</tipoValidacion>
+    <criterioAceptacion>Fichero presente en EINS con el naming correcto, historificación local confirmada, sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real o fichero ausente en EINS invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>FileWatcher sin fichero dentro de la ventana (soft-failure genérico)</nombre>
+    <objetivo>Verificar el comportamiento real cuando RDR_GUIDO_FW1 o RDR_GUIDO_FW3 no detectan su fichero dentro de la ventana: soft-failure genérico, se marca OK.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena programada para el día de ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="GUIDO_IMPORT.csv" valor="no se deposita en la ruta de origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar GUIDO_IMPORT.csv en la ventana 01:00-06:00 AM.</paso>
+      <paso numero="2">Esperar al cierre de la ventana de RDR_GUIDO_FW1.</paso>
+      <paso numero="3">Verificar el código de retorno OS y el estado final del job.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_GUIDO_FW1 retorna código de retorno de OS distinto de 0; Control-M lo marca como OK igualmente (soft-failure genérico: "código ≠ 0 → Marcar como OK"); la cadena no avanza a RDR_GUIDO_CHMOD por falta de fichero real, pero el job en sí no queda en KO visible.</resultadoEsperado>
+    <tipoValidacion>Código de retorno del job + estado final en Control-M (Planning/Monitoring).</tipoValidacion>
+    <criterioAceptacion>Job marcado OK pese a código de retorno distinto de 0, confirmando el soft-failure genérico documentado.</criterioAceptacion>
+    <posibilidadFallo>Resultado esperado y correcto según la evidencia real capturada; si el job quedara en KO real, indicaría un cambio de configuración respecto a la evidencia y habría que revisar R7.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo real de RDR_GUIDO_CHMOD (sin soft failure)</nombre>
+    <objetivo>Verificar que, a diferencia de los FileWatchers y de MEKYTL1061, un fallo real en RDR_GUIDO_CHMOD detiene la cadena (no tiene On-Do configurado).</objetivo>
+    <precondiciones>
+      <precondicion>GUIDO_IMPORT.csv detectado correctamente por RDR_GUIDO_FW1.</precondicion>
+      <precondicion>Permisos de sistema simulados para que el chown/chmod falle (p. ej. usuario xsramer1 sin privilegios sobre el fichero).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="GUIDO_IMPORT.csv" valor="fichero válido"/>
+      <dato campo="permisos" valor="chown/chmod forzados a fallar (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo de permisos antes de que arranque RDR_GUIDO_CHMOD.</paso>
+      <paso numero="2">Ejecutar la cadena hasta ese punto.</paso>
+      <paso numero="3">Verificar el estado final de RDR_GUIDO_CHMOD.</paso>
+      <paso numero="4">Verificar que RDR_GUIDO_LOAD no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_GUIDO_CHMOD termina en KO real; RDR_GUIDO_LOAD y los jobs siguientes no se ejecutan; se emite alerta W con escalado nominal.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job en Control-M + verificación de que los jobs sucesores no arrancan + correo de alerta (incluyendo destinatarios nominales).</tipoValidacion>
+    <criterioAceptacion>KO real propagado, cadena detenida, alerta recibida por ANS RDR y los destinatarios nominales.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: el KO real es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de envío MEKYTL1061 enmascarado por soft-failure genérico</nombre>
+    <objetivo>Documentar y verificar el defecto de gobierno DEF-GUIDO-001: un fallo real de Connect:Direct en el envío queda marcado como OK en Control-M.</objetivo>
+    <precondiciones>
+      <precondicion>OFP_ROLES_RDR.csv generado correctamente y detectado por RDR_GUIDO_FW3.</precondicion>
+      <precondicion>Conectividad Connect:Direct hacia lpnov503 simulada como no disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="OFP_ROLES_RDR.csv" valor="válido"/>
+      <dato campo="lpnov503" valor="inaccesible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de lpnov503.</paso>
+      <paso numero="2">Ejecutar la cadena hasta que arranque MEKYTL1061.</paso>
+      <paso numero="3">Verificar el código de retorno real de MEGENV0001.sh en el Log/Salida del job.</paso>
+      <paso numero="4">Verificar el estado final mostrado en Control-M.</paso>
+      <paso numero="5">Verificar si el fichero llegó realmente a EINS.</paso>
+    </pasos>
+    <resultadoEsperado>MEGENV0001.sh retorna código de error real (transferencia fallida); Control-M marca el job como OK igualmente (soft-failure genérico); el fichero NO llega a EINS pese al estado OK visible en la cadena.</resultadoEsperado>
+    <tipoValidacion>Inspección del Log/Salida real del job (no solo el estado en Control-M) + verificación de ausencia del fichero en EINS.</tipoValidacion>
+    <criterioAceptacion>Se confirma la discrepancia entre estado Control-M (OK) y resultado real (fallo, fichero ausente en EINS) — documentado como DEF-GUIDO-001, no como comportamiento validado.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real de negocio: un fallo de este tipo en producción podría pasar desapercibido si solo se monitoriza el estado de Control-M sin revisar el contenido del Log.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Espacios legítimos eliminados por el filtrado de guidoLoad.sh</nombre>
+    <objetivo>Confirmar el riesgo RISK-GUIDO-001: el sed -i 's/ //g' elimina cualquier espacio del fichero, no solo los de alrededor (trim).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con GUIDO_IMPORT.csv sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_con_espacio" valor="usuario001,Juan Perez,ROL_ADMIN,KYTL,ACTIVE (nombre con espacio legítimo)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir GUIDO_IMPORT.csv con una fila que contenga un campo con espacio interno legítimo (p. ej. un nombre completo).</paso>
+      <paso numero="2">Ejecutar RDR_GUIDO_LOAD (guidoLoad.sh) sobre ese fichero.</paso>
+      <paso numero="3">Inspeccionar el contenido de GUIDO_IMPORT.csv tras la limpieza, antes de la carga en GoldenSource.</paso>
+    </pasos>
+    <resultadoEsperado>El espacio interno del campo se elimina ("Juan Perez" pasa a "JuanPerez"), corrompiendo el dato antes de cargarse en GoldenSource.</resultadoEsperado>
+    <tipoValidacion>Comparación byte a byte del contenido antes/después del paso de limpieza.</tipoValidacion>
+    <criterioAceptacion>Se confirma la eliminación indebida del espacio; el caso documenta el comportamiento actual como riesgo de código (RISK-GUIDO-001), no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: cualquier campo de negocio con espacios legítimos queda corrompido de forma sistemática, sin alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>GUIDO_IMPORT.csv sin ninguna fila de aplicación KYTL</nombre>
+    <objetivo>Confirmar el riesgo RISK-GUIDO-002: si el filtro egrep no encuentra coincidencias, el fichero queda vacío y el evento GoldenSource se dispara igual (sin control de error entre pasos).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con GUIDO_IMPORT.csv sintético modificable.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="GUIDO_IMPORT.csv" valor="fichero con filas válidas pero ninguna contiene ,KYTL, ni ,kytl,"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir GUIDO_IMPORT.csv sin ninguna fila de aplicación KYTL.</paso>
+      <paso numero="2">Ejecutar RDR_GUIDO_LOAD.</paso>
+      <paso numero="3">Verificar el contenido de GUIDO_IMPORT.csv tras la ejecución.</paso>
+      <paso numero="4">Verificar si el evento GoldenSource UserRoleFileProcessing se ejecuta igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>GUIDO_IMPORT.csv queda vacío (0 bytes de datos) tras el filtrado; el evento executeBbvaEvent.sh se ejecuta igualmente al no estar encadenado con &amp;&amp; a la limpieza previa.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero tras la limpieza + verificación de la ejecución del evento GoldenSource (log de executeBbvaEvent.sh).</tipoValidacion>
+    <criterioAceptacion>Se confirma que el evento se dispara sin control de error, documentando RISK-GUIDO-002 como comportamiento actual, no como validación superada.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: GoldenSource podría procesar una carga vacía sin que RDR lo detecte como anomalía.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="duplicidad">
+    <nombre>Reenvío del mismo OFP_ROLES_RDR.csv el mismo día</nombre>
+    <objetivo>Verificar el comportamiento ante un segundo envío del fichero de roles el mismo día (ACCION_REMOTA=rpl).</objetivo>
+    <precondiciones>
+      <precondicion>Un primer ciclo completo ya ejecutado con éxito ese día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="OFP_ROLES_RDR.csv (2ª generación)" valor="nueva versión generada por un segundo ciclo de carga GoldenSource el mismo día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un segundo ciclo completo de la cadena el mismo día (mismo YYYYMMDD de destino).</paso>
+      <paso numero="2">Verificar el resultado del envío de MEKYTL1061 en el segundo ciclo.</paso>
+      <paso numero="3">Verificar el contenido final del fichero en EINS.</paso>
+    </pasos>
+    <resultadoEsperado>El envío sobrescribe OFP_ROLES_RDR_YYYYMMDD.csv en EINS sin error (acción remota rpl = replace); el contenido final corresponde a la segunda ejecución.</resultadoEsperado>
+    <tipoValidacion>Verificación del contenido y timestamp del fichero en EINS tras el segundo envío.</tipoValidacion>
+    <criterioAceptacion>Sobrescritura correcta sin error de "fichero ya existe"; el contenido final es el de la última ejecución.</criterioAceptacion>
+    <posibilidadFallo>Riesgo si EINS no espera recibir el fichero más de una vez al día y su propio proceso de ingesta no maneja la sobrescritura correctamente (fuera del control de RDR).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="datos_sinteticos">
+    <nombre>Limitación de evidencia: duplicidad a nivel de registro en OFP_ROLES_RDR.csv</nombre>
+    <objetivo>Documentar explícitamente que no se puede definir ni probar un caso de duplicidad a nivel de registro sin el diccionario de datos real del fichero (GAP-GUIDO-004).</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="OFP_ROLES_RDR.csv" valor="sin muestra real disponible; delimitador, columnas y clave de negocio no confirmados (GAP-GUIDO-004)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Solicitar una muestra real de OFP_ROLES_RDR.csv o su diccionario de datos.</paso>
+      <paso numero="2">Si se obtiene, definir la clave de negocio real y rediseñar este caso como una prueba de duplicidad a nivel de registro equivalente a la de otros procesos RDR ya cerrados.</paso>
+    </pasos>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la estructura real del fichero.</resultadoEsperado>
+    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
+    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-GUIDO-004 hasta recibir evidencia.</criterioAceptacion>
+    <posibilidadFallo>No se fuerza una estructura de datos inventada para evitar generar un caso de prueba engañoso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Integridad del fichero entre GoldenSource y EINS</nombre>
+    <objetivo>Confirmar que el contenido recibido en EINS coincide exactamente con el generado por el evento GoldenSource UserRoleFileProcessing, sin alteración durante el envío.</objetivo>
+    <precondiciones>
+      <precondicion>Ciclo completo ejecutado con éxito hasta la generación de OFP_ROLES_RDR.csv por GoldenSource.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="checksum_origen" valor="calculado sobre OFP_ROLES_RDR.csv justo tras su generación por GoldenSource, antes del envío"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular el checksum de OFP_ROLES_RDR.csv en origen, antes de que arranque MEKYTL1061.</paso>
+      <paso numero="2">Tras el envío OK, calcular el checksum del fichero recibido en EINS (OFP_ROLES_RDR_YYYYMMDD.csv).</paso>
+      <paso numero="3">Comparar ambos checksums.</paso>
+    </pasos>
+    <resultadoEsperado>El checksum del fichero recibido en EINS coincide exactamente con el checksum de origen (formato BINARY, sin conversión de codificación).</resultadoEsperado>
+    <tipoValidacion>Comparación de hash (checksum).</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de checksum.</criterioAceptacion>
+    <posibilidadFallo>Cualquier discrepancia de checksum se considera corrupción de copia y hace fallar el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Historificación interna sin job de archivado separado</nombre>
+    <objetivo>Confirmar que la historificación de OFP_ROLES_RDR.csv, al ser interna a MEGENV0001.sh, no requiere ni colisiona con un job de archivado separado (a diferencia de otros procesos RDR con RAMERC0068.sh).</objetivo>
+    <precondiciones>
+      <precondicion>Ciclo completo ejecutado con éxito.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="OFP_ROLES_RDR.csv" valor="válido, enviado en el ciclo bajo prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Tras la ejecución OK de MEKYTL1061, verificar la pestaña Salida del job.</paso>
+      <paso numero="2">Confirmar la línea "HISTORIFICACION: mv ... --- [CORRECTA]".</paso>
+      <paso numero="3">Verificar que OFP_ROLES_RDR.csv ya no está en la ruta origen y sí está en backup/ con el mismo nombre (sin timestamp).</paso>
+    </pasos>
+    <resultadoEsperado>La historificación se completa dentro de la misma ejecución de MEKYTL1061, sin necesidad de un job posterior; el fichero en backup/ mantiene el nombre original OFP_ROLES_RDR.csv (se sobrescribiría en el siguiente ciclo si no se gestiona por separado).</resultadoEsperado>
+    <tipoValidacion>Inspección de la Salida real del job + verificación de presencia/ausencia del fichero en cada ruta.</tipoValidacion>
+    <criterioAceptacion>Historificación interna confirmada, sin colisión ni necesidad de un job adicional.</criterioAceptacion>
+    <posibilidadFallo>Riesgo menor: al no llevar timestamp, un segundo ciclo el mismo día sobrescribiría el histórico anterior en backup/ sin dejar rastro del envío previo — ver también TC-007.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="RDR_ExtraccionDUCOMASTERDATA" fecha="2026-09-23" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de los 3 jobs con datos en las 4 secciones</nombre>
+    <objetivo>Verificar que los 3 jobs se ejecutan en orden y el fichero se copia a DataX y se historifica correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_ExtraccionDUCOMASTERDATA activa; existen registros en las 4 secciones (Index, Calendar, Products, DAYBASISTYPE).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="viernes de planificación actual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el disparo horario de EXTRACCIONDUCOMASTERDATA a las 22:00h del viernes.</paso>
+      <paso numero="2">Verificar generación de ExtraccionDUCOMASTERDATA.csv con filas en las 4 secciones y evento de salida.</paso>
+      <paso numero="3">Verificar que MEKYTL1299 copia el fichero a /unload/kytl/datsal/datax.</paso>
+      <paso numero="4">Verificar que MEKYTL1300 historifica el fichero en backup/ExtraccionDUCOMASTERDATA_YYYYMMDD.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan OK en el orden documentado; fichero presente en DataX y en backup/.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + existencia de fichero en ambos destinos.</tipoValidacion>
+    <criterioAceptacion>3/3 jobs OK, fichero presente en /unload/kytl/datsal/datax y en backup/.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de EXTRACCIONDUCOMASTERDATA bloquea el resto de la cadena</nombre>
+    <objetivo>Confirmar que un fallo en el primer job impide la ejecución de los siguientes.</objetivo>
+    <precondiciones>
+      <precondicion>Se fuerza un fallo simulado (p. ej. desconectividad con GoldenSource) en EXTRACCIONDUCOMASTERDATA.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conexión a GoldenSource inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en EXTRACCIONDUCOMASTERDATA a las 22:00h.</paso>
+      <paso numero="2">Verificar que no se genera el evento RDR_ExtraccionDUCOMASTERDATA_EXTRACCIONDUCOMASTERDATA_OK.</paso>
+      <paso numero="3">Verificar que MEKYTL1299 no arranca.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena queda bloqueada en el primer job; ningún job posterior cambia de estado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>ExtraccionDUCOMASTERDATA.csv se publica vacío sin bloquear la cadena</nombre>
+    <objetivo>Confirmar el comportamiento verificado por código fuente: publicación incondicional ante 0 filas en las 4 secciones.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con 0 registros en las 4 secciones (Index, Calendar, Products, DAYBASISTYPE).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registros por sección" valor="0 en las 4 secciones"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar EXTRACCIONDUCOMASTERDATA con la BD sin registros en ninguna sección.</paso>
+      <paso numero="2">Verificar que el job termina OK, registra el log "Sin registros extraídos, se genera fichero vacío" y publica el fichero igualmente.</paso>
+      <paso numero="3">Verificar que MEKYTL1299 copia igualmente el fichero vacío a DataX.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se completa igual que con datos; el fichero vacío se copia a DataX y se historifica sin ninguna alerta operativa diferenciada — comportamiento confirmado por código fuente (Principal.java), no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado Control-M + inspección del log y del contenido de ExtraccionDUCOMASTERDATA.csv.</tipoValidacion>
+    <criterioAceptacion>3/3 jobs OK; fichero sin filas de datos copiado a DataX; log de advertencia presente.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: el consumidor final podría no gestionar bien un fichero sin datos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Purga automática de ficheros con más de 6 meses en backup/</nombre>
+    <objetivo>Verificar que MEKYTL1300 elimina únicamente los ficheros históricos con más de 6 meses de antigüedad.</objetivo>
+    <precondiciones>
+      <precondicion>Directorio backup/ con ficheros de antigüedad variada: uno de 5 meses, uno de exactamente 6 meses y uno de 7 meses.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros de prueba" valor="ExtraccionDUCOMASTERDATA_5meses.csv, _6meses.csv, _7meses.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1300 con los 3 ficheros de prueba presentes en backup/.</paso>
+      <paso numero="2">Verificar cuáles de los 3 ficheros se eliminan y cuáles se conservan.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de 7 meses se elimina; el de 5 meses se conserva. El comportamiento exacto en el límite de 6 meses debe registrarse tal cual se observe, sin asumir de antemano el criterio de corte.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia de los 3 ficheros tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Ficheros con más de 6 meses eliminados, ficheros con menos de 6 meses conservados; el caso límite (exactamente 6 meses) documentado según el resultado observado.</criterioAceptacion>
+    <posibilidadFallo>Purga excesiva (elimina ficheros recientes) o insuficiente (conserva ficheros muy antiguos).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Historificación con máscara de fecha correcta en ejecuciones semanales sucesivas</nombre>
+    <objetivo>Verificar que la máscara de fecha no colisiona entre ejecuciones de viernes consecutivos.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena ejecutada correctamente 2 viernes consecutivos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Semanas de prueba" valor="2 viernes consecutivos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa el viernes 1 y verificar el fichero historificado con su fecha.</paso>
+      <paso numero="2">Ejecutar la cadena completa el viernes 2 y verificar que el fichero del viernes 1 no se sobrescribe.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución semanal genera su propio fichero historificado, sin colisión.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en backup/.</tipoValidacion>
+    <criterioAceptacion>2 ficheros distintos en backup/, ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si se relanza más de una vez la misma semana.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="e2e">
+    <nombre>Ciclo completo semanal desde la extracción hasta la historificación con purga</nombre>
+    <objetivo>Validar el flujo end-to-end completo de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con conectividad a GoldenSource y a la ruta de salida de DataX.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="viernes de ejecución de prueba"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa (3 jobs) en entorno de prueba.</paso>
+      <paso numero="2">Verificar la generación, copiado a DataX, historificación y purga (si aplica) del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa termina OK, con el fichero disponibilizado en DataX e historificado localmente.</resultadoEsperado>
+    <tipoValidacion>Verificación combinada Control-M + existencia de fichero en cada etapa.</tipoValidacion>
+    <criterioAceptacion>3/3 jobs OK, fichero presente en DataX y en backup/.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio detiene el flujo antes de la historificación final.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

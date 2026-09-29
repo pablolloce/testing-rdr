@@ -47,10 +47,48 @@ Se realizaron 14 preguntas en 1 ronda. Resumen de las decisiones clave:
 
 **Estructura real de `RDR_clientesYYYYMMDD.csv`:**
 
-| Campo | Tipo/formato | Dominio | Obligatoriedad |
-|-------|--------------|---------|-----------------|
-| Código ALID (primera columna) | Alfanumérico (ver ejemplos: numéricos de 8 dígitos, o con prefijo `J`) | Código de cliente activo de Altamira México, excluyendo la lista de 5 códigos hardcodeados | Obligatorio |
-| Columnas restantes | — | Vacías, delimitadas por `;` | No aplica |
+Cabecera real confirmada en el fichero de muestra (`documentos_fuente/evidencia_envio_altamira_bancomer_mexico/RDR_clientes20250726.csv`, 30 columnas, delimitador `;`). Este proceso (`MexicoEnvio` → `Querys.obtenerIDs` → `Ficheros.sacarFichero`) solo informa la columna 1 (`numclien`); las 29 columnas restantes se generan vacías en el fichero de salida — no hay lógica en este proceso que las pueble. Su nombre y su consumo posterior se confirman leyendo `ConciliacionMex.java` (proceso de conciliación inversa, fuera del folder Control-M de este proceso — ver más abajo), que es lo único en el material disponible que asigna semántica a las posiciones del CSV:
+
+| # | Campo | Tipo/formato | Dominio | Poblada por este proceso | Consumida por `ConciliacionMex` (conciliación inversa) |
+|---|-------|--------------|---------|---------------------------|----------------------------------------------------------|
+| 1 | `numclien` | Alfanumérico (ejemplos: numéricos de 8 dígitos, o con prefijo `J`) | Código ALID de cliente activo de Altamira México, excluyendo la lista de 5 códigos hardcodeados | Sí — único campo informado | Sí (`campos[0]`, mapeado a `VCH_DBC_COD_ALID`) |
+| 2 | `ofialta` | — | Vacía en la muestra | No | No |
+| 3 | `razon_soc` | — | Vacía en la muestra | No | No |
+| 4 | `priape` | — | Vacía en la muestra | No | No |
+| 5 | `segape` | — | Vacía en la muestra | No | No |
+| 6 | `rfc` | — | Vacía en la muestra | No | Sí (`campos[5]`, mapeado a `VCH_DBC_XTI_RFC`) |
+| 7 | `homonimi` | — | Vacía en la muestra | No | Sí (`campos[6]`, mapeado a `VCH_DBC_XTI_HOMOCL`) |
+| 8 | `curp` | — | Vacía en la muestra | No | No |
+| 9 | `sexo` | — | Vacía en la muestra | No | No |
+| 10 | `estcivil` | — | Vacía en la muestra | No | No |
+| 11 | `titulo` | — | Vacía en la muestra | No | No |
+| 12 | `direc1` | — | Vacía en la muestra | No | No |
+| 13 | `direc3` | — | Vacía en la muestra | No | No |
+| 14 | `aptto` | — | Vacía en la muestra | No | No |
+| 15 | `direc2` | — | Vacía en la muestra | No | No |
+| 16 | `poblaci` | — | Vacía en la muestra | No | No |
+| 17 | `codpost` | — | Vacía en la muestra | No | No |
+| 18 | `estado` | — | Vacía en la muestra | No | No |
+| 19 | `codpais` | — | Vacía en la muestra | No | No |
+| 20 | `tiptel1` | — | Vacía en la muestra | No | No |
+| 21 | `prefij1` | — | Vacía en la muestra | No | No |
+| 22 | `numtel1` | — | Vacía en la muestra | No | No |
+| 23 | `exttel1` | — | Vacía en la muestra | No | No |
+| 24 | `tiptel2` | — | Vacía en la muestra | No | No |
+| 25 | `prefij2` | — | Vacía en la muestra | No | No |
+| 26 | `numtel2` | — | Vacía en la muestra | No | No |
+| 27 | `exttel2` | — | Vacía en la muestra | No | No |
+| 28 | `t037_alt` | — | Vacía en la muestra | No | No |
+| 29 | `accsec` | — | Vacía en la muestra | No | Sí (`campos[28]`, mapeado a `VCH_DBC_COD_ACCTSEC`) |
+| 30 | `accsecN` | — | Vacía en la muestra | No | Sí (`campos[29]`, mapeado a `VCH_DBC_COD_ACCTSECN`) |
+
+**Sobre `ConciliacionMex.java` (conciliación inversa):**
+
+- **Qué hace en este proceso:** relee el `RDR_clientesYYYYMMDD.csv` ya generado (mismo patrón de nombre con fecha en `America/Mexico_City`) y, para cada línea, concilia `numclien` contra los códigos de RDR obtenidos de BD (`jdbc.obtenerCLIs`); si `campos.length < 30` la línea se descarta como fallo de longitud (`errorConci`) y no se concilia.
+- **Qué recibe/produce:** recibe 4 argumentos (`logLevel`, `logConfigFile`, `arg3`, `outputFileTemplate`) y el propio CSV; produce inserciones en BD vía `jdbc.executeCONCLI_Hilos` (lotes de 100 líneas, más el resto final) con los 5 campos mapeados arriba, y registra fallos (`errorConcilia`/`insertRLT1Conciliacion`) cuando el fichero no existe, está vacío, solo tiene cabecera, una línea tiene menos de 30 campos, o se produce `FileNotFoundException`/`UnsupportedEncodingException`/`IOException`/excepción genérica al leer.
+- **Campos de salida afectados:** no afecta al `RDR_clientesYYYYMMDD.csv` (solo lo lee); su salida es la tabla de conciliación en BD (`VCH_DBC_COD_ALID`, `VCH_DBC_XTI_RFC`, `VCH_DBC_XTI_HOMOCL`, `VCH_DBC_COD_ACCTSEC`, `VCH_DBC_COD_ACCTSECN`).
+- **Qué pasa si falla:** fichero inexistente, vacío, sin cabecera o solo con cabecera → aborta sin conciliar (`errorConcilia` con el mensaje correspondiente, sin `System.exit` de error explícito); línea con menos de 30 campos → esa línea se marca en `errorConci` y se continúa con las siguientes; excepción de lectura (`ArrayIndexOutOfBoundsException` u otra) → se registra el error y se continúa la línea siguiente sin abortar el fichero completo.
+- **Confirmado fuera del alcance Control-M de este proceso** (no aparece en el folder de Control-M de Altamira México), tal como ya indicaba la sección 4; se documenta aquí porque es el único material disponible que da semántica a las columnas 2-30 del CSV, cumpliendo la regla de rigor técnico sobre el diccionario de campos.
 
 - Separador: `;`. Cabecera obligatoria en la primera línea.
 - Un código por línea (no hay agregación por sucursal ni listas separadas por `|` en el fichero final, pese a que la query SQL las construye internamente).
