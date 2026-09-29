@@ -122,13 +122,17 @@ Como en Contactos, las queries **no están escritas en el código Java**: se res
 contra la configuración en base de datos. Una modificación de las queries cambia el
 comportamiento del proceso sin ningún despliegue (ver §8 — RG-11).
 
-> **La ficha de `MEKYTL1022` atribuye la extracción al job equivocado.** Su documentación declara
-> como propósito *"Proceso de extracción SCIS (documentado por SS al no existir documentación
-> previa)"*. Es incorrecto: la extracción la realiza `GS_EXTRACCIONSCIS`, y `MEKYTL1022` ejecuta
+> **La ficha de `MEKYTL1022` atribuía la extracción al job equivocado — corregido en una ficha más
+> reciente.** La versión de la ficha usada en el análisis original declaraba como propósito
+> *"Proceso de extracción SCIS (documentado por SS al no existir documentación previa)"*. Es
+> incorrecto: la extracción la realiza `GS_EXTRACCIONSCIS`, y `MEKYTL1022` ejecuta
 > `RAMERC0068.sh`, cuya cabecera de código lo define sin ambigüedad como
 > *"MODULO: ARCHIVADO DE ARCHIVOS — Este proceso se encarga del archivado de ficheros"*. El
 > script no tiene ninguna capacidad de extracción: solo mueve, copia, borra, comprime y
-> descomprime (§4.4). La descripción de la ficha debe corregirse (ver §8 — RG-01).
+> descomprime (§4.4). **Confirmado con una re-exportación real de la ficha (EX-005-03-MEKYTL1022,
+> 2026-09-29):** el texto erróneo ya no aparece — la ficha actual solo describe el script, la
+> ruta, el parámetro, el usuario y el grupo de soporte, sin atribuir ninguna extracción al job.
+> RG-01 se da por corregido en la documentación oficial vigente (ver §8 — RG-01).
 
 ### 4.3 Las dos queries
 
@@ -194,10 +198,14 @@ riesgos está en la memoria transversal `memoria/memoria_ramerc0068_RDR.md`.
 **Función en esta cadena.** El usuario confirma que, actualmente, *"solo se genera la extracción
 y se historifica"*. `MEKYTL1022` es el job que realiza esa historificación.
 
-> **Las rutas concretas no están documentadas.** Ni la ficha del job ni el documento de análisis
-> recogen el mapeo del script (directorio origen, máscara, directorio destino y operación), que
-> vive en la línea `MEKYTL1022@…` del fichero IDX. Los demás procesos del repositorio sí
-> documentan ese mapeo en la ficha de sus jobs `RAMERC0068`; aquí falta.
+> **Las rutas concretas siguen sin documentarse (2026-09-29).** Ni la ficha del job (tampoco en su
+> versión corregida, `EX-005-03-MEKYTL1022` del 29/09/2026 — ver RG-01), ni el export real del
+> folder en Control-M (`Workspace_135.xml`, que solo confirma la clave `MEKYTL1022` ya conocida y
+> la topología del folder), recogen el mapeo del script (directorio origen, máscara, directorio
+> destino y operación), que vive en la línea `MEKYTL1022@…` del fichero IDX. Los demás procesos
+> del repositorio sí documentan ese mapeo en la ficha de sus jobs `RAMERC0068`; aquí sigue
+> faltando — sería necesario el propio fichero `INFORMACION_HISTORIFICACIONES.IDX`, no la ficha
+> Control-M ni el export del folder.
 >
 > Por coherencia con el resto de la cadena —el único directorio de destino que aparece en toda la
 > documentación es `.../extracciongenerica/SCIS/backup`, que es además el que purga el job de
@@ -461,8 +469,8 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
-| RG-01 | La ficha de `MEKYTL1022` documenta como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros | Induce a error sobre qué hace la cadena: sugiere dos extracciones donde solo hay una | Corregir la descripción de la ficha (§4.2) |
-| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) no está documentado en ninguna ficha | No se conoce el directorio destino. Si no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `^MEKYTL1022@` del IDX del entorno que corresponda y documentarla en la ficha (§4.4, TC-06) |
+| RG-01 | **Resuelto (2026-09-29).** La ficha de `MEKYTL1022` documentaba como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros — confirmado corregido en una re-exportación real de la ficha (`EX-005-03-MEKYTL1022`, fecha 29/09/2026): ya no atribuye ninguna extracción al job | Ya no induce a error — la ficha vigente es neutra (solo script/ruta/parámetro/usuario/grupo), sin describir su función de negocio | Cerrado — no requiere acción adicional |
+| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse en ninguna ficha — confirmado que la ficha corregida (arriba) tampoco lo incluye, ni el export real de Control-M del folder (`Workspace_135.xml`), que solo confirma la clave `MEKYTL1022` y la topología ya conocida | No se conoce el directorio destino. Si no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `^MEKYTL1022@` del IDX del entorno que corresponda — no basta con la ficha Control-M ni con el export del folder, hace falta el propio fichero `INFORMACION_HISTORIFICACIONES.IDX` (§4.4, TC-06) |
 | RG-03 | El elemento `Colony` se emite dos veces con el mismo origen | Un consumidor estricto podría rechazar el XML o quedarse con una lectura ambigua | Verificar contra el SQL literal y eliminar la duplicación (§5.1, TC-14) |
 | RG-04 | Cuatro campos normalizan `;` a coma sin motivo documentado | Se está alterando el dato de origen sin una razón registrada; un cambio futuro podría revertirlo sin saber qué rompía | Documentar el motivo en la ficha del proceso (§5.1) |
 | RG-05 | `RAMERC0068.sh` deduce el entorno del segundo carácter del nombre de la máquina y, si no lo reconoce, **asume producción** | Un host que no siga la nomenclatura ejecutaría la configuración de producción sobre rutas de producción. Es el peor fallback posible para un entorno de pruebas | Verificar la nomenclatura del host antes de ejecutar pruebas (`memoria/memoria_ramerc0068_RDR.md`, TC-15) |
@@ -489,17 +497,22 @@ Lo que la especificación aporta frente al documento de partida son tres correcc
 propia cadena, todas verificadas contra fuente primaria:
 
 1. **`MEKYTL1022` no extrae, archiva.** El código de `RAMERC0068.sh` lo define como módulo de
-   archivado de ficheros, sin ninguna capacidad de extracción. La ficha del job atribuye una
-   función que el script no puede realizar.
+   archivado de ficheros, sin ninguna capacidad de extracción. La ficha del job atribuía una
+   función que el script no podía realizar — **corregido en la documentación oficial vigente**
+   (RG-01, confirmado con la ficha real re-exportada el 2026-09-29).
 2. **El calendario es domingo a jueves**, confirmado en la captura de Control-M, frente al L-V
    que declara una de las fichas.
 3. **El cierre de la cadena es incondicional**, porque los dos predecesores del colector son
    Dummy y nunca pueden fallar.
 
-**Punto abierto que condiciona un caso de prueba:** el mapeo del archivado (RG-02). Se asume que
-`MEKYTL1022` archiva en `SCIS/backup` por ser el único destino que aparece en la documentación y
-el que purga el job de cierre, pero es una inferencia. Si el destino real fuera otro, el fichero
-se acumularía indefinidamente al quedar fuera del alcance de la purga.
+**Punto abierto que condiciona un caso de prueba:** el mapeo del archivado (RG-02) sigue sin
+confirmarse — ni la ficha corregida del job ni un export real del folder Control-M
+(`Workspace_135.xml`, 2026-09-29) lo incluyen, ambos confirman datos ya conocidos (clave
+`MEKYTL1022`, topología). Se asume que `MEKYTL1022` archiva en `SCIS/backup` por ser el único
+destino que aparece en la documentación y el que purga el job de cierre, pero sigue siendo una
+inferencia. Si el destino real fuera otro, el fichero se acumularía indefinidamente al quedar
+fuera del alcance de la purga. Cerrarlo exige el propio fichero
+`INFORMACION_HISTORIFICACIONES.IDX`, no más fichas ni exports de Control-M.
 
 **Puntos abiertos que no bloquean:** motivo de negocio de la exclusión `A15` (RG-10), verificación
 del `Colony` duplicado contra el SQL literal (RG-03), motivo de la normalización de `;` (RG-04) y
