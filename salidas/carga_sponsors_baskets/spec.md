@@ -3,24 +3,31 @@
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-29.
 > Fuentes: `Carga_y_baja_de_sponsors_de_cestas_manual__automatica.docx` (documento original de análisis funcional
 > y técnico), workflow real `Auto_Load_Basket_Sponsors.wkf` (GoldenSource), `AutoLoadBasketSponsors.properties`,
-> y 11 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`, `MEKYTL1176`, `MEKYTL0987`-`0995`, `MEKYTL1175`).
-> Detalle completo de evidencia en `documentos_fuente/evidencia_carga_sponsors_baskets/`.
+> script real `RDR_CargaBasketSponsor.sh`, export real de Control-M del folder `RDR_HIST_BASKETS_SPONSORS`
+> (`Workspace_584.xml`), y 12 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`, `MEKYTL1176`,
+> `MEKYTL0987`-`0995`, `MEKYTL1175`, `RDR_HIST_BASKETS_SPONSORS_IN`). Detalle completo de evidencia en
+> `documentos_fuente/evidencia_carga_sponsors_baskets/`.
 >
-> **Estado: sin gaps técnicos bloqueantes.** Quedan 2 gaps abiertos no bloqueantes (posible defecto de
-> `idType` para NASDAQ, y variable `statusCarga` no declarada) — ver §4 y §9.
+> **Estado: sin gaps técnicos bloqueantes.** Queda 1 gap abierto no bloqueante (variable `statusCarga` no
+> declarada) — ver §4 y §9. El posible defecto de `idType` para NASDAQ (GAP-BASKSP-003) **queda resuelto**:
+> el propio script real confirma que NASDAQ es un no-op deliberado en toda la cadena de carga, no un bug.
 
 ## 1. Resumen ejecutivo
 
 El proceso **P-023 (Carga y historificación de sponsors de baskets)** automatiza la ingesta, actualización y
 mantenimiento histórico de los **sponsors** de cestas de instrumentos financieros (*baskets*) en la entidad
-`FIGR`, a partir de 9 proveedores de mercado reales confirmados (`STOXX`, `BME`, `FTSE`, `Solactive`,
-`Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`, `NASDAQ`) más una vía manual (`MANUAL`). El proceso combina 3
-cadenas Control-M independientes por horario (sin evento cross-chain entre ellas — ver GAP-BASKSP-006):
+`FIGR`, a partir de 8 proveedores de mercado realmente activos (`STOXX`, `BME`, `FTSE`, `Solactive`,
+`Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`) más una vía manual (`MANUAL`). Existe un noveno proveedor,
+**`NASDAQ`, confirmado como deliberadamente inerte** en las 2 capas técnicas del proceso — ver §4,
+GAP-BASKSP-003. El proceso combina 3 cadenas Control-M independientes por horario (sin evento cross-chain
+entre ellas — ver GAP-BASKSP-006, confirmado ahora con export real de Control-M):
 
 * **Cadena 1 (`RDR_AUTO_BASKETS_SPONSORS`, 05:45 AM):** carga y sincroniza los sponsors mediante un único
   workflow GoldenSource, `Auto_Load_Basket_Sponsors`.
-* **Cadena 2 (`RDR_HIST_BASKETS_SPONSORS`, sin hora fija):** comprime (`.gz`) e historifica hacia `/old/` los
-  ficheros ya procesados de cada uno de los 9 sponsors automáticos + el manual (10 jobs en paralelo).
+* **Cadena 2 (`RDR_HIST_BASKETS_SPONSORS`, método de ejecución `PLAN_1200`):** comprime (`.gz`) e historifica
+  hacia `/old/` los ficheros de 8 sponsors automáticos reales + el manual (9 jobs reales en paralelo); el
+  décimo job (`MEKYTL0995`, NASDAQ) está dado de alta como **Dummy** en Control-M — nunca ejecuta
+  `RAMERC0068.sh` (ver GAP-BASKSP-003).
 * **Cadena 3 (`RDR_LOAD_SPONSOR_MANUAL`, 05:00 AM):** transmite por XCOM los ficheros de cestas manuales
   (`open_*.csv`) hacia el servidor corporativo `XCOMWPMER`.
 
@@ -40,22 +47,31 @@ separado en la Cadena 2.
       │  pipeline gobernado por filas activas de FT_T_PAR1:
       │    1) PreProcess (BSKT_PREPROCESS) → ./RDR_Sponsor_PreProcess.sh
       │    2) Split      (BSKT_SPLIT)      → ./RDR_SponsorSplit.sh
-      │    3) Load       (BSKT_LOAD)       → asigna idType por sponsor, comprueba si la cesta ya
-      │                                       existe (FT_T_RISS/FT_T_RIDF/FT_T_ISID) y lanza
-      │                                       ./RDR_CargaBasketSponsor.sh (fire-and-forget si es nueva,
-      │                                       o tras upsert de FT_T_ISST si ya existía)
+      │    3) Load       (BSKT_LOAD)       → asigna idType por sponsor (vacío para NASDAQ, sin
+      │                                       efecto real — ver más abajo), comprueba si la cesta
+      │                                       ya existe (FT_T_RISS/FT_T_RIDF/FT_T_ISID) y lanza
+      │                                       ./RDR_CargaBasketSponsor.sh (fire-and-forget si es
+      │                                       nueva, o tras upsert de FT_T_ISST si ya existía)
       │  errores de fichero ausente → listaErrores → INSERT en TABLEALERTGENER (no bloquea)
+      ▼
+ RDR_CargaBasketSponsor.sh (SPONSOR, FICHERO_PRINCIPAL, [FICHERO_SECUNDARIO])
+      │  valida SPONSOR contra una lista cerrada; para NASDAQ: "Correcto para NASDAQ" y EXIT 0
+      │  inmediato — no llama a calljava ni a callevent (no-op deliberado, confirmado por código real)
+      │  para el resto: calljava (RDR_FormatoUnicoBaskets.jar, clase FormatoUnico, genera el XML)
+      │  → callevent (executeBbvaEvent.sh fileloading RDR_CargaBasketSponsor — 2º workflow
+      │    GoldenSource, no aportado, GAP-BASKSP-009 — carga final real a GoldenSource)
       ▼
  (fin Cadena 1 — sin evento de salida documentado hacia Cadena 2)
 
- ── CADENA 2 (RDR_HIST_BASKETS_SPONSORS, L-M-X-J-V, sin hora fija) ──
- RDR_HIST_BASKETS_SPONSORS_IN (Dummy)
-      │  dispara en paralelo, sin evento cross-chain de Cadena 1 como prerrequisito:
-      ├─ MEKYTL0987 (STOXX)       ├─ MEKYTL0991 (Euronext)   ├─ MEKYTL0994 (STOXX_DAX)
-      ├─ MEKYTL0988 (BME)         ├─ MEKYTL0992 (MSCI)       ├─ MEKYTL0995 (NASDAQ)
-      ├─ MEKYTL0989 (FTSE)        ├─ MEKYTL0993 (SP_DJ)      └─ MEKYTL1175 (MANUAL, Forzar OK,
-      └─ MEKYTL0990 (Solactive)                                  máscara open_*)
-      │  cada uno: comprime *_yyyymmdd.gz y mueve a .../Sponsors/{sponsor}/old/;
+ ── CADENA 2 (RDR_HIST_BASKETS_SPONSORS, L-M-X-J-V, método PLAN_1200) ──
+ RDR_HIST_BASKETS_SPONSORS_IN (Dummy, host 22.156.148.85)
+      │  dispara en paralelo, sin evento cross-chain de Cadena 1 como prerrequisito
+      │  (confirmado con export real de Control-M, Workspace_584.xml):
+      ├─ MEKYTL0987 (STOXX, Job)       ├─ MEKYTL0991 (Euronext, Job)   ├─ MEKYTL0994 (STOXX_DAX, Job)
+      ├─ MEKYTL0988 (BME, Job)         ├─ MEKYTL0992 (MSCI, Job)       ├─ MEKYTL0995 (NASDAQ, **Dummy**,
+      ├─ MEKYTL0989 (FTSE, Job)        ├─ MEKYTL0993 (SP_DJ, Job)      │   nunca ejecuta RAMERC0068.sh)
+      └─ MEKYTL0990 (Solactive, Job)                                  └─ MEKYTL1175 (MANUAL, Job,
+      │  cada Job real: comprime *_yyyymmdd.gz y mueve a .../Sponsors/{sponsor}/old/;    Forzar OK)
       │  tolerante a directorio vacío (OK sin fallar)
       ▼
  (hoja terminal — sin evento de salida)
@@ -74,12 +90,12 @@ separado en la Cadena 2.
   `FIGR`) desde 9 proveedores de mercado más una vía manual.
 * **Ámbito técnico:** las 3 cadenas Control-M completas — `RDR_AUTO_BASKETS_SPONSORS` (2 jobs),
   `RDR_HIST_BASKETS_SPONSORS` (11 jobs), `RDR_LOAD_SPONSOR_MANUAL` (1 job).
-* **Fuera de alcance:** el contenido real de los 3 scripts invocados por el workflow
-  (`RDR_Sponsor_PreProcess.sh`, `RDR_SponsorSplit.sh`, `RDR_CargaBasketSponsor.sh` — no aportados, ver
-  GAP-BASKSP-003); el origen exacto (proceso/folder Control-M) que deposita los ficheros de cada proveedor en
-  `.../Sponsors/{sponsor}/` antes de que el workflow los procese (ver GAP-BASKSP-005); el detalle de testing de
-  los 4 procesos downstream impactados (P-010, P-028, P-034, P-051), documentados aquí solo como mapa de
-  impacto (§9).
+* **Fuera de alcance:** el contenido real de `RDR_Sponsor_PreProcess.sh`/`RDR_SponsorSplit.sh` (no aportados)
+  ni del segundo workflow GoldenSource `RDR_CargaBasketSponsor` invocado al final de `RDR_CargaBasketSponsor.sh`
+  (no aportado, GAP-BASKSP-009 — es la carga final real a GoldenSource); el origen exacto (proceso/folder
+  Control-M) que deposita los ficheros de cada proveedor en `.../Sponsors/{sponsor}/` antes de que el workflow
+  los procese (ver GAP-BASKSP-005); el detalle de testing de los 4 procesos downstream impactados (P-010,
+  P-028, P-034, P-051), documentados aquí solo como mapa de impacto (§9).
 
 ## 3. Requisitos detectados
 
@@ -88,11 +104,12 @@ separado en la Cadena 2.
 | R1 | `RDR_AUTO_LOAD_BASKETS` ejecuta `GSProcess.sh AutoLoadBasketSponsors`, que invoca el workflow GoldenSource `Auto_Load_Basket_Sponsors` (grupo `Custom/RDR/Fileloading/Issues/Baskets`). |
 | R2 | El workflow procesa 3 fases secuenciales (`PreProcess`→`Split`→`Load`), cada una gobernada por las filas **activas** (`DATA_STAT_TYP='ACTIVE'`, no ejecutadas hoy) de `FT_T_PAR1` con `PARAMETER_CTXT_TYP` = `BSKT_PREPROCESS`/`BSKT_SPLIT`/`BSKT_LOAD` respectivamente, y un límite `BSKT_MAX`. |
 | R3 | Antes de invocar cada script (`RDR_Sponsor_PreProcess.sh`/`RDR_SponsorSplit.sh`/`RDR_CargaBasketSponsor.sh`), el workflow verifica que los ficheros esperados existan en `/fichtemcomp/{env}/descargas/kytl/issues/Baskets/Sponsors/{sponsor}/`; si falta alguno, registra un error diferenciado por origen (`DESCARGA`/`SPLIT`/otro) sin detener el resto del pipeline. |
-| R4 | La fase `Load` determina el `idType` del instrumento según el sponsor: `BME`/`Solactive`→`ISIN`; `STOXX`/`STOXX_DAX`→`TICKER`; `Euronext`/`MSCI`/`SP_DJ`/`FTSE`→`INHOUSE`; `MANUAL`→`ISIN`+`RIC`. **`NASDAQ` no tiene asignación** (ver GAP-BASKSP-003). |
+| R4 | La fase `Load` determina el `idType` del instrumento según el sponsor: `BME`/`Solactive`→`ISIN`; `STOXX`/`STOXX_DAX`→`TICKER`; `Euronext`/`MSCI`/`SP_DJ`/`FTSE`→`INHOUSE`; `MANUAL`→`ISIN`+`RIC`. `NASDAQ` no tiene asignación — **sin efecto real**, ya que `RDR_CargaBasketSponsor.sh` no-opera para NASDAQ de todas formas (ver GAP-BASKSP-003). |
+| R4b | `RDR_CargaBasketSponsor.sh` valida el sponsor recibido contra una lista cerrada (`STOXX`, `Euronext`, `FTSE`, `SP_DJ`, `MSCI`, `NASDAQ`, `Solactive`, `STOXX_DAX`, `MANUAL`, `BME`); para `NASDAQ` específicamente, hace `echo "Correcto para NASDAQ"` y `exit 0` sin transformar ni cargar nada. Los ficheros con prefijo `close_*` se ignoran (`exit 0`) para los 5 sponsors que requieren fichero secundario. |
 | R5 | Si la cesta (`FT_T_RISS`/`FT_T_RIDF`/`FT_T_ISID`, `iss_part_rl_typ='INDEX'`, `rel_typ='BASKET'`, activa y no expirada) ya existe, se hace `MERGE INTO FT_T_ISST` (`STAT_DEF_ID='B_OPNRES'`) antes de lanzar `RDR_CargaBasketSponsor.sh`; si no existe, se lanza directamente en modo fire-and-forget (`waitForEnd=false`). |
 | R6 | Todo error de fichero ausente detectado en cualquiera de las 3 fases se acumula y se inserta en `TABLEALERTGENER` (`PROCESO='CARGA_BASKETS_SPONSORS'`, `LAST_CHG_USR_ID='AlertasBarrido.jar'`) — sugiere un job/jar separado (`AlertasBarrido.jar`) que consume esta tabla, no aportado. |
-| R7 | La Cadena 2 (`RDR_HIST_BASKETS_SPONSORS`) tiene 10 jobs reales (9 automáticos + 1 manual), cada uno con predecesor único `RDR_HIST_BASKETS_SPONSORS_IN` — **ninguno tiene un evento cross-chain de `RDR_AUTO_BASKETS_SPONSORS` como prerrequisito** (confirmado en las 10 fichas reales). |
-| R8 | Cada job de Cadena 2 comprime todo el contenido de `.../Sponsors/{sponsor}/` (excepto `/old/`) a `*_yyyymmdd.gz` y lo mueve a `.../Sponsors/{sponsor}/old/`; si no hay ficheros, el job da OK sin fallar. |
+| R7 | La Cadena 2 (`RDR_HIST_BASKETS_SPONSORS`) tiene 11 pasos: 1 Dummy de cabecera + 9 Job reales (8 automáticos + `MANUAL`) + 1 Dummy adicional (`MEKYTL0995`, NASDAQ). Todos cuelgan de `RDR_HIST_BASKETS_SPONSORS_IN` como único predecesor — **ninguno tiene un evento cross-chain de `RDR_AUTO_BASKETS_SPONSORS`** (confirmado con export real de Control-M, `Workspace_584.xml`, no solo con las fichas). |
+| R8 | Cada uno de los 9 jobs reales de Cadena 2 comprime todo el contenido de `.../Sponsors/{sponsor}/` (excepto `/old/`) a `*_yyyymmdd.gz` y lo mueve a `.../Sponsors/{sponsor}/old/`; si no hay ficheros, el job da OK sin fallar. `MEKYTL0995` (NASDAQ) es Dummy: siempre OK, nunca ejecuta `RAMERC0068.sh` — los ficheros de NASDAQ, si existieran, nunca se historifican. |
 | R9 | `MEKYTL1175` (sponsor `MANUAL`) filtra solo ficheros `open_*` y tiene configurado **"Forzar OK en cualquier caso"** — a diferencia de los otros 9, que solo toleran directorio vacío pero fallarían ante un error real. |
 | R10 | `MEKYTL1176` (Cadena 3) transmite todos los `open_*.csv` de `.../Sponsors/MANUAL/` hacia `XCOMWPMER` (`\\S00371F2\DATOS\TRANSFTP\MVP00G207\Mx3FRTB\SponsorETFsRDR\`), sobreescribiendo el destino si ya existe. |
 | R11 | Cadena 3 corre a las 05:00 AM, **antes** que Cadena 1 (05:45 AM) — la transmisión manual no depende de que la carga automática haya terminado. |
@@ -103,23 +120,26 @@ separado en la Cadena 2.
 |----|-----|------------|
 | GAP-BASKSP-001 | ¿Qué hace realmente `Workflow(AutoLoadBasketSponsors)`? El documento original solo nombra la invocación. | **Resuelto por completo** con el `.wkf` real (`Auto_Load_Basket_Sponsors.wkf`, grupo `Custom/RDR/Fileloading/Issues/Baskets`, nombre interno con guiones bajos — misma referencia que `AutoLoadBasketSponsors` de las fichas/`.properties`, sin discrepancia real de nomenclatura). Pipeline `PreProcess→Split→Load` gobernado por `FT_T_PAR1`, con lógica de `idType` por sponsor y decisión de upsert vs. fire-and-forget según exista o no la cesta. Ver §1.1 y R2-R6. |
 | GAP-BASKSP-002 | El documento original describe `MEKYTL0988` como "Historificación Cestas Generales", sin sponsor asociado — inconsistente con que el resto de sponsors documentados (8) no incluyen ningún "genérico". | **Resuelto con ficha real.** `MEKYTL0988` es en realidad el job de historificación del sponsor **`BME`** (`.../Sponsors/BME/` → `/BME/old/`) — el documento original etiquetó mal este job. Esto también resuelve la aparente inconsistencia de que el código real del workflow (`Auto_Load_Basket_Sponsors.wkf`) maneja un sponsor `BME` que no aparecía en ningún sitio del documento original: sí existe, y tiene su propio job de historificación como los demás 8. |
-| GAP-BASKSP-003 | El bloque de asignación de `idType` en el workflow real cubre `BME`, `Solactive`, `STOXX`, `STOXX_DAX`, `Euronext`, `MSCI`, `SP_DJ`, `FTSE` y `MANUAL` — **pero no `NASDAQ`**, pese a que `NASDAQ` es un sponsor real y activo (confirmado con ficha real `MEKYTL0995`, con su propio job de historificación). | **Abierto, no bloqueante.** Sin el código de `RDR_CargaBasketSponsor.sh` (no aportado) no se puede confirmar si esto es un defecto real (NASDAQ cargaría con `idType`/`idType2` vacíos, lo que haría fallar siempre la búsqueda de cesta existente en `Check Basket` y forzaría la rama fire-and-forget) o si hay algún tratamiento adicional fuera del workflow. Se documenta como riesgo (§9, RISK-BASKSP-001) y como caso de prueba explícito (TC-006). |
+| GAP-BASKSP-003 | El bloque de asignación de `idType` en el workflow real cubre `BME`, `Solactive`, `STOXX`, `STOXX_DAX`, `Euronext`, `MSCI`, `SP_DJ`, `FTSE` y `MANUAL` — pero no `NASDAQ`. ¿Es un defecto real? | **Resuelto con 2 evidencias reales independientes, confirmadas mutuamente.** (1) El export real de Control-M del folder (`Workspace_584.xml`) muestra que `MEKYTL0995` está dado de alta como **`TASKTYPE="Dummy"`** — a diferencia de los otros 9 jobs de Cadena 2 (`TASKTYPE="Job"`) — pese a tener `MEMNAME="RAMERC0068.sh"` configurado: Control-M nunca lo ejecuta. (2) El código real de `RDR_CargaBasketSponsor.sh` confirma explícitamente el mismo patrón en Cadena 1: en el bloque de validación de parámetros, para `SPONSOR=="NASDAQ"` hace `echo "Correcto para ${1}"` y `exit 0` **antes** de llamar a `calljava`/`callevent` — es decir, no transforma ni carga nada. **NASDAQ es, por tanto, un sponsor deliberadamente inerte en las 2 capas del proceso** (ni se historifica en Cadena 2, ni se carga de verdad en Cadena 1), no un defecto — lo cual hace irrelevante que le falte `idType` en el workflow, ya que el script al que se pasaría ese dato tampoco lo usaría. Ver §6.2/§6.3 y TC-006 (reescrito para confirmar el no-op en vez de investigar un posible bug). |
 | GAP-BASKSP-004 | La sentencia `MERGE INTO FT_T_ISST` usa el bind `:statusCarga`, variable que **no está declarada** entre las variables globales del workflow (`ald1Oid`, `environment`, `listaErrores`, `loadMap`, `loopCounter`, `maxExec`, `oid`, `preProcessMap`, `script`, `scriptPath`, `splitMap`) ni asignada visiblemente en el script `Load`. | **Abierto, no bloqueante.** Posible variable colgante o dependencia de un valor global no capturado en este export. Riesgo menor (§9, RISK-BASKSP-002): el campo `STAT_CHAR_VAL_TXT` de `FT_T_ISST` podría quedar con un valor no controlado (null o resto de una ejecución anterior). |
 | GAP-BASKSP-005 | ¿Quién genera y deposita los ficheros de los 9 proveedores en `.../Sponsors/{sponsor}/` antes de que el workflow los procese? | **Parcialmente resuelto.** 7 de las 9 fichas de Cadena 2 (`FTSE`, `Solactive`, `Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`, `NASDAQ`) confirman explícitamente que el fichero historificado es *"el resultante de la extracción de Mentor genérica tras transformación"* — es decir, provienen de un sistema de extracción **Mentor** ya existente, transformado antes de llegar a esta ruta. Las fichas de `STOXX` y `BME` no lo mencionan explícitamente (solo dicen "comprime e historifica"), lo que no permite descartar un origen distinto para esos 2. El job/folder Control-M concreto que ejecuta esa extracción Mentor y la transformación no está identificado — fuera de alcance de este proceso (§2). |
-| GAP-BASKSP-006 | ¿Existe una dependencia real (evento cross-chain) entre Cadena 1 (carga, 05:45) y Cadena 2 (historificación)? | **Resuelto por ausencia — con evidencia real de los 10 jobs.** Ninguna de las 10 fichas de Cadena 2 lista un prerrequisito distinto de `RDR_HIST_BASKETS_SPONSORS_IN`; no hay evento cross-chain de `RDR_AUTO_BASKETS_SPONSORS_OK` ni similar. Las cadenas son independientes por diseño, ligadas solo por la expectativa de horario. Riesgo documentado en §9 (RISK-BASKSP-003). |
+| GAP-BASKSP-006 | ¿Existe una dependencia real (evento cross-chain) entre Cadena 1 (carga, 05:45) y Cadena 2 (historificación)? | **Resuelto por ausencia, con evidencia dura.** El export real de Control-M del folder completo (`Workspace_584.xml`) confirma que el único `INCOND` de los 9 jobs reales de Cadena 2 es `RDR_HIST_BASKETS_SPONSORS_IN_OK` — no existe ningún evento cross-chain de `RDR_AUTO_BASKETS_SPONSORS`. Las cadenas son independientes por diseño, ligadas solo por la expectativa de horario. Riesgo documentado en §9 (RISK-BASKSP-003). |
 | GAP-BASKSP-007 | Las cifras del mapa de impacto downstream (P-010: 2 cadenas, P-028: 12, P-034: 4, P-051: 7) no traen evidencia propia en el documento original. | **Aceptado tal cual, no perseguido.** Son cifras de contexto/alcance de negocio, no verificables con el material de esta ronda; no condicionan ningún caso de prueba de este proceso. `P-034` es coherente con `salidas/cesion_cestas_abaco/` (`RDR_BASKETS_ABACO`), ya documentado en este repositorio. |
-| GAP-BASKSP-008 | Fichas reales de los 2 jobs Dummy de cabecera (`RDR_AUTO_BASKETS_SPONSORS_IN`, `RDR_HIST_BASKETS_SPONSORS_IN`) no aportadas. | **No bloqueante.** Confirmados indirectamente: los sucesores reales de ambos (`RDR_AUTO_LOAD_BASKETS` y los 10 jobs de Cadena 2, respectivamente) documentan a estos Dummy como su único predecesor, consistente en todos los casos con el documento original. |
+| GAP-BASKSP-008 | Fichas reales de los 2 jobs Dummy de cabecera (`RDR_AUTO_BASKETS_SPONSORS_IN`, `RDR_HIST_BASKETS_SPONSORS_IN`) no aportadas. | **Parcialmente resuelto.** `RDR_HIST_BASKETS_SPONSORS_IN` confirmado con ficha real (Dummy, sin predecesor, 10 sucesores exactos — host `22.156.148.85`, distinto de `pr-rdr.igrupobbva`) y con el export de Control-M. `RDR_AUTO_BASKETS_SPONSORS_IN` sigue sin ficha propia — no bloqueante, confirmado indirectamente por su único sucesor real (`RDR_AUTO_LOAD_BASKETS`). |
+| GAP-BASKSP-009 | El workflow GoldenSource `RDR_CargaBasketSponsor`, invocado al final de `RDR_CargaBasketSponsor.sh` (vía `executeBbvaEvent.sh fileloading`), no ha sido aportado. | **No bloqueante.** Es la carga final real a GoldenSource (tras la transformación a XML por `RDR_FormatoUnicoBaskets.jar`); mismo patrón "Fileloading Engine" ya confirmado en otros procesos de esta sesión. Fuera de alcance de esta ronda (§2). |
 
-**Balance: 6 de 8 gaps resueltos (4 por completo, 2 por ausencia de evidencia contraria); 2 abiertos no
-bloqueantes** (GAP-BASKSP-003, GAP-BASKSP-004).
+**Balance: 8 de 9 gaps resueltos (5 por completo, 2 por ausencia de evidencia contraria, 1 parcialmente);
+1 abierto no bloqueante** (GAP-BASKSP-004).
 
 ## 5. Especificación funcional
 
 **Entidad principal:** `FIGR` (sponsors y relaciones de cestas), UUAA `KYTL0000`.
 
-**9 sponsors automáticos confirmados con evidencia real** (workflow + fichas): `STOXX`, `BME`, `FTSE`,
-`Solactive`, `Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`, `NASDAQ`. Más la vía **`MANUAL`** (fichero `open_*.csv`
-cargado por un operador, sin proceso automático de generación documentado).
+**8 sponsors automáticos realmente activos** (workflow + fichas + Control-M real): `STOXX`, `BME`, `FTSE`,
+`Solactive`, `Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`. Más la vía **`MANUAL`** (fichero `open_*.csv` cargado
+por un operador, sin proceso automático de generación documentado). **`NASDAQ` es un 9º sponsor nominal, pero
+deliberadamente inerte de principio a fin** (§4, GAP-BASKSP-003): ni se carga (no-op confirmado en
+`RDR_CargaBasketSponsor.sh`) ni se historifica (`MEKYTL0995` es Dummy en Control-M).
 
 **Ciclo de vida de un sponsor automático:**
 1. Un fichero de extracción (mayoritariamente de origen Mentor genérico, GAP-BASKSP-005) se deposita en
@@ -134,7 +154,7 @@ cargado por un operador, sin proceso automático de generación documentado).
 1. Un operador deposita ficheros `open_*.csv` en `.../Sponsors/MANUAL/`.
 2. Cadena 3 (05:00 AM) los transmite a `XCOMWPMER`, sobreescribiendo el destino si ya existe.
 3. Cadena 2 (mismo horario independiente que el resto) historifica esos mismos ficheros hacia
-   `.../MANUAL/old/`, con tolerancia total (Forzar OK) — a diferencia de los 9 sponsors automáticos.
+   `.../MANUAL/old/`, con tolerancia total (Forzar OK) — a diferencia de los 8 sponsors automáticos reales.
 
 ## 6. Especificación técnica
 
@@ -146,7 +166,8 @@ cargado por un operador, sin proceso automático de generación documentado).
 | `RDR_AUTO_LOAD_BASKETS` | `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh AutoLoadBasketSponsors` | `xakytl1p` | Pre: `RDR_AUTO_BASKETS_SPONSORS_IN` / Suc: ninguno documentado |
 
 Criticidad W en ambos; L-M-X-J-V; ficha real de `RDR_AUTO_LOAD_BASKETS` confirma el "Normas de Rearranque"
-sin rellenar (plantilla real, no resumen del documento).
+sin rellenar (plantilla real, no resumen del documento). Ficha real de `RDR_AUTO_BASKETS_SPONSORS_IN` no
+aportada (GAP-BASKSP-008, no bloqueante).
 
 ### 6.2 `Auto_Load_Basket_Sponsors.wkf` — lógica real
 
@@ -163,25 +184,41 @@ sin rellenar (plantilla real, no resumen del documento).
   cada error acumulado en `listaErrores`, hace `INSERT INTO TABLEALERTGENER` con el proceso
   `CARGA_BASKETS_SPONSORS`.
 
-### 6.3 Cadena 2 — `RDR_HIST_BASKETS_SPONSORS` (11 jobs)
+**`RDR_CargaBasketSponsor.sh` (código real, resuelve GAP-BASKSP-003) — recibe `SPONSOR`, `FICHERO_PRINCIPAL`
+y, solo para `STOXX`/`Euronext`/`FTSE`/`SP_DJ`/`MSCI`, un `FICHERO_SECUNDARIO`:**
+1. Detecta el entorno por prefijo de hostname (`lp*`→pr, `lw*`→pp, `li*`→ei, `ld*`→de — convención distinta
+   a la de `RAMERC0068.sh`, que usa el 2º carácter).
+2. Valida `SPONSOR` contra una lista cerrada. **Para `NASDAQ`: `echo "Correcto para NASDAQ"` + `exit 0`
+   inmediato** — no se llama a `calljava` ni a `callevent`. Ningún otro sponsor tiene esta salida temprana.
+3. Para el resto: `calljava` invoca `RDR_FormatoUnicoBaskets.jar` (clase `com.bbva.kytl.main.FormatoUnico`),
+   que transforma el/los fichero(s) CSV en un XML de "formato único" (`FICHERO_SALIDA`).
+4. `callevent` invoca el workflow GoldenSource **`RDR_CargaBasketSponsor`** vía
+   `executeBbvaEvent.sh fileloading` (mismo patrón "Fileloading Engine" ya visto en otros procesos de esta
+   sesión) — con lógica de espera (hasta 240 intentos de 30s) si ya hay `maxExec` invocaciones paralelas en
+   curso del mismo workflow, para no saturar el motor de carga. Este segundo workflow no ha sido aportado
+   (GAP-BASKSP-009, no bloqueante) — es la carga final real a GoldenSource.
+5. Ficheros con prefijo `close_*` se ignoran silenciosamente (`exit 0`) para los 5 sponsors del punto 3.
 
-| Job | Sponsor | Ruta origen → destino | Máscara | Especial |
-|-----|---------|------------------------|---------|----------|
-| `RDR_HIST_BASKETS_SPONSORS_IN` | — (Dummy) | — | — | Dispara los 10 jobs siguientes |
-| `MEKYTL0987` | STOXX | `.../Sponsors/STOXX/` → `/STOXX/old/` | `*` | — |
-| `MEKYTL0988` | **BME** (corrige "Cestas Generales" del documento original) | `.../Sponsors/BME/` → `/BME/old/` | `*` | — |
-| `MEKYTL0989` | FTSE | `.../Sponsors/FTSE/` → `/FTSE/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0990` | Solactive | `.../Sponsors/Solactive/` → `/Solactive/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0991` | Euronext | `.../Sponsors/Euronext/` → `/Euronext/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0992` | MSCI | `.../Sponsors/MSCI/` → `/MSCI/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0993` | SP_DJ | `.../Sponsors/SP_DJ/` → `/SP_DJ/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0994` | STOXX_DAX | `.../Sponsors/STOXX_DAX/` → `/STOXX_DAX/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL0995` | NASDAQ | `.../Sponsors/NASDAQ/` → `/NASDAQ/old/` | `*` | Origen: extracción Mentor genérica |
-| `MEKYTL1175` | MANUAL | `.../Sponsors/MANUAL/` → `/MANUAL/old/` | `open_*` | **Forzar OK en cualquier caso** |
+### 6.3 Cadena 2 — `RDR_HIST_BASKETS_SPONSORS` (11 pasos: 1 Dummy cabecera + 9 Job reales + 1 Dummy)
 
-Todos: destino `*_yyyymmdd.gz`, tolerante a directorio vacío (OK sin fallar), predecesor único
-`RDR_HIST_BASKETS_SPONSORS_IN`, criticidad W, L-M-X-J-V, mismo texto de "Normas de Rearranque" sin rellenar
-(confirmado real en las 10 fichas).
+| Job | Tipo real (Control-M) | Sponsor | Ruta origen → destino | Máscara | Especial |
+|-----|------------------------|---------|------------------------|---------|----------|
+| `RDR_HIST_BASKETS_SPONSORS_IN` | Dummy | — | — | — | Dispara los 10 jobs siguientes; host `22.156.148.85` |
+| `MEKYTL0987` | Job | STOXX | `.../Sponsors/STOXX/` → `/STOXX/old/` | `*` | — |
+| `MEKYTL0988` | Job | **BME** (corrige "Cestas Generales" del documento original) | `.../Sponsors/BME/` → `/BME/old/` | `*` | — |
+| `MEKYTL0989` | Job | FTSE | `.../Sponsors/FTSE/` → `/FTSE/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0990` | Job | Solactive | `.../Sponsors/Solactive/` → `/Solactive/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0991` | Job | Euronext | `.../Sponsors/Euronext/` → `/Euronext/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0992` | Job | MSCI | `.../Sponsors/MSCI/` → `/MSCI/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0993` | Job | SP_DJ | `.../Sponsors/SP_DJ/` → `/SP_DJ/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0994` | Job | STOXX_DAX | `.../Sponsors/STOXX_DAX/` → `/STOXX_DAX/old/` | `*` | Origen: extracción Mentor genérica |
+| `MEKYTL0995` | **Dummy** (pese a tener `MEMNAME=RAMERC0068.sh` configurado) | NASDAQ | N/A — nunca se ejecuta | N/A | **Nunca historifica nada; siempre OK.** Coherente con el no-op de Cadena 1 (GAP-BASKSP-003) |
+| `MEKYTL1175` | Job | MANUAL | `.../Sponsors/MANUAL/` → `/MANUAL/old/` | `open_*` | **Forzar OK en cualquier caso** |
+
+Los 9 jobs reales (`Job`): destino `*_yyyymmdd.gz`, tolerante a directorio vacío (OK sin fallar), predecesor
+único `RDR_HIST_BASKETS_SPONSORS_IN` (único `INCOND`, sin cross-chain — confirmado con `Workspace_584.xml`),
+criticidad W, L-M-X-J-V, mismo texto de "Normas de Rearranque" sin rellenar (confirmado real en las
+fichas). Folder completo: `DATACENTER=MERCADOS-4`, método de ejecución `PLAN_1200`.
 
 ### 6.4 Cadena 3 — `RDR_LOAD_SPONSOR_MANUAL`
 
@@ -194,18 +231,19 @@ original.
 
 ## 7. Especificación de testing
 
-**Estrategia:** con la lógica de negocio de Cadena 1 resuelta por completo vía `.wkf` real, y Cadena 2/3
-confirmadas al 100% con fichas reales, los casos cubren: el ciclo completo por sponsor (nuevo vs. existente),
-el manejo de ficheros ausentes en cada una de las 3 fases del workflow, los 2 hallazgos abiertos (NASDAQ sin
-`idType`, `statusCarga` no declarada) como casos explícitos de verificación, la tolerancia/Forzar-OK de
+**Estrategia:** con la lógica de negocio de Cadena 1 resuelta por completo vía `.wkf` y script reales, y
+Cadena 2/3 confirmadas al 100% con fichas y Control-M reales, los casos cubren: el ciclo completo por sponsor
+(nuevo vs. existente), el manejo de ficheros ausentes en cada una de las 3 fases del workflow, la
+confirmación explícita del no-op de NASDAQ (ya no un hallazgo abierto, sino un comportamiento a verificar
+como diseño), el único gap abierto restante (`statusCarga` no declarada), la tolerancia/Forzar-OK de
 Cadena 2, la sobreescritura de Cadena 3, y el riesgo de independencia temporal entre Cadena 1 y Cadena 2.
 Casos completos en `casos_prueba.xml`.
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001 (cesta ya existente), TC-002 (cesta nueva).
 - `borde`: TC-003 (fichero ausente en `Load`), TC-004 (fichero ausente en `PreProcess`/`Split`).
-- `conflicto_integridad`: TC-005 (`statusCarga` no declarada), TC-006 (NASDAQ sin `idType`).
-- `regresion`: TC-007 (topología y tolerancia de los 10 jobs de Cadena 2), TC-010 (topología de las 3 cadenas).
+- `conflicto_integridad`: TC-005 (`statusCarga` no declarada), TC-006 (confirmación del no-op de NASDAQ en las 2 capas).
+- `regresion`: TC-007 (topología y tolerancia de los 9 jobs reales de Cadena 2 + Dummy de NASDAQ), TC-010 (topología de las 3 cadenas).
 - `error_funcional`: TC-008 (Forzar OK de `MEKYTL1175` ante error real).
 - `conflicto_integridad`: TC-009 (sobreescritura en destino de Cadena 3).
 - `borde`: TC-011 (independencia temporal Cadena 1 / Cadena 2).
@@ -217,11 +255,11 @@ Referencia de casos por tipo:
 |-----------|--------------------|----------------|
 | R1, R2 (pipeline PreProcess/Split/Load) | TC-001, TC-002 | Confirma el ciclo completo de carga por sponsor |
 | R3 (fichero ausente, no bloqueante) | TC-003, TC-004 | Confirma que un fichero ausente no detiene el resto del pipeline |
-| R4 (idType por sponsor) | TC-006 | Verifica el comportamiento real de NASDAQ (GAP-BASKSP-003) |
+| R4, R4b (idType e invalidez para NASDAQ) | TC-006 | Confirma el no-op deliberado de NASDAQ en Cadena 1 (GAP-BASKSP-003, resuelto) |
 | R5 (upsert FT_T_ISST / fire-and-forget) | TC-001, TC-002, TC-005 | Confirma la rama de cesta existente vs. nueva, y el valor real de `statusCarga` |
 | R6 (alertas en TABLEALERTGENER) | TC-012 | Confirma que los errores llegan al canal de alerta esperado |
 | R7 (independencia Cadena 1/Cadena 2) | TC-011 | Documenta el riesgo de carrera si Cadena 1 se retrasa |
-| R8 (tolerancia directorio vacío) | TC-007 | Confirma el comportamiento de los 9 jobs automáticos de Cadena 2 |
+| R8 (tolerancia directorio vacío / Dummy de NASDAQ) | TC-007 | Confirma el comportamiento de los 8 jobs automáticos reales de Cadena 2 y la inactividad de `MEKYTL0995` |
 | R9 (Forzar OK de MANUAL) | TC-008 | Confirma que un error real en `MEKYTL1175` no se refleja en Control-M |
 | R10 (sobreescritura Cadena 3) | TC-009 | Confirma la regla de sobreescritura en destino |
 | R11 (horario Cadena 3 antes que Cadena 1) | TC-011 | Confirma que no hay dependencia funcional entre ambas |
@@ -229,37 +267,42 @@ Referencia de casos por tipo:
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-* **RISK-BASKSP-001 [GAP-BASKSP-003, no bloqueante]:** `NASDAQ` no tiene `idType` asignado en la fase `Load`
-  del workflow real, pese a ser un sponsor activo con su propio job de historificación (`MEKYTL0995`). Si el
-  código es tal cual se lee, toda carga de NASDAQ tomaría siempre la rama de "cesta nueva" (fire-and-forget),
-  sin poder nunca actualizar `FT_T_ISST` para una cesta ya existente. Requeriría el código de
-  `RDR_CargaBasketSponsor.sh` o confirmación funcional directa para descartarlo o confirmarlo como defecto
-  real.
+* **Confirmado, ya no un riesgo (GAP-BASKSP-003):** `NASDAQ` es un sponsor deliberadamente inerte de
+  principio a fin — confirmado por 2 evidencias reales independientes: `MEKYTL0995` es `Dummy` en el export
+  real de Control-M (nunca ejecuta `RAMERC0068.sh`), y `RDR_CargaBasketSponsor.sh` hace `exit 0` inmediato
+  para `SPONSOR="NASDAQ"` sin transformar ni cargar nada. La ausencia de `idType` en el workflow es
+  consistente con este diseño, no un defecto. Si en el futuro se reactivara NASDAQ, haría falta corregir
+  las 3 capas a la vez (workflow, script, y el `TASKTYPE` del job de Control-M).
 * **RISK-BASKSP-002 [GAP-BASKSP-004, no bloqueante]:** la variable `:statusCarga` usada en el `MERGE INTO
   FT_T_ISST` no está declarada en el workflow ni asignada visiblemente — el valor real que se escribe en
-  `FT_T_ISST.STAT_CHAR_VAL_TXT` no está confirmado.
+  `FT_T_ISST.STAT_CHAR_VAL_TXT` no está confirmado. Único gap técnico que queda abierto en todo el proceso.
 * **RISK-BASKSP-003 [GAP-BASKSP-006, no bloqueante]:** Cadena 1 (carga, 05:45) y Cadena 2 (historificación,
-  sin hora fija documentada) no tienen ninguna dependencia real (evento cross-chain) entre sí — confirmado
-  con las 10 fichas reales de Cadena 2. Un retraso de Cadena 1 podría hacer que Cadena 2 historifique
-  ficheros de una ejecución anterior, o se ejecute antes de que el fichero del día esté listo, sin que
-  ningún mecanismo de Control-M lo detecte.
+  método `PLAN_1200`) no tienen ninguna dependencia real (evento cross-chain) entre sí — confirmado con el
+  export real de Control-M (`Workspace_584.xml`), no solo con las fichas individuales. Un retraso de Cadena 1
+  podría hacer que Cadena 2 historifique ficheros de una ejecución anterior, o se ejecute antes de que el
+  fichero del día esté listo, sin que ningún mecanismo de Control-M lo detecte.
 * **Aceptado, no perseguido (GAP-BASKSP-007):** las cifras de impacto downstream (P-010, P-028, P-034,
   P-051) del documento original se mantienen tal cual, sin evidencia propia — no condicionan el testing de
   este proceso.
 * **No bloqueante (GAP-BASKSP-005):** el origen exacto (proceso/folder Control-M) de los ficheros de
-  proveedor previos a la carga no está identificado; 7 de 9 sponsors confirman "extracción de Mentor
+  proveedor previos a la carga no está identificado; 7 de 8 sponsors activos confirman "extracción de Mentor
   genérica" como origen funcional, pero no el job técnico concreto — fuera de alcance de esta especificación.
-* **No bloqueante (GAP-BASKSP-008):** fichas reales de los 2 Dummy de cabecera no aportadas — confirmados
-  indirectamente por sus sucesores reales.
+* **No bloqueante (GAP-BASKSP-008):** ficha real de `RDR_AUTO_BASKETS_SPONSORS_IN` (Cadena 1) no aportada —
+  confirmada indirectamente por su único sucesor real. La de `RDR_HIST_BASKETS_SPONSORS_IN` (Cadena 2) sí se
+  aportó y confirma el documento original al 100%.
+* **No bloqueante (GAP-BASKSP-009):** el segundo workflow GoldenSource `RDR_CargaBasketSponsor` (la carga
+  final real a GoldenSource, invocada al final de `RDR_CargaBasketSponsor.sh`) no ha sido aportado.
 
 ## 10. Conclusión
 
 El proceso **P-023 queda documentado sin gaps técnicos bloqueantes**. Las 3 cadenas (`RDR_AUTO_BASKETS_SPONSORS`,
 `RDR_HIST_BASKETS_SPONSORS`, `RDR_LOAD_SPONSOR_MANUAL`) están confirmadas con evidencia real: el workflow
-`Auto_Load_Basket_Sponsors.wkf` resuelve por completo la lógica de negocio de Cadena 1 (GAP-BASKSP-001), y
-11 de los 12 jobs restantes (excepto los 2 Dummy de cabecera) están confirmados con fichas EX-005-03 reales
-sin discrepancias, salvo la corrección de `MEKYTL0988` (BME, no "Cestas Generales" — GAP-BASKSP-002). Quedan
-2 gaps abiertos no bloqueantes que se documentan como riesgos y casos de prueba explícitos: un posible
-defecto real en la asignación de `idType` para NASDAQ (RISK-BASKSP-001) y una variable no declarada en el
-`MERGE INTO FT_T_ISST` (RISK-BASKSP-002). Ninguno impide ejecutar la matriz de pruebas definida en
-`casos_prueba.xml`.
+`Auto_Load_Basket_Sponsors.wkf` y el script real `RDR_CargaBasketSponsor.sh` resuelven por completo la
+lógica de negocio de Cadena 1 (GAP-BASKSP-001), y 12 de los 14 pasos (excepto solo el Dummy de cabecera de
+Cadena 1) están confirmados con fichas EX-005-03 y/o export real de Control-M, sin discrepancias salvo la
+corrección de `MEKYTL0988` (BME, no "Cestas Generales" — GAP-BASKSP-002). El hallazgo más relevante de esta
+última ronda: **`NASDAQ` es un 9º sponsor nominal pero deliberadamente inerte**, confirmado con 2 evidencias
+independientes (Dummy en Control-M para su historificación, no-op explícito en el script de carga) — lo que
+cierra por completo GAP-BASKSP-003, que hasta ahora se documentaba como un posible defecto. Queda **1 solo
+gap abierto no bloqueante**: la variable `:statusCarga` no declarada en el `MERGE INTO FT_T_ISST`
+(RISK-BASKSP-002). No impide ejecutar la matriz de pruebas definida en `casos_prueba.xml`.

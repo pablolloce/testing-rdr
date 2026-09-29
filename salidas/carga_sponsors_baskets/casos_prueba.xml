@@ -112,34 +112,35 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
-    <nombre>Comportamiento real de NASDAQ ante idType no asignado (GAP-BASKSP-003)</nombre>
-    <objetivo>Confirmar o descartar el posible defecto: NASDAQ no tiene idType/idType2 asignado en el bloque de Load, lo que podría hacer fallar siempre la búsqueda de cesta existente.</objetivo>
+    <nombre>Confirmación del no-op deliberado de NASDAQ en las 2 capas (GAP-BASKSP-003, resuelto)</nombre>
+    <objetivo>Confirmar en ejecución real que NASDAQ no realiza ninguna carga ni historificación efectiva, tal como indican las 2 evidencias de código/Control-M ya analizadas (RDR_CargaBasketSponsor.sh hace exit 0 inmediato; MEKYTL0995 es Dummy).</objetivo>
     <precondiciones>
-      <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) para sponsor NASDAQ, con la cesta correspondiente ya existente en FT_T_RISS/FT_T_RIDF/FT_T_ISID.</precondicion>
+      <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) para sponsor NASDAQ, con o sin ficheros presentes en la ruta correspondiente.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="sponsor" valor="NASDAQ"/>
-      <dato campo="idType esperado por código real" valor="vacío (sin asignación en el bloque if/elseif)"/>
+      <dato campo="Comportamiento esperado (RDR_CargaBasketSponsor.sh)" valor="exit 0 inmediato, sin transformar ni cargar"/>
+      <dato campo="Comportamiento esperado (MEKYTL0995)" valor="Dummy, siempre OK, nunca ejecuta RAMERC0068.sh"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el workflow para un índice NASDAQ cuya cesta ya existe.</paso>
-      <paso numero="2">Verificar si Check Basket encuentra o no instridBasket pese a que la cesta existe.</paso>
-      <paso numero="3">Si no la encuentra, confirmar que toma la rama fire-and-forget en vez de actualizar FT_T_ISST.</paso>
+      <paso numero="1">Ejecutar el workflow para un índice NASDAQ y confirmar que Check Basket se ejecuta igualmente (con idType vacío) pero que, se encuentre o no la cesta, RDR_CargaBasketSponsor.sh termina en el "Correcto para NASDAQ" sin invocar calljava/callevent.</paso>
+      <paso numero="2">Confirmar en Control-M que MEKYTL0995 termina siempre OK sin comprimir ni mover ningún fichero, independientemente de si hay ficheros en .../Sponsors/NASDAQ/.</paso>
+      <paso numero="3">Verificar que ningún fichero de NASDAQ, si llegara a depositarse, se acumula sin límite (consecuencia esperada del Dummy permanente).</paso>
     </pasos>
-    <resultadoEsperado>Si el defecto es real, NASDAQ tomará siempre la rama de "cesta nueva" aunque la cesta exista, sin actualizar FT_T_ISST. Si no lo es, se documenta qué mecanismo lo evita.</resultadoEsperado>
-    <tipoValidacion>Comparación del comportamiento real de NASDAQ frente al de un sponsor con idType sí asignado (p. ej. TC-001).</tipoValidacion>
-    <criterioAceptacion>Comportamiento observado y documentado, confirmando o descartando el defecto.</criterioAceptacion>
-    <posibilidadFallo>Si se confirma el defecto, debe registrarse como hallazgo de prioridad alta para el equipo de desarrollo, no solo como nota de testing.</posibilidadFallo>
+    <resultadoEsperado>NASDAQ no produce ninguna carga real ni historificación en ningún escenario — comportamiento por diseño, confirmado, no un defecto a corregir.</resultadoEsperado>
+    <tipoValidacion>Observación directa de logs de RDR_CargaBasketSponsor.sh y del estado de MEKYTL0995 en Control-M.</tipoValidacion>
+    <criterioAceptacion>Ambas capas confirman el no-op en todos los escenarios probados.</criterioAceptacion>
+    <posibilidadFallo>Si en algún escenario NASDAQ sí produce una carga o historificación real, contradice la evidencia de código/Control-M analizada y debe re-abrirse GAP-BASKSP-003.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">
-    <nombre>Tolerancia a directorio vacío en los 9 jobs automáticos de Cadena 2</nombre>
-    <objetivo>Confirmar que, si no hay ficheros en la ruta origen de cualquiera de los 9 sponsors automáticos, el job de historificación termina OK sin fallar.</objetivo>
+    <nombre>Tolerancia a directorio vacío en los 8 jobs automáticos reales de Cadena 2 (excluye NASDAQ, Dummy)</nombre>
+    <objetivo>Confirmar que, si no hay ficheros en la ruta origen de cualquiera de los 8 sponsors automáticos reales, el job de historificación termina OK sin fallar (NASDAQ queda fuera de este caso: es Dummy, no ejecuta nada por diseño — ver TC-006).</objetivo>
     <precondiciones>
-      <precondicion>Directorio .../Sponsors/{sponsor}/ vacío (sin ficheros fuera de /old/) para al menos uno de los 9 sponsors.</precondicion>
+      <precondicion>Directorio .../Sponsors/{sponsor}/ vacío (sin ficheros fuera de /old/) para al menos uno de los 8 sponsors.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="sponsors a verificar" valor="STOXX, BME, FTSE, Solactive, Euronext, MSCI, SP_DJ, STOXX_DAX, NASDAQ"/>
+      <dato campo="sponsors a verificar (jobs reales, TASKTYPE=Job)" valor="STOXX, BME, FTSE, Solactive, Euronext, MSCI, SP_DJ, STOXX_DAX"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar el job de historificación correspondiente con el directorio vacío.</paso>
