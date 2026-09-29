@@ -19,9 +19,13 @@ funcionalmente independiente de `RDR_BATCH_EMISORES_REFINITIV` (carga batch diar
   ventana 8:00h-00:00h.
 * **Fuera de alcance:** la generación del fichero `REFINITIV_MULTI_ISSUE.csv` en el origen de red
   (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\Equities`) — sistema/proceso productor no documentado en este
-  material; la lógica interna del workflow GoldenSource disparado por `RDR_REFINITIV_REQUEST` (mismo motor
-  `GSProcess.sh`/`.properties` que en `RDR_BATCH_EMISORES_REFINITIV`, no detallado aquí); y la cadena
-  hermana `RDR_BATCH_EMISORES_REFINITIV` (integración de carga masiva diaria, independiente de esta).
+  material; el contenido interno del cliente Java externo `RDR_Refinitiv_Request.jar` que el workflow
+  invoca (no analizado con fichero fuente propio en ningún proceso del repositorio); y la cadena hermana
+  `RDR_BATCH_EMISORES_REFINITIV` (integración de carga masiva diaria, independiente de esta). El workflow
+  GoldenSource que `RDR_REFINITIV_REQUEST` dispara para la rama `MULTI_ISSUE` de este proceso —mismo motor
+  genérico `Refinitiv_Request_Response.wkf`/`.properties` que en `RDR_BATCH_EMISORES_REFINITIV`— **sí** se
+  detalla en la sección 6, a partir del análisis con fichero real ya realizado sobre ese workflow en
+  `salidas/rdr_batch_emisores_refinitiv/spec.md`.
 
 ## 3. Requisitos detectados
 
@@ -63,6 +67,44 @@ funcionalmente independiente de `RDR_BATCH_EMISORES_REFINITIV` (carga batch diar
   (lineal, sin fan-out/fan-in).
 * **Planificación:** cíclica cada 45 min, ventana 8:00h-00:00h, todos los días.
 * **Gap documental (R6):** sin metadatos Run As/eventos/`ctmfw` para 2 de los 4 jobs — ver sección 9.
+* **Workflow GoldenSource disparado por `RDR_REFINITIV_REQUEST` — rama `MULTI_ISSUE` (confirmado con
+  fichero real, trazabilidad en `salidas/rdr_batch_emisores_refinitiv/spec.md`):** `RDR_REFINITIV_REQUEST`
+  ejecuta `GSProcess.sh RefinitivIssueMultiRequest`, cuyo `.properties` real
+  (`documentos_fuente/evidencia_refinitiv_batch_emisores/RefinitivIssueMultiRequest.properties`) declara
+  `MOD_EJECUCION=Refinitiv_Request_Response`, `id=MULTI`, `idType=MULTI`, `requestType=issueRequest`,
+  `vreqOid=MULTI_ISSUE`. Es el mismo motor genérico `Refinitiv_Request_Response.wkf` que la cadena hermana
+  `RDR_BATCH_EMISORES_REFINITIV` ya reconstruyó con fichero real (R6/§6/§9 de ese spec) — no es un
+  workflow distinto, sino la misma pieza reutilizada con otra combinación `requestType`/`vreqOid`:
+  * **Qué hace en este proceso:** el workflow selecciona su rama por `switch(requestType)`+`vreqOid`. Para
+    la combinación de este job (`issueRequest`+`MULTI_ISSUE`) construye el comando del cliente Java
+    `RDR_Refinitiv_Request.jar` (clase `Request`) que emite hacia Refinitiv la solicitud correspondiente al
+    fichero de altas/novedades (`REFINITIV_MULTI_ISSUE.csv`) ya transferido a
+    `.../issues/Refinitiv/Multi_Request/` por `MEKYTL1058` y validado por `FICHERO_RDR_REFINITIV_FW`.
+  * **Qué recibe:** los valores del propio `.properties` de este job (`id=MULTI`, `idType=MULTI`,
+    `requestType=issueRequest`, `vreqOid=MULTI_ISSUE`) y el fichero de peticiones ya posicionado en
+    destino.
+  * **Qué produce:** el fichero de solicitud `RFNT_BBVA_`+`id`+fecha+`.txt` — es decir,
+    `RFNT_BBVA_MULTI_<fecha>.txt`, con `id=MULTI` usado por el workflow como texto literal en el nombre del
+    fichero, no como clave de negocio — en el directorio `pathOut` que corresponde a esta combinación:
+    **`.../issues/Refinitiv/Multi_Request/`**, distinto del `.../riesgoemisor/Refinitiv/` que usa la rama
+    `ratingsRequest` de la cadena hermana (el `pathOut` lo decide `requestType`+`vreqOid`, confirmado con el
+    workflow real).
+  * **Qué campos de salida afecta:** el workflow, para cualquier rama de `requestType`, solo toca
+    `FT_T_VREQ` (estado de la solicitud) y `TABLEALERTGENER` (alertas). No consolida ratings ni actualiza
+    `FT_T_FIRT`/`FT_T_RLT1`: esa consolidación es exclusiva de la rama `ratingsRequest`→`BATCH_RATINGS` de
+    la cadena hermana, que dispara el sub-workflow `Refinitiv_Load_Ratings` y no se ejecuta en este
+    proceso.
+  * **Qué pasa si falla:** al ser el mismo motor genérico, el fallo se refleja en el estado de
+    `FT_T_VREQ` y puede generar una alerta en `TABLEALERTGENER`. A nivel de cadena Control-M,
+    `RDR_REFINITIV_REQUEST` es el último job (R4, sin sucesor) y solo se valida su código de retorno
+    (RC=0/≠0) — no hay inspección del contenido de la respuesta de Refinitiv, mismo comportamiento (G4)
+    confirmado para el motor genérico en la cadena hermana.
+  * **Fuente y trazabilidad:** este análisis reutiliza, sin repetirlo desde cero, el mismo workflow
+    (`Refinitiv_Request_Response.wkf`) ya confirmado con fichero real en
+    `salidas/rdr_batch_emisores_refinitiv/spec.md` (R6, §6 y §9), adaptado a la combinación
+    `requestType=issueRequest`/`vreqOid=MULTI_ISSUE` propia de este proceso. No se ha inspeccionado en esta
+    sesión ningún fichero fuente adicional propio de la rama `MULTI_ISSUE` más allá del `.properties` y de
+    lo ya documentado en el spec hermano.
 
 ## 7. Especificación de testing
 
@@ -108,3 +150,11 @@ Los 4 gaps identificados (G1-G4) están resueltos con confirmación explícita d
 permanece como limitación de la especificación (no como pregunta abierta) es la carencia de fichas técnicas
 completas de 2 de los 4 jobs, heredada del propio documento de diseño fuente y ya documentada como riesgo
 en la sección 9. No quedan supuestos sin confirmar.
+
+**Cierre adicional (2026-09-25):** el workflow GoldenSource disparado por `RDR_REFINITIV_REQUEST`, que el
+§2 original excluía del alcance por "no detallado aquí", queda detallado en la sección 6 reutilizando el
+análisis con fichero real (`Refinitiv_Request_Response.wkf`) que la cadena hermana
+`RDR_BATCH_EMISORES_REFINITIV` ya reconstruyó en `salidas/rdr_batch_emisores_refinitiv/spec.md` (R6/§9),
+adaptado a la combinación `requestType=issueRequest`/`vreqOid=MULTI_ISSUE` propia de este proceso. No se
+toca con esto el gap de `MEKYTL1058` (sección 9, G1/R6): sigue sin ficha técnica ni script conocido, y no
+debe asumirse que use `MEGENV0001.sh` solo por el patrón visto en otros procesos del repositorio.

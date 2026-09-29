@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_pro_sma_portfolios" fecha="2026-09-17" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-PORT-001" tipo="e2e">
+    <nombre>Flujo completo happy path — deteccion, renombrado, 7 envios paralelos e historificacion</nombre>
+    <objetivo>Validar que la cadena completa se ejecuta correctamente de extremo a extremo: desde la deteccion del fichero portfolios.xml hasta su archivado en /Backup/</objetivo>
+    <precondiciones>
+      <precondicion>El fichero portfolios.xml existe en /fichtemcomp/pr/descargas/kytl/portfolios/ con contenido valido (XML bien formado con al menos 1 cartera)</precondicion>
+      <precondicion>Es un dia laborable (lunes a viernes)</precondicion>
+      <precondicion>Son las 23:00 o posterior</precondicion>
+      <precondicion>Todos los servidores destino estan accesibles</precondicion>
+      <precondicion>Los ficheros .idx de backup existen para cada job de envio</precondicion>
+      <precondicion>El directorio /Backup/ existe y tiene permisos de escritura</precondicion>
+      <precondicion>No existe un fichero portfolios_DDMMYYYY.xml previo del mismo dia en el directorio de trabajo ni en /Backup/</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_fuente" valor="portfolios.xml (con al menos 5 carteras activas, campos PortfolioID, PortfolioName, EntityCode, TradingBook poblados)"/>
+      <dato campo="fecha_ejecucion" valor="17092026 (DDMMYYYY)"/>
+      <dato campo="hora_inicio" valor="23:00"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar portfolios.xml en /fichtemcomp/pr/descargas/kytl/portfolios/</paso>
+      <paso numero="2">Esperar a que el job Dummy IN se dispare a las 23:00 y emita su evento _IN_OK_new</paso>
+      <paso numero="3">Verificar que MEKYTL0516_FW detecta el fichero (evento _FW_OK_new emitido)</paso>
+      <paso numero="4">Verificar que MEKYTL0517 renombra el fichero a portfolios_17092026.xml</paso>
+      <paso numero="5">Verificar que los 7 jobs de envio arrancan en paralelo tras el evento _0517_OK_new</paso>
+      <paso numero="6">Para cada destino, verificar que el fichero llega con el nombre correcto:
+        - INFORMACIONAL_CIB: ESKYTLENDS_RDRPORTFOLIO_20260917_001.dat
+        - Big Data: portfolios_17092026.xml
+        - Star Europa: portfolios_17092026.xml
+        - Star LATAM: portfolios_17092026.xml
+        - Market Data Ipemd501: portfolios_17092026.xml
+        - Cloud/Datio: EKYTL_D02_20260917_portfolios_rdr_xml.xml
+        - Market Data Ipapp501: portfolios_17092026.xml</paso>
+      <paso numero="7">Verificar que MEKYTL0518 arranca solo despues de recibir los 8 eventos _OK_new</paso>
+      <paso numero="8">Verificar que portfolios_17092026.xml se mueve a /Backup/ y ya no existe en el directorio de trabajo</paso>
+      <paso numero="9">Verificar que todos los jobs terminan con codigo 0 en Control-M</paso>
+    </pasos>
+    <resultadoEsperado>La cadena completa finaliza con exito. El fichero portfolios_17092026.xml esta en /Backup/ y se ha distribuido correctamente a los 7 destinos con los nombres esperados. Todos los jobs en Control-M muestran estado OK.</resultadoEsperado>
+    <tipoValidacion>Funcional end-to-end</tipoValidacion>
+    <criterioAceptacion>Los 10 jobs finalizan en OK. El fichero existe en /Backup/ con el nombre correcto. Cada destino contiene el fichero con el nombre y formato esperado.</criterioAceptacion>
+    <posibilidadFallo>Fallo de red hacia alguno de los 7 destinos; fichero fuente corrupto; disco lleno en destino o en /Backup/; permisos insuficientes.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-002" tipo="happy_path">
+    <nombre>FileWatcher detecta portfolios.xml correctamente</nombre>
+    <objetivo>Validar que MEKYTL0516_FW detecta la creacion de portfolios.xml y emite el evento de salida</objetivo>
+    <precondiciones>
+      <precondicion>El job Dummy IN ha emitido su evento _IN_OK_new</precondicion>
+      <precondicion>El fichero portfolios.xml NO existe aun en la ruta de escucha</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="portfolios.xml (fichero XML valido de al menos 1 KB)"/>
+      <dato campo="ruta_escucha" valor="/fichtemcomp/pr/descargas/kytl/portfolios/"/>
+      <dato campo="parametros_ctmfw" valor="CREATE 0 60 10 3 120"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job MEKYTL0516_FW (queda en estado de espera ctmfw)</paso>
+      <paso numero="2">Depositar portfolios.xml en /fichtemcomp/pr/descargas/kytl/portfolios/</paso>
+      <paso numero="3">Esperar al menos 60 segundos (intervalo de polling del ctmfw)</paso>
+      <paso numero="4">Verificar que el job emite el evento RDR_PRO_SMA_PORTFOLIOS_MEKYTL0516_FW_OK_new</paso>
+      <paso numero="5">Verificar que el job termina con codigo 0</paso>
+    </pasos>
+    <resultadoEsperado>El FileWatcher detecta la creacion del fichero en menos de 60 segundos tras su deposito y emite el evento de salida correctamente.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>Evento _FW_OK_new emitido. Job en estado OK en Control-M.</criterioAceptacion>
+    <posibilidadFallo>Fichero creado pero con tamano 0 (estabilidad insuficiente); permisos de lectura denegados al usuario xpctma1.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-003" tipo="happy_path">
+    <nombre>Renombrado de portfolios.xml a portfolios_DDMMYYYY.xml</nombre>
+    <objetivo>Validar que MEKYTL0517 renombra correctamente el fichero anadiendo la fecha del dia</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0516_FW ha finalizado con exito (evento _FW_OK_new emitido)</precondicion>
+      <precondicion>portfolios.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>La entrada MEKYTL0517 existe en INFORMACION_HISTORIFICACIONES.IDX</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen" valor="portfolios.xml"/>
+      <dato campo="fichero_destino_esperado" valor="portfolios_17092026.xml"/>
+      <dato campo="fecha_ejecucion" valor="17/09/2026"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0517 (RAMERC0068.sh con PARM1=MEKYTL0517)</paso>
+      <paso numero="2">Verificar que portfolios.xml ya no existe en el directorio de trabajo</paso>
+      <paso numero="3">Verificar que portfolios_17092026.xml existe en el directorio de trabajo</paso>
+      <paso numero="4">Verificar que el contenido del fichero renombrado es identico al original (checksum)</paso>
+      <paso numero="5">Verificar que el evento _MEKYTL0517_OK_new se emite</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se renombra correctamente con la fecha del dia en formato DDMMYYYY. El contenido no se altera.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>Fichero renombrado existe con la fecha correcta. Checksum identico. Evento emitido.</criterioAceptacion>
+    <posibilidadFallo>Fichero bloqueado por otro proceso; permisos insuficientes para mv; entrada en IDX mal configurada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-004" tipo="happy_path">
+    <nombre>Envio a Informacional CIB con renombrado y cambio de extension</nombre>
+    <objetivo>Validar que MEKYTL0511 envia portfolios_DDMMYYYY.xml a INFORMACIONAL_CIB renombrandolo a ESKYTLENDS_RDRPORTFOLIO_YYYYMMDD_001.dat</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0517 ha emitido el evento _0517_OK_new</precondicion>
+      <precondicion>portfolios_17092026.xml existe en /fichtemcomp/pr/descargas/kytl/portfolios/</precondicion>
+      <precondicion>MEKYTL0511.idx existe en /pr/pl/envioweb/idx/bck/</precondicion>
+      <precondicion>Servidor INFORMACIONAL_CIB_XCOM_PROD accesible via XCOM</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_origen" valor="portfolios_17092026.xml"/>
+      <dato campo="fichero_destino_esperado" valor="ESKYTLENDS_RDRPORTFOLIO_20260917_001.dat"/>
+      <dato campo="ruta_destino" valor="/infa_shared/srcfiles/enso/stag/"/>
+      <dato campo="protocolo" valor="XCOM"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0511 (MEGENV0001.sh con PARM1=MEKYTL0511)</paso>
+      <paso numero="2">Verificar en el log operativo que el envio XCOM se completa sin error</paso>
+      <paso numero="3">Verificar en el servidor destino que el fichero ESKYTLENDS_RDRPORTFOLIO_20260917_001.dat existe en /infa_shared/srcfiles/enso/stag/</paso>
+      <paso numero="4">Verificar que la fecha se ha invertido correctamente (17092026 -> 20260917)</paso>
+      <paso numero="5">Verificar que la extension ha cambiado de .xml a .dat</paso>
+      <paso numero="6">Verificar que el evento _MEKYTL0511_OK_new se emite</paso>
+    </pasos>
+    <resultadoEsperado>El fichero llega al destino con el nombre correcto (fecha invertida, extension .dat). El job termina con codigo 0.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>Fichero en destino con nombre correcto. Contenido integro. Evento emitido.</criterioAceptacion>
+    <posibilidadFallo>Fallo de conexion XCOM; .idx con parametros incorrectos; ruta destino no existe; disco lleno en destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-005" tipo="happy_path">
+    <nombre>Historificacion — mover fichero a Backup tras completar todos los envios</nombre>
+    <objetivo>Validar que MEKYTL0518 mueve el fichero al directorio Backup cuando todos los envios han terminado</objetivo>
+    <precondiciones>
+      <precondicion>Los 8 eventos _OK_new (0511, 0512, 0513, 0514, 0515, 0517, 0826, 0891) se han emitido</precondicion>
+      <precondicion>portfolios_17092026.xml existe en el directorio de trabajo</precondicion>
+      <precondicion>El directorio /Backup/ existe y es escribible</precondicion>
+      <precondicion>La entrada MEKYTL0518 existe en INFORMACION_HISTORIFICACIONES.IDX</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="portfolios_17092026.xml"/>
+      <dato campo="directorio_destino" valor="/fichtemcomp/pr/descargas/kytl/portfolios/Backup/"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0518 (RAMERC0068.sh con PARM1=MEKYTL0518)</paso>
+      <paso numero="2">Verificar que portfolios_17092026.xml ya no existe en el directorio de trabajo</paso>
+      <paso numero="3">Verificar que portfolios_17092026.xml existe en /Backup/</paso>
+      <paso numero="4">Verificar que el contenido es integro (checksum identico al original)</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se mueve correctamente a /Backup/ conservando su nombre. Ya no existe en el directorio de trabajo.</resultadoEsperado>
+    <tipoValidacion>Funcional unitaria</tipoValidacion>
+    <criterioAceptacion>Fichero en /Backup/ con nombre y contenido intactos. Fichero eliminado del directorio de trabajo.</criterioAceptacion>
+    <posibilidadFallo>Disco lleno en /Backup/; permisos insuficientes; fichero bloqueado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-006" tipo="negativo">
+    <nombre>FileWatcher — fichero no aparece dentro del timeout</nombre>
+    <objetivo>Validar que el FileWatcher falla correctamente cuando portfolios.xml no se deposita dentro del periodo de timeout</objetivo>
+    <precondiciones>
+      <precondicion>El job Dummy IN ha emitido su evento _IN_OK_new</precondicion>
+      <precondicion>El fichero portfolios.xml NO existe en la ruta de escucha</precondicion>
+      <precondicion>No se depositara el fichero durante la prueba</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="(ausente — no se deposita portfolios.xml)"/>
+      <dato campo="timeout_ctmfw" valor="120 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0516_FW</paso>
+      <paso numero="2">Esperar a que transcurra el timeout de 120 minutos (o simular timeout en entorno de pruebas)</paso>
+      <paso numero="3">Verificar que el job termina con estado NO OK</paso>
+      <paso numero="4">Verificar que NO se emite el evento _FW_OK_new</paso>
+      <paso numero="5">Verificar que se activa el protocolo de fallo (alerta ANS RDR)</paso>
+    </pasos>
+    <resultadoEsperado>El FileWatcher agota el timeout y termina en estado NO OK. La cadena queda detenida. Se genera la alerta al grupo ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Negativa — ausencia de fichero</tipoValidacion>
+    <criterioAceptacion>Job en estado NO OK. No se emite evento de salida. Ningun job posterior arranca.</criterioAceptacion>
+    <posibilidadFallo>El ctmfw podria tener un comportamiento inesperado si la ruta del directorio no existe (error de directorio vs. error de fichero).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-007" tipo="error_funcional">
+    <nombre>Fallo en un envio paralelo bloquea la historificacion</nombre>
+    <objetivo>Validar que si uno de los 7 envios paralelos falla, el job de historificacion (0518) no se ejecuta</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0517 ha emitido el evento _0517_OK_new</precondicion>
+      <precondicion>Simular fallo en el envio MEKYTL0512 (por ejemplo, maquina destino pr-bigdata-cib inaccesible)</precondicion>
+      <precondicion>Los demas 6 envios finalizan correctamente</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_fallido" valor="MEKYTL0512"/>
+      <dato campo="causa_fallo" valor="Maquina destino pr-bigdata-cib.igrupobbva inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Hacer inaccesible la maquina pr-bigdata-cib.igrupobbva (cortar conectividad o simular)</paso>
+      <paso numero="2">Ejecutar la cadena desde MEKYTL0517</paso>
+      <paso numero="3">Esperar a que los 7 jobs de envio intenten ejecutarse</paso>
+      <paso numero="4">Verificar que MEKYTL0512 termina en estado NO OK</paso>
+      <paso numero="5">Verificar que los otros 6 envios terminan con exito (son independientes)</paso>
+      <paso numero="6">Verificar que MEKYTL0518 NO arranca (falta el evento _0512_OK_new)</paso>
+      <paso numero="7">Verificar que el fichero portfolios_DDMMYYYY.xml permanece en el directorio de trabajo (no se movio a Backup)</paso>
+    </pasos>
+    <resultadoEsperado>La cadena queda bloqueada en el fan-in. MEKYTL0518 no se ejecuta. El fichero no se archiva. Se genera alerta para MEKYTL0512.</resultadoEsperado>
+    <tipoValidacion>Error funcional — fallo parcial en paralelo</tipoValidacion>
+    <criterioAceptacion>0518 no arranca. Los 6 envios exitosos se completaron. El fichero sigue en el directorio de trabajo.</criterioAceptacion>
+    <posibilidadFallo>Si Control-M tiene configurado un mecanismo de timeout para el fan-in, podria comportarse de forma diferente a lo esperado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-008" tipo="error_funcional">
+    <nombre>Fallo en la historificacion — fichero no se mueve a Backup</nombre>
+    <objetivo>Validar el comportamiento cuando MEKYTL0518 falla (por ejemplo, directorio /Backup/ no existe o sin permisos)</objetivo>
+    <precondiciones>
+      <precondicion>Todos los 8 eventos _OK_new se han emitido correctamente</precondicion>
+      <precondicion>El directorio /Backup/ se ha eliminado o se le han quitado permisos de escritura</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="directorio_backup" valor="/fichtemcomp/pr/descargas/kytl/portfolios/Backup/ (sin permisos de escritura)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Quitar permisos de escritura al directorio /Backup/ (chmod 555)</paso>
+      <paso numero="2">Ejecutar MEKYTL0518</paso>
+      <paso numero="3">Verificar que RAMERC0068.sh falla con codigo de error (7 = error en movimiento)</paso>
+      <paso numero="4">Verificar que el fichero permanece en el directorio de trabajo</paso>
+      <paso numero="5">Verificar que se activa el protocolo de fallo ANS RDR</paso>
+      <paso numero="6">Restaurar permisos: chmod 755 /Backup/</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0518 termina en estado NO OK. El fichero no se mueve. Se genera alerta. Los envios ya realizados no se ven afectados.</resultadoEsperado>
+    <tipoValidacion>Error funcional — fallo en historificacion</tipoValidacion>
+    <criterioAceptacion>Job 0518 en NO OK. Fichero intacto en directorio de trabajo. Alerta generada.</criterioAceptacion>
+    <posibilidadFallo>RAMERC0068.sh podria no distinguir entre "directorio no existe" y "directorio sin permisos" en su codigo de salida.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-009" tipo="negativo">
+    <nombre>Fichero .idx de backup no existe para un job de envio</nombre>
+    <objetivo>Validar que MEGENV0001.sh falla con codigo 110 cuando no encuentra el fichero .idx ni en la ruta principal ni en backup</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0517 ha emitido el evento _0517_OK_new</precondicion>
+      <precondicion>El fichero MEKYTL0511.idx no existe ni en /pr/pl/envioweb/idx/ ni en /pr/pl/envioweb/idx/bck/</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job" valor="MEKYTL0511"/>
+      <dato campo="idx_ausente" valor="MEKYTL0511.idx"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Renombrar temporalmente MEKYTL0511.idx en idx/ y idx/bck/ (ej: MEKYTL0511.idx.bak)</paso>
+      <paso numero="2">Ejecutar MEKYTL0511</paso>
+      <paso numero="3">Verificar que MEGENV0001.sh termina con codigo de salida 110</paso>
+      <paso numero="4">Verificar el log operativo: debe contener "[ERROR] No existe fichero IDX"</paso>
+      <paso numero="5">Restaurar el fichero .idx a su nombre original</paso>
+    </pasos>
+    <resultadoEsperado>MEGENV0001.sh termina con codigo 110. El log operativo registra el error. El job queda en estado NO OK en Control-M.</resultadoEsperado>
+    <tipoValidacion>Negativa — ausencia de configuracion</tipoValidacion>
+    <criterioAceptacion>Codigo de salida 110. Mensaje de error en log. Job en NO OK.</criterioAceptacion>
+    <posibilidadFallo>Si Java estuviese habilitado (actualmente no lo esta), el flujo seria diferente (intentaria generar el IDX desde BBDD primero).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-010" tipo="borde">
+    <nombre>Fichero portfolios.xml de tamano 0 bytes</nombre>
+    <objetivo>Validar el comportamiento de la cadena cuando el fichero fuente existe pero esta vacio</objetivo>
+    <precondiciones>
+      <precondicion>El fichero portfolios.xml existe en la ruta pero tiene tamano 0 bytes (touch portfolios.xml)</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="portfolios.xml (0 bytes)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Crear un fichero vacio: touch /fichtemcomp/pr/descargas/kytl/portfolios/portfolios.xml</paso>
+      <paso numero="2">Esperar a que el FileWatcher lo detecte</paso>
+      <paso numero="3">Verificar si el ctmfw acepta un fichero de 0 bytes (parametro de estabilidad: 3 segundos)</paso>
+      <paso numero="4">Si lo acepta, verificar que el renombrado se ejecuta sobre un fichero vacio</paso>
+      <paso numero="5">Verificar que los envios transmiten un fichero vacio a los 7 destinos</paso>
+    </pasos>
+    <resultadoEsperado>El fichero vacio pasa por la cadena sin error tecnico (no hay validacion de contenido). Se distribuye un fichero vacio a todos los destinos. La cadena finaliza en OK pero los datos distribuidos son inutiles.</resultadoEsperado>
+    <tipoValidacion>Borde — fichero vacio</tipoValidacion>
+    <criterioAceptacion>La cadena finaliza (OK o NO OK segun el comportamiento del ctmfw con ficheros vacios). Se documenta el comportamiento real observado.</criterioAceptacion>
+    <posibilidadFallo>El ctmfw podria no considerar "creado" un fichero de 0 bytes si el parametro de estabilidad exige tamano > 0.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-011" tipo="borde">
+    <nombre>Ejecucion en sabado — la cadena no debe arrancarse</nombre>
+    <objetivo>Validar que el job Dummy IN no se dispara en fin de semana</objetivo>
+    <precondiciones>
+      <precondicion>Es sabado o domingo</precondicion>
+      <precondicion>La cadena esta configurada para LMXJV</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="dia" valor="Sabado 19/09/2026"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar la programacion del job Dummy IN en Control-M para el sabado</paso>
+      <paso numero="2">Esperar a las 23:00 del sabado</paso>
+      <paso numero="3">Verificar que el job Dummy IN no aparece en la planificacion activa del dia</paso>
+      <paso numero="4">Verificar que ningun job de la cadena se ejecuta</paso>
+    </pasos>
+    <resultadoEsperado>La cadena no se ejecuta en fin de semana. Ningun job se planifica ni arranca.</resultadoEsperado>
+    <tipoValidacion>Borde — exclusion de dias</tipoValidacion>
+    <criterioAceptacion>No hay ejecucion de ningun job de la cadena en sabado ni domingo.</criterioAceptacion>
+    <posibilidadFallo>Error de configuracion en Control-M que permita ejecucion en dias no laborables.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-012" tipo="borde">
+    <nombre>Doble ejecucion el mismo dia — fichero ya renombrado</nombre>
+    <objetivo>Validar el comportamiento si se rearranque la cadena el mismo dia y el fichero ya esta renombrado</objetivo>
+    <precondiciones>
+      <precondicion>La cadena ya se ejecuto hoy exitosamente (portfolios_DDMMYYYY.xml esta en /Backup/)</precondicion>
+      <precondicion>Un nuevo portfolios.xml se deposita en el directorio de trabajo</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_nuevo" valor="portfolios.xml (nuevo fichero depositado tras la primera ejecucion)"/>
+      <dato campo="fichero_backup_existente" valor="portfolios_17092026.xml (ya en /Backup/ de la ejecucion anterior)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar un nuevo portfolios.xml en el directorio de trabajo</paso>
+      <paso numero="2">Forzar rearranque de la cadena desde el Dummy IN</paso>
+      <paso numero="3">Verificar que el FileWatcher detecta el nuevo fichero</paso>
+      <paso numero="4">Verificar que el renombrado intenta crear portfolios_17092026.xml (mismo nombre que el ya archivado)</paso>
+      <paso numero="5">Verificar si RAMERC0068.sh sobrescribe o falla al intentar mover/renombrar</paso>
+      <paso numero="6">Verificar el comportamiento de la historificacion: si ya existe portfolios_17092026.xml en /Backup/, que ocurre con el mv</paso>
+    </pasos>
+    <resultadoEsperado>El renombrado se ejecuta creando portfolios_17092026.xml en el directorio de trabajo (el anterior ya esta en /Backup/). Los envios re-distribuyen el fichero. La historificacion sobrescribe o falla al encontrar el fichero duplicado en /Backup/.</resultadoEsperado>
+    <tipoValidacion>Borde — doble ejecucion</tipoValidacion>
+    <criterioAceptacion>Se documenta el comportamiento real: si RAMERC0068.sh sobrescribe en /Backup/ o falla con error.</criterioAceptacion>
+    <posibilidadFallo>mv sobrescribe sin aviso en Unix; si la operacion es "M" (mover), mv sustituye el fichero existente en destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-013" tipo="duplicidad">
+    <nombre>Fichero duplicado en destino — re-envio tras rearranque parcial</nombre>
+    <objetivo>Validar que al reenviar un fichero a un destino que ya lo contiene, el comportamiento es predecible</objetivo>
+    <precondiciones>
+      <precondicion>El envio a Big Data (MEKYTL0512) ya se ejecuto con exito hoy</precondicion>
+      <precondicion>El fichero portfolios_17092026.xml ya existe en pr-bigdata-cib:/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/</precondicion>
+      <precondicion>Se rearranque manualmente MEKYTL0512 sin limpiar el destino</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero_duplicado_en_destino" valor="portfolios_17092026.xml"/>
+      <dato campo="destino" valor="pr-bigdata-cib.igrupobbva:/usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que el fichero ya existe en el destino</paso>
+      <paso numero="2">Rearrancar MEKYTL0512 desde Control-M</paso>
+      <paso numero="3">Verificar si MEGENV0001.sh sobrescribe el fichero en destino o falla</paso>
+      <paso numero="4">Verificar el contenido del fichero en destino tras el re-envio</paso>
+    </pasos>
+    <resultadoEsperado>MEGENV0001.sh sobrescribe el fichero en destino (comportamiento estandar de los protocolos de transferencia). El fichero en destino contiene la version mas reciente.</resultadoEsperado>
+    <tipoValidacion>Duplicidad — re-envio de fichero existente</tipoValidacion>
+    <criterioAceptacion>El re-envio se completa sin error. El fichero en destino se actualiza. No se genera duplicado con nombre diferente.</criterioAceptacion>
+    <posibilidadFallo>Algunos destinos podrian rechazar la sobrescritura si el sistema consumidor ya ha procesado y bloqueado el fichero.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-014" tipo="datos_sinteticos">
+    <nombre>Datos sinteticos — portfolios.xml con carteras duplicadas</nombre>
+    <objetivo>Validar que la cadena de distribucion no filtra ni detecta carteras duplicadas dentro del fichero (la cadena es un distribuidor, no un validador)</objetivo>
+    <precondiciones>
+      <precondicion>portfolios.xml contiene carteras con PortfolioID duplicado (datos sinteticos)</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="campo_duplicado" valor="PortfolioID"/>
+      <dato campo="valor_duplicado" valor="PORTFOLIO_TEST_001 (aparece 3 veces con datos diferentes)"/>
+      <dato campo="total_carteras" valor="10 carteras, de las cuales 3 comparten PortfolioID"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Generar un portfolios.xml sintetico con 10 carteras, 3 de ellas con PortfolioID = PORTFOLIO_TEST_001 pero datos distintos (EntityCode, TradingBook diferentes)</paso>
+      <paso numero="2">Depositar el fichero y ejecutar la cadena completa</paso>
+      <paso numero="3">Verificar que la cadena no filtra, rechaza ni altera los registros duplicados</paso>
+      <paso numero="4">Verificar que el fichero se distribuye integro a los 7 destinos, con las 3 carteras duplicadas incluidas</paso>
+    </pasos>
+    <resultadoEsperado>La cadena distribuye el fichero tal cual, sin validar duplicidades internas. Los 7 destinos reciben el fichero con las 10 carteras (incluyendo las 3 duplicadas). La deteccion de duplicidades, si aplica, es responsabilidad del sistema consumidor.</resultadoEsperado>
+    <tipoValidacion>Datos sinteticos — duplicidad interna en datos de negocio</tipoValidacion>
+    <criterioAceptacion>La cadena finaliza en OK. El fichero en cada destino contiene las 10 carteras sin modificacion.</criterioAceptacion>
+    <posibilidadFallo>No se espera fallo por parte de la cadena. El riesgo es que un sistema consumidor no maneje bien los duplicados.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-PORT-015" tipo="regresion">
+    <nombre>Regresion — verificar que el decomiso de MEKYTL0510 no afecta al flujo actual</nombre>
+    <objetivo>Validar que el flujo actual funciona correctamente sin el job MEKYTL0510 (decomisado el 27/05/2023)</objetivo>
+    <precondiciones>
+      <precondicion>El job MEKYTL0510 NO existe en la configuracion de Control-M</precondicion>
+      <precondicion>MEKYTL0517 tiene como sucesores directos los 7 jobs de envio (sin pasar por 0510)</precondicion>
+      <precondicion>MEKYTL0518 no espera evento de MEKYTL0510</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_decomisado" valor="MEKYTL0510"/>
+      <dato campo="fecha_decomiso" valor="27/05/2023"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar en Control-M que MEKYTL0510 no esta definido en el folder de la cadena</paso>
+      <paso numero="2">Verificar que el evento RDR_PRO_SMA_PORTFOLIOS_MEKYTL0510_OK_new no aparece como prerrequisito de MEKYTL0518</paso>
+      <paso numero="3">Ejecutar la cadena completa (happy path)</paso>
+      <paso numero="4">Verificar que la cadena completa sin errores y sin referencia al job decomisado</paso>
+    </pasos>
+    <resultadoEsperado>La cadena funciona correctamente sin el job MEKYTL0510. No quedan residuos del decomiso en las dependencias.</resultadoEsperado>
+    <tipoValidacion>Regresion — integridad del grafo tras decomiso</tipoValidacion>
+    <criterioAceptacion>Cadena completa en OK. No hay referencias a MEKYTL0510 en los logs ni en las dependencias activas.</criterioAceptacion>
+    <posibilidadFallo>Si quedase un evento fantasma de MEKYTL0510 como prerrequisito en algun job, la cadena se bloquearia esperando un evento que nunca se emite.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

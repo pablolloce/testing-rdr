@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_generica_cestas" fecha="2026-09-22" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo: extracción, validación, distribución y colector (happy path)</nombre>
+    <objetivo>Verificar que una extracción normal se valida, se distribuye a las 10 ramas relevantes y el colector cierra la cadena correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos una cesta activa con MUREXID disponible en el origen.</precondicion>
+      <precondicion>Cadena programada para las 17:55.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="cestas_origen" valor="conjunto de cestas activas válido, con MUREXID"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el arranque de RDR_BASKETS_EXTRACCION_IN a las 17:55.</paso>
+      <paso numero="2">Verificar la generación de baskets.xml por GS_EXTRACCION_BASKETS.</paso>
+      <paso numero="3">Verificar que VALIDACION_XSD valida correctamente el fichero (código 0).</paso>
+      <paso numero="4">Verificar la ejecución de las 10 ramas de distribución (0846, 0847, 1011, 1063, 1095, 1103, 1116, 1126, 1153, 1259) y de la rama DUCO completa.</paso>
+      <paso numero="5">Verificar la ejecución de MEKYTL0856 tras completarse las 10 ramas relevantes.</paso>
+    </pasos>
+    <resultadoEsperado>Todos los jobs terminan OK; baskets.xml se distribuye correctamente a los 10 destinos (más la entrega a las 2 cadenas externas); MEKYTL0856 comprime y archiva baskets.xml como .gz.</resultadoEsperado>
+    <tipoValidacion>Estado OK de todos los jobs + verificación de presencia del fichero en cada destino + verificación del .gz en Backup.</tipoValidacion>
+    <criterioAceptacion>Fichero presente y correctamente nombrado en cada destino, .gz generado, sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier destino sin el fichero o KO real invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="error_funcional">
+    <nombre>VALIDACION_XSD falla y Force OK mantiene la cadena activa</nombre>
+    <objetivo>Confirmar el requisito R2: el Force OK obligatorio de VALIDACION_XSD hace que la malla continúe aunque la validación XSD falle (código de retorno 1).</objetivo>
+    <precondiciones>
+      <precondicion>baskets.xml generado con una estructura que no cumple el XSD (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="baskets.xml" valor="XML mal formado o no conforme al esquema XSD (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que baskets.xml no cumpla el esquema XSD.</paso>
+      <paso numero="2">Ejecutar VALIDACION_XSD.</paso>
+      <paso numero="3">Verificar el código de retorno real del script y el estado final del job en Control-M.</paso>
+      <paso numero="4">Verificar si las 10 ramas de distribución se disparan igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_Validacion_XSD.sh retorna 1 (fallo); Control-M marca el job como OK igualmente (Force OK); las 10 ramas de distribución se ejecutan con normalidad, distribuyendo un fichero potencialmente inválido.</resultadoEsperado>
+    <tipoValidacion>Código de retorno real del script (log) + estado final del job en Control-M + verificación de que las ramas sucesoras arrancan.</tipoValidacion>
+    <criterioAceptacion>Job marcado OK pese a fallo real de validación, ramas sucesoras confirmadas en ejecución — comportamiento As-Is documentado, no un defecto.</criterioAceptacion>
+    <posibilidadFallo>Resultado esperado y correcto según el requisito de diseño (Force OK); si el job quedara en KO real, indicaría un cambio de configuración respecto a lo documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Extracción sin ninguna cesta activa con MUREXID</nombre>
+    <objetivo>Verificar el comportamiento cuando el filtro de universo (activo + MUREXID) no devuelve ninguna cesta.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna cesta activa con MUREXID en el origen (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="cestas_origen" valor="ninguna cesta cumple el filtro activo+MUREXID"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular ausencia de cestas que cumplan el filtro.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCION_BASKETS.</paso>
+      <paso numero="3">Inspeccionar el baskets.xml generado.</paso>
+    </pasos>
+    <resultadoEsperado>baskets.xml se genera igualmente, sin elementos Security (o con el elemento raíz vacío); el job termina OK; la cadena continúa distribuyendo un fichero vacío.</resultadoEsperado>
+    <tipoValidacion>Inspección de contenido de baskets.xml + estado del job.</tipoValidacion>
+    <criterioAceptacion>Fichero generado sin error, aunque vacío de contenido de negocio.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: un fichero vacío podría pasar desapercibido como "sin cestas" en vez de alertar de un posible problema de conectividad con el origen.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="happy_path">
+    <nombre>Extracción de contingencia de una cesta puntual (ExtraccionContingenciaBASKETS.sql)</nombre>
+    <objetivo>Verificar que el modo de contingencia (reproceso de una sola cesta por instr_id) genera el mismo XML resultante que el batch principal.</objetivo>
+    <precondiciones>
+      <precondicion>Necesidad operativa de reprocesar una cesta concreta de forma individual.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="instr_id" valor="identificador de una cesta activa concreta"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Invocar el modo de contingencia con un instr_id válido.</paso>
+      <paso numero="2">Comparar la estructura de campos del XML resultante con la de una extracción batch de la misma cesta.</paso>
+    </pasos>
+    <resultadoEsperado>El XML generado en modo contingencia tiene exactamente la misma estructura de campos que el generado por el batch principal para la misma cesta.</resultadoEsperado>
+    <tipoValidacion>Comparación campo a campo del XML resultante.</tipoValidacion>
+    <criterioAceptacion>Estructura idéntica, solo difiere el modo de selección (una cesta vs. todas paginadas).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; una discrepancia de estructura invalidaría la equivalencia documentada entre ambos SQL.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de una rama de distribución aislada (p. ej. MEKYTL0846 a Mentor)</nombre>
+    <objetivo>Confirmar que un fallo real en una rama de distribución no afecta a las demás ramas ni bloquea el arranque de las otras 9.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_XSD completado (OK o Force OK).</precondicion>
+      <precondicion>Destino Mentor (pr-mentor.igrupobbva) simulado como no disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="pr-mentor.igrupobbva" valor="inaccesible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de Mentor.</paso>
+      <paso numero="2">Ejecutar la cadena completa.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL0846 y de las otras 9 ramas.</paso>
+      <paso numero="4">Verificar si MEKYTL0856 llega a ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0846 termina en KO real (sin On-Do); las otras 9 ramas se ejecutan con normalidad; MEKYTL0856 NO se ejecuta hasta que se resuelva el fallo, porque MEKYTL0846 forma parte de la condición AND real (evento RDR_MARKETS_EXTRACCION_MEKYTL0846_OK_new).</resultadoEsperado>
+    <tipoValidacion>Estado KO de MEKYTL0846 + estado OK de las otras 9 ramas + ausencia de ejecución de MEKYTL0856.</tipoValidacion>
+    <criterioAceptacion>Aislamiento de fallo confirmado entre ramas, pero cierre de cadena correctamente bloqueado por la condición AND real.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>MEKYTL1116 falla visiblemente si no encuentra el fichero origen</nombre>
+    <objetivo>Confirmar el requisito R8: a diferencia del resto de ramas, MEKYTL1116 debe generar un error explícito si baskets.xml no existe en el momento de su ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_XSD completado.</precondicion>
+      <precondicion>baskets.xml eliminado o no accesible justo antes de la ejecución de MEKYTL1116 (simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="baskets.xml" valor="ausente en el momento de ejecución de MEKYTL1116 (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Eliminar baskets.xml justo antes de que arranque MEKYTL1116.</paso>
+      <paso numero="2">Ejecutar MEKYTL1116.</paso>
+      <paso numero="3">Verificar el estado final del job y el mensaje de error.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1116 termina en KO real con un error explícito de fichero no encontrado, sin ningún mecanismo de tolerancia u ocultación del fallo.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job + inspección del mensaje de error en el log.</tipoValidacion>
+    <criterioAceptacion>Error explícito y visible, confirmando el requisito operativo documentado.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="happy_path">
+    <nombre>Rama DUCO completa: transformación, SFTP, limpieza y backup</nombre>
+    <objetivo>Verificar el ciclo completo de la rama DUCO, incluyendo el cambio de servidor de ejecución hacia la pasarela.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_XSD completado.</precondicion>
+      <precondicion>Pasarela lpftp501/502 operativa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="baskets.xml" valor="válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar la generación de baskets_TRS.csv por RDR_TRANSFORM_BASKETS_DUCO.</paso>
+      <paso numero="2">Verificar el envío SFTP a la pasarela por MEKYTL1132.</paso>
+      <paso numero="3">Verificar la transmisión efectiva a bbva.duco-app.com por MEKYTL1132_SND (ejecutado en lpftp501).</paso>
+      <paso numero="4">Verificar la limpieza de la pasarela por MEKYTL1132_DEL (ejecutado en lpftp501).</paso>
+      <paso numero="5">Verificar el backup local por MEKYTL1133 (de vuelta en pr-rdr.igrupobbva).</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 pasos terminan OK en secuencia; baskets_TRS.csv llega a bbva.duco-app.com; la pasarela queda limpia; existe un backup local con fecha.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 5 jobs + verificación de presencia del fichero en DUCO (si es accesible) + verificación de limpieza de la pasarela + verificación del backup local.</tipoValidacion>
+    <criterioAceptacion>Ciclo DUCO completo sin KOs, fichero en destino externo, pasarela limpia, backup presente.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Fallo de la pasarela DUCO detiene la rama sin afectar al resto de la cadena</nombre>
+    <objetivo>Confirmar que un fallo real en la pasarela (lpftp501) detiene la rama DUCO sin bloquear las otras 9 ramas de distribución.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_TRANSFORM_BASKETS_DUCO y MEKYTL1132 completados OK.</precondicion>
+      <precondicion>lpftp501 simulado como no disponible antes de MEKYTL1132_SND.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="lpftp501" valor="inaccesible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la indisponibilidad de lpftp501.</paso>
+      <paso numero="2">Ejecutar la cadena completa.</paso>
+      <paso numero="3">Verificar el estado de MEKYTL1132_SND, MEKYTL1132_DEL y MEKYTL1133.</paso>
+      <paso numero="4">Verificar el estado de las otras 9 ramas de distribución directa.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1132_SND termina en KO real; MEKYTL1132_DEL y MEKYTL1133 no se ejecutan; las otras 9 ramas de distribución directa se ejecutan con normalidad; MEKYTL0856 no se ejecuta hasta resolver el fallo (MEKYTL1133 forma parte de la condición AND real).</resultadoEsperado>
+    <tipoValidacion>Estado KO de MEKYTL1132_SND + ausencia de ejecución de MEKYTL1132_DEL/MEKYTL1133 + estado OK de las otras 9 ramas.</tipoValidacion>
+    <criterioAceptacion>Aislamiento de fallo confirmado, cierre de cadena correctamente bloqueado.</criterioAceptacion>
+    <posibilidadFallo>Fallo esperado y correcto: es el resultado válido de este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="happy_path">
+    <nombre>Entrega a cadenas externas (IHSM y Solar/XFIN) sin extender la prueba a su interior</nombre>
+    <objetivo>Confirmar que MEKYTL1103 y MEKYTL1126 completan su entrega en el punto de frontera documentado, dejando el resto a las cadenas externas fuera de alcance.</objetivo>
+    <precondiciones>
+      <precondicion>VALIDACION_XSD completado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="baskets.xml" valor="válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL1103 deja baskets_yyyymmdd.xml en la pasarela LPFTP501/502, ruta /unload/transmisiones/XIRM/rdr.</paso>
+      <paso numero="2">Verificar que MEKYTL1126 copia baskets.xml a /unload/kytl/datsal/datax/ con el cambio de propietario documentado.</paso>
+      <paso numero="3">Verificar que MEKYTL1126 agrega el evento GC_TESO_BASKETS_EXTRACCION_new_MEKYTL1126_OK.</paso>
+      <paso numero="4">Confirmar que ninguno de los dos jobs se bloquea esperando una respuesta de la cadena externa.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs terminan OK tras dejar el fichero en su punto de entrega respectivo, sin esperar confirmación de la cadena externa; MEKYTL1103 no alimenta a MEKYTL0856, MEKYTL1126 sí (además de disparar la cadena externa).</resultadoEsperado>
+    <tipoValidacion>Estado OK de ambos jobs + presencia del fichero en el punto de entrega + verificación del evento de disparo externo de MEKYTL1126.</tipoValidacion>
+    <criterioAceptacion>Entrega confirmada en el punto de frontera, sin necesidad de validar el interior de las cadenas externas.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Integridad del fichero entre generación y cada destino</nombre>
+    <objetivo>Confirmar que el contenido de baskets.xml recibido en cada uno de los 10 destinos coincide exactamente con el generado por GS_EXTRACCION_BASKETS, sin alteración durante el envío.</objetivo>
+    <precondiciones>
+      <precondicion>Ciclo completo ejecutado con éxito hasta la generación de baskets.xml.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="checksum_origen" valor="calculado sobre baskets.xml justo tras su generación, antes de VALIDACION_XSD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Calcular el checksum de baskets.xml en origen.</paso>
+      <paso numero="2">Tras cada envío OK, calcular el checksum del fichero recibido en cada destino accesible.</paso>
+      <paso numero="3">Comparar los checksums.</paso>
+    </pasos>
+    <resultadoEsperado>El checksum del fichero recibido en cada destino coincide exactamente con el checksum de origen (salvo baskets_TRS.csv, que es una transformación deliberada, no una copia).</resultadoEsperado>
+    <tipoValidacion>Comparación de hash (checksum) por destino.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de checksum en los destinos que reciben una copia directa.</criterioAceptacion>
+    <posibilidadFallo>Cualquier discrepancia de checksum se considera corrupción de copia y hace fallar el caso para ese destino.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="regresion">
+    <nombre>MEKYTL0929 y MEKYTL1103 no bloquean el cierre de la cadena (confirmación post-cambio)</nombre>
+    <objetivo>Confirmar de forma regresiva que el colector MEKYTL0856 no espera eventos de MEKYTL0929 (eliminado) ni de MEKYTL1103 (cadena externa), pese a que la prosa del documento original aún los mencione como predecesores.</objetivo>
+    <precondiciones>
+      <precondicion>Ciclo completo ejecutado con éxito salvo MEKYTL1103 (simulado como no ejecutado o en KO).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="MEKYTL1103" valor="no ejecutado o en KO (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Impedir la ejecución exitosa de MEKYTL1103.</paso>
+      <paso numero="2">Ejecutar el resto de la cadena con normalidad.</paso>
+      <paso numero="3">Verificar si MEKYTL0856 se ejecuta igualmente tras completarse las otras 9 ramas relevantes.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0856 se ejecuta y cierra la cadena correctamente aunque MEKYTL1103 no haya terminado OK, confirmando que no forma parte de la condición AND real; tampoco existe ningún evento de MEKYTL0929 pendiente que pueda bloquear el cierre.</resultadoEsperado>
+    <tipoValidacion>Estado OK de MEKYTL0856 pese al fallo/ausencia de MEKYTL1103 + revisión de la lista real de prerrequisitos en Control-M.</tipoValidacion>
+    <criterioAceptacion>Cierre de cadena confirmado sin dependencia real de MEKYTL1103 ni de MEKYTL0929.</criterioAceptacion>
+    <posibilidadFallo>Si MEKYTL0856 quedara bloqueado esperando MEKYTL1103, indicaría que la lista de prerrequisitos real ha cambiado respecto a la evidencia documentada, y habría que revisar la sección 1.5 del spec.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
