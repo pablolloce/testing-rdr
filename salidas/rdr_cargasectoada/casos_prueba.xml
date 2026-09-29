@@ -95,10 +95,10 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar el transferId real de los 6 jobs DataX (MEKYTL1273/74/75/81/82/83).</paso>
-      <paso numero="2">Confirmar que T1 y T2 siguen compartiendo transferId entre cadenas.</paso>
-      <paso numero="3">Obtener y confirmar el transferId real de MEKYTL1283 (pendiente, GAP-ADA-001).</paso>
+      <paso numero="2">Confirmar que T1, T2 y T3 siguen compartiendo transferId entre cadenas (confirmado para los 3 tramos: kcatalogvaluestaxonomy_1, krelvaluestaxonomy_1, ekytl_ada_saatransfer_1).</paso>
+      <paso numero="3">No confundir el transferId compartido con el corte de datos (CUTOFF_DATE) solicitado — ver TC-009 para la verificación de esa diferencia en T3.</paso>
     </pasos>
-    <resultadoEsperado>Los transferId se mantienen coincidentes entre cadenas para T1/T2; se confirma el de T3/MEKYTL1283.</resultadoEsperado>
+    <resultadoEsperado>Los transferId se mantienen coincidentes entre cadenas para los 3 tramos.</resultadoEsperado>
     <tipoValidacion>Comparación directa de las fichas/definiciones reales.</tipoValidacion>
     <criterioAceptacion>Sin discrepancias respecto a lo documentado, o discrepancia documentada explícitamente.</criterioAceptacion>
     <posibilidadFallo>Si los transferId dejan de coincidir, indica que las cadenas ya no son redundantes y debe revisarse GAP-ADA-004.</posibilidadFallo>
@@ -160,6 +160,27 @@
     <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
     <criterioAceptacion>Sin discrepancias en la muestra verificada.</criterioAceptacion>
     <posibilidadFallo>Cualquier job con criticidad distinta o protocolo distinto debe documentarse como excepción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Verificación del corte de datos distinto en T3 entre cadenas (GAP-ADA-005)</nombre>
+    <objetivo>Confirmar el impacto funcional real de que MEKYTL1283 (Cadena 2, Tramo 3) pida CUTOFF_DATE=ODATE-3 mientras que su gemelo MEKYTL1275 (Cadena 1, Tramo 3) pide ODATE-1, pese a compartir el mismo transferId (ekytl_ada_saatransfer_1).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a una ejecución real (o trazas) de ambos jobs en la misma semana, para poder comparar el corte de datos efectivamente recibido de DataX.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CUTOFF_DATE MEKYTL1275 (Cadena 1)" valor="ODATE-1"/>
+      <dato campo="CUTOFF_DATE MEKYTL1283 (Cadena 2)" valor="ODATE-3"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en la ficha real y/o en la configuración en vivo que el offset de MEKYTL1283 sigue siendo ODATE-3.</paso>
+      <paso numero="2">Comparar el fichero recibido por MEKYTL1283 en una ejecución real con el recibido por MEKYTL1275 en la misma semana, verificando si corresponden a fechas de corte distintas.</paso>
+      <paso numero="3">Preguntar al equipo funcional si el offset ODATE-3 en Cadena 2/T3 es intencional (p. ej. margen de reconciliación semanal) o un error de configuración heredado de una copia del job de Cadena 1.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma si la discrepancia de corte de datos es intencional o un defecto de configuración, y se documenta el impacto real en los datos cargados por RDR_CARGASECTOADA_2/T3.</resultadoEsperado>
+    <tipoValidacion>Comparación de ficheros reales recibidos + confirmación funcional con el equipo propietario del proceso.</tipoValidacion>
+    <criterioAceptacion>Discrepancia documentada como intencional (con justificación de negocio) o corregida si es un defecto.</criterioAceptacion>
+    <posibilidadFallo>Si no se puede confirmar la intención y la discrepancia persiste sin justificación, debe elevarse como riesgo de calidad de datos (RISK-ADA-002) en la carga semanal de T3.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
