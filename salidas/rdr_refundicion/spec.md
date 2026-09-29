@@ -40,7 +40,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 |-----|----------|------------|
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
-| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Abierto.** Ni la spec ni el documento fuente lo explican. Pendiente de pedir al usuario, o el `.gsp` del evento `Errores` — ver §6.1. |
+| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente. Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
 | G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto de forma indirecta (2026-09-28) con `ConContrato460.java` y la versión completa de `ConDB.java`** — muy probablemente la implementación real (misma arquitectura/mensajería que `ConBDI`/`ConClientela`, referencia literal a "C460"), aunque sin `.properties`/`.gsp` que confirme al 100% la invocación desde este workflow. Confirma el procedimiento almacenado **`CONC460`** (3 parámetros), la semántica de reconciliación (folio con fecha de cancelación por defecto = activo), la tabla exacta `FT_T_FAB1` con sus columnas (`STAT_DEF_ID`, `DATA_STAT_TYP`), un probable defecto de escritura (`STAT_DEF_ID='NUMFOLII'` en el `UPDATE` vs. `'NUMFOLIO'` en el filtro `WHERE`), y un posible defecto de tipo de job (`crearJOB` con "C460", `cerrarJOB` con "CCL"). **Único cabo suelto no bloqueante:** confirmación explícita de que este código es el invocado por el workflow, y la clase `ThreadComprobacion` (referenciada en comentarios, no aportada) que ejecutaría los `UPDATE` de `FT_T_FAB1` acumulados — ver §6.1. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
@@ -159,12 +159,28 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
     `ThreadComprobacion` — mencionada en un comentario del código ("Las actualizaciones se realizan
     mediante el ThreadComprobacion") como responsable de ejecutar en diferido los `UPDATE` de
     `FT_T_FAB1` acumulados, pero no aportada en ningún fichero de esta sesión.
-* **`Evento(Errores)`:** el documento fuente lo describe como "Activa el gestor de eventos de error para
-  capturar, clasificar y registrar cualquier anomalía ocurrida durante las fases previas", pero ni la spec ni
-  el documento fuente explican qué ocurre con los registros que caen en él (¿se descartan, se reintentan, se
-  reportan a algún canal, bloquean el resto de la cadena?). **Gap real pendiente:** hace falta preguntar al
-  usuario o pedir el `.gsp` del propio evento `Errores` para poder responder a esto — no se infiere ni se
-  inventa.
+* **`Evento(Errores)`:** **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El documento fuente lo
+  describe como "Activa el gestor de eventos de error para capturar, clasificar y registrar cualquier
+  anomalía ocurrida durante las fases previas". El evento invocado como `Errores` en el pipeline es, con
+  nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio` ↔
+  `RDR_AlertasEnvio` y `SSIs_Fx_Peticion` ↔ `RDR_SSIS_Fx_Alert_Online`), el workflow GoldenSource
+  **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico compartido por
+  varios procesos RDR, no exclusivo de Refundición). Su lógica, reconstruida del XML del `.wkf`:
+  1. Construye `Carpeta`/`Filename`/`DummyName` a partir de los parámetros `Ruta`/`Servicio` del workflow y
+     llama al sub-workflow `HistoricizeFiles`.
+  2. Busca en `FT_T_JBLG` el job `CLOSED` más reciente que case `job_input_txt=File` y `job_msg_typ=MessageType`
+     dentro de la última hora. **Si no encuentra ningún job, el workflow termina sin generar nada** (no-op).
+  3. Si lo encuentra, consulta `FT_T_RLT1` (errores funcionales, `RLT_PURP_TYP='ERRORES'`, marcados
+     `ERROR_TYPE='Funcional'`) y `FT_T_TRID` (errores técnicos, `CRRNT_SEVERITY_CDE>39`, marcados
+     `'Tecnico'`) del job identificado, y vuelca ambos a un CSV de auditoría (cabecera fija de 11 columnas:
+     `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`),
+     renombrando el fichero temporal (`DummyName`) a su nombre final.
+  4. Comprueba el parámetro `Delta` (a nivel de workflow, procedente del `.properties` del propio servicio
+     invocador): si `Delta="Si"` invoca el sub-workflow **`MarcaRegErroneo`**, que marca los registros
+     erróneos para que se reprocesen automáticamente al día siguiente; si no, el workflow simplemente
+     termina. **Confirmado que `Refundicion.properties` fija `Delta=Si`** (ver R2/§6.1 más arriba), por lo
+     que para este proceso concreto la rama de reprocesamiento automático vía `MarcaRegErroneo` **sí se
+     ejecuta**. Evidencia: `documentos_fuente/evidencia_rdr_refundicion/ErroresCSV.wkf`.
 * **`Java(RDR_Report.jar)`, clase `CreateReport`** (Fase 4.1): usa `$CONF/select.properties`, bloque
   `Refundicion`, para las consultas SQL que generan `Reporte_Refundicion_dos.csv`. El fichero
   `documentos_fuente/evidencia_rdr_bancarizacion/select.properties` sí contiene ese bloque, con las mismas 3
@@ -219,6 +235,12 @@ documentadas.
 * **Clase `ThreadComprobacion` no aportada (§6.1, G4):** referenciada en un comentario del código como
   responsable de ejecutar en diferido los `UPDATE` de `FT_T_FAB1` acumulados — su lógica real (cuándo se
   dispara, con qué frecuencia) no está documentada en el material disponible.
+* **Reprocesamiento automático vía `MarcaRegErroneo` (§6.1, G3):** al estar `Delta=Si` en
+  `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
+  `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) queda marcado para
+  reprocesarse automáticamente al día siguiente — un fallo persistente en el mismo registro podría
+  reintentarse indefinidamente sin una alerta explícita de "reintento agotado" (no se ha aportado evidencia
+  de un límite de reintentos).
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -231,8 +253,9 @@ arquitectura y nomenclatura compartidas con `ConBDI`/`ConClientela`, aunque sin 
 invocación. Confirma el procedimiento `CONC460` (3 parámetros) y la tabla exacta `FT_T_FAB1` con sus
 columnas, revelando 3 hallazgos nuevos: un probable defecto de escritura en `FT_T_FAB1`
 (`'NUMFOLII'`/`'NUMFOLIO'`), un posible defecto de tipo de job en `crearJOB`/`cerrarJOB`, y una clase
-`ThreadComprobacion` referenciada pero no aportada. Queda 1 gap técnico abierto y no bloqueante: G3
-(comportamiento de `Evento(Errores)`) — ver §4 y §6.1. Ninguno afecta al resto de cadenas ya cerradas del
-sistema P-021. **Con esta cadena se completa la especificación de las
-8 cadenas del sistema P-021**, con G3 pendiente de material adicional del usuario y G4 pendiente solo de
-la confirmación explícita de invocación (no de material nuevo sustantivo).
+`ThreadComprobacion` referenciada pero no aportada. **G3 queda resuelto (2026-09-29) con el `.wkf` real del
+workflow `ErroresCSV`** (ver §4 y §6.1): confirma el mecanismo de auditoría de errores (`FT_T_RLT1`/`FT_T_TRID`)
+y el reprocesamiento automático vía `MarcaRegErroneo` al estar `Delta=Si` en `Refundicion.properties`.
+**Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021, sin gaps técnicos
+bloqueantes pendientes** — G4 pendiente solo de la confirmación explícita de invocación (no de material
+nuevo sustantivo), lo que no bloquea el cierre funcional de la cadena.
