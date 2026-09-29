@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="carga_ratings_rga" fecha="2026-09-29" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo: detección, carga, Fan-Out y Fan-In</nombre>
+    <objetivo>Verificar el ciclo end-to-end de los 8 jobs: detección del fichero, carga en GoldenSource, historificación en paralelo de ambas ramas, y cierre correcto de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>ddmmyyyy_RGA_VIG.CSV depositado en /fichtemcomp/pr/descargas/kytl/RGA/ antes de las 12:00 PM, con estructura de 9 campos válida.</precondicion>
+      <precondicion>credentials.xml y RDR_Load_RGA.properties accesibles; GoldenSource disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ddmmyyyy_RGA_VIG.CSV" valor="fichero válido con al menos 1 registro de rating"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_LOAD_RGA_PR_IN arranca a las 05:00 AM y publica su evento.</paso>
+      <paso numero="2">Confirmar que RDR_RGA_RATING_FW detecta el fichero y publica su evento.</paso>
+      <paso numero="3">Confirmar que RDR_Load_RGA_SH copia el fichero a RDR_LOAD_RGA.txt y dispara el evento RDR_Load_RGA en GoldenSource.</paso>
+      <paso numero="4">Confirmar que MEKYTL0471 y MEKYTL0472 arrancan en paralelo y ambos completan OK.</paso>
+      <paso numero="5">Confirmar que MEKYTL0471_1 y MEKYTL0472_1 completan OK y trasladan los .tar.gz a Backup/.</paso>
+      <paso numero="6">Confirmar que RDR_LOAD_RGA_PR_OUT cierra la cadena tras recibir ambos eventos.</paso>
+    </pasos>
+    <resultadoEsperado>Los 8 jobs terminan OK; el fichero queda cargado en GoldenSource vía el Message Type RDR_Load_RGA; ambas ramas historificadas; cadena cerrada sin KOs.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 8 jobs en Control-M + verificación de carga real en GoldenSource + presencia de los .tar.gz en Backup/.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs OK, datos cargados, ambas ramas historificadas, sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Fichero detectado justo antes del límite de las 12:00 PM</nombre>
+    <objetivo>Confirmar que el filewatcher detecta correctamente un fichero que llega cerca del límite de su ventana horaria (12:00 PM, confirmado por captura real, no medianoche).</objetivo>
+    <precondiciones>
+      <precondicion>ddmmyyyy_RGA_VIG.CSV depositado poco antes de las 12:00 PM.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Hora de depósito del fichero" valor="~11:55 AM"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar el fichero pocos minutos antes de las 12:00 PM.</paso>
+      <paso numero="2">Verificar que RDR_RGA_RATING_FW lo detecta dentro de su ventana (sondeo cada 60s, estabilidad 10s).</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se detecta correctamente dentro de la ventana real (05:00 AM-12:00 PM), sin falso timeout.</resultadoEsperado>
+    <tipoValidacion>Log del filewatcher + hora real de detección.</tipoValidacion>
+    <criterioAceptacion>Detección exitosa dentro de la ventana real confirmada por captura.</criterioAceptacion>
+    <posibilidadFallo>Si el filewatcher no detectara el fichero por interpretar la ventana como "12:00 AM" (medianoche), contradiría la configuración real confirmada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Timeout de 420 minutos sin detectar el fichero</nombre>
+    <objetivo>Confirmar el comportamiento del filewatcher si el fichero RGA no llega dentro del timeout configurado (420 minutos, 7 horas desde las 05:00 AM).</objetivo>
+    <precondiciones>
+      <precondicion>ddmmyyyy_RGA_VIG.CSV NO depositado durante toda la ventana de monitorización.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero RGA" valor="ausente durante toda la ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitorización completa.</paso>
+      <paso numero="2">Verificar que RDR_RGA_RATING_FW termina en timeout tras 420 minutos.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina en KO por timeout; el resto de la cadena no arranca; notificación al grupo ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job en Control-M + verificación de que ningún job sucesor arrancó.</tipoValidacion>
+    <criterioAceptacion>KO real por timeout, sin publicación de eventos, cadena detenida en este punto.</criterioAceptacion>
+    <posibilidadFallo>Comportamiento esperado ante ausencia real del fichero, no un fallo del proceso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de RDR_Load_RGA_SH sin soft-failure</nombre>
+    <objetivo>Confirmar que un fallo real de RDR_Load_RGA_SH queda visible como KO (sin Acción Si que lo enmascare) y que el protocolo de liberar sucesores es manual, no automático.</objetivo>
+    <precondiciones>
+      <precondicion>Evento de entrada satisfecho (RDR_RGA_RATING_FW completado OK).</precondicion>
+      <precondicion>Fallo forzado o real en RDR_Load_RGA.sh (p. ej. GoldenSource no disponible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Disponibilidad de GoldenSource" valor="fallida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo real durante la ejecución de RDR_Load_RGA_SH.</paso>
+      <paso numero="2">Verificar que el job queda en estado KO real (sin Acción Si configurada que lo marque OK).</paso>
+      <paso numero="3">Verificar que MEKYTL0471 y MEKYTL0472 NO arrancan automáticamente (sin evento publicado).</paso>
+      <paso numero="4">Confirmar que la liberación manual de sucesores, si se aplica, requiere intervención del equipo de soporte.</paso>
+    </pasos>
+    <resultadoEsperado>KO real visible en Control-M; Fan-Out bloqueado hasta intervención manual; sin publicación de evento de salida.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job + verificación de que el Fan-Out no arrancó sin intervención manual.</tipoValidacion>
+    <criterioAceptacion>Fallo real visible, sin enmascaramiento automático; Fan-Out bloqueado hasta acción manual (RISK-RGA-001).</criterioAceptacion>
+    <posibilidadFallo>Si el job se marcara OK automáticamente pese al fallo, indicaría una Acción Si de soft-failure no documentada — contradiría la captura real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Confirmación de topología (8 jobs), host real y ausencia de Acciones Si en RDR_Load_RGA_SH</nombre>
+    <objetivo>Confirmar en revisiones futuras que el folder sigue teniendo exactamente 8 jobs, que RDR_RGA_RATING_FW sigue en el host real (no la IP de plantilla), y que RDR_Load_RGA_SH sigue sin Acciones Si configuradas.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder KYTL0000-RDR_LOAD_RGA_PR_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados" valor="exactamente los 8 documentados, sin adicionales"/>
+      <dato campo="Host de RDR_RGA_RATING_FW" valor="pr-rdr.igrupobbva"/>
+      <dato campo="Acciones Si de RDR_Load_RGA_SH" valor="ninguna configurada"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo únicamente los 8 jobs documentados.</paso>
+      <paso numero="2">Confirmar el host real de RDR_RGA_RATING_FW.</paso>
+      <paso numero="3">Confirmar que RDR_Load_RGA_SH sigue sin Acciones Si.</paso>
+    </pasos>
+    <resultadoEsperado>Sin discrepancias respecto a lo documentado en spec.md §6.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Topología, host y configuración de Acciones Si sin cambios.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un job nuevo, cambia el host, o se añade una Acción Si, este caso debe fallar y motivar una actualización de la especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="datos_sinteticos">
+    <nombre>Validación estructural del CSV contra el diccionario real de 9 campos</nombre>
+    <objetivo>Verificar que ddmmyyyy_RGA_VIG.CSV respeta la estructura de 9 campos confirmada por RGA_Ratings_BBVA.mdx.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a un fichero real de ratings RGA.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Campos esperados" valor="Cod_CCLIENX/CLIENTELA, CIF, Descripcion, Rating, Rating2/Rating_larga, Fecha_vigente, Fecha_ejercicio, Comentarios, Fecha_datos — todos String(255), ninguno obligatorio"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el fichero tiene exactamente los 9 campos esperados.</paso>
+      <paso numero="2">Verificar que ningún campo excede 255 caracteres.</paso>
+      <paso numero="3">Confirmar que la carga en GoldenSource no rechaza registros por campos obligatorios ausentes (ninguno es Mandatory).</paso>
+    </pasos>
+    <resultadoEsperado>El fichero real respeta íntegramente la estructura de 9 campos del diccionario confirmado.</resultadoEsperado>
+    <tipoValidacion>Validación estructural del CSV contra el diccionario documentado en spec.md §5.</tipoValidacion>
+    <criterioAceptacion>9 campos presentes, tipos y longitudes coherentes con el .mdx real.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un campo no documentado o falta alguno de los 9, indicaría un cambio en el mapeo real no reflejado en esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Fan-In AND real: solo una rama completa no cierra la cadena</nombre>
+    <objetivo>Confirmar que RDR_LOAD_RGA_PR_OUT exige la finalización OK de ambas ramas (condición AND real), no de cualquiera de las dos.</objetivo>
+    <precondiciones>
+      <precondicion>Una rama (p. ej. MEKYTL0471→MEKYTL0471_1) completa OK; la otra (MEKYTL0472→MEKYTL0472_1) no completa (fallo forzado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama 0471" valor="completa OK"/>
+      <dato campo="Rama 0472" valor="no completa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que solo una de las dos ramas complete.</paso>
+      <paso numero="2">Verificar que RDR_LOAD_RGA_PR_OUT permanece en espera, sin arrancar.</paso>
+    </pasos>
+    <resultadoEsperado>RDR_LOAD_RGA_PR_OUT no arranca hasta que ambas ramas completen — confirma la condición AND real, no OR.</resultadoEsperado>
+    <tipoValidacion>Estado de espera de RDR_LOAD_RGA_PR_OUT en Control-M mientras solo un evento esté satisfecho.</tipoValidacion>
+    <criterioAceptacion>Job en espera con solo un evento satisfecho; arranca únicamente con ambos.</criterioAceptacion>
+    <posibilidadFallo>Si el job arrancara con un solo evento, contradiría la condición AND confirmada por captura real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Hallazgo no preguntado: asimetría de criticidad en MEKYTL0472_1 (RISK-RGA-002)</nombre>
+    <objetivo>Documentar y, si es posible, aclarar con negocio el motivo de que MEKYTL0472_1 tenga criticidad C (aviso inmediato) frente a W en el resto de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre la criticidad.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Criticidad de MEKYTL0472_1" valor="C - Aviso inmediato"/>
+      <dato campo="Criticidad del resto de jobs" valor="W - Aviso día siguiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo funcional el motivo de la criticidad diferenciada.</paso>
+      <paso numero="2">Documentar la respuesta o, si no hay motivo conocido, registrar como discrepancia sin explicación.</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si es intencional (p. ej. por ser el último paso antes del cierre) o un residuo de configuración.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa.</tipoValidacion>
+    <criterioAceptacion>Motivo aclarado con evidencia o respuesta funcional, documentado en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso cierra un hallazgo de configuración, no de requisito original.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Hallazgo no preguntado: naming cruzado POSITIONANDTRANS/counterparties</nombre>
+    <objetivo>Documentar la discrepancia entre el Application Name del Message Type (POSITIONANDTRANS) y la ruta del recurso de mapeo (.../mapping/counterparties/...).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la consola de administración de GoldenSource.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Application Name del Message Type RDR_Load_RGA" valor="POSITIONANDTRANS"/>
+      <dato campo="Ruta del recurso de mapeo" valor="db://resource/RDR/mapping/counterparties/RGA_Ratings_BBVA.mdx"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar si esta asignación de Application Name es intencional o un residuo de plantilla (mismo patrón que otros naming cruzados de esta sesión).</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si afecta funcionalmente a la carga o es solo una discrepancia de nomenclatura sin impacto.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa o revisión de otros Message Types similares en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Discrepancia documentada, sin impacto funcional confirmado o motivo aclarado.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso documenta un hallazgo de nomenclatura, no un requisito original.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
