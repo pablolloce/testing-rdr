@@ -183,7 +183,7 @@
     <resultadoEsperado>Todos los registros quedan con WARR_STATUS='INACTIVE'; el job termina OK sin timeout.</resultadoEsperado>
     <tipoValidacion>SELECT COUNT(*) FROM FT_T_LWD1 WHERE (criterio de vencimiento) AND warr_status != 'INACTIVE' debe devolver 0 tras la ejecución.</tipoValidacion>
     <criterioAceptacion>COUNT = 0 tras la ejecución; sin errores de timeout ni de recurso.</criterioAceptacion>
-    <posibilidadFallo>Un timeout o agotamiento del recurso MAX-LPRDR501 en volumen alto indicaría un límite no documentado (relacionado con GAP-GARANT-003).</posibilidadFallo>
+    <posibilidadFallo>Un timeout o agotamiento del recurso MAX-LPRDR501 indicaría contención real: es un recurso compartido a nivel de servidor MERCADOS-4 (confirmado por captura real, GAP-GARANT-003 resuelto — 11 ejecuciones concurrentes de otros procesos observadas consumiéndolo simultáneamente), no exclusivo de este job.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="conflicto_integridad">

@@ -14,8 +14,11 @@
   ejecución "Automático" — confirmado por captura real que contiene un único job.
 - Servidor GoldenSource activo, base de datos `jdbc/GSDM-1` accesible.
 - Workflow `BajaGarantiasLA.wkf` (grupo `Custom/RDR/Bash/BajaGarantias`) en estado `RELEASED`.
-- Recurso cuantitativo `MAX-LPRDR501` con capacidad disponible (el job reserva 1 de 100 — GAP-GARANT-003:
-  no se confirma qué otros procesos comparten este recurso).
+- Recurso cuantitativo `MAX-LPRDR501` con capacidad disponible (el job reserva 1 de 100). Confirmado por
+  captura real (GAP-GARANT-003 resuelto): es un recurso compartido a nivel de servidor `MERCADOS-4`, no
+  exclusivo de este proceso — en el momento de la captura había 11 ejecuciones concurrentes de otros procesos
+  consumiéndolo simultáneamente (89 de 100 disponibles). Un pico de uso en el servidor podría retrasar el
+  arranque de este job si el recurso se agota.
 
 ## Roles y permisos
 

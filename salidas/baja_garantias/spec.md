@@ -62,12 +62,19 @@ mismo tipo de evidencia exhaustiva que cerró GAP-CTPY-002 en otro proceso de es
 - **GAP-GARANT-002 (umbral de rendimiento no definido) — ABIERTO.** El caso T-19 del plan de pruebas original
   menciona "Ejecución < umbral" sin un valor numérico concreto. No se dispone de un log real de ejecución ni
   de un SLA documentado formalmente. No se fuerza un valor inventado.
-- **GAP-GARANT-003 (alcance del recurso `MAX-LPRDR501`) — ABIERTO.** La captura real confirma la cantidad
-  reservada (1 de 100) pero no qué otros jobs/folders comparten ese mismo recurso cuantitativo — requeriría el
-  catálogo de recursos de `MERCADOS-4`, fuera del alcance de la evidencia disponible.
+- **GAP-GARANT-003 (alcance del recurso `MAX-LPRDR501`) — RESUELTO con captura real en vivo.** El catálogo de
+  "Recursos Cuantitativos" de Control-M (`Herramientas → Recursos Cuantitativos`) confirma que `MAX-LPRDR501`
+  es un recurso a nivel de **servidor `MERCADOS-4`** (capacidad total 100), no exclusivo de
+  `KYTL_BAJAGARANT_GSPROCESS`. Una captura real en el momento del análisis muestra el recurso en estado
+  "En uso", con **89 de 100 disponibles** y **11 ejecuciones concurrentes** consumiéndolo simultáneamente
+  (panel "Uso de recursos", 11 IDs de ejecución distintos, 1 unidad cada uno) — confirma que es un límite de
+  concurrencia ampliamente compartido en el servidor, no un recurso dedicado a este proceso. El panel muestra
+  IDs de ejecución, no nombres de job, por lo que no se identifican individualmente los otros procesos que lo
+  usan — detalle menor que no afecta a la conclusión del gap (el alcance real, "compartido a nivel de
+  servidor", ya queda confirmado).
 
-**Balance: 1 de 3 gaps resueltos con evidencia literal completa.** Los 2 restantes son menores y no bloquean
-el testing funcional del proceso (documentados como limitaciones explícitas, no inventados).
+**Balance: 2 de 3 gaps resueltos con evidencia literal/real completa.** El restante (GAP-GARANT-002) es menor
+y no bloquea el testing funcional del proceso (documentado como limitación explícita, no inventado).
 
 ## 5. Especificación funcional
 
@@ -157,13 +164,12 @@ Referencia de casos por tipo:
 
 1. **GAP-GARANT-002 — umbral de rendimiento no definido** (sección 4). No bloqueante; a confirmar con un log
    real de ejecución si se retoma esta especificación.
-2. **GAP-GARANT-003 — alcance del recurso `MAX-LPRDR501` no confirmado** (sección 4). No bloqueante.
-3. **RISK-GARANT-001 — `haltOnError=No` en el workflow.** Si un `UPDATE` individual falla (p. ej. bloqueo de
+2. **RISK-GARANT-001 — `haltOnError=No` en el workflow.** Si un `UPDATE` individual falla (p. ej. bloqueo de
    fila), el workflow continúa con el resto del loop sin marcar el job como fallido por ese registro
    concreto — una garantía podría quedar sin inactivar sin que se dispare ninguna alerta específica para ese
    caso, más allá del comportamiento general de fin del job. A confirmar con negocio si es el comportamiento
    deseado.
-4. **RISK-GARANT-002 — reactivación manual no controlada.** Si una garantía inactivada se reactiva
+3. **RISK-GARANT-002 — reactivación manual no controlada.** Si una garantía inactivada se reactiva
    manualmente (`WARR_STATUS` distinto de `INACTIVE`) pero su fecha de vencimiento sigue en el pasado, el
    proceso la volverá a inactivar automáticamente en la siguiente ejecución (documentado como comportamiento
    esperado en el plan de pruebas original, TC-010) — a confirmar que este comportamiento es intencional y no
@@ -175,7 +181,9 @@ Se documenta la cadena `RDR_BAJA_GARANTIAS` (un único job) con evidencia litera
 documento fuente (SQL real del workflow, `.properties` real, ficha EX-005-03) — verificada de forma
 independiente su autodeclaración de completitud, que se sostiene. Una ronda adicional de capturas reales de
 Control-M (2026-09-29) resuelve **GAP-GARANT-001** (ausencia real, no solo documental, de predecesores/
-sucesores), confirmando la topología de un único job aislado sin soft-failure. **1 de 3 gaps resueltos.**
-Quedan 2 gaps menores abiertos (GAP-GARANT-002, GAP-GARANT-003) y 2 riesgos de comportamiento documentados
-(RISK-GARANT-001, RISK-GARANT-002), ninguno bloqueante para el testing funcional ya cubierto en
-`casos_prueba.xml`.
+sucesores), confirmando la topología de un único job aislado sin soft-failure. Una tercera ronda (captura real
+en vivo del catálogo de "Recursos Cuantitativos") resuelve **GAP-GARANT-003**: `MAX-LPRDR501` es un recurso
+compartido a nivel de servidor `MERCADOS-4` (11 ejecuciones concurrentes consumiéndolo en el momento de la
+captura, 89 de 100 disponibles), no exclusivo de este proceso. **2 de 3 gaps resueltos.** Queda 1 gap menor
+abierto (GAP-GARANT-002, umbral de rendimiento) y 2 riesgos de comportamiento documentados (RISK-GARANT-001,
+RISK-GARANT-002), ninguno bloqueante para el testing funcional ya cubierto en `casos_prueba.xml`.
