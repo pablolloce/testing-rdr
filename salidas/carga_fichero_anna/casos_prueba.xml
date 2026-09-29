@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="carga_fichero_anna" fecha="2026-09-29" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Descarga OK a las 15:00h, evento publicado, CARGA_MDX_ANNA Dummy marcado OK</nombre>
+    <objetivo>Verificar el ciclo completo: DESCARGA_ANNA arranca a las 15:00h, termina con exit 0, publica el evento de salida, y CARGA_MDX_ANNA se marca OK sin ejecutar lógica real (Dummy).</objetivo>
+    <precondiciones>
+      <precondicion>RDR_Anna_Config.properties y credentials.xml accesibles; token SHIVA válido contra el gateway CIB.</precondicion>
+      <precondicion>Recurso MAX-LPRDR501 disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Hora de arranque" valor="15:00h (03:00 PM)"/>
+      <dato campo="Resultado esperado de DESCARGA_ANNA" valor="exit 0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que DESCARGA_ANNA arranca a las 15:00h sin prerrequisito de evento.</paso>
+      <paso numero="2">Verificar que termina con exit 0 y se publica el evento RDR_CARGA_FICHERO_ANNA_new_DESCARGA_ANNA_OK.</paso>
+      <paso numero="3">Verificar que CARGA_MDX_ANNA arranca tras el evento y se marca OK sin ejecutar RDR_Anna_MDX_Evento.sh realmente (modo Dummy).</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs terminan OK; el evento se publica; CARGA_MDX_ANNA no deja rastro de ejecución real (Dummy).</resultadoEsperado>
+    <tipoValidacion>Estado OK de ambos jobs en Control-M + verificación del evento publicado + confirmación de que CARGA_MDX_ANNA está en modo Dummy.</tipoValidacion>
+    <criterioAceptacion>Evento publicado, ambos jobs OK, sin ejecución real de CARGA_MDX_ANNA.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; si CARGA_MDX_ANNA ejecutara lógica real, indicaría que el modo Dummy se desactivó sin actualizar esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Fallo a las 15:00h, relanzamiento cíclico real a las 17:30h, éxito en el segundo intento</nombre>
+    <objetivo>Confirmar que el relanzamiento cíclico real (horas específicas 15:00h y 17:30h) funciona como está configurado, y que un éxito en el segundo intento detiene la ejecución cíclica.</objetivo>
+    <precondiciones>
+      <precondicion>DESCARGA_ANNA falla en su primer intento (15:00h) por causa transitoria (p. ej. token expirado momentáneamente).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Resultado del intento de 15:00h" valor="fallo transitorio"/>
+      <dato campo="Resultado del intento de 17:30h" valor="éxito"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar o esperar un fallo transitorio en el intento de las 15:00h.</paso>
+      <paso numero="2">Verificar que Control-M relanza automáticamente a las 17:30h (tolerancia 5 min, máximo 2 relanzamientos).</paso>
+      <paso numero="3">Verificar que el segundo intento tiene éxito y se detiene la ejecución cíclica (Acción Si "Job completado OK").</paso>
+    </pasos>
+    <resultadoEsperado>El job se relanza exactamente a las 17:30h (no a las 19:00h); el segundo intento exitoso detiene el ciclo y publica el evento normalmente.</resultadoEsperado>
+    <tipoValidacion>Log de ejecución de ambos intentos + verificación de la hora exacta del segundo intento en Control-M.</tipoValidacion>
+    <criterioAceptacion>Relanzamiento exactamente a las 17:30h; evento publicado tras el éxito.</criterioAceptacion>
+    <posibilidadFallo>Si el relanzamiento ocurriera a una hora distinta de 17:30h, contradiría la configuración real confirmada por captura de Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo en ambos intentos (15:00h y 17:30h) — soft-failure genérico</nombre>
+    <objetivo>Confirmar el comportamiento real ante fallo persistente: el job se marca como OK en Control-M (soft-failure) pese al fallo real, y la única alerta real es la notificación por correo.</objetivo>
+    <precondiciones>
+      <precondicion>DESCARGA_ANNA falla en ambos intentos programados (15:00h y 17:30h).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Resultado de ambos intentos" valor="fallo (exit ≠ 0)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo persistente en ambos intentos programados.</paso>
+      <paso numero="2">Verificar que, agotados los relanzamientos, la Acción Si "Job completado No OK" marca el job como OK.</paso>
+      <paso numero="3">Verificar que se envía la notificación por correo a ans_rdr.es@bbva.com.</paso>
+      <paso numero="4">Verificar que el evento de salida NO se publica (la Acción Si de evento exige código de retorno de OS = 0, no el estado "marcado como OK").</paso>
+    </pasos>
+    <resultadoEsperado>El job aparece como OK en Control-M pese al fallo real; notificación enviada; evento de salida no publicado; CARGA_MDX_ANNA no arranca ese día.</resultadoEsperado>
+    <tipoValidacion>Estado del job en Control-M (OK visual) + verificación de ausencia del evento + confirmación de correo enviado.</tipoValidacion>
+    <criterioAceptacion>Job "OK" visual, evento ausente, correo real enviado — sin excepciones.</criterioAceptacion>
+    <posibilidadFallo>Si el evento se publicara pese al fallo real, contradiría la condición "código de retorno de OS = 0" documentada; si no llegara el correo, sería un fallo real del único mecanismo de alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="regresion">
+    <nombre>Confirmación de topología (2 jobs) y estado Dummy de CARGA_MDX_ANNA</nombre>
+    <objetivo>Confirmar en revisiones futuras que el folder sigue teniendo exactamente 2 jobs y que CARGA_MDX_ANNA sigue configurado como Dummy.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder KYTL0000-RDR_CARGA_FICHERO_ANNA_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados" valor="exactamente DESCARGA_ANNA y CARGA_MDX_ANNA, sin jobs adicionales"/>
+      <dato campo="Ejecutar como Dummy (CARGA_MDX_ANNA)" valor="activado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo únicamente los 2 jobs documentados (navegación del folder).</paso>
+      <paso numero="2">Confirmar que CARGA_MDX_ANNA sigue con el toggle "Ejecutar como Dummy" activado.</paso>
+    </pasos>
+    <resultadoEsperado>La topología y el estado Dummy se mantienen sin cambios respecto a lo documentado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias respecto a la ficha documentada en spec.md §6.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un job nuevo o CARGA_MDX_ANNA deja de ser Dummy sin actualizar esta especificación, este caso debe fallar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="datos_sinteticos">
+    <nombre>Limitación de evidencia: comportamiento ante fallo de autenticación del gateway CIB</nombre>
+    <objetivo>Documentar que no se dispone de evidencia real sobre el comportamiento exacto de anna_download.jar ante un fallo específico de autenticación (token SHIVA inválido o expirado) frente a otros tipos de fallo genérico.</objetivo>
+    <precondiciones>
+      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional real.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comportamiento ante token inválido" valor="no aportado"/>
+      <dato campo="Mecanismo confirmado" valor="RDR_Anna_Config.properties (contenido real aportado) confirma la ruta de autenticación (anna.rutaTokenA/B, $SHIVA), sin detalle del manejo de errores específico dentro del jar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Solicitar el log real de un fallo de autenticación, si existe alguno en producción.</paso>
+      <paso numero="2">Si se obtiene, diseñar un caso de error específico distinto del genérico ya cubierto en TC-003.</paso>
+    </pasos>
+    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de un log real o del contenido del jar.</resultadoEsperado>
+    <tipoValidacion>No aplica (caso de documentación de límite de evidencia).</tipoValidacion>
+    <criterioAceptacion>No aplica; el caso queda como marcador de la caja negra del jar, no bloqueante para el resto de la especificación.</criterioAceptacion>
+    <posibilidadFallo>No se fuerza un comportamiento inventado para un escenario de error específico no confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Distinción entre estado visible "OK" y condición real de publicación del evento</nombre>
+    <objetivo>Confirmar explícitamente que un job "Marcado como OK" por soft-failure no es lo mismo que el evento de salida publicándose — dos mecanismos independientes que podrían confundirse en el monitoreo diario.</objetivo>
+    <precondiciones>
+      <precondicion>DESCARGA_ANNA termina con exit ≠ 0 tras agotar los relanzamientos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Exit code real" valor="distinto de 0"/>
+      <dato campo="Estado visual en Control-M" valor="OK (por Acción Si)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el escenario de fallo persistente (mismo que TC-003).</paso>
+      <paso numero="2">Verificar en Control-M que el job aparece como "OK".</paso>
+      <paso numero="3">Verificar independientemente que el evento RDR_CARGA_FICHERO_ANNA_new_DESCARGA_ANNA_OK NO se publicó.</paso>
+    </pasos>
+    <resultadoEsperado>Un operador que solo mire el estado "OK" del job podría asumir erróneamente que todo funcionó — el evento ausente es la señal real de fallo, no el estado del job.</resultadoEsperado>
+    <tipoValidacion>Verificación cruzada: estado del job vs. existencia del evento en el histórico de Control-M.</tipoValidacion>
+    <criterioAceptacion>Job "OK" pero evento ausente — confirma la distinción documentada.</criterioAceptacion>
+    <posibilidadFallo>No es un fallo técnico en sí — el caso documenta un riesgo de monitoreo (RISK-ANNA-002), no un defecto del proceso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de recurso compartido MAX-LPRDR501</nombre>
+    <objetivo>Confirmar en revisiones futuras que MAX-LPRDR501 sigue siendo un recurso compartido a nivel de servidor MERCADOS-4, no exclusivo de esta cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al catálogo de "Recursos Cuantitativos" de Control-M (Herramientas → Recursos Cuantitativos).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso" valor="MAX-LPRDR501, capacidad total 100"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Consultar el catálogo real de recursos cuantitativos filtrando por MAX-LPRDR501.</paso>
+      <paso numero="2">Confirmar que hay ejecuciones concurrentes de otros procesos consumiéndolo (no solo DESCARGA_ANNA/CARGA_MDX_ANNA).</paso>
+    </pasos>
+    <resultadoEsperado>El recurso sigue siendo compartido, con consumo concurrente de múltiples procesos.</resultadoEsperado>
+    <tipoValidacion>Captura real del catálogo de recursos cuantitativos.</tipoValidacion>
+    <criterioAceptacion>Consumo concurrente confirmado por otros procesos, no exclusivo de esta cadena.</criterioAceptacion>
+    <posibilidadFallo>Si el recurso apareciera reservado en exclusiva a esta cadena, contradiría la evidencia ya confirmada en RDR_BAJA_GARANTIAS (mismo recurso).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Hallazgo no preguntado: descarga activa sin consumo posterior (RISK-ANNA-001)</nombre>
+    <objetivo>Documentar y confirmar con negocio si la descarga diaria de ANNA sigue siendo necesaria pese a que CARGA_MDX_ANNA (su único consumidor documentado) esté decomisado.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre el uso actual de los ficheros descargados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CARGA_MDX_ANNA" valor="Dummy, decomisado"/>
+      <dato campo="DESCARGA_ANNA" valor="activo, ejecuta a diario"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo funcional si los ficheros descargados en output/records se consumen por otra vía distinta de CARGA_MDX_ANNA.</paso>
+      <paso numero="2">Si no hay consumidor, documentar la recomendación de evaluar el decomiso conjunto de la descarga.</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si la descarga sigue teniendo un propósito real (archivo histórico, auditoría, otro consumidor) o si es esfuerzo sin retorno.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa; inspección de las carpetas de salida si se aporta acceso.</tipoValidacion>
+    <criterioAceptacion>Propósito aclarado con evidencia o respuesta funcional, documentado en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso cierra un hallazgo de eficiencia/gobierno, no de requisito original.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
