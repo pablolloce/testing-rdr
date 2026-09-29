@@ -59,9 +59,13 @@ mismo tipo de evidencia exhaustiva que cerró GAP-CTPY-002 en otro proceso de es
   proceso de esta sesión), y la pestaña "Prerrequisitos" confirma "Espera a Eventos" vacío — sin predecesor
   real. El job publica un único evento de salida sin más jobs en el folder que lo consuman (hoja terminal,
   dentro del alcance visible de esta cadena).
-- **GAP-GARANT-002 (umbral de rendimiento no definido) — ABIERTO.** El caso T-19 del plan de pruebas original
-  menciona "Ejecución < umbral" sin un valor numérico concreto. No se dispone de un log real de ejecución ni
-  de un SLA documentado formalmente. No se fuerza un valor inventado.
+- **GAP-GARANT-002 (umbral de rendimiento no definido) — CERRADO por decisión explícita del usuario
+  (2026-09-29), sin evidencia real disponible.** El caso T-19 del plan de pruebas original menciona
+  "Ejecución < umbral" sin un valor numérico concreto. No se dispuso de un log real de ejecución ni de un SLA
+  documentado formalmente; a diferencia de los otros 2 gaps, este no se cerró con evidencia (mismo criterio ya
+  aplicado a GAP-ADHOC-004 en otro proceso de esta sesión: una decisión explícita del usuario de no seguir
+  buscando evidencia es un tipo de cierre distinto, y se documenta como tal, no como si estuviera confirmado
+  por un dato real). El caso T-19/TC-009 queda sin un umbral numérico verificable si se retoma este proceso.
 - **GAP-GARANT-003 (alcance del recurso `MAX-LPRDR501`) — RESUELTO con captura real en vivo.** El catálogo de
   "Recursos Cuantitativos" de Control-M (`Herramientas → Recursos Cuantitativos`) confirma que `MAX-LPRDR501`
   es un recurso a nivel de **servidor `MERCADOS-4`** (capacidad total 100), no exclusivo de
@@ -73,8 +77,8 @@ mismo tipo de evidencia exhaustiva que cerró GAP-CTPY-002 en otro proceso de es
   usan — detalle menor que no afecta a la conclusión del gap (el alcance real, "compartido a nivel de
   servidor", ya queda confirmado).
 
-**Balance: 2 de 3 gaps resueltos con evidencia literal/real completa.** El restante (GAP-GARANT-002) es menor
-y no bloquea el testing funcional del proceso (documentado como limitación explícita, no inventado).
+**Balance: 3 de 3 gaps cerrados** — 2 con evidencia literal/real completa (GAP-GARANT-001, GAP-GARANT-003) y 1
+por decisión explícita del usuario sin evidencia disponible (GAP-GARANT-002).
 
 ## 5. Especificación funcional
 
@@ -162,8 +166,9 @@ Referencia de casos por tipo:
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **GAP-GARANT-002 — umbral de rendimiento no definido** (sección 4). No bloqueante; a confirmar con un log
-   real de ejecución si se retoma esta especificación.
+1. **GAP-GARANT-002 — umbral de rendimiento no definido, cerrado por decisión del usuario** (sección 4). Sin
+   evidencia real disponible; si se retoma esta especificación y aparece un log real o un SLA formal, se puede
+   reabrir y cerrar con evidencia.
 2. **RISK-GARANT-001 — `haltOnError=No` en el workflow.** Si un `UPDATE` individual falla (p. ej. bloqueo de
    fila), el workflow continúa con el resto del loop sin marcar el job como fallido por ese registro
    concreto — una garantía podría quedar sin inactivar sin que se dispare ninguna alerta específica para ese
@@ -184,6 +189,8 @@ Control-M (2026-09-29) resuelve **GAP-GARANT-001** (ausencia real, no solo docum
 sucesores), confirmando la topología de un único job aislado sin soft-failure. Una tercera ronda (captura real
 en vivo del catálogo de "Recursos Cuantitativos") resuelve **GAP-GARANT-003**: `MAX-LPRDR501` es un recurso
 compartido a nivel de servidor `MERCADOS-4` (11 ejecuciones concurrentes consumiéndolo en el momento de la
-captura, 89 de 100 disponibles), no exclusivo de este proceso. **2 de 3 gaps resueltos.** Queda 1 gap menor
-abierto (GAP-GARANT-002, umbral de rendimiento) y 2 riesgos de comportamiento documentados (RISK-GARANT-001,
-RISK-GARANT-002), ninguno bloqueante para el testing funcional ya cubierto en `casos_prueba.xml`.
+captura, 89 de 100 disponibles), no exclusivo de este proceso. **GAP-GARANT-002** (umbral de rendimiento) se
+cierra por decisión explícita del usuario, sin evidencia real disponible — distinto de los otros dos, cerrados
+con evidencia literal/real. **3 de 3 gaps cerrados.** Quedan 2 riesgos de comportamiento documentados
+(RISK-GARANT-001, RISK-GARANT-002), ninguno bloqueante para el testing funcional ya cubierto en
+`casos_prueba.xml`.

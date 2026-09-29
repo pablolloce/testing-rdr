@@ -178,7 +178,7 @@
     <pasos>
       <paso numero="1">Ejecutar el job con el volumen alto presente.</paso>
       <paso numero="2">Verificar que todos los registros quedan inactivados tras la ejecución.</paso>
-      <paso numero="3">Medir la duración total de la ejecución (dato para GAP-GARANT-002, sin umbral confirmado aún).</paso>
+      <paso numero="3">Medir la duración total de la ejecución (GAP-GARANT-002 cerrado por decisión del usuario sin umbral formal; este dato queda como referencia empírica si se retoma en el futuro).</paso>
     </pasos>
     <resultadoEsperado>Todos los registros quedan con WARR_STATUS='INACTIVE'; el job termina OK sin timeout.</resultadoEsperado>
     <tipoValidacion>SELECT COUNT(*) FROM FT_T_LWD1 WHERE (criterio de vencimiento) AND warr_status != 'INACTIVE' debe devolver 0 tras la ejecución.</tipoValidacion>
