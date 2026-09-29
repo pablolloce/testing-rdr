@@ -229,6 +229,23 @@ y se historifica"*. `MEKYTL1022` es el job que realiza esa historificación.
 > hace falta el `INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción**
 > (`pr-rdr.igrupobbva:/pr/pl/dat/`), no el de EI. Evidencia:
 > `documentos_fuente/evidencia_extraccion_scis/INFORMACION_HISTORIFICACIONES_EI.IDX`.
+>
+> **Cómo se resuelve la ruta exacta (confirmado en el propio código de `RAMERC0068.sh`,
+> `memoria/memoria_ramerc0068_RDR.md`):** el script obtiene el entorno (`ENTORNO`) del **segundo
+> carácter del hostname real** de la máquina donde se ejecuta (`MAQUINA=\`uname -n\``,
+> `ID_ENTORNO_MAQUINA=echo ${MAQUINA}|cut -c2`; `i`→`ei`, `p`→`pr`, `d`→`de`, `w`→`pp`; cualquier
+> otro valor cae a `pr` por defecto — RG-05). El fichero de EI aportado confirma este patrón: su
+> propio metadato dice que proviene del host `lirdr601` — segundo carácter `i` → `ENTORNO=ei` →
+> `/ei/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, exactamente la ruta que trae. Por el mismo
+> patrón, el hostname real de producción debería tener forma `l**p**rdr###` (segundo carácter
+> `p`), dando `ENTORNO=pr` → **`/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`** — coherente con el
+> nodo Control-M `pr-rdr.igrupobbva` y con `MEMLIB=/pr/pl/scrt` que ya aparece en la propia
+> definición del job `MEKYTL1022` (§4.4, `Workspace_135.xml`/`Workspace_582.xml`). **No es un
+> fichero que vaya a aparecer en un gestor documental ni en un export de Control-M: es un fichero
+> de configuración que vive en el filesystem del servidor de producción**, por lo que hay que
+> pedirlo directamente a quien tenga acceso a ese servidor (soporte de sistemas/ANS de RDR), con
+> instrucción del tipo `grep ^MEKYTL1022@ /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo
+> `pr-rdr.igrupobbva` — no hace falta el fichero completo, basta esa única línea.
 
 ### 4.5 Los cuatro jobs Dummy
 
@@ -486,7 +503,7 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
 | RG-01 | **Resuelto (2026-09-29).** La ficha de `MEKYTL1022` documentaba como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros — confirmado corregido en una re-exportación real de la ficha (`EX-005-03-MEKYTL1022`, fecha 29/09/2026): ya no atribuye ninguna extracción al job | Ya no induce a error — la ficha vigente es neutra (solo script/ruta/parámetro/usuario/grupo), sin describir su función de negocio | Cerrado — no requiere acción adicional |
-| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse. **Actualización (2026-09-29):** se aportó un `INFORMACION_HISTORIFICACIONES.IDX` real, pero es el del entorno **EI** (`lirdr601:/ei/pl/dat/...`), no el de producción, y **no contiene ninguna línea `MEKYTL1022`** (solo `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`, `MEKYTL1046_EI`, `MEKYTL1320_EI`) — ver §4.4 | No se conoce el directorio destino ni si el archivado de SCIS está siquiera configurado en EI. Si en producción el destino no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir el `INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción** (`pr-rdr.igrupobbva:/pr/pl/dat/...`) — el de EI no contiene la entrada (§4.4, TC-06) |
+| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse. **Actualización (2026-09-29):** se aportó un `INFORMACION_HISTORIFICACIONES.IDX` real, pero es el del entorno **EI** (`lirdr601:/ei/pl/dat/...`), no el de producción, y **no contiene ninguna línea `MEKYTL1022`** (solo `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`, `MEKYTL1046_EI`, `MEKYTL1320_EI`) — ver §4.4. También se aportaron 2 nuevos exports de Control-M (`Workspace_582.xml`/`Workspace_583.xml`); ninguno añade información nueva: el primero es idéntico a `Workspace_135.xml` ya en evidencia, el segundo es de un proceso hermano (SSIS) ya resuelto en su propio spec | No se conoce el directorio destino ni si el archivado de SCIS está siquiera configurado en EI. Si en producción el destino no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `MEKYTL1022@…` de `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo `pr-rdr.igrupobbva` (ruta deducida con certeza de la lógica real de `RAMERC0068.sh` — §4.4) a soporte de sistemas/ANS RDR; no es un fichero localizable en gestor documental ni en Control-M |
 | RG-03 | El elemento `Colony` se emite dos veces con el mismo origen | Un consumidor estricto podría rechazar el XML o quedarse con una lectura ambigua | Verificar contra el SQL literal y eliminar la duplicación (§5.1, TC-14) |
 | RG-04 | Cuatro campos normalizan `;` a coma sin motivo documentado | Se está alterando el dato de origen sin una razón registrada; un cambio futuro podría revertirlo sin saber qué rompía | Documentar el motivo en la ficha del proceso (§5.1) |
 | RG-05 | `RAMERC0068.sh` deduce el entorno del segundo carácter del nombre de la máquina y, si no lo reconoce, **asume producción** | Un host que no siga la nomenclatura ejecutaría la configuración de producción sobre rutas de producción. Es el peor fallback posible para un entorno de pruebas | Verificar la nomenclatura del host antes de ejecutar pruebas (`memoria/memoria_ramerc0068_RDR.md`, TC-15) |
@@ -527,10 +544,11 @@ es el del entorno EI (`lirdr601:/ei/pl/dat/...`), no el de producción, y no con
 `MEKYTL1022` — solo 5 códigos distintos, ninguno el buscado (§4.4). Se asume que `MEKYTL1022`
 archiva en `SCIS/backup` por ser el único destino que aparece en la documentación y el que purga
 el job de cierre, pero sigue siendo una inferencia. Si el destino real fuera otro, el fichero se
-acumularía indefinidamente al quedar fuera del alcance de la purga. Cerrarlo exige el
-`INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción**
-(`pr-rdr.igrupobbva:/pr/pl/dat/...`) — el de EI, aunque es el fichero correcto, no es el entorno
-correcto.
+acumularía indefinidamente al quedar fuera del alcance de la purga. Cerrarlo exige la línea
+`MEKYTL1022@…` de `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo `pr-rdr.igrupobbva`
+(ruta deducida con certeza de la lógica real de `RAMERC0068.sh`, no por analogía — §4.4) — el de
+EI, aunque es el fichero correcto, no es el entorno correcto. No es un dato localizable en
+gestor documental ni en exports de Control-M: exige acceso directo al servidor de producción.
 
 **Puntos abiertos que no bloquean:** motivo de negocio de la exclusión `A15` (RG-10), verificación
 del `Colony` duplicado contra el SQL literal (RG-03), motivo de la normalización de `;` (RG-04) y
