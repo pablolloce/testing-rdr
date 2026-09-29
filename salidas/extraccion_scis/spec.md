@@ -503,11 +503,11 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
 | RG-01 | **Resuelto (2026-09-29).** La ficha de `MEKYTL1022` documentaba como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros — confirmado corregido en una re-exportación real de la ficha (`EX-005-03-MEKYTL1022`, fecha 29/09/2026): ya no atribuye ninguna extracción al job | Ya no induce a error — la ficha vigente es neutra (solo script/ruta/parámetro/usuario/grupo), sin describir su función de negocio | Cerrado — no requiere acción adicional |
-| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse. **Actualización (2026-09-29):** se aportó un `INFORMACION_HISTORIFICACIONES.IDX` real, pero es el del entorno **EI** (`lirdr601:/ei/pl/dat/...`), no el de producción, y **no contiene ninguna línea `MEKYTL1022`** (solo `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`, `MEKYTL1046_EI`, `MEKYTL1320_EI`) — ver §4.4. También se aportaron 2 nuevos exports de Control-M (`Workspace_582.xml`/`Workspace_583.xml`); ninguno añade información nueva: el primero es idéntico a `Workspace_135.xml` ya en evidencia, el segundo es de un proceso hermano (SSIS) ya resuelto en su propio spec | No se conoce el directorio destino ni si el archivado de SCIS está siquiera configurado en EI. Si en producción el destino no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `MEKYTL1022@…` de `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo `pr-rdr.igrupobbva` (ruta deducida con certeza de la lógica real de `RAMERC0068.sh` — §4.4) a soporte de sistemas/ANS RDR; no es un fichero localizable en gestor documental ni en Control-M |
+| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse. Se aportó un `INFORMACION_HISTORIFICACIONES.IDX` real, pero es el del entorno **EI** (`lirdr601:/ei/pl/dat/...`), no el de producción, y **no contiene ninguna línea `MEKYTL1022`** (solo `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`, `MEKYTL1046_EI`, `MEKYTL1320_EI`) — ver §4.4. Se localizó con certeza la ruta de producción exacta (`/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, nodo `pr-rdr.igrupobbva`, deducida del propio código de `RAMERC0068.sh`), pero no se ha podido obtener ese fichero. **Aceptado como gap abierto no bloqueante (2026-09-29), mismo tratamiento que RG-20 de `extraccion_contactos`:** el usuario decide no perseguirlo más por ahora | No se conoce con certeza el directorio destino. Se mantiene la inferencia (coherencia con el resto de la documentación y con el directorio purgado por `MANT_RDR_EXTRACCION_SCIS`) de que `MEKYTL1022` archiva en `SCIS/backup`. Si el destino real fuera otro, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Cerrado por decisión del usuario, no por evidencia adicional — quedaría pendiente solo si en el futuro se consigue, sin perseguirlo expresamente, la línea `MEKYTL1022@…` de `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en `pr-rdr.igrupobbva` |
 | RG-03 | El elemento `Colony` se emite dos veces con el mismo origen | Un consumidor estricto podría rechazar el XML o quedarse con una lectura ambigua | Verificar contra el SQL literal y eliminar la duplicación (§5.1, TC-14) |
 | RG-04 | Cuatro campos normalizan `;` a coma sin motivo documentado | Se está alterando el dato de origen sin una razón registrada; un cambio futuro podría revertirlo sin saber qué rompía | Documentar el motivo en la ficha del proceso (§5.1) |
 | RG-05 | `RAMERC0068.sh` deduce el entorno del segundo carácter del nombre de la máquina y, si no lo reconoce, **asume producción** | Un host que no siga la nomenclatura ejecutaría la configuración de producción sobre rutas de producción. Es el peor fallback posible para un entorno de pruebas | Verificar la nomenclatura del host antes de ejecutar pruebas (`memoria/memoria_ramerc0068_RDR.md`, TC-15) |
-| RG-06 | `RAMERC0068.sh` dispone de una operación `BD` que ejecuta `rm -rf` sobre el directorio origen, y los jobs que lo invocan corren como `root` | Un error en la línea del IDX podría borrar un directorio completo con privilegios de root | Verificar que la línea `MEKYTL1022@…` no declara operación `BD` (memoria transversal) — sigue sin poder verificarse: el único IDX real aportado (entorno EI) no contiene esa línea (§4.4, RG-02) |
+| RG-06 | `RAMERC0068.sh` dispone de una operación `BD` que ejecuta `rm -rf` sobre el directorio origen, y los jobs que lo invocan corren como `root` | Un error en la línea del IDX podría borrar un directorio completo con privilegios de root | Verificar que la línea `MEKYTL1022@…` no declara operación `BD` (memoria transversal) — sigue sin poder verificarse; aceptado como no bloqueante junto con RG-02, mismo motivo (§4.4) |
 | RG-07 | El colector `MANT_RDR_EXTRACCION_SCIS` tiene como únicos predecesores dos jobs Dummy | La condición AND que protege el cierre y la purga es incondicional: siempre se cumple, porque un Dummy no puede fallar | Documentado en §4.1; valorar si la purga debería depender del resultado de `MEKYTL1022` |
 | RG-08 | La ficha de `MANT_RDR_EXTRACCION_SCIS` declara calendario L-V, contradiciendo la programación real de domingo a jueves | Riesgo de que una corrección futura tome la errata por buena y desalinee el job del resto de la cadena | Corregir la ficha; prevalece Control-M (§4.1) |
 | RG-09 | `KYTL003D_MEKYTL1049`, un job Dummy, tiene criticidad C (aviso inmediato) frente a la W del resto | Valor heredado sin efecto real, pero que distorsiona cualquier inventario de criticidad de la cadena | Revisar al depurar los jobs desactivados (§4.5) |
@@ -538,17 +538,18 @@ propia cadena, todas verificadas contra fuente primaria:
 3. **El cierre de la cadena es incondicional**, porque los dos predecesores del colector son
    Dummy y nunca pueden fallar.
 
-**Punto abierto que condiciona un caso de prueba:** el mapeo del archivado (RG-02) sigue sin
-confirmarse. Se aportó ya el propio fichero `INFORMACION_HISTORIFICACIONES.IDX` (2026-09-29), pero
-es el del entorno EI (`lirdr601:/ei/pl/dat/...`), no el de producción, y no contiene ninguna línea
-`MEKYTL1022` — solo 5 códigos distintos, ninguno el buscado (§4.4). Se asume que `MEKYTL1022`
-archiva en `SCIS/backup` por ser el único destino que aparece en la documentación y el que purga
-el job de cierre, pero sigue siendo una inferencia. Si el destino real fuera otro, el fichero se
-acumularía indefinidamente al quedar fuera del alcance de la purga. Cerrarlo exige la línea
-`MEKYTL1022@…` de `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo `pr-rdr.igrupobbva`
-(ruta deducida con certeza de la lógica real de `RAMERC0068.sh`, no por analogía — §4.4) — el de
-EI, aunque es el fichero correcto, no es el entorno correcto. No es un dato localizable en
-gestor documental ni en exports de Control-M: exige acceso directo al servidor de producción.
+**Punto abierto, aceptado como no bloqueante (2026-09-29):** el mapeo del archivado (RG-02) sigue
+sin confirmarse. Se aportó el propio fichero `INFORMACION_HISTORIFICACIONES.IDX`, pero es el del
+entorno EI (`lirdr601:/ei/pl/dat/...`), no el de producción, y no contiene ninguna línea
+`MEKYTL1022` — solo 5 códigos distintos, ninguno el buscado (§4.4). Se localizó con certeza (no por
+analogía, sino por el propio código de `RAMERC0068.sh`) la ruta exacta de producción —
+`/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en el nodo `pr-rdr.igrupobbva`—, pero no se ha
+podido obtener ese fichero, y **el usuario decide no perseguirlo más por ahora**, mismo
+tratamiento que RG-20 de `extraccion_contactos`. Se mantiene la inferencia de que `MEKYTL1022`
+archiva en `SCIS/backup` (único destino documentado y el que purga el job de cierre); si el
+destino real fuera otro, el fichero se acumularía indefinidamente al quedar fuera del alcance de
+la purga. Junto con RG-02 queda igualmente aceptado como no bloqueante RG-06 (no se puede
+verificar que la línea del IDX no declare operación `BD`), por el mismo motivo.
 
 **Puntos abiertos que no bloquean:** motivo de negocio de la exclusión `A15` (RG-10), verificación
 del `Colony` duplicado contra el SQL literal (RG-03), motivo de la normalización de `;` (RG-04) y
