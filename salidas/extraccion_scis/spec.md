@@ -213,6 +213,22 @@ y se historifica"*. `MEKYTL1022` es el job que realiza esa historificación.
 > directorio**. Es una inferencia, no un dato: se marca como punto de verificación en TC-06 y
 > como riesgo en §8 (RG-02). Si el destino real fuera otro, el fichero archivado quedaría fuera
 > del alcance de la purga y se acumularía indefinidamente.
+>
+> **Actualización (2026-09-29): se ha aportado un `INFORMACION_HISTORIFICACIONES.IDX` real, pero no
+> resuelve el gap — al contrario, añade una pregunta nueva.** El fichero proviene del host
+> `lirdr601`, ruta `/ei/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (metadato tomado del propio
+> fichero) — es decir, el **entorno EI (integración/pruebas)**, no el de producción
+> (`pr-rdr.igrupobbva`, `/pr/pl/dat/...`) que se había identificado como el que necesitábamos. Tiene
+> solo 5 líneas de datos, con los códigos `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`,
+> `MEKYTL1046_EI` y `MEKYTL1320_EI` — **ninguna es `MEKYTL1022`**. No se trata de que la línea exista
+> con un destino distinto al asumido: la línea no existe en absoluto en este fichero. Esto abre dos
+> hipótesis, ninguna confirmable con lo aportado: (a) el fichero de producción sí tiene la entrada y
+> este (de EI) simplemente no la replica porque el archivado de SCIS no está configurado en ese
+> entorno de pruebas, o (b) `MEKYTL1022` no usa este mecanismo de historificación en ningún entorno
+> y el archivado se resuelve por otra vía no documentada. **Gap real pendiente, ahora más preciso:**
+> hace falta el `INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción**
+> (`pr-rdr.igrupobbva:/pr/pl/dat/`), no el de EI. Evidencia:
+> `documentos_fuente/evidencia_extraccion_scis/INFORMACION_HISTORIFICACIONES_EI.IDX`.
 
 ### 4.5 Los cuatro jobs Dummy
 
@@ -470,11 +486,11 @@ niveles de anidamiento y poblarlo completo exige más preparación que en proces
 | ID | Riesgo | Impacto | Mitigación / acción requerida |
 |----|--------|---------|-------------------------------|
 | RG-01 | **Resuelto (2026-09-29).** La ficha de `MEKYTL1022` documentaba como propósito *"Proceso de extracción SCIS"*, cuando el script que invoca solo archiva ficheros — confirmado corregido en una re-exportación real de la ficha (`EX-005-03-MEKYTL1022`, fecha 29/09/2026): ya no atribuye ninguna extracción al job | Ya no induce a error — la ficha vigente es neutra (solo script/ruta/parámetro/usuario/grupo), sin describir su función de negocio | Cerrado — no requiere acción adicional |
-| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse en ninguna ficha — confirmado que la ficha corregida (arriba) tampoco lo incluye, ni el export real de Control-M del folder (`Workspace_135.xml`), que solo confirma la clave `MEKYTL1022` y la topología ya conocida | No se conoce el directorio destino. Si no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir la línea `^MEKYTL1022@` del IDX del entorno que corresponda — no basta con la ficha Control-M ni con el export del folder, hace falta el propio fichero `INFORMACION_HISTORIFICACIONES.IDX` (§4.4, TC-06) |
+| RG-02 | El mapeo del archivado (`MEKYTL1022@…` en el IDX) sigue sin documentarse. **Actualización (2026-09-29):** se aportó un `INFORMACION_HISTORIFICACIONES.IDX` real, pero es el del entorno **EI** (`lirdr601:/ei/pl/dat/...`), no el de producción, y **no contiene ninguna línea `MEKYTL1022`** (solo `MEKYTL1001`, `MEKYTL1074_EI`, `MEKYTL1079_EI`, `MEKYTL1046_EI`, `MEKYTL1320_EI`) — ver §4.4 | No se conoce el directorio destino ni si el archivado de SCIS está siquiera configurado en EI. Si en producción el destino no fuera `SCIS/backup`, el fichero archivado quedaría fuera del alcance de la purga y se acumularía sin límite | Pedir el `INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción** (`pr-rdr.igrupobbva:/pr/pl/dat/...`) — el de EI no contiene la entrada (§4.4, TC-06) |
 | RG-03 | El elemento `Colony` se emite dos veces con el mismo origen | Un consumidor estricto podría rechazar el XML o quedarse con una lectura ambigua | Verificar contra el SQL literal y eliminar la duplicación (§5.1, TC-14) |
 | RG-04 | Cuatro campos normalizan `;` a coma sin motivo documentado | Se está alterando el dato de origen sin una razón registrada; un cambio futuro podría revertirlo sin saber qué rompía | Documentar el motivo en la ficha del proceso (§5.1) |
 | RG-05 | `RAMERC0068.sh` deduce el entorno del segundo carácter del nombre de la máquina y, si no lo reconoce, **asume producción** | Un host que no siga la nomenclatura ejecutaría la configuración de producción sobre rutas de producción. Es el peor fallback posible para un entorno de pruebas | Verificar la nomenclatura del host antes de ejecutar pruebas (`memoria/memoria_ramerc0068_RDR.md`, TC-15) |
-| RG-06 | `RAMERC0068.sh` dispone de una operación `BD` que ejecuta `rm -rf` sobre el directorio origen, y los jobs que lo invocan corren como `root` | Un error en la línea del IDX podría borrar un directorio completo con privilegios de root | Verificar que la línea `MEKYTL1022@…` no declara operación `BD` (memoria transversal) |
+| RG-06 | `RAMERC0068.sh` dispone de una operación `BD` que ejecuta `rm -rf` sobre el directorio origen, y los jobs que lo invocan corren como `root` | Un error en la línea del IDX podría borrar un directorio completo con privilegios de root | Verificar que la línea `MEKYTL1022@…` no declara operación `BD` (memoria transversal) — sigue sin poder verificarse: el único IDX real aportado (entorno EI) no contiene esa línea (§4.4, RG-02) |
 | RG-07 | El colector `MANT_RDR_EXTRACCION_SCIS` tiene como únicos predecesores dos jobs Dummy | La condición AND que protege el cierre y la purga es incondicional: siempre se cumple, porque un Dummy no puede fallar | Documentado en §4.1; valorar si la purga debería depender del resultado de `MEKYTL1022` |
 | RG-08 | La ficha de `MANT_RDR_EXTRACCION_SCIS` declara calendario L-V, contradiciendo la programación real de domingo a jueves | Riesgo de que una corrección futura tome la errata por buena y desalinee el job del resto de la cadena | Corregir la ficha; prevalece Control-M (§4.1) |
 | RG-09 | `KYTL003D_MEKYTL1049`, un job Dummy, tiene criticidad C (aviso inmediato) frente a la W del resto | Valor heredado sin efecto real, pero que distorsiona cualquier inventario de criticidad de la cadena | Revisar al depurar los jobs desactivados (§4.5) |
@@ -506,13 +522,15 @@ propia cadena, todas verificadas contra fuente primaria:
    Dummy y nunca pueden fallar.
 
 **Punto abierto que condiciona un caso de prueba:** el mapeo del archivado (RG-02) sigue sin
-confirmarse — ni la ficha corregida del job ni un export real del folder Control-M
-(`Workspace_135.xml`, 2026-09-29) lo incluyen, ambos confirman datos ya conocidos (clave
-`MEKYTL1022`, topología). Se asume que `MEKYTL1022` archiva en `SCIS/backup` por ser el único
-destino que aparece en la documentación y el que purga el job de cierre, pero sigue siendo una
-inferencia. Si el destino real fuera otro, el fichero se acumularía indefinidamente al quedar
-fuera del alcance de la purga. Cerrarlo exige el propio fichero
-`INFORMACION_HISTORIFICACIONES.IDX`, no más fichas ni exports de Control-M.
+confirmarse. Se aportó ya el propio fichero `INFORMACION_HISTORIFICACIONES.IDX` (2026-09-29), pero
+es el del entorno EI (`lirdr601:/ei/pl/dat/...`), no el de producción, y no contiene ninguna línea
+`MEKYTL1022` — solo 5 códigos distintos, ninguno el buscado (§4.4). Se asume que `MEKYTL1022`
+archiva en `SCIS/backup` por ser el único destino que aparece en la documentación y el que purga
+el job de cierre, pero sigue siendo una inferencia. Si el destino real fuera otro, el fichero se
+acumularía indefinidamente al quedar fuera del alcance de la purga. Cerrarlo exige el
+`INFORMACION_HISTORIFICACIONES.IDX` del entorno de **producción**
+(`pr-rdr.igrupobbva:/pr/pl/dat/...`) — el de EI, aunque es el fichero correcto, no es el entorno
+correcto.
 
 **Puntos abiertos que no bloquean:** motivo de negocio de la exclusión `A15` (RG-10), verificación
 del `Colony` duplicado contra el SQL literal (RG-03), motivo de la normalización de `;` (RG-04) y
