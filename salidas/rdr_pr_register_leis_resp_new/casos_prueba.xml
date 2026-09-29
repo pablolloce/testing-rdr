@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_pr_register_leis_resp_new" fecha="2026-09-29" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Procesamiento correcto de un fichero de respuesta con todas las líneas OK</nombre>
+    <objetivo>Validar el camino feliz completo: un fichero de respuesta válido con todas las líneas sin TIPERROR se procesa, todas las peticiones pasan a LEI_OK, y el fichero queda historificado sin generar alerta.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una petición en FT_T_VREQ en estado LEI_REG_LINE_SENT con DOCUMPS=549300TESTRESP001.</precondicion>
+      <precondicion>El directorio receive/ está vacío de otros ficheros LEIsReg_*.txt antes de la prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="LEIsReg_20261001120000.txt" valor="1 línea de 259 caracteres, DOCUMPS=549300TESTRESP001, TIPERROR vacío"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar el fichero LEIsReg_20261001120000.txt en receive/ dentro de la ventana 04:30-05:30.</paso>
+      <paso numero="2">Esperar a que REG_LEIS_RESP_FILE_FW detecte el fichero en su siguiente ciclo de 10 minutos.</paso>
+      <paso numero="3">Verificar que GSPROC_REG_LEIS_RESP se dispara y termina OK.</paso>
+      <paso numero="4">Verificar en FT_T_VREQ que la petición con DOCUMPS=549300TESTRESP001 pasó a LEI_OK.</paso>
+      <paso numero="5">Verificar en FT_T_UTD1 que se insertaron los atributos de respuesta (usage FIELD_RESP) para esa petición.</paso>
+      <paso numero="6">Verificar que el fichero se movió a old/ y que no se generó errores.err en Alertas/.</paso>
+    </pasos>
+    <resultadoEsperado>La petición pasa a LEI_OK con sus atributos de respuesta insertados, el fichero queda en old/, y no se genera ninguna alerta.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + inspección de filesystem + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ muestra LEI_OK; FT_T_UTD1 contiene los atributos FIELD_RESP; el fichero existe en old/ y no existe errores.err en Alertas/.</criterioAceptacion>
+    <posibilidadFallo>Si la petición no estuviera previamente en LEI_REG_LINE_SENT, identificaCliente() no la encontraría y el caso no sería representativo del camino feliz.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fichero vacío no genera error</nombre>
+    <objetivo>Confirmar que un fichero de respuesta de 0 líneas se procesa sin error: solo se registra en el log y el fichero se mueve igualmente.</objetivo>
+    <precondiciones>
+      <precondicion>No hay otros ficheros LEIsReg_*.txt en receive/ antes de la prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="LEIsReg_20261001120100.txt" valor="fichero de 0 bytes / 0 líneas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar el fichero vacío en receive/ dentro de la ventana operativa.</paso>
+      <paso numero="2">Esperar a que el filewatcher lo detecte y dispare GSPROC_REG_LEIS_RESP.</paso>
+      <paso numero="3">Revisar el log de la aplicación en busca del mensaje informativo correspondiente.</paso>
+      <paso numero="4">Verificar el estado final del job en Control-M y la ubicación final del fichero.</paso>
+    </pasos>
+    <resultadoEsperado>El log registra el tratamiento del fichero vacío sin ningún error; GSPROC_REG_LEIS_RESP termina OK; el fichero se mueve a old/ igual que un fichero con contenido.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + estado de ejecución en Control-M + inspección de filesystem</tipoValidacion>
+    <criterioAceptacion>Job en "Ended OK"; fichero en old/; log muestra tratamiento informativo, sin excepción.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según el código analizado (FicherosCLS.readFileVector trata explícitamente este caso como no error).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Excepción durante el proceso mueve el fichero a error y marca la petición</nombre>
+    <objetivo>Validar que una excepción no controlada durante el tratamiento de una respuesta mueve el fichero a error/ y marca la(s) petición(es) afectada(s) como ERROR_PROC_RESP.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede forzar una excepción durante el proceso (por ejemplo, cortando la conexión a BBDD a mitad de la ejecución), sin afectar producción.</precondicion>
+      <precondicion>Existe una petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTERR001.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="LEIsReg_test_error.txt" valor="1 línea válida con DOCUMPS=549300TESTERR001"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, preparar la condición que provocará la excepción (ej. cerrar la conexión BBDD justo antes de procesar la línea).</paso>
+      <paso numero="2">Colocar el fichero y disparar el procesamiento.</paso>
+      <paso numero="3">Verificar el estado final del fichero (movido a error/, no a old/).</paso>
+      <paso numero="4">Verificar el estado de la petición DOCUMPS=549300TESTERR001 en FT_T_VREQ.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se mueve a error/ en vez de old/; la petición pasa a ERROR_PROC_RESP.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación de BBDD y filesystem — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Fichero presente en error/, ausente de old/; petición en ERROR_PROC_RESP.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero se moviera a old/ pese a la excepción, el manejo de errores no funcionaría como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Límite exacto del filtro de longitud de línea (100 caracteres)</nombre>
+    <objetivo>Validar el valor límite del filtro de longitud: una línea de 99 caracteres debe descartarse como inválida, una de exactamente 100 debe procesarse.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTBORDE1, correspondiente a la línea de 100 caracteres.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea A (99 caracteres)" valor="línea truncada artificialmente a 99 caracteres, con DOCUMPS=549300TESTBORDE0 (inexistente en VREQ, para aislar el efecto del filtro de longitud)"/>
+      <dato campo="Línea B (100 caracteres)" valor="línea completa de exactamente 100 caracteres, DOCUMPS=549300TESTBORDE1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un fichero con la línea A (99 car.) y la línea B (100 car.) exactas.</paso>
+      <paso numero="2">Colocar el fichero y esperar su procesamiento.</paso>
+      <paso numero="3">Revisar el log para confirmar que la línea A se descartó por longitud insuficiente.</paso>
+      <paso numero="4">Verificar en FT_T_VREQ que la petición de la línea B (DOCUMPS=549300TESTBORDE1) sí se actualizó.</paso>
+    </pasos>
+    <resultadoEsperado>La línea A se descarta (solo log, sin procesar); la línea B se procesa normalmente y actualiza su petición correspondiente.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + verificación de BBDD</tipoValidacion>
+    <criterioAceptacion>Log muestra descarte de la línea A por longitud; FT_T_VREQ refleja la actualización de la petición de la línea B.</criterioAceptacion>
+    <posibilidadFallo>Si la línea A también se procesara, el filtro de longitud "menor de 100" no estaría aplicándose en el límite documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Dos líneas con el mismo DOCUMPS en el mismo fichero</nombre>
+    <objetivo>Confirmar que no existe control de duplicidad de LEI dentro de un mismo fichero de respuesta: dos líneas con el mismo DOCUMPS se procesan secuencialmente, la segunda sobrescribiendo el resultado de la primera sobre la misma petición.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una única petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTDUPRESP.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea 1" valor="DOCUMPS=549300TESTDUPRESP, TIPERROR vacío (resultado LEI_OK)"/>
+      <dato campo="Línea 2" valor="DOCUMPS=549300TESTDUPRESP (mismo LEI), TIPERROR informado (resultado LEI_KO)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir un fichero con la línea 1 seguida de la línea 2, mismo DOCUMPS, resultados distintos.</paso>
+      <paso numero="2">Colocar el fichero y esperar su procesamiento.</paso>
+      <paso numero="3">Verificar el estado final en FT_T_VREQ de la petición DOCUMPS=549300TESTDUPRESP.</paso>
+      <paso numero="4">Revisar el log en busca de algún aviso de línea duplicada.</paso>
+    </pasos>
+    <resultadoEsperado>El estado final de la petición es LEI_KO (el de la línea 2, procesada en último lugar), sin ningún aviso de duplicidad en el log.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + revisión de log</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ muestra LEI_KO (resultado de la última línea procesada); ningún mensaje de control de duplicidad en el log.</criterioAceptacion>
+    <posibilidadFallo>Si el orden de procesamiento no fuera estrictamente secuencial (por ejemplo, paralelo), el resultado final podría no ser determinista — este caso asume y valida procesamiento secuencial según el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Respuesta sin petición asociada queda huérfana</nombre>
+    <objetivo>Confirmar que un LEI recibido en el fichero de respuesta sin ninguna petición asociada en estado LEI_REG_LINE_SENT no actualiza nada, solo se registra en el log — la respuesta queda sin ningún reflejo en RDR.</objetivo>
+    <precondiciones>
+      <precondicion>No existe ninguna petición en FT_T_VREQ con DOCUMPS=549300INEXISTENTE en estado LEI_REG_LINE_SENT.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea con DOCUMPS=549300INEXISTENTE" valor="línea válida de 259 caracteres, LEI sin petición previa enviada"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar un fichero con una única línea para DOCUMPS=549300INEXISTENTE.</paso>
+      <paso numero="2">Esperar su procesamiento.</paso>
+      <paso numero="3">Revisar el log en busca del mensaje "no se ha podido encontrar la petición asociada" (o equivalente).</paso>
+      <paso numero="4">Confirmar que no se creó ni modificó ningún registro en FT_T_VREQ/FT_T_UTD1 para ese LEI.</paso>
+    </pasos>
+    <resultadoEsperado>Solo se registra el mensaje informativo en el log; no se crea ni actualiza ningún registro para ese LEI; el fichero se procesa y mueve con normalidad.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + verificación de ausencia de cambios en BBDD</tipoValidacion>
+    <criterioAceptacion>Mensaje de "petición no encontrada" presente en el log; ningún registro nuevo o modificado en FT_T_VREQ/FT_T_UTD1 para ese DOCUMPS.</criterioAceptacion>
+    <posibilidadFallo>Si se creara algún registro nuevo pese a no encontrar la petición, el comportamiento documentado (solo log) no se estaría cumpliendo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Tres líneas sintéticas con el mismo DOCUMPS y resultados mixtos</nombre>
+    <objetivo>Confirmar con datos sintéticos el comportamiento ante DOCUMPS repetido con resultados distintos. Campo que se repite: DOCUMPS. Cuántas veces se repite: 3. Valor que se considera conflicto: mismo DOCUMPS en 3 líneas del mismo fichero, con TIPERROR distinto en cada una. Resultado que confirma la ausencia de detección: el estado final es el de la última línea procesada, sin ningún aviso.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una única petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTSINT03.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea 1" valor="DOCUMPS=549300TESTSINT03, TIPERROR vacío (LEI_OK)"/>
+      <dato campo="Línea 2" valor="DOCUMPS=549300TESTSINT03, TIPERROR='01' (LEI_KO)"/>
+      <dato campo="Línea 3" valor="DOCUMPS=549300TESTSINT03, TIPERROR='02' (LEI_KO)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Construir el fichero con las 3 líneas en ese orden exacto.</paso>
+      <paso numero="2">Colocar el fichero y esperar su procesamiento.</paso>
+      <paso numero="3">Verificar el estado final en FT_T_VREQ.</paso>
+      <paso numero="4">Verificar en FT_T_UTD1 qué valores de TIPERROR/atributos de respuesta quedaron finalmente insertados.</paso>
+    </pasos>
+    <resultadoEsperado>El estado final de la petición es LEI_KO con TIPERROR='02' (el de la línea 3, procesada en último lugar); no se emite ningún aviso de conflicto por las 3 actualizaciones sucesivas sobre la misma petición.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD (estado final y atributos) + revisión de log</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ en LEI_KO; FT_T_UTD1 refleja los atributos de la línea 3; ningún mensaje de duplicidad en el log.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de código actual; documenta el mismo riesgo que TC-005 con un escenario más amplio (3 repeticiones en vez de 2).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Detección de peticiones sin respuesta tras el ciclo operativo</nombre>
+    <objetivo>Confirmar que una petición enviada (LEI_REG_LINE_SENT) que no aparece en ningún fichero de respuesta recibido durante toda la ventana operativa pasa a NO_RESPONSE, y que este mecanismo se mantiene estable tras cualquier cambio futuro de identificaClientes().</objetivo>
+    <precondiciones>
+      <precondicion>Existe una petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTNORESP, generada antes del inicio de la ventana 04:30-05:30.</precondicion>
+      <precondicion>Ningún fichero de respuesta recibido durante la ventana contiene ese DOCUMPS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Petición DOCUMPS=549300TESTNORESP" valor="LEI_REG_LINE_SENT, sin línea correspondiente en ningún fichero de respuesta del día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar antes del inicio de la ventana que la petición está en LEI_REG_LINE_SENT.</paso>
+      <paso numero="2">Dejar transcurrir la ventana operativa completa (04:30-05:30) sin que llegue ningún fichero con ese DOCUMPS.</paso>
+      <paso numero="3">Tras el último ciclo de la ventana, verificar el estado de la petición en FT_T_VREQ.</paso>
+    </pasos>
+    <resultadoEsperado>La petición pasa a NO_RESPONSE tras el procesamiento del último fichero recibido en la ventana (o al no recibir ninguno con ese LEI).</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD tras el cierre de la ventana operativa</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ muestra NO_RESPONSE para DOCUMPS=549300TESTNORESP.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro identificaClientes() cambiara su lógica de comparación sin actualizar este caso, una regresión no detectaría correctamente las peticiones sin respuesta — repetir este caso tras cualquier cambio en esa consulta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ciclo completo con incidencias y notificación de alerta</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo: recepción del fichero, actualización de estados con resultados mixtos, generación y notificación de alerta, e historificación.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 2 peticiones LEI_REG_LINE_SENT: E2E-OK (DOCUMPS=549300E2EOK001) y E2E-KO (DOCUMPS=549300E2EKO001).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea E2E-OK" valor="DOCUMPS=549300E2EOK001, TIPERROR vacío"/>
+      <dato campo="Línea E2E-KO" valor="DOCUMPS=549300E2EKO001, TIPERROR informado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Colocar el fichero con ambas líneas en receive/ dentro de la ventana operativa.</paso>
+      <paso numero="2">Esperar a que REG_LEIS_RESP_FILE_FW lo detecte y dispare GSPROC_REG_LEIS_RESP.</paso>
+      <paso numero="3">Verificar que E2E-OK pasa a LEI_OK y E2E-KO pasa a LEI_KO en FT_T_VREQ.</paso>
+      <paso numero="4">Verificar que se generó errores.err en Alertas/ (por la existencia de E2E-KO).</paso>
+      <paso numero="5">Verificar que REG_LEIS_RESP_ALERTAS_FW detecta el .err y dispara GSPROC_REG_LEIS_ALERTAS.</paso>
+      <paso numero="6">Confirmar el envío de la alerta RDR_ERROR_LEI_REGISTER y que el .err se borra tras notificar.</paso>
+      <paso numero="7">Verificar que el fichero de respuesta original quedó movido a old/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs de la cadena se ejecutan en el orden correcto y terminan OK; los estados de ambas peticiones quedan correctamente reflejados; la alerta se genera y notifica solo por la incidencia real; el fichero queda historificado.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado de los 5 jobs) + inspección de BBDD, filesystem y alerta</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs terminan "Ended OK" (los 2 de alerta solo se disparan por la incidencia); FT_T_VREQ refleja LEI_OK/LEI_KO correctamente; alerta notificada; errores.err eliminado tras notificar; fichero en old/.</criterioAceptacion>
+    <posibilidadFallo>Si GestionAlertas no estuviera correctamente parametrizado con el código RDR_ERROR_LEI_REGISTER, la alerta podría no notificarse pese a que el resto del flujo funcione correctamente.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
