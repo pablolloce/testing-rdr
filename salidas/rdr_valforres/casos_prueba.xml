@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_valforres" fecha="2026-09-30" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Sincronización completa de protocolos BailIn y Stay</nombre>
+    <objetivo>Validar el camino feliz completo: token SHIVA obtenido, ambos protocolos paginados hasta el final, FT_T_FIST actualizado y FT_T_RLT1 poblado según el tope diario configurado.</objetivo>
+    <precondiciones>
+      <precondicion>credentials.xml contiene un apiKey SHIVA válido y el servicio SHIVA está disponible.</precondicion>
+      <precondicion>FT_T_PAR1 tiene la URL SHIVA activa (JUNCTION/ValuationForResolution) y PUBLISH='1' con VFR_PUBLISH_ESB configurado (contexto CARGA_VFR).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Respuesta BailIn (28)" valor="2 páginas con entidades de prueba, última página con respuesta corta/vacía"/>
+      <dato campo="Respuesta Stay (47)" valor="1 página con entidades de prueba, respuesta vacía en la siguiente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar al disparo automático de GS_RDR_VALFORRES tras las 22:30.</paso>
+      <paso numero="2">Verificar en el log que se obtuvo el token SHIVA (POST token/get exitoso).</paso>
+      <paso numero="3">Verificar que se recorrieron todas las páginas de BailIn y Stay hasta la respuesta vacía/corta.</paso>
+      <paso numero="4">Verificar en FT_T_FIST que las entidades tratadas quedan reflejadas correctamente.</paso>
+      <paso numero="5">Verificar en FT_T_RLT1 que se insertaron registros PENDING_ESB/PENDING_VFR según el tope VFR_PUBLISH_ESB.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK; el log confirma la paginación completa de ambos protocolos sin errores HTTP; FT_T_FIST y FT_T_RLT1 quedan actualizados correctamente.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + verificación de BBDD + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>Job en "Ended OK"; log sin errores HTTP; FT_T_FIST y FT_T_RLT1 reflejan los datos esperados.</criterioAceptacion>
+    <posibilidadFallo>Si el servicio SHIVA devolviera datos distintos a los esperados en la ventana de prueba, los resultados en FT_T_FIST/FT_T_RLT1 podrían no coincidir exactamente con lo previsto — validar contra los datos reales de la respuesta capturada en el log.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Fallo de obtención del token SHIVA aborta el proceso</nombre>
+    <objetivo>Confirmar que, si no se obtiene el token SHIVA, el proceso marca error técnico en BD y aborta sin procesar BailIn ni Stay.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede invalidar temporalmente el apiKey SHIVA en credentials.xml, sin afectar producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="apiKey SHIVA (entorno de test)" valor="valor inválido para forzar el fallo de autenticación"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, invalidar temporalmente el apiKey en credentials.xml.</paso>
+      <paso numero="2">Ejecutar el job manualmente.</paso>
+      <paso numero="3">Verificar en BD el mensaje de error técnico "Fallo conexion XMAS".</paso>
+      <paso numero="4">Verificar que FT_T_FIST y FT_T_RLT1 no se modificaron.</paso>
+      <paso numero="5">Verificar el código de salida del proceso.</paso>
+    </pasos>
+    <resultadoEsperado>Se registra el error técnico en BD, el proceso termina con código de salida 1, y no se procesa ningún dato de BailIn/Stay.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + código de salida del proceso — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Mensaje "Fallo conexion XMAS" presente en BD; código de salida 1; ningún cambio en FT_T_FIST/FT_T_RLT1.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso continuara pese al fallo de token, el manejo de errores no estaría funcionando como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Error HTTP del servicio SHIVA durante la paginación aborta el proceso</nombre>
+    <objetivo>Validar que un código de respuesta HTTP distinto de 200/201 durante la consulta paginada de BailIn o Stay registra el error "Fallo conexion ISDA" y aborta el proceso.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede simular una respuesta HTTP de error (p. ej. 500) del servicio SHIVA en una página concreta, sin afectar producción.</precondicion>
+      <precondicion>El token SHIVA se obtiene correctamente antes del fallo simulado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Respuesta simulada BailIn, página 2" valor="código HTTP 500"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, configurar el servicio simulado para devolver HTTP 500 en la página 2 de BailIn.</paso>
+      <paso numero="2">Ejecutar el job manualmente.</paso>
+      <paso numero="3">Verificar en BD/log el mensaje "Fallo conexion ISDA".</paso>
+      <paso numero="4">Verificar que el proceso aborta sin completar el resto de la paginación ni procesar Stay.</paso>
+    </pasos>
+    <resultadoEsperado>El proceso registra el error y aborta al recibir el código HTTP de error, sin continuar con el resto del procesamiento.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + revisión de log/BBDD — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Mensaje "Fallo conexion ISDA" registrado; el proceso no completa el resto de la paginación.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso ignorara el error HTTP y continuara con la siguiente página, el manejo de errores no coincidiría con el código analizado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>FT_T_PAR1 sin URL SHIVA configurada</nombre>
+    <objetivo>Validar el caso límite en que la fila de configuración de la URL SHIVA (JUNCTION/ValuationForResolution) no existe o no está ACTIVE en FT_T_PAR1 — la llamada HTTP debe fallar.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede desactivar temporalmente (DATA_STAT_TYP≠'ACTIVE') la fila JUNCTION/ValuationForResolution en FT_T_PAR1, sin afectar producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_PAR1 JUNCTION/ValuationForResolution (entorno de test)" valor="fila desactivada o ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, desactivar o eliminar temporalmente la fila de configuración de la URL SHIVA.</paso>
+      <paso numero="2">Ejecutar el job manualmente (con token válido).</paso>
+      <paso numero="3">Verificar el comportamiento del proceso al intentar la llamada HTTP sin URL válida.</paso>
+    </pasos>
+    <resultadoEsperado>La llamada HTTP falla al no disponer de una URL base válida, y el proceso registra el error correspondiente sin procesar BailIn/Stay.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + revisión de log — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>El proceso falla de forma controlada (error registrado) al no encontrar la URL SHIVA configurada.</criterioAceptacion>
+    <posibilidadFallo>Si el proceso usara una URL por defecto no documentada, el comportamiento real no coincidiría con lo esperado y habría que investigar el valor de fallback.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Entidad presente en BailIn y Stay se procesa una sola vez</nombre>
+    <objetivo>Confirmar que una misma entidad recibida tanto en la respuesta de BailIn como en la de Stay se deduplica (con precedencia de Stay) en la lista `tratados`, y se encola/procesa una única vez en FT_T_RLT1.</objetivo>
+    <precondiciones>
+      <precondicion>PUBLISH='1' en FT_T_PAR1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Entidad DUP-LEI" valor="presente en la respuesta de BailIn (página 1) y también en la respuesta de Stay (página 1), con el mismo LEI"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar las respuestas simuladas de BailIn y Stay para que ambas incluyan la entidad DUP-LEI.</paso>
+      <paso numero="2">Ejecutar el job.</paso>
+      <paso numero="3">Contar en FT_T_RLT1 cuántos registros nuevos corresponden a DUP-LEI.</paso>
+    </pasos>
+    <resultadoEsperado>Solo existe 1 registro nuevo en FT_T_RLT1 para DUP-LEI, confirmando la deduplicación de la lista `tratados`.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD</tipoValidacion>
+    <criterioAceptacion>Exactamente 1 registro nuevo en FT_T_RLT1 para DUP-LEI.</criterioAceptacion>
+    <posibilidadFallo>Si aparecieran 2 registros para la misma entidad, la deduplicación no estaría funcionando como indica el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>PUBLISH desactivado no genera cola de publicación</nombre>
+    <objetivo>Confirmar que, con PUBLISH distinto de '1', FT_T_FIST se actualiza igualmente con los resultados de la sincronización, pero no se inserta ningún registro nuevo en FT_T_RLT1 — el estado de negocio avanza sin reflejo en la cola de publicación.</objetivo>
+    <precondiciones>
+      <precondicion>PUBLISH='0' (o cualquier valor distinto de '1') en FT_T_PAR1 (contexto CARGA_VFR).</precondicion>
+      <precondicion>Al menos una entidad deja de aparecer en la respuesta de SHIVA respecto a su estado previo en FT_T_FIST.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="PUBLISH" valor="'0'"/>
+      <dato campo="Entidad NOPUB-1" valor="deja de aparecer en la respuesta de BailIn/Stay respecto al estado previo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar PUBLISH='0' antes de la ejecución.</paso>
+      <paso numero="2">Ejecutar el job con NOPUB-1 ausente de la respuesta.</paso>
+      <paso numero="3">Verificar en FT_T_FIST que NOPUB-1 quedó marcada inactiva.</paso>
+      <paso numero="4">Verificar en FT_T_RLT1 que no se insertó ningún registro nuevo para NOPUB-1.</paso>
+    </pasos>
+    <resultadoEsperado>FT_T_FIST refleja el cambio de estado de NOPUB-1; FT_T_RLT1 no recibe ningún registro nuevo asociado.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD (ambas tablas)</tipoValidacion>
+    <criterioAceptacion>NOPUB-1 marcada inactiva en FT_T_FIST; 0 registros nuevos en FT_T_RLT1.</criterioAceptacion>
+    <posibilidadFallo>Si se insertara algún registro en FT_T_RLT1 pese a PUBLISH≠'1', el control del flag no estaría funcionando como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Tope diario aplicado exactamente sobre 5 entidades sintéticas</nombre>
+    <objetivo>Confirmar con datos sintéticos que el tope diario VFR_PUBLISH_ESB se aplica en el orden exacto de procesamiento. Campo que se repite/varía: el conteo de entidades tratadas frente al tope configurado. Cuántas veces: 5 entidades, tope=2. Valor de conflicto: las 3 entidades que exceden el tope. Resultado que confirma el comportamiento: exactamente las 2 primeras quedan PENDING_ESB, las 3 restantes PENDING_VFR.</objetivo>
+    <precondiciones>
+      <precondicion>VFR_PUBLISH_ESB='2' en FT_T_PAR1 (entorno de test).</precondicion>
+      <precondicion>PUBLISH='1'.</precondicion>
+      <precondicion>No existen registros previos PENDING_VFR/PENDING_ESB para las entidades sintéticas usadas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Entidades tratadas" valor="SINT-1, SINT-2, SINT-3, SINT-4, SINT-5 (orden de aparición en la respuesta combinada Stay+BailIn)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Configurar VFR_PUBLISH_ESB='2' en el entorno de test.</paso>
+      <paso numero="2">Ejecutar el job con las 5 entidades sintéticas en el orden indicado.</paso>
+      <paso numero="3">Verificar en FT_T_RLT1 el RLT_DIF_STAT de cada una de las 5 entidades.</paso>
+    </pasos>
+    <resultadoEsperado>SINT-1 y SINT-2 quedan PENDING_ESB; SINT-3, SINT-4 y SINT-5 quedan PENDING_VFR.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD (estado exacto por entidad)</tipoValidacion>
+    <criterioAceptacion>Exactamente 2 registros PENDING_ESB (SINT-1, SINT-2) y 3 PENDING_VFR (SINT-3, SINT-4, SINT-5).</criterioAceptacion>
+    <posibilidadFallo>Si el orden de `tratados` no coincidiera con el orden de llegada esperado (por ejemplo, por la precedencia de Stay sobre BailIn en la deduplicación), el reparto podría no coincidir con el previsto — verificar el orden real de construcción de la lista antes de interpretar un fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Estabilidad del riesgo de off-by-one entre marcarPublicar y marcarPublicarPendientes</nombre>
+    <objetivo>Reproducir el escenario límite en que marcarPublicar deja el contador de tope exactamente en VFR_PUBLISH_ESB-1, para confirmar que marcarPublicarPendientes no promueve el primer registro pendiente pese a quedar teóricamente una unidad de cupo libre — y detectar si este comportamiento cambia sin documentarse.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test donde se puede controlar exactamente el número de entidades tratadas en la pasada de marcarPublicar y dejar registros PENDING_VFR previos de una ejecución anterior simulada.</precondicion>
+      <precondicion>VFR_PUBLISH_ESB='3' en el entorno de test.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Entidades frescas (marcarPublicar)" valor="2 entidades tratadas (deja el contador en 2, uno por debajo del tope 3)"/>
+      <dato campo="Registro PENDING_VFR previo" valor="1 registro ya existente en FT_T_RLT1 con RLT_DIF_STAT='PENDING_VFR' de una ejecución anterior simulada"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar en el entorno de test 1 registro PENDING_VFR previo y configurar VFR_PUBLISH_ESB='3'.</paso>
+      <paso numero="2">Ejecutar el job con exactamente 2 entidades frescas tratadas.</paso>
+      <paso numero="3">Verificar que las 2 entidades frescas quedan PENDING_ESB (contador queda en 2).</paso>
+      <paso numero="4">Verificar el estado final del registro PENDING_VFR previo tras la ejecución de marcarPublicarPendientes.</paso>
+    </pasos>
+    <resultadoEsperado>Según el código analizado, el registro PENDING_VFR previo se promueve a PENDING_ESB (contador pasa de 2 a 3, y 3&lt;3 es falso solo si la comprobación fuera estricta tras el incremento — confirmar el resultado real exacto en este límite, ya que es precisamente el caso frontera del hallazgo documentado en spec.md §9).</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación de BBDD — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>El resultado observado se documenta explícitamente (promovido o no) y se contrasta con el análisis de código de spec.md §9; cualquier discrepancia se registra como confirmación o corrección del hallazgo.</criterioAceptacion>
+    <posibilidadFallo>Este caso es, por diseño, una verificación de un comportamiento límite ya identificado como posible defecto — su resultado documenta el comportamiento real, no determina por sí solo si hay que corregir el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ciclo diario completo de sincronización de protocolos ISDA</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo: desde la obtención del token SHIVA hasta la publicación final en FT_T_RLT1, en una ejecución diaria típica tras las 22:30.</objetivo>
+    <precondiciones>
+      <precondicion>credentials.xml válido, servicio SHIVA disponible, FT_T_PAR1 correctamente configurado (URL activa, PUBLISH='1', VFR_PUBLISH_ESB definido).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Respuesta BailIn" valor="conjunto de entidades de prueba con al menos 1 alta y 1 baja respecto al estado previo en FT_T_FIST"/>
+      <dato campo="Respuesta Stay" valor="conjunto de entidades de prueba, sin solape con BailIn"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar el disparo automático tras las 22:30.</paso>
+      <paso numero="2">Verificar la obtención correcta del token SHIVA.</paso>
+      <paso numero="3">Verificar la paginación completa de ambos protocolos.</paso>
+      <paso numero="4">Verificar la actualización de FT_T_FIST (altas y bajas).</paso>
+      <paso numero="5">Verificar el encolado en FT_T_RLT1 respetando el tope diario configurado.</paso>
+      <paso numero="6">Verificar en el log que no aparece ningún mensaje de error ("Fallo conexion XMAS"/"Fallo conexion ISDA").</paso>
+    </pasos>
+    <resultadoEsperado>El job se ejecuta de principio a fin sin intervención manual, desde el disparo automático hasta la publicación final en FT_T_RLT1, sin errores.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado del job) + inspección de BBDD y log</tipoValidacion>
+    <criterioAceptacion>Job en "Ended OK"; FT_T_FIST y FT_T_RLT1 reflejan correctamente los datos de la ejecución; log sin mensajes de error.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo puntual de red hacia el servicio SHIVA haría fallar el resultado end-to-end esperado en este caso concreto, sin ser necesariamente un defecto de la lógica de negocio.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
