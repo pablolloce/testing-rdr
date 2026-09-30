@@ -30,7 +30,8 @@ mutuamente, sin necesidad de pregunta al usuario).
 | R3 | **Fan-Out real confirmado (auto-verificado por referencia cruzada en el documento fuente):** al finalizar con éxito, `KYTL_REF_GSPROCESS` dispara 2 sucesores en paralelo: el evento interno que da paso a `MEKYTL0107` (dentro de esta cadena), y el evento externo `KYTL_CONCLI_GSPROCESS_FW` que arranca `RDR_CONCILIACION_CLIENTELA_new`. |
 | R4 | `MEKYTL0107` (Run As `xsramer1`, `MEGENV0001.sh`) transmite `Reporte_Refundicion_dos.csv` a `XCOMWPMER` (ruta `MVP00G215`) como `Reporte_Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. |
 | R5 | `MEKYTL0121` (Run As `xsramer1`, `RAMERC0068.sh`) historifica `Refundicion.csv` a `/fichtemcomp/pr/descargas/kytl/Refundicion/old/` como `Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. Cierra la cadena. |
-| R6 | **Motor GoldenSource `PLSQL_Load`** (workflow genérico, versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`, asíncrono): abre el fichero, lo fracciona en lotes de 500 registros (`File Split Condition`), procesa cada mensaje vía sub-workflow `Sub_Load` en paralelo (`For Each Split` asíncrono), y sincroniza el cierre del lote (`Synchronize`, `StandardAndJoinHandler`) antes de solicitar el siguiente. Patrón genérico ya visto en `RDR_CONCILIACION_BDI_new` (`informeBroker_BDI`), reutilizado aquí para `RDR_Refundicion`/`RDR_Clientela460`. |
+| R6 | **Motor GoldenSource `PLSQL_Load`** (workflow genérico, versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`, asíncrono): abre el fichero, lo fracciona en lotes de 500 registros (`File Split Condition`), procesa cada mensaje vía sub-workflow `Sub_Load` en paralelo (`For Each Split` asíncrono), y sincroniza el cierre del lote (`Synchronize`, `StandardAndJoinHandler`) antes de solicitar el siguiente. Patrón genérico ya visto en `RDR_CONCILIACION_BDI_new` (`informeBroker_BDI`), reutilizado aquí para `RDR_Refundicion`/`RDR_Clientela460`. **Mismo workflow, misma versión y mismo comentario interno que el `PLSQL_Load` usado por `RDR_Reubicacion` en `rdr_reubicacion_new`** — confirmado con `PLSQL_Load.wkf`. |
+| R6-bis | **`Sub_Load` — lógica real de negocio confirmada con código PL·SQL completo (`Sub_Load.wkf`, aportado esta ronda desde `rdr_reubicacion_new`, mismo fichero compartido).** El sub-workflow discrimina por `properties.messageType`; la rama `Refundicion` (líneas 420-820 del `.wkf`) trocea cada línea CSV por `;` (`CLIENTED=campos[0]`, `CLIENTEP=campos[1]`) y ejecuta el procedimiento PL·SQL **`REFUNDICION`** — ver detalle completo en §6.1. Confirma de forma directa, no por analogía, qué hace realmente `Workflow(RDR_Refundicion)` (distinto de `Workflow(RDR_Clientela460)`/`ConContrato460.java`, que sigue siendo el G4 no confirmado al 100%). |
 | R7 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado (QT1, gap transversal ya resuelto en `RDR_CONCILIACION_CLIENTELA_new` y `RDR_PR_BDICLIENREG_RESP_new`)** como placeholder de cabecera, no un valor único job a job. |
 | R8 | **Patrón transversal P-021:** sin validación de integridad de negocio ni protección de concurrencia/lock documentadas. |
 
@@ -100,12 +101,62 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   (`COD-CCLIENP`, previo) con el de destino (`COD-CCLIEND`) en la refundición de cartera. No documentado
   el comportamiento ante fallo del propio `ControlCase` (código no aportado); cabo suelto no bloqueante,
   distinto del gap G2 ya cerrado.
-* **`Workflow(RDR_Refundicion)` → Motor GoldenSource `PLSQL_Load`:** el evento `RDR_Refundicion.gsp` (paquete
-  GoldenSource 8.7.1.106, `ApplicationEvent`/`GenericEvent`) recibe el `HashMap` de variables globales del
-  pipeline y delega en el workflow genérico **`PLSQL_Load`** (versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`,
-  asíncrono): ingesta asíncrona en lotes de 500 registros vía `Sub_Load`, con sincronización de cierre de
-  lote — mismo patrón que `informeBroker_BDI` en `RDR_CONCILIACION_BDI_new`. Este motor ya está cubierto en
-  detalle (nodo a nodo) y no requiere ampliación adicional aquí.
+* **`Workflow(RDR_Refundicion)` → Motor GoldenSource `PLSQL_Load` → sub-workflow `Sub_Load` (confirmado con
+  código PL·SQL real esta ronda):** el evento `RDR_Refundicion.gsp` (paquete GoldenSource 8.7.1.106,
+  `ApplicationEvent`/`GenericEvent`) recibe el `HashMap` de variables globales del pipeline y delega en el
+  workflow genérico **`PLSQL_Load`** (versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`, asíncrono): ingesta
+  asíncrona en lotes de 500 registros vía `Sub_Load`, con sincronización de cierre de lote — mismo patrón que
+  `informeBroker_BDI` en `RDR_CONCILIACION_BDI_new`, y el mismo motor (misma versión, mismo comentario interno)
+  usado por `RDR_Reubicacion` en `rdr_reubicacion_new`.
+
+  **`Sub_Load` (procedimiento PL·SQL `REFUNDICION`, código real completo aportado vía `Sub_Load.wkf`):** para
+  cada línea (`CLIENTED`=cliente que se cierra, `CLIENTEP`=cliente destino):
+  1. **Validación del cliente de cierre:** busca `CLIENTED` en `FT_T_FIID`/`FT_T_FIRL` (`REL_TYP='LOCAL'`,
+     `ACTIVE`) — si no existe, `CLIENTED_NOT_FOUND`; si aparece más de una vez, `CLIENTED_DUPLICATE`.
+  2. **Validación del cliente destino:** busca `CLIENTEP` con la misma condición, aceptando también
+     `INACTIVE` si su baja la hizo `BAJA_CPARTY` o la propia `REFUNDICION` (permite refundir sobre un
+     destino previamente cerrado).
+  3. **CASO A — destino no existe (`COUNT_INST_MNEM_CLP=0`):** el cliente de cierre pasa a asumir el
+     `FINS_ID` del destino. **Cambio de comportamiento confirmado en el propio código, fechado en marzo de
+     2023** (comentario literal: *"dejando inactivo el anterior"*): en vez de un `UPDATE` en sitio del
+     `FINS_ID` (comportamiento anterior, comentado en el código), ahora se **inserta una fila nueva** en
+     `FT_T_FIID` con el `FINS_ID` del destino (preservando el resto de atributos) y se marca la fila
+     original como `INACTIVE` — preserva histórico en vez de sobrescribirlo. Inserta auditoría de éxito en
+     `FT_T_RLT1`, más 2 filas `PENDING` marcando que el contrato 460 asociado queda pendiente de baja y de
+     alta (`B460`/`A460`) — el 460 no se gestiona aquí, solo se señaliza.
+  4. **CASO B — destino existe (`COUNT_INST_MNEM_CLP=1`), el escenario más elaborado:**
+     - Si el destino local está `INACTIVE` (`LOCAL_ACTIVO=0`): señaliza un alta de 460 pendiente
+       (`PENDING A460`) y **reactiva en bloque cerca de 40 tablas maestras** (`FT_T_ADTP`, `ATB1`, `CLMN`,
+       `CNTA`, `CUST`, `DEOP`, `DLBR`, `DLER`, `DSRC`, `ENFR`, `EXAC`, `FEO1`, `FFRL`, `FICL`, `FIDE`, `FIGP`,
+       `FIGR`, `FIGU`, `FIID`, `FINR`, `FINS`, `FIRL`, `FIRT`, `FIST`, `FLG1`, `FPRO`, `FRA1`, `FRAP`, `FRCA`,
+       `FRCL`, `FRGP`, `FRGR`, `FRIA`, `FRID`, `FRMK`, `IAPR`, `INCS`, `ISSR`, `MRKT`, `RSME`, `RTNG`, `SCIS`,
+       `SLOC`, `SSIA`, `SSIR`, `SSIS`, `SUFR`), **filtrando siempre por `LAST_CHG_USR_ID='BAJA_CPARTY'`** —
+       solo revierte bajas hechas por ese proceso concreto, no cualquier baja.
+     - Repite la misma reactivación en bloque a nivel de entidad **global** (matriz) si el padre global del
+       destino está `INACTIVE` y es único (`CUENTA_GLOBAL=1`), añadiendo en ese caso `DATA_SRC_ID='RDR'` al
+       `UPDATE` de `FT_T_FINS`.
+     - **Reasignación real de contrapartidas operativas:** localiza todos los hijos operativos
+       (`FT_T_FIRL`, `REL_TYP='OPERATIVE'`, `FINSRL_TYP='CPARTY'`) del cliente que se cierra y no están
+       `INACTIVE`, y los reapunta (`UPDATE FT_T_FIRL SET PRNT_INST_MNEM=...`) al cliente destino, insertando
+       una fila de auditoría en `FT_T_RLT1` por cada uno. Gestiona además el indicador `SUBSIDIARY_IND`
+       (`'S'` si el cliente destino no tenía matriz global antes de esta operación).
+     - **Cierre en cascada del nivel local:** si tras la reasignación ya no quedan hijos operativos activos
+       para el cliente cerrado (`COUNT_HIJOS_LOCALES=0`), lo cierra: marca `FT_T_FIID`/`FT_T_FINR`/`FT_T_FINS`
+       como `INACTIVE` y señaliza baja de 460 pendiente. **Caso especial confirmado para entidades
+       mexicanas** (flag `FT_T_ENFR.ORG_ID='1145'`, `ENFR_RL_TYP='LOCAL_ENT'`): si el cliente que se cierra
+       tiene el flag Altamira y el destino no, migra los identificadores específicos mexicanos (`ALID`,
+       `SHORTNAME_MEX`, `HOMOCLAV`, `CURP`, `RFC` en `FT_T_FIID`) y la propia fila `FT_T_ENFR` del cerrado al
+       destino, y copia los campos de domicilio fiscal (`FT_T_MADR`) del cerrado al destino.
+     - **Cierre en cascada del nivel global:** si tras lo anterior el padre global ya no tiene ningún hijo
+       local activo (`COUNT_HIJOS_GLOBALES=0`), también lo cierra (`FT_T_FIID`/`FT_T_FINR`/`FT_T_FINS`/`FT_T_FLG1`
+       a `INACTIVE`).
+  5. **CASO C — destino duplicado (`COUNT_INST_MNEM_CLP>1`):** `RAISE CLIENTEP_DUPLICATE`.
+  6. **Excepciones (5, todas controladas, sin relanzar — el lote de 500 continúa):**
+     `CLIENTED_NOT_FOUND`/`CLIENTED_DUPLICATE`/`CLIENTEP_NOT_FOUND`/`CLIENTEP_DUPLICATE`/`WHEN OTHERS`.
+     **Diferencia confirmada frente a la excepción equivalente de `Sub_Load` en `rdr_reubicacion_new`:** aquí
+     cada excepción inserta **2 filas** en `FT_T_RLT1` (una `RLT_PURP_TYP='REPORTES'` y otra
+     `RLT_PURP_TYP='ERRORES'`), no 1 sola — doble canal de auditoría, uno orientado a reporte de negocio y
+     otro al circuito de errores técnicos (`Evento(Errores)`/`ErroresCSV`, ver más abajo).
 * **`Workflow(RDR_Clientela460)` — G4 resuelto de forma indirecta, no 100% confirmada, con código fuente
   real (`ConContrato460.java` + versión completa de `ConDB.java`,
   `documentos_fuente/codigo_fuente_conciliacion_p021/`):** el documento fuente lo diferencia de
@@ -199,9 +250,12 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
 
 ## 7. Especificación de testing
 
-La estrategia cubre las 4 transiciones lineales, el Fan-Out real hacia la cadena externa, y la tolerancia a
-fallo (Soft Failure) de los 2 últimos jobs. El conjunto TC-001 a TC-006 cubre el 100% de las transiciones
-documentadas.
+La estrategia cubre las 4 transiciones lineales, el Fan-Out real hacia la cadena externa, la tolerancia a
+fallo (Soft Failure) de los 2 últimos jobs, y — con el código PL·SQL real de `Sub_Load` aportado esta ronda —
+el comportamiento funcional detallado del procedimiento `REFUNDICION`: los 3 casos (destino no existe, destino
+existe, destino duplicado), la reactivación en bloque de tablas tras un `BAJA_CPARTY` previo, el cierre en
+cascada local/global, el caso especial de entidades mexicanas (Altamira), y el doble canal de auditoría
+(`REPORTES`/`ERRORES`) de las 5 excepciones controladas.
 
 ## 8. Validaciones de casos de prueba
 
@@ -213,6 +267,12 @@ documentadas.
 | `error_funcional` | `MEKYTL0107` no falla si el reporte no existe (Soft Failure). | TC-004 |
 | `error_funcional` | `MEKYTL0121` no falla si `Refundicion.csv` no existe (Soft Failure). | TC-005 |
 | `e2e` | Ciclo completo diario, incluido el disparo de la cadena externa. | TC-006 |
+| `happy_path` | Refundición con destino inexistente (CASO A): el cliente de cierre asume el FINS_ID del destino vía INSERT + baja de la fila original, preservando histórico. | TC-007 |
+| `happy_path` | Refundición con destino existente y activo (CASO B): reasignación real de contrapartidas operativas hacia el destino, con auditoría por cada una. | TC-008 |
+| `conflicto_integridad` | Refundición sobre un destino previamente inactivo por `BAJA_CPARTY`: reactivación en bloque de las ~40 tablas maestras, a nivel local y, si procede, global. | TC-009 |
+| `conflicto_integridad` | Cierre en cascada del cliente local y, si corresponde, del global, al no quedarle contrapartidas operativas activas. | TC-010 |
+| `borde` | Caso especial de entidad mexicana (Altamira, `ORG_ID='1145'`): migración de identificadores y domicilio fiscal del cerrado al destino. | TC-011 |
+| `error_funcional` | Las 5 excepciones controladas de `REFUNDICION` insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -241,6 +301,24 @@ documentadas.
   reprocesarse automáticamente al día siguiente — un fallo persistente en el mismo registro podría
   reintentarse indefinidamente sin una alerta explícita de "reintento agotado" (no se ha aportado evidencia
   de un límite de reintentos).
+* **[RIESGO NUEVO, prioridad media, confirmado con código PL·SQL real de `Sub_Load`] Reactivación en bloque
+  filtrada solo por `LAST_CHG_USR_ID='BAJA_CPARTY'`:** cuando el cliente destino de una refundición estaba
+  inactivo, el procedimiento `REFUNDICION` reactiva cerca de 40 tablas maestras, pero **solo las filas cuya
+  baja quedó registrada exactamente con ese usuario**. Si la baja de alguna fila se hizo por otra vía (p. ej.
+  manual, o por otro proceso), esa fila queda inactiva de forma permanente pese a que el cliente global se
+  reactive — inconsistencia de datos silenciosa, sin traza de auditoría que la señale (§6.1, R6-bis).
+* **[RIESGO NUEVO, no bloqueante, confirmado con código real] El 460 nunca se gestiona automáticamente
+  aquí:** en los 3 escenarios donde el código inserta una fila `PENDING` de alta o baja de contrato 460
+  (`A460`/`B460`), la fila queda como señal para un proceso externo — `Sub_Load`/`PLSQL_Load` **no ejecuta
+  ningún alta/baja real de 460**. Si ese proceso externo (posiblemente `Workflow(RDR_Clientela460)`/`CONC460`,
+  ver G4) no consume estas señales de forma fiable, el contrato 460 podría quedar desincronizado
+  indefinidamente respecto al estado real de la clientela en GoldenSource.
+* **[Confirmado, no bloqueante] Doble canal de auditoría en las excepciones de `REFUNDICION`:** a diferencia
+  del `Sub_Load` de `rdr_reubicacion_new` (que inserta 1 sola fila por excepción), aquí cada una de las 5
+  excepciones controladas inserta 2 filas en `FT_T_RLT1` (`REPORTES` + `ERRORES`) — la segunda alimenta
+  directamente el circuito `Evento(Errores)`/`ErroresCSV` (§6.1, G3), lo que implica que un fallo de
+  refundición individual **sí** puede disparar el reprocesamiento automático vía `MarcaRegErroneo` al día
+  siguiente (a diferencia de Reubicación, donde ese canal doble no existe).
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -259,3 +337,18 @@ y el reprocesamiento automático vía `MarcaRegErroneo` al estar `Delta=Si` en `
 **Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021, sin gaps técnicos
 bloqueantes pendientes** — G4 pendiente solo de la confirmación explícita de invocación (no de material
 nuevo sustantivo), lo que no bloquea el cierre funcional de la cadena.
+
+**Ronda adicional (2026-09-30):** se aportó `Sub_Load.wkf` (el mismo fichero ya usado para confirmar la lógica
+real de `rdr_reubicacion_new`, que comparte el motor `PLSQL_Load`/`Sub_Load` con esta cadena). Su rama
+`Refundicion` contiene el procedimiento PL·SQL real **`REFUNDICION`**, que **confirma directamente, ya no por
+analogía con `ConBDI`/`ConClientela`, qué hace `Workflow(RDR_Refundicion)`** (R6/R6-bis, §6.1): reasigna las
+contrapartidas operativas del cliente que se cierra hacia el destino, gestiona un cambio de comportamiento
+fechado en marzo de 2023 (preserva histórico en vez de sobrescribir el `FINS_ID` en sitio), reactiva en bloque
+casi 40 tablas maestras si el destino estaba inactivo por `BAJA_CPARTY`, cierra en cascada el nivel local y
+global cuando corresponde, incluye un caso especial para entidades mexicanas (Altamira), y nunca ejecuta el
+alta/baja real del contrato 460 (solo la señaliza). Esto añade 3 riesgos nuevos (reactivación filtrada de
+forma incompleta, señal de 460 no consumida automáticamente aquí, y doble canal de auditoría en las
+excepciones que sí alimenta el reprocesamiento automático de `ErroresCSV`) y 6 nuevos casos de prueba
+(TC-007 a TC-012). **Esto es un componente distinto de `Workflow(RDR_Clientela460)`/`ConContrato460.java`
+(G4)**, que sigue sin confirmación explícita de invocación — ambos workflows conviven en el mismo pipeline
+(R2) pero resuelven cosas distintas: éste, la propia refundición de clientela; aquél, la conciliación C460.

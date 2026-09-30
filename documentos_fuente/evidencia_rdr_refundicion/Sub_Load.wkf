@@ -1,0 +1,994 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">RDR_OFI_INACT_V1</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">Close Transaction</name>
+<nodeHandler>com.j2fe.streetlamp.activities.CloseTransaction</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.streetlamp.activities.CloseTransaction</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">messageType</name>
+<stringValue id="14">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="15">properties.messageType</variablePart>
+</item>
+<item id="16" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="17">submittedMessage</name>
+<stringValue id="18">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="19">message</variablePart>
+</item>
+<item id="20" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="21">transactionId</name>
+<stringValue id="22">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="23">transactionId</variablePart>
+</item>
+</parameters>
+<sources id="24" type="java.util.HashSet">
+<item id="25" type="com.j2fe.workflow.definition.Transition">
+<name id="26">ToSplit</name>
+<source id="27">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="28">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="29">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="30">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="31" type="java.util.HashSet">
+<item id="32" type="com.j2fe.workflow.definition.Transition">
+<name id="33">goto-next</name>
+<source id="34">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="35">Carga PL</name>
+<nodeHandler>com.j2fe.general.activities.database.PLSQLprocedure</nodeHandler>
+<nodeHandlerClass id="36">com.j2fe.general.activities.database.PLSQLprocedure</nodeHandlerClass>
+<parameters id="37" type="java.util.HashSet">
+<item id="38" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="39">PLSQLQuery</name>
+<objectValue id="40" type="java.lang.String"><![CDATA[DECLARE
+-- CONSTANTES
+CONS_ACTIVE CONSTANT VARCHAR2(20) := 'ACTIVE';
+-- EXCEPCIONES CONTROLADAS
+OFICINAD_NOT_FOUND EXCEPTION;
+OFICINAP_NOT_FOUND EXCEPTION;
+OFICINAP_DUPLICATE EXCEPTION;
+
+-- VARIABLES
+-- Oficina que se cierra, desaparece.
+OFICINAD VARCHAR2(9):= ?;
+-- Oficina que persiste
+OFICINAP VARCHAR2(9):=?;
+--JOB_ID
+JOB varchar2(40) := ? ;
+INST_MNEM_OFD VARCHAR2(10);
+INST_MNEM_OFP VARCHAR2(10);
+SUFR_OID_CONTRAPARTIDA VARCHAR(10);
+INST_NME_OFD VARCHAR(100);
+INST_NME_OFP VARCHAR(100);
+SUBDIV_IDD FT_T_SUBD.SUBDIV_ID%TYPE;
+SUBD_ORG_IDD FT_T_SUBD.ORG_ID%TYPE;
+SUBD_OID_IDD FT_T_SUBD.SUBD_OID%TYPE;
+SUBDIV_IDP FT_T_SUBD.SUBDIV_ID%TYPE;
+SUBD_ORG_IDP FT_T_SUBD.ORG_ID%TYPE;
+SUBD_OID_IDP FT_T_SUBD.SUBD_OID%TYPE;
+FIID_FINSID VARCHAR2(10);
+INST_MNEM_LOCALD VARCHAR(10);
+INST_MNEM_LOCALP VARCHAR(10);
+INST_MNEM_GLOBALD VARCHAR(10);
+SUFR_OID_OFICINAP VARCHAR(10);
+SUFR_OID_OFICINAD VARCHAR(10);
+DATA_STAT_TYPD VARCHAR2(20);
+COUNT_OFICINAD NUMERIC;
+COUNT_OFICINAP NUMERIC;
+ERR_RLT_STATUS NUMERIC;
+
+CONTADOR NUMERIC;
+HIJOS_LOCAL NUMERIC;
+HIJOS_GLOBAL NUMERIC;
+
+TYPE CONTRAPARTIDAS IS REF CURSOR;
+CUR_CONTRAPARTIDAS CONTRAPARTIDAS;
+VCH_SQL_CONTRAPARTIDAS VARCHAR2(2000);
+BEGIN
+  -- Get INST_MNEM de las dos oficinas. Si no devuelven una se lanza excepcion
+  SELECT NVL((SELECT FINR_INST_MNEM FROM FT_T_SUFR WHERE DATA_STAT_TYP = 'ACTIVE' AND SUBDIV_ID = OFICINAD AND SUBDIV_RL_TYP='IS_OFFI' AND SUBD_ORG_ID = 'A1' AND ROWNUM < 2),(SELECT FINR_INST_MNEM FROM FT_T_SUFR WHERE SUBDIV_ID = OFICINAD AND SUBDIV_RL_TYP='IS_OFFI' AND SUBD_ORG_ID = 'A1' AND ROWNUM < 2)) INTO INST_MNEM_OFD FROM DUAL;
+  IF INST_MNEM_OFD IS NULL THEN
+    RAISE OFICINAD_NOT_FOUND;
+  END IF;
+  SELECT COUNT (FINR_INST_MNEM) INTO COUNT_OFICINAP FROM FT_T_SUFR WHERE DATA_STAT_TYP = 'ACTIVE' AND SUBDIV_ID = OFICINAP AND SUBDIV_RL_TYP='IS_OFFI' AND SUBD_ORG_ID = 'A1';
+	IF COUNT_OFICINAP = 0 THEN   
+    RAISE OFICINAP_NOT_FOUND;
+  END IF;
+  IF COUNT_OFICINAP > 1 THEN    
+    RAISE OFICINAP_DUPLICATE;
+  END IF;
+  SELECT FINR_INST_MNEM INTO INST_MNEM_OFP FROM FT_T_SUFR WHERE DATA_STAT_TYP = 'ACTIVE' AND SUBDIV_ID = OFICINAP AND SUBDIV_RL_TYP='IS_OFFI'AND SUBDIV_RL_TYP='IS_OFFI' AND SUBD_ORG_ID = 'A1';
+  -- Control de que las contrapartidas existan 
+  -- Get INST_NME. Nombre de la oficina para reportes
+  SELECT INST_NME INTO INST_NME_OFD FROM FT_T_FINS WHERE INST_MNEM = INST_MNEM_OFD;
+  SELECT INST_NME INTO INST_NME_OFP FROM FT_T_FINS WHERE INST_MNEM = INST_MNEM_OFP;
+  -- Datos de la oficina sobre la que se va a reubicar.
+  SELECT SUFR_OID INTO SUFR_OID_OFICINAP FROM FT_T_SUFR WHERE FINR_INST_MNEM = INST_MNEM_OFP AND SUBDIV_RL_TYP='IS_OFFI';
+  SELECT SUBDIV_ID INTO SUBDIV_IDP FROM FT_T_SUFR WHERE SUFR_OID = SUFR_OID_OFICINAP;
+  SELECT SUBD_ORG_ID INTO SUBD_ORG_IDP FROM FT_T_SUFR WHERE SUFR_OID = SUFR_OID_OFICINAP;
+  SELECT SUBD_OID INTO SUBD_OID_IDP FROM FT_T_SUBD WHERE SUBDIV_ID = SUBDIV_IDP AND ORG_ID=SUBD_ORG_IDP;
+  -- Datos de la oficina que desaparece.
+  SELECT SUFR_OID INTO SUFR_OID_OFICINAD FROM FT_T_SUFR WHERE FINR_INST_MNEM = INST_MNEM_OFD AND SUBDIV_RL_TYP='IS_OFFI';
+  SELECT SUBDIV_ID INTO SUBDIV_IDD FROM FT_T_SUFR WHERE SUFR_OID = SUFR_OID_OFICINAD;
+  SELECT SUBD_ORG_ID INTO SUBD_ORG_IDD FROM FT_T_SUFR WHERE SUFR_OID = SUFR_OID_OFICINAD;
+  SELECT SUBD_OID INTO SUBD_OID_IDD FROM FT_T_SUBD WHERE SUBDIV_ID = SUBDIV_IDD AND ORG_ID=SUBD_ORG_IDD;
+  SELECT FINS_ID INTO FIID_FINSID FROM FT_T_FIID WHERE INST_MNEM = INST_MNEM_OFD AND FINS_ID_CTXT_TYP = 'FINSID' AND DATA_STAT_TYP = 'ACTIVE';
+  -- Get DATA_STAT_TYP de la contrapartida que se cierra. Si es activo y pasa a Inactive Pending se marca a DIFUSION
+  SELECT DATA_STAT_TYP INTO DATA_STAT_TYPD FROM FT_T_FINS WHERE INST_MNEM = INST_MNEM_OFD;
+  -- Reubicacion de las relaciones de la oficina que se cierra a la oficina destino
+  VCH_SQL_CONTRAPARTIDAS := 'SELECT SUFR_OID FROM FT_T_SUFR WHERE SUBDIV_ID = '''|| SUBDIV_IDD ||''' AND SUBD_ORG_ID = '''|| SUBD_ORG_IDD ||''' AND ( SUBDIV_RL_TYP = '''||'TRADES_WITH'||''' OR SUBDIV_RL_TYP = '''||'RISKPYME'||''')';
+  CONTADOR:=1;            
+  OPEN CUR_CONTRAPARTIDAS FOR VCH_SQL_CONTRAPARTIDAS;
+  LOOP
+    FETCH CUR_CONTRAPARTIDAS INTO SUFR_OID_CONTRAPARTIDA;
+    EXIT WHEN CUR_CONTRAPARTIDAS%NOTFOUND;
+    -- Asocio los valores de la oficina que permanece a las contrapartidas asociadadas a la oficina que desaparece.
+    UPDATE FT_T_SUFR SET SUBDIV_ID=SUBDIV_IDP,SUBD_ORG_ID=SUBD_ORG_IDP, SUBD_OID=SUBD_OID_IDP, LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REUBICACION' WHERE SUFR_OID = SUFR_OID_CONTRAPARTIDA;
+    -- Inserto registro en la tabla de log
+    CONTADOR:= CONTADOR+1;              
+  END LOOP;
+  -- RLT1 para reporte
+  
+  IF DATA_STAT_TYPD = 'ACTIVE'
+  THEN  
+	-- Modificación evolutivos contrapartidas 23/07/2018 -> No tener en cuenta contrapartidas inactivas
+	INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,contador,1,'Reubicacion realizada con exito',INST_MNEM_OFD,'REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:',FIID_FINSID,sysdate,null,sysdate,'BBVA:CUSTOMER','NO',null);           
+	-- RLT1 para marcar a baja la FINS de la contrapartida si procede
+  
+    INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,contador,1,'Oficina actualizada a Inactive Pending',INST_MNEM_OFD,'REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:',FIID_FINSID,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','B');
+  END IF;            
+  -- Baja del registro IS_OFFI de la SUFR
+  UPDATE FT_T_SUFR SET DATA_STAT_TYP='INACTIVE',LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REUBICACION' WHERE SUFR_OID=SUFR_OID_OFICINAD AND DATA_STAT_TYP = 'ACTIVE';
+  -- Baja de la SUBD
+  UPDATE FT_T_SUBD SET DATA_STAT_TYP='INACTIVE',LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REUBICACION' WHERE SUBDIV_ID=SUBDIV_IDD AND ORG_ID=SUBD_ORG_IDD AND DATA_STAT_TYP = 'ACTIVE';
+  -- Baja de la FINS si esta ACTIVA
+  UPDATE FT_T_FINS SET DATA_STAT_TYP='INACTIVEPEND',LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REUBICACION' WHERE INST_MNEM=INST_MNEM_OFD AND DATA_STAT_TYP = 'ACTIVE';			      
+  DBMS_OUTPUT.PUT_LINE('PROCESADO DE REUBICACION OK');  
+  -- CONTROL DE EXCEPCIONES
+	EXCEPTION
+    -- OFICINA CIERRE NO ENCONTRADA
+    WHEN OFICINAD_NOT_FOUND THEN          
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,null,1,'Oficina de cierre no encontrada','NOT_FOUND','REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:','NOT_FOUND',sysdate,null,sysdate,'BBVA:CUSTOMER','NO',null);
+    -- OFICINA DESTINO NO ENCONTRADA
+    WHEN OFICINAP_NOT_FOUND THEN      
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,null,1,'Oficina destino no encontrada','NOT_FOUND','REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:','NOT_FOUND',sysdate,null,sysdate,'BBVA:CUSTOMER','NO',null); 
+    -- OFICINA DESTINO DUPLICADA
+    WHEN OFICINAP_DUPLICATE THEN  
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,null,1,'Oficina destino duplicado','NOT_FOUND','REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:','NOT_FOUND',sysdate,null,sysdate,'BBVA:CUSTOMER','NO',null);
+    -- ERRORES INESPERADOS
+    WHEN OTHERS THEN      
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,null,null,1,'Error en el proceso de Reubicacion','NOT_FOUND','REPORTES','REUBICACION','OFICINA CERRADA: ',OFICINAD,'OFICINA A LA QUE SE REUBICA: ',OFICINAP,'DESC OFICINA CERRADA:','NOT_FOUND',sysdate,null,sysdate,'BBVA:CUSTOMER','NO',null);
+END REUBICACION]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="41" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="42">database</name>
+<stringValue id="43">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="44" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="45">indexParameters[0]</name>
+<objectValue id="46" type="com.j2fe.general.activities.database.ParamIO$1">IN</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="47" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="48">indexParameters[1]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="49" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="50">indexParameters[2]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="51" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="52">indexedOutputResult</name>
+<stringValue id="53">indexedOutputResult</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="54" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="55">indexedParameterType[0]</name>
+<objectValue id="56" type="com.j2fe.general.activities.database.ParamType$22">VARCHAR</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="57" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="58">indexedParameterType[1]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="59" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="60">indexedParameterType[2]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="61" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="62">[0]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="63">indexedParameterValue[0]</name>
+<stringValue id="64">oficinaDES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="65" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="66">[1]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="67">indexedParameterValue[1]</name>
+<stringValue id="68">oficinaPER</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="69" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="70">indexedParameterValue[2]</name>
+<stringValue id="71">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="72">properties.jobId</variablePart>
+</item>
+<item id="73" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="74">mappedOutputResult</name>
+<stringValue id="75">mappedOutputResult</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="76" type="java.util.HashSet">
+<item id="77" type="com.j2fe.workflow.definition.Transition">
+<name id="78">goto-next</name>
+<source id="79">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="80">Variable PL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="81">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="82" type="java.util.HashSet">
+<item id="83" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="84">statements</name>
+<stringValue id="85">String linea = Linea;
+
+String[] campos=null;
+campos=linea.split(";");
+
+String oficinaDES=campos[1];
+String oficinaPER=campos[3];
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="86" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="87">["Linea"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="88">variables["Linea"]</name>
+<stringValue id="89">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="90">message</variablePart>
+</item>
+<item id="91" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="92">variables["oficinaDES"]</name>
+<stringValue id="93">oficinaDES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="94" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="95">variables["oficinaPER"]</name>
+<stringValue id="96">oficinaPER</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="97" type="java.util.HashSet">
+<item id="98" type="com.j2fe.workflow.definition.Transition">
+<name id="99">Reubicacion</name>
+<source id="100">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="101">Switch Case</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="102">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="103" type="java.util.HashSet">
+<item id="104" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="105">caseItem</name>
+<stringValue id="106">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="107">properties.messageType</variablePart>
+</item>
+</parameters>
+<sources id="108" type="java.util.HashSet">
+<item id="109" type="com.j2fe.workflow.definition.Transition">
+<name id="110">ToSplit</name>
+<source id="111">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<description id="112">Automatically generated</description>
+<directJoin>false</directJoin>
+<name id="113">Merge</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="114">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="115" type="java.util.HashSet">
+<item id="116" type="com.j2fe.workflow.definition.Transition">
+<name id="117">false</name>
+<source id="118">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="119">Update Transaction</name>
+<nodeHandler>com.j2fe.streetlamp.activities.UpdateTransaction</nodeHandler>
+<nodeHandlerClass id="120">com.j2fe.streetlamp.activities.UpdateTransaction</nodeHandlerClass>
+<parameters id="121" type="java.util.HashSet">
+<item id="122" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="123">colName</name>
+<stringValue id="124">MAIN_ENTITY_ID</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="125" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="126">colValue</name>
+<stringValue id="127">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="128">message</variablePart>
+</item>
+<item id="129" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="130">flushImmediate</name>
+<objectValue id="131" type="java.lang.Boolean">true</objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="132" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="133">transactionId</name>
+<stringValue id="134">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="135">transactionId</variablePart>
+</item>
+</parameters>
+<sources id="136" type="java.util.HashSet">
+<item id="137" type="com.j2fe.workflow.definition.Transition">
+<name id="138">goto-next</name>
+<source id="139">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="140">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="141">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="142" type="java.util.HashSet">
+</sources>
+<targets id="143" type="java.util.HashSet">
+<item idref="137"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="118"/>
+</item>
+</sources>
+<targets id="144" type="java.util.HashSet">
+<item idref="116"/>
+<item id="145" type="com.j2fe.workflow.definition.Transition">
+<name id="146">true</name>
+<source idref="118"/>
+<target idref="111"/>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="111"/>
+</item>
+<item idref="145"/>
+</sources>
+<targets id="147" type="java.util.HashSet">
+<item idref="109"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="100"/>
+</item>
+</sources>
+<targets id="148" type="java.util.HashSet">
+<item id="149" type="com.j2fe.workflow.definition.Transition">
+<name id="150">Refundicion</name>
+<source idref="100"/>
+<target id="151">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="152">Variable PL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="153">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="154" type="java.util.HashSet">
+<item id="155" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="156">statements</name>
+<stringValue id="157">String linea = Linea;
+
+String[] campos=null;
+campos=linea.split(";");
+
+String CLIENTED = campos[0];
+String CLIENTEP = campos[1];</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="158" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="159">["CLIENTED"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="160">variables["CLIENTED"]</name>
+<stringValue id="161">CLIENTED</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="162" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="163">["CLIENTEP"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="164">variables["CLIENTEP"]</name>
+<stringValue id="165">CLIENTEP</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="166" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="167">["Linea"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="168">variables["Linea"]</name>
+<stringValue id="169">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="170">message</variablePart>
+</item>
+</parameters>
+<sources id="171" type="java.util.HashSet">
+<item idref="149"/>
+</sources>
+<targets id="172" type="java.util.HashSet">
+<item id="173" type="com.j2fe.workflow.definition.Transition">
+<name id="174">goto-next</name>
+<source idref="151"/>
+<target id="175">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="176">Carga PL</name>
+<nodeHandler>com.j2fe.general.activities.database.PLSQLprocedure</nodeHandler>
+<nodeHandlerClass id="177">com.j2fe.general.activities.database.PLSQLprocedure</nodeHandlerClass>
+<parameters id="178" type="java.util.HashSet">
+<item id="179" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="180">PLSQLQuery</name>
+<objectValue id="181" type="java.lang.String"><![CDATA[DECLARE
+
+-- EXCEPCIONES CONTROLADAS
+CLIENTED_DUPLICATE EXCEPTION;
+CLIENTED_NOT_FOUND EXCEPTION;
+CLIENTEP_DUPLICATE EXCEPTION;
+CLIENTEP_NOT_FOUND EXCEPTION;
+
+-- DECLARACION DE VARIABLES
+REGISTRO VARCHAR2(100);
+-- Clientela que se Cierra
+CLIENTED VARCHAR2(9) := ?;
+-- Clientela Destino
+CLIENTEP VARCHAR2(9) := ?;
+--JOB_ID
+JOB varchar2(40) := ?;
+--TRN_ID
+TRN varchar2(40) := ?;
+--SEVERITY
+SEVERITY NUMBER(4,0) := 10;
+INST_MNEM_CLD VARCHAR (10);
+INST_MNEM_CLP VARCHAR (10);
+FIRL_OID_CLD VARCHAR (10);
+FIRL_OID_CLP VARCHAR (10);
+FIID_OID_CLD VARCHAR (10);
+PRNT_INST_MNEM_CLD VARCHAR (10);
+PRNT_INST_MNEM_CLP VARCHAR (10);
+PRNT_FIID_OID_CLD VARCHAR (10);
+INST_NME_PRNT VARCHAR (100);
+INST_NME_CLD VARCHAR (100);
+INST_NME_CLP VARCHAR (100);
+INST_NME_CHLD VARCHAR (100);
+INST_MNEM_GLOBAL VARCHAR (100);
+INST_MNEM_HIJO VARCHAR (10);
+MNEMONICO_GLOBAL VARCHAR (10);
+FINSID_LOCAL_CERRADA VARCHAR (100);
+FIRL_OID_HIJO VARCHAR (10);
+GLOBAL_FINSRL_TYP VARCHAR (12);
+GLOBAL_FIRL_OID VARCHAR (10);
+HIJOS_GLOBAL NUMERIC;
+CONTADOR NUMERIC;
+COUNT_INST_MNEM_CLD NUMERIC;
+COUNT_INST_MNEM_CLP NUMERIC;
+COUNT_HIJOS_LOCALES NUMERIC;
+COUNT_HIJOS_GLOBALES NUMERIC;
+LOCAL_ACTIVO NUMERIC;
+CUENTA_GLOBAL NUMERIC;
+COUNT_ALTAMIRA_D NUMERIC;
+COUNT_ALTAMIRA_P NUMERIC;
+
+VFILE UTL_FILE.FILE_TYPE;
+
+TYPE HIJOSGLOBAL IS REF CURSOR;
+CUR_HIJOSGLOBAL HIJOSGLOBAL;
+VCH_SQL_HIJOSGLOBAL VARCHAR2(2000);
+
+BEGIN
+    -- Carga de Clientelas en variables y control de errores    
+    DBMS_OUTPUT.PUT_LINE('CLIENTED: ' || CLIENTED);
+    DBMS_OUTPUT.PUT_LINE('CLIENTEP: ' || CLIENTEP);  
+    
+    -- Control de errores    
+    SELECT count (FIID.INST_MNEM) INTO COUNT_INST_MNEM_CLD FROM FT_T_FIID FIID, FT_T_FIRL FIRL WHERE FIID.FINS_ID = CLIENTED AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.INST_MNEM = FIRL.INST_MNEM AND FIRL.REL_TYP='LOCAL' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+		DBMS_OUTPUT.PUT_LINE('COUNT_INST_MNEM_CLD ' || COUNT_INST_MNEM_CLD);
+		SELECT count (FIID.INST_MNEM) INTO COUNT_INST_MNEM_CLP FROM FT_T_FIID FIID, FT_T_FIRL FIRL WHERE FIID.FINS_ID = CLIENTEP AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.INST_MNEM = FIRL.INST_MNEM AND FIRL.REL_TYP='LOCAL' AND (FIID.DATA_STAT_TYP = 'ACTIVE' OR (FIID.DATA_STAT_TYP = 'INACTIVE' AND FIID.LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION')));
+		DBMS_OUTPUT.PUT_LINE('COUNT_INST_MNEM_CLP ' || COUNT_INST_MNEM_CLP);
+    
+    -- Control del Clientela que se cierra
+    IF COUNT_INST_MNEM_CLD = 0 THEN   
+      RAISE CLIENTED_NOT_FOUND;
+    END IF;
+    IF COUNT_INST_MNEM_CLD > 1 THEN    
+      RAISE CLIENTED_DUPLICATE;
+    END IF;    
+    
+    -- Control del Clientela que permanece
+    -- CASO A: EL QUE EL CLIENTELA DESTINO NO EXISTE
+    IF COUNT_INST_MNEM_CLP = 0 THEN   
+      DBMS_OUTPUT.PUT_LINE('NO EXISTE CLIENTELA DESTINO, SE PROCEDE A ACTUALIZAR EL DE CIERRE');
+      -- Get INST_MNEM de los Clientes a nivel local
+      SELECT FIID.INST_MNEM INTO INST_MNEM_CLD FROM FT_T_FIID FIID, FT_T_FIRL FIRL WHERE FIID.FINS_ID = CLIENTED AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.INST_MNEM = FIRL.INST_MNEM AND FIRL.REL_TYP='LOCAL' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+      DBMS_OUTPUT.PUT_LINE('INST_MNEM_CLD ' || INST_MNEM_CLD);
+      -- Get FINSID de los Clientes a nivel local
+      SELECT FIID.FINS_ID INTO FINSID_LOCAL_CERRADA FROM FT_T_FIID FIID WHERE FIID.INST_MNEM = INST_MNEM_CLD AND FIID.FINS_ID_CTXT_TYP = 'FINSID' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+      -- Actualizacion del Clientela que se cierra por el nuevo por no existir el Clientela Destino
+      -- Cambio en Marzo del 2023, dejando inactivo el anterior INICIO
+	-- ANTES: UPDATE FT_T_FIID SET FINS_ID = CLIENTEP, LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REFUNDICION' WHERE FINS_ID = CLIENTED AND FINS_ID_CTXT_TYP = 'CLIENTELAID' AND DATA_STAT_TYP = 'ACTIVE';
+
+	INSERT INTO FT_T_FIID 
+		(FIID_OID,INST_MNEM,FINS_ID_CTXT_TYP,FINS_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,INST_SYMBOL_STAT_TYP,
+		DATA_STAT_TYP,DATA_SRC_ID,GU_ID,GU_TYP,GU_CNT,MERGE_UNIQ_OID, INST_USAGE_TYP,INST_SYMBOL_STAT_TMS,SRCE_INST_MNEM,
+		GLOBAL_UNIQ_IND,INST_SYMBOL_RENEW_TMS,GUNT_OID)
+			SELECT new_oid, FIID.INST_MNEM,FIID.FINS_ID_CTXT_TYP,CLIENTEP,FIID.START_TMS,FIID.END_TMS,sysdate,'REFUNDICION',FIID.INST_SYMBOL_STAT_TYP,FIID.DATA_STAT_TYP,FIID.DATA_SRC_ID,FIID.GU_ID,
+				FIID.GU_TYP,FIID.GU_CNT,FIID.MERGE_UNIQ_OID, FIID.INST_USAGE_TYP,FIID.INST_SYMBOL_STAT_TMS,	FIID.SRCE_INST_MNEM,FIID.GLOBAL_UNIQ_IND,FIID.INST_SYMBOL_RENEW_TMS,FIID.GUNT_OID
+			FROM FT_T_FIID FIID WHERE FIID.FINS_ID = CLIENTED AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+
+	UPDATE FT_T_FIID SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REFUNDICION' WHERE FINS_ID = CLIENTED AND FINS_ID_CTXT_TYP = 'CLIENTELAID' AND DATA_STAT_TYP = 'ACTIVE';
+ 	-- Cambio en Marzo del 2023, dejando inactivo el anterior FIN
+      -- Reporte
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,'1','1','El Clientela se ha actualizado de forma correcta',INST_MNEM_CLD,'REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','M');      
+      DBMS_OUTPUT.PUT_LINE('ACTUALIZACION REALIZADA DE MANERA SATISFACTORIA');
+	  --INSERT PARA LA BAJA DEL 460
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,'1','1','Contrato 460 pendiente de dar de baja',INST_MNEM_CLD,'PROCESO','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'INST_MNEM_CPTY_AFECTADAS',INST_MNEM_CLD,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','B460');
+      --INSERT PARA EL ALTA DEL 460
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,'1','1','Pendiente Nuevo alta de contrato 460',INST_MNEM_CLD,'PROCESO','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'INST_MNEM_CPTY_AFECTADAS',INST_MNEM_CLD,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','A460');      
+    END IF;
+    
+    -- CASO B: EL QUE EL CLIENTELA DESTINO EXISTE  
+    IF COUNT_INST_MNEM_CLP = 1 THEN   
+      -- Get INST_MNEM de los Clientes a nivel local
+      SELECT FIID.INST_MNEM, FIRL.PRNT_INST_MNEM INTO INST_MNEM_CLD, PRNT_INST_MNEM_CLD FROM FT_T_FIID FIID, FT_T_FIRL FIRL WHERE FIID.FINS_ID = CLIENTED AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.INST_MNEM = FIRL.INST_MNEM AND FIRL.REL_TYP='LOCAL' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+      DBMS_OUTPUT.PUT_LINE('INST_MNEM_CLD ' || INST_MNEM_CLD);
+      SELECT FIID.INST_MNEM, FIRL.PRNT_INST_MNEM INTO INST_MNEM_CLP, PRNT_INST_MNEM_CLP FROM FT_T_FIID FIID, FT_T_FIRL FIRL WHERE FIID.FINS_ID = CLIENTEP AND FIID.FINS_ID_CTXT_TYP = 'CLIENTELAID' AND FIID.INST_MNEM = FIRL.INST_MNEM AND FIRL.REL_TYP='LOCAL' AND (FIID.DATA_STAT_TYP = 'ACTIVE' OR (FIID.DATA_STAT_TYP = 'INACTIVE' AND FIID.LAST_CHG_USR_ID = 'BAJA_CPARTY'));
+      DBMS_OUTPUT.PUT_LINE('INST_MNEM_CLP ' || INST_MNEM_CLP);    
+      
+	  --HAY QUE CONTROLAR SI ESTA ACTIVO EL CLIENTELA DESTINO
+	  SELECT COUNT(*) INTO LOCAL_ACTIVO FROM FT_T_FINS WHERE DATA_STAT_TYP = 'ACTIVE' AND INST_MNEM = INST_MNEM_CLP;
+	  IF LOCAL_ACTIVO = 0 THEN
+			--HAY QUE SOLICITAR ALTA DEL FOLIO -> INSERT PARA EL ALTA DEL 460
+			INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,'1','1','Pendiente Nuevo alta de contrato 460',INST_MNEM_CLD,'PROCESO','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'INST_MNEM_CPTY_AFECTADAS',INST_MNEM_CLD,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','A460');      
+			--HAY QUE REACTIVAR LOS NIVELES LOCAL Y GLOBAL SI PROCEDE
+			UPDATE FT_T_ADTP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_ATB1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_CLMN SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_CNTA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_CUST SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_DEOP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_DLBR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_DLER SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_DSRC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_ENFR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_EXAC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FEO1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FFRL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FICL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIDE SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIGP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIGR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIGU SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIID SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+			UPDATE FT_T_FINR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+			UPDATE FT_T_FINS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+			UPDATE FT_T_FIRL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIRT SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FIST SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate, end_tms = null WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			--UPDATE FT_T_FLAR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FLG1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FPRO SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRA1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRAP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRCA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRCL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRGP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRGR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRIA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRID SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_FRMK SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_IAPR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_INCS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_ISSR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			--UPDATE FT_T_LAAN SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			--UPDATE FT_T_LAIP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_MRKT SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_RSME SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_RTNG SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SCIS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SLOC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SSIA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SSIR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SSIS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+			UPDATE FT_T_SUFR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLP AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+
+			--MIRAR SI EL GLOBAL ESTA INACTIVO
+			SELECT COUNT(*) INTO CUENTA_GLOBAL FROM FT_T_FINS WHERE DATA_STAT_TYP = 'INACTIVE' AND INST_MNEM IN (SELECT FIRLL.PRNT_INST_MNEM FROM FT_T_FIRL FIRLL WHERE FIRLL.INST_MNEM = INST_MNEM_CLP AND FIRLL.REL_TYP = 'LOCAL' AND FIRLL.FINSRL_TYP = 'CUSTOMER');
+				
+				IF(CUENTA_GLOBAL = 1) THEN
+					SELECT PRNT_INST_MNEM INTO MNEMONICO_GLOBAL FROM FT_T_FIRL WHERE INST_MNEM = INST_MNEM_CLP AND REL_TYP = 'LOCAL' AND FINSRL_TYP = 'CUSTOMER';
+					--Actualizo tablas
+					UPDATE FT_T_ADTP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_ATB1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_CLMN SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_CNTA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_CUST SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_DEOP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_DLBR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_DLER SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_DSRC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_ENFR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_EXAC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FEO1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FFRL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FICL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIDE SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIGP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIGR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIGU SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIID SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+					UPDATE FT_T_FINR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+					UPDATE FT_T_FINS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', DATA_SRC_ID = 'RDR',LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+					UPDATE FT_T_FIRL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIRT SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FIST SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					--UPDATE FT_T_FLAR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FLG1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID IN ('BAJA_CPARTY','REFUNDICION');
+					UPDATE FT_T_FPRO SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRA1 SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRAP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRCA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRCL SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRGP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRGR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRIA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRID SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_FRMK SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_IAPR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_INCS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_ISSR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					--UPDATE FT_T_LAAN SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					--UPDATE FT_T_LAIP SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_MRKT SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_RSME SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_RTNG SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SCIS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SLOC SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SSIA SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SSIR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SSIS SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+					UPDATE FT_T_SUFR SET DATA_STAT_TYP = 'ACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = MNEMONICO_GLOBAL AND DATA_STAT_TYP = 'INACTIVE' AND LAST_CHG_USR_ID = 'BAJA_CPARTY';
+				END IF;
+	  END IF;
+      
+	  --SI EL GLOBAL ES EL MISMO, SET CUENTA GLOBAL A 1 PARA NO CAMBIAR LA MATRIZ
+	  IF PRNT_INST_MNEM_CLP = PRNT_INST_MNEM_CLD THEN
+		CUENTA_GLOBAL:=1;
+	  END IF;
+	  -- Get FINSID de los Clientes a nivel local
+      SELECT FIID.FINS_ID INTO FINSID_LOCAL_CERRADA FROM FT_T_FIID FIID WHERE FIID.INST_MNEM = INST_MNEM_CLD AND FIID.FINS_ID_CTXT_TYP = 'FINSID' AND FIID.DATA_STAT_TYP = 'ACTIVE';
+      -- Get INST_MNEM de los Clientes a nivel global
+      SELECT FIRLL2.PRNT_INST_MNEM INTO INST_MNEM_GLOBAL FROM FT_T_FIRL FIRLL2 WHERE FIRLL2.INST_MNEM = INST_MNEM_CLD AND FIRLL2.FINSRL_TYP = 'CUSTOMER';
+      -- 1. MOVIMIENTO DE LAS OPERATIVAS AL NUEVO LOCAL
+      VCH_SQL_HIJOSGLOBAL := 'SELECT FT_T_FINS.INST_MNEM FROM FT_T_FIRL, FT_T_FINS WHERE FT_T_FINS.INST_MNEM = FT_T_FIRL.INST_MNEM AND FT_T_FINS.DATA_STAT_TYP != '''||'INACTIVE'||''' AND FT_T_FIRL.PRNT_INST_MNEM = '''|| INST_MNEM_CLD ||''' AND FT_T_FIRL.REL_TYP = '''||'OPERATIVE'||''' AND FT_T_FIRL.FINSRL_TYP = '''||'CPARTY' ||'''';
+      CONTADOR:=1;
+      OPEN CUR_HIJOSGLOBAL FOR VCH_SQL_HIJOSGLOBAL;
+      LOOP      
+        FETCH CUR_HIJOSGLOBAL INTO INST_MNEM_HIJO;
+        EXIT WHEN CUR_HIJOSGLOBAL%NOTFOUND;      
+        DBMS_OUTPUT.PUT_LINE('INST_MNEM_HIJO ' || INST_MNEM_HIJO);            
+        SELECT FIRL_OID INTO FIRL_OID_HIJO FROM FT_T_FIRL WHERE INST_MNEM = INST_MNEM_HIJO  AND REL_TYP = 'OPERATIVE' AND FINSRL_TYP= 'CPARTY';
+        DBMS_OUTPUT.PUT_LINE('FIRL_OID_HIJO ' || FIRL_OID_HIJO);  
+        SELECT INST_NME INTO INST_NME_CHLD FROM FT_T_FINS WHERE INST_MNEM = INST_MNEM_HIJO ;
+        DBMS_OUTPUT.PUT_LINE('Modificando la FIRL ');
+        -- Inserccion en la FIRL
+        UPDATE FT_T_FIRL SET PRNT_INST_MNEM = INST_MNEM_CLP, LAST_CHG_TMS = SYSDATE, LAST_CHG_USR_ID = 'REFUNDICION' WHERE FIRL_OID = FIRL_OID_HIJO;
+        --LOGICA PARA MANTENER LA MATRIZ DEL CLIENTE QUE DESAPARECE SI REFUNDE SOBRE UN CLIENTE INACTIVO (SI EL GLOBAL ESTA INACTIVO NO TIENE MATRIZ) O SOBRE UN MISMO GLOBAL
+		IF CUENTA_GLOBAL = 0 THEN
+			UPDATE FT_T_FINS SET FT_T_FINS.SUBSIDIARY_IND = 'S', FT_T_FINS.LAST_CHG_TMS = SYSDATE, FT_T_FINS.LAST_CHG_USR_ID = 'REFUNDICION' WHERE FT_T_FINS.INST_MNEM = INST_MNEM_HIJO AND FT_T_FINS.SUBSIDIARY_IND = 'N';
+			UPDATE FT_T_FINS SET FT_T_FINS.LAST_CHG_TMS = SYSDATE, FT_T_FINS.LAST_CHG_USR_ID = 'REFUNDICION' WHERE FT_T_FINS.INST_MNEM = INST_MNEM_HIJO AND FT_T_FINS.SUBSIDIARY_IND = 'S';
+        ELSE
+			UPDATE FT_T_FINS SET FT_T_FINS.LAST_CHG_TMS = SYSDATE, FT_T_FINS.LAST_CHG_USR_ID = 'REFUNDICION' WHERE FT_T_FINS.INST_MNEM = INST_MNEM_HIJO;
+		END IF;
+		INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'Refundicion realizada de forma correcta',INST_MNEM_HIJO,'REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'INST_MNEM_CPTY_AFECTADAS',FINSID_LOCAL_CERRADA,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','M');
+        CONTADOR:= CONTADOR+1;  
+      END LOOP;
+      
+      -- 2. LOGICA PARA CERRAR EL LOCAL  
+      SELECT count (FT_T_FINS.INST_MNEM) INTO COUNT_HIJOS_LOCALES FROM FT_T_FIRL, FT_T_FINS WHERE FT_T_FINS.INST_MNEM = FT_T_FIRL.INST_MNEM AND FT_T_FINS.DATA_STAT_TYP != 'INACTIVE' AND FT_T_FIRL.PRNT_INST_MNEM = INST_MNEM_CLD AND FT_T_FIRL.REL_TYP = 'OPERATIVE' AND FT_T_FIRL.FINSRL_TYP = 'CPARTY';
+      DBMS_OUTPUT.PUT_LINE('COUNT_HIJOS_LOCALES ' || COUNT_HIJOS_LOCALES);
+      IF COUNT_HIJOS_LOCALES = 0 THEN   
+        -- CIERRE DE UN LOCAL
+        DBMS_OUTPUT.PUT_LINE('CIERRE DE UN LOCAL');
+        DBMS_OUTPUT.PUT_LINE('INST_MNEM_CLD ' || INST_MNEM_CLD);
+        -- CHECK SI ES COMPARTIDA
+        select count (ft_T_enfr.org_id) INTO COUNT_ALTAMIRA_D from ft_T_enfr where ft_T_enfr.org_id = '1145' and ft_T_enfr.data_StaT_typ = 'ACTIVE' and ft_t_enfr.enfr_rl_typ = 'LOCAL_ENT' and ft_t_enfr.finr_inst_mnem = INST_MNEM_CLD;
+        select count (ft_T_enfr.org_id) INTO COUNT_ALTAMIRA_P from ft_T_enfr where ft_T_enfr.org_id = '1145' and ft_T_enfr.data_StaT_typ = 'ACTIVE' and ft_t_enfr.enfr_rl_typ = 'LOCAL_ENT' and ft_t_enfr.finr_inst_mnem = INST_MNEM_CLP;
+        --SI ES MEXICANA
+        IF ((COUNT_ALTAMIRA_D > 0) AND (COUNT_ALTAMIRA_P = 0)) THEN
+          -- MOVER FIID
+          update ft_t_fiid FIID set FIID.inst_mnem = INST_MNEM_CLP, LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate where FIID.data_Stat_typ = 'ACTIVE' and FIID.fins_id_ctxt_typ in ('ALID','SHORTNAME_MEX','HOMOCLAV','CURP','RFC') and FIID.inst_mnem = INST_MNEM_CLD;  
+          -- MOVER ENFR
+          update ft_t_enfr set ft_t_enfr.inst_mnem = INST_MNEM_CLP, ft_t_enfr.finr_inst_mnem = INST_MNEM_CLP, ft_t_enfr.LAST_CHG_USR_ID = 'REFUNDICION', ft_t_enfr.LAST_CHG_TMS = sysdate where ft_T_enfr.org_id = '1145' and ft_T_enfr.data_StaT_typ = 'ACTIVE' and ft_t_enfr.enfr_rl_typ = 'LOCAL_ENT' and ft_t_enfr.finr_inst_mnem = INST_MNEM_CLD;
+          -- MOVER MADR
+          update ft_t_madr set ft_t_madr.cnty_nme = (select CNTY.cnty_nme from fT_t_madr CNTY where CNTY.data_StaT_typ = 'ACTIVE' and CNTY.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLD)), ft_t_madr.addr_ln2_txt = (select AD2.addr_ln2_txt from fT_t_madr AD2 where AD2.data_StaT_typ = 'ACTIVE' and AD2.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLD)), ft_t_madr.addr_ln3_txt = (select AD3.addr_ln3_txt from fT_t_madr AD3 where AD3.data_StaT_typ = 'ACTIVE' and AD3.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLD)), ft_t_madr.neighborhood_nme = (select NEIG.neighborhood_nme from fT_t_madr NEIG where NEIG.data_StaT_typ = 'ACTIVE' and NEIG.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLD)), ft_t_madr.township_nme = (select TOWN.township_nme from fT_t_madr TOWN where TOWN.data_StaT_typ = 'ACTIVE' and TOWN.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLD)), ft_t_madr.LAST_CHG_USR_ID = 'REFUNDICION', ft_t_madr.LAST_CHG_TMS = sysdate where ft_t_madr.data_stat_typ = 'ACTIVE' and ft_t_madr.mail_addr_id = (select fT_t_adtp.mail_addr_id from fT_t_adtp where fT_t_adtp.data_stat_typ = 'ACTIVE' and fT_t_adtp.addr_typ = 'FISCAL' and fT_t_adtp.inst_mnem = INST_MNEM_CLP);
+        END IF;
+        UPDATE FT_T_FIID SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLD AND DATA_STAT_TYP <> 'INACTIVE'  AND FINS_ID_CTXT_TYP <>  'FINSID';
+        UPDATE FT_T_FINR SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLD AND DATA_STAT_TYP <> 'INACTIVE';
+        UPDATE FT_T_FINS SET DATA_STAT_TYP = 'INACTIVE', END_TMS = NULL, LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_CLD AND DATA_STAT_TYP <> 'INACTIVE';
+		--INSERT PARA LA BAJA DEL 460
+		INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,'1','1','Contrato 460 pendiente de dar de baja',INST_MNEM_CLD,'PROCESO','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'INST_MNEM_CPTY_AFECTADAS',INST_MNEM_CLD,sysdate,null,sysdate,'BBVA:CUSTOMER','PENDING','B460');      
+      END IF;
+      -- LOGICA PARA CERRAR EL GLOBAL SI PROCEDE
+      SELECT count (FT_T_FINS.INST_MNEM) INTO COUNT_HIJOS_GLOBALES FROM FT_T_FIRL FIRLL, FT_T_FINS WHERE FT_T_FINS.INST_MNEM = FIRLL.INST_MNEM AND FT_T_FINS.DATA_STAT_TYP != 'INACTIVE' AND FIRLL.REL_TYP = 'LOCAL' AND FIRLL.FINSRL_TYP = 'CUSTOMER' AND FIRLL.PRNT_INST_MNEM = INST_MNEM_GLOBAL;
+      DBMS_OUTPUT.PUT_LINE('COUNT_HIJOS_GLOBALES ' || COUNT_HIJOS_GLOBALES);
+      IF COUNT_HIJOS_GLOBALES = 0 THEN   
+        -- CIERRE DE UN GLOBAL
+        DBMS_OUTPUT.PUT_LINE('CIERRE DE UN GLOBAL');
+        UPDATE FT_T_FIID SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_GLOBAL AND DATA_STAT_TYP <> 'INACTIVE' AND FINS_ID_CTXT_TYP <>  'FINSID';
+        UPDATE FT_T_FINR SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_GLOBAL AND DATA_STAT_TYP <> 'INACTIVE';
+        UPDATE FT_T_FINS SET DATA_STAT_TYP = 'INACTIVE', END_TMS = NULL, LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_GLOBAL AND DATA_STAT_TYP <> 'INACTIVE';
+        UPDATE FT_T_FLG1 SET DATA_STAT_TYP = 'INACTIVE', LAST_CHG_USR_ID = 'REFUNDICION', LAST_CHG_TMS = sysdate WHERE INST_MNEM = INST_MNEM_GLOBAL AND DATA_STAT_TYP <> 'INACTIVE';
+      END IF;
+      DBMS_OUTPUT.PUT_LINE('REFUNDICION REALIZADA DE MANERA SATISFACTORIA');
+    END IF;
+    
+    -- CASO C: EL QUE EL CLIENTELA DESTINO ESTA DUPLICADO
+    IF COUNT_INST_MNEM_CLP > 1 THEN
+      RAISE CLIENTEP_DUPLICATE;
+    END IF;
+
+    
+    -- CONTROL DE EXCEPCIONES
+    EXCEPTION
+    -- 1. Clientela cierre no encontrado
+    WHEN CLIENTED_NOT_FOUND THEN          
+      DBMS_OUTPUT.PUT_LINE('Clientela cierre no encontrado');
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'No existe el Clientela a Refundir','NOT_FOUND','REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+    -- 2. Clientela cierre duplicado
+    WHEN CLIENTED_DUPLICATE THEN      
+      DBMS_OUTPUT.PUT_LINE('Clientela cierre duplicado');
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'El Clientela a Refundir esta duplicado','NOT_FOUND','REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'El Clientela a Refundir esta duplicado','NOT_FOUND','ERRORES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+    -- 3. Clientela destino no encontrado
+    WHEN CLIENTEP_NOT_FOUND THEN  
+      DBMS_OUTPUT.PUT_LINE('Clientela destino no encontrado');
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'No existe el Clientela destino','NOT_FOUND','REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'No existe el Clientela destino','NOT_FOUND','ERRORES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+    -- 4. Clientela destino no encontrado
+    WHEN CLIENTEP_DUPLICATE THEN  
+      DBMS_OUTPUT.PUT_LINE('Clientela destino duplicada');
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'El Clientela destino esta duplicado','NOT_FOUND','REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'El Clientela destino esta duplicado','NOT_FOUND','ERRORES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+    -- 5. ERRORES INESPERADOS
+    WHEN OTHERS THEN    
+      DBMS_OUTPUT.PUT_LINE('Error Inesperado');
+      INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'Error inesperado','NOT_FOUND','REPORTES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+	  INSERT INTO FT_T_RLT1 (RLT_OID,JOB_ID,TRN_ID,RECORD_SEQ_NUM,RLT_STATUS,MESSAGE_RLT,RLT_FIELD,RLT_PURP_TYP,DATA_SRC_APP,SRC_FIELD,SRC_VALUE,GS_FIELD,GS_VALUE,MAIN_ENTITY_NME,MAIN_ENTITY_ID,START_TMS,END_TMS,LAST_CHG_TMS,LAST_CHG_USR_ID,RLT_DIF_STAT,RLT_DIF_ACC) VALUES (new_oid,JOB,TRN,contador,1,'Error inesperado','NOT_FOUND','ERRORES','REFUNDICION','Cliente Cerrado',CLIENTED,'Cliente Destino',CLIENTEP,'CLIENTED;CLIENTEP',CLIENTED||';'||CLIENTEP,sysdate,null,sysdate,'BBVA:CUSTOMER','NO','null');
+
+	  
+END REFUNDICION]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="182" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="183">database</name>
+<stringValue id="184">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="185" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="186">indexParameters[0]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="187" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="188">indexParameters[1]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="189" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="190">indexParameters[2]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="191" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="192">indexParameters[3]</name>
+<objectValue idref="46"/><type>CONSTANT</type>
+</item>
+<item id="193" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="194">indexedParameterType[0]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="195" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="196">indexedParameterType[1]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="197" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="198">indexedParameterType[2]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="199" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="200">indexedParameterType[3]</name>
+<objectValue idref="56"/><type>CONSTANT</type>
+</item>
+<item id="201" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="202">indexedParameterValue[0]</name>
+<stringValue id="203">CLIENTED</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="204" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="205">indexedParameterValue[1]</name>
+<stringValue id="206">CLIENTEP</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="207" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="208">indexedParameterValue[2]</name>
+<stringValue id="209">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="210">properties.jobId</variablePart>
+</item>
+<item id="211" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="212">indexedParameterValue[3]</name>
+<stringValue id="213">Message</stringValue>
+<type>VARIABLE</type>
+<variablePart id="214">transactionId</variablePart>
+</item>
+</parameters>
+<sources id="215" type="java.util.HashSet">
+<item idref="173"/>
+</sources>
+<targets id="216" type="java.util.HashSet">
+<item id="217" type="com.j2fe.workflow.definition.Transition">
+<name id="218">goto-next</name>
+<source idref="175"/>
+<target idref="27"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="98"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="79"/>
+</item>
+</sources>
+<targets id="219" type="java.util.HashSet">
+<item idref="77"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="34"/>
+</item>
+</sources>
+<targets id="220" type="java.util.HashSet">
+<item idref="32"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="27"/>
+</item>
+<item idref="217"/>
+</sources>
+<targets id="221" type="java.util.HashSet">
+<item idref="25"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="8"/>
+</item>
+</sources>
+<targets id="222" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+</sources>
+<targets id="223" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="224">Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="225">KYTL_GC</lastChangeUser>
+<lastUpdate id="226">2023-08-26T08:50:37.000+0200</lastUpdate>
+<name id="227">Sub_Load</name>
+<optimize>true</optimize>
+<parameter id="228" type="java.util.HashMap">
+<entry>
+<key id="229" type="java.lang.String">Message</key>
+<value id="230" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="231">com.j2fe.transport.Message</className>
+<clazz>com.j2fe.transport.Message</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="232" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="139"/>
+<status>RELEASED</status>
+<variables id="233" type="java.util.HashMap">
+<entry>
+<key id="234" type="java.lang.String">Message</key>
+<value id="235" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="236">com.j2fe.transport.Message</className>
+<clazz>com.j2fe.transport.Message</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+</variables>
+<version>13</version>
+</com.j2fe.workflow.definition.Workflow>
