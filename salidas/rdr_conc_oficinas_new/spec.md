@@ -43,10 +43,12 @@ confirmado por la configuración real de Control-M.
 * **Ámbito funcional:** monitoreo de llegada, conciliación y carga en RDR del fichero de oficinas, con
   historificación local y cierre de cadena.
 * **Ámbito técnico:** la cadena Control-M `RDR_CONC_OFICINAS_new` completa (4 pasos).
-* **Fuera de alcance** (detalle completo en §8.2): contenido interno de los jars/scripts invocados
-  (`ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar`, `LimpiarOficinas`, `Delta`, `Unix2Dos`); el
-  significado exacto del código de retorno 7 del filewatcher; la cadena `RDR_CARGA_PLAZAS_TRAD_new` (no
-  documentada en el fuente); las cadenas downstream de informe/simulación de cierre.
+* **Fuera de alcance** (detalle completo en §8.2): contenido interno de `LimpiarOficinas`, `RDR_Report.jar`,
+  `Unix2Dos`, y la lógica de mapeo de campos dentro de `ControlCargaDatos.jar` (existencia y estructura ya
+  confirmadas, contenido bytecode no decompilado); el jar `compare.jar` (invocado por `Delta.sh`, recién
+  identificado, no aportado); el significado exacto del código de retorno 7 del filewatcher; la cadena
+  `RDR_CARGA_PLAZAS_TRAD_new` (no documentada en el fuente); las cadenas downstream de informe/simulación de
+  cierre.
 
 ## 3. Requisitos detectados
 
@@ -55,7 +57,8 @@ confirmado por la configuración real de Control-M.
 | R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 240 min/4h) — comando confirmado literalmente en el export real de Control-M. |
 | R1b | Día de ejecución confirmado por **2 fuentes independientes** (documento funcional + ficha oficial EX-005-02): **martes a sábado**. Calendario `RDR_FEST_HOST` confirmado en el export real. |
 | R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. |
-| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta, carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
+| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta (código real de `Delta.sh` confirmado, ver R3b), carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
+| R3b | **`Delta.sh` (código real, confirmado) es un motor genérico compartido** (autor "NFOQUE", 2015 — no específico de oficinas, parametrizado por `$MOD_EJECUCION`), invocado con `Delta="Si"`: compara el fichero de entrada contra la copia del día anterior (`old/$MOD_EJECUCION.csv`) mediante una clase Java (`es.bbva.kytl.scripts.Compare`, jar `compare.jar`, no aportado) y deja en `$FILE_CARGA` **solo las filas incrementales**, moviendo el fichero completo del día a `/old/` como nueva base de comparación. Si no existe copia anterior (primera carga), la genera vacía, de forma que el "delta" es el fichero completo. **Mecanismo de seguridad ante relanzamiento (`marcha_atras`):** si el fichero de carga y el `_old` de backup tienen marcas de tiempo con menos de 5 segundos de diferencia, asume que el delta ya se ejecutó y restaura los ficheros de backup en vez de recalcular — evita duplicar el delta en un relanzamiento inmediato. |
 | R4 | `MEKYTL0242` historifica `oficinas.csv` a `oficinas_yyyymmdd.csv` en `/fichtemcomp/pr/descargas/kytl/oficinas/old/` (mismo servidor origen/destino). **La tolerancia a fichero ausente no tiene ningún override visible a nivel de Control-M** (a diferencia de varios jobs de `RDR_REUBICACION_new` — ver ese documento) — si es real, debe implementarse dentro del propio `RAMERC0068.sh` (mismo patrón ya confirmado en otros procesos de esta sesión: el script detecta la ausencia y sale con código 0). |
 | R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. **Confirmado en Control-M real: `TASKTYPE="Job"`** (no es un Dummy de Control-M, es una invocación real de `MEGENV0001.sh`) — mismo patrón que `MEKYTL0234` de `RDR_REUBICACION_new`. Igual que R4, no tiene override `NOTOK→OK` visible a nivel de Control-M; su tolerancia (si es real) debe ser interna al script. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
 | R6 | Cada uno de los 4 pasos consume 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100, confirmado en Control-M real) — un recurso compartido con otras cadenas de esta familia (ver `RDR_REUBICACION_new`), que limita la concurrencia total entre ellas. |
@@ -72,8 +75,19 @@ confirmado por la configuración real de Control-M.
 4. El fichero de trabajo se historifica a `/old/` con sufijo de fecha.
 5. Una transmisión XCOM formalmente configurada a un destino inerte cierra la cadena.
 
-**Entidad de negocio:** `Oficina`/`OFC` — oficinas/plazas de la red BBVA cargadas y conciliadas en RDR. El
-diccionario de campos de `oficinas.csv` no está documentado en el fuente (fuera de alcance, §8.2).
+**Entidad de negocio:** `Oficina`/`OFC` — oficinas/plazas de la red BBVA cargadas y conciliadas en RDR.
+
+**Diccionario de campos de `oficinas.csv` (confirmado con fichero real de producción):** 134 campos
+delimitados por `;`, con cabecera en la primera línea. Entre los más relevantes: `CODCSB`/`CODOFI` (código de
+banco/oficina), `DNOMCO`/`DNOMAB` (denominación completa/abreviada), `DDOMIC`/`CODPOS` (domicilio/código
+postal), `CTEL01`/`CTEL02`/`CFAX` (teléfonos), `SSWITF` (código SWIFT/BIC), `FAPERT`/`FCIERR` (fecha de
+apertura/cierre de la oficina), pares banco/oficina relacionados (`CBACIE`/`COFCIE` cierre, `CBAMUT`/`COFMUT`
+mutación, `CBACOM`/`COFCOM` comercial, `CBALIQ`/`COFLIQ` liquidador — su distinción funcional exacta no está
+confirmada: en la muestra real, 2 oficinas con `FCIERR` poblado tienen `CBAMUT`/`COFMUT` vacíos y solo
+`CBACOM`/`COFCOM` poblados, así que no se puede asumir sin más evidencia que `CBAMUT`/`COFMUT` sea el
+"destino de reubicación"), y 18 grupos repetidos `CACTnn`/`FCAMnn`/`CNUEnn` (histórico de cambios de
+código/actividad de la oficina). Contiene datos reales de producción (~680 líneas/oficinas en la muestra
+aportada).
 
 ## 5. Especificación técnica
 
@@ -113,6 +127,7 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 - `borde`: TC-006 (paso 4 sin fichero a transmitir — debe continuar sin fallar).
 - `regresion`: TC-007 (confirmar que el paso 4 sigue configurado contra un destino inerte y no transmite datos reales).
 - `regresion`: TC-008 (topología completa de 4 pasos y consumo del recurso `MAX-LPRDR501`).
+- `conflicto_integridad`: TC-009 (mecanismo de seguridad `marcha_atras` de `Delta.sh` ante relanzamiento inmediato).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -124,6 +139,7 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 | R4 (historificación tolerante) | TC-005 | Confirma que la ausencia de fichero no detiene la cadena |
 | R5 (transmisión a destino inerte) | TC-006, TC-007 | Confirma la tolerancia a fallos y que no hay transferencia real |
 | R6 (recurso compartido) | TC-008 | Confirma el consumo del recurso `MAX-LPRDR501`, compartido con `RDR_REUBICACION_new` |
+| R3b (marcha_atras de Delta.sh) | TC-009 | Confirma que un relanzamiento inmediato no duplica ni corrompe el cálculo del delta |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -151,7 +167,11 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 * **Confirmación del mecanismo interno de tolerancia a fichero ausente** de `MEKYTL0242`/`MEKYTL0243` (R4/R5)
   — no hay override a nivel de Control-M, así que si es real debe vivir dentro de los scripts
   `RAMERC0068.sh`/`MEGENV0001.sh`, cuyo contenido no ha sido aportado en esta ronda.
-* **Diccionario de campos de `oficinas.csv`** — no documentado en el fuente.
+* **Jar `compare.jar`** (clase `es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) — recién identificado
+  en esta ronda, no aportado; contiene la lógica real de comparación fila a fila entre el fichero del día y
+  el del día anterior.
+* **Significado funcional exacto de los pares `CBAMUT`/`COFMUT` vs. `CBACOM`/`COFCOM`** en `oficinas.csv`
+  (ver R3/§4) — estructura confirmada, semántica de negocio no.
 * **`RDR_CARGA_PLAZAS_TRAD_new`** — el documento fuente declara cubrir esta cadena junto con las otras 2, pero
   no incluye ninguna sección para ella. No se ha creado especificación; pendiente de que se aporte la parte
   del documento (o equivalente) que la describe.
@@ -167,6 +187,10 @@ más relevante — el salto controlado que cierra la cadena sin ejecutar la conc
 ser una hipótesis documental a un hecho confirmado por la configuración viva de Control-M (RISK-CONOFI-001);
 solo queda pendiente, no bloqueante, confirmar qué condición real produce el código 7 (TC-002). También queda
 confirmado que el paso 4 es un job real (`TASKTYPE="Job"`) contra un destino inerte, no un Dummy de Control-M
-— mismo patrón que su equivalente en `RDR_REUBICACION_new`. Los elementos que siguen sin material propio
-(contenido interno de jars/scripts, causa del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del
-documento fuente) quedan listados en §8.2 como fuera de alcance.
+— mismo patrón que su equivalente en `RDR_REUBICACION_new`. Esta ronda añade además el código real de
+`Delta.sh` (un motor genérico de cálculo incremental compartido, con un mecanismo de seguridad ante
+relanzamiento inmediato) y el diccionario completo de campos de `oficinas.csv` (134 campos, confirmado con
+fichero real de producción). Los elementos que siguen sin material propio (contenido interno de
+`ControlCargaDatos.jar`/`compare.jar`/`RDR_Report.jar`/`LimpiarOficinas`/`Unix2Dos`, causa del código 7, y la
+cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de
+alcance.

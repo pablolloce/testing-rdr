@@ -4,17 +4,23 @@
 
 - Fichero `oficinas.csv` disponible en `/fichtemcomp/pr/descargas/kytl/oficinas/` dentro de la ventana de
   monitoreo (madrugada, martes a sábado, calendario `RDR_FEST_HOST`).
-- Diccionario de campos de `oficinas.csv` no documentado en el fuente — cualquier prueba de contenido debe
-  basarse en un fichero real de producción, no en una estructura asumida.
+- **Diccionario de campos confirmado con fichero real** (134 campos delimitados por `;` — ver `spec.md` §4).
+  No confirmado el significado funcional exacto de `CBAMUT`/`COFMUT` vs. `CBACOM`/`COFCOM` — no diseñar
+  pruebas que asuman cuál de los 2 pares identifica el destino de una reubicación sin confirmarlo con
+  negocio.
+- Fichero histórico `old/$MOD_EJECUCION.csv` (`old/oficinas.csv`) debe existir para que `Delta.sh` calcule un
+  delta real; si no existe, la primera ejecución trata el fichero completo como delta (comportamiento
+  confirmado, no un error).
 
 ## Configuración e infraestructura
 
 - Cadena Control-M `KYTL0000-RDR_CONC_OFICINAS_new` dada de alta y activa, servidor `MERCADOS-4`, host
   `pr-rdr.igrupobbva`.
-- Motor `GSProcess.sh` operativo para `PARM1=oficinas` (invoca `LimpiarOficinas`, `Delta`,
-  `ControlCargaDatos.jar`, `javacsv.jar`, carga MDX en la entidad `Oficina`/`OFC`, `RDR_Report.jar`,
-  `Unix2Dos`) — contenido interno no aportado (no bloqueante para probar la topología, sí para validar el
-  detalle de mapeo de campos).
+- Motor `GSProcess.sh` operativo para `PARM1=oficinas` (invoca `LimpiarOficinas`, `Delta.sh` — código real
+  aportado y analizado, ver `spec.md` R3b —, `ControlCargaDatos.jar`/`javacsv.jar` — existencia y estructura
+  de paquete confirmadas, `com.bbva.kytl:ControlCargaDatos` con clases `ControlCase`/`ControlCase_ant` —,
+  carga MDX en la entidad `Oficina`/`OFC`, `RDR_Report.jar`, `Unix2Dos`). El jar `compare.jar`
+  (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) sigue sin aportar.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con

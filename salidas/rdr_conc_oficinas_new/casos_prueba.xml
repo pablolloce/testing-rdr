@@ -160,4 +160,25 @@
     <posibilidadFallo>La aparición de contención real de recursos entre ambas cadenas debe documentarse como riesgo operativo.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Mecanismo de seguridad ante relanzamiento inmediato en Delta.sh (marcha_atras)</nombre>
+    <objetivo>Confirmar que, si el paso 2 (KYTL_CONOFI_GSPROCESS) se relanza inmediatamente después de una ejecución previa, Delta.sh detecta la ejecución reciente (menos de 5 segundos entre las marcas de tiempo del fichero de carga y su backup _old) y restaura los ficheros de backup en vez de recalcular el delta contra sí mismo.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución previa reciente (menos de 5 segundos) de KYTL_CONOFI_GSPROCESS, relanzada manualmente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ventana de detección" valor="5 segundos entre marcas de tiempo"/>
+      <dato campo="Función real" valor="marcha_atras() en Delta.sh"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_CONOFI_GSPROCESS con un fichero real.</paso>
+      <paso numero="2">Relanzar inmediatamente (dentro de los 5 segundos) sin recibir un nuevo fichero.</paso>
+      <paso numero="3">Confirmar en el log que Delta.sh detecta el relanzamiento y ejecuta marcha_atras (restauración de backups) en vez de recalcular el delta.</paso>
+    </pasos>
+    <resultadoEsperado>El relanzamiento inmediato no duplica el cálculo del delta ni corrompe el histórico de comparación (old/).</resultadoEsperado>
+    <tipoValidacion>Inspección del log de Delta.sh + verificación del contenido de los ficheros old/ tras el relanzamiento.</tipoValidacion>
+    <criterioAceptacion>Restauración correcta sin duplicar filas ni corromper el fichero de comparación.</criterioAceptacion>
+    <posibilidadFallo>Si el relanzamiento recalcula el delta contra el fichero ya procesado, podría producir un delta vacío o incorrecto, o corromper el histórico de comparación para el día siguiente.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>
