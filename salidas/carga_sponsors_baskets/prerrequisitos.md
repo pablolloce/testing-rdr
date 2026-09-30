@@ -16,8 +16,10 @@
   `/fichtemcomp/pr/descargas/kytl/issues/Baskets/Sponsors/MANUAL/` — no hay proceso automático de generación
   documentado para esta vía.
 - Script real `RDR_CargaBasketSponsor.sh` operativo en `/{env}/kytl/online/multipais/multicanal/scrt/` —
-  aportado y analizado en esta ronda (ver `spec.md` §6.2). `RDR_Sponsor_PreProcess.sh` y `RDR_SponsorSplit.sh`
-  siguen sin aportar (no bloqueante).
+  aportado y analizado. `RDR_Sponsor_PreProcess.sh` y `RDR_SponsorSplit.sh` siguen sin aportar (no
+  bloqueante). Segundo workflow GoldenSource `Load_Baskets_Sponsors.wkf` (resuelve GAP-BASKSP-009) también
+  aportado y analizado (ver `spec.md` §6.2) — valida el XML de entrada contra `BasketsSponsorsFormatoUnico.xsd`
+  y XSD debe estar desplegado y accesible por el motor GoldenSource.
 
 ## Configuración e infraestructura
 
@@ -25,8 +27,10 @@
   `KYTL0000-RDR_HIST_BASKETS_SPONSORS` (método de ejecución `PLAN_1200`), `KYTL0000-RDR_LOAD_SPONSOR_MANUAL`
   (05:00 AM) — todas L-M-X-J-V, servidor `pr-rdr.igrupobbva`.
 - Workflow GoldenSource `Auto_Load_Basket_Sponsors` (grupo `Custom/RDR/Fileloading/Issues/Baskets`) desplegado
-  y en estado `RELEASED`. Segundo workflow `RDR_CargaBasketSponsor` (invocado por el script del mismo nombre)
-  también debe estar desplegado — no confirmado directamente en esta ronda (GAP-BASKSP-009).
+  y en estado `RELEASED`. Segundo workflow real `Load_Baskets_Sponsors` (invocado por el script bajo el
+  nombre `RDR_CargaBasketSponsor`, vía un `.properties` no aportado — mismo patrón de nomenclatura ya visto
+  en otros procesos de esta sesión) también debe estar desplegado — confirmado con alta confianza por
+  evidencia cruzada (GAP-BASKSP-009 resuelto).
 - Conectividad Connect:Direct/XCOM operativa entre `pr-rdr.igrupobbva` y `XCOMWPMER`, con acceso de escritura
   a `\\S00371F2\DATOS\TRANSFTP\MVP00G207\Mx3FRTB\SponsorETFsRDR\` (Cadena 3).
 - Carpetas `.../Sponsors/{sponsor}/old/` disponibles y con permisos de escritura para los 9 destinos reales
@@ -59,5 +63,12 @@
 - **Importante:** `MEKYTL0988` corresponde al sponsor `BME`, no a "Cestas Generales" — verificar que
   cualquier caso de prueba o documentación adicional use la etiqueta correcta.
 - **Importante:** `FT_T_ISST.STAT_CHAR_VAL_TXT` (`STAT_DEF_ID='B_OPNRES'`) solo debe tomar 3 valores reales
-  confirmados: `OK`, `ERROR`, `NOT_LOADED` — no es una variable colgante (GAP-BASKSP-004 resuelto). Un valor
+  confirmados: `OK`, `ERROR`, `NOT_LOADED` — no es una variable colgante (GAP-BASKSP-004 resuelto, y ahora
+  también confirmado con el código fuente exacto en `Load_Baskets_Sponsors.wkf`, GAP-BASKSP-009). Un valor
   nulo o distinto en una prueba futura sería una regresión a investigar, no el comportamiento esperado.
+- **Importante:** una cesta cuyo identificador no resuelve en `FT_T_ISID` no debe generar carga real
+  (`okToLoad=false` corta el flujo antes de `Carga MDX`, ver TC-013) — no asumir que cualquier fichero XML
+  válido produce una carga real solo por pasar la validación XSD.
+- **Nota, no bloqueante:** existe una vía de recarga manual por email (`RELOAD_BASKETS_SPONSORS`) en
+  `Load_Baskets_Sponsors.wkf` sin documentar en ningún otro material (GAP-BASKSP-010). No forma parte del
+  flujo automático a probar, pero conviene tenerla presente si aparece evidencia adicional en el futuro.
