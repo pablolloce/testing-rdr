@@ -24,6 +24,11 @@
   paquete `rdr_report`, parametrizado por `select_1.properties` — **confirmado esta ronda**, ver `spec.md`
   R3e). El jar `compare.jar` (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) **confirmado esta
   ronda** — clase exacta verificada por manifiesto/estructura, algoritmo interno (bytecode) no decompilado.
+- `RAMERC0068.sh` operativo para `MEKYTL0242` (historificación) — **código real confirmado esta ronda**:
+  motor genérico compartido con otros procesos del audit, cuya tolerancia real a fichero ausente depende del
+  campo `FALLASINOFICHS` de la fila de configuración de la clave invocada en
+  `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`; cualquier otro valor = tolera).
+  **El valor concreto configurado para `MEKYTL0242` no ha sido aportado** — ver `spec.md` R4b.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con

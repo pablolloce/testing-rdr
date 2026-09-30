@@ -166,21 +166,23 @@
 
   <casoDePrueba id="TC-009" tipo="conflicto_integridad">
     <nombre>Fallo real de MEKYTL0111 o MEKYTL0122 — Force-OK confirmado no documentado en el funcional original</nombre>
-    <objetivo>Confirmar el impacto real de un fallo en la transmisión del reporte (MEKYTL0111) o en la propia historificación final (MEKYTL0122), dado que el export real de Control-M confirma que ambos tienen un override NOTOK-&gt;OK que el documento funcional original no mencionaba.</objetivo>
+    <objetivo>Confirmar el impacto real de un fallo en la transmisión del reporte (MEKYTL0111) o en la propia historificación final (MEKYTL0122), dado que el export real de Control-M confirma que ambos tienen un override NOTOK-&gt;OK que el documento funcional original no mencionaba. Para MEKYTL0122, el código real de RAMERC0068.sh confirma además un mecanismo de fallo concreto y conocido ante fichero ausente: exit 6 si FALLASINOFICHS=0 para esta clave (ver spec.md R7b) — este caso debe confirmar si ese es realmente el valor configurado.</objetivo>
     <precondiciones>
-      <precondicion>Capacidad de provocar un fallo real en MEKYTL0111 (p. ej. XCOMWPMER no disponible) y, por separado, en MEKYTL0122 (p. ej. permisos de escritura en /old/ revocados).</precondicion>
+      <precondicion>Capacidad de provocar un fallo real en MEKYTL0111 (p. ej. XCOMWPMER no disponible) y, por separado, en MEKYTL0122 (p. ej. Reubicacion.csv ausente en el momento de la ejecución, o permisos de escritura en /old/ revocados).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Override confirmado" valor="ON STMT=&quot;*&quot; CODE=&quot;NOTOK&quot; -&gt; DOACTION ACTION=&quot;OK&quot;, presente en ambos jobs"/>
+      <dato campo="Mecanismo real confirmado en MEKYTL0122" valor="RAMERC0068.sh: FALLASINOFICHS=0 -&gt; exit 6 ante fichero ausente"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar un fallo real en MEKYTL0111 y confirmar que Control-M lo marca OK igualmente.</paso>
       <paso numero="2">Confirmar si, pese al Force-OK, el reporte real llegó o no a XCOMWPMER.</paso>
-      <paso numero="3">Repetir el escenario provocando un fallo real en MEKYTL0122 y confirmar si el fichero llegó o no realmente a /old/.</paso>
+      <paso numero="3">Repetir el escenario provocando la ausencia de Reubicacion.csv antes de MEKYTL0122 y confirmar en el log de RAMERC0068.sh si termina con exit 6 (según el valor real de FALLASINOFICHS para esta clave) pese a que Control-M lo marque OK.</paso>
+      <paso numero="4">Confirmar si el fichero llegó o no realmente a /old/ en ese escenario.</paso>
     </pasos>
-    <resultadoEsperado>En ambos casos Control-M marca OK pese al fallo real; se documenta si el efecto real (transmisión/historificación) ocurrió o no pese al estado verde.</resultadoEsperado>
-    <tipoValidacion>Provocación de fallo controlado + verificación directa del efecto real (fichero en destino/en /old/).</tipoValidacion>
-    <criterioAceptacion>Comportamiento real documentado sin ambigüedad, confirmando el alcance real de RISK-REUB-002.</criterioAceptacion>
+    <resultadoEsperado>En ambos casos Control-M marca OK pese al fallo real; se documenta si el efecto real (transmisión/historificación) ocurrió o no pese al estado verde, y se confirma el valor real de FALLASINOFICHS para MEKYTL0122.</resultadoEsperado>
+    <tipoValidacion>Provocación de fallo controlado + verificación directa del efecto real (fichero en destino/en /old/) + inspección del log de RAMERC0068.sh.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado sin ambigüedad, confirmando el alcance real de RISK-REUB-002 y el valor de FALLASINOFICHS para esta clave.</criterioAceptacion>
     <posibilidadFallo>Si el fallo real no deja ningún rastro visible (ni en logs ni en alertas) pese a no haberse completado la transmisión/historificación real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
   </casoDePrueba>
 

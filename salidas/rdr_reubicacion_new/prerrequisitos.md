@@ -18,6 +18,12 @@
   `INACTIVEPEND` (ver `spec.md` R3b-bis, RISK-REUB-006/007).
 - Fichero `select_1.properties` operativo — confirma la consulta y cabecera reales de `Reporte_Reubicacion.csv`
   (`queryReubicacion`/`cabeceraReubicacion`), fichero compartido con al menos otros 7 procesos del audit.
+- `RAMERC0068.sh` operativo para `MEKYTL0122` (historificación) — **código real confirmado esta ronda**:
+  mismo motor genérico compartido con `MEKYTL0242` en `rdr_conc_oficinas_new`; su tolerancia real a
+  `Reubicacion.csv` ausente depende del campo `FALLASINOFICHS` de la fila de configuración de la clave
+  `MEKYTL0122` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`, enmascarado
+  igualmente por el Force-OK de Control-M ya confirmado). **El valor concreto configurado para `MEKYTL0122`
+  no ha sido aportado** — ver `spec.md` R7b.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM, 3 invocaciones
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia

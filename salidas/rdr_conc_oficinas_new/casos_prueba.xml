@@ -84,22 +84,24 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
-    <nombre>Historificación (MEKYTL0242) sin fichero origen</nombre>
-    <objetivo>Confirmar que el paso de historificación no falla si oficinas.csv no existe en el momento de su ejecución.</objetivo>
+    <nombre>Historificación (MEKYTL0242) sin fichero origen — mecanismo real FALLASINOFICHS confirmado</nombre>
+    <objetivo>Confirmar el comportamiento real de RAMERC0068.sh cuando oficinas.csv no existe en el momento de ejecutar MEKYTL0242. El código real confirma que esto NO es un "continúa siempre sin fallar": depende del valor configurado de FALLASINOFICHS para la clave MEKYTL0242 en /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX (0 = exit 6 real; cualquier otro valor = tolera). Este caso debe determinar cuál de los 2 comportamientos aplica realmente a este job.</objetivo>
     <precondiciones>
       <precondicion>Escenario donde oficinas.csv ya no existe cuando se ejecuta MEKYTL0242 (p. ej. borrado previo).</precondicion>
+      <precondicion>Acceso de lectura a la fila de configuración de la clave MEKYTL0242 en INFORMACION_HISTORIFICACIONES.IDX, o capacidad de observar el resultado real en ejecución.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Regla de tolerancia" valor="Si no existe fichero de origen a enviar, el script no debe fallar"/>
+      <dato campo="Mecanismo confirmado (código real)" valor="FALLASINOFICHS=0 -&gt; exit 6 (fallo real); distinto de 0 -&gt; tolera sin fallar"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar la ausencia del fichero origen antes de la ejecución de MEKYTL0242.</paso>
-      <paso numero="2">Confirmar que el job termina OK sin fallar.</paso>
+      <paso numero="2">Confirmar en el log de RAMERC0068.sh si el job termina con exit 6 (fallo real) o continúa sin error.</paso>
+      <paso numero="3">Si es posible, confirmar directamente el valor de FALLASINOFICHS configurado para la clave MEKYTL0242.</paso>
     </pasos>
-    <resultadoEsperado>El job termina OK pese a la ausencia del fichero.</resultadoEsperado>
-    <tipoValidacion>Estado OK en Control-M.</tipoValidacion>
-    <criterioAceptacion>Sin fallo ante fichero ausente.</criterioAceptacion>
-    <posibilidadFallo>Un KO en este escenario contradice la regla de tolerancia documentada.</posibilidadFallo>
+    <resultadoEsperado>Comportamiento real documentado sin ambigüedad: o bien el job falla realmente (exit 6) ante la ausencia del fichero, o bien continúa — dependiendo del valor real de FALLASINOFICHS, ya no una suposición genérica.</resultadoEsperado>
+    <tipoValidacion>Inspección del log de RAMERC0068.sh + valor real de FALLASINOFICHS si es accesible.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real confirmado con evidencia directa, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Si FALLASINOFICHS=0 para esta clave, un KO real ante fichero ausente es el comportamiento correcto, no un defecto — hay que documentarlo como tal en vez de asumir tolerancia universal.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="borde">

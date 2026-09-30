@@ -6,8 +6,9 @@
 > originales), **export real de Control-M del folder completo** (`Workspace_589_2.xml`), y los motores reales
 > `Unix2Dos.sh`, `RDR_Report.jar`, `PLSQL_Load.wkf` (identificado con alta confianza como el workflow real
 > detrás de `Workflow(RDR_Reubicacion)`), **`Sub_Load.wkf`** (sub-workflow con la lógica real de negocio/PL·SQL,
-> procedimiento `REUBICACION` completo) y **`select_1.properties`** (fichero de reporting real, confirma la
-> consulta y cabecera exactas de `Reporte_Reubicacion.csv`). Detalle completo de evidencia en
+> procedimiento `REUBICACION` completo), **`select_1.properties`** (fichero de reporting real, confirma la
+> consulta y cabecera exactas de `Reporte_Reubicacion.csv`) y **`RAMERC0068.sh`** (motor genérico de
+> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0122`). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
@@ -126,6 +127,7 @@ nuevos TC-011 a TC-014.
 | R5 | `MEKYTL0234` transmite por XCOM `Reubicacion.csv` hacia `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` — según el documento, un destino deliberadamente inerte ("no debe ejecutarse"). **Confirmado en Control-M real: `TASKTYPE="Job"`** (no Dummy), con el mismo override `NOTOK→OK` que R4. Único matiz real: `MAXWAIT="0"` (frente a `3` en el resto de jobs) — sin reintento de espera de recursos. |
 | R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F200G215`. Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. **Hallazgo no documentado en el documento funcional original, confirmado en Control-M real:** este job **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — el documento solo atribuía esta tolerancia a `MEKYTL0233`/`MEKYTL0234`, pero en producción también aplica a la transmisión del reporte real. |
 | R7 | `MEKYTL0122` es el punto de convergencia (Fan-In): exige la confluencia simultánea de los 3 eventos `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` (los 3 `INCOND` con `AND_OR="A"`, confirmado literalmente) antes de historificar `Reubicacion.csv` → `/old/`. **Hallazgo adicional confirmado en Control-M real, no mencionado en el documento funcional:** `MEKYTL0122` **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — un fallo real del propio paso de historificación también se fuerza a OK. Su evento de salida es el prerrequisito temporal de la difusión de cierre (confirmado en la ficha EX-005-02: sucesor real `RDR_DIFUSION_BATCH_IN`). |
+| R7b | **`RAMERC0068.sh` (código real, confirmado esta ronda, mismo motor genérico compartido con `MEKYTL0242` en `rdr_conc_oficinas_new`):** invocado como `RAMERC0068.sh MEKYTL0122`, su tolerancia real a la ausencia de `Reubicacion.csv` en el momento de historificar **no es automática** — depende del campo `FALLASINOFICHS` de la fila de configuración de la clave `MEKYTL0122` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`: si es `0`, el script termina con **`exit 6` (fallo real)**; con cualquier otro valor, tolera sin error. **Esto se combina con el Force-OK de Control-M ya confirmado** (`NOTOK`→`OK`): si `FALLASINOFICHS=0` para esta clave, un ciclo sin `Reubicacion.csv` disponible produciría un fallo real y concreto (`exit 6`) del script, que Control-M enmascararía igualmente como OK — una confirmación más precisa de RISK-REUB-002, ya no solo "podría fallar sin más detalle". El valor real configurado para `MEKYTL0122` no ha sido aportado. |
 | R8 | Todos los pasos consumen 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) — compartido con `RDR_CONC_OFICINAS_new`, confirmado en Control-M real. |
 | R9 | Grupo de soporte: **campo "Rearranques" vacío en la ficha EX-005-02** — a diferencia de `RDR_CONC_OFICINAS_new`, no hay un procedimiento de rearranque documentado formalmente para esta cadena (ver §8.1). Criticidad **W** confirmada; máximo de relanzamientos **0** confirmado en los 6 jobs (`MAXRERUN="0"`); `User Daily` de carga `PLAN_1200` confirmado; periodicidad "A petición, según el calendario de cierre de oficinas" (ficha EX-005-02), coherente con el `DAYSCAL="RDR_CIERREOFI"` real. |
 
@@ -222,7 +224,7 @@ a que el diseño original pedía eliminarla.
 | R4, R5 (Force-OK de las 2 ramas XCOM) | TC-004, TC-005 | Confirma que un fallo real en cualquiera de las 2 ramas no bloquea el fan-in |
 | R5 (MEKYTL0234 ejecuta de verdad contra destino inerte) | TC-003 | Confirma en ejecución real el comportamiento del script, no solo su TASKTYPE |
 | R6 (Force-OK de MEKYTL0111, no documentado en el funcional original) | TC-009 | Confirma el impacto de un fallo real en la transmisión del reporte |
-| R7 (Fan-In estricto de 3 eventos + Force-OK del propio MEKYTL0122) | TC-007, TC-009 | Confirma que el fan-in no arranca con solo 2 de 3 eventos, y el impacto de un fallo real en la propia historificación |
+| R7, R7b (Fan-In estricto de 3 eventos + Force-OK y mecanismo real FALLASINOFICHS de MEKYTL0122) | TC-007, TC-009 | Confirma que el fan-in no arranca con solo 2 de 3 eventos, y el impacto real de un fallo (incluido `exit 6` si aplica) en la propia historificación |
 | R8 (recurso compartido) | TC-008 | Confirma el consumo de MAX-LPRDR501 compartido con RDR_CONC_OFICINAS_new |
 | R7 (dependencia MEKYTL0122→MEKYTL0234 pese al diseño) | TC-010 | Confirma si es intencional o un defecto no corregido (RISK-REUB-004) |
 | R3b-bis (procedimiento REUBICACION: reasignación de contrapartidas) | TC-011 | Confirma la reasignación real de relaciones y el estado final INACTIVEPEND |
@@ -246,7 +248,11 @@ a que el diseño original pedía eliminarla.
   el funcional original (que solo atribuía Force-OK a las 2 ramas XCOM `0233`/`0234`): también la transmisión
   del reporte real (`MEKYTL0111`) y **la propia historificación final** (`MEKYTL0122`) pueden fallar realmente
   sin que Control-M lo refleje como error — el cierre "exitoso" de la cadena no garantiza que el fichero se
-  haya historificado de verdad.
+  haya historificado de verdad. **Precisado esta ronda con el código real de `RAMERC0068.sh` (R7b):** si el
+  campo `FALLASINOFICHS` configurado para la clave `MEKYTL0122` es `0`, la ausencia real de `Reubicacion.csv`
+  en el momento de historificar produce un fallo concreto y real del script (`exit 6`), que el Force-OK de
+  Control-M enmascara igualmente — ya no una posibilidad genérica, sino un mecanismo de fallo real conocido
+  (aunque el valor configurado en sí sigue sin confirmar).
 * **RISK-REUB-004 [nuevo, prioridad alta, confirmado comparando la ficha de diseño con Control-M real]:** la
   ficha oficial EX-005-02 de esta cadena documenta explícitamente, como instrucción de diseño, que **"MEKYTL0122
   no debe tener dependencia de MEKYTL0234"**. El export real de Control-M confirma que esa dependencia **sigue
@@ -273,6 +279,9 @@ a que el diseño original pedía eliminarla.
 * **Contenido interno de `ControlCargaDatos.jar`** y del script `LimpiarReubicacion`.
 * **Significado exacto del código de retorno 7** del filewatcher (mismo punto abierto que en
   `RDR_CONC_OFICINAS_new`).
+* **Valor real configurado de `FALLASINOFICHS`** para la clave `MEKYTL0122` en
+  `INFORMACION_HISTORIFICACIONES.IDX` — el mecanismo de `RAMERC0068.sh` ya está confirmado con código real
+  (R7b), no el valor concreto configurado para este job.
 * **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
   causa (¿instrucción no implementada?, ¿dependencia re-añadida después?).
 * **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
@@ -306,7 +315,12 @@ contrapartida (`TRADES_WITH`/`RISKPYME`) hacia la oficina destino y deja la ofic
 `INACTIVEPEND` (no `INACTIVE` directo) — con manejo de 4 excepciones controladas que no detienen el lote
 (RISK-REUB-006, RISK-REUB-007). También se confirmó `select_1.properties`, cuya consulta `queryReubicacion`
 coincide literalmente con los valores (`RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='REUBICACION'`) usados en los
-`INSERT` del propio `Sub_Load` — 2 fuentes independientes que se corroboran entre sí. Los elementos que siguen
-sin material propio (`ControlCargaDatos.jar`/`LimpiarReubicacion`, causa del código 7, motivo de la
-discrepancia RISK-REUB-004, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan
-listados en §8.2 como fuera de alcance.
+`INSERT` del propio `Sub_Load` — 2 fuentes independientes que se corroboran entre sí. **También se aportó
+`RAMERC0068.sh`** (motor genérico compartido con `MEKYTL0242` en `rdr_conc_oficinas_new`): confirma que la
+tolerancia de `MEKYTL0122` a la ausencia de `Reubicacion.csv` no es automática, sino que depende del campo
+`FALLASINOFICHS` de su fila de configuración (`0` = fallo real `exit 6`, enmascarado igualmente por el
+Force-OK de Control-M) — precisa RISK-REUB-002 con un mecanismo de fallo concreto en vez de una posibilidad
+genérica (R7b). Los elementos que siguen sin material propio (`ControlCargaDatos.jar`/`LimpiarReubicacion`,
+causa del código 7, motivo de la discrepancia RISK-REUB-004, el valor real de `FALLASINOFICHS` para
+`MEKYTL0122`, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2
+como fuera de alcance.
