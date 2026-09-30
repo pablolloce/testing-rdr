@@ -120,24 +120,43 @@
     <posibilidadFallo>La aparición de un 4º job (p. ej. una transmisión XCOM) sería un cambio estructural relevante a documentar.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
-    <nombre>Confirmación de la ruta y nombre real de fichero generado por MEKYTL0129</nombre>
-    <objetivo>Confirmar la ruta y nombre de fichero real de destino de la historificación de MEKYTL0129, actualmente inferidos por analogía con MEKYTL0242 (old/TradPlazas_yyyymmdd.csv), sin una ficha EX-005-03 propia que lo confirme.</objetivo>
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación en ejecución real de la ruta y nombre de fichero generado por MEKYTL0129</nombre>
+    <objetivo>Confirmar en una ejecución real que MEKYTL0129 genera TradPlazas_yyyymmdd.csv en /fichtemcomp/pr/descargas/kytl/TradPlazas/old/, tal como confirma la ficha real EX-005-03 (ya no una inferencia por analogía con MEKYTL0242).</objetivo>
     <precondiciones>
-      <precondicion>Acceso a una ejecución real de MEKYTL0129, o a su ficha EX-005-03 si se llega a aportar.</precondicion>
+      <precondicion>Acceso a una ejecución real o de prueba de MEKYTL0129.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Ruta inferida (no confirmada)" valor="/fichtemcomp/pr/descargas/kytl/TradPlazas/old/TradPlazas_yyyymmdd.csv"/>
+      <dato campo="Ruta confirmada (ficha EX-005-03)" valor="/fichtemcomp/pr/descargas/kytl/TradPlazas/old/TradPlazas_yyyymmdd.csv"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar el paso 3 en un ciclo real o de prueba.</paso>
-      <paso numero="2">Confirmar la ruta y nombre de fichero real generado.</paso>
-      <paso numero="3">Confirmar si coincide con la ruta inferida por analogía.</paso>
+      <paso numero="2">Confirmar que el fichero generado coincide exactamente con la ruta y nombre de la ficha EX-005-03.</paso>
     </pasos>
-    <resultadoEsperado>Ruta real confirmada, cerrando la inferencia por analogía.</resultadoEsperado>
-    <tipoValidacion>Observación directa del fichero generado, o revisión de la ficha EX-005-03 si se aporta.</tipoValidacion>
-    <criterioAceptacion>Ruta y nombre confirmados con evidencia directa.</criterioAceptacion>
-    <posibilidadFallo>Si la ruta real difiere de la inferida por analogía, debe corregirse esta especificación.</posibilidadFallo>
+    <resultadoEsperado>Ruta y nombre reales coinciden con lo documentado en la ficha.</resultadoEsperado>
+    <tipoValidacion>Observación directa del fichero generado.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si la ruta real difiere de la de la ficha EX-005-03, sería una discrepancia entre diseño e implementación a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Confirmación operativa de las dependencias cruzadas de negocio (RDR_CARGA_PLAZAS / carga de nombres legales)</nombre>
+    <objetivo>Confirmar con negocio/ANS RDR si las 2 dependencias de negocio descritas textualmente en la ficha EX-005-03 del filewatcher (predecesor RDR_CARGA_PLAZAS, sucesor "Carga de nombres legales en RDR", probablemente rdr_cargalei_new) se cumplen operativamente pese a no tener ningún INCOND/OUTCOND cruzado en el export real de Control-M.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a alguien del equipo funcional/ANS RDR, o a un histórico de ejecuciones que permita correlacionar el horario de cierre de RDR_CARGA_PLAZAS y el arranque de rdr_cargalei_new con los de esta cadena.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Texto literal de la ficha" valor="En cuanto se reciba y haya finalizado el proceso RDR_CARGA_PLAZAS, se desencadena la cadena del proceso Carga de nombres legales en RDR"/>
+      <dato campo="Confirmado en Control-M real" valor="Sin INCOND/OUTCOND cruzado en ninguno de los 3 jobs"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preguntar a negocio/ANS RDR si RDR_CARGA_PLAZAS es una cadena real distinta y si su finalización condiciona en la práctica el procesado de TradPlazas.csv.</paso>
+      <paso numero="2">Confirmar si rdr_cargalei_new arranca realmente tras el cierre de esta cadena, y por qué mecanismo si no es un INCOND de Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación explícita de si ambas dependencias son reales y cómo se coordinan sin Control-M, cerrando RISK-CARGATRAD-004.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa + correlación de horarios de ejecución real si es posible.</tipoValidacion>
+    <criterioAceptacion>Respuesta explícita documentada en esta especificación.</criterioAceptacion>
+    <posibilidadFallo>Si ninguna de las 2 dependencias se cumple operativamente pese a estar documentadas, debe elevarse como hallazgo de prioridad media (coordinación de negocio no garantizada por Control-M).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
