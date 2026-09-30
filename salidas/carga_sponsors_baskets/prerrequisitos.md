@@ -70,8 +70,10 @@
   (`okToLoad=false` corta el flujo antes de `Carga MDX`, ver TC-013) — no asumir que cualquier fichero XML
   válido produce una carga real solo por pasar la validación XSD.
 - **Nota, no bloqueante:** existe una vía de recarga manual (`RELOAD_BASKETS_SPONSORS`), confirmada con el
-  workflow real `Reload_Baskets_Sponsors_Email.wkf` (GAP-BASKSP-010) — notifica por email, a los
-  destinatarios configurados en `FT_T_ALU1`/`ALR1`/`ALM1` para el proceso `RELOAD_BASKETS_SPONSORS`, el
-  resultado de recargar manualmente un índice concreto (incluye espera de 10 min y verificación real de
-  ACK/NACK a Murex/ESB). No forma parte del flujo automático a probar; su disparador exacto (quién invoca
-  la recarga) sigue sin confirmar, probablemente una acción manual desde la consola GoldenSource.
+  workflow real `Reload_Baskets_Sponsors_Email.wkf` (GAP-BASKSP-010, resuelto por completo) — notifica por
+  email, a los destinatarios configurados en `FT_T_ALU1`/`ALR1`/`ALM1` para el proceso
+  `RELOAD_BASKETS_SPONSORS`, el resultado de recargar manualmente un índice concreto (incluye espera de 10
+  min y verificación real de ACK/NACK a Murex/ESB). Confirmado por código que la vía automática nunca la
+  dispara (`proceso` es un parámetro opcional de `Load_Baskets_Sponsors.wkf` con valor por defecto
+  `CARGA_BASKETS_SPONSORS`, y `RDR_CargaBasketSponsor.sh` nunca lo fija) — solo se activa con una invocación
+  manual explícita (consola GoldenSource). No forma parte del flujo automático a probar.
