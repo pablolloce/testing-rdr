@@ -1,6 +1,6 @@
 # Prerrequisitos — RDR_REFUNDICION_new (8/8, sistema P-021)
 
-> Derivado de `casos_prueba.xml` (TC-001 a TC-013).
+> Derivado de `casos_prueba.xml` (TC-001 a TC-015).
 
 ## Orígenes de datos
 
@@ -8,6 +8,7 @@
 |---|---|---|
 | `Refundicion.csv` (fichero de entrada, sistema origen no documentado) | `KYTL_REF_GSPROCESS_FW` | TC-001, TC-002, TC-003, TC-006 |
 | GoldenSource (BD, motor `PLSQL_Load`/`Sub_Load`, procedimiento `REFUNDICION` — código real confirmado) | Carga y refundición en `KYTL_REF_GSPROCESS` | TC-001, TC-003, TC-006, TC-007 a TC-012 |
+| GoldenSource (BD, `FT_T_RLT1` filas `PENDING`/`A460`/`B460`/`B460C`, workflow `BajaClientela460` — código real confirmado) | Consumo de señales de alta/baja 460 tras `Workflow(RDR_Refundicion)` | TC-014, TC-015 |
 
 ## Datos mínimos
 
@@ -25,6 +26,8 @@
 | TC-011 | `CLIENTED` con flag Altamira (`FT_T_ENFR.ORG_ID='1145'`) e identificadores mexicanos poblados; `CLIENTEP` sin ese flag. |
 | TC-012 | Una línea por cada uno de los 5 escenarios de excepción de `REFUNDICION`, dentro de un lote con otras líneas válidas; acceso a una ejecución posterior de `ErroresCSV` para observar `MarcaRegErroneo`. |
 | TC-013 | Capacidad de forzar un fallo en `jdbc.ejecutarQuery` (p. ej. desconexión de BD) con elementos pendientes en `Querys.insercionesRLT1`; acceso al log de consola del proceso donde corre `ThreadComprobacion` y al fichero `InsercionesRLT1.txt`. |
+| TC-014 | Al menos 1 fila `PENDING` en `FT_T_RLT1` (`A460`/`B460`/`B460C`); capacidad de invocar `BajaClientela460` sin fijar `Tipologia` explícitamente, igual que lo hace el evento real `RDR_Clientela460`. |
+| TC-015 | Filas `PENDING` en `FT_T_RLT1` para los 3 `RLT_DIF_ACC` (`A460`, `B460`, `B460C`); capacidad de invocar el workflow fijando `Tipologia` a `ALTA`/`BAJA`/`TOTAL` en 3 ejecuciones separadas. |
 
 ## Entorno de ejecución
 
@@ -58,10 +61,15 @@
 - **Circuito `Evento(Errores)`/`ErroresCSV`/`MarcaRegErroneo`:** necesario para TC-012 — la fila `ERRORES`
   insertada por cualquiera de las 5 excepciones de `REFUNDICION` alimenta este circuito de reprocesamiento
   automático (`Delta=Si` en `Refundicion.properties`).
+- **`Workflow(RDR_Clientela460)`/`BajaClientela460` (código real confirmado esta ronda):** ejecuta
+  inmediatamente después de `Workflow(RDR_Refundicion)` dentro de `KYTL_REF_GSPROCESS` (R2); consume las
+  filas `PENDING` de `FT_T_RLT1` que `Sub_Load`/`REFUNDICION` inserta para alta/baja de 460. Necesario para
+  TC-014/TC-015 — requiere capacidad de fijar (o dejar sin fijar) el parámetro `Tipologia` en la invocación,
+  algo que no se controla desde Control-M ni desde el `.properties` de la cadena.
 
 ## Entorno de pruebas
 
-- Ninguno de los 12 casos se ejecuta contra producción.
+- Ninguno de los 15 casos se ejecuta contra producción.
 - **Pendiente de definir con el usuario:** mecanismo para observar de forma determinista, en entorno de
   prueba, la recepción del evento externo en `RDR_CONCILIACION_CLIENTELA_new` (TC-003, TC-006), y para
   eliminar los ficheros intermedios en el instante preciso que exigen TC-004 y TC-005.
@@ -69,8 +77,11 @@
   estados previos específicos en ~40 tablas maestras (clientes inactivos por `BAJA_CPARTY`, flags Altamira,
   contrapartidas operativas) y de inspeccionar su estado tras la carga — no es un simple depósito de fichero
   y verificación de RC en Control-M, como los TC-001 a TC-006.
-- **Fuera de alcance de TC-013, fichero concreto pendiente (G4):** para confirmar en TC-013 con qué cola real
-  drena `ThreadComprobacion` en producción (`Querys.insercionesRLT1` frente a las actualizaciones diferidas de
-  `ConDB.getUpdatesFAB1()`), y si `ConContrato460.java` es de verdad el código invocado por
-  `Workflow(RDR_Clientela460)`, falta un único fichero concreto: **`BajaClientela460.wkf`** (el workflow real
-  confirmado por `RDR_Clientela460.gsp` — no un `.properties` ni otro `.gsp`).
+- **G4 cerrado con `BajaClientela460.wkf` real, aportado esta ronda:** confirma que `Workflow(RDR_Clientela460)`
+  no invoca `ConContrato460.java`/`ConDB.java` (hipótesis de rondas anteriores, ahora refutada) — es un
+  workflow GoldenSource puro que drena `FT_T_RLT1` directamente. Sin ficheros pendientes bloqueantes; quedan
+  como material opcional, no bloqueante, los 2 sub-workflows invocados (`SendClientelaRequest`,
+  `BAJA_460_CLI`) y la confirmación operativa de cómo se fija `Tipologia` en la invocación real (TC-014).
+- **Fuera de alcance de TC-013 (no relacionado con G4):** con qué cola real drena `ThreadComprobacion` en
+  producción, y a qué cadena pertenecen realmente `ConContrato460.java`/`ConDB.java` — código confirmado,
+  pero ya se sabe que no es parte de `RDR_REFUNDICION_new`.

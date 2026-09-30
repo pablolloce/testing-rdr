@@ -268,4 +268,46 @@
     <posibilidadFallo>Si se confirma la pérdida silenciosa de inserciones RLT1 en producción, debe elevarse como hallazgo de prioridad alta (pérdida de auditoría/reporting real).</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-014" tipo="negativo">
+    <nombre>BajaClientela460 no procesa nada si Tipologia llega sin valor</nombre>
+    <objetivo>Confirmar que, cuando el parámetro Tipologia del workflow BajaClientela460 llega vacío o con un valor no reconocido, el Switch Case cae en la rama por defecto OTHER y el workflow termina inmediatamente sin consultar ni procesar ninguna fila PENDING de FT_T_RLT1 (A460/B460/B460C) — riesgo real dado que el evento invocador RDR_Clientela460.gsp declara su mapa de parámetros vacío y el .wkf no fija ningún valor por defecto para Tipologia.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1 fila PENDING en FT_T_RLT1 con RLT_DIF_ACC en A460, B460 o B460C.</precondicion>
+      <precondicion>Capacidad de invocar Workflow(RDR_Clientela460)/BajaClientela460 de forma controlada, con y sin el parámetro Tipologia fijado explícitamente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="sin fijar / valor no reconocido, p. ej. vacío"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Invocar BajaClientela460 exactamente como lo hace el pipeline real (evento RDR_Clientela460, sin fijar Tipologia).</paso>
+      <paso numero="2">Confirmar si el workflow cae en la rama OTHER (fin inmediato) o si Tipologia se resuelve por alguna vía no visible en el .wkf.</paso>
+      <paso numero="3">Confirmar que las filas PENDING de A460/B460/B460C preexistentes siguen sin marcarse OK tras la ejecución, si el workflow cayó en OTHER.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma o se descarta el riesgo de no-op total; si se confirma, debe elevarse como hallazgo de prioridad alta (fallo silencioso de todo el consumo de señales 460).</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada del workflow + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real de Tipologia ante ausencia de valor documentado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si Tipologia siempre llega vacía en producción, ningún alta/baja 460 se procesaría nunca, sin ningún error visible en Control-M (la cadena principal seguiría en verde).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="happy_path">
+    <nombre>BajaClientela460 consume correctamente las 3 tipologías reales (ALTA/BAJA/TOTAL)</nombre>
+    <objetivo>Confirmar que, con Tipologia=ALTA, el workflow consulta FT_T_RLT1 (PENDING, RLT_DIF_ACC=A460, cliente ACTIVE en CLIENTELAID), invoca SendClientelaRequest por cada fila y la marca OK; que con Tipologia=BAJA procesa primero B460 (vía BAJA_460_CLI, NIVEL=LOCAL) y después B460C (vía SendClientelaRequest, por folio); y que con Tipologia=TOTAL ejecuta la secuencia B460 → B460C → A460 en un único paso.</objetivo>
+    <precondiciones>
+      <precondicion>Filas PENDING en FT_T_RLT1 para cada uno de los 3 RLT_DIF_ACC: A460, B460, B460C.</precondicion>
+      <precondicion>Capacidad de invocar el workflow fijando explícitamente Tipologia a cada uno de los 3 valores reales.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="ALTA, BAJA, TOTAL (3 ejecuciones separadas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar con Tipologia=ALTA y confirmar que solo se procesan las filas A460, marcándolas OK.</paso>
+      <paso numero="2">Ejecutar con Tipologia=BAJA y confirmar que se procesan B460 y después B460C, marcando ambas OK.</paso>
+      <paso numero="3">Ejecutar con Tipologia=TOTAL sobre un lote nuevo con las 3 tipologías pendientes y confirmar que procesa las 3 en el orden B460 → B460C → A460.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 tipologías reales quedan confirmadas nodo a nodo, con el orden de procesamiento exacto documentado en BajaClientela460.wkf.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada por tipología + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de las 3 tipologías reales confirmado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si alguna tipología no marca OK tras invocar su sub-workflow, o procesa el orden incorrecto en TOTAL, es una desviación del comportamiento documentado en G4.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

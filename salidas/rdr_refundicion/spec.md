@@ -31,7 +31,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 | R4 | `MEKYTL0107` (Run As `xsramer1`, `MEGENV0001.sh`) transmite `Reporte_Refundicion_dos.csv` a `XCOMWPMER` (ruta `MVP00G215`) como `Reporte_Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. |
 | R5 | `MEKYTL0121` (Run As `xsramer1`, `RAMERC0068.sh`) historifica `Refundicion.csv` a `/fichtemcomp/pr/descargas/kytl/Refundicion/old/` como `Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. Cierra la cadena. |
 | R6 | **Motor GoldenSource `PLSQL_Load`** (workflow genérico, versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`, asíncrono): abre el fichero, lo fracciona en lotes de 500 registros (`File Split Condition`), procesa cada mensaje vía sub-workflow `Sub_Load` en paralelo (`For Each Split` asíncrono), y sincroniza el cierre del lote (`Synchronize`, `StandardAndJoinHandler`) antes de solicitar el siguiente. Patrón genérico ya visto en `RDR_CONCILIACION_BDI_new` (`informeBroker_BDI`), reutilizado aquí para `RDR_Refundicion`/`RDR_Clientela460`. **Mismo workflow, misma versión y mismo comentario interno que el `PLSQL_Load` usado por `RDR_Reubicacion` en `rdr_reubicacion_new`** — confirmado con `PLSQL_Load.wkf`. |
-| R6-bis | **`Sub_Load` — lógica real de negocio confirmada con código PL·SQL completo (`Sub_Load.wkf`, aportado esta ronda desde `rdr_reubicacion_new`, mismo fichero compartido).** El sub-workflow discrimina por `properties.messageType`; la rama `Refundicion` (líneas 420-820 del `.wkf`) trocea cada línea CSV por `;` (`CLIENTED=campos[0]`, `CLIENTEP=campos[1]`) y ejecuta el procedimiento PL·SQL **`REFUNDICION`** — ver detalle completo en §6.1. Confirma de forma directa, no por analogía, qué hace realmente `Workflow(RDR_Refundicion)` (distinto de `Workflow(RDR_Clientela460)`/`ConContrato460.java`, que sigue siendo el G4 no confirmado al 100%). |
+| R6-bis | **`Sub_Load` — lógica real de negocio confirmada con código PL·SQL completo (`Sub_Load.wkf`, aportado esta ronda desde `rdr_reubicacion_new`, mismo fichero compartido).** El sub-workflow discrimina por `properties.messageType`; la rama `Refundicion` (líneas 420-820 del `.wkf`) trocea cada línea CSV por `;` (`CLIENTED=campos[0]`, `CLIENTEP=campos[1]`) y ejecuta el procedimiento PL·SQL **`REFUNDICION`** — ver detalle completo en §6.1. Confirma de forma directa, no por analogía, qué hace realmente `Workflow(RDR_Refundicion)` (distinto de `Workflow(RDR_Clientela460)`/`BajaClientela460`, ver G4 resuelto). |
 | R7 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado (QT1, gap transversal ya resuelto en `RDR_CONCILIACION_CLIENTELA_new` y `RDR_PR_BDICLIENREG_RESP_new`)** como placeholder de cabecera, no un valor único job a job. |
 | R8 | **Patrón transversal P-021:** sin validación de integridad de negocio ni protección de concurrencia/lock documentadas. |
 
@@ -42,7 +42,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
 | G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente. Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
-| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto de forma indirecta (2026-09-28) con `ConContrato460.java` y la versión completa de `ConDB.java`** — muy probablemente la implementación real (misma arquitectura/mensajería que `ConBDI`/`ConClientela`, referencia literal a "C460"), aunque sin `.properties`/`.gsp` que confirme al 100% la invocación desde este workflow. Confirma el procedimiento almacenado **`CONC460`** (3 parámetros), la semántica de reconciliación (folio con fecha de cancelación por defecto = activo), la tabla exacta `FT_T_FAB1` con sus columnas (`STAT_DEF_ID`, `DATA_STAT_TYP`), un probable defecto de escritura (`STAT_DEF_ID='NUMFOLII'` en el `UPDATE` vs. `'NUMFOLIO'` en el filtro `WHERE`), y un posible defecto de tipo de job (`crearJOB` con "C460", `cerrarJOB` con "CCL"). **`ThreadComprobacion.java` aportado (2026-09-30):** confirma un patrón real de hilo en segundo plano que drena una cola estática de sentencias SQL pendientes con auditoría en fichero, pero el código real drena `Querys.insercionesRLT1` (inserciones `FT_T_RLT1`), no hace referencia a `ConDB`/`FT_T_FAB1` — no corrobora literalmente que esta clase sea la que ejecuta las actualizaciones de `FT_T_FAB1` acumuladas, como sugería el comentario de `ConContrato460.java`. **`RDR_Clientela460.gsp` aportado (2026-09-30) — hallazgo relevante:** el evento GoldenSource real (`com.j2fe.event.GenericEvent`, nombre `RDR_Clientela460`) confirma que el workflow real invocado **no es `PLSQL_Load`** (el motor genérico compartido por `Refundicion`/`Reubicacion`) **sino uno propio y dedicado: `BajaClientela460`** — un workflow distinto, aún no aportado. Esto descarta la hipótesis implícita de que este proceso pudiera compartir el motor genérico de carga por lotes; su lógica interna vive en un workflow propio. **Único cabo suelto no bloqueante:** el workflow real `BajaClientela460.wkf` (para confirmar nodo a nodo si invoca `ConContrato460.java`/`ConDB.java` y qué mecanismo real drena la cola de `FT_T_FAB1`) — ver §6.1. |
+| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía a un sistema externo vía 2 sub-workflows (`SendClientelaRequest`, `BAJA_460_CLI`, no aportados) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`), y un **hallazgo de alta prioridad, no bloqueante para el cierre pero crítico para pruebas:** el workflow bifurca por un parámetro `Tipologia` (`Switch Case`, default `OTHER`→fin inmediato sin hacer nada) que el propio evento invocador (`RDR_Clientela460.gsp`) declara con **mapa de parámetros vacío** — sin más evidencia de dónde se fija `Tipologia` en la invocación real, no se puede confirmar que el workflow llegue nunca a procesar nada. Ver detalle completo en §6.1 y RISK-REFUN-NUEVO en §9. `ConContrato460.java`/`ConDB.java` quedan como un mecanismo real pero **de una cadena o proceso distinto, no identificado**, ajeno a este pipeline — sus 2 hallazgos de código (defecto `NUMFOLII`/`NUMFOLIO`, tipo de job `C460`/`CCL`) se mantienen documentados como información confirmada, pero ya no como parte de `RDR_REFUNDICION_new`. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
@@ -157,78 +157,65 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
      cada excepción inserta **2 filas** en `FT_T_RLT1` (una `RLT_PURP_TYP='REPORTES'` y otra
      `RLT_PURP_TYP='ERRORES'`), no 1 sola — doble canal de auditoría, uno orientado a reporte de negocio y
      otro al circuito de errores técnicos (`Evento(Errores)`/`ErroresCSV`, ver más abajo).
-* **`Workflow(RDR_Clientela460)` — G4, evento GoldenSource real aportado (2026-09-30):** `RDR_Clientela460.gsp`
-  confirma que este evento (`com.j2fe.event.GenericEvent`) invoca el workflow real **`BajaClientela460`** —
-  **no** el motor genérico `PLSQL_Load` compartido por `Refundicion`/`Reubicacion`, sino un workflow propio y
-  dedicado, no aportado todavía. Esto confirma que la lógica de este proceso no vive en el mismo sitio que la
-  de sus procesos hermanos — descarta la hipótesis implícita de un motor compartido para los 3.
-  Independientemente de esto, el documento fuente lo diferencia de
-  `RDR_Refundicion` solo mínimamente, como el "flujo de trabajo secundario para actualizar o validar la
-  información de la cartera de clientela (C460)". El usuario aportó `ConContrato460.java`: una clase Java del
-  mismo paquete `jdbc.ConDB` y con la misma
-  arquitectura que `ConBDI`/`ConClientela` (multi-hilo, lotes de 100, credenciales vía `ConDB`), cuyo
-  mensaje de log interno dice literalmente **"Codigo Clientela en RDR que no concilia en Clientela C460"**
-  — la coincidencia de nomenclatura (C460) y de arquitectura con las clases hermanas hace muy probable que
-  sea la implementación real detrás de `BajaClientela460`, aunque **no se confirma con el propio `.wkf` de
-  ese workflow, que sigue sin aportarse** — se señala como asociación fuerte
-  pero no verificada al 100%, no como hecho confirmado.
-  - **Qué hace (si la asociación es correcta):** lee un fichero con exactamente 12 columnas, extrae
-    código de cliente, número de folio/contrato y fecha de cancelación. Para cada cliente ya existente en
-    GoldenSource (`mapMnemLocalClientelaID`), considera "conciliado" solo si aparece en el fichero **con
-    al menos un folio cuya fecha de cancelación sea el valor por defecto `"0001-01-01"`** (contrato
-    activo, no cancelado) — si no, o si el cliente no aparece en absoluto, se marca como no conciliado.
-  - **A diferencia de `ConBDI`/`ConClientela`, aquí el registro de discrepancias SÍ está activo (no
-    comentado):** inserta en `FT_T_RLT1` vía 2 métodos distintos, `insertRLT1ClientelaC460_Proceso` y
-    `insertRLT1ClientelaC460_Reporte` — una variante de proceso y otra de reporte, patrón no visto en las
-    2 cadenas hermanas. La versión completa de `ConDB.java` confirma un 3er método,
-    `insertRLT1ClientelaC460_Error` (propósito `ERRORES`), aunque no se ve invocado desde el
-    `ConContrato460.java` aportado — posiblemente desde la clase `ThreadComprobacion` (aportada esta
-    ventana, ver más abajo, aunque su código real no confirma que sea ella quien lo invoque).
-  - **Carga real en GoldenSource — confirmada con la versión completa de `ConDB.java`:**
-    `executeCONC460_Hilos` llama al procedimiento almacenado Oracle **`CONC460`**
-    (`{call CONC460(?,?,?)}`, solo 3 parámetros: código de cliente, folio y `FLD_JOB_ID`) — y únicamente
-    cuando `comprobarFechaCancelacion` confirma que el folio está activo (fecha `"0001-01-01"`) y el
-    cliente no es el código centinela `"000000000"`.
-  - **Tabla `FAB1` — confirmada con la versión completa de `ConDB.java`: es `FT_T_FAB1`, con columnas
-    `STAT_DEF_ID`/`DATA_STAT_TYP`/`LAST_CHG_USR_ID`/`LAST_CHG_TMS`.** Cuando el folio de un cliente SÍ
-    está cancelado (fecha distinta de `"0001-01-01"`), en vez de llamar a `CONC460` se construye un
-    `UPDATE FT_T_FAB1 SET STAT_DEF_ID='NUMFOLII', DATA_STAT_TYP='INACTIVE', ...` filtrado por
-    `STAT_DEF_ID='NUMFOLIO'` y por el `FINS_ID`/folio del cliente (vía subquery a `FT_T_FIID`,
-    `FINS_ID_CTXT_TYP='CLIENTELAID'`) — desactiva el flag de folio asociado a ese contrato cancelado. La
-    query se acumula en una lista (`ConDB.getUpdatesFAB1()`) para ejecución diferida, no inmediata.
-  - **Hallazgo [PRIORIDAD MEDIA] — probable defecto de escritura en `FT_T_FAB1`:** el `UPDATE` filtra por
-    `STAT_DEF_ID='NUMFOLIO'` pero **escribe** `STAT_DEF_ID='NUMFOLII'` (con "I" en vez de "O" al final) —
-    muy probablemente una errata del código real, no un valor intencionado. Efecto: cualquier fila
-    actualizada por esta vía queda con un valor de `STAT_DEF_ID` mal escrito que ningún otro punto del
-    código busca explícitamente — si algún consumidor externo de `FT_T_FAB1` filtra por el valor correcto
-    `'NUMFOLIO'` para identificar folios inactivados, no encontraría estas filas.
-  - **Hallazgo [defecto potencial, no confirmado]:** el job se abre con `crearJOB(FLD_JOB_ID,"C460",...)`
-    pero se cierra con `cerrarJOB(FLD_JOB_ID,"CCL",...)` — usa el identificador de tipo de job de
-    `ConClientela` (`"CCL"`) para cerrar un job que abrió como `"C460"`. Podría ser un error de
-    copiar-pegar entre las 2 clases hermanas; el efecto exacto sobre `FT_T_JBLG` (p. ej. si algún filtro
-    temporal de otra query depende de que el cierre quede registrado con el mismo tipo que la apertura) no
-    se puede confirmar sin más contexto — se documenta como hallazgo, no como hecho verificado.
-  - **`ThreadComprobacion.java` aportado esta ronda (código real completo) — confirma parcialmente, matiza
-    lo asumido antes:** la clase (paquete `entities`, implementa `Runnable`) ejecuta un bucle continuo
-    (`while(condicion)`) que repetidamente llama a `insertarRLT1()` hasta que `Querys.fin` se pone a `true`.
-    `insertarRLT1()` extrae (`remove(0)`) el primer elemento pendiente de una lista estática compartida
-    **`Querys.insercionesRLT1`**, ejecuta esa sentencia SQL vía `jdbc.ejecutarQuery(...)`, y registra la
-    sentencia ejecutada en un fichero de auditoría (`InsercionesRLT1.txt`) en la ruta recibida por
-    constructor. **Matiz importante:** el código real drena una cola de **inserciones `FT_T_RLT1`**
-    (`Querys.insercionesRLT1`), no hace ninguna referencia directa a `ConDB` ni a `FT_T_FAB1` — la afirmación
-    del comentario de `ConContrato460.java` ("Las actualizaciones se realizan mediante el ThreadComprobacion")
-    **no queda corroborada literalmente por este código**: podría tratarse de otra instancia/configuración de
-    la misma clase genérica reutilizada para drenar la cola de `FT_T_FAB1` en otro punto no aportado, o el
-    comentario podría ser impreciso — no se puede confirmar cuál sin más contexto (p. ej. dónde se
-    instancia `ThreadComprobacion` y con qué cola — pendiente ahora concretamente del `.wkf` real de
-    `BajaClientela460`, ver más arriba). **3 hallazgos nuevos con este código:**
-    (a) el campo `connection` nunca se inicializa en el constructor (queda `null`) — cualquier llamada real a
-    `jdbc.ejecutarQuery(this.connection, ...)` fallaría o dependería de que `Querys` obtenga la conexión por
-    otra vía no visible aquí; (b) el bucle `while(condicion)` no tiene ninguna espera (`sleep`/`wait`) cuando
-    la cola está vacía — es un *busy-loop* que consume CPU de forma continua hasta que `Querys.fin` se active;
-    (c) el elemento se retira de la cola (`remove(0)`) **antes** de ejecutar la sentencia — si
-    `jdbc.ejecutarQuery` lanza una excepción, la inserción ya se ha perdido de la cola y **no se reintenta ni
-    se registra en el fichero de auditoría** (el `catch` genérico solo imprime la traza por consola).
+* **`Workflow(RDR_Clientela460)` — G4 resuelto (2026-09-30) con `BajaClientela460.wkf` real completo**
+  (versión 10, grupo `Custom/RDR/Integracion_MGC-GS/Bajas`, `lastChangeUser=KYTL_GC`, `lastUpdate=2022-11-05`).
+  **Corrige de raíz la hipótesis documentada en rondas anteriores:** este workflow **no invoca ninguna clase
+  Java** (ni `ConContrato460`, ni `ConDB`, ni el procedimiento `CONC460`, ni toca `FT_T_FAB1` en ningún
+  punto) — es un workflow GoldenSource "puro", construido solo con nodos nativos `DBQuery`/`DBStatement`/
+  `CallSubWorkflow`. La asociación con `ConContrato460.java` señalada antes (misma nomenclatura "C460",
+  misma arquitectura que `ConBDI`/`ConClientela`) queda así **refutada** para este workflow concreto — ver
+  nota aparte más abajo sobre qué se hace con esa clase.
+  - **Lógica real, nodo a nodo:** bifurca por un parámetro de entrada `Tipologia` (`Switch Case`, valores
+    `ALTA`/`BAJA`/`TOTAL`, default `OTHER`→fin inmediato sin hacer nada):
+    - **`ALTA`:** consulta `FT_T_RLT1`/`FT_T_FIID` en busca de filas `RLT_DIF_STAT='PENDING'` y
+      `RLT_DIF_ACC='A460'` con cliente ya `ACTIVE` en `CLIENTELAID`; por cada una, invoca el sub-workflow
+      **`SendClientelaRequest`** (`ACCION=A460`, `BRANCH=A1`, `CCLIEN=`<cliente>, `CODBAN=0182`,
+      `CODOFI=0997`) y marca la fila `RLT_DIF_STAT='OK'`.
+    - **`BAJA`:** consulta `FT_T_RLT1` con `RLT_DIF_ACC='B460'` (`PENDING`); por cada cliente, invoca el
+      sub-workflow **`BAJA_460_CLI`** (`MNEM=`<cliente>, `NIVEL=LOCAL` — **solo nivel local, nunca
+      `GLOBAL`**, a diferencia de la cascada local/global de `REFUNDICION`) y marca `OK`; después consulta
+      `FT_T_RLT1` con `RLT_DIF_ACC='B460C'` (**tipología no documentada hasta ahora**, a nivel de
+      folio/contrato vía `SRC_VALUE`, no de cliente) y, por cada folio, invoca `SendClientelaRequest`
+      (`ACCION=B460`, `FOLIO=`<folio>) y marca `OK`.
+    - **`TOTAL`:** ejecuta la misma secuencia `B460` → `B460C` → `A460` en un único paso.
+  - **Confirma y cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí":** las 3
+    tipologías consumen exactamente las señales `PENDING`/`A460`/`B460` que `Sub_Load`/`REFUNDICION` inserta
+    y nunca resuelve por sí solo (§9) — este workflow es su consumidor real, y se ejecuta como el paso
+    inmediatamente siguiente en el propio pipeline de R2.
+  - **Hallazgo [alta prioridad, no bloqueante para el cierre, crítico para diseñar pruebas]:** el evento
+    GoldenSource real que invoca este workflow (`RDR_Clientela460.gsp`) declara su mapa de parámetros
+    **vacío** (`<parameter type="java.util.HashMap"/>`), y `BajaClientela460.wkf` no define ningún valor por
+    defecto para `Tipologia` en su bloque `<variables>`. Sin más evidencia de qué fija `Tipologia` en la
+    invocación real (¿un valor por defecto configurado fuera de este `.wkf`, una invocación distinta a la
+    del propio pipeline, otro mecanismo no visible aquí?), **no se puede confirmar que el workflow procese
+    nunca ninguna fila** — con `Tipologia` vacío o desconocido cae en la rama `OTHER`, que termina sin hacer
+    nada. Ver TC nuevo.
+  - **Hallazgo [no bloqueante]:** ni `SendClientelaRequest` ni `BAJA_460_CLI` (los 2 sub-workflows
+    invocados) están aportados — quedan como el único material adicional posible para completar el
+    desglose al 100%, aunque los parámetros de entrada/salida ya identifican con precisión qué reciben.
+  - **Hallazgo [no bloqueante]:** el workflow tiene `haltOnError=false` y `retries=0`, sin ninguna rama de
+    excepción explícita (a diferencia de `REFUNDICION`/`REUBICACION` en `Sub_Load`, que sí controlan sus
+    excepciones). Si `SendClientelaRequest`/`BAJA_460_CLI` falla, la fila de `FT_T_RLT1` no llegaría a
+    marcarse `OK` — como la consulta siempre filtra por `PENDING`, en teoría se reintentaría en la siguiente
+    ejecución diaria (no hay pérdida de la señal), pero **sin ninguna alerta explícita** si el fallo persiste
+    varios días — mismo patrón de "reintento sin límite ni alerta" ya visto en `MarcaRegErroneo` (§9).
+* **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: mecanismo real pero de un
+  proceso no identificado, ajeno a esta cadena.** Estas 3 clases, aportadas en rondas anteriores bajo la
+  hipótesis de que implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la
+  evidencia del `.wkf` real (arriba). Se mantiene documentado lo que su código confirma, por si resulta útil
+  para localizar a qué cadena pertenecen realmente: `ConContrato460.java` lee un fichero de 12 columnas,
+  reconcilia clientes activos en GoldenSource contra folios con fecha de cancelación por defecto
+  `"0001-01-01"` (activo), llama al procedimiento Oracle **`CONC460`** (`{call CONC460(?,?,?)}`) para los
+  folios activos, y para los folios cancelados construye (vía `ConDB.getUpdatesFAB1()`, ejecución diferida)
+  un `UPDATE FT_T_FAB1 SET STAT_DEF_ID='NUMFOLII', DATA_STAT_TYP='INACTIVE', ...` — con un probable defecto
+  de escritura (filtra por `'NUMFOLIO'` pero escribe `'NUMFOLII'`) y un posible defecto de tipo de job
+  (`crearJOB` con `"C460"`, `cerrarJOB` con `"CCL"`). `ThreadComprobacion.java` (hilo en segundo plano que
+  drena `Querys.insercionesRLT1`, con 3 hallazgos propios de robustez: conexión JDBC nunca inicializada,
+  *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución) tampoco encaja
+  con `BajaClientela460.wkf` (que no usa colas Java ni hilos, solo SQL nativo del motor de workflows) — su
+  relación real con `ConContrato460`/`ConDB` sigue sin confirmarse, y su cadena de origen sigue sin
+  identificar. Los 4 hallazgos de código siguen siendo válidos como información confirmada, pero ya no se
+  presentan como parte de `RDR_REFUNDICION_new`.
 * **`Evento(Errores)`:** **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El documento fuente lo
   describe como "Activa el gestor de eventos de error para capturar, clasificar y registrar cualquier
   anomalía ocurrida durante las fases previas". El evento invocado como `Errores` en el pipeline es, con
@@ -274,7 +261,9 @@ fallo (Soft Failure) de los 2 últimos jobs, y — con el código PL·SQL real d
 el comportamiento funcional detallado del procedimiento `REFUNDICION`: los 3 casos (destino no existe, destino
 existe, destino duplicado), la reactivación en bloque de tablas tras un `BAJA_CPARTY` previo, el cierre en
 cascada local/global, el caso especial de entidades mexicanas (Altamira), y el doble canal de auditoría
-(`REPORTES`/`ERRORES`) de las 5 excepciones controladas.
+(`REPORTES`/`ERRORES`) de las 5 excepciones controladas. Con el código real de `BajaClientela460.wkf`
+aportado esta ronda, cubre también el consumo real de las señales `PENDING` de alta/baja 460 (3 tipologías,
+`ALTA`/`BAJA`/`TOTAL`) y el riesgo de no-op total si `Tipologia` llega sin valor.
 
 ## 8. Validaciones de casos de prueba
 
@@ -293,6 +282,8 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
 | `borde` | Caso especial de entidad mexicana (Altamira, `ORG_ID='1145'`): migración de identificadores y domicilio fiscal del cerrado al destino. | TC-011 |
 | `error_funcional` | Las 5 excepciones controladas de `REFUNDICION` insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
 | `conflicto_integridad` | `ThreadComprobacion` no reintenta ni audita una sentencia RLT1 que falla al ejecutarse (se retira de la cola antes de intentarlo). | TC-013 |
+| `negativo` | `BajaClientela460` no procesa ninguna fila `PENDING` de A460/B460/B460C si `Tipologia` llega sin valor o con un valor no reconocido (cae en la rama `OTHER`). | TC-014 |
+| `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente. | TC-015 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -304,29 +295,27 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
   la ausencia de fichero, lo que podría enmascarar un fallo silencioso en la generación del reporte (R2) hasta
   una revisión manual.
 * **Patrón transversal P-021 (R8):** sin validación de integridad ni protección de concurrencia.
-* **[Hallazgo, no confirmado] Posible defecto de tipo de job en `ConContrato460.java` (§6.1, G4):** el
-  job se abre como `"C460"` y se cierra como `"CCL"` — si es un error de copiar-pegar (probable, dada la
-  arquitectura compartida con `ConClientela`), podría afectar a cualquier consulta que filtre `FT_T_JBLG`
-  por tipo de job para C460 específicamente.
-* **[PRIORIDAD MEDIA] Probable defecto de escritura en `FT_T_FAB1` (§6.1, G4):** el `UPDATE` que
-  desactiva folios cancelados filtra por `STAT_DEF_ID='NUMFOLIO'` pero escribe `STAT_DEF_ID='NUMFOLII'`
-  (errata de una letra) — cualquier consumidor externo que busque el valor correcto `'NUMFOLIO'` para
-  identificar folios ya inactivados no encontraría estas filas.
-* **[NUEVO, prioridad media, confirmado con código real] `ThreadComprobacion.java` (§6.1, G4):** el código
-  real aportado esta ronda drena una cola de inserciones `FT_T_RLT1` (`Querys.insercionesRLT1`), no hace
-  referencia a `ConDB`/`FT_T_FAB1` — sigue sin confirmar qué mecanismo real ejecuta en diferido los `UPDATE`
-  de `FT_T_FAB1` acumulados en `ConDB.getUpdatesFAB1()`. Además, el propio código de `ThreadComprobacion`
-  revela 3 hallazgos propios: el campo `connection` nunca se inicializa (queda `null`), el bucle de drenaje
-  es un *busy-loop* sin espera cuando la cola está vacía, y una sentencia SQL que falla al ejecutarse se
-  pierde silenciosamente (se retira de la cola antes de ejecutarse, sin reintento ni registro en el fichero
-  de auditoría).
-* **[NUEVO, confirmado con evidencia real] `RDR_Clientela460.gsp` (§6.1, G4) — descarta el motor
-  compartido, no confirma aún la implementación:** el evento GoldenSource real confirma que
-  `Workflow(RDR_Clientela460)` invoca un workflow propio y dedicado, **`BajaClientela460`**, distinto del
-  motor genérico `PLSQL_Load`/`Sub_Load` de `Refundicion`/`Reubicacion`. El único fichero que falta ahora
-  para cerrar G4 al 100% es concreto: **`BajaClientela460.wkf`** (no un `.properties` ni otro `.gsp`) — con
-  él se podría confirmar nodo a nodo si de verdad invoca `ConContrato460.java`, y qué mecanismo real drena
-  las actualizaciones diferidas de `FT_T_FAB1` (`ConDB.getUpdatesFAB1()`).
+* **[NUEVO, prioridad alta, confirmado con `BajaClientela460.wkf` real] Riesgo de no-op total por
+  `Tipologia` sin valor (§6.1, G4):** el workflow real bifurca su lógica entera por un parámetro
+  `Tipologia` (`Switch Case`, default `OTHER`→fin inmediato sin hacer nada), pero el evento GoldenSource
+  que lo invoca (`RDR_Clientela460.gsp`) declara su mapa de parámetros **vacío**, y el propio `.wkf` no fija
+  ningún valor por defecto para `Tipologia`. Sin más evidencia de cómo se fija ese parámetro en la
+  invocación real, existe un riesgo concreto de que el workflow **nunca procese ninguna fila `PENDING` de
+  A460/B460/B460C**, cayendo siempre en la rama `OTHER` — un fallo completamente silencioso, sin ningún
+  error ni alerta.
+* **[NUEVO, no bloqueante, confirmado con `BajaClientela460.wkf` real] Reintento sin límite ni alerta ante
+  fallo del sub-workflow externo (§6.1, G4):** `SendClientelaRequest`/`BAJA_460_CLI` no tienen ninguna rama
+  de excepción explícita, y el workflow tiene `haltOnError=false`/`retries=0`. Si el sub-workflow externo
+  falla, la fila de `FT_T_RLT1` no se marca `OK` y en teoría se reintenta al día siguiente (la consulta
+  siempre filtra por `PENDING`), pero sin ningún tope ni alerta de "reintento agotado" si el fallo persiste
+  — mismo patrón que el de `MarcaRegErroneo` más abajo.
+* **[Informativo, no forma parte de esta cadena] Hallazgos de código en `ConContrato460.java`/`ConDB.java`/
+  `ThreadComprobacion.java` (§6.1):** confirmados como código real, pero de un proceso/cadena distinto y no
+  identificado (la evidencia de `BajaClientela460.wkf` descarta que implementen `Workflow(RDR_Clientela460)`)
+  — se documentan por si ayudan a localizar su cadena real: probable defecto de escritura en `FT_T_FAB1`
+  (`STAT_DEF_ID='NUMFOLII'` escrito vs. `'NUMFOLIO'` filtrado), posible defecto de tipo de job (`crearJOB`
+  con `"C460"`, `cerrarJOB` con `"CCL"`), y en `ThreadComprobacion`: conexión JDBC nunca inicializada,
+  *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución.
 * **Reprocesamiento automático vía `MarcaRegErroneo` (§6.1, G3):** al estar `Delta=Si` en
   `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
   `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) queda marcado para
@@ -339,12 +328,13 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
   baja quedó registrada exactamente con ese usuario**. Si la baja de alguna fila se hizo por otra vía (p. ej.
   manual, o por otro proceso), esa fila queda inactiva de forma permanente pese a que el cliente global se
   reactive — inconsistencia de datos silenciosa, sin traza de auditoría que la señale (§6.1, R6-bis).
-* **[RIESGO NUEVO, no bloqueante, confirmado con código real] El 460 nunca se gestiona automáticamente
-  aquí:** en los 3 escenarios donde el código inserta una fila `PENDING` de alta o baja de contrato 460
-  (`A460`/`B460`), la fila queda como señal para un proceso externo — `Sub_Load`/`PLSQL_Load` **no ejecuta
-  ningún alta/baja real de 460**. Si ese proceso externo (posiblemente `Workflow(RDR_Clientela460)`/`CONC460`,
-  ver G4) no consume estas señales de forma fiable, el contrato 460 podría quedar desincronizado
-  indefinidamente respecto al estado real de la clientela en GoldenSource.
+* **[Resuelto, 2026-09-30, con `BajaClientela460.wkf` real] El 460 sí se gestiona automáticamente, y en el
+  mismo pipeline:** en los 3 escenarios donde `Sub_Load`/`REFUNDICION` inserta una fila `PENDING` de alta o
+  baja de contrato 460 (`A460`/`B460`), la fila **sí es consumida de forma automática** por
+  `Workflow(RDR_Clientela460)`/`BajaClientela460`, que se ejecuta como el paso inmediatamente siguiente en
+  `KYTL_REF_GSPROCESS` (R2) — ya no una señal a un proceso externo no confirmado, sino un consumo
+  documentado nodo a nodo (§6.1). El riesgo real que subsiste no es la ausencia de consumo, sino el de
+  `Tipologia` sin valor (arriba) y el de reintento sin alerta (arriba).
 * **[Confirmado, no bloqueante] Doble canal de auditoría en las excepciones de `REFUNDICION`:** a diferencia
   del `Sub_Load` de `rdr_reubicacion_new` (que inserta 1 sola fila por excepción), aquí cada una de las 5
   excepciones controladas inserta 2 filas en `FT_T_RLT1` (`REPORTES` + `ERRORES`) — la segunda alimenta
@@ -357,19 +347,14 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
 El gap transversal (G1) tiene resolución explícita ya reutilizada de rondas anteriores. La especificación
 funcional y de orquestación de la cadena está cerrada. El gap técnico G2 (contenido de
 `fillingRules_Refundicion.csv`) queda **resuelto** con el fichero real aportado por el usuario (§6.1).
-**G4 queda resuelto de forma indirecta (2026-09-28) con `ConContrato460.java` y la versión completa de
-`ConDB.java`** — muy probablemente la implementación real de `Workflow(RDR_Clientela460)` por
-arquitectura y nomenclatura compartidas con `ConBDI`/`ConClientela`, aunque sin confirmación explícita de
-invocación. Confirma el procedimiento `CONC460` (3 parámetros) y la tabla exacta `FT_T_FAB1` con sus
-columnas, revelando 3 hallazgos nuevos: un probable defecto de escritura en `FT_T_FAB1`
-(`'NUMFOLII'`/`'NUMFOLIO'`), un posible defecto de tipo de job en `crearJOB`/`cerrarJOB`, y una clase
-`ThreadComprobacion` referenciada pero no aportada. **G3 queda resuelto (2026-09-29) con el `.wkf` real del
-workflow `ErroresCSV`** (ver §4 y §6.1): confirma el mecanismo de auditoría de errores (`FT_T_RLT1`/`FT_T_TRID`)
-y el reprocesamiento automático vía `MarcaRegErroneo` al estar `Delta=Si` en `Refundicion.properties`.
-**Con esta cadena se completa la especificación de las 8 cadenas del sistema P-021, sin gaps técnicos
-bloqueantes pendientes** — G4 pendiente solo de la confirmación explícita de invocación, lo que no bloquea
-el cierre funcional de la cadena (ver ronda 2026-09-30 más abajo, que sí aporta material nuevo sustantivo
-sobre G4).
+**G4 se dio inicialmente por resuelto de forma indirecta (2026-09-28) con `ConContrato460.java`/`ConDB.java`**
+— hipótesis luego **refutada** por el `.wkf` real (ver ronda final más abajo): esas clases resultaron ser un
+mecanismo real pero de una cadena distinta, no identificada. **G3 queda resuelto (2026-09-29) con el `.wkf`
+real del workflow `ErroresCSV`** (ver §4 y §6.1): confirma el mecanismo de auditoría de errores
+(`FT_T_RLT1`/`FT_T_TRID`) y el reprocesamiento automático vía `MarcaRegErroneo` al estar `Delta=Si` en
+`Refundicion.properties`. **Con esta cadena se completa la especificación de las 8 cadenas del sistema
+P-021** — G4 queda finalmente resuelto con material sustantivo en la ronda final de este documento (más
+abajo), sin gaps técnicos bloqueantes pendientes.
 
 **Ronda adicional (2026-09-30):** se aportó `Sub_Load.wkf` (el mismo fichero ya usado para confirmar la lógica
 real de `rdr_reubicacion_new`, que comparte el motor `PLSQL_Load`/`Sub_Load` con esta cadena). Su rama
@@ -382,9 +367,9 @@ global cuando corresponde, incluye un caso especial para entidades mexicanas (Al
 alta/baja real del contrato 460 (solo la señaliza). Esto añade 3 riesgos nuevos (reactivación filtrada de
 forma incompleta, señal de 460 no consumida automáticamente aquí, y doble canal de auditoría en las
 excepciones que sí alimenta el reprocesamiento automático de `ErroresCSV`) y 6 nuevos casos de prueba
-(TC-007 a TC-012). **Esto es un componente distinto de `Workflow(RDR_Clientela460)`/`ConContrato460.java`
-(G4)**, que sigue sin confirmación explícita de invocación — ambos workflows conviven en el mismo pipeline
-(R2) pero resuelven cosas distintas: éste, la propia refundición de clientela; aquél, la conciliación C460.
+(TC-007 a TC-012). **Esto es un componente distinto de `Workflow(RDR_Clientela460)`/`BajaClientela460`
+(G4, ver ronda final más abajo)** — ambos workflows conviven en el mismo pipeline (R2) pero resuelven cosas
+distintas: éste, la propia refundición de clientela; aquél, el consumo de las señales de alta/baja 460.
 
 **Ronda adicional (2026-09-30):** se aportó `ThreadComprobacion.java` — el código real confirma un hilo en
 segundo plano que drena una cola estática de sentencias SQL pendientes (`Querys.insercionesRLT1`) con
@@ -403,6 +388,21 @@ producción.
 **`BajaClientela460`**, aún no aportado. Esto descarta explícitamente la hipótesis implícita de un motor
 de carga por lotes compartido entre los 3 procesos hermanos: la lógica de este proceso vive en un workflow
 propio. G4 queda con un único cabo suelto, ahora mucho más concreto que antes: el fichero
-**`BajaClientela460.wkf`**, no un `.properties`/`.gsp` genérico — con él se cerraría de forma definitiva si
-`ConContrato460.java` es realmente el código invocado y qué mecanismo real drena
-`ConDB.getUpdatesFAB1()`.
+**`BajaClientela460.wkf`**, no un `.properties`/`.gsp` genérico.
+
+**Ronda final (2026-09-30):** se aportó `BajaClientela460.wkf` completo — **cierra G4 y corrige de raíz la
+hipótesis de rondas anteriores.** El workflow real no invoca `ConContrato460.java`/`ConDB`/`CONC460` en
+ningún punto; es un workflow GoldenSource "puro" (solo `DBQuery`/`DBStatement`/`CallSubWorkflow`) que
+bifurca por `Tipologia` (`ALTA`/`BAJA`/`TOTAL`/`OTHER` por defecto) y drena directamente las filas `PENDING`
+de `FT_T_RLT1` (`A460`/`B460`/tipología nueva `B460C` a nivel de folio) que `Sub_Load`/`REFUNDICION` inserta,
+enviándolas a un sistema externo vía 2 sub-workflows no aportados (`SendClientelaRequest`, `BAJA_460_CLI`) y
+marcándolas `OK`. **Esto cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"**
+(sí se gestiona, en el mismo pipeline), pero abre uno nuevo de prioridad alta: el evento invocador
+(`RDR_Clientela460.gsp`) declara parámetros vacíos y el `.wkf` no fija ningún valor por defecto para
+`Tipologia` — sin más evidencia, existe riesgo de que el workflow no procese nunca nada (rama `OTHER`).
+`ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java` quedan como código real confirmado pero de una
+cadena distinta, no identificada, ajena a `RDR_REFUNDICION_new`. Nuevos TC-014/TC-015.
+
+**Con esta ronda, `RDR_REFUNDICION_new` queda con 0 gaps de evidencia bloqueantes abiertos** (G1-G4
+resueltos); el único punto que queda genuinamente abierto es de negocio, no de fichero: cómo se fija
+`Tipologia` en la invocación real de `Workflow(RDR_Clientela460)`.
