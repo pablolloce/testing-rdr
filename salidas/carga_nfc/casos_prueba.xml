@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="carga_nfc" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo cadena M (RDR_CargaNFC_M_NEW_new)</nombre>
+    <objetivo>Verificar el ciclo end-to-end de los 8 jobs de la cadena M, incluida la dependencia cross-folder de RDRKYTL001.</objetivo>
+    <precondiciones>
+      <precondicion>Evento externo de MEKYTL0539 (folder TR_) disponible: GC_TESO_TR_RDR_CargaNFC_M_MEKYTL0539_OK_new.</precondicion>
+      <precondicion>Recurso MAX-LPRDR501 disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="lunes (día 1, dentro del calendario 1,2,3,4,0)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_CargaNFC_IN arranca tras las 08:00 AM y publica su evento.</paso>
+      <paso numero="2">Confirmar que RDRKYTL001 arranca únicamente al recibir el evento externo de MEKYTL0539, no antes.</paso>
+      <paso numero="3">Confirmar la cadena lineal MEKYTL0369→MEKYTL0370→MEKYTL0371.</paso>
+      <paso numero="4">Confirmar que MONITOR_BKYTL001_505-606 bifurca según su código de retorno.</paso>
+      <paso numero="5">Confirmar que FICHERO_SQL_505 o FICHERO_SQL_606 (según la rama) termina OK sin publicar evento de salida.</paso>
+    </pasos>
+    <resultadoEsperado>Los 8 jobs terminan OK; RDRKYTL001 no arranca antes del evento externo; una única rama final (505 o 606) se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 8 jobs en Control-M + orden real de disparo de eventos.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs OK, sin KOs, sin arranque prematuro de RDRKYTL001.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real o arranque de RDRKYTL001 sin el evento externo invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Ciclo completo cadena T (RDR_CargaNFC_T_NEW_new)</nombre>
+    <objetivo>Verificar el ciclo end-to-end de los 8 jobs de la cadena T, con su propio mecanismo de ejecución final (periodico_new.sh) y recurso compartido.</objetivo>
+    <precondiciones>
+      <precondicion>Evento externo de MEKYTL0539 (folder TR_) disponible: GC_TESO_TR_RDR_CargaNFC_T_MEKYTL0539_OK_new.</precondicion>
+      <precondicion>Recursos MAX-LPRDR501 y MAX-SPORA505 disponibles.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="martes (día 2, dentro del calendario 1,2,3,4,5)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_CargaNFC_IN arranca tras las 21:00h y publica su evento.</paso>
+      <paso numero="2">Confirmar que RDRKYTL001 arranca únicamente al recibir el evento externo de MEKYTL0539.</paso>
+      <paso numero="3">Confirmar la cadena lineal MEKYTL0369→MEKYTL0370→MEKYTL0371.</paso>
+      <paso numero="4">Confirmar que MONITOR_BKYTL001_505-606 bifurca según su código de retorno.</paso>
+      <paso numero="5">Confirmar que FICHERO_SQL_505 o FICHERO_SQL_606 ejecuta periodico_new.sh y consume MAX-SPORA505.</paso>
+    </pasos>
+    <resultadoEsperado>Los 8 jobs terminan OK; RDRKYTL001 no arranca antes del evento externo; el job final consume el recurso compartido correctamente.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 8 jobs en Control-M + consumo real del recurso MAX-SPORA505.</tipoValidacion>
+    <criterioAceptacion>8/8 jobs OK, sin KOs, recurso MAX-SPORA505 consumido y liberado correctamente.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real o fallo de asignación del recurso compartido invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>RDRKYTL001 no arranca sin el evento externo de MEKYTL0539</nombre>
+    <objetivo>Confirmar la dependencia cross-folder real (GAP-NFC-001): RDRKYTL001 permanece en espera aunque RDR_CargaNFC_IN ya haya completado, si el folder externo TR_ no ha publicado su evento.</objetivo>
+    <precondiciones>
+      <precondicion>RDR_CargaNFC_IN completado OK (evento propio publicado).</precondicion>
+      <precondicion>MEKYTL0539 (folder TR_) NO ha completado su transmisión (evento externo no publicado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado de MEKYTL0539" valor="pendiente/sin completar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_CargaNFC_IN completa OK y publica su evento.</paso>
+      <paso numero="2">Verificar que RDRKYTL001 permanece en estado de espera de evento (Causas de espera).</paso>
+      <paso numero="3">Publicar manualmente el evento externo de MEKYTL0539 y confirmar que RDRKYTL001 arranca entonces.</paso>
+    </pasos>
+    <resultadoEsperado>RDRKYTL001 no arranca hasta que el folder TR_ publica su evento, con independencia del estado de RDR_CargaNFC_IN.</resultadoEsperado>
+    <tipoValidacion>Estado de espera de RDRKYTL001 en Control-M (pestaña Causas de espera).</tipoValidacion>
+    <criterioAceptacion>RDRKYTL001 en espera mientras el evento externo no esté satisfecho; arranca en cuanto se publica.</criterioAceptacion>
+    <posibilidadFallo>Si RDRKYTL001 arrancara solo con el evento de RDR_CargaNFC_IN, contradiría la dependencia cross-folder confirmada por captura real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de MONITOR_BKYTL001_505-606 en cadena M (sin soft-failure)</nombre>
+    <objetivo>Confirmar que un código de retorno OS = 1 en la cadena M NO se enmascara: el job queda visible con su estado real, sin "Marcar como OK".</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0371 completado OK en cadena M.</precondicion>
+      <precondicion>monitor_BBDD.sh forzado a devolver código de retorno 1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno forzado" valor="1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que MONITOR_BKYTL001_505-606 (cadena M) devuelva código de retorno 1.</paso>
+      <paso numero="2">Verificar que se publica el evento RDR_CargaNFC_M_EMIR_M_MONITOR_BKVWB001_606_OK_new.</paso>
+      <paso numero="3">Verificar que el job NO se marca como OK automáticamente (sin acción "Marcar como OK" configurada en M).</paso>
+    </pasos>
+    <resultadoEsperado>El evento de la rama 606 se publica y FICHERO_SQL_606 arranca, pero el estado real del job monitor refleja el código de retorno 1 sin enmascaramiento.</resultadoEsperado>
+    <tipoValidacion>Estado real del job en Control-M tras la ejecución (comparar con la ausencia de "Marcar como OK" documentada en spec.md §6.1).</tipoValidacion>
+    <criterioAceptacion>Evento publicado, sin enmascaramiento del código de retorno real.</criterioAceptacion>
+    <posibilidadFallo>Si el job apareciera marcado como OK pese al código de retorno 1, contradiría la configuración real capturada para la cadena M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de MONITOR_BKYTL001_505-606 en cadena T (con soft-failure real)</nombre>
+    <objetivo>Confirmar la asimetría de GAP-NFC-003: un código de retorno OS = 1 en la cadena T SÍ se enmascara automáticamente como OK, a diferencia de M (TC-004).</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0371 completado OK en cadena T.</precondicion>
+      <precondicion>monitor_BBDD.sh forzado a devolver código de retorno 1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno forzado" valor="1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que MONITOR_BKYTL001_505-606 (cadena T) devuelva código de retorno 1.</paso>
+      <paso numero="2">Verificar que se publica el evento RDR_CargaNFC_T_FINSEM_D_MONITOR_BKYTL001_606_OK_new.</paso>
+      <paso numero="3">Verificar que el job SÍ se marca como OK automáticamente (acción "Marcar como OK" real, confirmada por captura).</paso>
+    </pasos>
+    <resultadoEsperado>El evento de la rama 606 se publica y el job queda visualmente como OK en Control-M pese al fallo real subyacente — comportamiento distinto y confirmado frente a la cadena M (RISK-NFC-001).</resultadoEsperado>
+    <tipoValidacion>Estado real del job en Control-M tras la ejecución, comparado explícitamente contra el resultado de TC-004.</tipoValidacion>
+    <criterioAceptacion>Evento publicado y job marcado como OK pese al código de retorno 1 — confirma el enmascaramiento real de T frente a M.</criterioAceptacion>
+    <posibilidadFallo>Si el job NO se marcara como OK, contradiría la acción "Marcar como OK" confirmada por captura real para la cadena T — motivaría revisar si la configuración cambió.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Confirmación de la sincronización entre fichas EX-005-03 y Control-M en vivo (RISK-NFC-002)</nombre>
+    <objetivo>Confirmar en revisiones futuras si las discrepancias documentales conocidas (nota de baja de RDRKYTL001, parámetro/servidor de FICHERO_SQL_505/606 en T) se han corregido o persisten.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de ambas cadenas y a las fichas EX-005-03 vigentes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDRKYTL001 — Cadena documentada" valor="debe decir RDR_CargaNFC_M_new, no RDR_CargaEMIR_M_new"/>
+      <dato campo="FICHERO_SQL_505/606 (T) — PARM2 documentado" valor="debe decir BKYTL001, no BKYTL003"/>
+      <dato campo="FICHERO_SQL_505/606 (T) — Servidor documentado" valor="debe decir spora505/spora606, no LPORA605/606"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Comparar la ficha EX-005-03-RDRKYTL001 vigente contra la configuración real de Control-M.</paso>
+      <paso numero="2">Comparar las fichas EX-005-03 de FICHERO_SQL_505/606 (T) vigentes contra la configuración real.</paso>
+      <paso numero="3">Registrar si las discrepancias persisten, se corrigieron, o aparecieron discrepancias nuevas.</paso>
+    </pasos>
+    <resultadoEsperado>Documentar el estado de sincronización entre fichas EX-005-03 y Control-M en vivo para esta cadena.</resultadoEsperado>
+    <tipoValidacion>Comparación directa documento vs. Control-M en vivo.</tipoValidacion>
+    <criterioAceptacion>Estado de sincronización documentado, con independencia de si las discrepancias persisten.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso vigila una desviación documental ya conocida, no un requisito funcional.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Serialización real vía MAX-SPORA505 compartido entre FICHERO_SQL_505 y FICHERO_SQL_606 (T)</nombre>
+    <objetivo>Confirmar que ambas ramas terminales de la cadena T compiten por el mismo recurso cuantitativo, aunque ejecuten en hosts físicos distintos.</objetivo>
+    <precondiciones>
+      <precondicion>Recurso MAX-SPORA505 con capacidad total 50, ya consumido cerca del límite por otras cadenas o ejecuciones concurrentes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Capacidad disponible de MAX-SPORA505" valor="próxima a 0 antes de que ambas ramas intenten ejecutar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que el recurso MAX-SPORA505 esté casi agotado antes de que FICHERO_SQL_505 y FICHERO_SQL_606 (T) intenten ejecutar.</paso>
+      <paso numero="2">Verificar que uno de los 2 jobs queda en espera de recurso, aunque el otro (en un host físico distinto) tenga vía libre.</paso>
+    </pasos>
+    <resultadoEsperado>El job que no consigue reservar el recurso compartido queda en espera, confirmando que el semáforo aplica realmente entre ambos hosts, no solo dentro del mismo host.</resultadoEsperado>
+    <tipoValidacion>Estado de espera de recurso cuantitativo en Control-M.</tipoValidacion>
+    <criterioAceptacion>Al menos uno de los 2 jobs queda en espera cuando la capacidad del recurso compartido se agota.</criterioAceptacion>
+    <posibilidadFallo>Si ambos jobs ejecutaran simultáneamente pese a la capacidad agotada, contradiría el recurso cuantitativo compartido confirmado por captura real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
+    <nombre>Hallazgo no preguntado: MONITOR_BKYTL001_505-606 creado por Algocmd, no emuser</nombre>
+    <objetivo>Documentar y, si es posible, aclarar con el equipo funcional por qué este job concreto, en ambas cadenas, tiene una cuenta de auditoría distinta al resto de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al responsable funcional del proceso o a documentación adicional sobre el origen de la cuenta Algocmd.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Creado por (MONITOR_BKYTL001_505-606)" valor="Algocmd"/>
+      <dato campo="Creado por (resto de jobs de ambas cadenas)" valor="emuser"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo funcional si Algocmd es una cuenta de automatización reconocida para este tipo de job.</paso>
+      <paso numero="2">Documentar la respuesta o, si no hay motivo conocido, registrar como discrepancia sin explicación.</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si es intencional (p. ej. job generado por una herramienta de monitorización distinta al resto) o un residuo de configuración.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa.</tipoValidacion>
+    <criterioAceptacion>Motivo aclarado con evidencia o respuesta funcional, documentado en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso cierra un hallazgo de auditoría, no de requisito original.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="datos_sinteticos">
+    <nombre>Ausencia de solape real entre los calendarios de M y T</nombre>
+    <objetivo>Confirmar que los calendarios reales de ambas cadenas (M: L-J+D tras 08:00 AM; T: L-V tras 21:00h) no producen ejecuciones simultáneas que compitan por los mismos recursos compartidos (MAX-LPRDR501, hosts spora505/spora606).</objetivo>
+    <precondiciones>
+      <precondicion>Calendario real de ambas cadenas confirmado por captura de Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Calendario M" valor="días 1,2,3,4,0 (L-J+D), tras 08:00 AM"/>
+      <dato campo="Calendario T" valor="días 1,2,3,4,5 (L-V), tras 21:00h"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular o revisar un lunes real: confirmar que M arranca de mañana y T arranca de noche, sin solape horario.</paso>
+      <paso numero="2">Confirmar que el domingo solo ejecuta M (T no tiene domingo en su calendario).</paso>
+    </pasos>
+    <resultadoEsperado>Sin solape horario real entre ambas cadenas en ningún día de la semana.</resultadoEsperado>
+    <tipoValidacion>Comparación de horarios reales de arranque de ambas cadenas a lo largo de una semana completa.</tipoValidacion>
+    <criterioAceptacion>Ninguna coincidencia horaria real entre M y T.</criterioAceptacion>
+    <posibilidadFallo>Si apareciera solape horario real, podría explicar picos de contención sobre MAX-LPRDR501 o los hosts spora505/spora606 no documentados hasta ahora.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="documentacion">
+    <nombre>Hallazgo no preguntado: contaminación de nomenclatura EMIR/FINSEM_D sin impacto funcional</nombre>
+    <objetivo>Documentar que el prefijo EMIR_M/FINSEM_D en los eventos de MONITOR_BKYTL001_505-606 no indica relación funcional real con otro proceso, y dejar constancia del typo de nombre de job en la cadena M (BKVWB001 en vez de BKYTL001).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de los eventos de Acciones Si de MONITOR_BKYTL001_505-606 en ambas cadenas.</precondicion>
+      <precondicion>Acceso a la definición real del folder RDR_CargaEMIR_T_new para descartar relación funcional.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Evento M (código 0)" valor="RDR_CargaNFC_M_EMIR_M_MONITOR_BKVWB001_505_OK_new"/>
+      <dato campo="Evento T (código 0)" valor="RDR_CargaNFC_T_FINSEM_D_MONITOR_BKYTL001_505_OK_new"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que ningún job de RDR_CargaEMIR_T_new consume o publica estos eventos.</paso>
+      <paso numero="2">Documentar el typo BKVWB001 (cadena M) como hallazgo cosmético, sin corrección automática prevista.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma la ausencia de relación funcional real; el hallazgo queda documentado como riesgo de confusión operativa, no como defecto funcional (RISK-NFC-003).</resultadoEsperado>
+    <tipoValidacion>Revisión cruzada de eventos consumidos/publicados por RDR_CargaEMIR_T_new.</tipoValidacion>
+    <criterioAceptacion>Ninguna dependencia real encontrada entre los eventos de esta cadena y RDR_CargaEMIR_T_new.</criterioAceptacion>
+    <posibilidadFallo>Si apareciera un consumidor real de estos eventos en RDR_CargaEMIR_T_new, contradiría la conclusión de independencia funcional documentada en spec.md §4 (GAP-NFC-002).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
