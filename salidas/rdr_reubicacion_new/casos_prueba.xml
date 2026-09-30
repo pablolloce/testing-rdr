@@ -204,4 +204,86 @@
     <posibilidadFallo>Si nadie puede confirmar la intención y la dependencia no tiene justificación funcional conocida, debe tratarse como un defecto pendiente de corrección, no como un comportamiento aceptado.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-011" tipo="happy_path">
+    <nombre>Reubicación individual válida — reasignación de contrapartidas y estado INACTIVEPEND</nombre>
+    <objetivo>Confirmar que el procedimiento PL·SQL REUBICACION de Sub_Load reasigna correctamente las relaciones de contrapartida (TRADES_WITH/RISKPYME) de la oficina cerrada hacia la oficina destino, y que la oficina cerrada queda en FT_T_FINS como INACTIVEPEND, no INACTIVE.</objetivo>
+    <precondiciones>
+      <precondicion>Línea de Reubicacion.csv con una oficina de cierre y una oficina destino, ambas existentes y activas, y con al menos una relación de contrapartida TRADES_WITH o RISKPYME asociada a la oficina de cierre.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Campos CSV relevantes" valor="campos[1]=oficinaDES (cierre), campos[3]=oficinaPER (destino)"/>
+      <dato campo="Tipos de relación reasignados" valor="TRADES_WITH, RISKPYME"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar una línea de Reubicacion.csv con oficina de cierre y destino válidas.</paso>
+      <paso numero="2">Confirmar que todas las filas FT_T_SUFR con SUBDIV_RL_TYP TRADES_WITH/RISKPYME de la oficina de cierre pasan a apuntar a la oficina destino (SUBDIV_ID/SUBD_ORG_ID/SUBD_OID).</paso>
+      <paso numero="3">Confirmar que se insertan 2 filas en FT_T_RLT1 (éxito de reubicación + paso a INACTIVEPEND) si la oficina de cierre estaba ACTIVE.</paso>
+      <paso numero="4">Confirmar que FT_T_SUFR/FT_T_SUBD de la oficina de cierre quedan INACTIVE y FT_T_FINS queda INACTIVEPEND (no INACTIVE).</paso>
+    </pasos>
+    <resultadoEsperado>Las relaciones de contrapartida se conservan bajo la nueva oficina, sin pérdida de histórico, y la oficina cerrada queda en un estado intermedio (INACTIVEPEND) en vez de eliminarse o marcarse INACTIVE de forma definitiva.</resultadoEsperado>
+    <tipoValidacion>Verificación directa en FT_T_SUFR/FT_T_SUBD/FT_T_FINS/FT_T_RLT1 antes y después de la carga.</tipoValidacion>
+    <criterioAceptacion>Reasignación completa confirmada, estado final INACTIVEPEND confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si alguna relación de contrapartida queda huérfana (sin reasignar) o la oficina de cierre queda INACTIVE en vez de INACTIVEPEND, es una desviación del comportamiento confirmado en el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Oficina de cierre no encontrada en FT_T_SUFR — excepción controlada, lote continúa</nombre>
+    <objetivo>Confirmar que si la oficina de cierre de una línea del CSV no existe en FT_T_SUFR (IS_OFFI, SUBD_ORG_ID='A1'), se dispara la excepción OFICINAD_NOT_FOUND, se registra en FT_T_RLT1, y el procesado del lote de 500 registros continúa sin detenerse.</objetivo>
+    <precondiciones>
+      <precondicion>Línea de Reubicacion.csv con un código de oficina de cierre que no existe en FT_T_SUFR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Excepción esperada" valor="OFICINAD_NOT_FOUND"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Incluir en el lote una línea con oficina de cierre inexistente, junto con otras líneas válidas.</paso>
+      <paso numero="2">Confirmar que se inserta una fila de auditoría en FT_T_RLT1 describiendo el error para esa línea concreta.</paso>
+      <paso numero="3">Confirmar que las demás líneas válidas del mismo lote se procesan con normalidad (no se aborta el lote completo).</paso>
+    </pasos>
+    <resultadoEsperado>Solo la línea afectada queda sin procesar, con su error auditado; el resto del lote se completa con normalidad.</resultadoEsperado>
+    <tipoValidacion>Verificación de FT_T_RLT1 + confirmación de que el resto de líneas del lote sí se cargaron.</tipoValidacion>
+    <criterioAceptacion>Tolerancia a fallo individual confirmada sin abortar el lote.</criterioAceptacion>
+    <posibilidadFallo>Si el error de una línea aborta el procesado de todo el lote de 500, contradice el comportamiento confirmado en el código (manejo de excepción sin RAISE posterior).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="error_funcional">
+    <nombre>Oficina destino no encontrada o duplicada — excepciones controladas</nombre>
+    <objetivo>Confirmar el comportamiento cuando la oficina destino de una línea no existe (OFICINAP_NOT_FOUND) o existe más de una vez (OFICINAP_DUPLICATE) en FT_T_SUFR, con la misma tolerancia que TC-012.</objetivo>
+    <precondiciones>
+      <precondicion>2 líneas de prueba: una con oficina destino inexistente, otra con oficina destino duplicada en FT_T_SUFR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Excepciones esperadas" valor="OFICINAP_NOT_FOUND, OFICINAP_DUPLICATE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Probar una línea con oficina destino inexistente; confirmar OFICINAP_NOT_FOUND y su registro en FT_T_RLT1.</paso>
+      <paso numero="2">Probar una línea con oficina destino duplicada; confirmar OFICINAP_DUPLICATE y su registro en FT_T_RLT1.</paso>
+      <paso numero="3">Confirmar en ambos casos que el resto del lote continúa procesándose.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos escenarios quedan auditados individualmente sin detener el lote.</resultadoEsperado>
+    <tipoValidacion>Verificación de FT_T_RLT1 para cada escenario + confirmación de continuidad del lote.</tipoValidacion>
+    <criterioAceptacion>Ambas excepciones confirmadas con su comportamiento tolerante documentado.</criterioAceptacion>
+    <posibilidadFallo>Igual que TC-012 — cualquier aborto del lote completo por un registro individual contradice el código confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="conflicto_integridad">
+    <nombre>Oficina de cierre ya INACTIVE antes de la reubicación — auditoría de éxito omitida</nombre>
+    <objetivo>Confirmar que, si la oficina de cierre ya tenía DATA_STAT_TYP distinto de ACTIVE antes de ejecutar la reubicación, el procedimiento reasigna igualmente las relaciones de contrapartida, pero NO inserta las 2 filas de auditoría de éxito en FT_T_RLT1 (condicionadas a DATA_STAT_TYPD = 'ACTIVE').</objetivo>
+    <precondiciones>
+      <precondicion>Oficina de cierre con FT_T_FINS.DATA_STAT_TYP ya distinto de ACTIVE antes de procesar la línea de Reubicacion.csv correspondiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición del código" valor="IF DATA_STAT_TYPD = 'ACTIVE' THEN INSERT INTO FT_T_RLT1 ..."/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar una oficina de cierre ya no ACTIVE antes de la carga.</paso>
+      <paso numero="2">Ejecutar la reubicación para esa línea y confirmar que las relaciones de contrapartida se reasignan igualmente.</paso>
+      <paso numero="3">Confirmar que NO se insertan las 2 filas de auditoría de éxito en FT_T_RLT1 para esa línea, a diferencia de TC-011.</paso>
+    </pasos>
+    <resultadoEsperado>La reasignación ocurre igualmente pero sin dejar rastro de auditoría de éxito — posible pérdida de trazabilidad a documentar como hallazgo (RISK-REUB-007).</resultadoEsperado>
+    <tipoValidacion>Comparación directa del contenido de FT_T_RLT1 respecto al escenario de TC-011.</tipoValidacion>
+    <criterioAceptacion>Comportamiento asimétrico confirmado y documentado como riesgo, no como error a corregir en este alcance.</criterioAceptacion>
+    <posibilidadFallo>Si el equipo funcional considera esta falta de trazabilidad inaceptable, debe elevarse como defecto, no solo como riesgo documentado.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

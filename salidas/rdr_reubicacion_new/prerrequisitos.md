@@ -13,7 +13,11 @@
 - Workflow GoldenSource `RDR_Reubicacion` desplegado y operativo — invocado por `KYTL_REU_GSPROCESS`;
   identificado con alta confianza como el motor genérico `PLSQL_Load` (mismo workflow, versión y comentario
   interno que el ya documentado en `rdr_refundicion`), que a su vez delega la lógica real de negocio en el
-  sub-workflow `Sub_Load` — no aportado (mismo hueco compartido con `rdr_refundicion`).
+  sub-workflow `Sub_Load` (`RDR_OFI_INACT_V1`) — **confirmado con código PL·SQL real esta ronda**: procedimiento
+  `REUBICACION` que reasigna relaciones de contrapartida hacia la oficina destino y deja la oficina cerrada en
+  `INACTIVEPEND` (ver `spec.md` R3b-bis, RISK-REUB-006/007).
+- Fichero `select_1.properties` operativo — confirma la consulta y cabecera reales de `Reporte_Reubicacion.csv`
+  (`queryReubicacion`/`cabeceraReubicacion`), fichero compartido con al menos otros 7 procesos del audit.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM, 3 invocaciones
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia

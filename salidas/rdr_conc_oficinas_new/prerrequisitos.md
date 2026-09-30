@@ -21,8 +21,9 @@
   `ControlCargaDatos.jar`/`javacsv.jar` — existencia y estructura de paquete confirmadas,
   `com.bbva.kytl:ControlCargaDatos` con clases `ControlCase`/`ControlCase_ant` —, carga MDX en la entidad
   `Oficina`/`OFC`, `RDR_Report.jar` — confirmado como el mismo motor genérico ya usado en `rdr_cargalei_new`,
-  paquete `rdr_report`, requiere un `select.properties` específico de `oficinas` no aportado). El jar
-  `compare.jar` (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) sigue sin aportar.
+  paquete `rdr_report`, parametrizado por `select_1.properties` — **confirmado esta ronda**, ver `spec.md`
+  R3e). El jar `compare.jar` (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) **confirmado esta
+  ronda** — clase exacta verificada por manifiesto/estructura, algoritmo interno (bytecode) no decompilado.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con

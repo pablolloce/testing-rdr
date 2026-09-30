@@ -15,8 +15,11 @@
 > `RDR_SIMU_CIERRE_OFI_new`) están explícitamente fuera de alcance de este documento fuente.
 >
 > **Estado: topología, calendario, parámetros y el mecanismo de salto por RC=7 confirmados al 100% con
-> evidencia real** (ficha EX-005-02 + export de Control-M). Solo quedan fuera de alcance el contenido interno
-> de jars/scripts, el significado exacto del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` (§8.2).
+> evidencia real** (ficha EX-005-02 + export de Control-M). Esta ronda añade la confirmación de
+> `select_1.properties` (fichero de reporting real, compartido con al menos otros 7 procesos del audit) y de
+> `compare.jar` (clase real confirmada, invocada por `Delta.sh`). Solo quedan fuera de alcance el contenido
+> interno de `ControlCargaDatos.jar`/`LimpiarOficinas`, el algoritmo interno (bytecode) de `compare.jar`, el
+> significado exacto del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` (§8.2).
 
 ## 1. Resumen ejecutivo
 
@@ -43,12 +46,12 @@ confirmado por la configuración real de Control-M.
 * **Ámbito funcional:** monitoreo de llegada, conciliación y carga en RDR del fichero de oficinas, con
   historificación local y cierre de cadena.
 * **Ámbito técnico:** la cadena Control-M `RDR_CONC_OFICINAS_new` completa (4 pasos).
-* **Fuera de alcance** (detalle completo en §8.2): contenido interno de `LimpiarOficinas`; el `select.properties`
-  específico de `oficinas` que parametriza `RDR_Report.jar`; la lógica de mapeo de campos dentro de
-  `ControlCargaDatos.jar` (existencia y estructura ya confirmadas, contenido bytecode no decompilado); el jar
-  `compare.jar` (invocado por `Delta.sh`, no aportado); el significado exacto del código de retorno 7 del
-  filewatcher; la cadena `RDR_CARGA_PLAZAS_TRAD_new` (no documentada en el fuente); las cadenas downstream de
-  informe/simulación de cierre.
+* **Fuera de alcance** (detalle completo en §8.2): contenido interno de `LimpiarOficinas`; la lógica de mapeo
+  de campos dentro de `ControlCargaDatos.jar` (existencia y estructura ya confirmadas, contenido bytecode no
+  decompilado); el algoritmo interno (bytecode) de comparación de `compare.jar` (existencia, paquete y clase
+  ya confirmados — ver R3e); el significado exacto del código de retorno 7 del filewatcher; la cadena
+  `RDR_CARGA_PLAZAS_TRAD_new` (no documentada en el fuente); las cadenas downstream de informe/simulación de
+  cierre. El `select.properties` que parametriza `RDR_Report.jar` queda **confirmado** esta ronda — ver R3d.
 
 ## 3. Requisitos detectados
 
@@ -58,9 +61,10 @@ confirmado por la configuración real de Control-M.
 | R1b | Día de ejecución confirmado por **2 fuentes independientes** (documento funcional + ficha oficial EX-005-02): **martes a sábado**. Calendario `RDR_FEST_HOST` confirmado en el export real. |
 | R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. |
 | R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta (código real de `Delta.sh` confirmado, ver R3b), carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
-| R3b | **`Delta.sh` (código real, confirmado) es un motor genérico compartido** (autor "NFOQUE", 2015 — no específico de oficinas, parametrizado por `$MOD_EJECUCION`), invocado con `Delta="Si"`: compara el fichero de entrada contra la copia del día anterior (`old/$MOD_EJECUCION.csv`) mediante una clase Java (`es.bbva.kytl.scripts.Compare`, jar `compare.jar`, no aportado) y deja en `$FILE_CARGA` **solo las filas incrementales**, moviendo el fichero completo del día a `/old/` como nueva base de comparación. Si no existe copia anterior (primera carga), la genera vacía, de forma que el "delta" es el fichero completo. **Mecanismo de seguridad ante relanzamiento (`marcha_atras`):** si el fichero de carga y el `_old` de backup tienen marcas de tiempo con menos de 5 segundos de diferencia, asume que el delta ya se ejecutó y restaura los ficheros de backup en vez de recalcular — evita duplicar el delta en un relanzamiento inmediato. |
+| R3b | **`Delta.sh` (código real, confirmado) es un motor genérico compartido** (autor "NFOQUE", 2015 — no específico de oficinas, parametrizado por `$MOD_EJECUCION`), invocado con `Delta="Si"`: compara el fichero de entrada contra la copia del día anterior (`old/$MOD_EJECUCION.csv`) mediante una clase Java (`es.bbva.kytl.scripts.Compare`, jar `compare.jar`) y deja en `$FILE_CARGA` **solo las filas incrementales**, moviendo el fichero completo del día a `/old/` como nueva base de comparación. Si no existe copia anterior (primera carga), la genera vacía, de forma que el "delta" es el fichero completo. **Mecanismo de seguridad ante relanzamiento (`marcha_atras`):** si el fichero de carga y el `_old` de backup tienen marcas de tiempo con menos de 5 segundos de diferencia, asume que el delta ya se ejecutó y restaura los ficheros de backup en vez de recalcular — evita duplicar el delta en un relanzamiento inmediato. **`compare.jar` confirmado esta ronda:** inspección de su manifiesto/estructura confirma exactamente la clase `es/bbva/kytl/scripts/Compare.class` que `Delta.sh` invoca — coincidencia exacta de paquete y nombre, no una suposición; el algoritmo interno de comparación fila a fila permanece en bytecode no decompilado (ver §8.2). |
 | R3c | **`Unix2Dos.sh` (código real, confirmado) es otro motor genérico compartido** (mismo autor "NFOQUE", 2015): recibe un fichero, detecta el entorno comprobando qué directorio `/fichtemcomp/<env>` existe (una 3ª convención de detección de entorno distinta de las 2 ya vistas en otros procesos de esta sesión — prefijo de hostname, o 2º carácter), y convierte los saltos de línea Unix a DOS (`sed 's/$/\r/'`) generando un fichero de salida `<nombre_sin_extensión>_dos.<extensión>` — **confirma literalmente que `Reporte_oficinas_dos.csv` es el resultado de convertir a formato DOS el `Reporte_oficinas.csv`** generado por `RDR_Report.jar`, antes del envío XCOM del paso 4. Sin lógica de negocio ni tolerancia a fallos propia. |
-| R3d | **`RDR_Report.jar` (confirmado): es el mismo motor genérico de reporte ya usado en `rdr_cargalei_new`** (paquete `rdr_report`, clase principal `rdr_report.CreateReport`, más `rdr_report.jdbc.JDBCAcceso` y utilidades) — no contiene lógica de negocio propia de oficinas; se parametriza en tiempo de ejecución con un `select.properties` específico de la entidad (no aportado para `oficinas`) que define la consulta SQL real y el formato de salida. |
+| R3d | **`RDR_Report.jar` (confirmado): es el mismo motor genérico de reporte ya usado en `rdr_cargalei_new`** (paquete `rdr_report`, clase principal `rdr_report.CreateReport`, más `rdr_report.jdbc.JDBCAcceso` y utilidades) — no contiene lógica de negocio propia de oficinas; se parametriza en tiempo de ejecución con `select_1.properties` — ver R3e. |
+| R3e | **`select_1.properties` (fichero real, confirmado): un único fichero compartido entre al menos 8 procesos del audit** (`oficinas`, `Reubicacion`, `ConBDI`, `ConClientela`, `Refundicion`, `difusion_cparty`, `difusion_batch`, `bancarizacion`), no un fichero "específico de la entidad" como se documentaba antes de esta ronda. La entrada `queryoficinas` genera `Reporte_oficinas.csv` con cabecera `FINSID;CSB;OFICINA;MENSAJE`, leyendo de `FT_T_RLT1`/`FT_T_FIID` filtrando `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='OFICINAS'` y `RLT_STATUS='3'`, acotado al último job cerrado con `JOB_MSG_TYP='OFC'` — confirma la fuente exacta de datos del reporte de oficinas, antes solo conocida por nombre de fichero de salida. |
 | R4 | `MEKYTL0242` historifica `oficinas.csv` a `oficinas_yyyymmdd.csv` en `/fichtemcomp/pr/descargas/kytl/oficinas/old/` (mismo servidor origen/destino). **La tolerancia a fichero ausente no tiene ningún override visible a nivel de Control-M** (a diferencia de varios jobs de `RDR_REUBICACION_new` — ver ese documento) — si es real, debe implementarse dentro del propio `RAMERC0068.sh` (mismo patrón ya confirmado en otros procesos de esta sesión: el script detecta la ausencia y sale con código 0). |
 | R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. **Confirmado en Control-M real: `TASKTYPE="Job"`** (no es un Dummy de Control-M, es una invocación real de `MEGENV0001.sh`) — mismo patrón que `MEKYTL0234` de `RDR_REUBICACION_new`. Igual que R4, no tiene override `NOTOK→OK` visible a nivel de Control-M; su tolerancia (si es real) debe ser interna al script. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
 | R6 | Cada uno de los 4 pasos consume 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100, confirmado en Control-M real) — un recurso compartido con otras cadenas de esta familia (ver `RDR_REUBICACION_new`), que limita la concurrencia total entre ellas. |
@@ -163,17 +167,14 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 
 * **Contenido interno de `ControlCargaDatos.jar`** y de `LimpiarOficinas` — se conoce el orden de invocación y su propósito general, no su
   lógica de mapeo/validación de campos.
-* **`select.properties` específico de la entidad `oficinas`** que parametriza `RDR_Report.jar` (jar
-  confirmado como motor genérico compartido con `rdr_cargalei_new`, sin lógica propia) — define la consulta
-  SQL real y el formato del reporte, no aportado.
 * **Significado exacto del código de retorno 7** del filewatcher — confirmado el mecanismo de salto (R2), no
   la causa que lo dispara (p. ej. ¿fichero vacío?, ¿calendario sin cierre ese día?).
 * **Confirmación del mecanismo interno de tolerancia a fichero ausente** de `MEKYTL0242`/`MEKYTL0243` (R4/R5)
   — no hay override a nivel de Control-M, así que si es real debe vivir dentro de los scripts
   `RAMERC0068.sh`/`MEGENV0001.sh`, cuyo contenido no ha sido aportado en esta ronda.
-* **Jar `compare.jar`** (clase `es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) — recién identificado
-  en esta ronda, no aportado; contiene la lógica real de comparación fila a fila entre el fichero del día y
-  el del día anterior.
+* **Algoritmo interno (bytecode) de `compare.jar`** (clase `es.bbva.kytl.scripts.Compare`, confirmada esta
+  ronda como la invocada por `Delta.sh` — ver R3b) — la existencia y coincidencia exacta de clase/paquete ya
+  no están fuera de alcance; el detalle del algoritmo de comparación fila a fila sí sigue sin decompilar.
 * **Significado funcional exacto de los pares `CBAMUT`/`COFMUT` vs. `CBACOM`/`COFCOM`** en `oficinas.csv`
   (ver R3/§4) — estructura confirmada, semántica de negocio no.
 * **`RDR_CARGA_PLAZAS_TRAD_new`** — el documento fuente declara cubrir esta cadena junto con las otras 2, pero
@@ -195,7 +196,10 @@ confirmado que el paso 4 es un job real (`TASKTYPE="Job"`) contra un destino ine
 `Delta.sh` y `Unix2Dos.sh` (2 motores genéricos compartidos, este último confirma literalmente el origen de
 `Reporte_oficinas_dos.csv`), la confirmación de que `RDR_Report.jar` es el mismo motor genérico ya usado en
 `rdr_cargalei_new` (sin lógica propia de oficinas), y el diccionario completo de campos de `oficinas.csv`
-(134 campos, confirmado con fichero real de producción). Los elementos que siguen sin material propio
-(contenido interno de `ControlCargaDatos.jar`/`compare.jar`/`LimpiarOficinas`, el `select.properties`
-específico de `oficinas`, causa del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento
-fuente) quedan listados en §8.2 como fuera de alcance.
+(134 campos, confirmado con fichero real de producción). **La última ronda cierra 2 huecos adicionales:**
+`select_1.properties` se confirma como un fichero real compartido con al menos otros 7 procesos del audit, con
+la consulta y cabecera exactas de `Reporte_oficinas.csv`; y `compare.jar` se confirma con la clase exacta
+(`es.bbva.kytl.scripts.Compare`) que `Delta.sh` invoca, aunque su algoritmo interno de comparación permanece
+sin decompilar. Los elementos que siguen sin material propio (contenido interno de
+`ControlCargaDatos.jar`/`LimpiarOficinas`, el bytecode de `compare.jar`, causa del código 7, y la cadena
+`RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.

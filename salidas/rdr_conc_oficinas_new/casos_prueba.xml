@@ -181,4 +181,25 @@
     <posibilidadFallo>Si el relanzamiento recalcula el delta contra el fichero ya procesado, podría producir un delta vacío o incorrecto, o corromper el histórico de comparación para el día siguiente.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Contenido real de Reporte_oficinas.csv coincide con la consulta confirmada de select_1.properties</nombre>
+    <objetivo>Confirmar que el reporte generado por RDR_Report.jar en el paso 2 (KYTL_CONOFI_GSPROCESS) contiene exactamente las filas y columnas que define la entrada queryoficinas/cabeceraoficinas de select_1.properties (FINSID;CSB;OFICINA;MENSAJE, filtrando FT_T_RLT1 por RLT_PURP_TYP=REPORTES, DATA_SRC_APP=OFICINAS, RLT_STATUS=3, acotado al último job JOB_MSG_TYP=OFC cerrado).</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución real reciente de KYTL_CONOFI_GSPROCESS con filas conocidas insertadas en FT_T_RLT1 para esa ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Cabecera esperada" valor="FINSID;CSB;OFICINA;MENSAJE"/>
+      <dato campo="Filtro de origen" valor="FT_T_RLT1: RLT_PURP_TYP=REPORTES, DATA_SRC_APP=OFICINAS, RLT_STATUS=3"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso 2 con datos conocidos y localizar las filas insertadas en FT_T_RLT1 para esa ejecución.</paso>
+      <paso numero="2">Confirmar que Reporte_oficinas.csv contiene exactamente esas filas, con la cabecera FINSID;CSB;OFICINA;MENSAJE.</paso>
+      <paso numero="3">Confirmar que el filtro por el último job JOB_MSG_TYP=OFC cerrado excluye correctamente filas de ejecuciones anteriores.</paso>
+    </pasos>
+    <resultadoEsperado>El contenido del reporte coincide exactamente con la consulta confirmada, sin filas de ejecuciones previas ni columnas inesperadas.</resultadoEsperado>
+    <tipoValidacion>Comparación directa entre el resultado de la consulta SQL y el contenido real de Reporte_oficinas.csv.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si el reporte arrastra filas de una ejecución anterior (fallo del filtro por último job cerrado), sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>
