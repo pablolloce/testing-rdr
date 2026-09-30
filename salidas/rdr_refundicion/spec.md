@@ -42,7 +42,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
 | G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente. Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
-| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía a un sistema externo vía 2 sub-workflows (`SendClientelaRequest`, `BAJA_460_CLI`, no aportados) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`), y un **hallazgo de alta prioridad, no bloqueante para el cierre pero crítico para pruebas:** el workflow bifurca por un parámetro `Tipologia` (`Switch Case`, default `OTHER`→fin inmediato sin hacer nada) que el propio evento invocador (`RDR_Clientela460.gsp`) declara con **mapa de parámetros vacío** — sin más evidencia de dónde se fija `Tipologia` en la invocación real, no se puede confirmar que el workflow llegue nunca a procesar nada. Ver detalle completo en §6.1 y RISK-REFUN-NUEVO en §9. `ConContrato460.java`/`ConDB.java` quedan como un mecanismo real pero **de una cadena o proceso distinto, no identificado**, ajeno a este pipeline — sus 2 hallazgos de código (defecto `NUMFOLII`/`NUMFOLIO`, tipo de job `C460`/`CCL`) se mantienen documentados como información confirmada, pero ya no como parte de `RDR_REFUNDICION_new`. |
+| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía por MQ (cola `CLIENTELA`) a un sistema externo vía 2 sub-workflows reales, ambos aportados y confirmados (`SendClientelaRequest`, `BAJA_460_CLI`) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`). El parámetro `Tipologia` que decide la rama (`ALTA`/`BAJA`/`TOTAL`/`OTHER` por defecto) se inyecta dinámicamente desde `GSProcess.sh` (no un `HashMap` Java) y su valor literal real, confirmado con `Refundicion.properties`, es **`TOTAL`** — el pipeline real siempre procesa las 3 señales en un único paso, sin riesgo de no-op. Ver detalle completo en §6.1. `ConContrato460.java`/`ConDB.java` quedan como un mecanismo real pero **de una cadena o proceso distinto, no identificado**, ajeno a este pipeline — sus 2 hallazgos de código (defecto `NUMFOLII`/`NUMFOLIO`, tipo de job `C460`/`CCL`) se mantienen documentados como información confirmada, pero ya no como parte de `RDR_REFUNDICION_new`. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
@@ -182,37 +182,55 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
     tipologías consumen exactamente las señales `PENDING`/`A460`/`B460` que `Sub_Load`/`REFUNDICION` inserta
     y nunca resuelve por sí solo (§9) — este workflow es su consumidor real, y se ejecuta como el paso
     inmediatamente siguiente en el propio pipeline de R2.
-  - **Mecanismo de inyección de `Tipologia` — confirmado con código real de `GSProcess.sh` (2026-09-30,
-    fichero idéntico byte a byte al ya usado en `rdr_pr_bdiclienreg_resp_new` y otro proceso del audit):**
-    el motor genérico `GSProcess.sh` (invocado por `KYTL_REF_GSPROCESS`) no construye ningún `HashMap` en
-    Java — es un script bash (`Control()`) que recorre línea a línea el `.properties` real del job,
-    agrupado en bloques `Accion=Vari`/`Even`/`Scri`/`Java`/`Prop`. Un bloque `Vari` puede contener una
-    línea literal `Tipologia=<valor>`, que el script captura en la variable de shell `$Tipologia`
-    (`"Tipol") Tipologia="${valor[$j]}"`); cuando después se alcanza un bloque `Accion=Even` con
-    `NombreEvento=Workflow`, la función `crearproperties()` vuelca el valor **vigente** de `$Tipologia` a
-    un fichero `.properties` temporal, que es el que de verdad recibe `executeBbvaEvent.sh` al invocar el
-    evento GoldenSource. **Esto corrige la explicación aportada por el usuario** (no es una clase Java
-    `ConContrato460` construyendo un `HashMap` — ese archivo, ya sabemos por `BajaClientela460.wkf`, ni
-    siquiera se invoca aquí) **pero confirma la idea de fondo**: `Tipologia` sí se inyecta dinámicamente
-    en tiempo de ejecución, desde el `.properties` real del job — el mapa de parámetros vacío del `.gsp`
-    no es evidencia de que nunca llegue ningún valor, solo del valor por defecto estático del evento.
-  - **Hallazgo [prioridad media, ya no alta — mecanismo confirmado, falta solo el valor literal
-    configurado]:** falta el contenido real del bloque `Accion=Vari` que precede al `Accion=Even`/`Workflow`
-    de `RDR_Clientela460` dentro del `.properties` de este job (muy probablemente `Refundicion.properties`,
-    el mismo fichero ya citado para `Delta=Si` en G3) — con él se confirmaría el valor literal de
-    `Tipologia` (y el de `StopEve` para ese mismo bloque, que determina si un fallo del evento detiene
-    `KYTL_REF_GSPROCESS` de inmediato o solo incrementa el contador de errores). Mismo patrón ya usado en
-    el audit para `FALLASINOFICHS`/`FALLA_NO_FICHERO`: mecanismo confirmado con código real, valor exacto
-    pendiente de un fichero de configuración concreto. Ver TC-014 (ahora reformulado).
-  - **Hallazgo [no bloqueante]:** ni `SendClientelaRequest` ni `BAJA_460_CLI` (los 2 sub-workflows
-    invocados) están aportados — quedan como el único material adicional posible para completar el
-    desglose al 100%, aunque los parámetros de entrada/salida ya identifican con precisión qué reciben.
-  - **Hallazgo [no bloqueante]:** el workflow tiene `haltOnError=false` y `retries=0`, sin ninguna rama de
-    excepción explícita (a diferencia de `REFUNDICION`/`REUBICACION` en `Sub_Load`, que sí controlan sus
-    excepciones). Si `SendClientelaRequest`/`BAJA_460_CLI` falla, la fila de `FT_T_RLT1` no llegaría a
-    marcarse `OK` — como la consulta siempre filtra por `PENDING`, en teoría se reintentaría en la siguiente
-    ejecución diaria (no hay pérdida de la señal), pero **sin ninguna alerta explícita** si el fallo persiste
-    varios días — mismo patrón de "reintento sin límite ni alerta" ya visto en `MarcaRegErroneo` (§9).
+  - **Mecanismo de inyección de `Tipologia` — confirmado con código real de `GSProcess.sh`, y valor literal
+    confirmado con `Refundicion.properties` real (2026-09-30):** `GSProcess.sh` no construye ningún `HashMap`
+    en Java — es un script bash (`Control()`) que recorre línea a línea el `.properties` real del job,
+    agrupado en bloques `Accion=Vari`/`Even`/`Scri`/`Java`/`Prop`. Un bloque `Vari` puede contener una línea
+    literal `Tipologia=<valor>`, que el script captura en la variable de shell `$Tipologia`; cuando después
+    se alcanza un bloque `Accion=Even` con `NombreEvento=Workflow`, `crearproperties()` vuelca el valor
+    **vigente** de `$Tipologia` al `.properties` temporal que de verdad recibe `executeBbvaEvent.sh`.
+    **`Refundicion.properties` real confirma el valor literal: `Tipologia=TOTAL`**, fijado en el único bloque
+    `Vari` del fichero (`Accion=VariablesGlobales`, antes de cualquier otro paso) — y como ningún paso
+    posterior vuelve a tocar `Tipologia`, ese valor `TOTAL` es el que llega también al evento
+    `Workflow(RDR_Clientela460)` más adelante en el mismo fichero. **G4 queda así cerrado al 100%: el riesgo
+    de "no-op total" queda descartado por completo** — el pipeline real siempre invoca `BajaClientela460` con
+    `Tipologia=TOTAL`, la rama que procesa `B460`→`B460C`→`A460` en un único paso.
+  - **[RIESGO NUEVO, confirmado con `Refundicion.properties` real] Ningún paso de `KYTL_REF_GSPROCESS` tiene
+    parada temprana configurada:** en todo el fichero no aparece ninguna clave `Stop=Ok`/`StopEve=Ok`/
+    `StopJav=Ok`/`StopScr=Ok` — ni a nivel global ni en ninguno de los bloques (`Delta`, `LimpiarRefundicion`,
+    `Java(ControlCargaDatos.jar)`, `Workflow(RDR_Refundicion)`, `Workflow(RDR_Clientela460)`,
+    `Evento(Errores)`, `Java(RDR_Report.jar)`, `Unix2Dos`). Por diseño de `GSProcess.sh`, esto significa que
+    **un fallo en cualquier paso NO detiene los siguientes**: el script solo acumula un contador de errores
+    (`$Errores`) y continúa ejecutando el resto de la secuencia igualmente, reportando el fallo del job
+    completo (`RC=1`) solo al final. Ej.: si `Java(ControlCargaDatos.jar)` fallara, `Workflow(RDR_Refundicion)`
+    y `Workflow(RDR_Clientela460)` se invocarían igualmente, posiblemente sobre datos parciales/no cargados.
+  - **`SendClientelaRequest.wkf` y `BAJA_460_CLI.wkf` aportados (2026-09-30) — desglose nodo a nodo
+    completo, ya no falta ningún material sobre G4:**
+    - **Transporte real confirmado: cola MQ `CLIENTELA`** (sub-workflow `Sub_SendMessageToMQQueue`, no
+      aportado, pero el nombre literal de la cola sí queda confirmado) — no HTTP/webservice como se podía
+      suponer.
+    - **`SendClientelaRequest`** (versión 8, `haltOnError=true` — a diferencia de `BajaClientela460`) admite
+      `ACCION` en `A460`/`B460`/consulta (`CONS`/`CONS1`, verificación de existencia de cliente en
+      GoldenSource vía `Sub_check_CCLIENIDFISCAL_GS`, no aportado). Para `A460`/`B460` construye un mensaje
+      de ancho fijo (p. ej. `CCLIEN`(9)+`CODBAN`(4)+`CODOFI`(4)+`CODPAIS`(4, por defecto `"0011"`) para
+      `A460`) y lo audita — **no en `FT_T_RLT1`, sino en `FT_T_UTD1`** (`UTD_USAGE_TYP='A460_Cli'`/
+      `'B460_Cli'`, `DATA_SRC_ID='CLIENTELA'`) con 2 filas adicionales de estado "esperando respuesta" tras
+      el envío — confirma que el ciclo con Clientela es **asíncrono** (petición por MQ, respuesta a
+      verificar más tarde, sin que este workflow la espere).
+    - **`BAJA_460_CLI`** (versión 5, `haltOnError=false`) admite `NIVEL` en `GLOBAL`/`LOCAL`/`OPERATIVO`
+      (3 valores reales) — pero `BajaClientela460` **siempre lo invoca con `NIVEL=LOCAL`**, por lo que las
+      ramas `GLOBAL`/`OPERATIVO` son código real pero **no alcanzable desde este pipeline** (posible
+      reutilización para otro proceso, no confirmado). La rama `OPERATIVO` (no ejercitada aquí) revela un
+      hallazgo interesante: resuelve folio/banco/oficina vía `FT_T_FAB1`/`STAT_DEF_ID='NUMFOLIO'` — el mismo
+      campo ya visto en `ConContrato460.java` (dato compartido entre 2 mecanismos independientes, aunque
+      `ConContrato460.java` en sí no forma parte de esta cadena) — y aplica una **deduplicación real**: si
+      2 oficinas hermanas comparten ya un folio activo para el mismo `BRANCH`/cliente local, no reenvía la
+      baja duplicada. `LOCAL`/`GLOBAL` delegan en un sub-workflow `SUB_GET_FOLIO` (no aportado) que
+      finalmente also invoca `SendClientelaRequest` con `ACCION=B460`.
+    - **Confirma el riesgo de reintento sin alerta (§9), ahora con más precisión:** `SendClientelaRequest`
+      tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
+      `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
+      simplemente no se marcaría `OK` y se reintentaría al día siguiente.
 * **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: mecanismo real pero de un
   proceso no identificado, ajeno a esta cadena.** Estas 3 clases, aportadas en rondas anteriores bajo la
   hipótesis de que implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la
@@ -275,9 +293,11 @@ fallo (Soft Failure) de los 2 últimos jobs, y — con el código PL·SQL real d
 el comportamiento funcional detallado del procedimiento `REFUNDICION`: los 3 casos (destino no existe, destino
 existe, destino duplicado), la reactivación en bloque de tablas tras un `BAJA_CPARTY` previo, el cierre en
 cascada local/global, el caso especial de entidades mexicanas (Altamira), y el doble canal de auditoría
-(`REPORTES`/`ERRORES`) de las 5 excepciones controladas. Con el código real de `BajaClientela460.wkf`
-aportado esta ronda, cubre también el consumo real de las señales `PENDING` de alta/baja 460 (3 tipologías,
-`ALTA`/`BAJA`/`TOTAL`) y el riesgo de no-op total si `Tipologia` llega sin valor.
+(`REPORTES`/`ERRORES`) de las 5 excepciones controladas. Con el código real de `BajaClientela460.wkf`,
+`SendClientelaRequest.wkf`, `BAJA_460_CLI.wkf` y `Refundicion.properties` aportados esta ronda, cubre
+también el consumo real de las señales `PENDING` de alta/baja 460 (3 tipologías, `ALTA`/`BAJA`/`TOTAL`,
+confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parada temprana en
+`KYTL_REF_GSPROCESS` ante un fallo intermedio.
 
 ## 8. Validaciones de casos de prueba
 
@@ -296,8 +316,9 @@ aportado esta ronda, cubre también el consumo real de las señales `PENDING` de
 | `borde` | Caso especial de entidad mexicana (Altamira, `ORG_ID='1145'`): migración de identificadores y domicilio fiscal del cerrado al destino. | TC-011 |
 | `error_funcional` | Las 5 excepciones controladas de `REFUNDICION` insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
 | `conflicto_integridad` | `ThreadComprobacion` no reintenta ni audita una sentencia RLT1 que falla al ejecutarse (se retira de la cola antes de intentarlo). | TC-013 |
-| `negativo` | `BajaClientela460` no procesa ninguna fila `PENDING` de A460/B460/B460C si `GSProcess.sh` no fija `Tipologia` con un valor reconocido en el bloque `Vari` real de `Refundicion.properties` (cae en la rama `OTHER`). | TC-014 |
-| `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente. | TC-015 |
+| `happy_path` | `BajaClientela460` se invoca siempre con `Tipologia=TOTAL` (confirmado en `Refundicion.properties`), procesando `B460`→`B460C`→`A460` en un único paso — descarta el riesgo de no-op. | TC-014 |
+| `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
+| `error_funcional` | Un fallo en cualquier paso de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)` o `Workflow(RDR_Clientela460)`) no detiene los pasos siguientes, al no existir ninguna clave `Stop=Ok`/`StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en `Refundicion.properties` — el job solo reporta `RC=1` al final. | TC-016 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -309,26 +330,23 @@ aportado esta ronda, cubre también el consumo real de las señales `PENDING` de
   la ausencia de fichero, lo que podría enmascarar un fallo silencioso en la generación del reporte (R2) hasta
   una revisión manual.
 * **Patrón transversal P-021 (R8):** sin validación de integridad ni protección de concurrencia.
-* **[Prioridad media, mecanismo confirmado con `GSProcess.sh` real — ya no un riesgo de alta prioridad]
-  Inyección de `Tipologia` (§6.1, G4):** `GSProcess.sh` (motor genérico, idéntico byte a byte al ya
-  confirmado en `rdr_pr_bdiclienreg_resp_new`) confirma que `Tipologia` se inyecta dinámicamente desde un
-  bloque `Accion=Vari` del `.properties` real del job, no desde un `HashMap` construido en Java — el mapa
-  vacío del `.gsp` era solo el valor por defecto estático del evento, no evidencia de ausencia de valor en
-  producción. Queda un único punto concreto, ya no de "riesgo de no-op total" sino de valor literal
-  pendiente: el contenido real del bloque `Vari` que precede al `Even`/`Workflow` de `RDR_Clientela460`
-  dentro de `Refundicion.properties` (mismo fichero ya citado para `Delta=Si`, G3) — con él se cierra al
-  100% (mismo patrón que `FALLASINOFICHS`/`FALLA_NO_FICHERO` en otros procesos del audit).
-* **[NUEVO, no bloqueante, confirmado con `BajaClientela460.wkf` y `GSProcess.sh` reales] Fallo del
-  sub-workflow externo: depende de `StopEve`, no reintenta sin tope universal (§6.1, G4):**
-  `SendClientelaRequest`/`BAJA_460_CLI` no tienen ninguna rama de excepción explícita dentro de
-  `BajaClientela460.wkf` (`haltOnError=false`/`retries=0`), y `GSProcess.sh` confirma que si el evento
-  `Workflow` devuelve error, el script solo detiene `KYTL_REF_GSPROCESS` de inmediato cuando el bloque
-  `Even` correspondiente (o el job completo) tiene `StopEve`/`Stop="Ok"` en el `.properties` — en caso
-  contrario, solo incrementa un contador de errores y continúa. Sin el valor real de `StopEve` para este
-  bloque concreto, no se puede confirmar si un fallo del sub-workflow externo detiene la cadena o pasa
-  desapercibido; la fila de `FT_T_RLT1` en cualquier caso no se marcaría `OK` y se reintentaría al día
-  siguiente (la consulta siempre filtra por `PENDING`), pero sin ningún tope ni alerta de "reintento
-  agotado" si el fallo persiste — mismo patrón que `MarcaRegErroneo` más abajo.
+* **[Resuelto al 100%, confirmado con `Refundicion.properties` real] Inyección de `Tipologia` (§6.1, G4):**
+  `GSProcess.sh` inyecta `Tipologia` dinámicamente desde un bloque `Accion=Vari` del `.properties` real del
+  job, no desde un `HashMap` construido en Java. `Refundicion.properties` confirma el valor literal:
+  **`Tipologia=TOTAL`**, fijado una sola vez y nunca sobrescrito antes del evento `Workflow(RDR_Clientela460)`
+  — descarta por completo el riesgo de "no-op total": el pipeline real siempre ejecuta la rama `TOTAL`
+  (`B460`→`B460C`→`A460`).
+* **[RIESGO NUEVO, prioridad media, confirmado con `Refundicion.properties` real] Ningún paso de
+  `KYTL_REF_GSPROCESS` detiene la cadena ante un fallo intermedio:** no aparece ninguna clave `Stop=Ok`/
+  `StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en todo el fichero — ni global ni en ninguno de los 6 bloques
+  (`Delta`, `LimpiarRefundicion`, `Java(ControlCargaDatos.jar)`, `Workflow(RDR_Refundicion)`,
+  `Workflow(RDR_Clientela460)`, `Evento(Errores)`, `Java(RDR_Report.jar)`, `Unix2Dos`). `GSProcess.sh` solo
+  detiene la ejecución inmediata cuando esa clave vale `"Ok"`; en su ausencia, un fallo en cualquier paso
+  (incluido un fallo de `SendClientelaRequest`/`BAJA_460_CLI` dentro de `Workflow(RDR_Clientela460)`) no
+  impide que se ejecuten los pasos siguientes — solo se acumula en un contador de errores y el job reporta
+  `RC=1` al final, después de haber corrido todos los pasos igualmente (posiblemente sobre datos
+  parciales). Aplica también a `Workflow(RDR_Refundicion)`: un fallo ahí no impediría que
+  `Workflow(RDR_Clientela460)` se invoque igualmente a continuación.
 * **[Informativo, no forma parte de esta cadena] Hallazgos de código en `ConContrato460.java`/`ConDB.java`/
   `ThreadComprobacion.java` (§6.1):** confirmados como código real, pero de un proceso/cadena distinto y no
   identificado (la evidencia de `BajaClientela460.wkf` descarta que implementen `Workflow(RDR_Clientela460)`)
@@ -353,8 +371,9 @@ aportado esta ronda, cubre también el consumo real de las señales `PENDING` de
   baja de contrato 460 (`A460`/`B460`), la fila **sí es consumida de forma automática** por
   `Workflow(RDR_Clientela460)`/`BajaClientela460`, que se ejecuta como el paso inmediatamente siguiente en
   `KYTL_REF_GSPROCESS` (R2) — ya no una señal a un proceso externo no confirmado, sino un consumo
-  documentado nodo a nodo (§6.1). El riesgo real que subsiste no es la ausencia de consumo, sino el de
-  `Tipologia` sin valor (arriba) y el de reintento sin alerta (arriba).
+  documentado nodo a nodo (§6.1), con `Tipologia=TOTAL` confirmado en `Refundicion.properties` (arriba). El
+  riesgo real que subsiste no es la ausencia de consumo, sino la ausencia de parada temprana en
+  `KYTL_REF_GSPROCESS` (arriba) y el reintento sin alerta ante un fallo persistente (§6.1).
 * **[Confirmado, no bloqueante] Doble canal de auditoría en las excepciones de `REFUNDICION`:** a diferencia
   del `Sub_Load` de `rdr_reubicacion_new` (que inserta 1 sola fila por excepción), aquí cada una de las 5
   excepciones controladas inserta 2 filas en `FT_T_RLT1` (`REPORTES` + `ERRORES`) — la segunda alimenta
@@ -432,9 +451,22 @@ ejecución, y ese valor se vuelca al `.properties` temporal que de verdad recibe
 **Esto rebaja el riesgo de "no-op total" de prioridad alta a media**: el mecanismo para que `Tipologia`
 reciba un valor sí existe y funciona; falta solo el valor literal configurado (mismo patrón que
 `FALLASINOFICHS`/`FALLA_NO_FICHERO` en otros procesos), concretamente el bloque `Vari` de
-`Refundicion.properties` que precede al `Even`/`Workflow` de `RDR_Clientela460`, que también daría el valor
-de `StopEve` (si un fallo del evento detiene la cadena o solo cuenta un error).
+`Refundicion.properties` que precede al `Even`/`Workflow` de `RDR_Clientela460`.
 
-**Con esta ronda, `RDR_REFUNDICION_new` queda con 0 gaps de evidencia bloqueantes abiertos** (G1-G4
-resueltos); el único punto que queda genuinamente abierto es de negocio/configuración, no de mecanismo: cómo se fija
-`Tipologia` en la invocación real de `Workflow(RDR_Clientela460)`.
+**Ronda final-ter (2026-09-30):** el usuario aportó `SendClientelaRequest.wkf`, `BAJA_460_CLI.wkf` y el
+propio `Refundicion.properties` real — **cierra G4 al 100%, sin ningún material adicional pendiente.**
+`Refundicion.properties` confirma el valor literal exacto: **`Tipologia=TOTAL`**, fijado una sola vez y
+nunca sobrescrito antes de invocar `Workflow(RDR_Clientela460)` — descarta por completo el riesgo de
+no-op (el pipeline real siempre ejecuta `B460`→`B460C`→`A460`). El mismo fichero revela un riesgo nuevo,
+transversal a todo `KYTL_REF_GSPROCESS`: ninguna clave `Stop`/`StopEve`/`StopJav`/`StopScr="Ok"` está
+configurada en ningún paso, por lo que un fallo intermedio (incluido un fallo de `Workflow(RDR_Clientela460)`)
+nunca detiene los pasos siguientes — el job solo reporta `RC=1` al final. `SendClientelaRequest.wkf` y
+`BAJA_460_CLI.wkf` completan el desglose nodo a nodo: transporte real confirmado (cola MQ `CLIENTELA`),
+tabla de auditoría real (`FT_T_UTD1`, no `FT_T_RLT1`), naturaleza asíncrona del ciclo con Clientela, y una
+deduplicación real en la rama `OPERATIVO` de `BAJA_460_CLI` (no alcanzable desde este pipeline, que siempre
+invoca `NIVEL=LOCAL`). Nuevos TC-016; TC-014/TC-015 reformulados como confirmación en vez de riesgo.
+
+**Con esta ronda, `RDR_REFUNDICION_new` queda con 0 gaps de evidencia bloqueantes abiertos y 0 riesgos de
+prioridad alta pendientes de material** (G1-G4 resueltos al 100%); el único riesgo real que subsiste
+(ausencia de parada temprana en `KYTL_REF_GSPROCESS`) es una característica de diseño ya confirmada con
+código real, no un hueco de evidencia.

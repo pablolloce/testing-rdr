@@ -268,25 +268,25 @@
     <posibilidadFallo>Si se confirma la pérdida silenciosa de inserciones RLT1 en producción, debe elevarse como hallazgo de prioridad alta (pérdida de auditoría/reporting real).</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-014" tipo="negativo">
-    <nombre>BajaClientela460 no procesa nada si Tipologia no llega con un valor reconocido</nombre>
-    <objetivo>Confirmar el valor literal que GSProcess.sh inyecta en Tipologia (vía el bloque Accion=Vari de Refundicion.properties que precede al Even/Workflow de RDR_Clientela460) en la ejecución real, y comprobar que si ese valor no es ALTA/BAJA/TOTAL (p. ej. vacío o mal escrito), el Switch Case de BajaClientela460 cae en la rama por defecto OTHER y termina inmediatamente sin procesar ninguna fila PENDING de FT_T_RLT1 (A460/B460/B460C). Confirmar también el valor real de StopEve para ese mismo bloque, que determina si un fallo del evento detiene KYTL_REF_GSPROCESS de inmediato o solo cuenta un error.</objetivo>
+  <casoDePrueba id="TC-014" tipo="happy_path">
+    <nombre>BajaClientela460 se invoca siempre con Tipologia=TOTAL en producción</nombre>
+    <objetivo>Confirmar en ejecución real que GSProcess.sh, al ejecutar el bloque Accion=Evento/Workflow/RDR_Clientela460 de Refundicion.properties, inyecta Tipologia=TOTAL (valor fijado una sola vez en el bloque Accion=VariablesGlobales inicial del fichero y nunca sobrescrito antes de ese punto), y que BajaClientela460 recibe y procesa ese valor ejecutando la rama TOTAL (B460 seguido de B460C seguido de A460) — descarta el riesgo de no-op total documentado en rondas anteriores.</objetivo>
     <precondiciones>
-      <precondicion>Al menos 1 fila PENDING en FT_T_RLT1 con RLT_DIF_ACC en A460, B460 o B460C.</precondicion>
-      <precondicion>Acceso al contenido real del bloque Accion=Vari de Refundicion.properties que precede al Accion=Even/Workflow de RDR_Clientela460 (valores de Tipologia y StopEve).</precondicion>
+      <precondicion>Al menos 1 fila PENDING en FT_T_RLT1 con RLT_DIF_ACC en A460, B460 y B460C simultáneamente.</precondicion>
+      <precondicion>Acceso a logs de ejecución de GSProcess.sh/KYTL_REF_GSPROCESS para confirmar el valor de Tipologia realmente inyectado.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Tipologia" valor="valor real configurado en Refundicion.properties, a confirmar"/>
+      <dato campo="Tipologia" valor="TOTAL (confirmado en Refundicion.properties, bloque Accion=VariablesGlobales)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar el valor literal de Tipologia en el bloque Vari real de Refundicion.properties.</paso>
-      <paso numero="2">Si el valor no es ALTA/BAJA/TOTAL, confirmar en ejecución controlada que BajaClientela460 cae en la rama OTHER y no procesa nada.</paso>
-      <paso numero="3">Confirmar el valor de StopEve para ese bloque y si un fallo del evento detiene la cadena o solo incrementa el contador de errores de GSProcess.sh.</paso>
+      <paso numero="1">Ejecutar KYTL_REF_GSPROCESS de extremo a extremo con filas PENDING preparadas para A460/B460/B460C.</paso>
+      <paso numero="2">Confirmar en el log generado por GSProcess.sh que Tipologia=TOTAL llega al evento Workflow(RDR_Clientela460).</paso>
+      <paso numero="3">Confirmar que BajaClientela460 procesa B460, luego B460C, luego A460 en ese orden, marcando las 3 filas OK.</paso>
     </pasos>
-    <resultadoEsperado>Valor real de Tipologia y StopEve confirmados; si Tipologia no es un valor reconocido, se confirma el fallo silencioso de procesamiento (elevar a prioridad alta en ese caso).</resultadoEsperado>
-    <tipoValidacion>Inspección del .properties real + ejecución controlada del workflow + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
-    <criterioAceptacion>Valor real de Tipologia/StopEve y comportamiento del workflow ante ese valor documentados sin ambigüedad.</criterioAceptacion>
-    <posibilidadFallo>Si Tipologia siempre llega vacía en producción, ningún alta/baja 460 se procesaría nunca, sin ningún error visible en Control-M (la cadena principal seguiría en verde).</posibilidadFallo>
+    <resultadoEsperado>Tipologia=TOTAL confirmado en ejecución real; las 3 tipologías de señal (A460/B460/B460C) quedan procesadas en un único paso.</resultadoEsperado>
+    <tipoValidacion>Ejecución real + inspección de logs de GSProcess.sh + verificación de RLT_DIF_STAT en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Valor real de Tipologia y comportamiento TOTAL confirmados sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si Refundicion.properties cambiara Tipologia a un valor no reconocido en una futura modificación, el workflow dejaría de procesar señales 460 sin ningún error visible en Control-M.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="happy_path">
@@ -304,10 +304,31 @@
       <paso numero="2">Ejecutar con Tipologia=BAJA y confirmar que se procesan B460 y después B460C, marcando ambas OK.</paso>
       <paso numero="3">Ejecutar con Tipologia=TOTAL sobre un lote nuevo con las 3 tipologías pendientes y confirmar que procesa las 3 en el orden B460 → B460C → A460.</paso>
     </pasos>
-    <resultadoEsperado>Las 3 tipologías reales quedan confirmadas nodo a nodo, con el orden de procesamiento exacto documentado en BajaClientela460.wkf.</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada por tipología + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
-    <criterioAceptacion>Comportamiento de las 3 tipologías reales confirmado sin ambigüedad.</criterioAceptacion>
-    <posibilidadFallo>Si alguna tipología no marca OK tras invocar su sub-workflow, o procesa el orden incorrecto en TOTAL, es una desviación del comportamiento documentado en G4.</posibilidadFallo>
+    <resultadoEsperado>Las 3 tipologías reales quedan confirmadas nodo a nodo, con el orden de procesamiento exacto documentado en BajaClientela460.wkf. Cada envío real llega a SendClientelaRequest (ACCION=A460/B460), se transmite por la cola MQ CLIENTELA (sub-workflow Sub_SendMessageToMQQueue), y queda auditado en FT_T_UTD1 (UTD_USAGE_TYP=A460_Cli/B460_Cli) con las 2 filas de estado "esperando respuesta de Clientela".</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada por tipología + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1 + verificación de filas en FT_T_UTD1 + observación de la cola MQ CLIENTELA.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de las 3 tipologías reales confirmado sin ambigüedad, incluido el transporte MQ y la auditoría en FT_T_UTD1.</criterioAceptacion>
+    <posibilidadFallo>Si alguna tipología no marca OK tras invocar su sub-workflow, o procesa el orden incorrecto en TOTAL, o el mensaje no llega a la cola MQ CLIENTELA, es una desviación del comportamiento documentado en G4.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="error_funcional">
+    <nombre>Ningún paso de KYTL_REF_GSPROCESS detiene la cadena ante un fallo intermedio</nombre>
+    <objetivo>Confirmar que, al no existir ninguna clave Stop=Ok/StopEve=Ok/StopJav=Ok/StopScr=Ok en Refundicion.properties, un fallo en cualquier paso intermedio (Script(Delta), Script(LimpiarRefundicion), Java(ControlCargaDatos.jar), Workflow(RDR_Refundicion), Workflow(RDR_Clientela460), Evento(Errores), Java(RDR_Report.jar), Script(Unix2Dos)) no impide que GSProcess.sh ejecute igualmente todos los pasos siguientes, reportando el fallo del job completo (RC=1) solo al final.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de forzar un fallo controlado en al menos uno de los pasos intermedios (p. ej. Java(ControlCargaDatos.jar) con un fichero de entrada corrupto).</precondicion>
+      <precondicion>Acceso a los logs de GSProcess.sh (LOG_GENERICO/LOG_DIA) para verificar qué pasos se ejecutan tras el fallo forzado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Refundicion.properties" valor="sin ninguna clave Stop/StopEve/StopJav/StopScr=Ok en ningún bloque"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo controlado en un paso intermedio (p. ej. Java(ControlCargaDatos.jar)).</paso>
+      <paso numero="2">Confirmar en los logs que GSProcess.sh registra el fallo (incrementa $Errores) pero continúa con los pasos siguientes (Workflow(RDR_Refundicion), Workflow(RDR_Clientela460), etc.).</paso>
+      <paso numero="3">Confirmar que el job reporta RC=1 (ESTADO-1-) solo al finalizar todos los pasos, no en el momento del fallo.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento de tolerancia total a fallos intermedios confirmado: todos los pasos se ejecutan pese al fallo forzado, con RC=1 solo al final.</resultadoEsperado>
+    <tipoValidacion>Fallo controlado + inspección de logs de GSProcess.sh (LOG_GENERICO/LOG_DIA) + verificación del RC final del job en Control-M.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real de tolerancia a fallos confirmado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si un fallo en un paso temprano (p. ej. la carga de datos) no detiene los pasos posteriores, estos podrían ejecutarse sobre datos parciales o inconsistentes sin ninguna señal de alerta intermedia.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
