@@ -2,18 +2,19 @@
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
 > Fuentes: `Carga_y_baja_de_sponsors_de_cestas_manual__automatica.docx` (documento original de análisis funcional
-> y técnico), workflows reales `Auto_Load_Basket_Sponsors.wkf` y `Load_Baskets_Sponsors.wkf` (GoldenSource),
-> `AutoLoadBasketSponsors.properties`, script real `RDR_CargaBasketSponsor.sh`, export real de Control-M del
-> folder `RDR_HIST_BASKETS_SPONSORS` (`Workspace_584.xml`), y 13 fichas oficiales EX-005-03
-> (`RDR_AUTO_LOAD_BASKETS`, `RDR_AUTO_BASKETS_SPONSORS_IN`, `MEKYTL1176`, `MEKYTL0987`-`0995`, `MEKYTL1175`,
+> y técnico), workflows reales `Auto_Load_Basket_Sponsors.wkf`, `Load_Baskets_Sponsors.wkf` y
+> `Reload_Baskets_Sponsors_Email.wkf` (GoldenSource), `AutoLoadBasketSponsors.properties`, script real
+> `RDR_CargaBasketSponsor.sh`, export real de Control-M del folder `RDR_HIST_BASKETS_SPONSORS`
+> (`Workspace_584.xml`), y 13 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`,
+> `RDR_AUTO_BASKETS_SPONSORS_IN`, `MEKYTL1176`, `MEKYTL0987`-`0995`, `MEKYTL1175`,
 > `RDR_HIST_BASKETS_SPONSORS_IN`). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_sponsors_baskets/`.
 >
 > **Estado: 0 gaps técnicos abiertos — proceso cerrado al 100%.** El posible defecto de `idType` para NASDAQ
 > (GAP-BASKSP-003) quedó resuelto con `RDR_CargaBasketSponsor.sh`/Control-M real; la variable `statusCarga`
-> (GAP-BASKSP-004) queda resuelta con un extracto real de `FT_T_ISST`; los 2 gaps de evidencia menores
-> restantes (GAP-BASKSP-008, ficha de cabecera de Cadena 1; GAP-BASKSP-009, segundo workflow GoldenSource)
-> quedan también resueltos en esta ronda — ver §4 y §9.
+> (GAP-BASKSP-004) queda resuelta con un extracto real de `FT_T_ISST`; los gaps de evidencia menores
+> restantes (GAP-BASKSP-008, ficha de cabecera de Cadena 1; GAP-BASKSP-009, segundo workflow GoldenSource;
+> GAP-BASKSP-010, notificación de recarga manual) quedan también resueltos en esta ronda — ver §4 y §9.
 
 ## 1. Resumen ejecutivo
 
@@ -135,10 +136,11 @@ separado en la Cadena 2.
 | GAP-BASKSP-007 | Las cifras del mapa de impacto downstream (P-010: 2 cadenas, P-028: 12, P-034: 4, P-051: 7) no traen evidencia propia en el documento original. | **Aceptado tal cual, no perseguido.** Son cifras de contexto/alcance de negocio, no verificables con el material de esta ronda; no condicionan ningún caso de prueba de este proceso. `P-034` es coherente con `salidas/cesion_cestas_abaco/` (`RDR_BASKETS_ABACO`), ya documentado en este repositorio. |
 | GAP-BASKSP-008 | Fichas reales de los 2 jobs Dummy de cabecera (`RDR_AUTO_BASKETS_SPONSORS_IN`, `RDR_HIST_BASKETS_SPONSORS_IN`) no aportadas. | **Resuelto por completo.** `RDR_HIST_BASKETS_SPONSORS_IN` confirmado con ficha real (Dummy, sin predecesor, 10 sucesores exactos — host `22.156.148.85`, distinto de `pr-rdr.igrupobbva`) y con el export de Control-M. `RDR_AUTO_BASKETS_SPONSORS_IN` ahora también confirmado con ficha real: Dummy, sin predecesor (arranca por planificador), único sucesor `RDR_AUTO_LOAD_BASKETS`, planificación L-M-X-J-V, Grupo de Soporte `ANS RDR` — coincide al 100% con lo ya inferido indirectamente. |
 | GAP-BASKSP-009 | El workflow GoldenSource `RDR_CargaBasketSponsor`, invocado al final de `RDR_CargaBasketSponsor.sh` (vía `executeBbvaEvent.sh fileloading`), no ha sido aportado. | **Resuelto con alta confianza.** El usuario aportó `Load_Baskets_Sponsors.wkf`, que reúne evidencia cruzada (no solo coincidencia de nombre) con el resto del proceso: valida el XML de entrada contra el XSD `db://resource/RDR/xml/SecurityMessages/Baskets/BasketsSponsorsFormatoUnico.xsd` (nombre que enlaza directamente con `RDR_FormatoUnicoBaskets.jar`, el jar que genera ese XML en el paso anterior del script), y contiene literalmente la misma sentencia `MERGE INTO FT_T_ISST ... STAT_DEF_ID='B_OPNRES' ... STAT_CHAR_VAL_TXT=:statusCarga` cuyo comportamiento ya se había confirmado solo por datos en GAP-BASKSP-004 — ahora también por código fuente. **Nota de nomenclatura (mismo patrón ya visto en otros procesos de esta sesión):** el `.sh` invoca el workflow por el nombre `RDR_CargaBasketSponsor` (vía un `.properties` no aportado), mientras que el `businessFeed`/nombre de fichero real es `Load_Baskets_Sponsors` — no se trata de 2 workflows distintos, es el mismo mecanismo con nombre de invocación distinto del nombre interno. |
-| GAP-BASKSP-010 | (Nuevo, detectado en `Load_Baskets_Sponsors.wkf`.) El workflow tiene una segunda rama de entrada, `RELOAD_BASKETS_SPONSORS` (frente a la normal, `CARGA_BASKETS_SPONSORS`), que en vez de procesar el fichero simplemente lanza un evento `Reload_Baskets_Sponsors_Email`. ¿Qué proceso o quién dispara esta rama, y quién recibe ese email? | **No bloqueante, aceptado como hallazgo documentado sin evidencia adicional.** No hay ninguna mención a esta ruta de "recarga manual" en el documento original ni en ningún script/ficha aportados hasta ahora — parece un mecanismo de recarga manual/soporte, fuera del flujo automático documentado en esta especificación. No condiciona los casos de prueba del flujo automático. |
+| GAP-BASKSP-010 | (Detectado en `Load_Baskets_Sponsors.wkf`.) El workflow tiene una segunda rama de entrada, `RELOAD_BASKETS_SPONSORS` (frente a la normal, `CARGA_BASKETS_SPONSORS`), que en vez de procesar el fichero simplemente lanza un evento `Reload_Baskets_Sponsors_Email`. ¿Qué hace ese evento, a quién notifica y quién lo dispara? | **Resuelto en su mayor parte** con el workflow real `Reload_Baskets_Sponsors_Email.wkf`: confirma que es una notificación por email de recarga manual de un índice/cesta concreto, con destinatarios configurables (`FT_T_ALU1`/`ALR1`/`ALM1`, filtrado por proceso — mismo patrón que `GestionAlertas`) y 3 contenidos reales distintos según haya alertas y según el resultado de publicación (incluye espera de 10 min y consulta de ACK/NACK real a Murex/ESB). **Sigue sin confirmar, no bloqueante:** el disparador exacto de la rama (ningún script/job de la evidencia aportada la invoca; por descarte, probablemente una acción manual desde la consola GoldenSource). |
 
-**Balance: 10 de 10 gaps resueltos (8 por completo con evidencia directa, 1 con alta confianza por evidencia
-cruzada, 1 aceptado como hallazgo adicional sin evidencia perseguible) — 0 gaps técnicos abiertos.**
+**Balance: 10 de 10 gaps resueltos (8 por completo con evidencia directa, 2 con alta confianza/mayoría de
+evidencia, quedando solo el disparador exacto de un mecanismo de soporte manual sin confirmar) — 0 gaps
+técnicos abiertos.**
 
 ## 5. Especificación funcional
 
@@ -245,11 +247,35 @@ invocado con el XML de "formato único" generado por `RDR_FormatoUnicoBaskets.ja
    la sentencia ya confirmada por datos en GAP-BASKSP-004) y `STAT_DEF_ID='B_SOPENF'` (guarda la ruta del
    fichero procesado) — y recorre `listaErrores` insertando una fila por mensaje en `TABLEALERTGENER`, igual
    que el primer workflow (R6).
-8. **Hallazgo nuevo, no bloqueante (GAP-BASKSP-010):** el workflow tiene una segunda entrada,
-   `RELOAD_BASKETS_SPONSORS` (frente a la normal `CARGA_BASKETS_SPONSORS`), que en vez de procesar el
-   fichero lanza directamente un evento `Reload_Baskets_Sponsors_Email` — un mecanismo de recarga
-   manual/soporte no mencionado en ningún documento ni ficha de esta especificación. Quién lo dispara y quién
-   recibe ese email queda sin confirmar, sin impacto en el flujo automático documentado.
+8. **Rama `RELOAD_BASKETS_SPONSORS` — resuelta con el workflow real `Reload_Baskets_Sponsors_Email.wkf`
+   (GAP-BASKSP-010, resuelto en su mayor parte):** es un mecanismo de **notificación de recarga manual por
+   índice/cesta** (`indexId` obligatorio, `basketId` opcional como parámetros de entrada del workflow),
+   grupo `Custom/RDR/Fileloading/Issues/Baskets` (mismo grupo que los 2 workflows de carga), en producción
+   desde 2022 (`RELEASED`, última modificación 05/11/2022). Comentario interno `AOS_ALL_NOTLOADED_v1` sugiere
+   una plantilla genérica reutilizada para varios workflows de notificación "índice no cargado" similares.
+   * **Destinatarios:** no hardcoded — se obtienen de `FT_T_ALU1`/`FT_T_ALR1`/`FT_T_ALM1` (usuario→regla→medio
+     de alerta, filtrado por `PROCESO='RELOAD_BASKETS_SPONSORS'`, todas `ACTIVE`) — mismo patrón de
+     configuración de destinatarios de alerta ya visto en otros procesos de esta sesión (`GestionAlertas`).
+   * **Contenido — 3 escenarios reales confirmados por código:**
+     1. **Sin alertas encontradas para ese `indexId`** en `FT_T_ALG1` (`PROCESO='RELOAD_BASKETS_SPONSORS'`,
+        `PROCESADO='N'`, del día): email genérico *"No se han encontrado alertas de la carga, contactar ANS
+        RDR"* — cubre el caso de timeout/ausencia de traza.
+     2. **Alertas encontradas pero `published≠'1'`:** marca esas alertas como procesadas
+        (`PROCESADO='Y'`) y envía un email de error listando los mensajes de alerta reales de la carga
+        fallida.
+     3. **Alertas encontradas y `published='1'`:** espera 10 minutos (`Wait 600s`) y consulta el estado real
+        de **ACK/NACK de Murex/ESB** (`FT_T_ISID` contexto `MUREXID` + `FT_T_EMM1`, sistemas `MUREX`/`ESB`)
+        para ese `basketId` — el email final confirma si la recarga se publicó correctamente a **MX3
+        (Murex)** o si hubo un NACK, incluyendo cualquier alerta adicional real (excluyendo las de tipo
+        `ACKINFO`).
+     El envío (`Send Email`, sub-workflow genérico `Mail`) se repite una vez por cada destinatario
+     configurado.
+   * **Sigue sin confirmar (no bloqueante):** el disparador exacto de esta rama — no hay ningún script ni
+     ficha en la evidencia de esta especificación que invoque `Load_Baskets_Sponsors.wkf` con
+     `proceso='RELOAD_BASKETS_SPONSORS'`; por descarte (ningún job de Control-M documentado lo hace), lo más
+     probable es que sea una acción manual desde la consola de administración de GoldenSource, coherente con
+     ser una herramienta de soporte de 2º nivel para recargar un único índice bajo demanda — no confirmado
+     literalmente.
 
 ### 6.3 Cadena 2 — `RDR_HIST_BASKETS_SPONSORS` (11 pasos: 1 Dummy cabecera + 9 Job reales + 1 Dummy)
 
@@ -352,10 +378,12 @@ Referencia de casos por tipo:
   sentencia `MERGE INTO FT_T_ISST`/`B_OPNRES`/`:statusCarga` idéntica a la ya confirmada por datos), no solo
   por nombre. Confirma además, con código fuente, el mecanismo exacto de `:statusCarga` (variable local de
   BeanShell, no variable global del workflow) que GAP-BASKSP-004 ya había cerrado solo con datos.
-* **No bloqueante (GAP-BASKSP-010, nuevo):** el workflow `Load_Baskets_Sponsors.wkf` tiene una segunda rama
-  de entrada (`RELOAD_BASKETS_SPONSORS`) que lanza un evento de email en vez de procesar el fichero — un
-  mecanismo de recarga manual/soporte no documentado en ningún otro material de esta especificación. Su
-  disparador y destinatario quedan sin confirmar, sin impacto en el flujo automático.
+* **Confirmado en su mayor parte, ya casi no un gap (GAP-BASKSP-010):** la rama `RELOAD_BASKETS_SPONSORS` de
+  `Load_Baskets_Sponsors.wkf` es una notificación de recarga manual de un índice/cesta, confirmada con el
+  workflow real `Reload_Baskets_Sponsors_Email.wkf` — destinatarios configurables vía tablas de alerta
+  (`FT_T_ALU1`/`ALR1`/`ALM1`), y contenido que llega a comprobar el ACK/NACK real de Murex/ESB tras 10
+  minutos de espera. Solo queda sin confirmar, no bloqueante, el disparador exacto de la rama (ningún
+  script/job documentado la invoca; por descarte, probablemente manual desde la consola GoldenSource).
 
 ## 10. Conclusión
 
@@ -372,7 +400,9 @@ nominal pero deliberadamente inerte (2 evidencias independientes: Dummy en Contr
 script de carga — GAP-BASKSP-003), y **`:statusCarga`** sí se resuelve correctamente a 3 valores reales con
 significado (`OK`/`ERROR`/`NOT_LOADED`), confirmado primero con un extracto real de `FT_T_ISST`
 (GAP-BASKSP-004) y ahora también con el código fuente exacto que la declara y la fija (GAP-BASKSP-009). Como
-subproducto de esta última pieza de evidencia aparece un hallazgo nuevo y menor, no bloqueante
-(GAP-BASKSP-010): una vía de recarga manual por email (`RELOAD_BASKETS_SPONSORS`) sin documentar en ningún
-otro material de esta especificación. Ningún gap técnico impide ejecutar la matriz de pruebas definida en
-`casos_prueba.xml`.
+subproducto de esta última pieza de evidencia apareció un hallazgo adicional (GAP-BASKSP-010, una vía de
+recarga manual por email), que esta misma ronda resuelve casi por completo con el workflow real
+`Reload_Baskets_Sponsors_Email.wkf`: notifica por email, a una lista configurable de destinatarios, el
+resultado de recargar manualmente un índice concreto, incluyendo verificación real de ACK/NACK a Murex — solo
+queda sin confirmar, sin bloquear nada, quién dispara esa recarga manual en primer lugar. Ningún gap técnico
+impide ejecutar la matriz de pruebas definida en `casos_prueba.xml`.

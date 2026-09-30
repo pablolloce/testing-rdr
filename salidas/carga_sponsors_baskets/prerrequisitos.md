@@ -69,6 +69,9 @@
 - **Importante:** una cesta cuyo identificador no resuelve en `FT_T_ISID` no debe generar carga real
   (`okToLoad=false` corta el flujo antes de `Carga MDX`, ver TC-013) — no asumir que cualquier fichero XML
   válido produce una carga real solo por pasar la validación XSD.
-- **Nota, no bloqueante:** existe una vía de recarga manual por email (`RELOAD_BASKETS_SPONSORS`) en
-  `Load_Baskets_Sponsors.wkf` sin documentar en ningún otro material (GAP-BASKSP-010). No forma parte del
-  flujo automático a probar, pero conviene tenerla presente si aparece evidencia adicional en el futuro.
+- **Nota, no bloqueante:** existe una vía de recarga manual (`RELOAD_BASKETS_SPONSORS`), confirmada con el
+  workflow real `Reload_Baskets_Sponsors_Email.wkf` (GAP-BASKSP-010) — notifica por email, a los
+  destinatarios configurados en `FT_T_ALU1`/`ALR1`/`ALM1` para el proceso `RELOAD_BASKETS_SPONSORS`, el
+  resultado de recargar manualmente un índice concreto (incluye espera de 10 min y verificación real de
+  ACK/NACK a Murex/ESB). No forma parte del flujo automático a probar; su disparador exacto (quién invoca
+  la recarga) sigue sin confirmar, probablemente una acción manual desde la consola GoldenSource.
