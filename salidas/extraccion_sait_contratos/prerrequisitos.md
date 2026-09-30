@@ -2,13 +2,20 @@
 
 ## Datos y ficheros previos
 
-- `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` debe existir en
-  `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA` pueda
-  transmitirlo — lo genera el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (06:00 AM, cross-chain,
-  mecanismo de invocación confirmado con evidencia real — GAP-SAIT-003 resuelto, ver `spec.md` §1.1).
-- El script (`RDR_Transformacion_SAIT.sh`) y la query Oracle real que construye el XML (`BATCH_SAIT.sql`,
-  entidad raíz `KYTL_GC.FT_T_LAGR`, excluye orígenes `Sentry`/`MENTOR`) están confirmados con evidencia
-  literal — GAP-SAIT-004 resuelto, ver `spec.md` §1.2.
+- `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (nombre confirmado literal, no `${FECHA}` — ver
+  corrección 2026-09-30) debe existir en `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor
+  `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA` pueda transmitirlo — lo produce el job
+  `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (06:00 AM, cross-chain, mecanismo de invocación
+  confirmado con evidencia real — GAP-SAIT-003 resuelto, ver `spec.md` §1.1), que a su vez requiere que
+  exista de antemano `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (sin sufijo) — **generado por un proceso
+  aún no identificado, fuera del árbol de esta cadena (GAP-SAIT-008, límite de alcance no bloqueante, ver
+  `spec.md` §4)**. No es un prerrequisito operativo de esta cadena: `TRANSMISIONES_CIB_RDR_SAIT` solo
+  necesita que el fichero exista, sea cual sea su origen.
+- El script (`RDR_Transformacion_SAIT.sh`) y la hoja de transformación (`Sait_Diario.xsl`) que produce el
+  XML final están confirmados con evidencia literal (código real de `Batch_Diario_Sait.Batch_Sait`
+  decompilado, ver `spec.md` §1.1). La query Oracle `BATCH_SAIT.sql` (entidad raíz `KYTL_GC.FT_T_LAGR`,
+  excluye orígenes `Sentry`/`MENTOR`) sigue siendo evidencia real de la estructura del dato, pero **no la
+  ejecuta esta clase** — su ejecutor real es el mismo proceso no identificado de GAP-SAIT-008.
 
 ## Configuración e infraestructura
 
