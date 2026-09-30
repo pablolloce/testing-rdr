@@ -10,8 +10,11 @@
 > consulta y cabecera exactas de `Reporte_Reubicacion.csv`), **`RAMERC0068.sh`** (motor genérico de
 > historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0122`), **`MEGENV0001.sh`** (motor
 > genérico de envíos, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
-> `FALLA_NO_FICHERO` de `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`) y la función real **`LimpiarReubicacion`**
-> (confirma y corrige el layout real de columnas de `Reubicacion.csv`, ver R3a). Detalle completo de evidencia en
+> `FALLA_NO_FICHERO` de `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`), la función real **`LimpiarReubicacion`**
+> (confirma y corrige el layout real de columnas de `Reubicacion.csv`, ver R3a) y las **fichas reales
+> EX-005-03** individuales de `MEKYTL0111`/`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234` (nivel job, corrigen la ruta
+> real de destino de `MEKYTL0111` y revelan una discrepancia de criticidad frente a la ficha EX-005-02, ver
+> R9/RISK-REUB-009). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
@@ -129,12 +132,12 @@ nuevos TC-011 a TC-014.
 | R3e | **`select_1.properties` (fichero real, confirmado): es un único fichero compartido entre al menos 8 procesos del audit** (`Reubicacion`, `oficinas`, `ConBDI`, `ConClientela`, `Refundicion`, `difusion_cparty`, `difusion_batch`, `bancarizacion`), no un fichero "específico de la entidad" como se documentaba antes de esta ronda. La entrada `queryReubicacion` genera `Reporte_Reubicacion.csv` con cabecera `Estado_Reubicacion;Oficina_Cerrada;Oficina_Destino;FINSID_Oficina_Cerrada`, leyendo de `FT_T_RLT1` filtrando `RLT_PURP_TYP='REPORTES'` y `DATA_SRC_APP='REUBICACION'` — **coincide exactamente** con los valores literales (`RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='REUBICACION'`) usados en los `INSERT INTO FT_T_RLT1` del procedimiento `REUBICACION` de `Sub_Load` (R3b-bis) — 2 fuentes de evidencia independientes que se corroboran mutuamente, no una suposición por coincidencia de nombre. La consulta además se acota al último job cerrado con `JOB_MSG_TYP='Reubicacion'`, evitando arrastrar filas de ejecuciones anteriores. |
 | R4 | `MEKYTL0233` transmite por XCOM `Reubicacion.csv` hacia `Ippwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat` (entorno informacional/staging) — transferencia real, en paralelo con `KYTL_REU_GSPROCESS`. **Confirmado en Control-M real:** `TASKTYPE="Job"` con `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — cualquier fallo real se marca OK. |
 | R5 | `MEKYTL0234` transmite por XCOM `Reubicacion.csv` hacia `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` — según el documento, un destino deliberadamente inerte ("no debe ejecutarse"). **Confirmado en Control-M real: `TASKTYPE="Job"`** (no Dummy), con el mismo override `NOTOK→OK` que R4. Único matiz real: `MAXWAIT="0"` (frente a `3` en el resto de jobs) — sin reintento de espera de recursos. |
-| R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F200G215`. Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. **Hallazgo no documentado en el documento funcional original, confirmado en Control-M real:** este job **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — el documento solo atribuía esta tolerancia a `MEKYTL0233`/`MEKYTL0234`, pero en producción también aplica a la transmisión del reporte real. |
+| R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR` (ruta real completa, confirmada esta ronda con la ficha EX-005-03, corrigiendo la ruta parcial documentada antes). Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. **Hallazgo no documentado en el documento funcional original, confirmado en Control-M real:** este job **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — el documento solo atribuía esta tolerancia a `MEKYTL0233`/`MEKYTL0234`, pero en producción también aplica a la transmisión del reporte real. |
 | R6b | **`MEGENV0001.sh` (código real completo, confirmado, mismo fichero idéntico byte a byte ya documentado en `rdr_envio_cliex` el 2026-09-24 y aplicado a `MEKYTL0243` en `rdr_conc_oficinas_new`):** los 3 jobs `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111` invocan este mismo motor en sentido `PUT`. Su tolerancia real a fichero ausente **no depende del Force-OK de Control-M** (que ya enmascara cualquier resultado del script), sino de la variable `FALLA_NO_FICHERO` de la fila de configuración de cada clave en su propio `.idx`: `"SI"` produce un fallo real y concreto (**`exit 60`** si ninguna fichero casa la máscara configurada, **`exit 45`** si un fichero concreto deja de existir); cualquier otro valor tolera sin fallo real. Esto significa que, para cada uno de los 3 jobs, el "fallo real" que el Force-OK enmascara puede tener una causa y un código de salida conocidos y distintos entre sí, no una caja negra — pero **el valor real configurado de `FALLA_NO_FICHERO` para `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111` no ha sido aportado** para ninguno de los 3. |
 | R7 | `MEKYTL0122` es el punto de convergencia (Fan-In): exige la confluencia simultánea de los 3 eventos `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` (los 3 `INCOND` con `AND_OR="A"`, confirmado literalmente) antes de historificar `Reubicacion.csv` → `/old/`. **Hallazgo adicional confirmado en Control-M real, no mencionado en el documento funcional:** `MEKYTL0122` **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — un fallo real del propio paso de historificación también se fuerza a OK. Su evento de salida es el prerrequisito temporal de la difusión de cierre (confirmado en la ficha EX-005-02: sucesor real `RDR_DIFUSION_BATCH_IN`). |
 | R7b | **`RAMERC0068.sh` (código real, confirmado esta ronda, mismo motor genérico compartido con `MEKYTL0242` en `rdr_conc_oficinas_new`):** invocado como `RAMERC0068.sh MEKYTL0122`, su tolerancia real a la ausencia de `Reubicacion.csv` en el momento de historificar **no es automática** — depende del campo `FALLASINOFICHS` de la fila de configuración de la clave `MEKYTL0122` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`: si es `0`, el script termina con **`exit 6` (fallo real)**; con cualquier otro valor, tolera sin error. **Esto se combina con el Force-OK de Control-M ya confirmado** (`NOTOK`→`OK`): si `FALLASINOFICHS=0` para esta clave, un ciclo sin `Reubicacion.csv` disponible produciría un fallo real y concreto (`exit 6`) del script, que Control-M enmascararía igualmente como OK — una confirmación más precisa de RISK-REUB-002, ya no solo "podría fallar sin más detalle". El valor real configurado para `MEKYTL0122` no ha sido aportado. |
 | R8 | Todos los pasos consumen 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) — compartido con `RDR_CONC_OFICINAS_new`, confirmado en Control-M real. |
-| R9 | Grupo de soporte: **campo "Rearranques" vacío en la ficha EX-005-02** — a diferencia de `RDR_CONC_OFICINAS_new`, no hay un procedimiento de rearranque documentado formalmente para esta cadena (ver §8.1). Criticidad **W** confirmada; máximo de relanzamientos **0** confirmado en los 6 jobs (`MAXRERUN="0"`); `User Daily` de carga `PLAN_1200` confirmado; periodicidad "A petición, según el calendario de cierre de oficinas" (ficha EX-005-02), coherente con el `DAYSCAL="RDR_CIERREOFI"` real. |
+| R9 | Grupo de soporte: **campo "Rearranques" vacío en la ficha EX-005-02** (chain-level) — a diferencia de `RDR_CONC_OFICINAS_new`, no hay un procedimiento de rearranque documentado formalmente **a nivel de cadena** (ver §8.1). **Matiz confirmado esta ronda:** las fichas EX-005-03 (job-level) de `MEKYTL0111`/`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234` sí incluyen, cada una, una norma de rearranque explícita ("Avisar a ANS RDR (BZG03906)..."), aunque no un procedimiento de relanzamiento automático. Máximo de relanzamientos **0** confirmado en los 6 jobs (`MAXRERUN="0"`); `User Daily` de carga `PLAN_1200` confirmado; periodicidad "A petición, según el calendario de cierre de oficinas" (ficha EX-005-02), coherente con el `DAYSCAL="RDR_CIERREOFI"` real. **Discrepancia nueva confirmada esta ronda (RISK-REUB-009):** la ficha EX-005-02 (chain-level) declara criticidad **W**, pero las 4 fichas EX-005-03 (job-level) de `MEKYTL0111`/`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234` marcan todas **C (Aviso inmediato)** — ver RISK-REUB-009. |
 
 ## 4. Especificación funcional
 
@@ -179,15 +182,26 @@ pasos restantes (2b, 2c, 3 y 4) fuerzan OK ante cualquier fallo real**, incluida
 final (`MEKYTL0122`) — un hallazgo más amplio que lo que documentaba el funcional original (que solo atribuía
 esta tolerancia a las 2 ramas XCOM 2b/2c).
 
-**Detalle de transferencias:**
+**Detalle de transferencias (confirmado con las fichas reales EX-005-03 individuales de cada job, aportadas
+esta ronda — 3ª fuente independiente para `MEKYTL0233`/`MEKYTL0234`, junto al documento funcional y el export
+de Control-M):**
 * `MEKYTL0233`: `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` →
   `Ippwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat` — transferencia real a
   un entorno informacional/staging (posiblemente Informatica ENSO, por el nombre de ruta `infa_shared`; no
-  confirmado).
+  confirmado). **La propia ficha EX-005-03 advierte explícitamente que el nombre de fichero origen
+  `Reporte_Reubicacion_dos.csv` es "Incorrecto" y que el correcto es `Reubicacion.csv`** — coincide
+  exactamente con lo ya documentado aquí, no una corrección nueva a esta especificación.
 * `MEKYTL0234`: mismo origen → `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` —
-  destino descrito como inerte, pero técnicamente un job real (`TASKTYPE="Job"`, confirmado).
-* `MEKYTL0111`: `pr-rdr.igrupobbva:.../Reubicacion/Reporte_Reubicacion_dos.csv` →
-  `XCOMWPMER:\\S00371F200G215\Reporte_Reubicacion_yyyymmdd.csv`.
+  destino descrito como inerte, pero técnicamente un job real (`TASKTYPE="Job"`, confirmado). **La ficha
+  EX-005-03 de este job repite literalmente, 2 veces, la instrucción "ESTE ENVÍO NO DEBE EJECUTARSE. DEBE
+  QUEDAR A DUMMY"** — ya no es una nota aislada del documento funcional, sino una instrucción repetida en la
+  propia ficha oficial de solicitud del script, reforzando (no cambiando) la discrepancia ya confirmada con
+  el `TASKTYPE="Job"` real.
+* `MEKYTL0111`: `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/Reubicacion/Reporte_Reubicacion_dos.csv` →
+  `XCOMWPMER:\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\Reporte_Reubicacion_yyyymmdd.csv`. **Corrige esta ronda,
+  con la ficha EX-005-03 real, la ruta de destino que se documentaba de forma incompleta/incorrecta** (antes
+  `\\S00371F200G215`, aparentemente una concatenación mal formada del código de servidor `S00371F2` con parte
+  de la ruta `MVP00G215`): el servidor real es `S00371F2` y la ruta completa es `\DATOS\TRANSMI\MVP00G215\RDR`.
 * `MEKYTL0122` (`RAMERC0068.sh`): `.../Reubicacion/Reubicacion.csv` → `.../Reubicacion/old/Reubicacion_yyyymmdd.csv`.
 
 **Interfaz real con la cadena de difusión (confirmada por la ficha EX-005-02, aunque su contenido interno
@@ -220,6 +234,7 @@ a que el diseño original pedía eliminarla.
 - `conflicto_integridad`: TC-014 (**la oficina de cierre ya estaba `INACTIVE` antes de ejecutar la reubicación** — el código solo inserta las 2 filas de auditoría de éxito si `DATA_STAT_TYPD = 'ACTIVE'`; confirmar que no se pierde trazabilidad cuando la oficina ya estaba inactiva por otra vía).
 - `happy_path`: TC-015 (confirmar el layout real de columnas de `Reubicacion.csv` tras `LimpiarReubicacion`: la columna 2 original llega como oficina de cierre y la columna 6 original como destino — no la 4, corrigiendo la ronda anterior).
 - `conflicto_integridad`: TC-016 (**2 filas del `Reubicacion.csv` original que solo difieran en las columnas 3/4 (descartadas)** deben colapsarse en 1 sola reubicación por el `sort -u` de `LimpiarReubicacion` — confirmar si esto es aceptable o pierde información funcional, RISK-REUB-008).
+- `conflicto_integridad`: TC-017 (**confirmar con negocio/ANS RDR qué criticidad rige realmente** — la ficha de cadena EX-005-02 dice W, las 4 fichas de job EX-005-03 dicen C — RISK-REUB-009).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -239,6 +254,7 @@ a que el diseño original pedía eliminarla.
 | R3b-bis (auditoría condicionada al estado ACTIVE previo) | TC-014 | Confirma el comportamiento de trazabilidad cuando la oficina de cierre ya no estaba activa |
 | R3a (layout real de columnas confirmado por `LimpiarReubicacion`) | TC-015 | Confirma que la oficina destino viene de la columna 6 original, no la 4 |
 | R3a (deduplicación de `sort -u` sobre columnas 3/4 descartadas) | TC-016 | Confirma el comportamiento ante 2 filas que colapsan en 1 sola (RISK-REUB-008) |
+| R9 (discrepancia de criticidad EX-005-02 vs. EX-005-03) | TC-017 | Confirma qué clasificación rige realmente en el sistema de alertas (RISK-REUB-009) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -274,6 +290,13 @@ a que el diseño original pedía eliminarla.
   ficha de diseño — en cualquier caso, es una discrepancia real y documentada entre intención y
   configuración viva, no una suposición (ver TC-010).
 * **RISK-REUB-005 [no bloqueante]:** máximo de relanzamientos configurado a 0, confirmado en los 6 jobs.
+* **RISK-REUB-009 [nuevo, prioridad media, confirmado con 2 fuentes oficiales que se contradicen]:** la ficha
+  de diseño EX-005-02 (a nivel de cadena) declara criticidad **W** ("aviso día siguiente"). Sin embargo, las 4
+  fichas EX-005-03 (a nivel de job) de `MEKYTL0111`, `MEKYTL0122`, `MEKYTL0233` y `MEKYTL0234` — las únicas
+  aportadas hasta ahora de esta cadena — marcan todas explícitamente **C ("Aviso inmediato")**, no W. No hay
+  evidencia de cuál de las 2 clasificaciones rige realmente en el sistema de alertas operativo (Remedy/ANS
+  RDR); si la clasificación real y operativa es C, un aviso "día siguiente" (W) sería demasiado laxo para el
+  nivel de urgencia que las propias fichas de job declaran.
 * **RISK-REUB-006 [nuevo, prioridad media, confirmado con código PL·SQL real]:** el procedimiento
   `REUBICACION` de `Sub_Load` **traga las 4 excepciones controladas** (oficina de cierre no encontrada, destino
   no encontrado, destino duplicado, y un `WHEN OTHERS` genérico) sin relanzarlas — solo inserta una fila de
@@ -307,6 +330,9 @@ a que el diseño original pedía eliminarla.
   60`/`exit 45` según el caso, ver R6b), no el valor concreto configurado para ninguno de los 3 jobs.
 * **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
   causa (¿instrucción no implementada?, ¿dependencia re-añadida después?).
+* **Motivo real de la discrepancia de criticidad EX-005-02 (W) vs. EX-005-03 (C)** (RISK-REUB-009) —
+  confirmada su existencia con 2 fuentes oficiales, no cuál de las 2 clasificaciones rige realmente en el
+  sistema de alertas operativo.
 * **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
   no confirmado.
 * **`RDR_CARGA_PLAZAS_TRAD_new`** y el contenido interno de la cadena downstream de difusión (se conocen ya
@@ -354,8 +380,15 @@ código de salida conocidos (R6b). **También se aportó el código real de la f
 anterior**: la oficina destino (`oficinaPER`) no está en la columna 4 del fichero original, sino en la
 columna 6 (la columna 2 sí era correcta para la oficina de cierre). Esto añade un riesgo nuevo
 (RISK-REUB-008): `sort -u` deduplica por línea completa de las 4 columnas retenidas, colapsando
-silenciosamente filas originales distintas que solo difirieran en las columnas 3/4 descartadas. Los elementos
-que siguen sin material propio (`ControlCargaDatos.jar`, causa del código 7, motivo de la discrepancia
-RISK-REUB-004, el valor real de `FALLASINOFICHS`/`FALLA_NO_FICHERO` para
-`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del
-documento fuente) quedan listados en §8.2 como fuera de alcance.
+silenciosamente filas originales distintas que solo difirieran en las columnas 3/4 descartadas. **Se aportaron
+además las 4 fichas reales EX-005-03 (nivel job) de `MEKYTL0111`/`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`:**
+corrigen la ruta real de destino de `MEKYTL0111` (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR`, antes documentada
+de forma incompleta), corroboran con una 3ª fuente independiente los destinos ya confirmados de
+`MEKYTL0233`/`MEKYTL0234` (incluida la instrucción "DEBE QUEDAR A DUMMY" repetida literalmente en la propia
+ficha de `MEKYTL0234`), y revelan una nueva discrepancia entre fuentes oficiales: la ficha de cadena EX-005-02
+declara criticidad W, pero las 4 fichas de job EX-005-03 declaran todas C (RISK-REUB-009) — el mismo patrón
+metodológico que ya reveló RISK-REUB-004, aplicado ahora a la clasificación de criticidad. Los elementos que
+siguen sin material propio (`ControlCargaDatos.jar`, causa del código 7, motivo de la discrepancia
+RISK-REUB-004, motivo de la discrepancia de criticidad RISK-REUB-009, el valor real de
+`FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, y la cadena
+`RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.

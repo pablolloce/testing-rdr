@@ -332,4 +332,24 @@
     <posibilidadFallo>Si negocio consideraba que las columnas 3/4 distinguían instrucciones de reubicación independientes, esta deduplicación es un defecto a elevar (RISK-REUB-008), no un comportamiento aceptado.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-017" tipo="conflicto_integridad">
+    <nombre>Confirmación de la criticidad real de la cadena (EX-005-02 W vs. EX-005-03 C)</nombre>
+    <objetivo>Confirmar con negocio/ANS RDR qué clasificación de criticidad rige realmente el tratamiento de alertas de esta cadena, dado que la ficha de diseño de cadena EX-005-02 declara W (aviso día siguiente) mientras que las 4 fichas de job EX-005-03 aportadas (MEKYTL0111, MEKYTL0122, MEKYTL0233, MEKYTL0234) declaran todas C (aviso inmediato).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a alguien del equipo de soporte (ANS RDR) o al sistema de gestión de alertas (Remedy) que pueda confirmar la clasificación operativa real aplicada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Criticidad ficha de cadena (EX-005-02)" valor="W - Aviso día siguiente"/>
+      <dato campo="Criticidad fichas de job (EX-005-03, las 4 aportadas)" valor="C - Aviso inmediato"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preguntar a ANS RDR o consultar el sistema de alertas real qué clasificación se aplica efectivamente a un fallo de estos jobs.</paso>
+      <paso numero="2">Si es posible, provocar un fallo controlado en entorno de prueba y observar el tiempo/canal real de aviso generado.</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación explícita de cuál de las 2 clasificaciones rige realmente, cerrando RISK-REUB-009.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa + observación del aviso real ante un fallo de prueba, si es posible.</tipoValidacion>
+    <criterioAceptacion>Respuesta explícita documentada en esta especificación.</criterioAceptacion>
+    <posibilidadFallo>Si la clasificación operativa real es más laxa (W) que la declarada a nivel de job (C), un fallo real podría no generar aviso inmediato pese a la urgencia que las fichas de job sugieren.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

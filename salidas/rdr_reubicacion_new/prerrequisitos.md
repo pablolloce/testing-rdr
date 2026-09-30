@@ -40,7 +40,9 @@
   `spgec001` (`/pr/tedt/batch/es/dat/di/cierreOficinas/`) para `MEKYTL0234` — este segundo destino descrito
   como inerte en el documento fuente, pero **confirmado en Control-M real como `TASKTYPE="Job"`** (no Dummy,
   ver `spec.md` R5, TC-003).
-- Conectividad XCOM hacia `XCOMWPMER` (`\\S00371F200G215`) para `MEKYTL0111`.
+- Conectividad XCOM hacia `XCOMWPMER` (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR`, ruta real completa
+  confirmada esta ronda con la ficha EX-005-03 de `MEKYTL0111`, corrigiendo la ruta parcial documentada
+  antes) para `MEKYTL0111`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con
   `RDR_CONC_OFICINAS_new`.
 
@@ -72,5 +74,11 @@
   como un hecho aceptado, confirmar con el equipo funcional/de desarrollo si es intencional (TC-010).
 - **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` no está documentada — si en el futuro se aporta su contenido,
   debe tratarse como una especificación nueva, no como una extensión de esta ni de `RDR_CONC_OFICINAS_new`.
-- **Nota:** el campo "Rearranques" de la ficha EX-005-02 de esta cadena está vacío — no hay un procedimiento
-  de rearranque documentado formalmente (a diferencia de `RDR_CONC_OFICINAS_new`, que sí lo tiene).
+- **Nota:** el campo "Rearranques" de la ficha EX-005-02 (chain-level) de esta cadena está vacío — no hay un
+  procedimiento de rearranque documentado formalmente a nivel de cadena (a diferencia de
+  `RDR_CONC_OFICINAS_new`, que sí lo tiene). **Matiz confirmado esta ronda:** las 4 fichas EX-005-03 (job-level)
+  aportadas sí incluyen, cada una, una norma de aviso explícita ("Avisar a ANS RDR (BZG03906)...").
+- **Importante, nuevo (RISK-REUB-009):** la ficha de cadena EX-005-02 declara criticidad **W**, pero las 4
+  fichas de job EX-005-03 aportadas (`MEKYTL0111`, `MEKYTL0122`, `MEKYTL0233`, `MEKYTL0234`) declaran todas
+  **C (Aviso inmediato)** — confirmar con ANS RDR cuál rige realmente antes de diseñar pruebas que asuman
+  un SLA de aviso concreto (TC-017).
