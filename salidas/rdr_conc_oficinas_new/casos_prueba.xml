@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_conc_oficinas_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de conciliación y carga de oficinas</nombre>
+    <objetivo>Verificar el ciclo end-to-end: llegada del fichero, conciliación/carga, historificación y transmisión final.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero oficinas.csv válido disponible para depositar dentro de la ventana de monitoreo (madrugada, martes a sábado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta monitoreada" valor="/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv dentro de la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar que KYTL_CONOFI_GSPROCESS_FW detecta el fichero y termina con código 0.</paso>
+      <paso numero="3">Confirmar la ejecución completa de KYTL_CONOFI_GSPROCESS (conciliación/carga).</paso>
+      <paso numero="4">Confirmar la historificación (MEKYTL0242) y el cierre de cadena (MEKYTL0243).</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 pasos terminan OK; el fichero queda cargado en RDR, historificado, y la cadena se cierra.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 4 jobs en Control-M + verificación de ficheros generados.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, con carga real confirmada en GoldenSource (entidad Oficina/OFC).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando deliberadamente otro escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="conflicto_integridad">
+    <nombre>Filewatcher termina con código de retorno 7 — salto directo al cierre de cadena</nombre>
+    <objetivo>Confirmar en ejecución real si, cuando el filewatcher termina con RC=7, la cadena se marca OK y se salta directamente al evento de cierre sin ejecutar los pasos 2 y 3, tal como describe el documento fuente.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher con código de retorno 7 (causa exacta no confirmada, ver spec.md §8.2).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno a verificar" valor="7"/>
+      <dato campo="Evento esperado si RC=7" valor="RDR_CONC_OFICINAS_MEKYTL0243_OK_new (directamente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher termine con código 7.</paso>
+      <paso numero="2">Confirmar que KYTL_CONOFI_GSPROCESS_FW se marca OK de forma forzada.</paso>
+      <paso numero="3">Confirmar que se publica directamente el evento de cierre de cadena, sin que se ejecuten los pasos 2 (KYTL_CONOFI_GSPROCESS) ni 3 (MEKYTL0242).</paso>
+      <paso numero="4">Confirmar que no hay carga real en GoldenSource ese día para la entidad Oficina/OFC.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se cierra como exitosa sin haber conciliado ni cargado ningún dato, confirmando (o descartando) el mecanismo documentado.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Control-M (histórico de ejecución) + verificación de ausencia de carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución, confirmando o descartando RISK-CONOFI-001.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma el salto y no hay alerta visible aguas abajo de que ese día no hubo carga real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Filewatcher agota el timeout de 4 horas sin recibir el fichero</nombre>
+    <objetivo>Confirmar el comportamiento cuando oficinas.csv no llega dentro de las 240 minutos (4h) de espera configurados.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de prueba donde oficinas.csv no se deposita durante la ventana completa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Timeout configurado" valor="240 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout (KO, alerta, código de retorno).</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real en KYTL_CONOFI_GSPROCESS sin reintentos automáticos</nombre>
+    <objetivo>Confirmar que, ante un fallo real en el paso de conciliación/carga, la cadena queda en KO y requiere intervención manual, dado el máximo de relanzamientos configurado a 0.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en KYTL_CONOFI_GSPROCESS (p. ej. fichero con formato inválido).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Máximo de relanzamientos" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en el paso de conciliación/carga.</paso>
+      <paso numero="2">Confirmar que el job termina en KO sin reintento automático.</paso>
+      <paso numero="3">Confirmar que se genera alerta a ANS RDR.</paso>
+    </pasos>
+    <resultadoEsperado>KO real visible, sin reintento automático, con alerta al grupo de soporte.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M + confirmación de alerta.</tipoValidacion>
+    <criterioAceptacion>Sin reintento automático, alerta generada.</criterioAceptacion>
+    <posibilidadFallo>Si el job reintenta automáticamente pese al máximo de 0, contradice la configuración documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Historificación (MEKYTL0242) sin fichero origen</nombre>
+    <objetivo>Confirmar que el paso de historificación no falla si oficinas.csv no existe en el momento de su ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario donde oficinas.csv ya no existe cuando se ejecuta MEKYTL0242 (p. ej. borrado previo).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia" valor="Si no existe fichero de origen a enviar, el script no debe fallar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la ausencia del fichero origen antes de la ejecución de MEKYTL0242.</paso>
+      <paso numero="2">Confirmar que el job termina OK sin fallar.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK pese a la ausencia del fichero.</resultadoEsperado>
+    <tipoValidacion>Estado OK en Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin fallo ante fichero ausente.</criterioAceptacion>
+    <posibilidadFallo>Un KO en este escenario contradice la regla de tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Transmisión final (MEKYTL0243) sin fichero a transmitir</nombre>
+    <objetivo>Confirmar que el paso final no falla si no hay fichero a historificar/transmitir.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario donde no hay fichero disponible para MEKYTL0243.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia" valor="Si no existe fichero de origen a historificar, el script debe continuar sin fallar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la ausencia del fichero esperado por MEKYTL0243.</paso>
+      <paso numero="2">Confirmar que el job termina OK sin fallar.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK pese a la ausencia del fichero.</resultadoEsperado>
+    <tipoValidacion>Estado OK en Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin fallo ante fichero ausente.</criterioAceptacion>
+    <posibilidadFallo>Un KO en este escenario contradice la regla de tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de destino inerte en la transmisión final</nombre>
+    <objetivo>Confirmar que MEKYTL0243 sigue configurado contra un destino inerte y no transmite datos reales a XCOMWPMER.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la configuración real del job o a un log de ejecución reciente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Destino nominal" valor="XCOMWPMER:\\S00371F200G215"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en la configuración real (o en logs) que no se produce transferencia efectiva de datos.</paso>
+      <paso numero="2">Confirmar si el job es un script real contra un destino nulo o un Dummy de Control-M (TASKTYPE).</paso>
+    </pasos>
+    <resultadoEsperado>Sin transferencia real de datos; tipo de job confirmado con evidencia directa.</resultadoEsperado>
+    <tipoValidacion>Inspección de configuración real de Control-M/logs.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si se detecta una transferencia real de datos, contradice la descripción del documento fuente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Confirmación de topología completa y consumo de recurso compartido</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente 4 pasos y que cada uno consume 1 unidad del recurso MAX-LPRDR501, compartido con RDR_REUBICACION_new.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder completo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso compartido" valor="MAX-LPRDR501 (total asignado: 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 4 jobs.</paso>
+      <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
+      <paso numero="3">Confirmar si existe contención real con RDR_REUBICACION_new cuando ambas cadenas coinciden en ventana.</paso>
+    </pasos>
+    <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de contención real de recursos entre ambas cadenas debe documentarse como riesgo operativo.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

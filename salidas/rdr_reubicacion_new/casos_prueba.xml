@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_reubicacion_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de reubicación tras cierre (Fan-Out/Fan-In)</nombre>
+    <objetivo>Verificar el ciclo end-to-end: llegada del fichero, bifurcación en 3 ramas paralelas, y convergencia correcta en el Fan-In final.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero Reubicacion.csv válido disponible para depositar tras el cierre de oficinas de un domingo, dentro de la ventana de monitoreo (desde 11:00).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta monitoreada" valor="/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Reubicacion.csv tras las 11:00 del domingo de cierre.</paso>
+      <paso numero="2">Confirmar que el filewatcher detecta el fichero y termina con código 0, disparando las 3 ramas en paralelo.</paso>
+      <paso numero="3">Confirmar la ejecución completa de KYTL_REU_GSPROCESS (carga real vía Workflow RDR_Reubicacion) y su sucesor MEKYTL0111.</paso>
+      <paso numero="4">Confirmar la ejecución de MEKYTL0233 y MEKYTL0234 en paralelo.</paso>
+      <paso numero="5">Confirmar que MEKYTL0122 arranca solo cuando las 3 ramas (MEKYTL0111, MEKYTL0233, MEKYTL0234) han confirmado OK.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 ramas terminan OK, el Fan-In se ejecuta correctamente, y la cadena se cierra habilitando la difusión posterior.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 6 jobs en Control-M + verificación de la carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, con carga real confirmada.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando deliberadamente otro escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="conflicto_integridad">
+    <nombre>Filewatcher termina con código de retorno 7 — salto directo al evento final</nombre>
+    <objetivo>Confirmar en ejecución real si, cuando el filewatcher termina con RC=7, la cadena se marca OK y salta directamente al evento final sin ejecutar los 5 pasos restantes, igual que en RDR_CONC_OFICINAS_new.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher con código de retorno 7.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno a verificar" valor="7"/>
+      <dato campo="Evento esperado si RC=7" valor="RDR_REUBICACION_MEKYTL0122_OK_new (directamente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher termine con código 7.</paso>
+      <paso numero="2">Confirmar que se publica directamente el evento final, sin ejecutar ninguno de los 5 pasos restantes.</paso>
+      <paso numero="3">Confirmar que no hay reubicación real cargada en GoldenSource ese ciclo.</paso>
+      <paso numero="4">Confirmar si RDR_DIFUSION_BATCH_CIERREOFI_new arranca igualmente pese a la ausencia de carga real.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se cierra como exitosa sin haber reubicado ningún dato, confirmando (o descartando) RISK-REUB-001.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Control-M + verificación de ausencia de carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma el salto y la cadena de difusión arranca igualmente sin alerta, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="conflicto_integridad">
+    <nombre>Verificación del TASKTYPE real de MEKYTL0234</nombre>
+    <objetivo>Confirmar con evidencia técnica directa (ficha EX-005-03 o export real de Control-M) si MEKYTL0234 está dado de alta como Dummy de Control-M o como un job real (OS Script) que ejecuta MEGENV0001.sh contra un destino inerte, tal como clasifica la tabla de topología del documento fuente.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del job MEKYTL0234, o a un log de ejecución real.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Clasificación en el documento fuente" valor="OS (Script)"/>
+      <dato campo="Directiva textual del documento" valor="ESTE ENVÍO NO DEBE EJECUTARSE. DEBE QUEDAR A DUMMY"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Consultar el TASKTYPE real del job en la definición de Control-M.</paso>
+      <paso numero="2">Si es un job real, confirmar en logs si efectivamente intenta la transferencia contra spgec001 y falla, o si el script mismo no-opera.</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación inequívoca del mecanismo técnico real, sin depender de la interpretación de la directiva textual.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición de Control-M + logs de ejecución reales.</tipoValidacion>
+    <criterioAceptacion>Mecanismo técnico confirmado con evidencia directa.</criterioAceptacion>
+    <posibilidadFallo>N/A — este caso es de confirmación documental, no de detección de fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de MEKYTL0233 no debe bloquear el Fan-In</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a staging (MEKYTL0233) se marca OK igualmente (Force-OK) y no bloquea la ejecución de MEKYTL0122.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0233 (p. ej. destino Ippwc501 no disponible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia" valor="Cuándo Job completado No OK: Marcar como OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real de transmisión en MEKYTL0233.</paso>
+      <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
+      <paso numero="3">Confirmar que MEKYTL0122 arranca normalmente (no queda bloqueado esperando un reintento).</paso>
+    </pasos>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de MEKYTL0234 no debe bloquear el Fan-In</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a destino inerte (MEKYTL0234) se marca OK igualmente y no bloquea MEKYTL0122.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0234.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia" valor="Cuándo Job completado No OK: Marcar como OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en MEKYTL0234 (si es un job real, ver TC-003).</paso>
+      <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
+      <paso numero="3">Confirmar que MEKYTL0122 arranca normalmente.</paso>
+    </pasos>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Filewatcher agota el timeout de 13 horas sin recibir el fichero</nombre>
+    <objetivo>Confirmar el comportamiento cuando Reubicacion.csv no llega dentro de las 780 minutos (13h) de espera configurados.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de prueba donde Reubicacion.csv no se deposita durante la ventana completa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Timeout configurado" valor="780 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Fan-In no arranca con solo 2 de las 3 ramas confirmadas</nombre>
+    <objetivo>Confirmar que MEKYTL0122 no se ejecuta si solo 2 de los 3 eventos requeridos (MEKYTL0111_OK, MEKYTL0233_OK, MEKYTL0234_OK) están presentes.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de retrasar deliberadamente una de las 3 ramas paralelas sin que llegue a completarse.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición Fan-In" valor="MEKYTL0111_OK AND MEKYTL0233_OK AND MEKYTL0234_OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Retrasar o bloquear deliberadamente una de las 3 ramas.</paso>
+      <paso numero="2">Confirmar que MEKYTL0122 permanece en espera mientras falte cualquiera de los 3 eventos.</paso>
+      <paso numero="3">Completar la rama pendiente y confirmar que MEKYTL0122 arranca inmediatamente.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0122 solo arranca cuando los 3 eventos están presentes simultáneamente, nunca con solo 2.</resultadoEsperado>
+    <tipoValidacion>Observación directa del estado de espera en Control-M.</tipoValidacion>
+    <criterioAceptacion>Fan-In estricto de 3 eventos confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si MEKYTL0122 arranca con solo 2 eventos, contradice la expresión lógica Fan-In documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Confirmación de topología completa y consumo de recurso compartido</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente 6 pasos y que cada uno consume 1 unidad del recurso MAX-LPRDR501, compartido con RDR_CONC_OFICINAS_new.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder completo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso compartido" valor="MAX-LPRDR501 (total asignado: 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 6 jobs con la topología Fan-Out/Fan-In documentada.</paso>
+      <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
+      <paso numero="3">Confirmar si existe contención real con RDR_CONC_OFICINAS_new cuando ambas cadenas coinciden en ventana (poco probable dado que una es de madrugada entre semana y otra domingo, pero no descartado).</paso>
+    </pasos>
+    <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de un job nuevo o la eliminación de uno existente debe motivar una actualización de esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
