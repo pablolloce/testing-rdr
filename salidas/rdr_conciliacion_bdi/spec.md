@@ -27,7 +27,7 @@ automatizado — ver gap G1).
 | ID | Requisito |
 |----|-----------|
 | R1 | `KYTL_CONBDI_GSPROCESS_FW` (filewatcher, 00:00 AM L-V, `ctmfw ... 240`) espera `ConBDI.csv` en `/fichtemcomp/pr/descargas/kytl/ConBDI/`. |
-| R2 | `KYTL_CONBDI_GSPROCESS` (Run As `xakytl1p`): `Delta` → `QuitarNulos` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Java(RDR_PLSQL.jar)` → `Java(RDR_Report.jar)` → `Unix2Dos` → `Java(RDR_InformeBroker.jar)` → `Workflow(RDR_informeBroker_BDI)`. Genera 4 ficheros: `Reporte_ConBDI.csv`, `Reporte_ConBDI_dos.csv`, `Reporte_ConciliacionBroker_yyyymmdd.xlsx`, `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`. |
+| R2 | `KYTL_CONBDI_GSPROCESS` (Run As `xakytl1p`): `Delta` → `QuitarNulos` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Java(RDR_PLSQL.jar)` → `Java(RDR_Report.jar)` → `Unix2Dos` → `Java(RDR_InformeBroker.jar)` → `Workflow(RDR_informeBroker_BDI)`. Genera con certeza 3 ficheros: `Reporte_ConBDI.csv`, `Reporte_ConBDI_dos.csv`, `Reporte_ConciliacionBroker_yyyymmdd.xlsx`. **`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx` se cita como salida de este job en el documento fuente y en R5, pero el `.properties` real de producción no contiene ninguna acción que lo genere — ver RISK-CONBDI-001 (§9).** |
 | R3 | `KYTL_CONBDI_UNIX2DOS` convierte `Reporte_ConBDI.csv` de LF a CRLF. |
 | R4 | `MEKYTL0135` (Run As `xsramer1`) transmisión XCOM configurada **"A DUMMY"** de `Reporte_ConBDI_dos.csv` a `MVP00G215` — valida la interfaz sin envío real. Mismo patrón que `MEKYTL0352` de `RDR_CARGA_BAJA_NIVELES_new` (ya cerrado como job de control, sin motivo de negocio adicional documentado). |
 | R5 | `MEKYTL0132` historifica `ConBDI.csv`; `MEKYTL0361` historifica `Reporte_ConciliacionBroker_yyyymmdd.xlsx`; `MEKYTL0812` historifica `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx` — encadenados secuencialmente, no en paralelo. |
@@ -42,7 +42,7 @@ automatizado — ver gap G1).
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
 | G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
 | G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Resuelto (2026-09-28), en el límite de lo alcanzable desde código Java, con la versión completa real de `ConDB.java`.** `executeCONBDI_Hilos` llama al procedimiento almacenado Oracle **`CONBDI2`** (`{call CONBDI2(?,?,...,?)}`, 21 parámetros: los 20 campos extraídos por `ConBDI.java` + `FLD_JOB_ID`) por cada registro válido — confirma el nombre exacto del procedimiento y su firma completa. También confirma, con SQL literal, `obtenerBDIs` (query que lista los códigos BDI activos en GoldenSource, `FT_T_FIID`/`FINS_ID_CTXT_TYP='BDIID'`), `crearJOB`/`cerrarJOB` (INSERT/UPDATE literales sobre `FT_T_JBLG`) e `insertRLT1BDI` (INSERT literal sobre `FT_T_RLT1`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio procedimiento `CONBDI2` (qué hace exactamente dentro de la base de datos con esos 21 parámetros) vive en Oracle, no en este código Java — cerrarlo del todo exigiría un export de PL/SQL de BD, no un fichero de aplicación. Ver §6.4. |
-| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `InformeBroker.java`/`ConDB.java`.** El informe Broker queda cerrado por completo: 4 hojas (`NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`), cada una con su query real y columnas exactas — ver §6.5. **Sigue abierto:** el informe SWIFT no aparece en ningún punto de este código — requeriría el jar/clase que lo genera, no identificado en el material disponible. |
+| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `InformeBroker.java`/`ConDB.java`.** El informe Broker queda cerrado por completo: 4 hojas (`NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`), cada una con su query real y columnas exactas — ver §6.5. **Sigue abierto, y con un hallazgo nuevo (2026-09-30):** el `.properties` real de producción (`ConBDI.properties.pr`, §6.1) confirma que `KYTL_CONBDI_GSPROCESS` tiene exactamente **una sola** acción `Accion=Java` de generación de Excel (`RDR_InformeBroker.jar`/`InformeBroker`, argumento `ConBDI/Reporte_ConciliacionBroker`) — **no existe ninguna acción, en ningún punto del pipeline real, que genere `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`**. La afirmación de que este job genera el fichero SWIFT (R2, y el propio documento fuente narrativo) no está respaldada por la configuración real de producción — ver RISK-CONBDI-001 (§9). |
 
 ## 5. Especificación funcional
 
@@ -63,9 +63,10 @@ automatizado — ver gap G1).
 * **Evento final:** dispara el workflow GoldenSource `RDR_informeBroker_BDI` (BeanShell + Switch Case +
   sub-workflow `Mail` condicional, R6).
 
-### 6.1 Pipeline `ConBDI.properties.de` (documento fuente, líneas 903-946)
+### 6.1 Pipeline `ConBDI.properties.pr` (fichero real de producción, aportado 2026-09-30 — confirma y reemplaza como fuente autoritativa la paráfrasis narrativa del documento fuente original, líneas 903-946)
 
-`KYTL_CONBDI_GSPROCESS` invoca `GSProcess.sh ConBDI`, que lee `ConBDI.properties.de`: un script de
+`KYTL_CONBDI_GSPROCESS` invoca `GSProcess.sh ConBDI`, que lee `ConBDI.properties.pr` (variante de entorno
+`@@ENV@@`→`pr`; el mismo pipeline, parametrizado, aplica a las demás variantes de entorno): un script de
 propiedades y orquestación por fases que combina limpieza shell, preprocesado Java, carga PL/SQL,
 generación de informes Excel y disparo final de workflow/notificación en GoldenSource. Parámetros
 globales:
@@ -96,8 +97,9 @@ Pasos del pipeline, en orden:
 7. `Accion=Java` `RDR_InformeBroker.jar` (clase `InformeBroker`) — genera
    `Reporte_ConciliacionBroker.xlsx` usando `dom4j`/`xmlbeans` (parseo XML) y `poi`/`jxl` (construcción de
    libros Excel), a partir de la información conciliada en base de datos, para armar un informe de
-   auditoría/diferencias con la contraparte/Broker. **Qué columnas exactas componen los 2 informes Excel
-   (Broker y SWIFT) no está documentado — gap abierto G4.**
+   auditoría/diferencias con la contraparte/Broker. **Es la única acción de generación de Excel de todo el
+   pipeline real (confirmado 2026-09-30) — no hay ninguna acción `Accion=Java` adicional que genere
+   `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`. Gap G4 reforzado con este hallazgo — ver RISK-CONBDI-001 (§9).**
 8. `Accion=Evento` dispara el workflow GoldenSource `RDR_informeBroker_BDI`, que evalúa el envío
    condicional por email del informe Broker (R6).
 
@@ -334,12 +336,27 @@ informe SWIFT no se transmite por ningún canal.
 * **Fallo silencioso por hoja en el informe Broker (§6.5):** cada una de las 4 queries de `ConDB.java`
   captura su propia `SQLException` y devuelve lista vacía; un fallo de query y "sin discrepancias reales"
   son indistinguibles en el Excel resultante — ninguna alerta operativa diferenciada.
+* **[PRIORIDAD MEDIA-ALTA] RISK-CONBDI-001 — el pipeline real no muestra ningún mecanismo que genere el
+  informe SWIFT (2026-09-30):** el `.properties` real de producción (`ConBDI.properties.pr`, §6.1) confirma
+  que `KYTL_CONBDI_GSPROCESS` tiene una única acción de generación de Excel (`RDR_InformeBroker.jar`, solo
+  Broker) — ninguna acción del pipeline real produce `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`. Sin embargo, la
+  ficha real de `MEKYTL0812` (documento fuente, ya citada en R5) confirma que ese job de historificación
+  existe de verdad en Control-M y está configurado para mover ese fichero exacto tras `MEKYTL0361`. Esto dejaría
+  2 lecturas posibles, ninguna confirmable solo con código de aplicación: (a) el fichero SWIFT se genera por
+  un mecanismo no capturado en este `.properties` (una versión distinta del jar `InformeBroker`, un segundo
+  `Accion=Java` no incluido en la copia aportada, o un proceso externo a esta cadena), o (b) `MEKYTL0812` es
+  un job vestigial que no encuentra fichero que mover en la ejecución real y falla o no-opea en silencio
+  cada día — coherente con el patrón de soft-failure genérico ya visto en varios procesos de esta sesión.
+  Requeriría una captura real de la ejecución de `MEKYTL0812` (Log/Salida, no solo su ficha de configuración)
+  para dirimir entre ambas lecturas.
 * **Gaps técnicos (regla 7):** G2 (`fillingRules_ConBDI.csv`) queda **resuelto**, con una corrección
   importante sobre la interpretación de la marca `USAR` (ver §6.2). **G3 queda resuelto** (2026-09-28) con
   la versión completa de `ConDB.java`: el procedimiento `CONBDI2` y las queries/inserts que lo rodean
   quedan confirmados a nivel de aplicación — solo el cuerpo interno del procedimiento en Oracle queda
   fuera de alcance, un tipo de artefacto distinto (§6.4). G4 queda **parcialmente resuelto**: el informe
-  Broker está cerrado por completo (§6.5), el informe SWIFT sigue sin material que lo documente.
+  Broker está cerrado por completo (§6.5); el informe SWIFT no solo sigue sin material que lo documente,
+  sino que el `.properties` real de producción contradice activamente que se genere en este job
+  (RISK-CONBDI-001).
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -354,7 +371,11 @@ procedimiento `CONBDI2` (21 parámetros), la query de `obtenerBDIs`, y el INSERT
 alcance de este código de aplicación (§6.4). **G4 queda parcialmente resuelto** con el código fuente real
 de `ConBDI.java`/`InformeBroker.java`: la orquestación completa de la carga (validación, batching,
 multi-hilo, registro de errores) y el informe Broker completo (4 hojas, columnas y filtros exactos) están
-cerrados — ver §6.4/§6.5. Sigue abierto el informe SWIFT (no aparece en ningún fichero de esta ronda).
+cerrados — ver §6.4/§6.5. Sigue abierto el informe SWIFT: no solo no aparece en ningún fichero de esta
+ronda, sino que el `.properties` real de producción (2026-09-30) confirma que el pipeline de
+`KYTL_CONBDI_GSPROCESS` no tiene ninguna acción que lo genere — contradice la propia descripción narrativa
+del documento fuente (RISK-CONBDI-001, §9), sin poder determinar aún si el mecanismo real vive fuera de
+este `.properties` o si `MEKYTL0812` es un job vestigial.
 Hallazgo nuevo de prioridad alta: la detección de discrepancias BDI-vs-GoldenSource está codificada pero
 inactiva (comentada) en la versión de `ConBDI.java` aportada (§6.4, §9). También queda documentado, como
 riesgo abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura de testing sobre el
