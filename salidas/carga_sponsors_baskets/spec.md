@@ -4,7 +4,8 @@
 > Fuentes: `Carga_y_baja_de_sponsors_de_cestas_manual__automatica.docx` (documento original de análisis funcional
 > y técnico), workflows reales `Auto_Load_Basket_Sponsors.wkf`, `Load_Baskets_Sponsors.wkf` y
 > `Reload_Baskets_Sponsors_Email.wkf` (GoldenSource), `AutoLoadBasketSponsors.properties`, scripts reales
-> `RDR_CargaBasketSponsor.sh` y `RDR_CargaBasketSponsorTotal.sh`, export real de Control-M del folder
+> `RDR_CargaBasketSponsor.sh`, `RDR_CargaBasketSponsorTotal.sh`, `RDR_Sponsor_PreProcess.sh` y
+> `RDR_SponsorSplit.sh`, export real de Control-M del folder
 > `RDR_HIST_BASKETS_SPONSORS` (`Workspace_584.xml`), y 13 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`,
 > `RDR_AUTO_BASKETS_SPONSORS_IN`, `MEKYTL1176`, `MEKYTL0987`-`0995`, `MEKYTL1175`,
 > `RDR_HIST_BASKETS_SPONSORS_IN`). Detalle completo de evidencia en
@@ -97,8 +98,7 @@ EX-005-03 real. No existe ningún job de "cestas generales" separado en la Caden
   `FIGR`) desde 9 proveedores de mercado más una vía manual.
 * **Ámbito técnico:** las 3 cadenas Control-M completas — `RDR_AUTO_BASKETS_SPONSORS` (2 jobs),
   `RDR_HIST_BASKETS_SPONSORS` (11 jobs), `RDR_LOAD_SPONSOR_MANUAL` (1 job).
-* **Fuera de alcance** (detalle completo en §8): el contenido real de
-  `RDR_Sponsor_PreProcess.sh`/`RDR_SponsorSplit.sh`; el `.properties` que enlaza literalmente la invocación
+* **Fuera de alcance** (detalle completo en §8): el `.properties` que enlaza literalmente la invocación
   `executeBbvaEvent.sh fileloading RDR_CargaBasketSponsor` con el workflow real `Load_Baskets_Sponsors.wkf`;
   el origen exacto (proceso/folder Control-M) que deposita los ficheros de cada proveedor antes de que el
   workflow los procese; el detalle de testing de los 4 procesos downstream impactados (P-010, P-028, P-034,
@@ -166,7 +166,8 @@ confirma Dummy sin predecesor, único sucesor `RDR_AUTO_LOAD_BASKETS`, Grupo de 
   `./RDR_Sponsor_PreProcess.sh <args con $env sustituido>`; marca la fila como procesada hoy
   (`LAST_CHG_TMS=sysdate`).
 * **Fase Split:** análogo, con `BSKT_SPLIT` → `./RDR_SponsorSplit.sh`. Mensaje de error especial para `MSCI`
-  ("ERROR TÉCNICO RDR" en vez de "ERROR PLATAFORMA").
+  ("ERROR TÉCNICO RDR" en vez de "ERROR PLATAFORMA") — coherente con que, como se confirma más abajo, ambos
+  scripts de esta fase están construidos específicamente en torno al formato de fichero real de `MSCI`.
 * **Fase Load:** análogo, con `BSKT_LOAD` → determina `idType`/`idType2` por sponsor (R4), consulta
   `FT_T_RISS`/`FT_T_RIDF`/`FT_T_ISID` para saber si la cesta existe, y lanza
   `./RDR_CargaBasketSponsor.sh <args con maxExec>` (`waitForEnd=false`) — antes, si la cesta existía, hace
@@ -215,6 +216,47 @@ confirma Dummy sin predecesor, único sucesor `RDR_AUTO_LOAD_BASKETS`, Grupo de 
    **distinto e independiente** del descrito en el punto 8 de `Load_Baskets_Sponsors.wkf` (que sí notifica
    por email vía `Reload_Baskets_Sponsors_Email.wkf`): esta recarga masiva no genera ninguna notificación
    propia, solo repite el ciclo de carga estándar cesta por cesta.
+
+**`RDR_Sponsor_PreProcess.sh` (código real) — recibe `SPONSOR`, `INDEX` y 4 nombres de fichero
+(`INDEX_FILE`/`COUNTRY_FILE`/`COMPONENTS_FILE`/`MIC_FILE`):**
+1. Normaliza el separador de los 4 ficheros de entrada (originalmente `"| "`) a `;`, generando copias
+   temporales (`_tmp`).
+2. Busca las zonas/países asociadas al `INDEX` en el fichero de países; si no encuentra ninguna, repite la
+   búsqueda directamente en el fichero de índice.
+3. Con esas zonas, filtra los componentes del fichero de componentes que cumplan `zona coincidente` +
+   `campo 10 vacío` + `campo 33 == "1"` (flag de inclusión), y cruza cada componente con el fichero MIC para
+   añadir su ISIN/MIC real.
+4. Une las filas de componentes con los datos de cabecera del índice (réplica de la línea de índice por cada
+   componente) y genera `open_$INDEX.csv`, **insertando literalmente la cabecera fija `"MSCIHeader"` en la
+   primera línea**.
+5. Si no encuentra componentes, o el número de líneas de índice y de componentes no coincide, o el número de
+   parámetros es incorrecto, termina en error (`exit 1`) sin generar el fichero de salida (limpiando los
+   `_tmp` antes de salir).
+
+**Hallazgo confirmado (no una suposición por el nombre):** pese a llamarse genéricamente
+`RDR_Sponsor_PreProcess.sh`, su lógica interna (los 4 ficheros de entrada `INDEX_FILE`/`COUNTRY_FILE`/
+`COMPONENTS_FILE`/`MIC_FILE` con posiciones de campo fijas, y el literal `"MSCIHeader"` insertado en la
+salida) está construida específicamente en torno al **formato de fichero real de MSCI** — no es un
+preprocesador genérico reutilizable tal cual para cualquier sponsor. Es coherente con que `MSCI` es uno de
+los sponsors con `idType=INHOUSE` y con el mensaje de error específico para `MSCI` ya documentado en la fase
+Split. No hay evidencia de que este mismo script se reutilice, sin modificar sus posiciones de campo, para
+ningún otro sponsor.
+
+**`RDR_SponsorSplit.sh` (código real) — script genérico de normalización/troceo, con 2 modos:**
+1. **Modo `DUPLI`** (`$1=="DUPLI"`): sobrescribe una columna concreta (`$3`) con un valor fijo (`$5`) en todo
+   un fichero delimitado (`$4`, separador `$2`), generando una copia con nombre de salida `$6` — un
+   "duplicador"/generador de variantes de un mismo fichero de entrada.
+2. **Modo "Splitter"** (resto de casos): normaliza el separador de `$4` a `;` y, si `$1=="Y"`, sustituye
+   además el separador decimal `.`→`,`. Después:
+   * Sin filtro de índice (`$5` vacío): trocea el fichero completo en un CSV por cada valor distinto de la
+     columna `$3` (`open_<valor>.csv`).
+   * Con filtro de índice (`$5` informado): filtra solo las filas que coinciden con ese valor. Sintaxis
+     especial confirmada `<código>@L`/`<código>@T`: proyecta un subconjunto fijo de 8 columnas a
+     `open_<col>_L.csv`/`open_<col>_T.csv` respectivamente — el significado exacto de `L`/`T` no está
+     confirmado (posibles 2 variantes de un mismo índice), no se fuerza una interpretación.
+
+Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de reintento/espera ni invocan
+`callevent`/`calljava` — son transformaciones de fichero puramente locales, ejecutadas antes de la fase Load.
 
 **`Load_Baskets_Sponsors.wkf` (código real) — el 2º workflow GoldenSource, invocado con el XML de "formato
 único" generado por `RDR_FormatoUnicoBaskets.jar`:**
@@ -367,8 +409,9 @@ Referencia de casos por tipo:
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
-* **Contenido real de `RDR_Sponsor_PreProcess.sh`/`RDR_SponsorSplit.sh`** — se conoce su punto de entrada y
-  salida (invocados por `Auto_Load_Basket_Sponsors.wkf`), pero no su lógica interna.
+* **Significado exacto de `L`/`T`** en la sintaxis `<código>@L`/`<código>@T` de `RDR_SponsorSplit.sh` — se
+  confirma el comportamiento (proyección a 8 columnas fijas, ficheros de salida distintos), pero no a qué
+  distinción de negocio corresponde cada letra.
 * **Alcance real de `RDR_CargaBasketSponsorTotal.sh`** — la muestra aportada solo cubre `STOXX`, `BME` y
   `Solactive`; no se confirma si existen utilidades equivalentes de recarga masiva para el resto de sponsors
   (`Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`), ni quién la ejecuta en la práctica.

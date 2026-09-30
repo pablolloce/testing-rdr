@@ -15,11 +15,14 @@
 - Para el sponsor `MANUAL`: ficheros `open_*.csv` depositados por un operador en
   `/fichtemcomp/pr/descargas/kytl/issues/Baskets/Sponsors/MANUAL/` — no hay proceso automático de generación
   documentado para esta vía.
-- Script real `RDR_CargaBasketSponsor.sh` operativo en `/{env}/kytl/online/multipais/multicanal/scrt/` —
-  aportado y analizado. `RDR_Sponsor_PreProcess.sh` y `RDR_SponsorSplit.sh` siguen sin aportar, fuera de
-  alcance (ver `spec.md` §8.2). Segundo workflow GoldenSource `Load_Baskets_Sponsors.wkf` también aportado y
-  analizado (ver `spec.md` §5.2) — valida el XML de entrada contra `BasketsSponsorsFormatoUnico.xsd`, que
-  debe estar desplegado y accesible por el motor GoldenSource.
+- Scripts reales `RDR_CargaBasketSponsor.sh`, `RDR_Sponsor_PreProcess.sh` y `RDR_SponsorSplit.sh` operativos
+  en `/{env}/kytl/online/multipais/multicanal/scrt/` — los 3 aportados y analizados (ver `spec.md` §5.2).
+  **Importante:** `RDR_Sponsor_PreProcess.sh`, pese a su nombre genérico, está construido específicamente en
+  torno al formato de fichero real de `MSCI` (ficheros `INDEX_FILE`/`COUNTRY_FILE`/`COMPONENTS_FILE`/
+  `MIC_FILE` con posiciones de campo fijas, y cabecera literal `"MSCIHeader"` insertada en la salida) — no
+  asumir que es reutilizable sin más para otros sponsors. Segundo workflow GoldenSource
+  `Load_Baskets_Sponsors.wkf` también aportado y analizado — valida el XML de entrada contra
+  `BasketsSponsorsFormatoUnico.xsd`, que debe estar desplegado y accesible por el motor GoldenSource.
 
 ## Configuración e infraestructura
 
