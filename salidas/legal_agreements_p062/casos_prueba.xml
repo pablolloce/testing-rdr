@@ -1,0 +1,319 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="P-062_Legal_Agreements" fecha="2026-09-30" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Transformación diaria correcta de contratos legales</nombre>
+    <objetivo>Verificar que RDR_DAILY_LA_JAVA transforma correctamente el XML genérico de entrada en el XML específico de SAIT mediante Sait_Diario.xsl.</objetivo>
+    <precondiciones>
+      <precondicion>Existe KYTL_RDR_EXTRACTION_contratos_Diario.xml en /fichtemcomp/pr/descargas/kytl/SAIT/, válido, con al menos 1 elemento &lt;Agreement&gt;.</precondicion>
+      <precondicion>Existe Sait_Diario.xsl en la ruta de properties del entorno.</precondicion>
+      <precondicion>Acceso de ejecución como xakytl1p sobre RDR_Transformacion_SAIT.sh.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="XML válido con 3 elementos &lt;Agreement&gt; de ejemplo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_SAIT.sh fileloading &lt;credentials.xml&gt; como xakytl1p.</paso>
+      <paso numero="2">Comprobar que se crea KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml en la misma carpeta.</paso>
+      <paso numero="3">Comprobar en el log log_rdr_contratos_AAAAMMDD.log las líneas "Salida específica para SAIT Diario generada" y "FINALIZADA SAIT Diario".</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de salida se crea con el nombre exacto KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml, con el contenido transformado según Sait_Diario.xsl, y el log registra ambas líneas de cierre sin errores previos.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y contenido del fichero de salida + lectura de log</tipoValidacion>
+    <criterioAceptacion>Fichero de salida presente, con nombre exacto, y log sin entradas de error.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier ausencia del fichero de salida o error en el log invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Fichero de entrada sin elementos de contrato (0 registros)</nombre>
+    <objetivo>Confirmar que la transformación no falla ni tiene comportamiento especial cuando el XML de entrada no contiene ningún elemento &lt;Agreement&gt;, ya que el código Java no realiza ninguna comprobación de contenido.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda controlar el contenido exacto del fichero de entrada.</precondicion>
+      <precondicion>KYTL_RDR_EXTRACTION_contratos_Diario.xml estructuralmente válido pero sin ningún elemento &lt;Agreement&gt;.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="XML raíz válido, 0 elementos &lt;Agreement&gt;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_SAIT.sh fileloading &lt;credentials.xml&gt; con el fichero de entrada vacío de registros.</paso>
+      <paso numero="2">Comprobar si se genera KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml y si es estructuralmente válido (aunque vacío de registros).</paso>
+      <paso numero="3">Comprobar el log de cierre.</paso>
+    </pasos>
+    <resultadoEsperado>El proceso no aborta (confirmado por lectura de código: no hay comprobación de conteo de registros); el resultado exacto (fichero vacío válido vs. error de XSLT) depende del contenido de Sait_Diario.xsl, no verificado en esta sesión — documentar el resultado observado.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación por lectura de código (ausencia de comprobación de conteo)</tipoValidacion>
+    <criterioAceptacion>El proceso finaliza (sin colgarse ni lanzar excepción no capturada); el resultado exacto queda documentado para actualizar spec.md.</criterioAceptacion>
+    <posibilidadFallo>El resultado depende de Sait_Diario.xsl, cuyo contenido no está disponible en esta sesión — no ejecutar en producción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Ejecución con usuario incorrecto</nombre>
+    <objetivo>Confirmar que RDR_Transformacion_SAIT.sh rechaza la ejecución si el usuario real no coincide con el usuario esperado del entorno (xakytl1p en pr).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda ejecutar el script con un usuario distinto al esperado, sin afectar producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="usuario de ejecución" valor="usuario distinto de xakytl1p (o el correspondiente al entorno de test)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_SAIT.sh fileloading &lt;credentials.xml&gt; con un usuario incorrecto.</paso>
+      <paso numero="2">Comprobar el código de salida del script.</paso>
+      <paso numero="3">Comprobar el mensaje de error en la salida estándar.</paso>
+    </pasos>
+    <resultadoEsperado>El script termina con código -1 y el mensaje "ERROR: Incorrect user, you must execute this program with the application user xakytl1...", sin invocar la clase Java.</resultadoEsperado>
+    <tipoValidacion>Verificación de código de salida y mensaje de error</tipoValidacion>
+    <criterioAceptacion>Código de salida -1, mensaje de error exacto, ningún fichero de salida generado.</criterioAceptacion>
+    <posibilidadFallo>Ninguno destructivo; no ejecutar en producción para evitar confusión operativa.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="regresion">
+    <nombre>Fallo silencioso de la transformación XSLT en Batch_Sait</nombre>
+    <objetivo>Confirmar que un fallo real de la transformación XSLT no impide que el log registre "FINALIZADA SAIT Diario", ocultando el fallo real.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda invocar Batch_Diario_Sait.Batch_Sait de forma aislada, nunca en producción.</precondicion>
+      <precondicion>Capacidad de forzar el fallo de la transformación (Sait_Diario.xsl inaccesible, o XML de entrada mal formado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="condición forzada" valor="Sait_Diario.xsl renombrado temporalmente, o KYTL_RDR_EXTRACTION_contratos_Diario.xml con XML inválido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, invocar RDR_Transformacion_SAIT.sh con la condición forzada de fallo.</paso>
+      <paso numero="2">Comprobar en el log la entrada de error (TransformerConfigurationException/TransformerException) o el mensaje "** Transformer Factory error".</paso>
+      <paso numero="3">Comprobar que el mismo log contiene igualmente "Salida específica para SAIT Diario generada" y "FINALIZADA SAIT Diario".</paso>
+      <paso numero="4">Comprobar que el fichero de salida no se generó o quedó incompleto.</paso>
+    </pasos>
+    <resultadoEsperado>El log registra el error de transformación pero también los 2 mensajes de cierre normales, pese a que el fichero de salida no se generó correctamente. Confirma que el log no distingue éxito de fallo.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación por lectura de código (catch sin distinguir éxito/fallo en los logs finales)</tipoValidacion>
+    <criterioAceptacion>Log con "FINALIZADA" pese al fallo real, fichero de salida ausente o incompleto. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Requiere control total del entorno de test para forzar el fallo sin afectar la generación real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="negativo">
+    <nombre>Ausencia del fichero de entrada genérico</nombre>
+    <objetivo>Confirmar el comportamiento cuando KYTL_RDR_EXTRACTION_contratos_Diario.xml no existe en el momento de ejecutar RDR_DAILY_LA_JAVA.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda garantizar la ausencia del fichero de entrada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="ausente deliberadamente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Transformacion_SAIT.sh fileloading &lt;credentials.xml&gt; sin el fichero de entrada presente.</paso>
+      <paso numero="2">Comprobar el log — se espera que el Transformer lance una excepción capturada por el mismo catch que TC-004.</paso>
+      <paso numero="3">Comprobar si igualmente se registra "FINALIZADA SAIT Diario".</paso>
+    </pasos>
+    <resultadoEsperado>El mismo patrón de TC-004: error capturado y logueado, pero el log de cierre se registra igual, sin distinguir el fallo por ausencia de fichero.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación por lectura de código</tipoValidacion>
+    <criterioAceptacion>Comportamiento consistente con TC-004: log de "FINALIZADA" pese a la ausencia del fichero de entrada. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Ninguno destructivo en entorno de test aislado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Historificación en cascada: fallo de MEKYTL0949 deja huérfano el fichero genérico</nombre>
+    <objetivo>Confirmar que si MEKYTL0949 falla, MEKYTL0950 no se ejecuta, dejando sin historificar el fichero genérico de entrada.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda forzar el fallo de MEKYTL0949 (p. ej. permisos de escritura revocados en Backup/).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="condición forzada" valor="permisos de escritura revocados en /fichtemcomp/pr/descargas/kytl/SAIT/Backup/ para xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, forzar el fallo de MEKYTL0949.</paso>
+      <paso numero="2">Comprobar que MEKYTL0949 termina en KO.</paso>
+      <paso numero="3">Comprobar que MEKYTL0950 no arranca (su prerrequisito, el evento de MEKYTL0949, no se genera).</paso>
+      <paso numero="4">Comprobar que KYTL_RDR_EXTRACTION_contratos_Diario.xml permanece sin historificar en el área de trabajo.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0949 en KO, MEKYTL0950 no se ejecuta, el fichero genérico queda huérfano sin historificar en el área de trabajo.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + observación de estado en Control-M</tipoValidacion>
+    <criterioAceptacion>KO real de MEKYTL0949, MEKYTL0950 en espera, fichero genérico presente sin historificar. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Requiere poder manipular permisos en el entorno de test sin afectar otros procesos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="duplicidad">
+    <nombre>Relanzamiento el mismo día sobrescribe silenciosamente el histórico</nombre>
+    <objetivo>Confirmar que un relanzamiento manual de la Cadena 1 el mismo día sobrescribe, sin ningún control de duplicidad, el fichero ya historificado en Backup/ con el mismo sufijo de fecha.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda ejecutar la cadena 2 veces el mismo día de forma controlada.</precondicion>
+      <precondicion>Ya existe en Backup/ un fichero historificado de una ejecución previa del mismo día, con contenido A.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ejecución 1" valor="fichero de entrada con contenido A, genera histórico A en Backup/"/>
+      <dato campo="ejecución 2 (relanzamiento)" valor="fichero de entrada con contenido B, mismo día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa una primera vez con contenido A, confirmar el histórico en Backup/.</paso>
+      <paso numero="2">Sustituir el fichero de entrada por contenido B y relanzar la cadena el mismo día.</paso>
+      <paso numero="3">Comprobar el contenido del fichero historificado en Backup/ tras el segundo run.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero historificado en Backup/ tras el segundo run contiene B, sobrescribiendo silenciosamente A — sin aviso, sin versión anterior conservada, sin ningún mecanismo de detección de relanzamiento.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + comparación de contenido del histórico antes/después</tipoValidacion>
+    <criterioAceptacion>El histórico final refleja únicamente el contenido B, confirmando la sobrescritura silenciosa. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Requiere poder relanzar la cadena completa 2 veces en el mismo entorno de test sin interferencia externa.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="datos_sinteticos">
+    <nombre>Dos versiones sintéticas del fichero de entrada el mismo día, sin marca de cuál se procesó</nombre>
+    <objetivo>Generar deliberadamente 2 versiones distintas y sintéticas de KYTL_RDR_EXTRACTION_contratos_Diario.xml el mismo día (mismo número de elementos &lt;Agreement&gt;, contenido de campos distinto) y confirmar que no queda ninguna marca de cuál versión produjo el fichero de salida final.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puedan sustituir ficheros de entrada entre ejecuciones.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="versión sintética 1" valor="1 elemento &lt;Agreement&gt; con AgreementID='SINT-001', valor de campo FinDetls.AgmtStat='ACTIVE'"/>
+      <dato campo="versión sintética 2" valor="mismo AgreementID='SINT-001', mismo número de elementos, FinDetls.AgmtStat='CANCELLED' (repetición deliberada del mismo identificador con valor distinto)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la transformación con la versión sintética 1, guardar copia del fichero de salida generado.</paso>
+      <paso numero="2">Sustituir por la versión sintética 2 y volver a ejecutar la transformación el mismo día.</paso>
+      <paso numero="3">Comparar el fichero de salida final contra ambas versiones de entrada, y revisar el log en busca de alguna marca de versión/checksum.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de salida final refleja únicamente la versión sintética 2 (AgmtStat='CANCELLED'); no existe en el log ni en el nombre del fichero ninguna marca que permita distinguir qué versión de entrada lo produjo.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + comparación de contenido del fichero de salida y revisión de log</tipoValidacion>
+    <criterioAceptacion>Confirmado que no hay marca de versión/control; el resultado final es indistinguible de una ejecución única con la versión 2. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Depende de poder construir XML sintéticos válidos según la estructura documentada en BATCH_SAIT.sql (ver salidas/extraccion_sait_contratos/spec.md §1.2).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Ejecución completa de la Cadena 1 (Diaria) de extremo a extremo</nombre>
+    <objetivo>Validar superficialmente que los 5 pasos de RDR_DAILY_LA_PRO_new terminan bien en orden, desde el gatillo horario hasta la doble historificación.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un KYTL_RDR_EXTRACTION_contratos_Diario.xml válido en /fichtemcomp/pr/descargas/kytl/SAIT/ antes de las 06:00.</precondicion>
+      <precondicion>Acceso de lectura al estado de ejecución de los 5 jobs en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="mismo fichero válido de TC-001"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_DAILY_LA_PRO_IN se activa a partir de las 06:00 y termina OK.</paso>
+      <paso numero="2">Confirmar que RDR_DAILY_LA_JAVA se dispara y termina OK, con el fichero de salida presente.</paso>
+      <paso numero="3">Confirmar que MEKYTL0357 se dispara y termina OK, publicando ambos eventos (interno y cross-chain).</paso>
+      <paso numero="4">Confirmar que MEKYTL0949 se dispara y termina OK, con el fichero historificado.</paso>
+      <paso numero="5">Confirmar que MEKYTL0950 se dispara y termina OK, con el fichero genérico historificado, y cierra la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan en estado OK en el orden documentado, y ambos ficheros quedan historificados en Backup/.</resultadoEsperado>
+    <tipoValidacion>Observación de estado en Control-M + comprobación de existencia de los ficheros historificados</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs en OK y ambos ficheros presentes en Backup/, no vacíos.</criterioAceptacion>
+    <posibilidadFallo>Depende de que el fichero de entrada genérico esté disponible antes de las 06:00 — su generación real queda fuera de esta cadena (gap abierto, §4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="happy_path">
+    <nombre>Distribución semanal correcta del extracto total</nombre>
+    <objetivo>Verificar que la Cadena 2 distribuye correctamente el extracto total a Datio Cloud S3 y luego, de forma secuencial, a Mentor por Connect:Direct.</objetivo>
+    <precondiciones>
+      <precondicion>Existe KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml en /fichtemcomp/pr/descargas/kytl/SAIT/ el domingo antes de las 06:00.</precondicion>
+      <precondicion>Conectividad operativa a Datio Cloud S3 y a Ipftp503/WVMSAITDB01.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que KYTL_MEKYTL0894_FW detecta el fichero y termina OK.</paso>
+      <paso numero="2">Confirmar que MEKYTL0894 se dispara tras el filewatcher y transmite a Datio Cloud S3.</paso>
+      <paso numero="3">Confirmar que MEKYTL0356 se dispara SOLO tras el evento de salida de MEKYTL0894 (no en paralelo) y transmite a Mentor.</paso>
+      <paso numero="4">Confirmar que MEKYTL0948 historifica el fichero tras ambos envíos.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan OK en orden secuencial (no paralelo entre MEKYTL0894 y MEKYTL0356), el fichero llega a ambos destinos y queda historificado.</resultadoEsperado>
+    <tipoValidacion>Observación de estado y orden de ejecución en Control-M + confirmación de entrega en ambos destinos</tipoValidacion>
+    <criterioAceptacion>Orden secuencial confirmado (no paralelo), entrega en ambos destinos, histórico presente.</criterioAceptacion>
+    <posibilidadFallo>Depende de que el fichero total esté disponible a tiempo — su generación real queda fuera de esta cadena (gap abierto, §4).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Timeout del filewatcher de la Cadena 2 (240 minutos)</nombre>
+    <objetivo>Confirmar que si el fichero total no llega dentro de la ventana de 240 minutos, el filewatcher falla y detiene toda la Cadena 2.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda simular la ausencia prolongada del fichero total.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml" valor="ausente durante más de 240 minutos tras el arranque de la ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, simular la ausencia del fichero durante toda la ventana de 240 minutos.</paso>
+      <paso numero="2">Comprobar el estado final de KYTL_MEKYTL0894_FW.</paso>
+      <paso numero="3">Confirmar que ni MEKYTL0894 ni MEKYTL0356 ni MEKYTL0948 se ejecutan.</paso>
+    </pasos>
+    <resultadoEsperado>KYTL_MEKYTL0894_FW termina en KO por timeout; ningún job posterior de la cadena se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + observación de estado en Control-M</tipoValidacion>
+    <criterioAceptacion>KO real por timeout, cadena detenida por completo. No ejecutar en producción real (esperar 240 min en producción no es viable ni deseable).</criterioAceptacion>
+    <posibilidadFallo>Requiere un entorno de test que permita simular o acelerar la ventana de timeout.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Fallo real de envío a Datio Cloud S3 detiene la secuencia</nombre>
+    <objetivo>Confirmar que, al no haber soft-failure configurado, un fallo real de MEKYTL0894 impide que MEKYTL0356 se ejecute (dependencia secuencial estricta).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda forzar un fallo de conectividad hacia filex-cloud-cib.live.es.nextgen.igrupobbva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="conectividad Datio Cloud S3" valor="fallida (simulada o real en entorno de test)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar el fallo de conectividad durante la ejecución de MEKYTL0894.</paso>
+      <paso numero="2">Comprobar el estado final de MEKYTL0894.</paso>
+      <paso numero="3">Confirmar que MEKYTL0356 no arranca (su prerrequisito, el evento de MEKYTL0894, no se genera).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0894 termina en KO visible; MEKYTL0356 no se ejecuta; el fichero no llega a Mentor pese a que la ruta técnica esté disponible.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + observación de estado en Control-M</tipoValidacion>
+    <criterioAceptacion>KO real de MEKYTL0894, MEKYTL0356 en espera, sin envío a Mentor. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Requiere poder simular un fallo de conectividad específico a Datio Cloud sin afectar otros procesos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>Recursos Cuantitativos siguen vacíos en MEKYTL0894 y MEKYTL0356</nombre>
+    <objetivo>Confirmar en revisiones futuras que MEKYTL0894 y MEKYTL0356 siguen sin Recursos Cuantitativos definidos, a diferencia del resto de jobs de las 2 cadenas.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de lectura a la definición real de Control-M de ambos jobs (pestaña Prerrequisitos).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recursos Cuantitativos esperados" valor="vacíos en MEKYTL0894 y MEKYTL0356; MAX-LPRDR501 (1/100) en el resto de los 8 jobs restantes"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar la pestaña Prerrequisitos de MEKYTL0894 y confirmar que sigue sin Recursos Cuantitativos.</paso>
+      <paso numero="2">Revisar la pestaña Prerrequisitos de MEKYTL0356 y confirmar lo mismo.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs siguen sin Recursos Cuantitativos definidos, sin cambios respecto a lo documentado en spec.md §4.</resultadoEsperado>
+    <tipoValidacion>Verificación por lectura de configuración de Control-M</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias respecto a spec.md; si aparece un recurso nuevo, este caso debe fallar y motivar una actualización.</criterioAceptacion>
+    <posibilidadFallo>Ninguno destructivo — caso de solo observación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="conflicto_integridad">
+    <nombre>Origen real de los ficheros de entrada de ambas cadenas (observación complementaria, no bloqueante)</nombre>
+    <objetivo>Identificar, si es posible, qué proceso genera realmente KYTL_RDR_EXTRACTION_contratos_Diario.xml y KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml desde FT_T_LAGR. Ninguna de las 2 cadenas analizadas lo genera, pero esto no afecta a su comportamiento testeable (criterio de profundidad) — este caso documenta el límite de alcance, no bloquea el cierre de la especificación.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al inventario de jobs/jars que se ejecutan de forma autónoma fuera de los árboles de RDR_DAILY_LA_PRO_new y RDR_TOTAL_LA_PRO_new, antes de sus respectivas ventanas de arranque.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ficheros de origen desconocido" valor="KYTL_RDR_EXTRACTION_contratos_Diario.xml (diario) y KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml (semanal)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar en Control-M jobs/jars programados antes de las respectivas ventanas (06:00 L-V / 06:00 domingo) que escriban en /fichtemcomp/pr/descargas/kytl/SAIT/.</paso>
+      <paso numero="2">Si se identifican, confirmar si ejecutan BATCH_SAIT.sql (u otra query análoga) desde FT_T_LAGR.</paso>
+    </pasos>
+    <resultadoEsperado>Se identifican los procesos reales que generan ambos ficheros de entrada, cerrando el gap de §4.</resultadoEsperado>
+    <tipoValidacion>Inspección de Control-M + comparación de la query real ejecutada contra BATCH_SAIT.sql</tipoValidacion>
+    <criterioAceptacion>Procesos identificados con evidencia real, documentados en una futura actualización de spec.md.</criterioAceptacion>
+    <posibilidadFallo>Si no se localiza ningún job/jar candidato, el gap permanece abierto — no forzar una atribución sin evidencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="e2e">
+    <nombre>Ejecución completa de la Cadena 2 (Total) de extremo a extremo</nombre>
+    <objetivo>Validar superficialmente que los 5 pasos de RDR_TOTAL_LA_PRO_new terminan bien en orden, desde el gatillo horario hasta la historificación final.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml válido antes de las 06:00 del domingo.</precondicion>
+      <precondicion>Acceso de lectura al estado de ejecución de los 5 jobs en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="mismo fichero válido de TC-010"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RDR_TOTAL_LA_PRO_IN se activa el domingo y termina OK.</paso>
+      <paso numero="2">Confirmar que KYTL_MEKYTL0894_FW detecta el fichero y termina OK.</paso>
+      <paso numero="3">Confirmar que MEKYTL0894 se dispara y termina OK.</paso>
+      <paso numero="4">Confirmar que MEKYTL0356 se dispara tras MEKYTL0894 y termina OK.</paso>
+      <paso numero="5">Confirmar que MEKYTL0948 se dispara y termina OK, cerrando la cadena, con el fichero historificado.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan en estado OK en el orden documentado (secuencial, no paralelo entre pasos 3 y 4), y el fichero queda historificado en Backup/.</resultadoEsperado>
+    <tipoValidacion>Observación de estado en Control-M + comprobación de existencia del fichero historificado</tipoValidacion>
+    <criterioAceptacion>Los 5 jobs en OK, orden secuencial confirmado, fichero presente en Backup/.</criterioAceptacion>
+    <posibilidadFallo>Depende de que el fichero total esté disponible a tiempo — su generación real queda fuera de esta cadena (gap abierto, §4).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
