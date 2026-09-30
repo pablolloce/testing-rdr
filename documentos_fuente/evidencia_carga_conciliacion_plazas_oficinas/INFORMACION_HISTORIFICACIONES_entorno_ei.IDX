@@ -1,0 +1,46 @@
+######################################### FICHERO DE CONFIGURACION DE HISTORIFICACIONES  ################################################################
+#
+# CAMPOS:
+# CAMPO 1 : CODIGO DE ENVIO      --> Identifica mediante el codigo a una historificacion concreta de fichero/os y/o mascaras de ficheros.
+# CAMPO 2 : PATH ORIGEN FICHEROS --> Indica el path completo de la ruta de origen de la maquina origen donde se encuentran los ficheros a tratar. 
+# CAMPO 3 : FICHERO/S A TRATAR   --> Indica los ficheros a tratar, separados por espacio y/o mediante mascara de ficheros y la forma de renombralos:
+#
+#      #########################################################################################################################################
+#      # RENOMBRADO DE FICHEROS EN DESTINO --> Ejemplos                                                                                        #
+#      #########################################################################################################################################
+#      # En caso de haber configurado un renombrado y en funcion del tipo de renombrado :                                                      #
+#      # P: Annadir prefijo configurado (1..n ficheros).                                                                                       #
+#      # S: Annadir sufijo  configurado (1..n ficheros).                                                                                       #
+#      # R: Renombrar fichero UNICO con el nombre configurado (1 fichero).                                                                     #
+#      # M: Renombrar mascara por otra mascara (n ficheros).                                                                                   #
+#      # Ej 1 fichero unico                     --> Prueba_Envio.txt:R:Prueba_Envio_${AAAAMMDD}.txt      --> Prueba_Envio_20110829.txt         #
+#      # Ej 2 Mascara ficheros Prefijo          --> Prueba_Envio_*.txt:P:PREFIJO_        --> Prueba_Envio_1.txt --> PREFIJO_Prueba_Envio_1.txt #
+#      # Ej 3 Mascara ficheros Sufijo           --> Prueba_Envio_*.txt:S:_SUFIJO         --> Prueba_Envio_1.txt --> Prueba_Envio_1.txt_SUFIJO  #
+#      # Ej 4 Renombrado de Mascara de ficheros --> Prueba_Envio_*.txt:M:Envio#Recepcion --> Prueba_Envio_1.txt --> Prueba_Recepcion_1.txt     #
+#      #########################################################################################################################################
+#
+#                              
+# CAMPO 4 : PATH DESTINO         --> Indica la ruta de destino, donde se dejara el fichero para operaciones de movimiento,copia,etc..Enotras operaciones
+#                                    en las que no tenga sentido, no aplicaria y se puede dejar vacio.
+# CAMPO 5 : FALLA SI NO FICH     --> 0: Indicaria que ha de fallar en caso de no encontrar ficheros con la mascara definida en campo 3.
+# CAMPO 6 : TIPO DE OPERACION    --> TIPO: Aplicaria la operacion sobre TODOS los ficheros que coincidan con la mascara.
+#                                    TIPO_MASACTUAL : Aplicariaunicamente sobre el fichero MAS ACTUAL de los que coincidan con la mascara.
+#                                    TIPO_MASANTIGUO: Aplicaria unicamente sobre el fichero MAS ANTIGUO de los que coincidan con la mascara.
+# CAMPO 7 : NUMERO DIAS          --> Indicaria que la operaion se aplicaria para los ficheros que tengan una antiguedad superior a x dias.En caso de
+#                                    que se quiera aplicar sobre todos los ficheros de la mascara independientemente de la antiguedad de estos se
+#                                    dejaria vacio.
+# CAMPO 8 : OPERACION            --> Indica la operacion que queremos realizar sobre los ficheros que coincidan con la mascara del campo 3:
+#                                    m|M : Historificacion o movimiento de ficheros. 
+#                                    b|B : Borrado de ficheros.
+#                                    c|C : Copia de ficheros.
+#                                    g|G : Compresion de ficheros.
+#                                    u|U : Descompresion de ficheros .gz
+#                                    z|Z : Descompresion de ficheros .zip
+#                                    bcp|BCP : Operacion de BCP (Murex).Se renombra el fichero como se indique en el campo 3 utilizando la fecha del bcp.
+#
+########################################################################################################################################################
+MEKYTL1001@/fichtemcomp/ei/descargas/kytl/settlements/input/@SDIS_*.csv@/fichtemcomp/ei/descargas/kytl/settlements/old/@0@TIPO@@M
+MEKYTL1074_EI@/fichtemcomp/ei/descargas/kytl/index/input/@indices_*.csv@/fichtemcomp/ei/descargas/kytl/index/input/old/@0@TIPO@@M
+MEKYTL1079_EI@/fichtemcomp/ei/descargas/kytl/index/out/@*CARGAS_IndTra*@/fichtemcomp/ei/descargas/kytl/index/out/old/@0@TIPO@@M
+MEKYTL1046_EI@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/@CONCILIA_*.txt@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/backup/@0@TIPO@@M
+MEKYTL1320_EI@/fichtemcomp/ei/descargas/kytl/Modelity/@Calendarios.csv@/unload/kytl/datsal/datax/@0@TIPO@@C

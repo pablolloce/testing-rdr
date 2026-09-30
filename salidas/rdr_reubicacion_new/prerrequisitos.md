@@ -23,13 +23,14 @@
   `Reubicacion.csv` ausente depende del campo `FALLASINOFICHS` de la fila de configuración de la clave
   `MEKYTL0122` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`, enmascarado
   igualmente por el Force-OK de Control-M ya confirmado). **El valor concreto configurado para `MEKYTL0122`
-  no ha sido aportado** — ver `spec.md` R7b.
+  queda fuera de alcance definitivo** — el usuario confirmó que no se puede obtener una copia del `.IDX` de
+  producción — ver `spec.md` R7b.
 - `MEGENV0001.sh` operativo para `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111` — **código real completo confirmado
   esta ronda** (mismo fichero, idéntico byte a byte, ya aportado el 2026-09-24 para `rdr_envio_cliex` y ya
   aplicado a `MEKYTL0243` en `rdr_conc_oficinas_new`): su tolerancia real en sentido PUT depende de
   `FALLA_NO_FICHERO` de la fila de configuración de cada clave en su propio `.idx` (`"SI"` = fallo real
-  `exit 60`/`exit 45`; cualquier otro valor = tolera). **El valor concreto configurado para las 3 claves no
-  ha sido aportado** — ver `spec.md` R6b.
+  `exit 60`/`exit 45`; cualquier otro valor = tolera). **El valor concreto configurado para las 3 claves
+  queda fuera de alcance definitivo** — mismos ficheros `.idx` de producción no obtenibles — ver `spec.md` R6b.
 - Función `LimpiarReubicacion` operativa — **código real confirmado esta ronda**: `cut -f 1,2,5,6 -d ";" |
   sort -ur`. Confirma y **corrige** el layout real de columnas de `Reubicacion.csv` (oficina de cierre =
   columna 2 original; oficina destino = columna 6 original, no la 4 como se documentó antes). Sin tolerancia
