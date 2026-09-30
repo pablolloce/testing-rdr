@@ -1,9 +1,9 @@
 # Especificación — Carga y Conciliación de Oficinas (`RDR_CONC_OFICINAS_new`)
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
-> Fuente: `Carga_y_conciliacion_de_plazas-oficinas.docx` (documento de análisis funcional y técnico, componente
-> "Procesos Batch de Carga (incl. Conciliaciones)", derivado del documento original "Estructura de Oficinas y
-> Cierres" que agrupaba 7 cadenas). Detalle completo de evidencia en
+> Fuentes: `Carga_y_conciliacion_de_plazas-oficinas.docx` (documento de análisis funcional y técnico),
+> **ficha real EX-005-02 `RDR_CONC_OFICINAS_new`** (definición de cadena SSDD) y **export real de Control-M
+> del folder completo** (`Workspace_589_1.xml`). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
@@ -14,10 +14,9 @@
 > informe/simulación de cierre (`RDR_DIFUSION_BATCH_CIERREOFI_new`, `RDR_INFORME_CIERREOFI_new`,
 > `RDR_SIMU_CIERRE_OFI_new`) están explícitamente fuera de alcance de este documento fuente.
 >
-> **Estado: sin fichas EX-005-03 ni export de Control-M propios aportados aún** — la especificación se basa
-> íntegramente en el documento de análisis funcional/técnico, que en esta ronda ya trae detalle técnico
-> preciso (comandos `ctmfw` completos, rutas, parámetros). Se distingue expresamente lo confirmado por el
-> documento de lo que requeriría evidencia adicional (§8.2).
+> **Estado: topología, calendario, parámetros y el mecanismo de salto por RC=7 confirmados al 100% con
+> evidencia real** (ficha EX-005-02 + export de Control-M). Solo quedan fuera de alcance el contenido interno
+> de jars/scripts, el significado exacto del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` (§8.2).
 
 ## 1. Resumen ejecutivo
 
@@ -28,12 +27,16 @@ MDX), lo historifica localmente, y por último realiza una transmisión XCOM que
 explícitamente **a un destino inerte ("A DUMMY")** — no transfiere datos reales, mantiene solo la coherencia
 del diseño lógico de la cadena.
 
-**Hallazgo relevante — mecanismo de salto controlado:** si el filewatcher de entrada (paso 1) termina con
-código de retorno **7**, el job se marca OK de forma forzada y se publica **directamente** el evento de cierre
-de todo el proceso (`RDR_CONC_OFICINAS_MEKYTL0243_OK_new`, el mismo que normalmente publica el paso 4) — es
-decir, ante ese código concreto, los pasos 2 y 3 se saltan por completo y la cadena se marca como terminada sin
-haber conciliado ni cargado ningún dato ese día. El significado exacto del código 7 no está confirmado por
-este documento (ver §8.2).
+**Hallazgo relevante — mecanismo de salto controlado, confirmado literalmente en el export real de
+Control-M:** si el filewatcher de entrada (paso 1) termina con código de retorno **7**, el job se marca OK de
+forma forzada y se publica **directamente** el evento de cierre de todo el proceso
+(`RDR_CONC_OFICINAS_MEKYTL0243_OK_new`, el mismo que normalmente publica el paso 4) — confirmado
+literalmente en la definición real del job (`<ON STMT="*" CODE="COMPSTAT=7"><DOACTION ACTION="OK"/>
+<DOCOND NAME="RDR_CONC_OFICINAS_MEKYTL0243_OK_new".../></ON>`). Es decir, ante ese código concreto, los pasos
+2 y 3 se saltan por completo y la cadena se marca como terminada sin haber conciliado ni cargado ningún dato
+ese día. El significado exacto del código 7 (qué condición del fichero/entorno lo produce) sigue sin
+confirmar (ver §8.2), pero el mecanismo de salto en sí ya no es una hipótesis del documento — es un hecho
+confirmado por la configuración real de Control-M.
 
 ## 2. Alcance del proceso
 
@@ -42,22 +45,21 @@ este documento (ver §8.2).
 * **Ámbito técnico:** la cadena Control-M `RDR_CONC_OFICINAS_new` completa (4 pasos).
 * **Fuera de alcance** (detalle completo en §8.2): contenido interno de los jars/scripts invocados
   (`ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar`, `LimpiarOficinas`, `Delta`, `Unix2Dos`); el
-  significado exacto del código de retorno 7 del filewatcher; fichas EX-005-03 oficiales y export real de
-  Control-M (el documento fuente ya aporta datos técnicos precisos, pero no los ficheros originales); la
-  cadena `RDR_CARGA_PLAZAS_TRAD_new` (no documentada en el fuente); las cadenas downstream de informe/
-  simulación de cierre.
+  significado exacto del código de retorno 7 del filewatcher; la cadena `RDR_CARGA_PLAZAS_TRAD_new` (no
+  documentada en el fuente); las cadenas downstream de informe/simulación de cierre.
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
-| R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 240 min/4h), activo de madrugada de martes a sábado, calendario `RDR_FEST_HOST`. |
-| R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3. |
-| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta, carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
-| R4 | `MEKYTL0242` historifica `oficinas.csv` a `oficinas_yyyymmdd.csv` en `/fichtemcomp/pr/descargas/kytl/oficinas/old/` (mismo servidor origen/destino); tolera la ausencia del fichero origen sin fallar. |
-| R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. Tolera la ausencia de fichero a historificar. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
-| R6 | Cada uno de los 4 pasos consume 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) — un recurso compartido con otras cadenas de esta familia (ver `RDR_REUBICACION_new`), que limita la concurrencia total entre ellas. |
-| R7 | Grupo de soporte ANS RDR (`ans_rdr.es@bbva.com` / Remedy `BZG03906`); criticidades habilitadas W/S/C; máximo de relanzamientos configurado a **0**; retención de log operativo de 3 días. |
+| R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 240 min/4h) — comando confirmado literalmente en el export real de Control-M. |
+| R1b | Día de ejecución confirmado por **2 fuentes independientes** (documento funcional + ficha oficial EX-005-02): **martes a sábado**. Calendario `RDR_FEST_HOST` confirmado en el export real. |
+| R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. |
+| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta, carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
+| R4 | `MEKYTL0242` historifica `oficinas.csv` a `oficinas_yyyymmdd.csv` en `/fichtemcomp/pr/descargas/kytl/oficinas/old/` (mismo servidor origen/destino). **La tolerancia a fichero ausente no tiene ningún override visible a nivel de Control-M** (a diferencia de varios jobs de `RDR_REUBICACION_new` — ver ese documento) — si es real, debe implementarse dentro del propio `RAMERC0068.sh` (mismo patrón ya confirmado en otros procesos de esta sesión: el script detecta la ausencia y sale con código 0). |
+| R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. **Confirmado en Control-M real: `TASKTYPE="Job"`** (no es un Dummy de Control-M, es una invocación real de `MEGENV0001.sh`) — mismo patrón que `MEKYTL0234` de `RDR_REUBICACION_new`. Igual que R4, no tiene override `NOTOK→OK` visible a nivel de Control-M; su tolerancia (si es real) debe ser interna al script. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
+| R6 | Cada uno de los 4 pasos consume 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100, confirmado en Control-M real) — un recurso compartido con otras cadenas de esta familia (ver `RDR_REUBICACION_new`), que limita la concurrencia total entre ellas. |
+| R7 | Grupo de soporte ANS RDR (`ans_rdr.es@bbva.com` / Remedy `BZG03906`, confirmado en ficha EX-005-02); criticidad **W** confirmada (no S ni C); máximo de relanzamientos **0** confirmado en los 4 jobs (`MAXRERUN="0"` en Control-M real); retención de log operativo de 3 días. |
 
 ## 4. Especificación funcional
 
@@ -75,31 +77,33 @@ diccionario de campos de `oficinas.csv` no está documentado en el fuente (fuera
 
 ## 5. Especificación técnica
 
-| Paso | Job | Tipo | Script/Comando | Usuario | Predecesor / Sucesor |
-|------|-----|------|------------------|---------|------------------------|
-| 1 | `KYTL_CONOFI_GSPROCESS_FW` | OS (Command) | `ctmfw '/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv' CREATE 0 60 10 5 240` | `xpctma1` | Pre: calendario (madrugada Ma-Sa) / Suc: paso 2 (RC=0) o paso 4 directamente (RC=7) |
-| 2 | `KYTL_CONOFI_GSPROCESS` | OS (GSProcess) | `GSProcess.sh oficinas` | `xakytl1p` | Pre: evento FW OK / Suc: `MEKYTL0242` |
-| 3 | `MEKYTL0242` | OS (Script, `RAMERC0068.sh`) | `RAMERC0068.sh MEKYTL0242` | `xsramer1` | Pre: evento paso 2 OK / Suc: `MEKYTL0243` |
-| 4 | `MEKYTL0243` | OS (Script, `MEGENV0001.sh`) | `MEGENV0001.sh MEKYTL0243` | `xsramer1` | Pre: evento paso 3 OK / Suc: cierre de cadena |
+| Paso | Job | TASKTYPE (confirmado Control-M) | Script/Comando | Usuario | Predecesor / Sucesor (confirmado Control-M) |
+|------|-----|-----------------------------------|------------------|---------|------------------------------------------------|
+| 1 | `KYTL_CONOFI_GSPROCESS_FW` | `Command` | `ctmfw '/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv' CREATE 0 60 10 5 240` | `xpctma1` | Pre: calendario (Ma-Sa) / Suc: `..._FW_OK_new` (RC=0) → paso 2, o `MEKYTL0243_OK_new` directo (RC=7) |
+| 2 | `KYTL_CONOFI_GSPROCESS` | `Job` | `GSProcess.sh oficinas` (`MEMLIB=/pr/kytl/online/multipais/multicanal/scrt`) | `xakytl1p` | Pre: `..._FW_OK_new` / Suc: `..._GSPROCESS_OK_new` |
+| 3 | `MEKYTL0242` | `Job` | `RAMERC0068.sh MEKYTL0242` (`MEMLIB=/pr/pl/scrt`) | `xsramer1` | Pre: `..._GSPROCESS_OK_new` / Suc: `MEKYTL0242_OK_new` |
+| 4 | `MEKYTL0243` | `Job` | `MEGENV0001.sh MEKYTL0243` (`MEMLIB=/pr/pl/envioweb/scrt/`) | `xsramer1` | Pre: `MEKYTL0242_OK_new` / Suc: `MEKYTL0243_OK_new` (cierre de cadena) |
+
+Los 4 jobs consumen `MAX-LPRDR501 QUANT=1`, `MAXWAIT=3`, `MAXRERUN=0` — todo confirmado literalmente en el
+export real de Control-M (`Workspace_589_1.xml`).
 
 **Detalle de transferencias:**
-* Paso 3 (`RAMERC0068.sh`, host origen/destino `22.156.148.85`/`pr-rdr.igrupobbva`): mueve
-  `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` → `/fichtemcomp/pr/descargas/kytl/oficinas/old/oficinas_yyyymmdd.csv`.
+* Paso 3 (`RAMERC0068.sh`, host origen/destino `22.156.148.85`/`pr-rdr.igrupobbva` según el documento):
+  mueve `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` →
+  `/fichtemcomp/pr/descargas/kytl/oficinas/old/oficinas_yyyymmdd.csv`.
 * Paso 4 (`MEGENV0001.sh`): origen `Reporte_oficinas_dos.csv` en `pr-rdr.igrupobbva`, destino nominal
-  `XCOMWPMER:\\S00371F200G215\Reporte_oficinas_yyyymmdd.csv` — **configurado a un destino inerte en
-  producción**, según el documento fuente, aunque los datos de mapeo (servidor/ruta/fichero destino) están
-  completos como si la transferencia fuera real. No confirmado si esto significa que el job real ejecuta y
-  falla silenciosamente contra un endpoint nulo, o que Control-M lo tiene dado de alta como Dummy — el
-  documento no aporta el campo "Tipo de Job" para esta cadena (a diferencia de `RDR_REUBICACION_new`, donde sí
-  se aporta y confirma que un job equivalente es un script real, no un Dummy de Control-M — ver
-  `salidas/rdr_reubicacion_new/spec.md` §5). No se fuerza la misma conclusión aquí sin evidencia propia.
+  `XCOMWPMER:\\S00371F200G215\Reporte_oficinas_yyyymmdd.csv` — **confirmado en Control-M real: `TASKTYPE="Job"`**,
+  no un Dummy de Control-M. Es una invocación real de `MEGENV0001.sh` contra un destino que el documento
+  describe como inerte — mismo patrón exacto que `MEKYTL0234` en `RDR_REUBICACION_new` (ver
+  `salidas/rdr_reubicacion_new/spec.md` §5), confirmado ahora en ambas cadenas con evidencia directa, no por
+  inferencia.
 
 ## 6. Especificación de testing
 
-**Estrategia:** con la topología y los parámetros técnicos del filewatcher confirmados por el documento
-fuente, los casos cubren el ciclo happy path, el comportamiento de tolerancia a fallos de los pasos 3 y 4, y
-—como caso central de esta ronda— la verificación explícita del salto controlado ante código de retorno 7 en
-el filewatcher, en vez de asumir que solo existe el camino de 4 pasos.
+**Estrategia:** con la topología y los parámetros técnicos confirmados con evidencia real (ficha EX-005-02 +
+Control-M), los casos cubren el ciclo happy path, el comportamiento de tolerancia a fallos de los pasos 3 y 4,
+y —como caso central de esta ronda— la verificación de qué condición real dispara el código de retorno 7 en
+el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa).
 
 - `happy_path`: TC-001 (ciclo completo, fichero llega dentro de ventana).
 - `conflicto_integridad`: TC-002 (**filewatcher termina con RC=7 → salto directo a cierre de cadena, pasos 2/3 nunca se ejecutan**).
@@ -125,12 +129,14 @@ el filewatcher, en vez de asumir que solo existe el camino de 4 pasos.
 
 ### 8.1 Riesgos
 
-* **RISK-CONOFI-001 [prioridad media, pendiente de verificación]:** el salto controlado por RC=7 (R2) hace
-  que la cadena se marque como completada con éxito sin haber conciliado ni cargado ningún dato ese día. Si
-  algún proceso downstream (fuera de alcance de este documento, p. ej. `RDR_INFORME_CIERREOFI_new`) confía en
-  el evento de cierre de esta cadena como señal de "datos de oficinas actualizados", ese día concreto estaría
-  operando sobre datos desactualizados sin ninguna alerta — mismo patrón de riesgo ya documentado en otros
-  procesos de esta sesión (Control-M puede marcar éxito sin que haya habido carga real).
+* **RISK-CONOFI-001 [prioridad media-alta, mecanismo confirmado por Control-M real, causa disparadora sin
+  confirmar]:** el salto controlado por RC=7 (R2) hace que la cadena se marque como completada con éxito sin
+  haber conciliado ni cargado ningún dato ese día — ya no es una hipótesis del documento, está confirmado
+  literalmente en la definición real del job. Si algún proceso downstream (fuera de alcance de este
+  documento, p. ej. `RDR_INFORME_CIERREOFI_new`) confía en el evento de cierre de esta cadena como señal de
+  "datos de oficinas actualizados", ese día concreto estaría operando sobre datos desactualizados sin ninguna
+  alerta — mismo patrón de riesgo ya documentado en otros procesos de esta sesión. Queda pendiente solo
+  confirmar qué condición real dispara el código 7 (TC-002).
 * **RISK-CONOFI-002 [no bloqueante]:** máximo de relanzamientos configurado a 0 — cualquier fallo real en
   cualquiera de los 4 pasos requiere intervención manual completa (relanzamiento por ANS RDR), sin reintento
   automático.
@@ -140,13 +146,11 @@ el filewatcher, en vez de asumir que solo existe el camino de 4 pasos.
 * **Contenido interno de `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar`** y de los scripts
   `LimpiarOficinas`, `Delta`, `Unix2Dos` — se conoce el orden de invocación y su propósito general, no su
   lógica de mapeo/validación de campos.
-* **Significado exacto del código de retorno 7** del filewatcher — el documento confirma el comportamiento
-  (salto directo al cierre de cadena) pero no la causa que lo dispara (p. ej. ¿fichero vacío?, ¿calendario sin
-  cierre ese día?).
-* **Fichas EX-005-03 oficiales y export real de Control-M** de los 4 pasos — el documento aporta datos
-  técnicos precisos (comandos, rutas, parámetros) pero no los ficheros originales; no se ha podido confirmar
-  de forma independiente el `TASKTYPE` real del paso 4 (script real contra destino inerte vs. Dummy de
-  Control-M).
+* **Significado exacto del código de retorno 7** del filewatcher — confirmado el mecanismo de salto (R2), no
+  la causa que lo dispara (p. ej. ¿fichero vacío?, ¿calendario sin cierre ese día?).
+* **Confirmación del mecanismo interno de tolerancia a fichero ausente** de `MEKYTL0242`/`MEKYTL0243` (R4/R5)
+  — no hay override a nivel de Control-M, así que si es real debe vivir dentro de los scripts
+  `RAMERC0068.sh`/`MEGENV0001.sh`, cuyo contenido no ha sido aportado en esta ronda.
 * **Diccionario de campos de `oficinas.csv`** — no documentado en el fuente.
 * **`RDR_CARGA_PLAZAS_TRAD_new`** — el documento fuente declara cubrir esta cadena junto con las otras 2, pero
   no incluye ninguna sección para ella. No se ha creado especificación; pendiente de que se aporte la parte
@@ -156,11 +160,13 @@ el filewatcher, en vez de asumir que solo existe el camino de 4 pasos.
 
 ## 9. Conclusión
 
-`RDR_CONC_OFICINAS_new` queda documentada como una cadena lineal de 4 pasos con datos técnicos precisos
-aportados por el documento fuente (comandos `ctmfw` completos, rutas exactas, parámetros de recursos). El
-hallazgo más relevante es el mecanismo de salto controlado ante código de retorno 7 del filewatcher, que cierra
-la cadena sin ejecutar la conciliación/carga real — documentado como caso de prueba explícito (TC-002) y como
-riesgo (RISK-CONOFI-001), sin asumir su comportamiento real hasta verificarlo en ejecución. Los elementos sin
-material propio (contenido interno de jars/scripts, significado del código 7, fichas/Control-M reales, y la
-cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de
-alcance.
+`RDR_CONC_OFICINAS_new` queda documentada como una cadena lineal de 4 pasos, con topología, calendario,
+parámetros de recursos y el mecanismo de salto por código de retorno 7 **confirmados con evidencia real**
+(ficha EX-005-02 + export de Control-M del folder completo), no solo con el documento funcional. El hallazgo
+más relevante — el salto controlado que cierra la cadena sin ejecutar la conciliación/carga real — pasa de
+ser una hipótesis documental a un hecho confirmado por la configuración viva de Control-M (RISK-CONOFI-001);
+solo queda pendiente, no bloqueante, confirmar qué condición real produce el código 7 (TC-002). También queda
+confirmado que el paso 4 es un job real (`TASKTYPE="Job"`) contra un destino inerte, no un Dummy de Control-M
+— mismo patrón que su equivalente en `RDR_REUBICACION_new`. Los elementos que siguen sin material propio
+(contenido interno de jars/scripts, causa del código 7, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del
+documento fuente) quedan listados en §8.2 como fuera de alcance.

@@ -45,19 +45,19 @@
     <posibilidadFallo>Si se confirma el salto y la cadena de difusión arranca igualmente sin alerta, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-003" tipo="conflicto_integridad">
-    <nombre>Verificación del TASKTYPE real de MEKYTL0234</nombre>
-    <objetivo>Confirmar con evidencia técnica directa (ficha EX-005-03 o export real de Control-M) si MEKYTL0234 está dado de alta como Dummy de Control-M o como un job real (OS Script) que ejecuta MEGENV0001.sh contra un destino inerte, tal como clasifica la tabla de topología del documento fuente.</objetivo>
+  <casoDePrueba id="TC-003" tipo="regresion">
+    <nombre>Confirmación en ejecución real de que MEKYTL0234 ejecuta de verdad contra el destino inerte</nombre>
+    <objetivo>El TASKTYPE real de MEKYTL0234 ya está confirmado como Job (no Dummy) con el export real de Control-M. Este caso confirma en ejecución real si el script intenta de verdad la transferencia contra spgec001 (y falla o no-opera ahí) o si el propio script decide no operar antes de intentar la transferencia.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a la definición real de Control-M del job MEKYTL0234, o a un log de ejecución real.</precondicion>
+      <precondicion>Acceso a logs de ejecución real de MEKYTL0234, o al contenido del script MEGENV0001.sh invocado con PARM1=MEKYTL0234.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Clasificación en el documento fuente" valor="OS (Script)"/>
+      <dato campo="TASKTYPE confirmado" valor="Job (Workspace_589_2.xml)"/>
       <dato campo="Directiva textual del documento" valor="ESTE ENVÍO NO DEBE EJECUTARSE. DEBE QUEDAR A DUMMY"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar el TASKTYPE real del job en la definición de Control-M.</paso>
-      <paso numero="2">Si es un job real, confirmar en logs si efectivamente intenta la transferencia contra spgec001 y falla, o si el script mismo no-opera.</paso>
+      <paso numero="1">Revisar logs de una ejecución real de MEKYTL0234.</paso>
+      <paso numero="2">Confirmar si efectivamente intenta la transferencia contra spgec001 y falla ahí, o si el script mismo no-opera antes de intentarlo.</paso>
     </pasos>
     <resultadoEsperado>Confirmación inequívoca del mecanismo técnico real, sin depender de la interpretación de la directiva textual.</resultadoEsperado>
     <tipoValidacion>Inspección directa de la definición de Control-M + logs de ejecución reales.</tipoValidacion>
@@ -162,6 +162,46 @@
     <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
     <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
     <posibilidadFallo>La aparición de un job nuevo o la eliminación de uno existente debe motivar una actualización de esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Fallo real de MEKYTL0111 o MEKYTL0122 — Force-OK confirmado no documentado en el funcional original</nombre>
+    <objetivo>Confirmar el impacto real de un fallo en la transmisión del reporte (MEKYTL0111) o en la propia historificación final (MEKYTL0122), dado que el export real de Control-M confirma que ambos tienen un override NOTOK-&gt;OK que el documento funcional original no mencionaba.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar un fallo real en MEKYTL0111 (p. ej. XCOMWPMER no disponible) y, por separado, en MEKYTL0122 (p. ej. permisos de escritura en /old/ revocados).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Override confirmado" valor="ON STMT=&quot;*&quot; CODE=&quot;NOTOK&quot; -&gt; DOACTION ACTION=&quot;OK&quot;, presente en ambos jobs"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en MEKYTL0111 y confirmar que Control-M lo marca OK igualmente.</paso>
+      <paso numero="2">Confirmar si, pese al Force-OK, el reporte real llegó o no a XCOMWPMER.</paso>
+      <paso numero="3">Repetir el escenario provocando un fallo real en MEKYTL0122 y confirmar si el fichero llegó o no realmente a /old/.</paso>
+    </pasos>
+    <resultadoEsperado>En ambos casos Control-M marca OK pese al fallo real; se documenta si el efecto real (transmisión/historificación) ocurrió o no pese al estado verde.</resultadoEsperado>
+    <tipoValidacion>Provocación de fallo controlado + verificación directa del efecto real (fichero en destino/en /old/).</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado sin ambigüedad, confirmando el alcance real de RISK-REUB-002.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real no deja ningún rastro visible (ni en logs ni en alertas) pese a no haberse completado la transmisión/historificación real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Confirmación de intencionalidad de la dependencia MEKYTL0122→MEKYTL0234 (RISK-REUB-004)</nombre>
+    <objetivo>Confirmar con el equipo funcional/de desarrollo si la dependencia real de MEKYTL0122 sobre MEKYTL0234 es intencional, dado que la ficha oficial de diseño EX-005-02 documenta explícitamente la instrucción "MEKYTL0122 no debe tener dependencia de MEKYTL0234", instrucción que no se refleja en la configuración real de Control-M.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a alguien del equipo funcional o de desarrollo que pueda confirmar la historia de este diseño, o a un histórico de cambios de la definición del folder en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Instrucción de diseño (ficha EX-005-02)" valor="MEKYTL0122 no debe tener dependencia de MEKYTL0234"/>
+      <dato campo="Configuración real confirmada" valor="INCOND MEKYTL0234_OK_new presente en MEKYTL0122, AND_OR=A"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preguntar al equipo funcional/de desarrollo si la dependencia es intencional o un defecto histórico no corregido.</paso>
+      <paso numero="2">Si es posible, consultar el histórico de versiones de la definición del folder en Control-M (VERSION_SERIAL) para ver si la dependencia se añadió en algún momento posterior a la ficha de diseño.</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación explícita de la intencionalidad (o no) de la dependencia, cerrando RISK-REUB-004.</resultadoEsperado>
+    <tipoValidacion>Confirmación funcional directa + revisión del histórico de versiones si está disponible.</tipoValidacion>
+    <criterioAceptacion>Respuesta explícita del equipo funcional/de desarrollo, documentada en esta especificación.</criterioAceptacion>
+    <posibilidadFallo>Si nadie puede confirmar la intención y la dependencia no tiene justificación funcional conocida, debe tratarse como un defecto pendiente de corrección, no como un comportamiento aceptado.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

@@ -32,12 +32,12 @@
 ## Flujos previos que deben haberse completado
 
 - **Importante:** el mecanismo de salto por código de retorno 7 del filewatcher (ver `spec.md` R2,
-  RISK-CONOFI-001) no está confirmado con evidencia de ejecución real — cualquier prueba sobre este
-  escenario debe distinguir entre "comportamiento documentado" y "comportamiento verificado", y debe incluir
-  la comprobación de si algún proceso downstream confía en el evento de cierre de esta cadena sin saber que,
-  ese día, no hubo carga real.
-- **Importante:** el paso 4 (`MEKYTL0243`) está configurado contra un destino inerte en producción — no
-  asumir que existe una transferencia real de datos hacia `XCOMWPMER` al diseñar pruebas de integración con
-  sistemas consumidores.
+  RISK-CONOFI-001) está **confirmado literalmente en el export real de Control-M** — no es una hipótesis.
+  Solo queda pendiente confirmar qué condición real dispara ese código concreto. Cualquier prueba sobre este
+  escenario debe incluir la comprobación de si algún proceso downstream confía en el evento de cierre de esta
+  cadena sin saber que, ese día, no hubo carga real.
+- **Importante:** el paso 4 (`MEKYTL0243`) es un job real (`TASKTYPE="Job"`, confirmado en Control-M)
+  configurado contra un destino inerte en producción — no asumir que existe una transferencia real de datos
+  hacia `XCOMWPMER` al diseñar pruebas de integración con sistemas consumidores.
 - **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` no está documentada — si en el futuro se aporta su contenido,
   debe tratarse como una especificación nueva, no como una extensión de esta.

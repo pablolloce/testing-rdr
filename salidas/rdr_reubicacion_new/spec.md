@@ -1,23 +1,22 @@
 # Especificación — Reubicación de Oficinas tras Cierre (`RDR_REUBICACION_new`)
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
-> Fuente: `Carga_y_conciliacion_de_plazas-oficinas.docx` (documento de análisis funcional y técnico, componente
-> "Procesos Batch de Carga (incl. Conciliaciones)", derivado del documento original "Estructura de Oficinas y
-> Cierres" que agrupaba 7 cadenas). Detalle completo de evidencia en
-> `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
+> Fuentes: `Carga_y_conciliacion_de_plazas-oficinas.docx` (documento de análisis funcional y técnico),
+> **ficha real EX-005-02 `RDR_REUBICACION_new`** (definición de cadena SSDD, incluye notas de diseño
+> originales) y **export real de Control-M del folder completo** (`Workspace_589_2.xml`). Detalle completo de
+> evidencia en `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
 > `RDR_CONC_OFICINAS_new`, `RDR_REUBICACION_new`), pero **solo trae contenido detallado de 2** — esta cadena y
 > `RDR_CONC_OFICINAS_new` (documentada por separado en `salidas/rdr_conc_oficinas_new/`).
 > `RDR_CARGA_PLAZAS_TRAD_new` no tiene ninguna sección en el documento aportado — no se ha creado
 > especificación para ella (ver §8.2 de `rdr_conc_oficinas_new/spec.md`). Las cadenas de informe/simulación de
-> cierre están explícitamente fuera de alcance del documento fuente; esta cadena es, según el propio
-> documento, el prerrequisito temporal directo de una de ellas (`RDR_DIFUSION_BATCH_CIERREOFI_new`).
+> cierre están explícitamente fuera de alcance del documento fuente.
 >
-> **Estado: sin fichas EX-005-03 ni export de Control-M propios aportados aún** — la especificación se basa
-> íntegramente en el documento de análisis funcional/técnico, que ya trae una tabla de topología completa
-> (job, tipo de job, script, eventos) y comandos `ctmfw` exactos. Se distingue expresamente lo confirmado por
-> el documento de lo que requeriría evidencia adicional (§8.2).
+> **Estado: topología, TASKTYPE real de los 6 jobs, Fan-In y el mecanismo de salto por RC=7 confirmados al
+> 100% con evidencia real.** La ficha EX-005-02 revela además, en sus notas de diseño originales, una
+> **discrepancia real y significativa entre la intención de diseño documentada y la configuración viva de
+> Control-M** — ver hallazgo destacado en §1 y RISK-REUB-004.
 
 ## 1. Resumen ejecutivo
 
@@ -53,20 +52,35 @@ KYTL_REU_GSPROCESS_FW (filewatcher, dispara 11:00 domingo de cierre)
         evento final → prerrequisito de RDR_DIFUSION_BATCH_CIERREOFI_new
 ```
 
-**Hallazgo relevante — mismo mecanismo de salto controlado que `RDR_CONC_OFICINAS_new`:** si el filewatcher
-termina con código de retorno **7**, se fuerza OK y se publica directamente el evento final de toda la cadena
-(`RDR_REUBICACION_MEKYTL0122_OK_new`), saltando los 5 pasos restantes — incluida la reubicación real en
-GoldenSource. Confirma que este comportamiento es una convención compartida entre ambas cadenas de esta
-familia (`RDR_CONC_OFICINAS_new` § R2), no un caso aislado.
+**Hallazgo relevante — mismo mecanismo de salto controlado que `RDR_CONC_OFICINAS_new`, confirmado
+literalmente en Control-M:** si el filewatcher termina con código de retorno **7**, se fuerza OK y se publica
+directamente el evento final de toda la cadena (`RDR_REUBICACION_MEKYTL0122_OK_new`), saltando los 5 pasos
+restantes — incluida la reubicación real en GoldenSource. Confirmado literalmente en la definición real del
+job (`<ON STMT="*" CODE="COMPSTAT=7"><DOACTION ACTION="OK"/><DOCOND NAME="RDR_REUBICACION_MEKYTL0122_OK_new".../></ON>`),
+igual que en `RDR_CONC_OFICINAS_new` — es una convención confirmada, compartida entre ambas cadenas.
 
-**Hallazgo confirmado, no una suposición por el nombre — `MEKYTL0234` (paso 2c):** el documento incluye una
-directiva textual explícita ("ESTE ENVÍO NO DEBE EJECUTARSE. DEBE QUEDAR A DUMMY") que podría sugerir un
-`TASKTYPE=Dummy` de Control-M. Sin embargo, **la propia tabla de topología del documento clasifica este job
-como `OS (Script)`** (igual que `MEKYTL0233`/`MEKYTL0111`), no como Dummy — es decir, es una invocación real de
-`MEGENV0001.sh` contra un destino deliberadamente inerte (`spgec001`), con tolerancia a fallo (Force-OK), y no
-un job inerte a nivel de Control-M. La directiva textual describe la intención de diseño (que el envío no
-tenga efecto real), no el mecanismo técnico que la implementa — no se fuerza la interpretación de que sea un
-Dummy de Control-M sin una ficha/export real que lo confirme (§8.2).
+**Hallazgo confirmado con evidencia directa, no una suposición por el nombre — `MEKYTL0234` (paso 2c):** el
+documento incluye una directiva textual explícita ("ESTE ENVÍO NO DEBE EJECUTARSE. DEBE QUEDAR A DUMMY") que
+podría sugerir un `TASKTYPE=Dummy` de Control-M. El export real de Control-M **confirma definitivamente que no
+lo es: `TASKTYPE="Job"`**, igual que el resto de jobs de la cadena — es una invocación real de
+`MEGENV0001.sh` contra un destino deliberadamente inerte (`spgec001`), con tolerancia a fallo (`ON NOTOK →
+DOACTION OK`), y no un job inerte a nivel de Control-M. La directiva textual describe la intención de diseño
+(que el envío no tenga efecto real), no el mecanismo técnico que la implementa.
+
+**Hallazgo más relevante de esta ronda — discrepancia real entre la intención de diseño y la configuración
+viva de Control-M, confirmada al comparar la ficha EX-005-02 con el export real:** la propia ficha oficial de
+diseño de esta cadena incluye, en su campo de descripción, la instrucción explícita **"MEKYTL0122 no debe
+tener dependencia de MEKYTL0234"**. Sin embargo, el export real de Control-M confirma que `MEKYTL0122`
+**sí tiene**, hoy, las 3 condiciones de entrada `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` —
+la dependencia que el diseño pedía eliminar sigue presente en producción. No se puede determinar, sin más
+evidencia, si esto es una instrucción de diseño que nunca se implementó o que se revirtió después — ver
+RISK-REUB-004. La misma ficha revela otras 2 discrepancias entre diseño e implementación real: (a) pedía un
+timeout de espera del filewatcher de **4 horas**, pero la configuración real (y el propio documento
+funcional) confirman **13 horas** (780 minutos); (b) el diseño original preveía un predecesor cruzado desde
+`RDR_CONC_OFICINAS_new.KYTL_CONOFI_GSPROCESS` y una nota explícita para "eliminar dependencia de oficinas" —
+el export real confirma que, en producción, el filewatcher **no tiene ningún `INCOND` cruzado**, solo
+calendario (`DAYSCAL="RDR_CIERREOFI"`), consistente con que esa eliminación sí se llevó a cabo, a diferencia
+de la de `MEKYTL0234`.
 
 ## 2. Alcance del proceso
 
@@ -75,23 +89,25 @@ Dummy de Control-M sin una ficha/export real que lo confirme (§8.2).
 * **Ámbito técnico:** la cadena Control-M `RDR_REUBICACION_new` completa (6 pasos, topología Fan-Out/Fan-In).
 * **Fuera de alcance** (detalle completo en §8.2): contenido del workflow GoldenSource `RDR_Reubicacion`; el
   contenido interno de `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar` y de los scripts
-  `LimpiarReubicacion`/`Unix2Dos`; confirmación independiente del `TASKTYPE` real de `MEKYTL0234`; el
-  significado exacto del código de retorno 7; fichas EX-005-03 oficiales y export real de Control-M; la
-  cadena `RDR_CARGA_PLAZAS_TRAD_new`; las cadenas downstream de informe/simulación/difusión de cierre.
+  `LimpiarReubicacion`/`Unix2Dos`; el significado exacto del código de retorno 7; el motivo real de la
+  discrepancia MEKYTL0122/MEKYTL0234 (RISK-REUB-004); la cadena `RDR_CARGA_PLAZAS_TRAD_new`; las cadenas
+  downstream de informe/simulación/difusión de cierre (aunque ahora se conocen los 3 primeros nombres reales
+  de la interfaz de difusión — ver §5).
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
-| R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 780 min/13h), activo desde las 11:00 AM del domingo de cierre. |
-| R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes. |
-| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, carga vía un workflow GoldenSource dedicado (`RDR_Reubicacion`, no aportado), generación de reporte y conversión de fin de línea. |
-| R4 | `MEKYTL0233` transmite por XCOM `Reubicacion.csv` hacia `Ippwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat` (entorno informacional/staging) — transferencia real, en paralelo con `KYTL_REU_GSPROCESS`. Tolerancia a fallos: si el job no termina OK, se marca OK igualmente (Force-OK). |
-| R5 | `MEKYTL0234` transmite por XCOM `Reubicacion.csv` hacia `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` — según el documento, un destino deliberadamente inerte ("no debe ejecutarse"), pero clasificado en la tabla de topología como job real tipo `OS (Script)`, no como Dummy de Control-M. Mismo Force-OK que R4. |
-| R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F200G215`. Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. |
-| R7 | `MEKYTL0122` es el punto de convergencia (Fan-In): exige la confluencia simultánea de los 3 eventos `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` antes de historificar `Reubicacion.csv` → `/old/`. Su evento de salida es el prerrequisito temporal de `RDR_DIFUSION_BATCH_CIERREOFI_new`. |
-| R8 | Todos los pasos consumen 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) — compartido con `RDR_CONC_OFICINAS_new`. |
-| R9 | Grupo de soporte ANS RDR; criticidades W/S/C habilitadas; máximo de relanzamientos configurado a **0**; retención de log operativo de 3 días; `User Daily` de carga `PLAN_1200`. |
+| R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de **780 min/13h — confirmado en Control-M real**, pese a que la nota de diseño original de la ficha EX-005-02 pedía 4 horas), activo desde las 11:00 AM (`TIMEFROM="1100"`), gobernado por el calendario real `DAYSCAL="RDR_CIERREOFI"` (no genérico: un calendario dedicado a los días de cierre de oficinas). |
+| R1b | **Sin dependencia cruzada real con `RDR_CONC_OFICINAS_new`** — confirmado en el export real: el filewatcher solo tiene como predecesor el calendario `RDR_CIERREOFI`, ningún `INCOND` de otra cadena. La ficha EX-005-02 conserva en su tabla un predecesor cruzado histórico (`KYTL_CONOFI_GSPROCESS`) y una nota de diseño "Eliminar dependencia de oficinas" — consistente con que esa eliminación sí se aplicó en producción. |
+| R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes — **confirmado literalmente en Control-M real**. |
+| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, carga vía un workflow GoldenSource dedicado (`RDR_Reubicacion`, no aportado), generación de reporte y conversión de fin de línea. Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
+| R4 | `MEKYTL0233` transmite por XCOM `Reubicacion.csv` hacia `Ippwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat` (entorno informacional/staging) — transferencia real, en paralelo con `KYTL_REU_GSPROCESS`. **Confirmado en Control-M real:** `TASKTYPE="Job"` con `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — cualquier fallo real se marca OK. |
+| R5 | `MEKYTL0234` transmite por XCOM `Reubicacion.csv` hacia `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` — según el documento, un destino deliberadamente inerte ("no debe ejecutarse"). **Confirmado en Control-M real: `TASKTYPE="Job"`** (no Dummy), con el mismo override `NOTOK→OK` que R4. Único matiz real: `MAXWAIT="0"` (frente a `3` en el resto de jobs) — sin reintento de espera de recursos. |
+| R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F200G215`. Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. **Hallazgo no documentado en el documento funcional original, confirmado en Control-M real:** este job **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — el documento solo atribuía esta tolerancia a `MEKYTL0233`/`MEKYTL0234`, pero en producción también aplica a la transmisión del reporte real. |
+| R7 | `MEKYTL0122` es el punto de convergencia (Fan-In): exige la confluencia simultánea de los 3 eventos `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` (los 3 `INCOND` con `AND_OR="A"`, confirmado literalmente) antes de historificar `Reubicacion.csv` → `/old/`. **Hallazgo adicional confirmado en Control-M real, no mencionado en el documento funcional:** `MEKYTL0122` **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — un fallo real del propio paso de historificación también se fuerza a OK. Su evento de salida es el prerrequisito temporal de la difusión de cierre (confirmado en la ficha EX-005-02: sucesor real `RDR_DIFUSION_BATCH_IN`). |
+| R8 | Todos los pasos consumen 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) — compartido con `RDR_CONC_OFICINAS_new`, confirmado en Control-M real. |
+| R9 | Grupo de soporte: **campo "Rearranques" vacío en la ficha EX-005-02** — a diferencia de `RDR_CONC_OFICINAS_new`, no hay un procedimiento de rearranque documentado formalmente para esta cadena (ver §8.1). Criticidad **W** confirmada; máximo de relanzamientos **0** confirmado en los 6 jobs (`MAXRERUN="0"`); `User Daily` de carga `PLAN_1200` confirmado; periodicidad "A petición, según el calendario de cierre de oficinas" (ficha EX-005-02), coherente con el `DAYSCAL="RDR_CIERREOFI"` real. |
 
 ## 4. Especificación funcional
 
@@ -112,14 +128,20 @@ Dummy de Control-M sin una ficha/export real que lo confirme (§8.2).
 
 ## 5. Especificación técnica
 
-| Paso | Job | Tipo de Job (confirmado por el documento) | Script/Comando | Usuario | Evento de entrada | Evento de salida |
-|------|-----|---------------------------------------------|------------------|---------|----------------------|----------------------|
-| 1 | `KYTL_REU_GSPROCESS_FW` | OS (Command) | `ctmfw '.../Reubicacion.csv' CREATE 0 60 10 5 780` | `xpctma1` | Calendario (11:00 domingo cierre) | `..._FW_OK_new` (RC=0) / `MEKYTL0122_OK_new` directo (RC=7) |
-| 2a | `KYTL_REU_GSPROCESS` | OS (GSProcess) | `GSProcess.sh Reubicacion` | `xakytl1p` | `..._FW_OK_new` | `KYTL_REU_GSPROCESS_OK_new` |
-| 2b | `MEKYTL0233` | OS (Script) | `MEGENV0001.sh MEKYTL0233` | `xsramer1` | `..._FW_OK_new` (paralelo) | `MEKYTL0233_OK_new` |
-| 2c | `MEKYTL0234` | OS (Script) | `MEGENV0001.sh MEKYTL0234` | `xsramer1` | `..._FW_OK_new` (paralelo) | `MEKYTL0234_OK_new` |
-| 3 | `MEKYTL0111` | OS (Script) | `MEGENV0001.sh MEKYTL0111` | `xsramer1` | `KYTL_REU_GSPROCESS_OK_new` | `MEKYTL0111_OK_new` |
-| 4 | `MEKYTL0122` | OS (Script) | `RAMERC0068.sh MEKYTL0122` | `xsramer1` | `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` | `MEKYTL0122_OK_new` (cierre de cadena) |
+| Paso | Job | TASKTYPE (confirmado Control-M) | Script/Comando | Usuario | Tolerancia Force-OK (confirmado) | Evento de entrada | Evento de salida |
+|------|-----|-------------------------------------|------------------|---------|----------------------------------------|----------------------|----------------------|
+| 1 | `KYTL_REU_GSPROCESS_FW` | `Command` | `ctmfw '.../Reubicacion.csv' CREATE 0 60 10 5 780` | `xpctma1` | No | Calendario `RDR_CIERREOFI` (11:00) | `..._FW_OK_new` (RC=0) / `MEKYTL0122_OK_new` directo (RC=7) |
+| 2a | `KYTL_REU_GSPROCESS` | `Job` | `GSProcess.sh Reubicacion` (`MEMLIB=/pr/kytl/online/multipais/multicanal/scrt`) | `xakytl1p` | **No** | `..._FW_OK_new` | `KYTL_REU_GSPROCESS_OK_new` |
+| 2b | `MEKYTL0233` | `Job` | `MEGENV0001.sh MEKYTL0233` (`MEMLIB=/pr/pl/envioweb/scrt/`) | `xsramer1` | Sí | `..._FW_OK_new` (paralelo) | `MEKYTL0233_OK_new` |
+| 2c | `MEKYTL0234` | `Job` | `MEGENV0001.sh MEKYTL0234` | `xsramer1` | Sí (`MAXWAIT=0`, resto `MAXWAIT=3`) | `..._FW_OK_new` (paralelo) | `MEKYTL0234_OK_new` |
+| 3 | `MEKYTL0111` | `Job` | `MEGENV0001.sh MEKYTL0111` | `xsramer1` | **Sí (no documentado en el fuente original)** | `KYTL_REU_GSPROCESS_OK_new` | `MEKYTL0111_OK_new` |
+| 4 | `MEKYTL0122` | `Job` | `RAMERC0068.sh MEKYTL0122` (`MEMLIB=/pr/pl/scrt`) | `xsramer1` | **Sí (no documentado en el fuente original)** | `MEKYTL0111_OK` **Y** `MEKYTL0233_OK` **Y** `MEKYTL0234_OK` (confirmado `AND_OR="A"` en los 3) | `MEKYTL0122_OK_new` (cierre de cadena) |
+
+**Ninguno de los 6 jobs está dado de alta como `TASKTYPE="Dummy"`** — confirmado con el export real de
+Control-M. Solo el filewatcher (paso 1) y la carga real (paso 2a) carecen de tolerancia Force-OK; **los 4
+pasos restantes (2b, 2c, 3 y 4) fuerzan OK ante cualquier fallo real**, incluida la propia historificación
+final (`MEKYTL0122`) — un hallazgo más amplio que lo que documentaba el funcional original (que solo atribuía
+esta tolerancia a las 2 ramas XCOM 2b/2c).
 
 **Detalle de transferencias:**
 * `MEKYTL0233`: `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` →
@@ -127,59 +149,76 @@ Dummy de Control-M sin una ficha/export real que lo confirme (§8.2).
   un entorno informacional/staging (posiblemente Informatica ENSO, por el nombre de ruta `infa_shared`; no
   confirmado).
 * `MEKYTL0234`: mismo origen → `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` —
-  destino descrito como inerte, pero técnicamente un job real (ver hallazgo en §1).
+  destino descrito como inerte, pero técnicamente un job real (`TASKTYPE="Job"`, confirmado).
 * `MEKYTL0111`: `pr-rdr.igrupobbva:.../Reubicacion/Reporte_Reubicacion_dos.csv` →
   `XCOMWPMER:\\S00371F200G215\Reporte_Reubicacion_yyyymmdd.csv`.
 * `MEKYTL0122` (`RAMERC0068.sh`): `.../Reubicacion/Reubicacion.csv` → `.../Reubicacion/old/Reubicacion_yyyymmdd.csv`.
 
+**Interfaz real con la cadena de difusión (confirmada por la ficha EX-005-02, aunque su contenido interno
+sigue fuera de alcance):** el evento de `MEKYTL0122` es el predecesor directo de `RDR_DIFUSION_BATCH_IN`, que
+a su vez precede a `KYTL_DIF_BATCH_GSPROCESS`, y este a `MEKYTL0251` — 3 nombres de job reales de la cadena de
+difusión batch de cierre de oficinas, antes solo conocida por su nombre genérico
+(`RDR_DIFUSION_BATCH_CIERREOFI_new`).
+
 ## 6. Especificación de testing
 
-**Estrategia:** con la topología Fan-Out/Fan-In y los parámetros técnicos del filewatcher confirmados por el
-documento fuente, los casos cubren el ciclo happy path completo (incluida la sincronización de las 3 ramas
-paralelas), el mismo mecanismo de salto por RC=7 ya visto en `RDR_CONC_OFICINAS_new`, la tolerancia Force-OK
-de las 2 ramas XCOM, y —como caso central de esta ronda— la verificación de si `MEKYTL0234` es realmente un
-job que ejecuta (contra un destino inerte) o un Dummy de Control-M, sin dar por buena la directiva textual del
-documento sin evidencia técnica directa.
+**Estrategia:** con la topología, el `TASKTYPE` real de los 6 jobs, el Fan-In y el mecanismo de salto por RC=7
+ya confirmados con evidencia real (ficha EX-005-02 + Control-M), los casos se centran en verificar el
+**impacto funcional** de 2 hallazgos confirmados en esta ronda: que 4 de los 6 pasos (no solo 2) toleran
+cualquier fallo real (Force-OK), y que la dependencia `MEKYTL0122`→`MEKYTL0234` sigue viva en producción pese
+a que el diseño original pedía eliminarla.
 
 - `happy_path`: TC-001 (ciclo completo, 3 ramas confirman OK, fan-in correcto).
-- `conflicto_integridad`: TC-002 (**filewatcher termina con RC=7 → salto directo al evento final, 5 pasos restantes nunca se ejecutan**).
-- `conflicto_integridad`: TC-003 (**verificación del TASKTYPE real de MEKYTL0234** — script real vs. Dummy de Control-M).
-- `error_funcional`: TC-004 (MEKYTL0233 falla realmente — Force-OK no debe bloquear el fan-in).
-- `error_funcional`: TC-005 (MEKYTL0234 falla realmente — Force-OK no debe bloquear el fan-in).
+- `conflicto_integridad`: TC-002 (filewatcher termina con RC=7 → salto directo al evento final; mecanismo ya confirmado, queda pendiente solo la causa).
+- `conflicto_integridad`: TC-003 (confirmación adicional, en ejecución real, de que MEKYTL0234 ejecuta de verdad contra spgec001 y no es un no-op silencioso a nivel de script).
+- `error_funcional`: TC-004 (MEKYTL0233 falla realmente — Force-OK confirmado, no debe bloquear el fan-in).
+- `error_funcional`: TC-005 (MEKYTL0234 falla realmente — Force-OK confirmado, no debe bloquear el fan-in).
 - `borde`: TC-006 (filewatcher agota el timeout de 13h sin recibir el fichero).
-- `conflicto_integridad`: TC-007 (fan-in con solo 2 de las 3 ramas OK — MEKYTL0122 no debe arrancar).
+- `conflicto_integridad`: TC-007 (fan-in con solo 2 de las 3 ramas OK — MEKYTL0122 no debe arrancar antes de tiempo).
 - `regresion`: TC-008 (topología completa de 6 pasos y consumo del recurso MAX-LPRDR501, compartido con RDR_CONC_OFICINAS_new).
+- `conflicto_integridad`: TC-009 (**verificar en ejecución real qué pasa si MEKYTL0111 o el propio MEKYTL0122 fallan de verdad** — ambos tienen Force-OK, algo no documentado en el funcional original).
+- `conflicto_integridad`: TC-010 (**confirmar con negocio/desarrollo si la dependencia MEKYTL0122→MEKYTL0234 es intencional**, dado que la ficha de diseño pedía eliminarla — RISK-REUB-004).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
-| R1 (filewatcher, parámetros ctmfw) | TC-001, TC-006 | Confirma la detección del fichero y el comportamiento de timeout |
-| R2 (salto por RC=7) | TC-002 | Confirma o descarta el mecanismo de salto controlado, análogo al de RDR_CONC_OFICINAS_new |
-| R3 (carga vía Workflow RDR_Reubicacion) | TC-001 | Confirma el ciclo funcional de carga real |
+| R1, R1b (filewatcher, calendario dedicado, sin dependencia cruzada) | TC-001, TC-006 | Confirma la detección del fichero, el timeout real de 13h, y la ausencia de dependencia con RDR_CONC_OFICINAS_new |
+| R2 (salto por RC=7) | TC-002 | Confirma la causa real del código 7 (el mecanismo ya está confirmado) |
+| R3 (carga vía Workflow RDR_Reubicacion, sin Force-OK) | TC-001 | Confirma el ciclo funcional de carga real |
 | R4, R5 (Force-OK de las 2 ramas XCOM) | TC-004, TC-005 | Confirma que un fallo real en cualquiera de las 2 ramas no bloquea el fan-in |
-| R5 (tipo de job real de MEKYTL0234) | TC-003 | Confirma con evidencia directa si es Dummy de Control-M o script real |
-| R6 (dependencia de MEKYTL0111 solo de 2a) | TC-001, TC-007 | Confirma que el reporte solo depende de la carga real, no de las 2 ramas XCOM |
-| R7 (Fan-In estricto de 3 eventos) | TC-007 | Confirma que el fan-in no arranca con solo 2 de 3 eventos |
+| R5 (MEKYTL0234 ejecuta de verdad contra destino inerte) | TC-003 | Confirma en ejecución real el comportamiento del script, no solo su TASKTYPE |
+| R6 (Force-OK de MEKYTL0111, no documentado en el funcional original) | TC-009 | Confirma el impacto de un fallo real en la transmisión del reporte |
+| R7 (Fan-In estricto de 3 eventos + Force-OK del propio MEKYTL0122) | TC-007, TC-009 | Confirma que el fan-in no arranca con solo 2 de 3 eventos, y el impacto de un fallo real en la propia historificación |
 | R8 (recurso compartido) | TC-008 | Confirma el consumo de MAX-LPRDR501 compartido con RDR_CONC_OFICINAS_new |
+| R7 (dependencia MEKYTL0122→MEKYTL0234 pese al diseño) | TC-010 | Confirma si es intencional o un defecto no corregido (RISK-REUB-004) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
 ### 8.1 Riesgos
 
-* **RISK-REUB-001 [prioridad media, pendiente de verificación, mismo patrón que RDR_CONC_OFICINAS_new]:** el
-  salto por RC=7 del filewatcher marca la cadena completa como exitosa sin ejecutar la reubicación real —
-  incluyendo la carga en GoldenSource. Si `RDR_DIFUSION_BATCH_CIERREOFI_new` confía ciegamente en el evento
-  final de esta cadena, podría difundir un cierre de oficinas sin que la reubicación real se haya procesado
-  ese día.
-* **RISK-REUB-002 [prioridad media]:** `MEKYTL0122` (Fan-In) depende de 2 ramas con Force-OK activo
-  (`MEKYTL0233`, `MEKYTL0234`) — un fallo real en cualquiera de ellas queda enmascarado como éxito a efectos
-  del fan-in. Solo la rama de carga real (`KYTL_REU_GSPROCESS`→`MEKYTL0111`) no tiene esta tolerancia. Esto
-  significa que la historificación final (y el cierre de cadena) puede completarse con éxito aparente aunque
-  la transmisión a staging (`MEKYTL0233`) haya fallado realmente, sin que quede reflejado como error en
-  Control-M.
-* **RISK-REUB-003 [no bloqueante]:** máximo de relanzamientos configurado a 0, igual que en
-  `RDR_CONC_OFICINAS_new`.
+* **RISK-REUB-001 [prioridad media-alta, mecanismo confirmado por Control-M real, causa disparadora sin
+  confirmar]:** el salto por RC=7 del filewatcher marca la cadena completa como exitosa sin ejecutar la
+  reubicación real — incluyendo la carga en GoldenSource — confirmado literalmente en la definición del job,
+  igual que en `RDR_CONC_OFICINAS_new`. Si la cadena de difusión (`RDR_DIFUSION_BATCH_IN` y sucesores,
+  confirmada como predecesor directo de `MEKYTL0122`) confía ciegamente en el evento final de esta cadena,
+  podría difundir un cierre de oficinas sin que la reubicación real se haya procesado ese día.
+* **RISK-REUB-002 [prioridad alta, alcance ampliado y confirmado con Control-M real]:** **4 de los 6 pasos**
+  (`MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111` y el propio `MEKYTL0122`) tienen `<ON STMT="*" CODE="NOTOK">
+  <DOACTION ACTION="OK"/></ON>` — cualquier fallo real en cualquiera de ellos se marca OK. Solo el filewatcher
+  y la carga real (`KYTL_REU_GSPROCESS`) carecen de esta tolerancia. Esto es más amplio que lo que documentaba
+  el funcional original (que solo atribuía Force-OK a las 2 ramas XCOM `0233`/`0234`): también la transmisión
+  del reporte real (`MEKYTL0111`) y **la propia historificación final** (`MEKYTL0122`) pueden fallar realmente
+  sin que Control-M lo refleje como error — el cierre "exitoso" de la cadena no garantiza que el fichero se
+  haya historificado de verdad.
+* **RISK-REUB-004 [nuevo, prioridad alta, confirmado comparando la ficha de diseño con Control-M real]:** la
+  ficha oficial EX-005-02 de esta cadena documenta explícitamente, como instrucción de diseño, que **"MEKYTL0122
+  no debe tener dependencia de MEKYTL0234"**. El export real de Control-M confirma que esa dependencia **sigue
+  existiendo** hoy en producción (uno de los 3 `INCOND` obligatorios del Fan-In). No hay evidencia de si esto
+  es una instrucción que nunca llegó a implementarse, o una dependencia añadida después sin actualizar la
+  ficha de diseño — en cualquier caso, es una discrepancia real y documentada entre intención y
+  configuración viva, no una suposición (ver TC-010).
+* **RISK-REUB-005 [no bloqueante]:** máximo de relanzamientos configurado a 0, confirmado en los 6 jobs.
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
@@ -187,28 +226,30 @@ documento sin evidencia técnica directa.
   invocación, no su lógica interna.
 * **Contenido interno de `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar`** y de los scripts
   `LimpiarReubicacion`/`Unix2Dos`.
-* **Confirmación técnica independiente del `TASKTYPE` real de `MEKYTL0234`** — la tabla del propio documento
-  lo clasifica como `OS (Script)`, no como Dummy, pero no se ha podido contrastar contra una ficha EX-005-03
-  o un export real de Control-M (ver TC-003).
 * **Significado exacto del código de retorno 7** del filewatcher (mismo punto abierto que en
   `RDR_CONC_OFICINAS_new`).
-* **Fichas EX-005-03 oficiales y export real de Control-M** de los 6 pasos.
+* **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
+  causa (¿instrucción no implementada?, ¿dependencia re-añadida después?).
 * **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
   no confirmado.
-* **`RDR_CARGA_PLAZAS_TRAD_new`** y las cadenas downstream de informe/simulación/difusión de cierre — mismos
-  puntos fuera de alcance que en `RDR_CONC_OFICINAS_new`.
+* **`RDR_CARGA_PLAZAS_TRAD_new`** y el contenido interno de la cadena downstream de difusión (se conocen ya
+  los 3 primeros nombres reales — `RDR_DIFUSION_BATCH_IN`, `KYTL_DIF_BATCH_GSPROCESS`, `MEKYTL0251` — pero no
+  su lógica ni sus fichas).
 
 ## 9. Conclusión
 
-`RDR_REUBICACION_new` queda documentada como una cadena de 6 pasos con topología Fan-Out/Fan-In, con datos
-técnicos precisos aportados por el documento fuente (comandos `ctmfw` completos, rutas exactas, tabla de tipos
-de job). Confirma que el mecanismo de salto por código de retorno 7 es una convención compartida con
-`RDR_CONC_OFICINAS_new`, no un caso aislado (RISK-REUB-001). El hallazgo más relevante de esta cadena es la
-distinción, confirmada por la propia tabla de topología del documento (no por la directiva textual), entre
-`MEKYTL0234` como job real tipo `OS (Script)` contra un destino deliberadamente inerte, y un verdadero Dummy
-de Control-M — documentado como caso de prueba explícito (TC-003) en vez de asumir la interpretación más
-directa de la directiva. También se documenta como riesgo (RISK-REUB-002) que el Fan-In final tolera el fallo
-real de 2 de sus 3 ramas de entrada (Force-OK), por lo que el éxito de `MEKYTL0122` no garantiza el éxito real
-de todas las transmisiones. Los elementos sin material propio (workflow GoldenSource, jars/scripts internos,
-TASKTYPE real de MEKYTL0234, código 7, fichas/Control-M reales, y la cadena `RDR_CARGA_PLAZAS_TRAD_new`
-ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.
+`RDR_REUBICACION_new` queda documentada como una cadena de 6 pasos con topología Fan-Out/Fan-In, con
+topología, calendario, `TASKTYPE` de los 6 jobs y el mecanismo de salto por código de retorno 7 **confirmados
+con evidencia real** (ficha EX-005-02 de diseño + export de Control-M del folder completo). Se confirma que
+ninguno de los 6 jobs es un Dummy de Control-M (`MEKYTL0234` incluido, cerrando la duda documentada en la
+ronda anterior), y que el salto por RC=7 es una convención compartida con `RDR_CONC_OFICINAS_new`
+(RISK-REUB-001). El hallazgo más amplio de lo esperado es que **4 de los 6 pasos, no solo 2, toleran
+cualquier fallo real** (RISK-REUB-002) — incluida la propia historificación final. El hallazgo más relevante
+de esta ronda, sin embargo, es una discrepancia real entre diseño e implementación descubierta al comparar la
+ficha oficial EX-005-02 (que documenta instrucciones de diseño explícitas, incluyendo una nunca aparentemente
+implementada: "MEKYTL0122 no debe tener dependencia de MEKYTL0234") con el export real de Control-M, que
+confirma que esa dependencia sigue presente en producción (RISK-REUB-004) — un ejemplo concreto de por qué
+este proceso de auditoría contrasta siempre el diseño documentado contra la configuración viva, en vez de dar
+por buena cualquiera de las 2 fuentes por separado. Los elementos que siguen sin material propio (workflow
+GoldenSource, jars/scripts internos, causa del código 7, motivo de la discrepancia RISK-REUB-004, y la cadena
+`RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.

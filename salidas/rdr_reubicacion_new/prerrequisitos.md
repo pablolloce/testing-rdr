@@ -16,8 +16,8 @@
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia
   `spgec001` (`/pr/tedt/batch/es/dat/di/cierreOficinas/`) para `MEKYTL0234` — este segundo destino descrito
-  como inerte en el documento fuente, pero técnicamente un job real según su clasificación (ver `spec.md`
-  R5, TC-003).
+  como inerte en el documento fuente, pero **confirmado en Control-M real como `TASKTYPE="Job"`** (no Dummy,
+  ver `spec.md` R5, TC-003).
 - Conectividad XCOM hacia `XCOMWPMER` (`\\S00371F200G215`) para `MEKYTL0111`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con
   `RDR_CONC_OFICINAS_new`.
@@ -33,13 +33,22 @@
 ## Flujos previos que deben haberse completado
 
 - **Importante:** el mecanismo de salto por código de retorno 7 del filewatcher (ver `spec.md` R2,
-  RISK-REUB-001) es el mismo patrón ya documentado en `RDR_CONC_OFICINAS_new` — cualquier prueba sobre este
-  escenario debe verificar además si la cadena downstream `RDR_DIFUSION_BATCH_CIERREOFI_new` (fuera de
-  alcance de este documento) confía ciegamente en el evento final sin saber si hubo reubicación real.
-- **Importante:** `MEKYTL0122` (Fan-In) depende de 2 ramas con tolerancia Force-OK (`MEKYTL0233`,
-  `MEKYTL0234`) — un éxito aparente del Fan-In no garantiza que esas 2 transmisiones hayan tenido éxito real.
-  No asumir integridad de extremo a extremo solo por el estado OK de Control-M.
-- **Importante:** no dar por buena la directiva textual "DEBE QUEDAR A DUMMY" de `MEKYTL0234` sin confirmar
-  su `TASKTYPE` real — la propia tabla de topología del documento lo clasifica como `OS (Script)` (ver TC-003).
+  RISK-REUB-001) está **confirmado literalmente en el export real de Control-M** — cualquier prueba sobre
+  este escenario debe verificar además si la cadena de difusión (`RDR_DIFUSION_BATCH_IN`, predecesor directo
+  confirmado, aunque su contenido interno sigue fuera de alcance) confía ciegamente en el evento final sin
+  saber si hubo reubicación real.
+- **Importante, alcance ampliado respecto a la ronda anterior:** `MEKYTL0122` (Fan-In) depende de las 3
+  ramas `MEKYTL0111`/`MEKYTL0233`/`MEKYTL0234`, y **4 de los 6 jobs de la cadena (incluida la propia
+  historificación final `MEKYTL0122`) tienen tolerancia Force-OK confirmada en Control-M real** — un éxito
+  aparente de la cadena no garantiza que ninguna de esas 3 transmisiones, ni la propia historificación, haya
+  tenido éxito real. No asumir integridad de extremo a extremo solo por el estado OK de Control-M.
+- **Importante, confirmado (ya no una duda):** `MEKYTL0234` tiene `TASKTYPE="Job"` real, no Dummy — la
+  directiva textual "DEBE QUEDAR A DUMMY" del documento describe intención de diseño, no el mecanismo técnico.
+- **Importante, hallazgo nuevo (RISK-REUB-004):** la ficha oficial de diseño EX-005-02 documenta
+  explícitamente que "MEKYTL0122 no debe tener dependencia de MEKYTL0234" — pero esa dependencia **sigue
+  existiendo** en la configuración real de Control-M. Antes de diseñar pruebas que traten esa dependencia
+  como un hecho aceptado, confirmar con el equipo funcional/de desarrollo si es intencional (TC-010).
 - **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` no está documentada — si en el futuro se aporta su contenido,
   debe tratarse como una especificación nueva, no como una extensión de esta ni de `RDR_CONC_OFICINAS_new`.
+- **Nota:** el campo "Rearranques" de la ficha EX-005-02 de esta cadena está vacío — no hay un procedimiento
+  de rearranque documentado formalmente (a diferencia de `RDR_CONC_OFICINAS_new`, que sí lo tiene).
