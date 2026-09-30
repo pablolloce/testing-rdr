@@ -1,6 +1,6 @@
 # Prerrequisitos — RDR_REFUNDICION_new (8/8, sistema P-021)
 
-> Derivado de `casos_prueba.xml` (TC-001 a TC-012).
+> Derivado de `casos_prueba.xml` (TC-001 a TC-013).
 
 ## Orígenes de datos
 
@@ -24,6 +24,7 @@
 | TC-010 | Escenario de TC-008 en el que, tras la reasignación, el cliente cerrado (y opcionalmente su global) se quede sin ningún hijo operativo activo. |
 | TC-011 | `CLIENTED` con flag Altamira (`FT_T_ENFR.ORG_ID='1145'`) e identificadores mexicanos poblados; `CLIENTEP` sin ese flag. |
 | TC-012 | Una línea por cada uno de los 5 escenarios de excepción de `REFUNDICION`, dentro de un lote con otras líneas válidas; acceso a una ejecución posterior de `ErroresCSV` para observar `MarcaRegErroneo`. |
+| TC-013 | Capacidad de forzar un fallo en `jdbc.ejecutarQuery` (p. ej. desconexión de BD) con elementos pendientes en `Querys.insercionesRLT1`; acceso al log de consola del proceso donde corre `ThreadComprobacion` y al fichero `InsercionesRLT1.txt`. |
 
 ## Entorno de ejecución
 
@@ -68,3 +69,8 @@
   estados previos específicos en ~40 tablas maestras (clientes inactivos por `BAJA_CPARTY`, flags Altamira,
   contrapartidas operativas) y de inspeccionar su estado tras la carga — no es un simple depósito de fichero
   y verificación de RC en Control-M, como los TC-001 a TC-006.
+- **Fuera de alcance de TC-013, fichero concreto pendiente (G4):** para confirmar en TC-013 con qué cola real
+  drena `ThreadComprobacion` en producción (`Querys.insercionesRLT1` frente a las actualizaciones diferidas de
+  `ConDB.getUpdatesFAB1()`), y si `ConContrato460.java` es de verdad el código invocado por
+  `Workflow(RDR_Clientela460)`, falta un único fichero concreto: **`BajaClientela460.wkf`** (el workflow real
+  confirmado por `RDR_Clientela460.gsp` — no un `.properties` ni otro `.gsp`).
