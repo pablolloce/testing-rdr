@@ -40,9 +40,9 @@ automatizado — ver gap G1).
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
-| G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Abierto.** El documento fuente (líneas 930-939) describe el propósito general (enriquecimiento/formateo) pero no el contenido del fichero de reglas. Requeriría pedir `fillingRules_ConBDI.csv` al usuario para el detalle campo a campo — ver §6.2. |
-| G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Abierto.** El documento fuente solo dice que usa JDBC (`ojdbc8.jar`) para llamar a "procedimientos almacenados" que cargan los datos en GoldenSource, sin detallar cuáles. Requeriría el jar o el detalle de esos procedimientos — ver §6.1 paso 4. |
-| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Abierto.** El documento fuente describe el propósito de `RDR_InformeBroker.jar` (armar un Excel de auditoría/diferencias con librerías `poi`/`jxl`/`dom4j`) pero no las columnas de los 2 Excel resultantes. Requeriría el jar o las plantillas de esos informes — ver §6.1 paso 7. |
+| G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
+| G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Resuelto (2026-09-28), en el límite de lo alcanzable desde código Java, con la versión completa real de `ConDB.java`.** `executeCONBDI_Hilos` llama al procedimiento almacenado Oracle **`CONBDI2`** (`{call CONBDI2(?,?,...,?)}`, 21 parámetros: los 20 campos extraídos por `ConBDI.java` + `FLD_JOB_ID`) por cada registro válido — confirma el nombre exacto del procedimiento y su firma completa. También confirma, con SQL literal, `obtenerBDIs` (query que lista los códigos BDI activos en GoldenSource, `FT_T_FIID`/`FINS_ID_CTXT_TYP='BDIID'`), `crearJOB`/`cerrarJOB` (INSERT/UPDATE literales sobre `FT_T_JBLG`) e `insertRLT1BDI` (INSERT literal sobre `FT_T_RLT1`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio procedimiento `CONBDI2` (qué hace exactamente dentro de la base de datos con esos 21 parámetros) vive en Oracle, no en este código Java — cerrarlo del todo exigiría un export de PL/SQL de BD, no un fichero de aplicación. Ver §6.4. |
+| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `InformeBroker.java`/`ConDB.java`.** El informe Broker queda cerrado por completo: 4 hojas (`NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`), cada una con su query real y columnas exactas — ver §6.5. **Sigue abierto:** el informe SWIFT no aparece en ningún punto de este código — requeriría el jar/clase que lo genera, no identificado en el material disponible. |
 
 ## 5. Especificación funcional
 
@@ -109,14 +109,33 @@ Pasos del pipeline, en orden:
 * **Qué recibe/produce:** recibe `$FILES/ConBDI/ConBDI.csv` (ya saneado por `QuitarNulos`) y el fichero de
   reglas `/@@ENV@@/kytl/.../properties/fillingRules_ConBDI.csv`; produce `ConBDI_processed.csv` (entrada
   del paso PL/SQL) y un log de resumen en `$LOG/ConBDI_preprocess_summary.log`.
-* **Campos de salida afectados:** el contenido exacto de `fillingRules_ConBDI.csv` (qué campo enriquece,
-  qué regla de formateo aplica a cada uno, y por tanto qué columnas de `ConBDI_processed.csv` — y en
-  cascada de `Reporte_ConBDI.csv`/`Reporte_ConBDI_dos.csv` — dependen de él) **no está disponible en el
-  material fuente**: solo se documenta su propósito general, no su detalle campo a campo. Esto queda
-  como gap abierto **G2**: para responder con precisión haría falta pedir el fichero
-  `fillingRules_ConBDI.csv` al usuario. No se inventan las reglas.
-* **Qué pasa si falla/falta/cambia:** no documentado en el material disponible; queda dentro del mismo
-  gap G2.
+* **Campos de salida afectados — G2 resuelto con el fichero real aportado por el usuario.** `fillingRules_ConBDI.csv`
+  define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte: código interno,
+  nombres cortos, código de institución/banco, BIC, dirección, plaza, país/zona IFI, etc.) mediante una
+  cabecera de nombres de campo más 3 filas de regla:
+  - Fila `NULL`: solo `COD-CLINTERN` lleva valor por defecto explícito `NULL`; el resto de campos no tiene
+    default configurado (celda vacía).
+  - Fila `POSICION(6)`: solo `COD-CLINTERN` lleva esta regla de extracción posicional — única
+    transformación no trivial de todo el fichero.
+  - Fila `USAR`: marca 22 de los 45 campos con la etiqueta `USAR`:
+    `COD-CLINTERN`, `DES-NOMCORT1`, `DES-NOMCORT2`, `DES-NOMCLINT`, `COD-INSTITUC`, `COD-CBANCO`,
+    `COD-PLAZAINT`, `COD-BANCOTES`, `COD-PLAZATES`, `QNU-BIC`, `DES-CALLE`, `DES-DISPLAZA`,
+    `DES-PROVPAIS`, `CCLIEN`, `DENOMB`, `CPAISN`, `CLPANA`, `CCNAEO`, `COD-CTEARGEN`, `DES_DISPLAZ2`,
+    `COD_CDIPEX`, `DES_PLAZAIN2`.
+  - **Corrección (2026-09-28), con el código fuente real de `ConBDI.java`:** la interpretación inicial
+    de "`USAR` = campo volcado a `ConBDI_processed.csv`" **no se sostiene** con la evidencia real. El
+    propio `ConBDI.java` (clase que lee `ConBDI_processed.csv`, ver §6.4) valida que cada línea tenga
+    exactamente **45 campos** (no ~22), y extrae explícitamente por posición campos que en la fila
+    `USAR` **no** están marcados — p. ej. `FLD_XTI_TIPOSBIC` en la posición 39 (`XTI-TIPOSBIC`, sin
+    marca `USAR` en el fichero de reglas). Esto indica que `ConBDI_processed.csv` conserva las 45
+    columnas originales, y que la marca `USAR` significa otra cosa no confirmada por el material
+    disponible (posiblemente relevante a un paso distinto de `ControlCase`, no a la inclusión/exclusión
+    de columnas en el fichero de salida). Se corrige aquí explícitamente para no dejar una lectura
+    errónea de una ronda anterior sin señalar.
+* **Qué pasa si falla/falta/cambia:** el fichero de reglas no documenta comportamiento ante fallo (p. ej.
+  ausencia de la marca `USAR` en tiempo de ejecución, o cambio de esquema); ese detalle vive en el código
+  de `controlcargadatos.ControlCase` (no aportado) y queda como cabo suelto no bloqueante, distinto del
+  gap G2 ya cerrado.
 
 ### 6.3 `RDR_Report.jar` (clase `CreateReport`) y `select.properties` (clave `ConBDI`)
 
@@ -158,6 +177,116 @@ fileNameConBDI=Reporte_ConBDI.csv
   medianoche ni un relanzamiento el mismo día que ejercite este filtro temporal — se señala como hueco de
   cobertura (no se crea el caso de prueba desde esta spec).
 
+### 6.4 `RDR_PLSQL.jar` (clase `ConBDI`, paquete raíz) y `jdbc.ConDB` — G3 resuelto
+
+Código fuente real aportado por el usuario (`ConBDI.java`, y la versión completa de `ConDB.java` —
+`documentos_fuente/codigo_fuente_conciliacion_p021/ConDB.java`, compartida con `ConClientela`/`ConContrato460`
+de las cadenas hermanas — ver `salidas/rdr_conciliacion_clientela/spec.md` §6.2 y
+`salidas/rdr_refundicion/spec.md` §6.1).
+
+* **Qué hace:** `ConBDI.java` es la clase orquestadora invocada por el paso 4 del pipeline (§6.1). Lee
+  `ConBDI_processed.csv` (`args[0]`, codificación `ISO-8859-1`) línea a línea, saltando la cabecera.
+  Para cada línea valida que tenga **exactamente 45 campos** (contando separadores `;`, con lógica
+  específica para desescapar comillas dobles dentro de campos), extrae por posición un subconjunto de
+  20 campos (`FLD_COD_CLINTERN`, `FLD_DES_NOMCORT1`, `FLD_DES_NOMCORT2`, `FLD_DES_NOMCLINT`,
+  `FLD_COD_INSTITUC`, `FLD_COD_CBANCO`, `FLD_COD_PLAZAINT`, `FLD_COD_BANCOTES`, `FLD_COD_PLAZATES`,
+  `FLD_QNU_BIC`, `FLD_DES_CALLE`, `FLD_DES_DISPLAZA2`, `FLD_DES_PROVPAIS`, `FLD_COD_BROKERWS`,
+  `FLD_CDNITR`, `FLD_COD_CLPANA`, `FLD_COD_CPAISN`, `FLD_COD_CNAE`, `FLD_XTI_TIPOSBIC`,
+  `COD_CDIPEX`), y los agrupa en lotes de 100 registros (`rango=100`) que despacha a hilos paralelos
+  (`Thread`) invocando `obj_ConDB.executeCONBDI_Hilos(...)`.
+* **Qué recibe/produce:** recibe `ConBDI_processed.csv`; no produce directamente un fichero de salida —
+  vuelca a GoldenSource vía `executeCONBDI_Hilos` (carga) y, para líneas mal formadas (`contador!=45`),
+  las añade a una lista `errorConci` que inserta al final en `FT_T_RLT1` vía `obj_ConDB.insertRLT1BDI(...,
+  "Codigo BDI en RDR que no es valido")` — confirma el mecanismo real de registro de errores de formato,
+  coherente con el patrón `FT_T_RLT1`/`RLT_PURP_TYP='REPORTES'`/`DATA_SRC_APP='BDI'` ya visto en §6.3.
+* **Campos de salida afectados — G3 resuelto (2026-09-28) con la versión completa de `ConDB.java`:**
+  `executeCONBDI_Hilos` invoca el procedimiento almacenado Oracle **`CONBDI2`**
+  (`{call CONBDI2(?,?,...,?)}`, 21 parámetros posicionales: los 20 campos extraídos por `ConBDI.java`, en
+  el mismo orden, más `FLD_JOB_ID` como último parámetro) por cada registro del lote — esta es la llamada
+  real que carga los datos limpios en GoldenSource. `obtenerBDIs` confirma también su query exacta:
+  `SELECT DISTINCT FINS_ID BDI_ID FROM FT_T_FIID WHERE FINS_ID_CTXT_TYP='BDIID' AND
+  DATA_STAT_TYP='ACTIVE'` — la lista de códigos BDI activos en GoldenSource usada (aunque de forma
+  inactiva, ver hallazgo de prioridad alta más abajo) para la comparación `noConci`. `crearJOB`/`cerrarJOB`
+  confirman el INSERT/UPDATE literal sobre `FT_T_JBLG` (con todas sus columnas), e `insertRLT1BDI` el
+  INSERT literal sobre `FT_T_RLT1` (`RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='BDI'`,
+  `SRC_FIELD='BDI Id Fichero'`, `GS_FIELD='BDI Id en RDR'`, `MAIN_ENTITY_NME='BDI Id en RDR'`,
+  `LAST_CHG_USR_ID='BBVA:CUSTOMER'`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio
+  procedimiento `CONBDI2` — qué hace exactamente con esos 21 parámetros dentro de la base de datos, y qué
+  columnas de GoldenSource actualiza más allá de la llamada — vive en Oracle, no en este código Java;
+  cerrarlo del todo exigiría un export de PL/SQL de base de datos, un tipo de artefacto distinto al
+  código de aplicación reunido hasta ahora.
+* **Hallazgo [PRIORIDAD ALTA] — lógica de detección de discrepancias inactiva en esta versión:**
+  `ConBDI.java` sí calcula qué códigos BDI existen en GoldenSource (`obtenerBDIs`) pero no aparecen en el
+  fichero de entrada (`noConci`, líneas 187-196), pero el bloque completo que insertaría esos registros en
+  `FT_T_RLT1` (líneas 197-226, mensaje `"Codigo BDI en RDR que no concilia en BDI"`) está **enteramente
+  comentado** (`/* ... */`) en el código real aportado. Es decir: en esta versión del jar, la detección de
+  "código BDI presente en GoldenSource mas ausente del fichero de origen" se calcula pero **no tiene
+  ningún efecto observable** — no se registra, no se reporta, no aparece en ningún informe. Solo el error
+  de formato de línea (`errorConci`) sí se inserta activamente. No se puede confirmar si esto es
+  intencionado (deshabilitado a propósito) o un resto de una versión anterior sin terminar de limpiar;
+  tampoco se puede descartar que esté reactivado en una versión más reciente del jar desplegado en
+  producción — este hallazgo se limita al código fuente aportado en esta sesión.
+* **Qué pasa si falla — confirmado con la versión completa de `ConDB.java`:** una línea con recuento de
+  campos distinto de 45 no aborta el proceso — se descarta y se registra como error (arriba).
+  `executeCONBDI_Hilos` sí captura la `SQLException` de cada llamada a `CONBDI2` (`catch` alrededor de
+  todo el bucle, con `printStackTrace()`) — pero solo hay un único `catch` para el bucle completo del
+  lote de 100: si una llamada falla, la excepción se registra en log y **el resto de registros de ese
+  mismo lote no se ejecutan** (el bucle se corta ahí), aunque los demás hilos/lotes en paralelo continúen
+  normalmente. No hay alerta operativa diferenciada más allá del `printStackTrace()` en log.
+* **`ConDB.ObtenerCredenciales()`:** confirma un mecanismo de credenciales paralelo al de `Generico.sh`
+  (`traducir_creden`, visto en R8 de `rdr_pr_bdiclienreg_resp`), pero distinto: aquí es Java puro, lee
+  `credentials.xml` de la ruta de entorno correspondiente (`/pr/`, `/pp/`, `/ei/`, `/de/` +
+  `kytl/online/multipais/multicanal/cfg/entorno/`), parsea por regex las etiquetas `<sid>`, `<host>`,
+  `<host2>`, `<port>`, `<gcuser>`, `<gcpass>`, y construye la URL JDBC con `FAILOVER=ON` en
+  producción/preproducción (2 hosts) y sin failover en integrado/desarrollo (1 host) — mismo patrón
+  general de gestión de credenciales por entorno ya visto en otros puntos del repositorio, implementado
+  aquí de forma independiente en Java, no reutilizando `Generico.sh`.
+
+### 6.5 `RDR_InformeBroker.jar` (clase `InformeBroker`) — G4 resuelto para el informe Broker, sigue abierto para el SWIFT
+
+Código fuente real aportado por el usuario (`InformeBroker.java`, reutilizando las 4 queries de
+`ConDB.java`).
+
+* **Qué hace:** carga una plantilla `<fich_salida>_Plantilla.xlsx` (`XSSFWorkbook`), rellena 4 hojas ya
+  existentes en la plantilla (`NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme`) con el resultado de 4
+  queries reales contra `FT_T_RLT1`/`FT_T_FINS`/`FT_T_FIID`, evalúa las fórmulas del libro
+  (`XSSFFormulaEvaluator.evaluateAllFormulaCells`), fija metadatos del documento (`Creator="IT BBVA"`,
+  `Title="Conciliación Broker BDI-RDR"`), y guarda el resultado como
+  `<fich_salida>_<yyyyMMdd>.xlsx` — es decir, `Reporte_ConciliacionBroker_yyyymmdd.xlsx` (R6/§6.1).
+* **Qué recibe/produce:** recibe `args[0]` (ruta base del fichero de salida, sin timestamp) y la
+  plantilla `_Plantilla.xlsx` correspondiente (no aportada, pero su existencia como prerrequisito queda
+  confirmada por el propio código); produce el Excel final con fecha en el nombre.
+* **Campos de salida afectados — las 4 hojas exactas y sus columnas, con el filtro real de cada una:**
+  todas contra `FT_T_RLT1` (`rlt_purp_typ='REPORTES'`, `data_src_app='BDI'`, `main_entity_nme='FT_T_DLER'`),
+  acotadas siempre al **último `job_id`** de esa combinación (`order by last_chg_tms desc`, `rownum=1`) —
+  mismo patrón de "último job" que la query de §6.3, pero por `job_id` en vez de por fecha:
+  - **`NoBDI`** (`getBrokerNotBDI`): `message_rlt='El Broker Identifier es nulo en BDI.'`,
+    `gs_field='BROKER CODE_RDR'` — columnas: nombre de institución (`FT_T_FINS.INST_NME`), `FINSID`,
+    `MGCGLOID`, `BDIID` (los 3 vía `FT_T_FIID`, contexto de identificador correspondiente) y el valor GS
+    (`RLT1.GS_VALUE`).
+  - **`NoRDR`** (`getBrokerNotRDR`): `message_rlt='El Broker Identifier no existe en RDR, se inserta'`,
+    `src_field='BROKER CODE_BDI'` — mismas 4 columnas de identificador + valor BDI (`RLT1.SRC_VALUE`).
+  - **`DistintoRDR`** (`getBrokerBDIRDR`): `message_rlt='El Broker Identifier no coincide'`,
+    `src_field='BROKER CODE_BDI'`/`gs_field='BROKER CODE_RDR'` — identificador + valor BDI + valor GS
+    (ambos).
+  - **`DistintoNme`** (`getBrokerName`): `message_rlt='El Broker Name no coincide'`,
+    `src_field='BROKER NAME_BDI'`/`gs_field='BROKER NAME_RDR'` — identificador + valor BDI + valor GS
+    (mismas columnas que `DistintoRDR`, pero sobre el nombre del broker, no su código).
+  Cada hoja se rellena a partir de la fila 2 (`rownum=2`), con estilo de banda alterna (2 colores) por
+  fila, dejando la columna A (índice 0) sin usar — reservada presumiblemente a un encabezado/etiqueta ya
+  presente en la plantilla, no confirmable sin ella.
+* **Qué pasa si falla:** cada uno de los 4 métodos de `ConDB` captura sus propias `SQLException`
+  internamente (`printStackTrace()`) y devuelve una lista vacía en caso de error — es decir, un fallo de
+  una de las 4 queries **no aborta la generación del informe**: esa hoja quedaría simplemente vacía (solo
+  cabecera de plantilla), sin que el resto del proceso se entere. No hay ninguna comprobación posterior
+  que detecte "0 filas por fallo de query" frente a "0 filas porque no hay discrepancias" — ambos casos
+  son indistinguibles en el Excel resultante.
+* **Informe SWIFT — sigue sin aportar:** `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx` no aparece en ningún punto
+  de `InformeBroker.java` ni de `ConDB.java` — ambos ficheros solo cubren el informe Broker. **G4 queda
+  parcialmente resuelto:** cerrado por completo para el informe Broker (arriba), sigue abierto para el
+  informe SWIFT — requeriría el jar/clase que lo genera (probablemente distinta de `InformeBroker`, no
+  identificada en el material disponible).
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 7 transiciones lineales y el comportamiento condicional confirmado del envío por
@@ -197,20 +326,37 @@ informe SWIFT no se transmite por ningún canal.
 * **Hueco de cobertura de testing (§6.3):** `casos_prueba.xml` (TC-001 a TC-007) no incluye un caso que
   ejercite explícitamente la ejecución cerca de medianoche o el relanzamiento el mismo día sobre el filtro
   temporal de `queryConBDI` — señalado como gap de cobertura, no cerrado con un TC nuevo desde esta spec.
-* **Gaps técnicos abiertos (regla 7):** `fillingRules_ConBDI.csv` (G2, contenido campo a campo
-  desconocido), procedimientos PL/SQL de `RDR_PLSQL.jar` (G3, desconocidos) y columnas exactas de los 2
-  informes Excel de `RDR_InformeBroker.jar` (G4, desconocidas) permanecen sin cerrar: requieren material
-  adicional (el fichero de reglas, el detalle de los procedimientos, o el jar/plantillas de los Excel)
-  que no está disponible en el material fuente actual.
+* **[PRIORIDAD ALTA] Detección de discrepancias BDI-vs-GoldenSource inactiva (§6.4):** `ConBDI.java`
+  calcula qué códigos BDI existen en GoldenSource pero no aparecen en el fichero de origen (`noConci`),
+  pero el bloque que registraría esos casos en `FT_T_RLT1` está comentado en el código real aportado —
+  se calcula y se descarta, sin ningún efecto observable. No se puede confirmar si es intencionado o un
+  resto de código sin limpiar, ni si una versión más reciente del jar en producción lo tiene reactivado.
+* **Fallo silencioso por hoja en el informe Broker (§6.5):** cada una de las 4 queries de `ConDB.java`
+  captura su propia `SQLException` y devuelve lista vacía; un fallo de query y "sin discrepancias reales"
+  son indistinguibles en el Excel resultante — ninguna alerta operativa diferenciada.
+* **Gaps técnicos (regla 7):** G2 (`fillingRules_ConBDI.csv`) queda **resuelto**, con una corrección
+  importante sobre la interpretación de la marca `USAR` (ver §6.2). **G3 queda resuelto** (2026-09-28) con
+  la versión completa de `ConDB.java`: el procedimiento `CONBDI2` y las queries/inserts que lo rodean
+  quedan confirmados a nivel de aplicación — solo el cuerpo interno del procedimiento en Oracle queda
+  fuera de alcance, un tipo de artefacto distinto (§6.4). G4 queda **parcialmente resuelto**: el informe
+  Broker está cerrado por completo (§6.5), el informe SWIFT sigue sin material que lo documente.
 
 ## 10. Conclusión y requisitos de cierre
 
 El gap funcional G1 queda confirmado con evidencia ya presente en el propio documento fuente
-(`informeBroker_BDI.gsp`/`.wkf`) y reconfirmado por el usuario. Los gaps técnicos G2 (reglas de
-`fillingRules_ConBDI.csv`), G3 (procedimientos PL/SQL de `RDR_PLSQL.jar`) y G4 (columnas de los 2 informes
-Excel de `RDR_InformeBroker.jar`) quedan **abiertos**: el material disponible permite documentar qué hace
-cada artefacto a nivel de pipeline (§6.1-6.3) pero no su detalle campo a campo/procedimiento a
-procedimiento — cerrarlos exige pedir el fichero o material adicional citado en cada uno, no una
-explicación del usuario. También queda documentado, como riesgo abierto y no como pregunta a cerrar en
-esta sesión, el hueco de cobertura de testing sobre el filtro temporal de `queryConBDI` (§6.3, §9) y la
-diferencia de ventana temporal frente a `ConClientela` (§9).
+(`informeBroker_BDI.gsp`/`.wkf`) y reconfirmado por el usuario. El gap técnico G2 (reglas de
+`fillingRules_ConBDI.csv`) queda **resuelto**, con una corrección sobre la ronda anterior: el código real
+de `ConBDI.java` muestra que `ConBDI_processed.csv` conserva las 45 columnas originales (no solo las 22
+marcadas `USAR`), por lo que esa marca no significa "campo incluido en la salida" como se había asumido
+(§6.2). **G3 queda resuelto (2026-09-28) con la versión completa real de `ConDB.java`:** confirma el
+procedimiento `CONBDI2` (21 parámetros), la query de `obtenerBDIs`, y el INSERT/UPDATE literales de
+`crearJOB`/`cerrarJOB`/`insertRLT1BDI` — solo el cuerpo interno de `CONBDI2` en Oracle queda fuera de
+alcance de este código de aplicación (§6.4). **G4 queda parcialmente resuelto** con el código fuente real
+de `ConBDI.java`/`InformeBroker.java`: la orquestación completa de la carga (validación, batching,
+multi-hilo, registro de errores) y el informe Broker completo (4 hojas, columnas y filtros exactos) están
+cerrados — ver §6.4/§6.5. Sigue abierto el informe SWIFT (no aparece en ningún fichero de esta ronda).
+Hallazgo nuevo de prioridad alta: la detección de discrepancias BDI-vs-GoldenSource está codificada pero
+inactiva (comentada) en la versión de `ConBDI.java` aportada (§6.4, §9). También queda documentado, como
+riesgo abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura de testing sobre el
+filtro temporal de `queryConBDI` (§6.3, §9) y la diferencia de ventana temporal frente a `ConClientela`
+(§9).

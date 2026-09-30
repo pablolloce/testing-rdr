@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_cargasectoada" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de un tramo (Cadena 1, Tramo 1)</nombre>
+    <objetivo>Verificar el ciclo end-to-end del Tramo 1 de RDR_CARGASECTOADA: transferencia DataX, ingesta, delta, carga core, historificación y reporte.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero de origen disponible para el transferId kcatalogvaluestaxonomy_1 en el momento de ejecución de MEKYTL1273.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="transferId" valor="kcatalogvaluestaxonomy_1"/>
+      <dato campo="CUTOFF_DATE" valor="ODATE-1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1273 (datax-agent) y confirmar la transferencia correcta.</paso>
+      <paso numero="2">Confirmar que MEKYTL1284 copia el fichero a la ruta de trabajo T1_CatalogValuesTaxonomy/.</paso>
+      <paso numero="3">Confirmar la ejecución de RDR_CARGASECTO_DELTA_T1 y GS_CARGASECTO_T1 (carga core).</paso>
+      <paso numero="4">Confirmar la historificación (MEKYTL1287) y la generación del reporte (GS_CARGASECTO_REPORT_T1).</paso>
+    </pasos>
+    <resultadoEsperado>Los 6 pasos del tramo terminan OK; el fichero queda cargado, historificado y reportado.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 6 jobs en Control-M + verificación de ficheros generados en cada ruta.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando TC-002/003 deliberadamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="error_funcional">
+    <nombre>Fallo de transferencia DataX detiene el tramo</nombre>
+    <objetivo>Confirmar que, si el job DataX de arranque falla, el job termina en KO y el resto del tramo no se ejecuta.</objetivo>
+    <precondiciones>
+      <precondicion>Simular un fallo de transferencia DataX (namespace o transferId inválido, o servicio DataX no disponible).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Escenario" valor="datax-agent falla la transferencia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo de transferencia en cualquiera de los jobs DataX (p. ej. MEKYTL1273).</paso>
+      <paso numero="2">Confirmar que el job termina en KO.</paso>
+      <paso numero="3">Confirmar que ningún job sucesor del tramo (MEKYTL1284 en adelante) se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>El job DataX termina en KO; el resto del tramo queda bloqueado, sin ejecutarse.</resultadoEsperado>
+    <tipoValidacion>Estado KO del job DataX en Control-M; estado de espera de los sucesores.</tipoValidacion>
+    <criterioAceptacion>KO real visible, sin enmascaramiento; sucesores no ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Si el tramo continúa pese al fallo de DataX, contradice la ficha real ("el job debe acabar como KO y no continuar").</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo de ingesta/copiado detiene el tramo</nombre>
+    <objetivo>Confirmar que, si el script embebido de copiado (MEKYTL1284-tipo) falla, el tramo se detiene igualmente.</objetivo>
+    <precondiciones>
+      <precondicion>Simular un fallo del cp -p (p. ej. fichero de origen ausente en /unload/kytl/datent/datax/ pese a que DataX haya terminado OK).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Escenario" valor="fichero ausente para el cp -p pese a DataX OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la ausencia del fichero de origen para el paso de copiado.</paso>
+      <paso numero="2">Confirmar que el job de copiado termina en KO.</paso>
+      <paso numero="3">Confirmar que RDR_CARGASECTO_DELTA_T&lt;N&gt; no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>El job de copiado termina en KO; el resto del tramo no se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M.</tipoValidacion>
+    <criterioAceptacion>KO real, sin continuar el tramo.</criterioAceptacion>
+    <posibilidadFallo>Si el tramo continúa con un fichero vacío o inexistente, contradice el comportamiento documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="conflicto_integridad">
+    <nombre>Verificación de la dependencia cruzada T1→T2 (GAP-ADA-002)</nombre>
+    <objetivo>Confirmar en Control-M en vivo (o en ejecución real) que la Historificación del Tramo 1 (MEKYTL1287/MEKYTL1293) realmente espera a que termine la Carga Core del Tramo 2 (GS_CARGASECTO_T2/GS_CARGASECTO2_T2), y no la de su propio Tramo 1.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del job MEKYTL1287 (o MEKYTL1293 en Cadena 2), o posibilidad de retrasar deliberadamente el Tramo 2 en un entorno de pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Predecesor esperado según ficha" valor="GS_CARGASECTO_T2 (no GS_CARGASECTO_T1)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en la definición real de Control-M el predecesor exacto de MEKYTL1287.</paso>
+      <paso numero="2">Si es posible, retrasar deliberadamente el Tramo 2 (sin tocar el Tramo 1) y observar si MEKYTL1287 queda bloqueado esperando, pese a que el Tramo 1 ya haya cargado correctamente.</paso>
+      <paso numero="3">Repetir la verificación para MEKYTL1293 en RDR_CARGASECTOADA_2.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma (o se descarta, si la captura real difiere de la ficha) que el cierre del Tramo 1 depende del Tramo 2 en ambas cadenas.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Control-M + observación de comportamiento en un escenario de retraso controlado.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución, confirmando o descartando RISK-ADA-001.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma la dependencia y no hay justificación de negocio, debe elevarse como hallazgo de prioridad alta para revisión del diseño de la cadena, no solo como nota de testing.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Confirmación de transferId compartido entre las 2 cadenas</nombre>
+    <objetivo>Confirmar en revisiones futuras que RDR_CARGASECTOADA y RDR_CARGASECTOADA_2 siguen usando el mismo transferId de DataX por tramo, o documentar el cambio si difieren.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a las fichas/definiciones reales de los 6 jobs DataX de ambas cadenas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="transferId T1" valor="kcatalogvaluestaxonomy_1 (ambas cadenas)"/>
+      <dato campo="transferId T2" valor="krelvaluestaxonomy_1 (ambas cadenas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar el transferId real de los 6 jobs DataX (MEKYTL1273/74/75/81/82/83).</paso>
+      <paso numero="2">Confirmar que T1, T2 y T3 siguen compartiendo transferId entre cadenas (confirmado para los 3 tramos: kcatalogvaluestaxonomy_1, krelvaluestaxonomy_1, ekytl_ada_saatransfer_1).</paso>
+      <paso numero="3">No confundir el transferId compartido con el corte de datos (CUTOFF_DATE) solicitado — ver TC-009 para la verificación de esa diferencia en T3.</paso>
+    </pasos>
+    <resultadoEsperado>Los transferId se mantienen coincidentes entre cadenas para los 3 tramos.</resultadoEsperado>
+    <tipoValidacion>Comparación directa de las fichas/definiciones reales.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias respecto a lo documentado, o discrepancia documentada explícitamente.</criterioAceptacion>
+    <posibilidadFallo>Si los transferId dejan de coincidir, indica que las cadenas ya no son redundantes y debe revisarse GAP-ADA-004.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Ejecución de RDR_CARGASECTOADA_2 en lunes festivo o fuera de calendario</nombre>
+    <objetivo>Confirmar el comportamiento de RDR_CARGASECTOADA_2 cuando el lunes programado cae en festivo, dado que la cadena fue restringida a un único día de ejecución (10/02/2026).</objetivo>
+    <precondiciones>
+      <precondicion>Identificar un lunes festivo en el calendario de Control-M dentro del periodo de pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="lunes festivo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Observar si la cadena se salta ese lunes (con el consiguiente retraso de una semana en la ingesta) o se reprograma al siguiente día hábil.</paso>
+      <paso numero="2">Documentar el comportamiento real observado.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, sea cual sea el resultado.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo con lunes festivo.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados es en sí un "fallo" — el caso cierra una duda documental sobre el calendario real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de topología completa (36 pasos, 2 cadenas)</nombre>
+    <objetivo>Confirmar en revisiones futuras que las 2 cadenas siguen teniendo exactamente los 18 pasos cada una, sin jobs añadidos ni eliminados, y que la dependencia T1→T2 (si se confirma real en TC-004) se mantiene documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de ambos folders.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados por cadena" valor="18 (3 tramos × 6 pasos)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que cada folder sigue conteniendo exactamente 18 jobs.</paso>
+      <paso numero="2">Confirmar que la criticidad (W) y el protocolo de rearranque no han cambiado.</paso>
+      <paso numero="3">Confirmar que la dependencia cruzada T1→T2 (RISK-ADA-001) sigue igual, o documentar si se corrigió.</paso>
+    </pasos>
+    <resultadoEsperado>Topología y dependencias sin discrepancias respecto a lo documentado, o cambios documentados explícitamente.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de un job nuevo o la eliminación de uno existente debe motivar una actualización de esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Criticidad y protocolo de rearranque uniformes en los 36 jobs</nombre>
+    <objetivo>Confirmar que todos los jobs de ambas cadenas mantienen criticidad W y el mismo protocolo de aviso a ANS RDR (BZG03906) vía Remedy.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de una muestra representativa de jobs de ambas cadenas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Criticidad esperada" valor="W (Aviso día siguiente) en el 100% de los jobs"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar la criticidad de una muestra de jobs de cada tramo y cadena.</paso>
+      <paso numero="2">Confirmar el protocolo de rearranque (ANS RDR / Remedy) en la muestra.</paso>
+    </pasos>
+    <resultadoEsperado>Criticidad W y protocolo uniforme en toda la muestra.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias en la muestra verificada.</criterioAceptacion>
+    <posibilidadFallo>Cualquier job con criticidad distinta o protocolo distinto debe documentarse como excepción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Verificación del corte de datos distinto en T3 entre cadenas (GAP-ADA-005)</nombre>
+    <objetivo>Confirmar el impacto funcional real de que MEKYTL1283 (Cadena 2, Tramo 3) pida CUTOFF_DATE=ODATE-3 mientras que su gemelo MEKYTL1275 (Cadena 1, Tramo 3) pide ODATE-1, pese a compartir el mismo transferId (ekytl_ada_saatransfer_1).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a una ejecución real (o trazas) de ambos jobs en la misma semana, para poder comparar el corte de datos efectivamente recibido de DataX.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CUTOFF_DATE MEKYTL1275 (Cadena 1)" valor="ODATE-1"/>
+      <dato campo="CUTOFF_DATE MEKYTL1283 (Cadena 2)" valor="ODATE-3"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en la ficha real y/o en la configuración en vivo que el offset de MEKYTL1283 sigue siendo ODATE-3.</paso>
+      <paso numero="2">Comparar el fichero recibido por MEKYTL1283 en una ejecución real con el recibido por MEKYTL1275 en la misma semana, verificando si corresponden a fechas de corte distintas.</paso>
+      <paso numero="3">Preguntar al equipo funcional si el offset ODATE-3 en Cadena 2/T3 es intencional (p. ej. margen de reconciliación semanal) o un error de configuración heredado de una copia del job de Cadena 1.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma si la discrepancia de corte de datos es intencional o un defecto de configuración, y se documenta el impacto real en los datos cargados por RDR_CARGASECTOADA_2/T3.</resultadoEsperado>
+    <tipoValidacion>Comparación de ficheros reales recibidos + confirmación funcional con el equipo propietario del proceso.</tipoValidacion>
+    <criterioAceptacion>Discrepancia documentada como intencional (con justificación de negocio) o corregida si es un defecto.</criterioAceptacion>
+    <posibilidadFallo>Si no se puede confirmar la intención y la discrepancia persiste sin justificación, debe elevarse como riesgo de calidad de datos (RISK-ADA-002) en la carga semanal de T3.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

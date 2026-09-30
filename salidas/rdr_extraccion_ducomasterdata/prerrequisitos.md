@@ -1,36 +1,83 @@
 # Prerrequisitos — RDR_ExtraccionDUCOMASTERDATA
 
-## Datos y ficheros previos
+> Derivado de `casos_prueba.xml`: cada prerrequisito aquí listado respalda al menos una
+> precondición de al menos un caso (referenciado entre paréntesis). No se incluye nada que no
+> haga falta para ejecutar los 13 casos. Documento consolidado (2026-09-28) a partir del trabajo
+> independiente de pablo.llorente y miguel.saavedra sobre el mismo proceso — ver spec.md.
 
-- No se requiere ningún fichero de entrada: la cadena se dispara por horario (viernes 22:00h) y el primer
-  job genera su propio fichero mediante extracción directa a GoldenSource (4 consultas unidas por
-  `UNION ALL`).
-- Debe existir conectividad JDBC entre el jar `ExtraccionGenericaUnificada` y GoldenSource, con las tablas
-  `ft_t_issu`/`ft_t_isid` (índices), `ft_t_cadf`/`ft_t_cid1` (calendarios), `ft_t_isty`/`ft_t_iscd`/
-  `ft_t_eist`/`ft_t_dsrc` (productos) y `ft_t_idmv`/`ft_t_edmv` (bases de cálculo) accesibles y
-  actualizadas.
+## Orígenes de datos
 
-## Configuración e infraestructura
+| Origen | Alimenta | Casos que lo necesitan |
+|---|---|---|
+| `ft_t_issu` + `ft_t_isid` (entorno de integrado/pruebas) | Sección `Index` del CSV | TC-001, TC-002, TC-005, TC-009 |
+| `ft_t_cadf` + `ft_t_cid1` | Sección `Calendar` del CSV | TC-001, TC-007, TC-009 |
+| `ft_t_isty` + `ft_t_iscd` + `ft_t_eist` + `ft_t_dsrc` | Sección `Products` del CSV | TC-001, TC-009 |
+| `ft_t_idmv` + `ft_t_edmv` | Sección `DAYBASISTYPE` del CSV | TC-001, TC-004, TC-009 |
+| Directorio `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/` en `pr-rdr.igrupobbva` | Fichero de extracción y punto de partida de copia/historificación | TC-001, TC-006, TC-009 |
+| `FT_T_ATE1`/`FT_T_PAR1` (config. data-driven del motor `OperacionesDB`) | Query/cabecera/ruta de salida resueltas en tiempo de ejecución | Todos (config. base del motor, ver spec.md §6.2) |
 
-- Cadena Control-M `RDR_ExtraccionDUCOMASTERDATA` (folder `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`, servidor
-  `MERCADOS-4`) dada de alta y activa los viernes desde las 22:00h.
-- Directorio `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA` (y su subcarpeta `backup/`)
-  disponible con permisos para los usuarios `xakytl1p` (generación) y `xsramer1` (copiado/historificación).
-- Ruta de salida de DataX `/unload/kytl/datsal/datax` disponible y con espacio suficiente.
+## Datos mínimos
 
-## Roles y permisos
+- **TC-001/TC-009**: al menos 1 fila `ACTIVE` por cada una de las 4 secciones (Index con `iss_typ` permitido, Calendar sin filtro, Products sin filtro, DAYBASISTYPE con `fld_data_cl_id='DAYBASIS'`) — para que el caso pueda fallar si falta alguna sección o el contenido no coincide.
+- **TC-002**: 1 índice `ACTIVE` con `iss_typ` fuera de la lista permitida (p. ej. `BOND`) — para que el caso pueda fallar si el filtro de tipo no excluye correctamente.
+- **TC-004**: 1 valor `DAYBASIS` en `ft_t_idmv` sin fila correspondiente en `ft_t_edmv` — para que el caso pueda fallar si las columnas dependientes traen un valor inesperado en vez de vacío.
+- **TC-005**: 1 índice con 2 filas en `ft_t_isid` (distinto `id_ctxt_typ`) para el mismo `instr_id` — para que el caso pueda fallar si se fusionan en una sola fila.
+- **TC-006**: un `backup/ExtraccionDUCOMASTERDATA_YYYYMMDD.csv` real ya generado por una primera ejecución, más capacidad de dar de baja datos y forzar una segunda ejecución el mismo día.
+- **TC-007**: 2 calendarios `ACTIVE` distintos con el mismo `alt_id` en `ft_t_cid1`.
+- **TC-011**: capacidad de simular indisponibilidad de conectividad con GoldenSource durante la ventana de ejecución (no requiere datos, solo la posibilidad de forzar el fallo).
+- **TC-012**: 3 ficheros de prueba en `backup/` con antigüedad exacta de 5, 6 y 7 meses respectivamente.
 
-- Usuarios de ejecución (Run As): `xakytl1p` (extracción), `xsramer1` (copiado a DataX e historificación).
-- El relanzamiento manual en caso de KO recae en ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`), vía Remedy.
+## Entorno de ejecución
 
-## Flujos previos que deben haberse completado
+| Máquina/host | Script | Usuario | Casos |
+|---|---|---|---|
+| `pr-rdr.igrupobbva` | `GSProcess.sh` (extracción unificada) | `xakytl1p` | TC-001, TC-002, TC-003, TC-004, TC-005, TC-007, TC-009, TC-011 |
+| `pr-rdr.igrupobbva` | `RAMERC0068.sh` (`MEKYTL1299`, copia) | `xsramer1` | TC-001, TC-006, TC-009, TC-011 |
+| `pr-rdr.igrupobbva` | `RAMERC0068.sh` (`MEKYTL1300`, traslado) | `xsramer1` | TC-001, TC-006, TC-008, TC-009, TC-012, TC-013 |
 
-- No hay ningún flujo previo externo documentado como prerrequisito de esta cadena — es un disparador de
-  cadena por horario, sin dependencia de otra cadena RDR.
-- **Riesgo operativo:** no hay lock/PID/semáforo documentado que impida relanzar manualmente la cadena
-  mientras una ejecución programada siga en curso.
-- **Nota de comportamiento confirmado:** el fichero `ExtraccionDUCOMASTERDATA.csv` se genera y copia a
-  DataX incluso si las 4 secciones de la consulta devuelven 0 filas (ver `spec.md`, R5) — no es un
-  prerrequisito de datos mínimos para que la cadena se ejecute con normalidad.
-- Esta cadena no es un prerrequisito de `RDR_DUCO_CPTY` ni depende de ella: son procesos independientes,
-  confirmado explícitamente por el propio documento fuente.
+Todas las rutas y usuarios anteriores corresponden a producción según el documento; el entorno de
+integrado/pruebas debe replicar la misma estructura de rutas y roles.
+
+## Configuración
+
+- `ExtraccionDUCOMASTERDATA.properties`: parametriza el jar `ExtraccionGenericaUnificada.jar` con tipo de extracción `DUCOMASTERDATA` (TC-001, TC-002, TC-004, TC-005, TC-007, TC-009).
+- Entrada de `MEKYTL1299` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de copia (`c`/`C`) hacia `/unload/kytl/datsal/datax/` — reforzada por un ejemplo real de esa misma IDX (clave `MEKYTL1320_EI`) que usa idéntico destino con operación `C` (ver spec.md §6, gap "copia vs. mueve" resuelto) — necesaria para reproducir TC-001/TC-006/TC-009/TC-011.
+- Entrada de `MEKYTL1300` en `INFORMACION_HISTORIFICACIONES.IDX` con operación de traslado (`m`/`M`) hacia `/backup/` y purga de ficheros de +6 meses — necesaria para TC-006/TC-008/TC-009/TC-012/TC-013.
+
+## Sistema de ficheros
+
+| Directorio | Máscara | Retención/purga | Casos |
+|---|---|---|---|
+| `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/` (origen/local) | `ExtraccionDUCOMASTERDATA.csv` | N/A (se copia, no se elimina) | TC-001, TC-006, TC-009 |
+| `/unload/kytl/datsal/datax/` (salida DataX) | `ExtraccionDUCOMASTERDATA.csv` | No documentada — fuera del alcance analizado. Confirmado por ausencia (revisión completa de los 202 folders KYTL de Control-M): no existe ninguna cadena "DataX" propia; se asume plataforma de recogida externa, no verificable en detalle | TC-001, TC-009 |
+| `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/` (histórico) | `ExtraccionDUCOMASTERDATA_YYYYMMDD.csv` | 6 meses | TC-001, TC-006, TC-008, TC-009, TC-012, TC-013 |
+
+## Orquestación
+
+- Encadenamiento estricto de eventos: `EXTRACCIONDUCOMASTERDATA_OK` → disparo de `MEKYTL1299` →
+  `MEKYTL1299_OK` → disparo de `MEKYTL1300` (TC-003, TC-009, TC-011).
+- Sin recursos cuantitativos de Control-M en ninguno de los 3 jobs — confirmado en Control-M en
+  vivo (sección "Recursos Cuantitativos" vacía en los 3 jobs), no una omisión documental: no hay
+  prerrequisito de concurrencia que configurar para ejecutar ningún caso.
+- Planificación real: viernes, 22:00 — los casos que dependen de la ventana de disparo (TC-001,
+  TC-003, TC-009, TC-011) deben ejecutarse o simularse en viernes.
+
+## Entorno de pruebas
+
+- Todos los datos maestro usados en los 13 casos (`IDX001`-`IDX999`, `CAL001`/`CAL700`/`CAL701`,
+  `PROD001`, `DBT001`/`DBT500`) son sintéticos y deben crearse específicamente en el entorno de
+  integrado; no hay constancia de que el entorno actual contenga un universo representativo de
+  instrumentos/calendarios/productos con las combinaciones de filtro y `LEFT JOIN` necesarias —
+  queda pendiente de definir/poblar antes de poder ejecutar TC-002, TC-004, TC-005 y TC-007 de
+  forma fiable.
+- TC-006/TC-013 requieren capacidad de dar de baja registros y de forzar una segunda ejecución
+  manual de la cadena completa el mismo día de calendario (TC-006) o en 2 viernes consecutivos
+  (TC-013) en el entorno de pruebas.
+- TC-008 requiere capacidad de disparar una republicación/migración de plan sobre el folder
+  `KYTL0000-RDR_ExtraccionDUCOMASTERDATA` en el entorno de pruebas, sin afectar al plan de
+  producción.
+- TC-011 requiere capacidad de simular una desconexión de GoldenSource durante la ventana de
+  ejecución del jar `ExtraccionGenericaUnificada.jar`.
+- TC-012 requiere capacidad de crear ficheros de prueba en `backup/` con antigüedad de fichero
+  controlada (5, 6 y 7 meses exactos).
+- Ninguno de los 13 casos requiere acceso a producción para ejecutarse.
