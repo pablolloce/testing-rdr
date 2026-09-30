@@ -247,4 +247,25 @@
     <posibilidadFallo>Si falta la fila ERRORES, o el reprocesamiento automático no se dispara pese a Delta=Si, es una desviación del comportamiento documentado en G3/R6-bis.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-013" tipo="conflicto_integridad">
+    <nombre>ThreadComprobacion pierde silenciosamente una sentencia SQL si falla su ejecución</nombre>
+    <objetivo>Confirmar que, si jdbc.ejecutarQuery lanza una excepción al ejecutar una sentencia extraída de Querys.insercionesRLT1, esa sentencia queda perdida (ya se retiró de la cola antes de intentar ejecutarla) y no se registra en el fichero de auditoría InsercionesRLT1.txt, solo en la salida estándar (potencialmente no capturada en producción). Confirmar también si el campo connection, nunca inicializado en el constructor, provoca un fallo inmediato en la primera ejecución real.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de forzar un fallo en jdbc.ejecutarQuery (p. ej. desconexión de base de datos) mientras hay elementos pendientes en Querys.insercionesRLT1.</precondicion>
+      <precondicion>Acceso al log de consola/stdout del proceso donde corre ThreadComprobacion, y al fichero InsercionesRLT1.txt.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comportamiento real del código" valor="inserciones.remove(0) ocurre antes de jdbc.ejecutarQuery(...)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar primero si el hilo arranca y ejecuta al menos una inserción real (para descartar o confirmar el riesgo de connection nula).</paso>
+      <paso numero="2">Provocar un fallo real en la ejecución de una sentencia pendiente.</paso>
+      <paso numero="3">Confirmar que esa sentencia no aparece en InsercionesRLT1.txt y que no se reintenta en ningún ciclo posterior.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma (o se descarta) la pérdida silenciosa de sentencias SQL fallidas, documentando el alcance real del riesgo.</resultadoEsperado>
+    <tipoValidacion>Provocación de fallo controlado + inspección de InsercionesRLT1.txt y logs de consola.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma la pérdida silenciosa de inserciones RLT1 en producción, debe elevarse como hallazgo de prioridad alta (pérdida de auditoría/reporting real).</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

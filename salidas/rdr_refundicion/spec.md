@@ -42,7 +42,7 @@ mutuamente, sin necesidad de pregunta al usuario).
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
 | G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente. Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
-| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto de forma indirecta (2026-09-28) con `ConContrato460.java` y la versión completa de `ConDB.java`** — muy probablemente la implementación real (misma arquitectura/mensajería que `ConBDI`/`ConClientela`, referencia literal a "C460"), aunque sin `.properties`/`.gsp` que confirme al 100% la invocación desde este workflow. Confirma el procedimiento almacenado **`CONC460`** (3 parámetros), la semántica de reconciliación (folio con fecha de cancelación por defecto = activo), la tabla exacta `FT_T_FAB1` con sus columnas (`STAT_DEF_ID`, `DATA_STAT_TYP`), un probable defecto de escritura (`STAT_DEF_ID='NUMFOLII'` en el `UPDATE` vs. `'NUMFOLIO'` en el filtro `WHERE`), y un posible defecto de tipo de job (`crearJOB` con "C460", `cerrarJOB` con "CCL"). **Único cabo suelto no bloqueante:** confirmación explícita de que este código es el invocado por el workflow, y la clase `ThreadComprobacion` (referenciada en comentarios, no aportada) que ejecutaría los `UPDATE` de `FT_T_FAB1` acumulados — ver §6.1. |
+| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto de forma indirecta (2026-09-28) con `ConContrato460.java` y la versión completa de `ConDB.java`** — muy probablemente la implementación real (misma arquitectura/mensajería que `ConBDI`/`ConClientela`, referencia literal a "C460"), aunque sin `.properties`/`.gsp` que confirme al 100% la invocación desde este workflow. Confirma el procedimiento almacenado **`CONC460`** (3 parámetros), la semántica de reconciliación (folio con fecha de cancelación por defecto = activo), la tabla exacta `FT_T_FAB1` con sus columnas (`STAT_DEF_ID`, `DATA_STAT_TYP`), un probable defecto de escritura (`STAT_DEF_ID='NUMFOLII'` en el `UPDATE` vs. `'NUMFOLIO'` en el filtro `WHERE`), y un posible defecto de tipo de job (`crearJOB` con "C460", `cerrarJOB` con "CCL"). **`ThreadComprobacion.java` aportado (2026-09-30):** confirma un patrón real de hilo en segundo plano que drena una cola estática de sentencias SQL pendientes con auditoría en fichero, pero el código real drena `Querys.insercionesRLT1` (inserciones `FT_T_RLT1`), no hace referencia a `ConDB`/`FT_T_FAB1` — no corrobora literalmente que esta clase sea la que ejecuta las actualizaciones de `FT_T_FAB1` acumuladas, como sugería el comentario de `ConContrato460.java`. **Único cabo suelto no bloqueante:** confirmación explícita de que este código es el invocado por el workflow, y de qué mecanismo real drena la cola de `FT_T_FAB1` — ver §6.1. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
@@ -205,11 +205,26 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
     copiar-pegar entre las 2 clases hermanas; el efecto exacto sobre `FT_T_JBLG` (p. ej. si algún filtro
     temporal de otra query depende de que el cierre quede registrado con el mismo tipo que la apertura) no
     se puede confirmar sin más contexto — se documenta como hallazgo, no como hecho verificado.
-  - **Único cabo suelto no bloqueante:** la confirmación explícita de que `Workflow(RDR_Clientela460)`
-    invoca esta clase concreta (sin `.properties`/`.gsp` que lo diga literalmente), y la clase
-    `ThreadComprobacion` — mencionada en un comentario del código ("Las actualizaciones se realizan
-    mediante el ThreadComprobacion") como responsable de ejecutar en diferido los `UPDATE` de
-    `FT_T_FAB1` acumulados, pero no aportada en ningún fichero de esta sesión.
+  - **`ThreadComprobacion.java` aportado esta ronda (código real completo) — confirma parcialmente, matiza
+    lo asumido antes:** la clase (paquete `entities`, implementa `Runnable`) ejecuta un bucle continuo
+    (`while(condicion)`) que repetidamente llama a `insertarRLT1()` hasta que `Querys.fin` se pone a `true`.
+    `insertarRLT1()` extrae (`remove(0)`) el primer elemento pendiente de una lista estática compartida
+    **`Querys.insercionesRLT1`**, ejecuta esa sentencia SQL vía `jdbc.ejecutarQuery(...)`, y registra la
+    sentencia ejecutada en un fichero de auditoría (`InsercionesRLT1.txt`) en la ruta recibida por
+    constructor. **Matiz importante:** el código real drena una cola de **inserciones `FT_T_RLT1`**
+    (`Querys.insercionesRLT1`), no hace ninguna referencia directa a `ConDB` ni a `FT_T_FAB1` — la afirmación
+    del comentario de `ConContrato460.java` ("Las actualizaciones se realizan mediante el ThreadComprobacion")
+    **no queda corroborada literalmente por este código**: podría tratarse de otra instancia/configuración de
+    la misma clase genérica reutilizada para drenar la cola de `FT_T_FAB1` en otro punto no aportado, o el
+    comentario podría ser impreciso — no se puede confirmar cuál sin más contexto (p. ej. dónde se
+    instancia `ThreadComprobacion` y con qué cola). **3 hallazgos nuevos con este código:**
+    (a) el campo `connection` nunca se inicializa en el constructor (queda `null`) — cualquier llamada real a
+    `jdbc.ejecutarQuery(this.connection, ...)` fallaría o dependería de que `Querys` obtenga la conexión por
+    otra vía no visible aquí; (b) el bucle `while(condicion)` no tiene ninguna espera (`sleep`/`wait`) cuando
+    la cola está vacía — es un *busy-loop* que consume CPU de forma continua hasta que `Querys.fin` se active;
+    (c) el elemento se retira de la cola (`remove(0)`) **antes** de ejecutar la sentencia — si
+    `jdbc.ejecutarQuery` lanza una excepción, la inserción ya se ha perdido de la cola y **no se reintenta ni
+    se registra en el fichero de auditoría** (el `catch` genérico solo imprime la traza por consola).
 * **`Evento(Errores)`:** **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El documento fuente lo
   describe como "Activa el gestor de eventos de error para capturar, clasificar y registrar cualquier
   anomalía ocurrida durante las fases previas". El evento invocado como `Errores` en el pipeline es, con
@@ -273,6 +288,7 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
 | `conflicto_integridad` | Cierre en cascada del cliente local y, si corresponde, del global, al no quedarle contrapartidas operativas activas. | TC-010 |
 | `borde` | Caso especial de entidad mexicana (Altamira, `ORG_ID='1145'`): migración de identificadores y domicilio fiscal del cerrado al destino. | TC-011 |
 | `error_funcional` | Las 5 excepciones controladas de `REFUNDICION` insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
+| `conflicto_integridad` | `ThreadComprobacion` no reintenta ni audita una sentencia RLT1 que falla al ejecutarse (se retira de la cola antes de intentarlo). | TC-013 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -292,9 +308,14 @@ cascada local/global, el caso especial de entidades mexicanas (Altamira), y el d
   desactiva folios cancelados filtra por `STAT_DEF_ID='NUMFOLIO'` pero escribe `STAT_DEF_ID='NUMFOLII'`
   (errata de una letra) — cualquier consumidor externo que busque el valor correcto `'NUMFOLIO'` para
   identificar folios ya inactivados no encontraría estas filas.
-* **Clase `ThreadComprobacion` no aportada (§6.1, G4):** referenciada en un comentario del código como
-  responsable de ejecutar en diferido los `UPDATE` de `FT_T_FAB1` acumulados — su lógica real (cuándo se
-  dispara, con qué frecuencia) no está documentada en el material disponible.
+* **[NUEVO, prioridad media, confirmado con código real] `ThreadComprobacion.java` (§6.1, G4):** el código
+  real aportado esta ronda drena una cola de inserciones `FT_T_RLT1` (`Querys.insercionesRLT1`), no hace
+  referencia a `ConDB`/`FT_T_FAB1` — sigue sin confirmar qué mecanismo real ejecuta en diferido los `UPDATE`
+  de `FT_T_FAB1` acumulados en `ConDB.getUpdatesFAB1()`. Además, el propio código de `ThreadComprobacion`
+  revela 3 hallazgos propios: el campo `connection` nunca se inicializa (queda `null`), el bucle de drenaje
+  es un *busy-loop* sin espera cuando la cola está vacía, y una sentencia SQL que falla al ejecutarse se
+  pierde silenciosamente (se retira de la cola antes de ejecutarse, sin reintento ni registro en el fichero
+  de auditoría).
 * **Reprocesamiento automático vía `MarcaRegErroneo` (§6.1, G3):** al estar `Delta=Si` en
   `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
   `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) queda marcado para
@@ -352,3 +373,14 @@ excepciones que sí alimenta el reprocesamiento automático de `ErroresCSV`) y 6
 (TC-007 a TC-012). **Esto es un componente distinto de `Workflow(RDR_Clientela460)`/`ConContrato460.java`
 (G4)**, que sigue sin confirmación explícita de invocación — ambos workflows conviven en el mismo pipeline
 (R2) pero resuelven cosas distintas: éste, la propia refundición de clientela; aquél, la conciliación C460.
+
+**Ronda adicional (2026-09-30):** se aportó `ThreadComprobacion.java` — el código real confirma un hilo en
+segundo plano que drena una cola estática de sentencias SQL pendientes (`Querys.insercionesRLT1`) con
+auditoría en fichero, pero **el código drena inserciones `FT_T_RLT1`, no hace referencia a `ConDB` ni a
+`FT_T_FAB1`** — no corrobora literalmente la afirmación del comentario de `ConContrato460.java` de que esta
+clase ejecuta las actualizaciones diferidas de `FT_T_FAB1`. G4 sigue, por tanto, sin confirmación al 100%
+(ni de la invocación de `ConContrato460`, ni de qué mecanismo real drena `ConDB.getUpdatesFAB1()`) — pero no
+sin material nuevo: el código real de `ThreadComprobacion` revela 3 hallazgos propios (conexión JDBC nunca
+inicializada, *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución), útiles
+para diseñar pruebas sobre este mecanismo con independencia de a qué cola concreta esté drenando en
+producción.

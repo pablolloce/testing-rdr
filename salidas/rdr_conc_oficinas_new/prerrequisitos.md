@@ -62,5 +62,5 @@
 - **Importante:** el paso 4 (`MEKYTL0243`) es un job real (`TASKTYPE="Job"`, confirmado en Control-M)
   configurado contra un destino inerte en producción — no asumir que existe una transferencia real de datos
   hacia `XCOMWPMER` al diseñar pruebas de integración con sistemas consumidores.
-- **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` no está documentada — si en el futuro se aporta su contenido,
-  debe tratarse como una especificación nueva, no como una extensión de esta.
+- **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado (`salidas/rdr_carga_plazas_trad_new/`),
+  como especificación independiente, no como extensión de esta.

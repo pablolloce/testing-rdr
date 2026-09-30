@@ -18,10 +18,10 @@
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
-> `RDR_CONC_OFICINAS_new`, `RDR_REUBICACION_new`), pero **solo trae contenido detallado de 2** — esta cadena y
+> `RDR_CONC_OFICINAS_new`, `RDR_REUBICACION_new`), pero **solo traía contenido detallado de 2** — esta cadena y
 > `RDR_CONC_OFICINAS_new` (documentada por separado en `salidas/rdr_conc_oficinas_new/`).
-> `RDR_CARGA_PLAZAS_TRAD_new` no tiene ninguna sección en el documento aportado — no se ha creado
-> especificación para ella (ver §8.2 de `rdr_conc_oficinas_new/spec.md`). Las cadenas de informe/simulación de
+> `RDR_CARGA_PLAZAS_TRAD_new` no tenía ninguna sección en el documento original, pero **queda documentada por
+> separado esta misma ronda** (`salidas/rdr_carga_plazas_trad_new/`). Las cadenas de informe/simulación de
 > cierre están explícitamente fuera de alcance del documento fuente.
 >
 > **Estado: topología, TASKTYPE real de los 6 jobs, Fan-In, el mecanismo de salto por RC=7 y la lógica real de
@@ -111,7 +111,7 @@ nuevos TC-011 a TC-014.
 * **Ámbito técnico:** la cadena Control-M `RDR_REUBICACION_new` completa (6 pasos, topología Fan-Out/Fan-In).
 * **Fuera de alcance** (detalle completo en §8.2): el contenido interno de `ControlCargaDatos.jar`; el
   significado exacto del código de retorno 7; el motivo real de la discrepancia
-  MEKYTL0122/MEKYTL0234 (RISK-REUB-004); la cadena `RDR_CARGA_PLAZAS_TRAD_new`; las cadenas downstream de
+  MEKYTL0122/MEKYTL0234 (RISK-REUB-004); las cadenas downstream de
   informe/simulación/difusión de cierre (aunque ahora se conocen los 3 primeros nombres reales de la interfaz
   de difusión — ver §5). La lógica real de negocio del `Sub_Load` (procedimiento `REUBICACION`), `LimpiarReubicacion` y el
   `select.properties` de reporting quedan **confirmados** esta ronda — ver R3b y R3e.
@@ -335,9 +335,8 @@ a que el diseño original pedía eliminarla.
   sistema de alertas operativo.
 * **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
   no confirmado.
-* **`RDR_CARGA_PLAZAS_TRAD_new`** y el contenido interno de la cadena downstream de difusión (se conocen ya
-  los 3 primeros nombres reales — `RDR_DIFUSION_BATCH_IN`, `KYTL_DIF_BATCH_GSPROCESS`, `MEKYTL0251` — pero no
-  su lógica ni sus fichas).
+* **Contenido interno de la cadena downstream de difusión** (se conocen ya los 3 primeros nombres reales —
+  `RDR_DIFUSION_BATCH_IN`, `KYTL_DIF_BATCH_GSPROCESS`, `MEKYTL0251` — pero no su lógica ni sus fichas).
 
 ## 9. Conclusión
 
@@ -389,6 +388,7 @@ ficha de `MEKYTL0234`), y revelan una nueva discrepancia entre fuentes oficiales
 declara criticidad W, pero las 4 fichas de job EX-005-03 declaran todas C (RISK-REUB-009) — el mismo patrón
 metodológico que ya reveló RISK-REUB-004, aplicado ahora a la clasificación de criticidad. Los elementos que
 siguen sin material propio (`ControlCargaDatos.jar`, causa del código 7, motivo de la discrepancia
-RISK-REUB-004, motivo de la discrepancia de criticidad RISK-REUB-009, el valor real de
-`FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, y la cadena
-`RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.
+RISK-REUB-004, motivo de la discrepancia de criticidad RISK-REUB-009, y el valor real de
+`FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`) quedan listados
+en §8.2 como fuera de alcance. **La cadena hermana `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado
+esta misma ronda** (`salidas/rdr_carga_plazas_trad_new/`).

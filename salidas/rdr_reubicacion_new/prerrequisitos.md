@@ -72,8 +72,8 @@
   explícitamente que "MEKYTL0122 no debe tener dependencia de MEKYTL0234" — pero esa dependencia **sigue
   existiendo** en la configuración real de Control-M. Antes de diseñar pruebas que traten esa dependencia
   como un hecho aceptado, confirmar con el equipo funcional/de desarrollo si es intencional (TC-010).
-- **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` no está documentada — si en el futuro se aporta su contenido,
-  debe tratarse como una especificación nueva, no como una extensión de esta ni de `RDR_CONC_OFICINAS_new`.
+- **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado (`salidas/rdr_carga_plazas_trad_new/`),
+  como especificación independiente, no como extensión de esta ni de `RDR_CONC_OFICINAS_new`.
 - **Nota:** el campo "Rearranques" de la ficha EX-005-02 (chain-level) de esta cadena está vacío — no hay un
   procedimiento de rearranque documentado formalmente a nivel de cadena (a diferencia de
   `RDR_CONC_OFICINAS_new`, que sí lo tiene). **Matiz confirmado esta ronda:** las 4 fichas EX-005-03 (job-level)
