@@ -206,4 +206,43 @@
     <posibilidadFallo>Si el reporte arrastra filas de una ejecución anterior (fallo del filtro por último job cerrado), sería un hallazgo a documentar.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-011" tipo="happy_path">
+    <nombre>LimpiarOficinas filtra correctamente por código de banco 0182</nombre>
+    <objetivo>Confirmar que la función real LimpiarOficinas conserva la cabecera, filtra oficinas.csv quedándose solo con las filas cuyo primer campo es exactamente "0182", y genera la copia de seguridad old/oficinas_prelimpieza.csv con el fichero original sin filtrar.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv de prueba con una mezcla de filas con código de banco 0182 y con otros códigos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Filtro real confirmado" valor="grep &quot;^0182;&quot; oficinas.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv con filas 0182 y filas de otros códigos de banco.</paso>
+      <paso numero="2">Ejecutar el paso 2 (KYTL_CONOFI_GSPROCESS) y confirmar que oficinas.csv resultante contiene la cabecera y solo las filas 0182.</paso>
+      <paso numero="3">Confirmar que old/oficinas_prelimpieza.csv contiene el fichero original completo (sin filtrar), como backup.</paso>
+    </pasos>
+    <resultadoEsperado>Solo las oficinas con código de banco 0182 llegan a Delta.sh/GoldenSource; el fichero original queda respaldado íntegro.</resultadoEsperado>
+    <tipoValidacion>Comparación directa de oficinas.csv resultante y old/oficinas_prelimpieza.csv contra el fichero de entrada.</tipoValidacion>
+    <criterioAceptacion>Filtro y backup confirmados exactamente como en el código real.</criterioAceptacion>
+    <posibilidadFallo>Si alguna fila de otro código de banco pasa el filtro, o el backup no contiene el fichero completo original, contradice el código confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>LimpiarOficinas aborta si ninguna fila es del banco 0182</nombre>
+    <objetivo>Confirmar que, si oficinas.csv no contiene ninguna fila con código de banco 0182, la función real LimpiarOficinas aborta el job con error_exit (grep devuelve fallo), en vez de continuar con un fichero vacío hacia Delta.sh/GoldenSource.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv de prueba sin ninguna fila cuyo primer campo sea "0182".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comportamiento esperado del grep" valor="grep sin coincidencias devuelve código de salida distinto de 0 -&gt; error_exit"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv sin ninguna fila de código de banco 0182.</paso>
+      <paso numero="2">Ejecutar el paso 2 y confirmar que el job termina en KO por error_exit, sin llegar a Delta.sh/GoldenSource.</paso>
+    </pasos>
+    <resultadoEsperado>El job falla de forma real y visible, sin procesar un fichero vacío ni marcar éxito falso.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M + log de error_exit señalando el fallo en "grep".</tipoValidacion>
+    <criterioAceptacion>Fallo real confirmado ante ausencia total de filas 0182.</criterioAceptacion>
+    <posibilidadFallo>Si el job continúa pese a la ausencia total de filas 0182, contradice el código confirmado (grep sin coincidencias siempre falla).</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

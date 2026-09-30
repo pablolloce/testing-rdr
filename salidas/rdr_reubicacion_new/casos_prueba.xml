@@ -292,4 +292,44 @@
     <posibilidadFallo>Si el equipo funcional considera esta falta de trazabilidad inaceptable, debe elevarse como defecto, no solo como riesgo documentado.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-015" tipo="happy_path">
+    <nombre>LimpiarReubicacion confirma el layout real de columnas de Reubicacion.csv</nombre>
+    <objetivo>Confirmar que, tras el preprocesado real (cut -f 1,2,5,6 -d ";"), la oficina que se cierra llega a Sub_Load desde la columna 2 del Reubicacion.csv original, y la oficina destino desde la columna 6 — no la columna 4, corrigiendo lo documentado en la ronda anterior.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv de prueba con valores distintos y reconocibles en cada una de sus 6+ columnas, para poder rastrear cuál llega como oficina de cierre y cuál como destino.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comando real confirmado" valor="cut -f 1,2,5,6 -d &quot;;&quot; Reubicacion.csv | sort -ur"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar una línea de Reubicacion.csv con valores únicos y reconocibles en las columnas 1 a 6.</paso>
+      <paso numero="2">Ejecutar el paso 2 (KYTL_REU_GSPROCESS) y confirmar en la reubicación resultante que la oficina de cierre corresponde al valor de la columna 2 original.</paso>
+      <paso numero="3">Confirmar que la oficina destino corresponde al valor de la columna 6 original, no al de la columna 4.</paso>
+    </pasos>
+    <resultadoEsperado>El layout de columnas queda confirmado exactamente como en el código real: columna 2 = cierre, columna 6 = destino.</resultadoEsperado>
+    <tipoValidacion>Comparación directa entre los valores de entrada y el resultado real de la reubicación en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Mapeo de columnas confirmado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si el valor de la columna 4 aparece como destino en vez del de la columna 6, indicaría una versión distinta del script a la analizada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="conflicto_integridad">
+    <nombre>Deduplicación silenciosa de LimpiarReubicacion sobre columnas descartadas</nombre>
+    <objetivo>Confirmar que 2 filas del Reubicacion.csv original que comparten exactamente los valores de las columnas 1, 2, 5 y 6, pero difieren en las columnas 3 y/o 4 (descartadas por el cut), se colapsan en una sola línea por el sort -u, procesándose como una única reubicación en vez de 2.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv de prueba con 2 filas idénticas en columnas 1,2,5,6 pero distintas en columnas 3/4.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo real confirmado" valor="sort -ur deduplica por línea completa de las 4 columnas retenidas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar 2 filas con columnas 1,2,5,6 idénticas y columnas 3/4 distintas.</paso>
+      <paso numero="2">Ejecutar el paso 2 y confirmar en Reubicacion.tmp que solo queda 1 línea tras el preprocesado.</paso>
+      <paso numero="3">Confirmar que Sub_Load procesa una única reubicación para ese par de oficinas, no 2.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento de deduplicación confirmado tal como en el código; documentar como hallazgo si negocio esperaba procesar ambas filas por separado.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Reubicacion.tmp + conteo de reubicaciones procesadas en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Deduplicación confirmada exactamente como en el código real.</criterioAceptacion>
+    <posibilidadFallo>Si negocio consideraba que las columnas 3/4 distinguían instrucciones de reubicación independientes, esta deduplicación es un defecto a elevar (RISK-REUB-008), no un comportamiento aceptado.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

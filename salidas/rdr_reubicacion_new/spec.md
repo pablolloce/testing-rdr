@@ -8,9 +8,10 @@
 > detrás de `Workflow(RDR_Reubicacion)`), **`Sub_Load.wkf`** (sub-workflow con la lógica real de negocio/PL·SQL,
 > procedimiento `REUBICACION` completo), **`select_1.properties`** (fichero de reporting real, confirma la
 > consulta y cabecera exactas de `Reporte_Reubicacion.csv`), **`RAMERC0068.sh`** (motor genérico de
-> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0122`) y **`MEGENV0001.sh`** (motor
+> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0122`), **`MEGENV0001.sh`** (motor
 > genérico de envíos, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
-> `FALLA_NO_FICHERO` de `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`). Detalle completo de evidencia en
+> `FALLA_NO_FICHERO` de `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`) y la función real **`LimpiarReubicacion`**
+> (confirma y corrige el layout real de columnas de `Reubicacion.csv`, ver R3a). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
@@ -105,11 +106,11 @@ nuevos TC-011 a TC-014.
 * **Ámbito funcional:** procesado, carga en GoldenSource, generación de reportes y distribución de la
   reubicación de oficinas tras un cierre, con historificación final.
 * **Ámbito técnico:** la cadena Control-M `RDR_REUBICACION_new` completa (6 pasos, topología Fan-Out/Fan-In).
-* **Fuera de alcance** (detalle completo en §8.2): el contenido interno de `ControlCargaDatos.jar` y de
-  `LimpiarReubicacion`; el significado exacto del código de retorno 7; el motivo real de la discrepancia
+* **Fuera de alcance** (detalle completo en §8.2): el contenido interno de `ControlCargaDatos.jar`; el
+  significado exacto del código de retorno 7; el motivo real de la discrepancia
   MEKYTL0122/MEKYTL0234 (RISK-REUB-004); la cadena `RDR_CARGA_PLAZAS_TRAD_new`; las cadenas downstream de
   informe/simulación/difusión de cierre (aunque ahora se conocen los 3 primeros nombres reales de la interfaz
-  de difusión — ver §5). La lógica real de negocio del `Sub_Load` (procedimiento `REUBICACION`) y el
+  de difusión — ver §5). La lógica real de negocio del `Sub_Load` (procedimiento `REUBICACION`), `LimpiarReubicacion` y el
   `select.properties` de reporting quedan **confirmados** esta ronda — ver R3b y R3e.
 
 ## 3. Requisitos detectados
@@ -119,9 +120,10 @@ nuevos TC-011 a TC-014.
 | R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de **780 min/13h — confirmado en Control-M real**, pese a que la nota de diseño original de la ficha EX-005-02 pedía 4 horas), activo desde las 11:00 AM (`TIMEFROM="1100"`), gobernado por el calendario real `DAYSCAL="RDR_CIERREOFI"` (no genérico: un calendario dedicado a los días de cierre de oficinas). |
 | R1b | **Sin dependencia cruzada real con `RDR_CONC_OFICINAS_new`** — confirmado en el export real: el filewatcher solo tiene como predecesor el calendario `RDR_CIERREOFI`, ningún `INCOND` de otra cadena. La ficha EX-005-02 conserva en su tabla un predecesor cruzado histórico (`KYTL_CONOFI_GSPROCESS`) y una nota de diseño "Eliminar dependencia de oficinas" — consistente con que esa eliminación sí se aplicó en producción. |
 | R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes — **confirmado literalmente en Control-M real**. |
-| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, carga vía un workflow GoldenSource dedicado, generación de reporte (motor genérico confirmado, ver R3d) y conversión de fin de línea (motor genérico confirmado, ver R3c). Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
+| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado (código real confirmado, ver R3a), carga vía un workflow GoldenSource dedicado, generación de reporte (motor genérico confirmado, ver R3d) y conversión de fin de línea (motor genérico confirmado, ver R3c). Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
+| R3a | **`LimpiarReubicacion` (código real confirmado esta ronda, función bash):** `cut -f 1,2,5,6 -d ";" Reubicacion.csv | sort -ur > Reubicacion.tmp` — **selecciona solo las columnas 1, 2, 5 y 6 (1-indexadas) del `Reubicacion.csv` original**, descartando por completo las columnas 3 y 4 (su contenido nunca llega a `Sub_Load` ni a GoldenSource), y ordena+deduplica el resultado en orden inverso sobre la línea completa (`sort -ur`) antes de trocearlo en lotes de 500. **Corrige una imprecisión de la ronda anterior:** al procesar el fichero de 4 columnas resultante (`campos=linea.split(";")`, ver R3b-bis), `campos[1]` corresponde a la **columna 2 original** (oficina que se cierra) y `campos[3]` a la **columna 6 original** (oficina destino) — no a la columna 4, como se documentó antes de tener este código. Sin tolerancia a fallo (`error_exit` si `cut`/`sort` fallan). **Riesgo confirmado con código real:** `sort -u` deduplica por línea completa de las 4 columnas retenidas — 2 filas originales distintas que compartan exactamente los valores de las columnas 1,2,5,6 (aunque difieran en las columnas 3/4 descartadas) se colapsan en 1 sola, sin aviso. |
 | R3b | **`Workflow(RDR_Reubicacion)` identificado con alta confianza como el motor genérico GoldenSource `PLSQL_Load`**, aportado como `PLSQL_Load.wkf`: comentario interno `RDR_UGS87_ASYN_v1`, **versión 8** — coinciden exactamente con el `PLSQL_Load` ya documentado en `salidas/rdr_refundicion/` (mismo workflow, misma versión, mismo comentario), donde ya se confirmó reutilizado por `RDR_Refundicion`/`RDR_Clientela460`. El grupo GoldenSource del propio workflow, `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`, nombra explícitamente ambos procesos (Refundición y Reubicación) — evidencia adicional, no solo coincidencia de versión. Mecánica confirmada: abre el fichero (`ReadFile`), lo trocea en lotes de 500 registros (`FileSplitCondition`), procesa cada mensaje en paralelo mediante el sub-workflow **`Sub_Load`** (comentario interno `RDR_OFI_INACT_V1`, aportado y analizado esta ronda), sincroniza el cierre del lote (`Synchronize`) y cierra el job (`CloseJob`/`EndFile`). El nombre interno del workflow (`PLSQL_Load`) difiere del nombre de invocación (`RDR_Reubicacion`) — mismo patrón de discrepancia de nomenclatura ya visto repetidas veces en esta sesión. |
-| R3b-bis | **`Sub_Load` (código PL·SQL real, confirmado): procedimiento `REUBICACION`.** El workflow discrimina por `properties.messageType` entre 2 ramas ("Reubicacion"/"Refundicion", compartiendo el mismo sub-workflow con `rdr_refundicion`). En la rama Reubicación, un nodo BeanShell previo (`Variable PL`) trocea cada línea CSV por `;` y extrae `oficinaDES=campos[1]` (oficina que se cierra) y `oficinaPER=campos[3]` (oficina destino) — confirma el layout de columnas de `Reubicacion.csv` en las posiciones 2 y 4. El procedimiento PL·SQL `REUBICACION` que se ejecuta a continuación: (1) valida que la oficina de cierre exista en `FT_T_SUFR` (excepción `OFICINAD_NOT_FOUND` si no), (2) valida que exista exactamente 1 oficina destino (`OFICINAP_NOT_FOUND` si 0, `OFICINAP_DUPLICATE` si más de 1), (3) **reasigna (`UPDATE`) todas las relaciones de contrapartida** (`FT_T_SUFR` con `SUBDIV_RL_TYP IN ('TRADES_WITH','RISKPYME')`) de la oficina de cierre hacia la oficina destino, contando cuántas filas se reasignan, (4) si la oficina de cierre estaba `ACTIVE` (comentario interno del código: "Modificación evolutivos contrapartidas 23/07/2018 -> No tener en cuenta contrapartidas inactivas"), inserta 2 filas de auditoría en `FT_T_RLT1` (una confirmando el éxito de la reubicación, otra confirmando el paso a `INACTIVEPEND`), (5) marca `FT_T_SUFR`/`FT_T_SUBD` de la oficina de cierre como `INACTIVE` y **`FT_T_FINS` como `INACTIVEPEND`** (no `INACTIVE` directamente — la oficina queda en un estado "pendiente" tras el cierre, no fuera de alcance). Los 4 escenarios de excepción (oficina de cierre no encontrada, destino no encontrado, destino duplicado, y un `WHEN OTHERS` genérico) insertan su propia fila de auditoría en `FT_T_RLT1` describiendo el error, **sin relanzar la excepción** — el lote de 500 registros continúa procesando el resto de líneas aunque una reubicación individual falle. Ver TC-011 a TC-014. |
+| R3b-bis | **`Sub_Load` (código PL·SQL real, confirmado): procedimiento `REUBICACION`.** El workflow discrimina por `properties.messageType` entre 2 ramas ("Reubicacion"/"Refundicion", compartiendo el mismo sub-workflow con `rdr_refundicion`). En la rama Reubicación, un nodo BeanShell previo (`Variable PL`) trocea cada línea del fichero ya recortado por `LimpiarReubicacion` (ver R3a) por `;` y extrae `oficinaDES=campos[1]` y `oficinaPER=campos[3]` — que, tras confirmar con el código real de `LimpiarReubicacion` (`cut -f 1,2,5,6`), corresponden a las **columnas 2 y 6 del `Reubicacion.csv` original**, no a las columnas 2 y 4 como se documentó antes de tener ese código (corrección de esta ronda). El procedimiento PL·SQL `REUBICACION` que se ejecuta a continuación: (1) valida que la oficina de cierre exista en `FT_T_SUFR` (excepción `OFICINAD_NOT_FOUND` si no), (2) valida que exista exactamente 1 oficina destino (`OFICINAP_NOT_FOUND` si 0, `OFICINAP_DUPLICATE` si más de 1), (3) **reasigna (`UPDATE`) todas las relaciones de contrapartida** (`FT_T_SUFR` con `SUBDIV_RL_TYP IN ('TRADES_WITH','RISKPYME')`) de la oficina de cierre hacia la oficina destino, contando cuántas filas se reasignan, (4) si la oficina de cierre estaba `ACTIVE` (comentario interno del código: "Modificación evolutivos contrapartidas 23/07/2018 -> No tener en cuenta contrapartidas inactivas"), inserta 2 filas de auditoría en `FT_T_RLT1` (una confirmando el éxito de la reubicación, otra confirmando el paso a `INACTIVEPEND`), (5) marca `FT_T_SUFR`/`FT_T_SUBD` de la oficina de cierre como `INACTIVE` y **`FT_T_FINS` como `INACTIVEPEND`** (no `INACTIVE` directamente — la oficina queda en un estado "pendiente" tras el cierre, no fuera de alcance). Los 4 escenarios de excepción (oficina de cierre no encontrada, destino no encontrado, destino duplicado, y un `WHEN OTHERS` genérico) insertan su propia fila de auditoría en `FT_T_RLT1` describiendo el error, **sin relanzar la excepción** — el lote de 500 registros continúa procesando el resto de líneas aunque una reubicación individual falle. Ver TC-011 a TC-014. |
 | R3c | **`Unix2Dos.sh` (código real, confirmado, compartido con `RDR_CONC_OFICINAS_new`)** — motor genérico que convierte saltos de línea Unix a DOS, generando `<nombre>_dos.<ext>` — confirma el origen de `Reporte_Reubicacion_dos.csv` a partir de `Reporte_Reubicacion.csv`. |
 | R3d | **`RDR_Report.jar` (confirmado, compartido con `RDR_CONC_OFICINAS_new` y `rdr_cargalei_new`)** — mismo motor genérico de reporte (paquete `rdr_report`, clase `CreateReport`), sin lógica de negocio propia; parametrizado por `select_1.properties` — ver R3e. |
 | R3e | **`select_1.properties` (fichero real, confirmado): es un único fichero compartido entre al menos 8 procesos del audit** (`Reubicacion`, `oficinas`, `ConBDI`, `ConClientela`, `Refundicion`, `difusion_cparty`, `difusion_batch`, `bancarizacion`), no un fichero "específico de la entidad" como se documentaba antes de esta ronda. La entrada `queryReubicacion` genera `Reporte_Reubicacion.csv` con cabecera `Estado_Reubicacion;Oficina_Cerrada;Oficina_Destino;FINSID_Oficina_Cerrada`, leyendo de `FT_T_RLT1` filtrando `RLT_PURP_TYP='REPORTES'` y `DATA_SRC_APP='REUBICACION'` — **coincide exactamente** con los valores literales (`RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='REUBICACION'`) usados en los `INSERT INTO FT_T_RLT1` del procedimiento `REUBICACION` de `Sub_Load` (R3b-bis) — 2 fuentes de evidencia independientes que se corroboran mutuamente, no una suposición por coincidencia de nombre. La consulta además se acota al último job cerrado con `JOB_MSG_TYP='Reubicacion'`, evitando arrastrar filas de ejecuciones anteriores. |
@@ -216,6 +218,8 @@ a que el diseño original pedía eliminarla.
 - `error_funcional`: TC-012 (oficina de cierre inexistente en `FT_T_SUFR` → excepción `OFICINAD_NOT_FOUND`, fila de auditoría en `FT_T_RLT1`, el resto del lote de 500 sigue procesándose).
 - `error_funcional`: TC-013 (oficina destino inexistente o duplicada → excepciones `OFICINAP_NOT_FOUND`/`OFICINAP_DUPLICATE`, misma tolerancia que TC-012).
 - `conflicto_integridad`: TC-014 (**la oficina de cierre ya estaba `INACTIVE` antes de ejecutar la reubicación** — el código solo inserta las 2 filas de auditoría de éxito si `DATA_STAT_TYPD = 'ACTIVE'`; confirmar que no se pierde trazabilidad cuando la oficina ya estaba inactiva por otra vía).
+- `happy_path`: TC-015 (confirmar el layout real de columnas de `Reubicacion.csv` tras `LimpiarReubicacion`: la columna 2 original llega como oficina de cierre y la columna 6 original como destino — no la 4, corrigiendo la ronda anterior).
+- `conflicto_integridad`: TC-016 (**2 filas del `Reubicacion.csv` original que solo difieran en las columnas 3/4 (descartadas)** deben colapsarse en 1 sola reubicación por el `sort -u` de `LimpiarReubicacion` — confirmar si esto es aceptable o pierde información funcional, RISK-REUB-008).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -224,7 +228,6 @@ a que el diseño original pedía eliminarla.
 | R1, R1b (filewatcher, calendario dedicado, sin dependencia cruzada) | TC-001, TC-006 | Confirma la detección del fichero, el timeout real de 13h, y la ausencia de dependencia con RDR_CONC_OFICINAS_new |
 | R2 (salto por RC=7) | TC-002 | Confirma la causa real del código 7 (el mecanismo ya está confirmado) |
 | R3 (carga vía Workflow RDR_Reubicacion, sin Force-OK) | TC-001 | Confirma el ciclo funcional de carga real |
-| R4, R5 (Force-OK de las 2 ramas XCOM) | TC-004, TC-005 | Confirma que un fallo real en cualquiera de las 2 ramas no bloquea el fan-in |
 | R5 (MEKYTL0234 ejecuta de verdad contra destino inerte) | TC-003 | Confirma en ejecución real el comportamiento del script, no solo su TASKTYPE |
 | R4, R5, R6b (Force-OK + mecanismo real FALLA_NO_FICHERO de MEKYTL0233/MEKYTL0234) | TC-004, TC-005 | Confirma que un fallo real (incluido exit 60/45 si aplica) no bloquea el fan-in |
 | R6 (Force-OK de MEKYTL0111, no documentado en el funcional original) | TC-009 | Confirma el impacto de un fallo real en la transmisión del reporte |
@@ -234,6 +237,8 @@ a que el diseño original pedía eliminarla.
 | R3b-bis (procedimiento REUBICACION: reasignación de contrapartidas) | TC-011 | Confirma la reasignación real de relaciones y el estado final INACTIVEPEND |
 | R3b-bis (validaciones controladas del procedimiento REUBICACION) | TC-012, TC-013 | Confirma que un registro individual erróneo no detiene el procesado del lote |
 | R3b-bis (auditoría condicionada al estado ACTIVE previo) | TC-014 | Confirma el comportamiento de trazabilidad cuando la oficina de cierre ya no estaba activa |
+| R3a (layout real de columnas confirmado por `LimpiarReubicacion`) | TC-015 | Confirma que la oficina destino viene de la columna 6 original, no la 4 |
+| R3a (deduplicación de `sort -u` sobre columnas 3/4 descartadas) | TC-016 | Confirma el comportamiento ante 2 filas que colapsan en 1 sola (RISK-REUB-008) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -281,10 +286,17 @@ a que el diseño original pedía eliminarla.
   si la oficina de cierre estaba `ACTIVE` antes de ejecutar la reubicación — si ya estaba `INACTIVE` por otra
   vía, la reasignación de contrapartidas se ejecuta igualmente, pero sin dejar constancia en `FT_T_RLT1`
   (ver TC-014).
+* **RISK-REUB-008 [nuevo, no bloqueante, confirmado con código real de `LimpiarReubicacion`]:** el paso de
+  preprocesado (`cut -f 1,2,5,6 | sort -ur`) deduplica por línea completa de las 4 columnas retenidas. Si 2
+  filas del `Reubicacion.csv` original difieren solo en las columnas 3 o 4 (descartadas por el `cut` y de
+  semántica no confirmada), pero coinciden en las columnas 1, 2, 5 y 6, se colapsan silenciosamente en 1 sola
+  reubicación — sin ningún aviso ni error. Si esas columnas descartadas tuvieran algún significado funcional
+  relevante (p. ej. distinguir 2 instrucciones de reubicación distintas para la misma pareja de oficinas), esa
+  distinción se pierde antes de llegar a `Sub_Load`.
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
-* **Contenido interno de `ControlCargaDatos.jar`** y del script `LimpiarReubicacion`.
+* **Contenido interno de `ControlCargaDatos.jar`** (`LimpiarReubicacion` queda confirmado con código real — ver R3a).
 * **Significado exacto del código de retorno 7** del filewatcher (mismo punto abierto que en
   `RDR_CONC_OFICINAS_new`).
 * **Valor real configurado de `FALLASINOFICHS`** para la clave `MEKYTL0122` en
@@ -336,8 +348,14 @@ documentado el 2026-09-24 en `rdr_envio_cliex` y ya aplicado a `MEKYTL0243` en `
 aplicado ahora a `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, confirma que su tolerancia real en sentido PUT
 depende de `FALLA_NO_FICHERO` de cada clave (`"SI"` = fallo real `exit 60`/`exit 45`; cualquier otro valor =
 tolera) — el Force-OK de estos 3 jobs ya no enmascara una caja negra, sino un mecanismo de fallo con causa y
-código de salida conocidos (R6b). Los elementos que siguen sin material propio
-(`ControlCargaDatos.jar`/`LimpiarReubicacion`, causa del código 7, motivo de la discrepancia RISK-REUB-004,
-el valor real de `FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`,
-y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de
-alcance.
+código de salida conocidos (R6b). **También se aportó el código real de la función `LimpiarReubicacion`**
+(R3a): `cut -f 1,2,5,6 -d ";" | sort -ur` confirma que solo las columnas 1, 2, 5 y 6 (1-indexadas) del
+`Reubicacion.csv` original sobreviven al preprocesado — lo que **corrige una imprecisión de la ronda
+anterior**: la oficina destino (`oficinaPER`) no está en la columna 4 del fichero original, sino en la
+columna 6 (la columna 2 sí era correcta para la oficina de cierre). Esto añade un riesgo nuevo
+(RISK-REUB-008): `sort -u` deduplica por línea completa de las 4 columnas retenidas, colapsando
+silenciosamente filas originales distintas que solo difirieran en las columnas 3/4 descartadas. Los elementos
+que siguen sin material propio (`ControlCargaDatos.jar`, causa del código 7, motivo de la discrepancia
+RISK-REUB-004, el valor real de `FALLASINOFICHS`/`FALLA_NO_FICHERO` para
+`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del
+documento fuente) quedan listados en §8.2 como fuera de alcance.

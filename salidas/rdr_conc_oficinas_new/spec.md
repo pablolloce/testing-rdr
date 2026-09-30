@@ -18,10 +18,11 @@
 > evidencia real** (ficha EX-005-02 + export de Control-M). Esta ronda añade la confirmación de
 > `select_1.properties` (fichero de reporting real, compartido con al menos otros 7 procesos del audit), de
 > `compare.jar` (clase real confirmada, invocada por `Delta.sh`), de `RAMERC0068.sh` (motor genérico de
-> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0242`) y de `MEGENV0001.sh` (motor
+> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0242`), de `MEGENV0001.sh` (motor
 > genérico de envíos/recogidas, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
-> `FALLA_NO_FICHERO`/`exit 60`/`exit 45` de `MEKYTL0243`). Solo quedan fuera de alcance el contenido
-> interno de `ControlCargaDatos.jar`/`LimpiarOficinas`, el algoritmo interno (bytecode) de `compare.jar`, el
+> `FALLA_NO_FICHERO`/`exit 60`/`exit 45` de `MEKYTL0243`) y de las funciones reales **`LimpiarOficinas`**
+> (filtro real por código de banco `0182`, ver R3a). Solo quedan fuera de alcance el contenido
+> interno de `ControlCargaDatos.jar`, el algoritmo interno (bytecode) de `compare.jar`, el
 > significado exacto del código 7, la cadena `RDR_CARGA_PLAZAS_TRAD_new`, y el valor real configurado de
 > `FALLASINOFICHS`/`FALLA_NO_FICHERO` para las claves `MEKYTL0242`/`MEKYTL0243` (mecanismos ya confirmados con
 > código real, `RAMERC0068.sh`/`MEGENV0001.sh` — ver R4b/R5b) (§8.2).
@@ -51,7 +52,7 @@ confirmado por la configuración real de Control-M.
 * **Ámbito funcional:** monitoreo de llegada, conciliación y carga en RDR del fichero de oficinas, con
   historificación local y cierre de cadena.
 * **Ámbito técnico:** la cadena Control-M `RDR_CONC_OFICINAS_new` completa (4 pasos).
-* **Fuera de alcance** (detalle completo en §8.2): contenido interno de `LimpiarOficinas`; la lógica de mapeo
+* **Fuera de alcance** (detalle completo en §8.2): la lógica de mapeo
   de campos dentro de `ControlCargaDatos.jar` (existencia y estructura ya confirmadas, contenido bytecode no
   decompilado); el algoritmo interno (bytecode) de comparación de `compare.jar` (existencia, paquete y clase
   ya confirmados — ver R3e); el significado exacto del código de retorno 7 del filewatcher; la cadena
@@ -65,7 +66,8 @@ confirmado por la configuración real de Control-M.
 | R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 240 min/4h) — comando confirmado literalmente en el export real de Control-M. |
 | R1b | Día de ejecución confirmado por **2 fuentes independientes** (documento funcional + ficha oficial EX-005-02): **martes a sábado**. Calendario `RDR_FEST_HOST` confirmado en el export real. |
 | R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. |
-| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, cálculo de delta (código real de `Delta.sh` confirmado, ver R3b), carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
+| R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado (código real confirmado, ver R3a), cálculo de delta (código real de `Delta.sh` confirmado, ver R3b), carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
+| R3a | **`LimpiarOficinas` (código real confirmado esta ronda, función bash):** **filtra `oficinas.csv` por código de banco, quedándose solo con las filas cuyo primer campo empiece por `0182;`** (código de banco de BBVA en España) — vía `grep "^0182;"`. Conserva la cabecera (`head -1`). El fichero original recibido (previo al filtro) se conserva como copia de seguridad en `old/oficinas_prelimpieza.csv`, y el fichero filtrado sustituye al `oficinas.csv` que procesan `Delta.sh` y el resto del pipeline. **Cualquier fallo en `head`/`grep`/`mv` aborta el job con `error_exit`** (sin tolerancia, consistente con que este es uno de los 2 únicos pasos de la cadena sin Force-OK). **Riesgo confirmado con código real:** el filtro por `"0182"` está fijado (hardcoded); si el fichero recibido contuviera legítimamente oficinas bajo otro código de banco (p. ej. una entidad fusionada con código distinto), quedarían excluidas silenciosamente sin generar ningún error — `grep` solo falla si **ninguna** línea casa con `0182`, no si faltan líneas de otros bancos que debieran incluirse. |
 | R3b | **`Delta.sh` (código real, confirmado) es un motor genérico compartido** (autor "NFOQUE", 2015 — no específico de oficinas, parametrizado por `$MOD_EJECUCION`), invocado con `Delta="Si"`: compara el fichero de entrada contra la copia del día anterior (`old/$MOD_EJECUCION.csv`) mediante una clase Java (`es.bbva.kytl.scripts.Compare`, jar `compare.jar`) y deja en `$FILE_CARGA` **solo las filas incrementales**, moviendo el fichero completo del día a `/old/` como nueva base de comparación. Si no existe copia anterior (primera carga), la genera vacía, de forma que el "delta" es el fichero completo. **Mecanismo de seguridad ante relanzamiento (`marcha_atras`):** si el fichero de carga y el `_old` de backup tienen marcas de tiempo con menos de 5 segundos de diferencia, asume que el delta ya se ejecutó y restaura los ficheros de backup en vez de recalcular — evita duplicar el delta en un relanzamiento inmediato. **`compare.jar` confirmado esta ronda:** inspección de su manifiesto/estructura confirma exactamente la clase `es/bbva/kytl/scripts/Compare.class` que `Delta.sh` invoca — coincidencia exacta de paquete y nombre, no una suposición; el algoritmo interno de comparación fila a fila permanece en bytecode no decompilado (ver §8.2). |
 | R3c | **`Unix2Dos.sh` (código real, confirmado) es otro motor genérico compartido** (mismo autor "NFOQUE", 2015): recibe un fichero, detecta el entorno comprobando qué directorio `/fichtemcomp/<env>` existe (una 3ª convención de detección de entorno distinta de las 2 ya vistas en otros procesos de esta sesión — prefijo de hostname, o 2º carácter), y convierte los saltos de línea Unix a DOS (`sed 's/$/\r/'`) generando un fichero de salida `<nombre_sin_extensión>_dos.<extensión>` — **confirma literalmente que `Reporte_oficinas_dos.csv` es el resultado de convertir a formato DOS el `Reporte_oficinas.csv`** generado por `RDR_Report.jar`, antes del envío XCOM del paso 4. Sin lógica de negocio ni tolerancia a fallos propia. |
 | R3d | **`RDR_Report.jar` (confirmado): es el mismo motor genérico de reporte ya usado en `rdr_cargalei_new`** (paquete `rdr_report`, clase principal `rdr_report.CreateReport`, más `rdr_report.jdbc.JDBCAcceso` y utilidades) — no contiene lógica de negocio propia de oficinas; se parametriza en tiempo de ejecución con `select_1.properties` — ver R3e. |
@@ -141,6 +143,8 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 - `regresion`: TC-007 (confirmar que el paso 4 sigue configurado contra un destino inerte y no transmite datos reales).
 - `regresion`: TC-008 (topología completa de 4 pasos y consumo del recurso `MAX-LPRDR501`).
 - `conflicto_integridad`: TC-009 (mecanismo de seguridad `marcha_atras` de `Delta.sh` ante relanzamiento inmediato).
+- `happy_path`: TC-011 (confirmar que `LimpiarOficinas` filtra correctamente por código de banco `0182`, conservando cabecera y generando la copia de seguridad `old/oficinas_prelimpieza.csv`).
+- `conflicto_integridad`: TC-012 (**fichero de entrada sin ninguna fila `0182`** → `LimpiarOficinas` debe abortar el job con `error_exit`, no continuar con un fichero vacío).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -153,6 +157,7 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 | R5, R5b (transmisión a destino inerte, mecanismo real `FALLA_NO_FICHERO` confirmado) | TC-006, TC-007 | Confirma si la ausencia de fichero detiene la cadena o no, según el valor real configurado para `MEKYTL0243` |
 | R6 (recurso compartido) | TC-008 | Confirma el consumo del recurso `MAX-LPRDR501`, compartido con `RDR_REUBICACION_new` |
 | R3b (marcha_atras de Delta.sh) | TC-009 | Confirma que un relanzamiento inmediato no duplica ni corrompe el cálculo del delta |
+| R3a (filtro real `LimpiarOficinas`, código de banco `0182`) | TC-011, TC-012 | Confirma el filtro y el comportamiento ante ausencia total de filas `0182` (RISK-CONOFI-003) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -169,11 +174,17 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 * **RISK-CONOFI-002 [no bloqueante]:** máximo de relanzamientos configurado a 0 — cualquier fallo real en
   cualquiera de los 4 pasos requiere intervención manual completa (relanzamiento por ANS RDR), sin reintento
   automático.
+* **RISK-CONOFI-003 [nuevo, prioridad media, confirmado con código real de `LimpiarOficinas`]:** el filtro de
+  entrada `grep "^0182;"` deja pasar únicamente filas cuyo código de banco (primer campo) sea exactamente
+  `0182` (BBVA España). Este valor está fijado en el código (hardcoded), no es un parámetro configurable
+  visible. Si el fichero de origen incluyera legítimamente oficinas bajo otro código de banco, quedarían
+  excluidas de la carga en RDR **sin ningún error ni alerta** — el script solo aborta si el filtro no
+  encuentra **ninguna** fila `0182` en todo el fichero, no si excluye filas válidas de otro código.
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
-* **Contenido interno de `ControlCargaDatos.jar`** y de `LimpiarOficinas` — se conoce el orden de invocación y su propósito general, no su
-  lógica de mapeo/validación de campos.
+* **Contenido interno de `ControlCargaDatos.jar`** — se conoce el orden de invocación y su propósito general,
+  no su lógica de mapeo/validación de campos. (`LimpiarOficinas` queda confirmado con código real — ver R3a.)
 * **Significado exacto del código de retorno 7** del filewatcher — confirmado el mecanismo de salto (R2), no
   la causa que lo dispara (p. ej. ¿fichero vacío?, ¿calendario sin cierre ese día?).
 * **Valor real configurado de `FALLASINOFICHS`** para la clave `MEKYTL0242` en
@@ -219,8 +230,13 @@ mecanismo queda confirmado (R4b), el valor concreto configurado para `MEKYTL0242
 `rdr_envio_cliex`): aplicado ahora a `MEKYTL0243`, confirma que su tolerancia real a fichero ausente en sentido
 PUT depende de `FALLA_NO_FICHERO` de la fila de configuración de esa clave (`"SI"` = fallo real `exit 60` si no
 hay ficheros que casen la máscara, o `exit 45` si un fichero concreto falta; cualquier otro valor = tolera) —
-mecanismo confirmado (R5b), valor concreto configurado para `MEKYTL0243` no. Los elementos que siguen
-sin material propio (contenido interno de `ControlCargaDatos.jar`/`LimpiarOficinas`, el bytecode de
+mecanismo confirmado (R5b), valor concreto configurado para `MEKYTL0243` no. **Se aportó además el código
+real de la función `LimpiarOficinas`** (R3a): confirma que el primer paso del pipeline **filtra `oficinas.csv`
+por código de banco, quedándose solo con las filas `0182` (BBVA España)** vía `grep`, conservando el fichero
+original sin filtrar como copia de seguridad (`old/oficinas_prelimpieza.csv`) — con fallo real (sin
+tolerancia) si el filtro no encuentra ninguna fila `0182`. Esto añade un riesgo nuevo (RISK-CONOFI-003): al
+estar el código de banco fijado en el script, cualquier oficina bajo otro código quedaría excluida sin alerta.
+Los elementos que siguen sin material propio (contenido interno de `ControlCargaDatos.jar`, el bytecode de
 `compare.jar`, causa del código 7, el valor real de `FALLASINOFICHS`/`FALLA_NO_FICHERO` para
 `MEKYTL0242`/`MEKYTL0243`, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan
 listados en §8.2 como fuera de alcance.

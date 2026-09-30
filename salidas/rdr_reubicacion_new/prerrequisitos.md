@@ -30,6 +30,10 @@
   `FALLA_NO_FICHERO` de la fila de configuración de cada clave en su propio `.idx` (`"SI"` = fallo real
   `exit 60`/`exit 45`; cualquier otro valor = tolera). **El valor concreto configurado para las 3 claves no
   ha sido aportado** — ver `spec.md` R6b.
+- Función `LimpiarReubicacion` operativa — **código real confirmado esta ronda**: `cut -f 1,2,5,6 -d ";" |
+  sort -ur`. Confirma y **corrige** el layout real de columnas de `Reubicacion.csv` (oficina de cierre =
+  columna 2 original; oficina destino = columna 6 original, no la 4 como se documentó antes). Sin tolerancia
+  a fallo. Ver `spec.md` R3a, RISK-REUB-008 (deduplicación silenciosa sobre columnas 3/4 descartadas).
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM, 3 invocaciones
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia

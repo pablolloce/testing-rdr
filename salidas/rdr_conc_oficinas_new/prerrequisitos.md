@@ -34,6 +34,10 @@
   `rdr_envio_cliex`): su tolerancia real en sentido PUT depende de `FALLA_NO_FICHERO` de la fila de
   configuración de la clave en su propio `.idx` (`"SI"` = fallo real `exit 60`/`exit 45`; cualquier otro
   valor = tolera). **El valor concreto configurado para `MEKYTL0243` no ha sido aportado** — ver `spec.md` R5b.
+- Función `LimpiarOficinas` operativa — **código real confirmado esta ronda**: filtra `oficinas.csv` por
+  código de banco `0182` (BBVA España) vía `grep`, con backup del fichero original en
+  `old/oficinas_prelimpieza.csv`. Sin tolerancia a fallo (aborta con `error_exit` si el filtro no encuentra
+  ninguna fila `0182`). Ver `spec.md` R3a, RISK-CONOFI-003.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con
