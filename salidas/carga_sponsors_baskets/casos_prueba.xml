@@ -92,7 +92,7 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="regresion">
-    <nombre>Confirmación de los 3 valores reales de statusCarga en FT_T_ISST (GAP-BASKSP-004, resuelto)</nombre>
+    <nombre>Confirmación de los 3 valores reales de statusCarga en FT_T_ISST</nombre>
     <objetivo>Confirmar en revisiones futuras que STAT_CHAR_VAL_TXT de FT_T_ISST (STAT_DEF_ID='B_OPNRES') sigue tomando únicamente los 3 valores reales ya confirmados (OK, ERROR, NOT_LOADED), sin valores nulos ni inesperados.</objetivo>
     <precondiciones>
       <precondicion>Acceso a un extracto real de FT_T_ISST filtrado por STAT_DEF_ID='B_OPNRES'.</precondicion>
@@ -113,7 +113,7 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
-    <nombre>Confirmación del no-op deliberado de NASDAQ en las 2 capas (GAP-BASKSP-003, resuelto)</nombre>
+    <nombre>Confirmación del no-op deliberado de NASDAQ en las 2 capas</nombre>
     <objetivo>Confirmar en ejecución real que NASDAQ no realiza ninguna carga ni historificación efectiva, tal como indican las 2 evidencias de código/Control-M ya analizadas (RDR_CargaBasketSponsor.sh hace exit 0 inmediato; MEKYTL0995 es Dummy).</objetivo>
     <precondiciones>
       <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) para sponsor NASDAQ, con o sin ficheros presentes en la ruta correspondiente.</precondicion>
@@ -131,7 +131,7 @@
     <resultadoEsperado>NASDAQ no produce ninguna carga real ni historificación en ningún escenario — comportamiento por diseño, confirmado, no un defecto a corregir.</resultadoEsperado>
     <tipoValidacion>Observación directa de logs de RDR_CargaBasketSponsor.sh y del estado de MEKYTL0995 en Control-M.</tipoValidacion>
     <criterioAceptacion>Ambas capas confirman el no-op en todos los escenarios probados.</criterioAceptacion>
-    <posibilidadFallo>Si en algún escenario NASDAQ sí produce una carga o historificación real, contradice la evidencia de código/Control-M analizada y debe re-abrirse GAP-BASKSP-003.</posibilidadFallo>
+    <posibilidadFallo>Si en algún escenario NASDAQ sí produce una carga o historificación real, contradice la evidencia de código/Control-M analizada y debe investigarse como regresión.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">
@@ -255,7 +255,7 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="conflicto_integridad">
-    <nombre>Gate okToLoad en Load_Baskets_Sponsors.wkf (GAP-BASKSP-009)</nombre>
+    <nombre>Gate okToLoad en Load_Baskets_Sponsors.wkf</nombre>
     <objetivo>Confirmar que una cesta cuyo identificador no se encuentra en FT_T_ISID (ID_CTXT_TYP='RDR_ID', activa) no llega a procesarse (ni altas/bajas de componentes ni Carga MDX), sino que salta directamente al alertado final.</objetivo>
     <precondiciones>
       <precondicion>Fichero XML de "formato único" válido (pasa la validación XSD) pero referenciando un índice/cesta inexistente en FT_T_ISID.</precondicion>
