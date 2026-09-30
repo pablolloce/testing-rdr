@@ -3,9 +3,9 @@
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
 > Fuentes: `Carga_y_baja_de_sponsors_de_cestas_manual__automatica.docx` (documento original de análisis funcional
 > y técnico), workflows reales `Auto_Load_Basket_Sponsors.wkf`, `Load_Baskets_Sponsors.wkf` y
-> `Reload_Baskets_Sponsors_Email.wkf` (GoldenSource), `AutoLoadBasketSponsors.properties`, script real
-> `RDR_CargaBasketSponsor.sh`, export real de Control-M del folder `RDR_HIST_BASKETS_SPONSORS`
-> (`Workspace_584.xml`), y 13 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`,
+> `Reload_Baskets_Sponsors_Email.wkf` (GoldenSource), `AutoLoadBasketSponsors.properties`, scripts reales
+> `RDR_CargaBasketSponsor.sh` y `RDR_CargaBasketSponsorTotal.sh`, export real de Control-M del folder
+> `RDR_HIST_BASKETS_SPONSORS` (`Workspace_584.xml`), y 13 fichas oficiales EX-005-03 (`RDR_AUTO_LOAD_BASKETS`,
 > `RDR_AUTO_BASKETS_SPONSORS_IN`, `MEKYTL1176`, `MEKYTL0987`-`0995`, `MEKYTL1175`,
 > `RDR_HIST_BASKETS_SPONSORS_IN`). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_sponsors_baskets/`.
@@ -194,6 +194,27 @@ confirma Dummy sin predecesor, único sucesor `RDR_AUTO_LOAD_BASKETS`, Grupo de 
    (mismo XSD de validación que produce el jar del paso anterior, misma sentencia SQL de estado que la ya
    confirmada por datos), no por el fichero de configuración mismo.
 5. Ficheros con prefijo `close_*` se ignoran silenciosamente (`exit 0`) para los 5 sponsors del punto 3.
+6. **Función `calljavaBig()` presente pero deshabilitada:** el script incluye una función completa para
+   trocear el `FICHERO_PRINCIPAL` en bloques de 500 líneas (con cabecera replicada en cada bloque) y
+   transformarlos uno a uno con `RDR_FormatoUnicoBaskets.jar`, análoga en propósito a la ruta de fichero
+   troceado que sí está activa en `Load_Baskets_Sponsors.wkf` para cestas >400 componentes (punto 4 más
+   abajo). Sin embargo, su única invocación real está **comentada** en el script
+   (`#if [ $(wc -l < $SPONSORDIR/$FICHERO_PRINCIPAL) -gt 500 ] ; then #calljavaBig #fi`) — es código muerto,
+   nunca se ejecuta en producción. Todo fichero, por grande que sea, pasa siempre por `calljava()` (transformación
+   en una sola pasada), no por `calljavaBig()`.
+7. **`RDR_CargaBasketSponsorTotal.sh` — utilidad manual de recarga masiva, distinta de la rama
+   `RELOAD_BASKETS_SPONSORS`:** es un script auxiliar (no invocado desde Control-M) que lanza en paralelo
+   `RDR_CargaBasketSponsor.sh` para una lista extensa de cestas reales — confirma identificadores reales de
+   producción: ~39 índices `STOXX` (códigos internos tipo `sxtp`/`sxte`/`sxrp`... con fichero de componentes
+   `components_P000_<código>.csv`), el índice `BME` (`ES0SI0000005`, IBEX 35, con fichero secundario
+   `INFIBEX_DIVISPROP.TXT`), y 16 índices `Solactive` (ISINs `DE000SL0...`, sin fichero secundario, coherente
+   con R4b). La muestra aportada cubre solo estos 3 sponsors — no se puede confirmar si existen utilidades
+   equivalentes para el resto (`Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`). **Importante:** esta
+   herramienta reutiliza la ruta de carga automática normal (cada llamada usa el `proceso` por defecto
+   `CARGA_BASKETS_SPONSORS`, no fija `RELOAD_BASKETS_SPONSORS`) — es un mecanismo de recarga manual
+   **distinto e independiente** del descrito en el punto 8 de `Load_Baskets_Sponsors.wkf` (que sí notifica
+   por email vía `Reload_Baskets_Sponsors_Email.wkf`): esta recarga masiva no genera ninguna notificación
+   propia, solo repite el ciclo de carga estándar cesta por cesta.
 
 **`Load_Baskets_Sponsors.wkf` (código real) — el 2º workflow GoldenSource, invocado con el XML de "formato
 único" generado por `RDR_FormatoUnicoBaskets.jar`:**
@@ -313,6 +334,7 @@ Referencia de casos por tipo:
 - `regresion`: TC-012 (alerta real en `TABLEALERTGENER` ante error).
 - `conflicto_integridad`: TC-013 (gate `okToLoad` en `Load_Baskets_Sponsors.wkf` — cesta no encontrada en `FT_T_ISID` no debe cargar).
 - `borde`: TC-014 (cesta grande, >400 componentes, ruta de fichero troceado).
+- `regresion`: TC-015 (confirma que `calljavaBig()` sigue inactivo en `RDR_CargaBasketSponsor.sh`).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -331,6 +353,7 @@ Referencia de casos por tipo:
 | Topología completa (3 cadenas, 14 pasos) | TC-010 | Confirma en revisiones futuras que no cambia el número de jobs |
 | Gate `okToLoad` en `Load_Baskets_Sponsors.wkf` | TC-013 | Confirma que una cesta no encontrada en `FT_T_ISID` no llega a `Carga MDX` |
 | Cesta grande (>400 componentes) | TC-014 | Confirma la ruta de fichero troceado y su limpieza posterior |
+| `calljavaBig()` inactivo | TC-015 | Confirma que un fichero grande se procesa en una sola pasada, no troceado |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -346,6 +369,9 @@ Referencia de casos por tipo:
 
 * **Contenido real de `RDR_Sponsor_PreProcess.sh`/`RDR_SponsorSplit.sh`** — se conoce su punto de entrada y
   salida (invocados por `Auto_Load_Basket_Sponsors.wkf`), pero no su lógica interna.
+* **Alcance real de `RDR_CargaBasketSponsorTotal.sh`** — la muestra aportada solo cubre `STOXX`, `BME` y
+  `Solactive`; no se confirma si existen utilidades equivalentes de recarga masiva para el resto de sponsors
+  (`Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`), ni quién la ejecuta en la práctica.
 * **El `.properties` que enlaza literalmente** la invocación `executeBbvaEvent.sh fileloading
   RDR_CargaBasketSponsor` con el nombre interno real del workflow (`Load_Baskets_Sponsors`) — el enlace está
   confirmado por evidencia cruzada fuerte (mismo XSD, misma sentencia SQL de estado), no por el fichero de

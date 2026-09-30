@@ -297,4 +297,24 @@
     <posibilidadFallo>Ficheros temporales residuales, o uso de la ruta equivocada según el tamaño real de la cesta, indicarían un defecto de limpieza o de enrutamiento.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-015" tipo="regresion">
+    <nombre>Confirmación de que calljavaBig sigue inactivo en RDR_CargaBasketSponsor.sh</nombre>
+    <objetivo>Confirmar en revisiones futuras que la función calljavaBig() (troceo del FICHERO_PRINCIPAL en bloques de 500 líneas) sigue sin invocarse, y que un fichero principal de más de 500 líneas se procesa en una sola pasada por calljava().</objetivo>
+    <precondiciones>
+      <precondicion>Fichero principal real de un sponsor de los que usan calljava() (p. ej. STOXX) con más de 500 líneas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Invocación real en código" valor="comentada: #if [ $(wc -l &lt; $SPONSORDIR/$FICHERO_PRINCIPAL) -gt 500 ]; then #calljavaBig #fi"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la carga de un fichero principal de más de 500 líneas.</paso>
+      <paso numero="2">Confirmar en el log que se invoca calljava() una sola vez, no calljavaBig() ni varias invocaciones de Java.</paso>
+      <paso numero="3">Confirmar que no se generan ficheros troceados (`${FICHERO_PRINCIPAL%.*}_0`, `_1`, ...) en el directorio del sponsor.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se procesa en una sola pasada de Java, sin trocear, independientemente de su tamaño.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs de ejecución + verificación del directorio del sponsor tras la carga.</tipoValidacion>
+    <criterioAceptacion>Sin ficheros troceados residuales ni invocaciones múltiples de Java para un mismo fichero principal.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un fichero troceado o varias invocaciones de Java para el mismo fichero principal, significa que alguien reactivó calljavaBig() sin actualizar esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>
