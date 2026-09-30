@@ -29,6 +29,11 @@
   campo `FALLASINOFICHS` de la fila de configuración de la clave invocada en
   `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`; cualquier otro valor = tolera).
   **El valor concreto configurado para `MEKYTL0242` no ha sido aportado** — ver `spec.md` R4b.
+- `MEGENV0001.sh` operativo para `MEKYTL0243` (transmisión a destino inerte) — **código real completo
+  confirmado esta ronda** (mismo fichero, idéntico byte a byte, ya aportado el 2026-09-24 para
+  `rdr_envio_cliex`): su tolerancia real en sentido PUT depende de `FALLA_NO_FICHERO` de la fila de
+  configuración de la clave en su propio `.idx` (`"SI"` = fallo real `exit 60`/`exit 45`; cualquier otro
+  valor = tolera). **El valor concreto configurado para `MEKYTL0243` no ha sido aportado** — ver `spec.md` R5b.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con

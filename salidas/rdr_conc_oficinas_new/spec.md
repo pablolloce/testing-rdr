@@ -17,12 +17,14 @@
 > **Estado: topología, calendario, parámetros y el mecanismo de salto por RC=7 confirmados al 100% con
 > evidencia real** (ficha EX-005-02 + export de Control-M). Esta ronda añade la confirmación de
 > `select_1.properties` (fichero de reporting real, compartido con al menos otros 7 procesos del audit), de
-> `compare.jar` (clase real confirmada, invocada por `Delta.sh`) y de `RAMERC0068.sh` (motor genérico de
-> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0242`). Solo quedan fuera de alcance el contenido
+> `compare.jar` (clase real confirmada, invocada por `Delta.sh`), de `RAMERC0068.sh` (motor genérico de
+> historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0242`) y de `MEGENV0001.sh` (motor
+> genérico de envíos/recogidas, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
+> `FALLA_NO_FICHERO`/`exit 60`/`exit 45` de `MEKYTL0243`). Solo quedan fuera de alcance el contenido
 > interno de `ControlCargaDatos.jar`/`LimpiarOficinas`, el algoritmo interno (bytecode) de `compare.jar`, el
 > significado exacto del código 7, la cadena `RDR_CARGA_PLAZAS_TRAD_new`, y el valor real configurado de
-> `FALLASINOFICHS`/`FALLA_NO_FICHERO` para las claves `MEKYTL0242`/`MEKYTL0243` (mecanismo ya confirmado con
-> código real, `RAMERC0068.sh` — ver R4b) (§8.2).
+> `FALLASINOFICHS`/`FALLA_NO_FICHERO` para las claves `MEKYTL0242`/`MEKYTL0243` (mecanismos ya confirmados con
+> código real, `RAMERC0068.sh`/`MEGENV0001.sh` — ver R4b/R5b) (§8.2).
 
 ## 1. Resumen ejecutivo
 
@@ -70,7 +72,8 @@ confirmado por la configuración real de Control-M.
 | R3e | **`select_1.properties` (fichero real, confirmado): un único fichero compartido entre al menos 8 procesos del audit** (`oficinas`, `Reubicacion`, `ConBDI`, `ConClientela`, `Refundicion`, `difusion_cparty`, `difusion_batch`, `bancarizacion`), no un fichero "específico de la entidad" como se documentaba antes de esta ronda. La entrada `queryoficinas` genera `Reporte_oficinas.csv` con cabecera `FINSID;CSB;OFICINA;MENSAJE`, leyendo de `FT_T_RLT1`/`FT_T_FIID` filtrando `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='OFICINAS'` y `RLT_STATUS='3'`, acotado al último job cerrado con `JOB_MSG_TYP='OFC'` — confirma la fuente exacta de datos del reporte de oficinas, antes solo conocida por nombre de fichero de salida. |
 | R4 | `MEKYTL0242` historifica `oficinas.csv` a `oficinas_yyyymmdd.csv` en `/fichtemcomp/pr/descargas/kytl/oficinas/old/` (mismo servidor origen/destino). **La tolerancia a fichero ausente no tiene ningún override visible a nivel de Control-M** (a diferencia de varios jobs de `RDR_REUBICACION_new` — ver ese documento) — si es real, debe controlarse dentro del propio `RAMERC0068.sh` — ver R4b. |
 | R4b | **`RAMERC0068.sh` (código real, confirmado esta ronda, motor genérico compartido con otros procesos del audit):** el mecanismo de tolerancia a fichero ausente **no es un simple "sale con código 0"** — depende del campo `FALLASINOFICHS` de la fila de configuración correspondiente en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (parametrizado por la clave de invocación, aquí `MEKYTL0242`): si `FALLASINOFICHS=0`, la ausencia de ficheros que casen con la máscara configurada provoca **una salida real de error (`exit 6`)**; con cualquier otro valor, el script continúa sin error. **El valor real configurado para la clave `MEKYTL0242` en ese `.IDX` no ha sido aportado** — el mecanismo está confirmado, el valor concreto configurado para este job no. |
-| R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. **Confirmado en Control-M real: `TASKTYPE="Job"`** (no es un Dummy de Control-M, es una invocación real de `MEGENV0001.sh`) — mismo patrón que `MEKYTL0234` de `RDR_REUBICACION_new`. Igual que R4, no tiene override `NOTOK→OK` visible a nivel de Control-M; su tolerancia (si es real) debe ser interna al script. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
+| R5 | `MEKYTL0243` es una solicitud de transmisión XCOM configurada explícitamente **a un destino inerte ("A DUMMY")** — no realiza transferencia real; el documento la describe como una validación de la existencia del flujo de salida. **Confirmado en Control-M real: `TASKTYPE="Job"`** (no es un Dummy de Control-M, es una invocación real de `MEGENV0001.sh`) — mismo patrón que `MEKYTL0234` de `RDR_REUBICACION_new`. Igual que R4, no tiene override `NOTOK→OK` visible a nivel de Control-M; su tolerancia (si es real) debe ser interna al script — ver R5b. Al terminar OK, publica el evento de cierre de cadena y limpia de la tabla de condiciones activas el evento que dejó el paso anterior. |
+| R5b | **`MEGENV0001.sh` (código real completo, confirmado, mismo motor genérico ya documentado en `rdr_envio_cliex` el 2026-09-24 — fichero idéntico byte a byte):** en sentido `PUT`/`MPUT` (el que aplica a `MEKYTL0243`), la tolerancia real a fichero ausente depende de la variable `FALLA_NO_FICHERO` de la fila de configuración de la clave `MEKYTL0243` en su propio `.idx`: si no hay ningún fichero que case con la máscara configurada, `FALLA_NO_FICHERO="SI"` produce **`exit 60`** (fallo real, `"No hay ficheros que enviar"`); con cualquier otro valor, se registra un aviso y continúa (`ESTADO=0`, sin fallo). Si la máscara sí resuelve ficheros pero uno concreto deja de existir en el momento del envío, el mismo patrón aplica con **`exit 45`**. **El valor real configurado para la clave `MEKYTL0243` no ha sido aportado** — el mecanismo está confirmado con código real, el valor concreto configurado para este job no. |
 | R6 | Cada uno de los 4 pasos consume 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100, confirmado en Control-M real) — un recurso compartido con otras cadenas de esta familia (ver `RDR_REUBICACION_new`), que limita la concurrencia total entre ellas. |
 | R7 | Grupo de soporte ANS RDR (`ans_rdr.es@bbva.com` / Remedy `BZG03906`, confirmado en ficha EX-005-02); criticidad **W** confirmada (no S ni C); máximo de relanzamientos **0** confirmado en los 4 jobs (`MAXRERUN="0"` en Control-M real); retención de log operativo de 3 días. |
 
@@ -134,7 +137,7 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 - `borde`: TC-003 (filewatcher agota las 4h de timeout sin recibir el fichero).
 - `error_funcional`: TC-004 (paso 2 falla — comportamiento de reintento/aviso, dado el máximo de 0 relanzamientos).
 - `borde`: TC-005 (paso 3 sin fichero origen — verificar el valor real de `FALLASINOFICHS` para la clave `MEKYTL0242` en `INFORMACION_HISTORIFICACIONES.IDX`: si es 0, el script fallará con `exit 6`, no continuará silenciosamente).
-- `borde`: TC-006 (paso 4 sin fichero a transmitir — debe continuar sin fallar).
+- `borde`: TC-006 (paso 4 sin fichero a transmitir — verificar el valor real de `FALLA_NO_FICHERO` para la clave `MEKYTL0243`: si es "SI", el script fallará con `exit 60`/`exit 45`, no continuará silenciosamente).
 - `regresion`: TC-007 (confirmar que el paso 4 sigue configurado contra un destino inerte y no transmite datos reales).
 - `regresion`: TC-008 (topología completa de 4 pasos y consumo del recurso `MAX-LPRDR501`).
 - `conflicto_integridad`: TC-009 (mecanismo de seguridad `marcha_atras` de `Delta.sh` ante relanzamiento inmediato).
@@ -147,7 +150,7 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 | R2 (salto por RC=7) | TC-002 | Confirma o descarta el mecanismo de salto controlado documentado |
 | R3 (conciliación y carga) | TC-001, TC-004 | Confirma el ciclo funcional y el comportamiento ante fallo, dado el límite de 0 relanzamientos |
 | R4, R4b (historificación, mecanismo `FALLASINOFICHS` confirmado) | TC-005 | Confirma si la ausencia de fichero detiene la cadena o no, según el valor real configurado para `MEKYTL0242` |
-| R5 (transmisión a destino inerte) | TC-006, TC-007 | Confirma la tolerancia a fallos y que no hay transferencia real |
+| R5, R5b (transmisión a destino inerte, mecanismo real `FALLA_NO_FICHERO` confirmado) | TC-006, TC-007 | Confirma si la ausencia de fichero detiene la cadena o no, según el valor real configurado para `MEKYTL0243` |
 | R6 (recurso compartido) | TC-008 | Confirma el consumo del recurso `MAX-LPRDR501`, compartido con `RDR_REUBICACION_new` |
 | R3b (marcha_atras de Delta.sh) | TC-009 | Confirma que un relanzamiento inmediato no duplica ni corrompe el cálculo del delta |
 
@@ -176,9 +179,9 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 * **Valor real configurado de `FALLASINOFICHS`** para la clave `MEKYTL0242` en
   `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` — el mecanismo en sí ya está confirmado con código real
   (`RAMERC0068.sh`, ver R4b), no aportado el valor concreto configurado para este job.
-* **Mecanismo interno de tolerancia a fichero ausente de `MEKYTL0243`** (R5, vía `MEGENV0001.sh`) — no hay
-  override a nivel de Control-M; el script `MEGENV0001.sh` ya se confirmó genérico en otro proceso del audit
-  (variable `FALLA_NO_FICHERO`), pero el valor configurado para la clave `MEKYTL0243` no ha sido aportado.
+* **Valor real configurado de `FALLA_NO_FICHERO`** para la clave `MEKYTL0243` en su `.idx` de
+  `MEGENV0001.sh` — el mecanismo en sí ya está confirmado con código real (`exit 60`/`exit 45` según el caso,
+  ver R5b), no aportado el valor concreto configurado para este job.
 * **Algoritmo interno (bytecode) de `compare.jar`** (clase `es.bbva.kytl.scripts.Compare`, confirmada esta
   ronda como la invocada por `Delta.sh` — ver R3b) — la existencia y coincidencia exacta de clase/paquete ya
   no están fuera de alcance; el detalle del algoritmo de comparación fila a fila sí sigue sin decompilar.
@@ -211,7 +214,12 @@ sin decompilar. **También se aportó `RAMERC0068.sh` (código real, motor gené
 compartido con otros procesos del audit):** confirma que la tolerancia a fichero ausente **no** es un simple
 "sale con código 0" — depende del campo `FALLASINOFICHS` de la fila de configuración de la clave invocada en
 `INFORMACION_HISTORIFICACIONES.IDX` (`0` = falla real con `exit 6`; cualquier otro valor = tolera) — el
-mecanismo queda confirmado (R4b), el valor concreto configurado para `MEKYTL0242` no. Los elementos que siguen
+mecanismo queda confirmado (R4b), el valor concreto configurado para `MEKYTL0242` no. **Se aportó además
+`MEGENV0001.sh` completo** (mismo fichero, idéntico byte a byte, ya documentado el 2026-09-24 en
+`rdr_envio_cliex`): aplicado ahora a `MEKYTL0243`, confirma que su tolerancia real a fichero ausente en sentido
+PUT depende de `FALLA_NO_FICHERO` de la fila de configuración de esa clave (`"SI"` = fallo real `exit 60` si no
+hay ficheros que casen la máscara, o `exit 45` si un fichero concreto falta; cualquier otro valor = tolera) —
+mecanismo confirmado (R5b), valor concreto configurado para `MEKYTL0243` no. Los elementos que siguen
 sin material propio (contenido interno de `ControlCargaDatos.jar`/`LimpiarOficinas`, el bytecode de
 `compare.jar`, causa del código 7, el valor real de `FALLASINOFICHS`/`FALLA_NO_FICHERO` para
 `MEKYTL0242`/`MEKYTL0243`, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan

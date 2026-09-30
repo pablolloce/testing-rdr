@@ -66,42 +66,46 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="error_funcional">
-    <nombre>Fallo real de MEKYTL0233 no debe bloquear el Fan-In</nombre>
-    <objetivo>Confirmar que un fallo real en la transmisión a staging (MEKYTL0233) se marca OK igualmente (Force-OK) y no bloquea la ejecución de MEKYTL0122.</objetivo>
+    <nombre>Fallo real de MEKYTL0233 no debe bloquear el Fan-In — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a staging (MEKYTL0233) se marca OK igualmente (Force-OK) y no bloquea la ejecución de MEKYTL0122. El código real de MEGENV0001.sh confirma que, si el fallo es por ausencia de fichero, el resultado depende de FALLA_NO_FICHERO para la clave MEKYTL0233: "SI" produce exit 60/45 (fallo real concreto); cualquier otro valor tolera. Este caso debe confirmar el valor real configurado.</objetivo>
     <precondiciones>
-      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0233 (p. ej. destino Ippwc501 no disponible).</precondicion>
+      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0233 (p. ej. destino Ippwc501 no disponible, o fichero de origen ausente).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Regla de tolerancia" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Regla de tolerancia (Control-M)" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Mecanismo real confirmado (script)" valor="MEGENV0001.sh: FALLA_NO_FICHERO=SI -&gt; exit 60/45 ante fichero ausente"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Provocar un fallo real de transmisión en MEKYTL0233.</paso>
+      <paso numero="1">Provocar un fallo real de transmisión en MEKYTL0233 (incluyendo, por separado, la ausencia del fichero de origen).</paso>
       <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
-      <paso numero="3">Confirmar que MEKYTL0122 arranca normalmente (no queda bloqueado esperando un reintento).</paso>
+      <paso numero="3">Confirmar en el log de MEGENV0001.sh si, ante fichero ausente, el script termina con exit 60/45 según el valor real de FALLA_NO_FICHERO para esta clave.</paso>
+      <paso numero="4">Confirmar que MEKYTL0122 arranca normalmente (no queda bloqueado esperando un reintento).</paso>
     </pasos>
-    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama.</resultadoEsperado>
-    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta.</tipoValidacion>
-    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in.</criterioAceptacion>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama; se confirma el valor real de FALLA_NO_FICHERO para MEKYTL0233.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta + inspección del log de MEGENV0001.sh.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in, y mecanismo real de fichero ausente documentado.</criterioAceptacion>
     <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="error_funcional">
-    <nombre>Fallo real de MEKYTL0234 no debe bloquear el Fan-In</nombre>
-    <objetivo>Confirmar que un fallo real en la transmisión a destino inerte (MEKYTL0234) se marca OK igualmente y no bloquea MEKYTL0122.</objetivo>
+    <nombre>Fallo real de MEKYTL0234 no debe bloquear el Fan-In — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a destino inerte (MEKYTL0234) se marca OK igualmente y no bloquea MEKYTL0122. Mismo mecanismo real que TC-004 (MEGENV0001.sh, FALLA_NO_FICHERO), a confirmar para la clave MEKYTL0234.</objetivo>
     <precondiciones>
       <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0234.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Regla de tolerancia" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Regla de tolerancia (Control-M)" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Mecanismo real confirmado (script)" valor="MEGENV0001.sh: FALLA_NO_FICHERO=SI -&gt; exit 60/45 ante fichero ausente"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar un fallo real en MEKYTL0234 (si es un job real, ver TC-003).</paso>
       <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
-      <paso numero="3">Confirmar que MEKYTL0122 arranca normalmente.</paso>
+      <paso numero="3">Confirmar en el log de MEGENV0001.sh el comportamiento real ante fichero ausente para esta clave.</paso>
+      <paso numero="4">Confirmar que MEKYTL0122 arranca normalmente.</paso>
     </pasos>
-    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama.</resultadoEsperado>
-    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta.</tipoValidacion>
-    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in.</criterioAceptacion>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama; se confirma el valor real de FALLA_NO_FICHERO para MEKYTL0234.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta + inspección del log de MEGENV0001.sh.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in, y mecanismo real de fichero ausente documentado.</criterioAceptacion>
     <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
   </casoDePrueba>
 

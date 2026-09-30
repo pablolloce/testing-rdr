@@ -105,22 +105,24 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="borde">
-    <nombre>Transmisión final (MEKYTL0243) sin fichero a transmitir</nombre>
-    <objetivo>Confirmar que el paso final no falla si no hay fichero a historificar/transmitir.</objetivo>
+    <nombre>Transmisión final (MEKYTL0243) sin fichero a transmitir — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar el comportamiento real de MEGENV0001.sh cuando no hay fichero a transmitir en MEKYTL0243. El código real confirma que esto depende del valor configurado de FALLA_NO_FICHERO para la clave MEKYTL0243 en su .idx: "SI" produce un fallo real (exit 60 si no hay ningún fichero que case la máscara, exit 45 si un fichero concreto falta), cualquier otro valor tolera sin fallar. Este caso debe determinar cuál de los 2 comportamientos aplica realmente a este job.</objetivo>
     <precondiciones>
       <precondicion>Escenario donde no hay fichero disponible para MEKYTL0243.</precondicion>
+      <precondicion>Acceso de lectura al .idx de MEKYTL0243, o capacidad de observar el resultado real en ejecución.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Regla de tolerancia" valor="Si no existe fichero de origen a historificar, el script debe continuar sin fallar"/>
+      <dato campo="Mecanismo confirmado (código real)" valor="FALLA_NO_FICHERO=SI -&gt; exit 60/45 (fallo real); distinto de SI -&gt; tolera sin fallar"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar la ausencia del fichero esperado por MEKYTL0243.</paso>
-      <paso numero="2">Confirmar que el job termina OK sin fallar.</paso>
+      <paso numero="2">Confirmar en el log de MEGENV0001.sh si el job termina con exit 60/45 (fallo real) o continúa sin error.</paso>
+      <paso numero="3">Si es posible, confirmar directamente el valor de FALLA_NO_FICHERO configurado para la clave MEKYTL0243.</paso>
     </pasos>
-    <resultadoEsperado>El job termina OK pese a la ausencia del fichero.</resultadoEsperado>
-    <tipoValidacion>Estado OK en Control-M.</tipoValidacion>
-    <criterioAceptacion>Sin fallo ante fichero ausente.</criterioAceptacion>
-    <posibilidadFallo>Un KO en este escenario contradice la regla de tolerancia documentada.</posibilidadFallo>
+    <resultadoEsperado>Comportamiento real documentado sin ambigüedad, según el valor real de FALLA_NO_FICHERO, ya no una suposición genérica de tolerancia universal.</resultadoEsperado>
+    <tipoValidacion>Inspección del log de MEGENV0001.sh + valor real de FALLA_NO_FICHERO si es accesible.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real confirmado con evidencia directa, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Si FALLA_NO_FICHERO=SI para esta clave, un KO real ante fichero ausente es el comportamiento correcto, no un defecto.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">

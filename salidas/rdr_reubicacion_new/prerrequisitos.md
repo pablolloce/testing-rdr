@@ -24,6 +24,12 @@
   `MEKYTL0122` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`, enmascarado
   igualmente por el Force-OK de Control-M ya confirmado). **El valor concreto configurado para `MEKYTL0122`
   no ha sido aportado** — ver `spec.md` R7b.
+- `MEGENV0001.sh` operativo para `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111` — **código real completo confirmado
+  esta ronda** (mismo fichero, idéntico byte a byte, ya aportado el 2026-09-24 para `rdr_envio_cliex` y ya
+  aplicado a `MEKYTL0243` en `rdr_conc_oficinas_new`): su tolerancia real en sentido PUT depende de
+  `FALLA_NO_FICHERO` de la fila de configuración de cada clave en su propio `.idx` (`"SI"` = fallo real
+  `exit 60`/`exit 45`; cualquier otro valor = tolera). **El valor concreto configurado para las 3 claves no
+  ha sido aportado** — ver `spec.md` R6b.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM, 3 invocaciones
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia
