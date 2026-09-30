@@ -85,7 +85,9 @@ workflow, pese a ser el motor de cálculo real invocado a diario desde producci�
 
 * **Folder Control-M:** `KYTL0000-RDR_BATCH_EMISORES_REFINITIV`, servidor `MERCADOS-4`, UUAA `KYTL0000`.
 * **Jobs:** los 3 son tipo `OS`, ejecutan `./GSProcess.sh` desde `/pr/kytl/online/multipais/multicanal/scrt/`,
-  Run As `xakytl1p`, sin filewatcher ni recurso más allá de `MAX-LPRDR501` (cantidad 1, total 100).
+  Run As `xakytl1p`, sin filewatcher ni recurso más allá de `MAX-LPRDR501` (cantidad 1, total 100). Los 3
+  están creados por `xe30690` con prioridad `Very Low` (confirmado por captura real de Control-M,
+  2026-09-30) — sin impacto funcional, dato de auditoría/planificación menor.
 * **Encadenamiento:** por evento Control-M puro (sin dependencia de fichero), "eliminar en No" en los 2
   eventos de entrada (R2 y R3).
 * **Impacto en datos — confirmado con los 3 workflows reales:** `FT_T_VREQ` (estado de solicitud) y
