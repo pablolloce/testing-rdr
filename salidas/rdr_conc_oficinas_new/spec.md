@@ -22,11 +22,13 @@
 > historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0242`), de `MEGENV0001.sh` (motor
 > genérico de envíos/recogidas, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
 > `FALLA_NO_FICHERO`/`exit 60`/`exit 45` de `MEKYTL0243`), de las funciones reales **`LimpiarOficinas`**
-> (filtro real por código de banco `0182`, ver R3a), y de las **fichas reales EX-005-03** de
+> (filtro real por código de banco `0182`, ver R3a), de las **fichas reales EX-005-03** de
 > `MEKYTL0242`/`MEKYTL0243` (confirman la intención de diseño tolerante de ambos jobs y corrigen la ruta real
-> de destino de `MEKYTL0243`). Solo quedan fuera de alcance el contenido
-> interno de `ControlCargaDatos.jar`, el algoritmo interno (bytecode) de `compare.jar`, el
-> significado exacto del código 7, y el valor literal configurado de
+> de destino de `MEKYTL0243`), y de la **confirmación oficial de BMC** de que `ctmfw` es la utilidad nativa de
+> Control-M (no un script propio) y de que **el código de retorno 7 es su timeout nativo** (R2, RISK-CONOFI-001
+> ya no tiene ningún cabo suelto sobre causa). Solo quedan fuera de alcance el contenido
+> interno de `ControlCargaDatos.jar`, el algoritmo interno (bytecode) de `compare.jar`, y el valor literal
+> configurado de
 > `FALLASINOFICHS`/`FALLA_NO_FICHERO` para las claves `MEKYTL0242`/`MEKYTL0243` (mecanismos e intención de
 > diseño ya confirmados, `RAMERC0068.sh`/`MEGENV0001.sh` — ver R4b/R5b) (§8.2).
 
@@ -66,9 +68,9 @@ confirmado por la configuración real de Control-M.
 
 | ID | Requisito |
 |----|-----------|
-| R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de 240 min/4h) — comando confirmado literalmente en el export real de Control-M. |
+| R1 | El filewatcher `KYTL_CONOFI_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv` (`ctmfw ... CREATE 0 60 10 5 240`: tamaño mínimo 0 bytes, chequeo cada 60s, 10 comprobaciones consecutivas sin cambio de tamaño para declarar estabilidad, 5 min de tolerancia/intervalo de reintento interno, timeout global de 240 min/4h) — comando confirmado literalmente en el export real de Control-M. **`ctmfw` confirmado como la utilidad nativa estándar de BMC Control-M Agent (File Watcher)**, no un script propio de BBVA (no tiene `MEMLIB`, a diferencia de `GSProcess.sh`/`RAMERC0068.sh`/`MEGENV0001.sh`) — parámetros y significado del código de retorno confirmados con la documentación oficial de BMC, ver R2. |
 | R1b | Día de ejecución confirmado por **2 fuentes independientes** (documento funcional + ficha oficial EX-005-02): **martes a sábado**. Calendario `RDR_FEST_HOST` confirmado en el export real. |
-| R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. |
+| R2 | Si el filewatcher termina con código 0, publica el evento que arranca el paso 2. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento de cierre de toda la cadena (el mismo que el paso 4), saltando los pasos 2 y 3 — **confirmado literalmente en la definición real de Control-M**, no solo en el documento. **Significado del código 7 confirmado con la documentación oficial de BMC Control-M: es el código de TIMEOUT del propio `ctmfw`** — el fichero no llegó, o no alcanzó estabilidad de tamaño, dentro del plazo máximo configurado (240 min/4h). Es decir, el diseño real es: si `oficinas.csv` no aparece dentro de la ventana de 4h, la cadena se marca como cerrada con éxito de todos modos, sin ejecutar la conciliación/carga real — confirmado ya no solo el mecanismo, sino también la causa exacta que lo dispara (ver RISK-CONOFI-001). |
 | R3 | `KYTL_CONOFI_GSPROCESS` (`GSProcess.sh` con `PARM1=oficinas`, confirmado en Control-M real) ejecuta el flujo interno: `Script(LimpiarOficinas)` → `Script(Delta)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `MDX(Oficina/OFC)` → `Errores` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado (código real confirmado, ver R3a), cálculo de delta (código real de `Delta.sh` confirmado, ver R3b), carga en GoldenSource (entidad `Oficina`/`OFC`), generación de reporte y conversión de fin de línea. |
 | R3a | **`LimpiarOficinas` (código real confirmado esta ronda, función bash):** **filtra `oficinas.csv` por código de banco, quedándose solo con las filas cuyo primer campo empiece por `0182;`** (código de banco de BBVA en España) — vía `grep "^0182;"`. Conserva la cabecera (`head -1`). El fichero original recibido (previo al filtro) se conserva como copia de seguridad en `old/oficinas_prelimpieza.csv`, y el fichero filtrado sustituye al `oficinas.csv` que procesan `Delta.sh` y el resto del pipeline. **Cualquier fallo en `head`/`grep`/`mv` aborta el job con `error_exit`** (sin tolerancia, consistente con que este es uno de los 2 únicos pasos de la cadena sin Force-OK). **Riesgo confirmado con código real:** el filtro por `"0182"` está fijado (hardcoded); si el fichero recibido contuviera legítimamente oficinas bajo otro código de banco (p. ej. una entidad fusionada con código distinto), quedarían excluidas silenciosamente sin generar ningún error — `grep` solo falla si **ninguna** línea casa con `0182`, no si faltan líneas de otros bancos que debieran incluirse. |
 | R3b | **`Delta.sh` (código real, confirmado) es un motor genérico compartido** (autor "NFOQUE", 2015 — no específico de oficinas, parametrizado por `$MOD_EJECUCION`), invocado con `Delta="Si"`: compara el fichero de entrada contra la copia del día anterior (`old/$MOD_EJECUCION.csv`) mediante una clase Java (`es.bbva.kytl.scripts.Compare`, jar `compare.jar`) y deja en `$FILE_CARGA` **solo las filas incrementales**, moviendo el fichero completo del día a `/old/` como nueva base de comparación. Si no existe copia anterior (primera carga), la genera vacía, de forma que el "delta" es el fichero completo. **Mecanismo de seguridad ante relanzamiento (`marcha_atras`):** si el fichero de carga y el `_old` de backup tienen marcas de tiempo con menos de 5 segundos de diferencia, asume que el delta ya se ejecutó y restaura los ficheros de backup en vez de recalcular — evita duplicar el delta en un relanzamiento inmediato. **`compare.jar` confirmado esta ronda:** inspección de su manifiesto/estructura confirma exactamente la clase `es/bbva/kytl/scripts/Compare.class` que `Delta.sh` invoca — coincidencia exacta de paquete y nombre, no una suposición; el algoritmo interno de comparación fila a fila permanece en bytecode no decompilado (ver §8.2). |
@@ -137,11 +139,12 @@ export real de Control-M (`Workspace_589_1.xml`).
 
 **Estrategia:** con la topología y los parámetros técnicos confirmados con evidencia real (ficha EX-005-02 +
 Control-M), los casos cubren el ciclo happy path, el comportamiento de tolerancia a fallos de los pasos 3 y 4,
-y —como caso central de esta ronda— la verificación de qué condición real dispara el código de retorno 7 en
-el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa).
+y la confirmación en ejecución real de que el timeout de `ctmfw` (mecanismo y causa del código 7 ya
+confirmados con documentación oficial de BMC) produce en la práctica el efecto esperado (salto directo al
+cierre de cadena).
 
 - `happy_path`: TC-001 (ciclo completo, fichero llega dentro de ventana).
-- `conflicto_integridad`: TC-002 (**filewatcher termina con RC=7 → salto directo a cierre de cadena, pasos 2/3 nunca se ejecutan**).
+- `conflicto_integridad`: TC-002 (**filewatcher agota el timeout de 4h (RC=7, confirmado como causa) → salto directo a cierre de cadena, pasos 2/3 nunca se ejecutan**).
 - `borde`: TC-003 (filewatcher agota las 4h de timeout sin recibir el fichero).
 - `error_funcional`: TC-004 (paso 2 falla — comportamiento de reintento/aviso, dado el máximo de 0 relanzamientos).
 - `borde`: TC-005 (paso 3 sin fichero origen — verificar el valor real de `FALLASINOFICHS` para la clave `MEKYTL0242` en `INFORMACION_HISTORIFICACIONES.IDX`: si es 0, el script fallará con `exit 6`, no continuará silenciosamente).
@@ -169,14 +172,16 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 
 ### 8.1 Riesgos
 
-* **RISK-CONOFI-001 [prioridad media-alta, mecanismo confirmado por Control-M real, causa disparadora sin
-  confirmar]:** el salto controlado por RC=7 (R2) hace que la cadena se marque como completada con éxito sin
-  haber conciliado ni cargado ningún dato ese día — ya no es una hipótesis del documento, está confirmado
-  literalmente en la definición real del job. Si algún proceso downstream (fuera de alcance de este
-  documento, p. ej. `RDR_INFORME_CIERREOFI_new`) confía en el evento de cierre de esta cadena como señal de
-  "datos de oficinas actualizados", ese día concreto estaría operando sobre datos desactualizados sin ninguna
-  alerta — mismo patrón de riesgo ya documentado en otros procesos de esta sesión. Queda pendiente solo
-  confirmar qué condición real dispara el código 7 (TC-002).
+* **RISK-CONOFI-001 [prioridad media-alta, mecanismo y causa confirmados con evidencia real]:** el salto
+  controlado por RC=7 (R2) hace que la cadena se marque como completada con éxito sin haber conciliado ni
+  cargado ningún dato ese día. **Causa confirmada con la documentación oficial de BMC Control-M:** el código 7
+  es el timeout propio de `ctmfw` — si `oficinas.csv` no llega (o no se estabiliza) dentro de las 4h
+  configuradas, el filewatcher termina con RC=7 y la cadena se cierra igualmente. Si algún proceso downstream
+  (fuera de alcance de este documento, p. ej. `RDR_INFORME_CIERREOFI_new`) confía en el evento de cierre de
+  esta cadena como señal de "datos de oficinas actualizados", ese día concreto estaría operando sobre datos
+  desactualizados sin ninguna alerta — mismo patrón de riesgo ya documentado en otros procesos de esta sesión.
+  Ya no queda ningún cabo suelto sobre el mecanismo ni la causa; solo la confirmación en ejecución real de que
+  el efecto (datos desactualizados aguas abajo) ocurre tal como se espera (TC-002).
 * **RISK-CONOFI-002 [no bloqueante]:** máximo de relanzamientos configurado a 0 — cualquier fallo real en
   cualquiera de los 4 pasos requiere intervención manual completa (relanzamiento por ANS RDR), sin reintento
   automático.
@@ -191,8 +196,8 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 
 * **Contenido interno de `ControlCargaDatos.jar`** — se conoce el orden de invocación y su propósito general,
   no su lógica de mapeo/validación de campos. (`LimpiarOficinas` queda confirmado con código real — ver R3a.)
-* **Significado exacto del código de retorno 7** del filewatcher — confirmado el mecanismo de salto (R2), no
-  la causa que lo dispara (p. ej. ¿fichero vacío?, ¿calendario sin cierre ese día?).
+  (El significado del código de retorno 7 del filewatcher queda **confirmado** esta ronda — ver R2: es el
+  timeout nativo de `ctmfw`, documentación oficial de BMC Control-M.)
 * **Valor literal configurado de `FALLASINOFICHS`** para la clave `MEKYTL0242` en
   `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` — **fuera de alcance definitivo**: el mecanismo está
   confirmado con código real (`RAMERC0068.sh`, ver R4b) y la intención de diseño confirmada como tolerante
@@ -218,8 +223,10 @@ el filewatcher (el mecanismo de salto en sí ya está confirmado, falta su causa
 parámetros de recursos y el mecanismo de salto por código de retorno 7 **confirmados con evidencia real**
 (ficha EX-005-02 + export de Control-M del folder completo), no solo con el documento funcional. El hallazgo
 más relevante — el salto controlado que cierra la cadena sin ejecutar la conciliación/carga real — pasa de
-ser una hipótesis documental a un hecho confirmado por la configuración viva de Control-M (RISK-CONOFI-001);
-solo queda pendiente, no bloqueante, confirmar qué condición real produce el código 7 (TC-002). También queda
+ser una hipótesis documental a un hecho confirmado por la configuración viva de Control-M (RISK-CONOFI-001).
+**La causa del código 7 queda confirmada esta ronda:** `ctmfw` es la utilidad nativa de BMC Control-M Agent, y
+el código 7 es su timeout propio (fichero no llegado/estabilizado dentro de las 4h) — confirmado con
+documentación oficial de BMC, ya no un cabo suelto. También queda
 confirmado que el paso 4 es un job real (`TASKTYPE="Job"`) contra un destino inerte, no un Dummy de Control-M
 — mismo patrón que su equivalente en `RDR_REUBICACION_new`. Esta ronda añade además el código real de
 `Delta.sh` y `Unix2Dos.sh` (2 motores genéricos compartidos, este último confirma literalmente el origen de
@@ -250,7 +257,9 @@ destino de `MEKYTL0243` (`\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR`, mismo patrón
 `MEKYTL0111` en `rdr_reubicacion_new`) y el detalle de que el paso 3 opera sobre un único servidor
 (`22.156.148.85`), no 2 distintos como se documentaba antes. **La cadena hermana `RDR_CARGA_PLAZAS_TRAD_new`
 queda documentada por separado esta misma ronda** (`salidas/rdr_carga_plazas_trad_new/`), con export real de
-Control-M y ficha EX-005-02 aportados por el usuario. Los elementos que siguen sin material propio (contenido
-interno de `ControlCargaDatos.jar`, el bytecode de `compare.jar`, causa del código 7, y el valor literal de
+Control-M y ficha EX-005-02 aportados por el usuario. **También se confirmó que `ctmfw` es la utilidad nativa
+de BMC Control-M Agent (no un script propio) y que el código 7 es su timeout nativo** — cierra el último cabo
+suelto sobre RISK-CONOFI-001. Los elementos que siguen sin material propio (contenido
+interno de `ControlCargaDatos.jar`, el bytecode de `compare.jar`, y el valor literal de
 `FALLASINOFICHS`/`FALLA_NO_FICHERO` en los ficheros `.idx` de `MEKYTL0242`/`MEKYTL0243`) quedan listados en
 §8.2 como fuera de alcance.

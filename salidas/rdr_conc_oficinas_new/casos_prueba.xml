@@ -23,17 +23,17 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="conflicto_integridad">
-    <nombre>Filewatcher termina con código de retorno 7 — salto directo al cierre de cadena</nombre>
-    <objetivo>Confirmar en ejecución real si, cuando el filewatcher termina con RC=7, la cadena se marca OK y se salta directamente al evento de cierre sin ejecutar los pasos 2 y 3, tal como describe el documento fuente.</objetivo>
+    <nombre>Filewatcher agota el timeout de 4h (RC=7) — salto directo al cierre de cadena</nombre>
+    <objetivo>Confirmar en ejecución real que, cuando el filewatcher agota el timeout de ctmfw (4h, produciendo RC=7 — confirmado como el timeout nativo de la utilidad BMC Control-M Agent, no un código propio de BBVA), la cadena se marca OK y se salta directamente al evento de cierre sin ejecutar los pasos 2 y 3.</objetivo>
     <precondiciones>
-      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher con código de retorno 7 (causa exacta no confirmada, ver spec.md §8.2).</precondicion>
+      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher por timeout (fichero ausente durante toda la ventana de 4h).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Código de retorno a verificar" valor="7"/>
+      <dato campo="Código de retorno a verificar" valor="7 (timeout nativo de ctmfw, confirmado con documentación oficial de BMC)"/>
       <dato campo="Evento esperado si RC=7" valor="RDR_CONC_OFICINAS_MEKYTL0243_OK_new (directamente)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher termine con código 7.</paso>
+      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher agote el timeout de 4h sin recibir oficinas.csv.</paso>
       <paso numero="2">Confirmar que KYTL_CONOFI_GSPROCESS_FW se marca OK de forma forzada.</paso>
       <paso numero="3">Confirmar que se publica directamente el evento de cierre de cadena, sin que se ejecuten los pasos 2 (KYTL_CONOFI_GSPROCESS) ni 3 (MEKYTL0242).</paso>
       <paso numero="4">Confirmar que no hay carga real en GoldenSource ese día para la entidad Oficina/OFC.</paso>

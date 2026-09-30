@@ -11,10 +11,12 @@
 > historificación, confirma el mecanismo real `FALLASINOFICHS` de `MEKYTL0122`), **`MEGENV0001.sh`** (motor
 > genérico de envíos, mismo fichero ya documentado en `rdr_envio_cliex`, confirma el mecanismo real
 > `FALLA_NO_FICHERO` de `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`), la función real **`LimpiarReubicacion`**
-> (confirma y corrige el layout real de columnas de `Reubicacion.csv`, ver R3a) y las **fichas reales
+> (confirma y corrige el layout real de columnas de `Reubicacion.csv`, ver R3a), las **fichas reales
 > EX-005-03** individuales de `MEKYTL0111`/`MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234` (nivel job, corrigen la ruta
 > real de destino de `MEKYTL0111` y revelan una discrepancia de criticidad frente a la ficha EX-005-02, ver
-> R9/RISK-REUB-009). Detalle completo de evidencia en
+> R9/RISK-REUB-009), y la **confirmación oficial de BMC** de que `ctmfw` es la utilidad nativa de Control-M
+> (no un script propio) y de que **el código de retorno 7 es su timeout nativo** (R2, RISK-REUB-001 ya no
+> tiene ningún cabo suelto sobre causa). Detalle completo de evidencia en
 > `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
@@ -120,9 +122,9 @@ nuevos TC-011 a TC-014.
 
 | ID | Requisito |
 |----|-----------|
-| R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de **780 min/13h — confirmado en Control-M real**, pese a que la nota de diseño original de la ficha EX-005-02 pedía 4 horas), activo desde las 11:00 AM (`TIMEFROM="1100"`), gobernado por el calendario real `DAYSCAL="RDR_CIERREOFI"` (no genérico: un calendario dedicado a los días de cierre de oficinas). |
+| R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0 bytes, chequeo cada 60s, 10 comprobaciones consecutivas sin cambio de tamaño para declarar estabilidad, 5 min de tolerancia/intervalo de reintento interno, timeout global de **780 min/13h — confirmado en Control-M real**, pese a que la nota de diseño original de la ficha EX-005-02 pedía 4 horas), activo desde las 11:00 AM (`TIMEFROM="1100"`), gobernado por el calendario real `DAYSCAL="RDR_CIERREOFI"` (no genérico: un calendario dedicado a los días de cierre de oficinas). **`ctmfw` confirmado como la utilidad nativa estándar de BMC Control-M Agent (File Watcher)**, no un script propio de BBVA — parámetros y significado del código de retorno confirmados con documentación oficial de BMC, ver R2. |
 | R1b | **Sin dependencia cruzada real con `RDR_CONC_OFICINAS_new`** — confirmado en el export real: el filewatcher solo tiene como predecesor el calendario `RDR_CIERREOFI`, ningún `INCOND` de otra cadena. La ficha EX-005-02 conserva en su tabla un predecesor cruzado histórico (`KYTL_CONOFI_GSPROCESS`) y una nota de diseño "Eliminar dependencia de oficinas" — consistente con que esa eliminación sí se aplicó en producción. |
-| R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes — **confirmado literalmente en Control-M real**. |
+| R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes — **confirmado literalmente en Control-M real**. **Significado del código 7 confirmado con documentación oficial de BMC Control-M: es el código de TIMEOUT nativo de `ctmfw`** — `Reubicacion.csv` no llegó, o no se estabilizó, dentro de las 13h configuradas. Confirmada ya no solo la mecánica del salto, sino la causa exacta que lo dispara (ver RISK-REUB-001). |
 | R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado (código real confirmado, ver R3a), carga vía un workflow GoldenSource dedicado, generación de reporte (motor genérico confirmado, ver R3d) y conversión de fin de línea (motor genérico confirmado, ver R3c). Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
 | R3a | **`LimpiarReubicacion` (código real confirmado esta ronda, función bash):** `cut -f 1,2,5,6 -d ";" Reubicacion.csv | sort -ur > Reubicacion.tmp` — **selecciona solo las columnas 1, 2, 5 y 6 (1-indexadas) del `Reubicacion.csv` original**, descartando por completo las columnas 3 y 4 (su contenido nunca llega a `Sub_Load` ni a GoldenSource), y ordena+deduplica el resultado en orden inverso sobre la línea completa (`sort -ur`) antes de trocearlo en lotes de 500. **Corrige una imprecisión de la ronda anterior:** al procesar el fichero de 4 columnas resultante (`campos=linea.split(";")`, ver R3b-bis), `campos[1]` corresponde a la **columna 2 original** (oficina que se cierra) y `campos[3]` a la **columna 6 original** (oficina destino) — no a la columna 4, como se documentó antes de tener este código. Sin tolerancia a fallo (`error_exit` si `cut`/`sort` fallan). **Riesgo confirmado con código real:** `sort -u` deduplica por línea completa de las 4 columnas retenidas — 2 filas originales distintas que compartan exactamente los valores de las columnas 1,2,5,6 (aunque difieran en las columnas 3/4 descartadas) se colapsan en 1 sola, sin aviso. |
 | R3b | **`Workflow(RDR_Reubicacion)` identificado con alta confianza como el motor genérico GoldenSource `PLSQL_Load`**, aportado como `PLSQL_Load.wkf`: comentario interno `RDR_UGS87_ASYN_v1`, **versión 8** — coinciden exactamente con el `PLSQL_Load` ya documentado en `salidas/rdr_refundicion/` (mismo workflow, misma versión, mismo comentario), donde ya se confirmó reutilizado por `RDR_Refundicion`/`RDR_Clientela460`. El grupo GoldenSource del propio workflow, `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`, nombra explícitamente ambos procesos (Refundición y Reubicación) — evidencia adicional, no solo coincidencia de versión. Mecánica confirmada: abre el fichero (`ReadFile`), lo trocea en lotes de 500 registros (`FileSplitCondition`), procesa cada mensaje en paralelo mediante el sub-workflow **`Sub_Load`** (comentario interno `RDR_OFI_INACT_V1`, aportado y analizado esta ronda), sincroniza el cierre del lote (`Synchronize`) y cierra el job (`CloseJob`/`EndFile`). El nombre interno del workflow (`PLSQL_Load`) difiere del nombre de invocación (`RDR_Reubicacion`) — mismo patrón de discrepancia de nomenclatura ya visto repetidas veces en esta sesión. |
@@ -219,7 +221,7 @@ cualquier fallo real (Force-OK), y que la dependencia `MEKYTL0122`→`MEKYTL0234
 a que el diseño original pedía eliminarla.
 
 - `happy_path`: TC-001 (ciclo completo, 3 ramas confirman OK, fan-in correcto).
-- `conflicto_integridad`: TC-002 (filewatcher termina con RC=7 → salto directo al evento final; mecanismo ya confirmado, queda pendiente solo la causa).
+- `conflicto_integridad`: TC-002 (filewatcher agota el timeout de 13h (RC=7, confirmado como el timeout nativo de ctmfw) → salto directo al evento final; mecanismo y causa ya confirmados, queda confirmar el efecto real aguas abajo).
 - `conflicto_integridad`: TC-003 (confirmación adicional, en ejecución real, de que MEKYTL0234 ejecuta de verdad contra spgec001 y no es un no-op silencioso a nivel de script).
 - `error_funcional`: TC-004 (MEKYTL0233 falla realmente — Force-OK confirmado, no debe bloquear el fan-in; verificar si el valor real de FALLA_NO_FICHERO produce exit 60/45 según el código real de MEGENV0001.sh).
 - `error_funcional`: TC-005 (MEKYTL0234 falla realmente — Force-OK confirmado, no debe bloquear el fan-in; mismo mecanismo real FALLA_NO_FICHERO que TC-004).
@@ -241,7 +243,7 @@ a que el diseño original pedía eliminarla.
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
 | R1, R1b (filewatcher, calendario dedicado, sin dependencia cruzada) | TC-001, TC-006 | Confirma la detección del fichero, el timeout real de 13h, y la ausencia de dependencia con RDR_CONC_OFICINAS_new |
-| R2 (salto por RC=7) | TC-002 | Confirma la causa real del código 7 (el mecanismo ya está confirmado) |
+| R2 (salto por RC=7, mecanismo y causa confirmados) | TC-002 | Confirma el efecto real aguas abajo de un timeout de ctmfw |
 | R3 (carga vía Workflow RDR_Reubicacion, sin Force-OK) | TC-001 | Confirma el ciclo funcional de carga real |
 | R5 (MEKYTL0234 ejecuta de verdad contra destino inerte) | TC-003 | Confirma en ejecución real el comportamiento del script, no solo su TASKTYPE |
 | R4, R5, R6b (Force-OK + mecanismo real FALLA_NO_FICHERO de MEKYTL0233/MEKYTL0234) | TC-004, TC-005 | Confirma que un fallo real (incluido exit 60/45 si aplica) no bloquea el fan-in |
@@ -260,12 +262,14 @@ a que el diseño original pedía eliminarla.
 
 ### 8.1 Riesgos
 
-* **RISK-REUB-001 [prioridad media-alta, mecanismo confirmado por Control-M real, causa disparadora sin
-  confirmar]:** el salto por RC=7 del filewatcher marca la cadena completa como exitosa sin ejecutar la
-  reubicación real — incluyendo la carga en GoldenSource — confirmado literalmente en la definición del job,
-  igual que en `RDR_CONC_OFICINAS_new`. Si la cadena de difusión (`RDR_DIFUSION_BATCH_IN` y sucesores,
-  confirmada como predecesor directo de `MEKYTL0122`) confía ciegamente en el evento final de esta cadena,
-  podría difundir un cierre de oficinas sin que la reubicación real se haya procesado ese día.
+* **RISK-REUB-001 [prioridad media-alta, mecanismo y causa confirmados con evidencia real]:** el salto por
+  RC=7 del filewatcher marca la cadena completa como exitosa sin ejecutar la reubicación real — incluyendo la
+  carga en GoldenSource — confirmado literalmente en la definición del job, igual que en
+  `RDR_CONC_OFICINAS_new`. **Causa confirmada con documentación oficial de BMC Control-M:** el código 7 es el
+  timeout propio de `ctmfw` — `Reubicacion.csv` no llegó, o no se estabilizó, dentro de las 13h configuradas.
+  Si la cadena de difusión (`RDR_DIFUSION_BATCH_IN` y sucesores, confirmada como predecesor directo de
+  `MEKYTL0122`) confía ciegamente en el evento final de esta cadena, podría difundir un cierre de oficinas sin
+  que la reubicación real se haya procesado ese día.
 * **RISK-REUB-002 [prioridad alta, alcance ampliado y confirmado con Control-M real]:** **4 de los 6 pasos**
   (`MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111` y el propio `MEKYTL0122`) tienen `<ON STMT="*" CODE="NOTOK">
   <DOACTION ACTION="OK"/></ON>` — cualquier fallo real en cualquiera de ellos se marca OK. Solo el filewatcher
@@ -320,8 +324,8 @@ a que el diseño original pedía eliminarla.
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
 * **Contenido interno de `ControlCargaDatos.jar`** (`LimpiarReubicacion` queda confirmado con código real — ver R3a).
-* **Significado exacto del código de retorno 7** del filewatcher (mismo punto abierto que en
-  `RDR_CONC_OFICINAS_new`).
+  (El significado del código de retorno 7 queda **confirmado** esta ronda — ver R2: timeout nativo de `ctmfw`,
+  documentación oficial de BMC Control-M.)
 * **Valor real configurado de `FALLASINOFICHS`** para la clave `MEKYTL0122` en
   `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` — **fuera de alcance definitivo**: el mecanismo de
   `RAMERC0068.sh` ya está confirmado con código real (R7b), pero el usuario confirmó que no se puede obtener
@@ -389,8 +393,10 @@ de forma incompleta), corroboran con una 3ª fuente independiente los destinos y
 `MEKYTL0233`/`MEKYTL0234` (incluida la instrucción "DEBE QUEDAR A DUMMY" repetida literalmente en la propia
 ficha de `MEKYTL0234`), y revelan una nueva discrepancia entre fuentes oficiales: la ficha de cadena EX-005-02
 declara criticidad W, pero las 4 fichas de job EX-005-03 declaran todas C (RISK-REUB-009) — el mismo patrón
-metodológico que ya reveló RISK-REUB-004, aplicado ahora a la clasificación de criticidad. Los elementos que
-siguen sin material propio (`ControlCargaDatos.jar`, causa del código 7, motivo de la discrepancia
+metodológico que ya reveló RISK-REUB-004, aplicado ahora a la clasificación de criticidad. **También se
+confirmó que `ctmfw` es la utilidad nativa de BMC Control-M Agent y que el código 7 es su timeout nativo** —
+cierra el último cabo suelto sobre RISK-REUB-001. Los elementos que
+siguen sin material propio (`ControlCargaDatos.jar`, motivo de la discrepancia
 RISK-REUB-004, motivo de la discrepancia de criticidad RISK-REUB-009, y el valor real de
 `FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`) quedan listados
 en §8.2 como fuera de alcance. **La cadena hermana `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado

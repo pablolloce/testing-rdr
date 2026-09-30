@@ -58,8 +58,10 @@
 ## Flujos previos que deben haberse completado
 
 - **Importante:** el mecanismo de salto por código de retorno 7 del filewatcher (ver `spec.md` R2,
-  RISK-REUB-001) está **confirmado literalmente en el export real de Control-M** — cualquier prueba sobre
-  este escenario debe verificar además si la cadena de difusión (`RDR_DIFUSION_BATCH_IN`, predecesor directo
+  RISK-REUB-001) está **confirmado literalmente en el export real de Control-M**, y **la causa también está
+  confirmada:** `ctmfw` es la utilidad nativa de BMC Control-M Agent (no un script propio), y el código 7 es
+  su timeout nativo — `Reubicacion.csv` no llegó o no se estabilizó dentro de las 13h configuradas. Cualquier
+  prueba sobre este escenario debe verificar además si la cadena de difusión (`RDR_DIFUSION_BATCH_IN`, predecesor directo
   confirmado, aunque su contenido interno sigue fuera de alcance) confía ciegamente en el evento final sin
   saber si hubo reubicación real.
 - **Importante, alcance ampliado respecto a la ronda anterior:** `MEKYTL0122` (Fan-In) depende de las 3

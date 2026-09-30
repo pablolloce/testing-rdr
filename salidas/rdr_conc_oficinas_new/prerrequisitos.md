@@ -59,9 +59,10 @@
 
 - **Importante:** el mecanismo de salto por código de retorno 7 del filewatcher (ver `spec.md` R2,
   RISK-CONOFI-001) está **confirmado literalmente en el export real de Control-M** — no es una hipótesis.
-  Solo queda pendiente confirmar qué condición real dispara ese código concreto. Cualquier prueba sobre este
-  escenario debe incluir la comprobación de si algún proceso downstream confía en el evento de cierre de esta
-  cadena sin saber que, ese día, no hubo carga real.
+  **La causa también está confirmada:** `ctmfw` es la utilidad nativa de BMC Control-M Agent (no un script
+  propio de BBVA), y el código 7 es su timeout nativo — el fichero no llegó o no se estabilizó dentro de las
+  4h configuradas. Cualquier prueba sobre este escenario debe incluir la comprobación de si algún proceso
+  downstream confía en el evento de cierre de esta cadena sin saber que, ese día, no hubo carga real.
 - **Importante:** el paso 4 (`MEKYTL0243`) es un job real (`TASKTYPE="Job"`, confirmado en Control-M)
   configurado contra un destino inerte en producción — no asumir que existe una transferencia real de datos
   hacia `XCOMWPMER` al diseñar pruebas de integración con sistemas consumidores.
