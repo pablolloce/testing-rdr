@@ -16,8 +16,7 @@ de 3 jobs encadenados por evento, sin filewatchers ni ramas paralelas.
 * **Ámbito técnico:** 1 cadena Control-M (`RDR_BATCH_EMISORES_REFINITIV`), 3 jobs de tipo OS, todos ejecutando
   el motor genérico `GSProcess.sh` con distinto `Param1`/`.properties`, encadenados por evento (sin
   filewatcher). Todos los jobs se ejecutan en `pr-rdr.igrupobbva` bajo el usuario `xakytl1p`.
-* **Fuera de alcance:** el sub-workflow `Sub_CalculateREU` (invocado a su vez por `RDR_UPDATE_REU`, ver
-  sección 9) y el contenido interno de los clientes Java externos (`RDR_Refinitiv_Request.jar`,
+* **Fuera de alcance:** el contenido interno de los clientes Java externos (`RDR_Refinitiv_Request.jar`,
   `Refinitv_Ratings.jar`) invocados por los workflows GoldenSource — la mecánica de los 3 workflows
   principales en sí (`Refinitiv_Request_Response`, `Refinitiv_Load_Ratings`, `BBG_Refinitiv_Batch`) y ahora
   también la de `RDR_UPDATE_REU` ya están confirmadas con fichero real (ver sección 4, gap G1, y sección 9); la cadena
@@ -40,15 +39,28 @@ real confirmado): recorre `FT_T_RLT1` buscando filas con `RLT_DIF_STAT='CALCULAT
 `RLT_DIF_ACC='M'` AND `RLT_PURP_TYP='REPORTES'` (`SELECT RLT_FIELD as INST_MNEM, RLT_OID`); si no hay
 resultados, cierra directamente. Si hay, por cada fila: `UPDATE FT_T_RLT1 SET RLT_DIF_STAT='CALCULATE_REU_OK'
 WHERE RLT_OID=?`, y llama al sub-workflow **`Sub_CalculateREU`** (pasando `inst_mnem`=`INST_MNEM`,
-`user`='RDR_UPDATE_REU') — este último es quien realmente recalcula el REU, y su contenido no está incluido
-en la evidencia (caja negra, impacto bajo). Al terminar el bucle, inserta una fila de resumen en `FT_T_RLT1`
+`user`='RDR_UPDATE_REU') — **contenido real confirmado (2026-09-30)**: calcula el "Rating Externo Unificado"
+(REU) consolidando, por cada instrumento, el mejor rating disponible entre `S&P Long Term`, `Fitch Long Term`
+y `Moody's Long Term` (vía `FT_T_RTNG`/`FT_T_RTVL`, usando `rank_num` para determinar el mejor y segundo mejor
+grado), en dos variantes paralelas — internacional (`REU`, clasificación `REUORG`) y local (`REUL`,
+clasificación `REUORGL`), cada una consultando `FT_T_INCL` (`CL_NME='Automatic'`) para decidir si el
+instrumento es candidato a actualización automática. Excluye instrumentos marcados manualmente como
+protegidos (`FT_T_FIST`, `stat_def_id='KEEPREUF'`/`'KEEPREUL'`, `stat_char_val_txt='Y'`). Inserta/actualiza
+`FT_T_FIRT` (fila de rating REU, con `RTNG_CDE`/`RTNG_VALUE_OID` reales) y `FT_T_FRRL` (relación de herencia
+`REUINHER`/`CPARTY` hacia el emisor vía `FT_T_FINR`). Toca en total 13 tablas: `FT_T_ENFR`, `FT_T_FIID`,
+`FT_T_FINR`, `FT_T_FINS`, `FT_T_FIRT`, `FT_T_FIST`, `FT_T_FRID`, `FT_T_FRRL`, `FT_T_INCL`, `FT_T_IRST`,
+`FT_T_ISSR`, `FT_T_RTNG`, `FT_T_RTVL`. **Hallazgo de gobierno (RISK-REFI-001, ver sección 9):** este
+workflow, pese a ser el motor de cálculo real invocado a diario desde producción, está en estado
+`DEVELOPMENT` en GoldenSource (no `RELEASED` como los otros 4 workflows de esta cadena), versión 20, grupo
+`Custom/RDR/Publishing/Online` (distinto del resto), con el campo `comment` conteniendo literalmente
+`ANS_PRUEBAS5`. Al terminar el bucle, inserta una fila de resumen en `FT_T_RLT1`
 (`RLT_DIF_STAT='CALCULATE_REU_REP'`, `MESSAGE_RLT`='Se han procesado '+nº de filas). Genera exactamente 2 CSV de fallos confirmados por nombre real: `BBG_Refinitiv_loadRating_failures_toUser_MM_dd_yyyy.csv` (contacto `CONTACT_User_<env>`) y `..._toANS_...` (contacto `CONTACT_ANS_<env>`), ambos vía `FT_T_PAR1`/`REFINITIV_CONTACT`. **`idType=ORG_ID`/`id=MULTI` confirmado con el `.properties` real** de `GS_REFINITIV_REQ_RES` (ver sección 9): el workflow solo usa `id` como texto literal en el nombre del fichero de solicitud (`RFNT_BBVA_`+`id`+fecha+`.txt`), no como clave de negocio — la coincidencia con `RefinitivIssueMultiRequest.properties` no genera colisión, porque el destino (`pathOut`) se decide por `requestType`/`vreqOid`, no por `id`. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G1 | ¿Cuál es la lógica de negocio real detrás de `GSProcess.sh` para los 3 `Param1`? | **Resuelto por completo (2026-09-24, ampliado 2026-09-30) con los 4 workflows GoldenSource reales** (`Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf`, `BBG_Refinitiv_Batch.wkf`, y ahora `RDR_UPDATE_REU.wkf` — ver R6). Confirma con código, no solo declaración, la mecánica íntegra de los 3 jobs: construcción/envío de la solicitud, carga de la respuesta de ratings, actualización final de `FT_T_FIRT`/`FT_T_RLT1` con difusión ESB y marcado para recálculo, y el recorrido/orquestación real del recálculo de REU. Único punto que sigue sin fichero fuente: el sub-workflow `Sub_CalculateREU`, invocado por `RDR_UPDATE_REU` para el cálculo real (impacto bajo, ver sección 9). |
+| G1 | ¿Cuál es la lógica de negocio real detrás de `GSProcess.sh` para los 3 `Param1`? | **Resuelto por completo y al 100% (2026-09-24, ampliado 2026-09-30) con los 5 workflows GoldenSource reales** (`Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf`, `BBG_Refinitiv_Batch.wkf`, `RDR_UPDATE_REU.wkf`, `Sub_CalculateREU.wkf` — ver R6). Confirma con código, no solo declaración, la mecánica íntegra de los 3 jobs de principio a fin: construcción/envío de la solicitud, carga de la respuesta de ratings, actualización de `FT_T_FIRT`/`FT_T_RLT1` con difusión ESB y marcado para recálculo, y el cálculo real y completo del REU (mejor rating entre S&P/Fitch/Moody's, variantes internacional/local). Sin ningún punto restante sin fichero fuente en la cadena principal (quedan fuera solo los 2 clientes Java externos, ver sección 9). |
 | G2 | ¿El resultado de la cadena es un fichero/tabla o un impacto interno? | Confirmado: impacto interno en BD GoldenSource (`GSDM-1`), sin fichero de salida ni evento externo. |
 | G3 | ¿Es esta cadena una variante de `RDR_CARGA_REFINITIV_Multi` o una integración independiente? | Confirmado: integraciones funcionalmente independientes — esta cadena es la extracción periódica masiva diaria (batch), la otra procesa altas incrementales vía fichero. |
 | G4 | ¿Hay validación de que Refinitiv respondió con datos válidos? | Confirmado: no. Solo se valida el código de retorno (`RC=0`) del script; no hay inspección de contenido de la respuesta. Documentado como riesgo (sección 9). |
@@ -84,9 +96,11 @@ en la evidencia (caja negra, impacto bajo). Al terminar el bucle, inserta una fi
   antes), tocadas por `BBG_Refinitiv_Batch`. `FT_T_PAR1` confirmada de solo lectura (parámetros
   `REFINITIV_PARAMS` y contactos `REFINITIV_CONTACT`). `RDR_UPDATE_REU` (contenido real confirmado,
   2026-09-30) marca cada fila procesada como `RLT_DIF_STAT='CALCULATE_REU_OK'` en `FT_T_RLT1` e inserta una
-  fila de resumen `RLT_DIF_STAT='CALCULATE_REU_REP'`. `FT_T_VRPM` (sub-workflow `Grabar-VREQ_VRPM`) y el
-  sub-workflow `Sub_CalculateREU` (invocado por `RDR_UPDATE_REU` para el cálculo real) son los únicos puntos
-  que siguen sin fichero fuente propio (ver sección 9).
+  fila de resumen `RLT_DIF_STAT='CALCULATE_REU_REP'`. `Sub_CalculateREU` (contenido real confirmado,
+  2026-09-30) toca 13 tablas para el cálculo real del REU: `FT_T_ENFR`, `FT_T_FIID`, `FT_T_FINR`, `FT_T_FINS`,
+  `FT_T_FIRT`, `FT_T_FIST`, `FT_T_FRID`, `FT_T_FRRL`, `FT_T_INCL`, `FT_T_IRST`, `FT_T_ISSR`, `FT_T_RTNG`,
+  `FT_T_RTVL` (ver R6 para el detalle funcional). `FT_T_VRPM` (sub-workflow `Grabar-VREQ_VRPM`) es el único
+  punto que sigue sin fichero fuente propio (ver sección 9).
 
 ## 7. Especificación de testing
 
@@ -119,18 +133,26 @@ en esta cadena lineal.
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-* **Riesgo de trazabilidad documental (G1, cerrado 2026-09-24, ampliado 2026-09-30):** los 4 workflows
-  GoldenSource reales (`Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf`,
-  `BBG_Refinitiv_Batch.wkf`, `RDR_UPDATE_REU.wkf`) confirman con código la mecánica íntegra de los 3 jobs de
-  la cadena (ver R6), incluida la actualización real de `FT_T_FIRT`/`FT_T_RLT1`, el mapeo de ratings entre 5
-  agencias, y el recorrido/orquestación real del recálculo de REU (`RDR_UPDATE_REU`: consulta `FT_T_RLT1`
-  filtrando `RLT_DIF_STAT='CALCULATE_REU'`+`RLT_DIF_ACC='M'`+`RLT_PURP_TYP='REPORTES'`, itera marcando cada
-  fila `CALCULATE_REU_OK` y delegando el cálculo real en `Sub_CalculateREU`, y cierra con una fila de resumen
-  `CALCULATE_REU_REP`). Solo quedan sin fichero fuente propio: el sub-workflow `Sub_CalculateREU` (invocado
-  por `RDR_UPDATE_REU` para el cálculo real del REU) y el contenido de los 2 clientes Java externos
-  (`RDR_Refinitiv_Request.jar`, `Refinitv_Ratings.jar`) — impacto bajo, ya que su rol dentro del flujo
-  (recálculo REU y parseo/carga de la respuesta de Refinitiv, respectivamente) está confirmado por el propio
-  workflow que los invoca.
+* **Riesgo de trazabilidad documental (G1, cerrado por completo 2026-09-30):** los 5 workflows GoldenSource
+  reales (`Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf`, `BBG_Refinitiv_Batch.wkf`,
+  `RDR_UPDATE_REU.wkf`, `Sub_CalculateREU.wkf`) confirman con código la mecánica íntegra de los 3 jobs de la
+  cadena (ver R6), incluida la actualización real de `FT_T_FIRT`/`FT_T_RLT1`, el mapeo de ratings entre 5
+  agencias, y ahora también el cálculo real y completo del REU. Solo queda sin fichero fuente propio el
+  contenido de los 2 clientes Java externos (`RDR_Refinitiv_Request.jar`, `Refinitv_Ratings.jar`) — impacto
+  bajo, ya que su rol dentro del flujo (construcción/envío de la solicitud y parseo/carga de la respuesta de
+  Refinitiv, respectivamente) está confirmado por el propio workflow que los invoca.
+* **RISK-REFI-001 — el motor real de cálculo del REU está en estado `DEVELOPMENT` en GoldenSource, no
+  `RELEASED` (hallazgo nuevo, 2026-09-30).** `Sub_CalculateREU.wkf` — invocado a diario desde la cadena de
+  producción `RDR_BATCH_EMISORES_REFINITIV` → `BBG_Refinitiv_Batch` → `RDR_UPDATE_REU` → `Sub_CalculateREU` —
+  tiene `status=DEVELOPMENT`, a diferencia de los otros 4 workflows de esta cadena, todos `RELEASED`. Además,
+  su campo `group` es `Custom/RDR/Publishing/Online` (distinto del resto, que están en
+  `Custom/RDR/Riesgo_Emisor`/`Custom/RDR/Fileloading/Refinitiv`), y su campo `comment` contiene literalmente
+  `ANS_PRUEBAS5` — indicios consistentes de que el workflow que hoy calcula en producción el Rating Externo
+  Unificado sigue formalmente catalogado como un artefacto de pruebas, no como un componente productivo
+  liberado. No es un defecto funcional confirmado (el workflow se ejecuta y produce resultados coherentes con
+  su documentación), pero sí un riesgo de gobierno real a trasladar al equipo responsable: cualquier cambio
+  futuro en el catálogo de workflows `DEVELOPMENT` (limpieza, purga, republicación) podría afectar sin previo
+  aviso a este flujo de producción.
 * **Otros sub-workflows citados sin fichero propio:** `Refinitiv_Ratings_oids`, `Refinitiv_Ratings_relations`
   y `Grabar-VREQ_VRPM` (esta última coincide con `FT_T_VRPM`, ya declarada) se invocan desde
   `Refinitiv_Request_Response`/`Refinitiv_Load_Ratings` en ramas de tipos de solicitud distintos de
@@ -157,11 +179,13 @@ en esta cadena lineal.
 
 ## 10. Conclusión y requisitos de cierre
 
-Todos los gaps identificados (G1-G4) tienen una resolución explícita. G1, el más profundo, quedó cerrado con
-evidencia real de código (los 3 workflows GoldenSource principales) el 2026-09-24, tras haberse documentado
-inicialmente solo por declaración del usuario, y se completó el 2026-09-30 con el contenido real de
-`RDR_UPDATE_REU.wkf`, cerrando el único resto que quedaba de G1. La coincidencia `id=MULTI` entre esta cadena
-y `RDR_CARGA_REFINITIV_Multi` quedó igualmente cerrada el 2026-09-24 con los 2 `.properties` reales: es real,
-no una errata, y no supone ningún riesgo funcional. No quedan preguntas de la lista de gaps sin respuesta ni
-tablas de negocio sin verificación documental, salvo el sub-workflow `Sub_CalculateREU` (cálculo real del
-REU, invocado por `RDR_UPDATE_REU`) y los 2 clientes Java externos citados en la sección 9 (impacto bajo).
+Todos los gaps identificados (G1-G4) tienen una resolución explícita, y **G1 queda cerrado al 100%** con
+evidencia real de código: los 3 workflows GoldenSource principales el 2026-09-24, y su cadena completa de
+sub-workflows (`RDR_UPDATE_REU.wkf` → `Sub_CalculateREU.wkf`) el 2026-09-30 — este último revela además el
+cálculo real y completo del Rating Externo Unificado (REU), y un hallazgo de gobierno nuevo (RISK-REFI-001:
+el workflow que hoy calcula el REU en producción está en estado `DEVELOPMENT`, no `RELEASED`, en
+GoldenSource). La coincidencia `id=MULTI` entre esta cadena y `RDR_CARGA_REFINITIV_Multi` quedó igualmente
+cerrada el 2026-09-24 con los 2 `.properties` reales: es real, no una errata, y no supone ningún riesgo
+funcional. No quedan preguntas de la lista de gaps sin respuesta ni tablas de negocio sin verificación
+documental, salvo el contenido de los 2 clientes Java externos citados en la sección 9 (impacto bajo, no
+bloqueante).
