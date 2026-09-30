@@ -9,6 +9,7 @@
 | `Refundicion.csv` (fichero de entrada, sistema origen no documentado) | `KYTL_REF_GSPROCESS_FW` | TC-001, TC-002, TC-003, TC-006 |
 | GoldenSource (BD, motor `PLSQL_Load`/`Sub_Load`, procedimiento `REFUNDICION` — código real confirmado) | Carga y refundición en `KYTL_REF_GSPROCESS` | TC-001, TC-003, TC-006, TC-007 a TC-012 |
 | GoldenSource (BD, `FT_T_RLT1` filas `PENDING`/`A460`/`B460`/`B460C`, workflow `BajaClientela460` — código real confirmado) | Consumo de señales de alta/baja 460 tras `Workflow(RDR_Refundicion)` | TC-014, TC-015 |
+| `Refundicion.properties` (bloque `Accion=Vari` que precede al `Even`/`Workflow` de `RDR_Clientela460`, aún no aportado literalmente) | Valor real de `Tipologia`/`StopEve` inyectado por `GSProcess.sh` | TC-014 |
 
 ## Datos mínimos
 
@@ -64,8 +65,9 @@
 - **`Workflow(RDR_Clientela460)`/`BajaClientela460` (código real confirmado esta ronda):** ejecuta
   inmediatamente después de `Workflow(RDR_Refundicion)` dentro de `KYTL_REF_GSPROCESS` (R2); consume las
   filas `PENDING` de `FT_T_RLT1` que `Sub_Load`/`REFUNDICION` inserta para alta/baja de 460. Necesario para
-  TC-014/TC-015 — requiere capacidad de fijar (o dejar sin fijar) el parámetro `Tipologia` en la invocación,
-  algo que no se controla desde Control-M ni desde el `.properties` de la cadena.
+  TC-014/TC-015 — requiere capacidad de fijar (o dejar sin fijar) el parámetro `Tipologia` en la invocación.
+  Confirmado con `GSProcess.sh` (código real): `Tipologia` se inyecta desde un bloque `Accion=Vari` del
+  `.properties` real del job (`Refundicion.properties`), no desde Control-M directamente.
 
 ## Entorno de pruebas
 
@@ -81,7 +83,12 @@
   no invoca `ConContrato460.java`/`ConDB.java` (hipótesis de rondas anteriores, ahora refutada) — es un
   workflow GoldenSource puro que drena `FT_T_RLT1` directamente. Sin ficheros pendientes bloqueantes; quedan
   como material opcional, no bloqueante, los 2 sub-workflows invocados (`SendClientelaRequest`,
-  `BAJA_460_CLI`) y la confirmación operativa de cómo se fija `Tipologia` en la invocación real (TC-014).
+  `BAJA_460_CLI`).
+- **`GSProcess.sh` aportado esta ronda, confirma el mecanismo de inyección de `Tipologia`:** ya no es un
+  riesgo de "no-op total" (prioridad alta), sino un valor literal concreto pendiente (prioridad media,
+  mismo patrón que `FALLASINOFICHS`/`FALLA_NO_FICHERO`): el bloque `Accion=Vari` de `Refundicion.properties`
+  que precede al `Even`/`Workflow` de `RDR_Clientela460` — con él se confirmaría el valor real de
+  `Tipologia` y de `StopEve` para ese bloque (TC-014).
 - **Fuera de alcance de TC-013 (no relacionado con G4):** con qué cola real drena `ThreadComprobacion` en
   producción, y a qué cadena pertenecen realmente `ConContrato460.java`/`ConDB.java` — código confirmado,
   pero ya se sabe que no es parte de `RDR_REFUNDICION_new`.

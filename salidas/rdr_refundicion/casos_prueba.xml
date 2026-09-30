@@ -269,23 +269,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-014" tipo="negativo">
-    <nombre>BajaClientela460 no procesa nada si Tipologia llega sin valor</nombre>
-    <objetivo>Confirmar que, cuando el parámetro Tipologia del workflow BajaClientela460 llega vacío o con un valor no reconocido, el Switch Case cae en la rama por defecto OTHER y el workflow termina inmediatamente sin consultar ni procesar ninguna fila PENDING de FT_T_RLT1 (A460/B460/B460C) — riesgo real dado que el evento invocador RDR_Clientela460.gsp declara su mapa de parámetros vacío y el .wkf no fija ningún valor por defecto para Tipologia.</objetivo>
+    <nombre>BajaClientela460 no procesa nada si Tipologia no llega con un valor reconocido</nombre>
+    <objetivo>Confirmar el valor literal que GSProcess.sh inyecta en Tipologia (vía el bloque Accion=Vari de Refundicion.properties que precede al Even/Workflow de RDR_Clientela460) en la ejecución real, y comprobar que si ese valor no es ALTA/BAJA/TOTAL (p. ej. vacío o mal escrito), el Switch Case de BajaClientela460 cae en la rama por defecto OTHER y termina inmediatamente sin procesar ninguna fila PENDING de FT_T_RLT1 (A460/B460/B460C). Confirmar también el valor real de StopEve para ese mismo bloque, que determina si un fallo del evento detiene KYTL_REF_GSPROCESS de inmediato o solo cuenta un error.</objetivo>
     <precondiciones>
       <precondicion>Al menos 1 fila PENDING en FT_T_RLT1 con RLT_DIF_ACC en A460, B460 o B460C.</precondicion>
-      <precondicion>Capacidad de invocar Workflow(RDR_Clientela460)/BajaClientela460 de forma controlada, con y sin el parámetro Tipologia fijado explícitamente.</precondicion>
+      <precondicion>Acceso al contenido real del bloque Accion=Vari de Refundicion.properties que precede al Accion=Even/Workflow de RDR_Clientela460 (valores de Tipologia y StopEve).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Tipologia" valor="sin fijar / valor no reconocido, p. ej. vacío"/>
+      <dato campo="Tipologia" valor="valor real configurado en Refundicion.properties, a confirmar"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Invocar BajaClientela460 exactamente como lo hace el pipeline real (evento RDR_Clientela460, sin fijar Tipologia).</paso>
-      <paso numero="2">Confirmar si el workflow cae en la rama OTHER (fin inmediato) o si Tipologia se resuelve por alguna vía no visible en el .wkf.</paso>
-      <paso numero="3">Confirmar que las filas PENDING de A460/B460/B460C preexistentes siguen sin marcarse OK tras la ejecución, si el workflow cayó en OTHER.</paso>
+      <paso numero="1">Confirmar el valor literal de Tipologia en el bloque Vari real de Refundicion.properties.</paso>
+      <paso numero="2">Si el valor no es ALTA/BAJA/TOTAL, confirmar en ejecución controlada que BajaClientela460 cae en la rama OTHER y no procesa nada.</paso>
+      <paso numero="3">Confirmar el valor de StopEve para ese bloque y si un fallo del evento detiene la cadena o solo incrementa el contador de errores de GSProcess.sh.</paso>
     </pasos>
-    <resultadoEsperado>Se confirma o se descarta el riesgo de no-op total; si se confirma, debe elevarse como hallazgo de prioridad alta (fallo silencioso de todo el consumo de señales 460).</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada del workflow + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
-    <criterioAceptacion>Comportamiento real de Tipologia ante ausencia de valor documentado sin ambigüedad.</criterioAceptacion>
+    <resultadoEsperado>Valor real de Tipologia y StopEve confirmados; si Tipologia no es un valor reconocido, se confirma el fallo silencioso de procesamiento (elevar a prioridad alta en ese caso).</resultadoEsperado>
+    <tipoValidacion>Inspección del .properties real + ejecución controlada del workflow + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Valor real de Tipologia/StopEve y comportamiento del workflow ante ese valor documentados sin ambigüedad.</criterioAceptacion>
     <posibilidadFallo>Si Tipologia siempre llega vacía en producción, ningún alta/baja 460 se procesaría nunca, sin ningún error visible en Control-M (la cadena principal seguiría en verde).</posibilidadFallo>
   </casoDePrueba>
 
