@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="conciliacion_contactos_abaco" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo Cadena 1 (RDR_CONCI_CONTACT_new)</nombre>
+    <objetivo>Verificar el ciclo end-to-end de los 5 jobs, incluida la topología real (filewatcher primero, resuelta en GAP-CNTC-003).</objetivo>
+    <precondiciones>
+      <precondicion>TEBDPISS.txt depositado en /fichtemcomp/pr/descargas/kytl/Contactos/ entre las 06:00h y las 09:00h.</precondicion>
+      <precondicion>Sistema ABACO disponible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="TEBDPISS.txt" valor="fichero válido con al menos 1 contacto a conciliar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que KYTL_CNT_GSPROCESS_FW detecta el fichero antes que KYTL_CNT_GSPROCESS arranque.</paso>
+      <paso numero="2">Confirmar que KYTL_CNT_GSPROCESS ejecuta la conciliación contra ABACO.</paso>
+      <paso numero="3">Confirmar que MEKYTL0321 historifica TEBDPISS.txt a /old.</paso>
+      <paso numero="4">Confirmar que MEKYTL0322 envía ConciliacionContactos_yyyymmdd.xlsx a XCOMWPMER.</paso>
+      <paso numero="5">Confirmar que MEKYTL0935 historifica el mismo .xlsx localmente, cerrando la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs terminan OK, en el orden real FW→GSPROCESS→0321→0322→0935; sin arranque prematuro de GSPROCESS.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 5 jobs en Control-M + orden real de disparo de eventos.</tipoValidacion>
+    <criterioAceptacion>5/5 jobs OK, orden confirmado FW primero.</criterioAceptacion>
+    <posibilidadFallo>Si KYTL_CNT_GSPROCESS arrancara sin el evento del filewatcher, contradiría GAP-CNTC-003.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Ciclo completo Cadena 2 (RDR_CONTACT_DOM)</nombre>
+    <objetivo>Verificar el ciclo end-to-end de los 3 jobs de generación, transferencia interna e historificación del CSV de dominios.</objetivo>
+    <precondiciones>
+      <precondicion>Base de contactos disponible para GS_DOMINIOS_CONTACTOS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Contactos con email" valor="al menos 1 registro con dominio de correo válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que GS_DOMINIOS_CONTACTOS genera DominiosContactosRDR.csv sin fichero de entrada externo.</paso>
+      <paso numero="2">Confirmar que MEKYTL1162 mueve el fichero a /unload/kytl/datsal/datax vía RAMERC0068.sh (no MEGENV0001.sh).</paso>
+      <paso numero="3">Confirmar que MEKYTL1163 historifica el fichero con máscara _YYYYMMDD a /backup, cerrando la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan OK; el mecanismo de "envío" de MEKYTL1162 es un movimiento local, no una transmisión real.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 3 jobs + verificación del script realmente invocado (RAMERC0068.sh).</tipoValidacion>
+    <criterioAceptacion>3/3 jobs OK, mecanismo de movimiento local confirmado.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="happy_path">
+    <nombre>Ejecución real y sustancial de GSPROCESS_DQ_CONTACTS (Cadena 3)</nombre>
+    <objetivo>Confirmar que el job unitario ejecuta trabajo real (no un no-op), generando los 2 ficheros de Data Quality.</objetivo>
+    <precondiciones>
+      <precondicion>Hora de disparo alcanzada (22:20h).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tiempo de CPU esperado" valor="~50-57s, consistente con el histórico real"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el job arranca solo por horario, sin evento de entrada.</paso>
+      <paso numero="2">Confirmar que genera RDR_Clientes_Sin_Contacto_YYYYMMDD.xlsx y KKYTL_D02_YYYYMMDD_RDRDATIO1021_V01.dat.</paso>
+      <paso numero="3">Confirmar que el tiempo de ejecución es consistente con el histórico real (no near-instant).</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK, con tiempo de CPU sustancial, y ambos ficheros generados.</resultadoEsperado>
+    <tipoValidacion>Estado OK + verificación de la presencia de ambos ficheros + tiempo de CPU real.</tipoValidacion>
+    <criterioAceptacion>Ambos ficheros generados, tiempo de CPU consistente con el histórico (~50-57s).</criterioAceptacion>
+    <posibilidadFallo>Un tiempo de ejecución casi instantáneo (menor a 1s) indicaría que el job no está procesando datos reales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Filewatcher fuera de la ventana 06:00-09:00h (Cadena 1)</nombre>
+    <objetivo>Confirmar el comportamiento de KYTL_CNT_GSPROCESS_FW si TEBDPISS.txt no llega dentro de su ventana de vigilancia.</objetivo>
+    <precondiciones>
+      <precondicion>TEBDPISS.txt NO depositado durante la ventana 06:00-09:00h.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero TEBDPISS.txt" valor="ausente durante toda la ventana"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de vigilancia.</paso>
+      <paso numero="2">Verificar el estado del filewatcher tras cerrarse la ventana (180 min de timeout).</paso>
+    </pasos>
+    <resultadoEsperado>El filewatcher no detecta el fichero; el resto de la cadena no arranca.</resultadoEsperado>
+    <tipoValidacion>Estado del filewatcher en Control-M + verificación de que ningún job sucesor arrancó.</tipoValidacion>
+    <criterioAceptacion>Sin eventos publicados, cadena detenida en este punto.</criterioAceptacion>
+    <posibilidadFallo>Comportamiento esperado ante ausencia real del fichero, no un fallo del proceso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="conflicto_integridad">
+    <nombre>GSPROCESS_DQ_CONTACTS no espera ningún evento externo</nombre>
+    <objetivo>Confirmar que el job de la Cadena 3 arranca únicamente por horario, con independencia total del estado de las Cadenas 1 y 2.</objetivo>
+    <precondiciones>
+      <precondicion>Cadenas 1 y 2 en cualquier estado (completadas, en curso, o sin haber arrancado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado de Cadena 1/2" valor="deliberadamente no completado antes de las 22:20h"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar que las Cadenas 1 y 2 no hayan completado antes de las 22:20h.</paso>
+      <paso numero="2">Verificar que GSPROCESS_DQ_CONTACTS arranca de todas formas a su hora programada.</paso>
+    </pasos>
+    <resultadoEsperado>GSPROCESS_DQ_CONTACTS arranca a las 22:20h sin importar el estado de las otras 2 cadenas.</resultadoEsperado>
+    <tipoValidacion>Estado de arranque del job en Control-M, independiente de las otras 2 cadenas.</tipoValidacion>
+    <criterioAceptacion>Arranque confirmado sin dependencia real de las Cadenas 1/2.</criterioAceptacion>
+    <posibilidadFallo>Si el job quedara bloqueado esperando algo de las otras cadenas, contradiría la independencia confirmada por captura real.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Confirmación del calendario real Domingo-Jueves (GAP-CNTC-002) en las 3 cadenas</nombre>
+    <objetivo>Confirmar en revisiones futuras que las 3 cadenas siguen ejecutando en días Domingo-Jueves, no Lunes-Viernes.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de las 3 cadenas o a su histórico de ejecuciones.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Días esperados" valor="Domingo, Lunes, Martes, Miércoles, Jueves — nunca Viernes ni Sábado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar el histórico real de ejecuciones de al menos una semana completa por cadena.</paso>
+      <paso numero="2">Confirmar ausencia de ejecuciones en viernes o sábado en las 3 cadenas.</paso>
+    </pasos>
+    <resultadoEsperado>Sin discrepancias respecto al calendario Domingo-Jueves documentado en spec.md §6.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra el histórico real de ejecuciones de Control-M.</tipoValidacion>
+    <criterioAceptacion>Calendario real sin cambios (Domingo-Jueves).</criterioAceptacion>
+    <posibilidadFallo>Si aparecen ejecuciones en viernes/sábado, o desaparecen en domingo, el calendario real habría cambiado y esta especificación debe actualizarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="documentacion">
+    <nombre>Hallazgo no preguntado: MEKYTL1162 ejecuta como usuario root (RISK-CNTC-001)</nombre>
+    <objetivo>Documentar y, si es posible, aclarar con el equipo de seguridad/gobierno el motivo de que este job concreto use la cuenta root en vez del usuario estándar xsramer1.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al equipo de seguridad/gobierno o a documentación adicional sobre el origen de este privilegio.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Usuario de ejecución de MEKYTL1162" valor="root"/>
+      <dato campo="Usuario estándar de jobs equivalentes" valor="xsramer1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo de seguridad si el uso de root está justificado (p. ej. permisos de montaje de red).</paso>
+      <paso numero="2">Documentar la respuesta o, si no hay motivo conocido, registrar como discrepancia de seguridad sin explicación.</paso>
+    </pasos>
+    <resultadoEsperado>Se aclara si el uso de root es necesario o si el job puede migrarse a xsramer1 sin romper funcionalidad.</resultadoEsperado>
+    <tipoValidacion>Confirmación directa del equipo de seguridad/gobierno.</tipoValidacion>
+    <criterioAceptacion>Motivo aclarado y documentado, o decisión explícita de mantenerlo así.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados posibles es un "fallo" en sí; el caso cierra un hallazgo de seguridad, no de requisito funcional.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="documentacion">
+    <nombre>Hallazgo no preguntado: nota de baja futura con fecha incompleta en GSPROCESS_DQ_CONTACTS (RISK-CNTC-002)</nombre>
+    <objetivo>Verificar que el job sigue activo hasta que se confirme y complete la fecha real del pase programado que lo pondría a Dummy.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al calendario de pases o al equipo responsable del cambio documentado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fecha documentada" valor="XX/10/2029 (placeholder sin completar)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar con el equipo responsable si la fecha exacta de octubre de 2029 ya está definida.</paso>
+      <paso numero="2">Verificar que el job sigue generando los 2 ficheros de Data Quality mientras la baja no se aplique.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma la fecha exacta de la baja programada, o se documenta que sigue sin definir.</resultadoEsperado>
+    <tipoValidacion>Confirmación directa del equipo responsable + verificación de que el job sigue activo.</tipoValidacion>
+    <criterioAceptacion>Fecha aclarada, o job confirmado activo mientras no se complete.</criterioAceptacion>
+    <posibilidadFallo>Si el job dejara de ejecutarse sin que esta especificación se haya actualizado, sería una regresión documental no funcional.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="datos_sinteticos">
+    <nombre>Estructura de los ficheros de Data Quality (límite de alcance, no bloqueante)</nombre>
+    <objetivo>Documentar el formato esperado de los 2 ficheros generados por GSPROCESS_DQ_CONTACTS, sin diccionario de campos disponible en el material fuente.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a una muestra real de ambos ficheros.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros esperados" valor="RDR_Clientes_Sin_Contacto_YYYYMMDD.xlsx, KKYTL_D02_YYYYMMDD_RDRDATIO1021_V01.dat"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que ambos ficheros se generan con la máscara de fecha esperada.</paso>
+      <paso numero="2">Si se dispone de una muestra real, documentar su estructura como ampliación futura de esta especificación.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos ficheros existen con el nombre y máscara esperados; estructura interna queda fuera de alcance salvo ampliación futura.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nomenclatura de ambos ficheros.</tipoValidacion>
+    <criterioAceptacion>Ficheros presentes con nomenclatura correcta.</criterioAceptacion>
+    <posibilidadFallo>No aplica un fallo funcional; el caso documenta un límite de alcance, no un requisito cerrado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="e2e">
+    <nombre>Las 3 cadenas en la misma ventana Domingo-Jueves, sin solape de recursos</nombre>
+    <objetivo>Confirmar que las 3 cadenas, pese a compartir el recurso cuantitativo MAX-LPRDR501 y el calendario Domingo-Jueves, no compiten entre sí de forma bloqueante en un día real de ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Un día real dentro del calendario común (p. ej. un jueves).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Día de ejecución" valor="jueves (día 4, común a las 3 cadenas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que las Cadenas 1 y 2 completan su ciclo durante el día (horarios de madrugada/mañana).</paso>
+      <paso numero="2">Confirmar que la Cadena 3 arranca por la noche (22:20h) sin bloqueo por el recurso MAX-LPRDR501 ya liberado por las otras 2.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 cadenas completan su ciclo el mismo día sin bloqueos por el recurso compartido.</resultadoEsperado>
+    <tipoValidacion>Estado OK de las 3 cadenas en el mismo día + verificación de que ninguna quedó en espera de recurso.</tipoValidacion>
+    <criterioAceptacion>3/3 cadenas OK el mismo día, sin esperas de recurso registradas.</criterioAceptacion>
+    <posibilidadFallo>Si alguna cadena quedara en espera de MAX-LPRDR501 por las otras 2, indicaría un riesgo de contención no documentado hasta ahora.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
