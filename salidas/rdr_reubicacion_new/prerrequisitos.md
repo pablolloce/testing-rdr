@@ -11,7 +11,9 @@
 - Cadena Control-M `KYTL0000-RDR_REUBICACION_new` dada de alta y activa, servidor `MERCADOS-4`, host
   `pr-rdr.igrupobbva`, método de ejecución `PLAN_1200`.
 - Workflow GoldenSource `RDR_Reubicacion` desplegado y operativo — invocado por `KYTL_REU_GSPROCESS`;
-  contenido interno no aportado.
+  identificado con alta confianza como el motor genérico `PLSQL_Load` (mismo workflow, versión y comentario
+  interno que el ya documentado en `rdr_refundicion`), que a su vez delega la lógica real de negocio en el
+  sub-workflow `Sub_Load` — no aportado (mismo hueco compartido con `rdr_refundicion`).
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM, 3 invocaciones
   distintas: `MEKYTL0233`, `MEKYTL0234`, `MEKYTL0111`) operativos.
 - Conectividad real hacia `Ippwc501` (`/infa_shared/srcfiles/enso/stag/`) para `MEKYTL0233`, y hacia

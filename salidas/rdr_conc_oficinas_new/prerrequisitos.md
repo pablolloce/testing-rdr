@@ -16,11 +16,13 @@
 
 - Cadena Control-M `KYTL0000-RDR_CONC_OFICINAS_new` dada de alta y activa, servidor `MERCADOS-4`, host
   `pr-rdr.igrupobbva`.
-- Motor `GSProcess.sh` operativo para `PARM1=oficinas` (invoca `LimpiarOficinas`, `Delta.sh` — código real
-  aportado y analizado, ver `spec.md` R3b —, `ControlCargaDatos.jar`/`javacsv.jar` — existencia y estructura
-  de paquete confirmadas, `com.bbva.kytl:ControlCargaDatos` con clases `ControlCase`/`ControlCase_ant` —,
-  carga MDX en la entidad `Oficina`/`OFC`, `RDR_Report.jar`, `Unix2Dos`). El jar `compare.jar`
-  (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) sigue sin aportar.
+- Motor `GSProcess.sh` operativo para `PARM1=oficinas` (invoca `LimpiarOficinas` — no aportado —,
+  `Delta.sh`/`Unix2Dos.sh` — código real aportado y analizado, ver `spec.md` R3b/R3c —,
+  `ControlCargaDatos.jar`/`javacsv.jar` — existencia y estructura de paquete confirmadas,
+  `com.bbva.kytl:ControlCargaDatos` con clases `ControlCase`/`ControlCase_ant` —, carga MDX en la entidad
+  `Oficina`/`OFC`, `RDR_Report.jar` — confirmado como el mismo motor genérico ya usado en `rdr_cargalei_new`,
+  paquete `rdr_report`, requiere un `select.properties` específico de `oficinas` no aportado). El jar
+  `compare.jar` (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) sigue sin aportar.
 - Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
   `MEKYTL0242`/`MEKYTL0243`.
 - Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con

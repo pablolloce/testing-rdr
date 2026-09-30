@@ -3,8 +3,10 @@
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
 > Fuentes: `Carga_y_conciliacion_de_plazas-oficinas.docx` (documento de análisis funcional y técnico),
 > **ficha real EX-005-02 `RDR_REUBICACION_new`** (definición de cadena SSDD, incluye notas de diseño
-> originales) y **export real de Control-M del folder completo** (`Workspace_589_2.xml`). Detalle completo de
-> evidencia en `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
+> originales), **export real de Control-M del folder completo** (`Workspace_589_2.xml`), y los motores reales
+> `Unix2Dos.sh`, `RDR_Report.jar` y `PLSQL_Load.wkf` (identificado con alta confianza como el workflow real
+> detrás de `Workflow(RDR_Reubicacion)`). Detalle completo de evidencia en
+> `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`.
 >
 > **Importante:** el documento fuente declara cubrir 3 cadenas (`RDR_CARGA_PLAZAS_TRAD_new`,
 > `RDR_CONC_OFICINAS_new`, `RDR_REUBICACION_new`), pero **solo trae contenido detallado de 2** — esta cadena y
@@ -87,12 +89,13 @@ de la de `MEKYTL0234`.
 * **Ámbito funcional:** procesado, carga en GoldenSource, generación de reportes y distribución de la
   reubicación de oficinas tras un cierre, con historificación final.
 * **Ámbito técnico:** la cadena Control-M `RDR_REUBICACION_new` completa (6 pasos, topología Fan-Out/Fan-In).
-* **Fuera de alcance** (detalle completo en §8.2): contenido del workflow GoldenSource `RDR_Reubicacion`; el
-  contenido interno de `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar` y de los scripts
-  `LimpiarReubicacion`/`Unix2Dos`; el significado exacto del código de retorno 7; el motivo real de la
-  discrepancia MEKYTL0122/MEKYTL0234 (RISK-REUB-004); la cadena `RDR_CARGA_PLAZAS_TRAD_new`; las cadenas
-  downstream de informe/simulación/difusión de cierre (aunque ahora se conocen los 3 primeros nombres reales
-  de la interfaz de difusión — ver §5).
+* **Fuera de alcance** (detalle completo en §8.2): el sub-workflow **`Sub_Load`** (la lógica real de
+  negocio/PL·SQL del motor `PLSQL_Load` — el mismo hueco ya documentado en `rdr_refundicion`); el contenido
+  interno de `ControlCargaDatos.jar` y de `LimpiarReubicacion`; el `select.properties` específico de
+  `Reubicacion` que parametriza `RDR_Report.jar`; el significado exacto del código de retorno 7; el motivo
+  real de la discrepancia MEKYTL0122/MEKYTL0234 (RISK-REUB-004); la cadena `RDR_CARGA_PLAZAS_TRAD_new`; las
+  cadenas downstream de informe/simulación/difusión de cierre (aunque ahora se conocen los 3 primeros nombres
+  reales de la interfaz de difusión — ver §5).
 
 ## 3. Requisitos detectados
 
@@ -101,7 +104,10 @@ de la de `MEKYTL0234`.
 | R1 | El filewatcher `KYTL_REU_GSPROCESS_FW` monitorea la creación de `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` (`ctmfw ... CREATE 0 60 10 5 780`: tamaño mínimo 0, chequeo cada 60s, 10 ciclos de estabilidad, retardo inicial de 5 min, timeout global de **780 min/13h — confirmado en Control-M real**, pese a que la nota de diseño original de la ficha EX-005-02 pedía 4 horas), activo desde las 11:00 AM (`TIMEFROM="1100"`), gobernado por el calendario real `DAYSCAL="RDR_CIERREOFI"` (no genérico: un calendario dedicado a los días de cierre de oficinas). |
 | R1b | **Sin dependencia cruzada real con `RDR_CONC_OFICINAS_new`** — confirmado en el export real: el filewatcher solo tiene como predecesor el calendario `RDR_CIERREOFI`, ningún `INCOND` de otra cadena. La ficha EX-005-02 conserva en su tabla un predecesor cruzado histórico (`KYTL_CONOFI_GSPROCESS`) y una nota de diseño "Eliminar dependencia de oficinas" — consistente con que esa eliminación sí se aplicó en producción. |
 | R2 | Si el filewatcher termina con código 0, publica el evento que bifurca en paralelo hacia `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Si termina con código **7**, se fuerza OK y se publica **directamente** el evento final de toda la cadena, saltando los 5 pasos restantes — **confirmado literalmente en Control-M real**. |
-| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, carga vía un workflow GoldenSource dedicado (`RDR_Reubicacion`, no aportado), generación de reporte y conversión de fin de línea. Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
+| R3 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, `TASKTYPE="Job"`, sin override de tolerancia a fallo) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Reubicacion)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` — preprocesado, carga vía un workflow GoldenSource dedicado, generación de reporte (motor genérico confirmado, ver R3d) y conversión de fin de línea (motor genérico confirmado, ver R3c). Es, junto con el filewatcher, el único paso de la cadena **sin** tolerancia Force-OK. |
+| R3b | **`Workflow(RDR_Reubicacion)` identificado con alta confianza como el motor genérico GoldenSource `PLSQL_Load`**, aportado como `PLSQL_Load.wkf`: comentario interno `RDR_UGS87_ASYN_v1`, **versión 8** — coinciden exactamente con el `PLSQL_Load` ya documentado en `salidas/rdr_refundicion/` (mismo workflow, misma versión, mismo comentario), donde ya se confirmó reutilizado por `RDR_Refundicion`/`RDR_Clientela460`. El grupo GoldenSource del propio workflow, `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`, nombra explícitamente ambos procesos (Refundición y Reubicación) — evidencia adicional, no solo coincidencia de versión. Mecánica confirmada: abre el fichero (`ReadFile`), lo trocea en lotes de 500 registros (`FileSplitCondition`), procesa cada mensaje en paralelo mediante el sub-workflow **`Sub_Load`** (no aportado — ahí vive la lógica real de negocio/PL·SQL), sincroniza el cierre del lote (`Synchronize`) y cierra el job (`CloseJob`/`EndFile`). El nombre interno del workflow (`PLSQL_Load`) difiere del nombre de invocación (`RDR_Reubicacion`) — mismo patrón de discrepancia de nomenclatura ya visto repetidas veces en esta sesión. |
+| R3c | **`Unix2Dos.sh` (código real, confirmado, compartido con `RDR_CONC_OFICINAS_new`)** — motor genérico que convierte saltos de línea Unix a DOS, generando `<nombre>_dos.<ext>` — confirma el origen de `Reporte_Reubicacion_dos.csv` a partir de `Reporte_Reubicacion.csv`. |
+| R3d | **`RDR_Report.jar` (confirmado, compartido con `RDR_CONC_OFICINAS_new` y `rdr_cargalei_new`)** — mismo motor genérico de reporte (paquete `rdr_report`, clase `CreateReport`), sin lógica de negocio propia; requiere un `select.properties` específico de `Reubicacion`, no aportado. |
 | R4 | `MEKYTL0233` transmite por XCOM `Reubicacion.csv` hacia `Ippwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat` (entorno informacional/staging) — transferencia real, en paralelo con `KYTL_REU_GSPROCESS`. **Confirmado en Control-M real:** `TASKTYPE="Job"` con `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — cualquier fallo real se marca OK. |
 | R5 | `MEKYTL0234` transmite por XCOM `Reubicacion.csv` hacia `spgec001:/pr/tedt/batch/es/dat/di/cierreOficinas/Reubicacionyyyymmdd.csv` — según el documento, un destino deliberadamente inerte ("no debe ejecutarse"). **Confirmado en Control-M real: `TASKTYPE="Job"`** (no Dummy), con el mismo override `NOTOK→OK` que R4. Único matiz real: `MAXWAIT="0"` (frente a `3` en el resto de jobs) — sin reintento de espera de recursos. |
 | R6 | `MEKYTL0111` transmite por XCOM el reporte `Reporte_Reubicacion_dos.csv` (generado por el motor Java del paso `KYTL_REU_GSPROCESS`) hacia `XCOMWPMER:\\S00371F200G215`. Depende únicamente del evento OK de `KYTL_REU_GSPROCESS` (2a) — no de `MEKYTL0233`/`MEKYTL0234`. **Hallazgo no documentado en el documento funcional original, confirmado en Control-M real:** este job **también** tiene `<ON STMT="*" CODE="NOTOK"><DOACTION ACTION="OK"/></ON>` — el documento solo atribuía esta tolerancia a `MEKYTL0233`/`MEKYTL0234`, pero en producción también aplica a la transmisión del reporte real. |
@@ -222,10 +228,12 @@ a que el diseño original pedía eliminarla.
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
-* **Workflow GoldenSource `RDR_Reubicacion`** (invocado por `KYTL_REU_GSPROCESS`) — se conoce su punto de
-  invocación, no su lógica interna.
-* **Contenido interno de `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_Report.jar`** y de los scripts
-  `LimpiarReubicacion`/`Unix2Dos`.
+* **Sub-workflow `Sub_Load`** — la lógica real de negocio/PL·SQL del motor genérico `PLSQL_Load` (ya
+  identificado con alta confianza, ver R3b); es el mismo componente que sigue sin aportarse en
+  `rdr_refundicion`, que también lo usa.
+* **Contenido interno de `ControlCargaDatos.jar`** y del script `LimpiarReubicacion`.
+* **`select.properties` específico de la entidad `Reubicacion`** que parametriza `RDR_Report.jar` (jar
+  confirmado como motor genérico compartido, sin lógica propia).
 * **Significado exacto del código de retorno 7** del filewatcher (mismo punto abierto que en
   `RDR_CONC_OFICINAS_new`).
 * **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
@@ -250,6 +258,12 @@ ficha oficial EX-005-02 (que documenta instrucciones de diseño explícitas, inc
 implementada: "MEKYTL0122 no debe tener dependencia de MEKYTL0234") con el export real de Control-M, que
 confirma que esa dependencia sigue presente en producción (RISK-REUB-004) — un ejemplo concreto de por qué
 este proceso de auditoría contrasta siempre el diseño documentado contra la configuración viva, en vez de dar
-por buena cualquiera de las 2 fuentes por separado. Los elementos que siguen sin material propio (workflow
-GoldenSource, jars/scripts internos, causa del código 7, motivo de la discrepancia RISK-REUB-004, y la cadena
-`RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan listados en §8.2 como fuera de alcance.
+por buena cualquiera de las 2 fuentes por separado. Esta ronda añade además la identificación, con alta
+confianza, del workflow `Workflow(RDR_Reubicacion)` como el motor genérico `PLSQL_Load` — el mismo workflow
+(misma versión, mismo comentario interno) ya documentado en `rdr_refundicion`, confirmando que ambos procesos
+comparten el mismo motor de carga GoldenSource — y la confirmación de que `RDR_Report.jar`/`Unix2Dos.sh` son
+los mismos motores genéricos ya vistos en `RDR_CONC_OFICINAS_new`/`rdr_cargalei_new`. Los elementos que siguen
+sin material propio (el sub-workflow `Sub_Load` con la lógica real de negocio — mismo hueco compartido con
+`rdr_refundicion` —, `ControlCargaDatos.jar`/`LimpiarReubicacion`, causa del código 7, motivo de la
+discrepancia RISK-REUB-004, y la cadena `RDR_CARGA_PLAZAS_TRAD_new` ausente del documento fuente) quedan
+listados en §8.2 como fuera de alcance.
