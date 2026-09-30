@@ -15,10 +15,10 @@ en GoldenSource, generación del reporte, distribución dual por XCOM a MVP00G21
 historificación con cierre lógico (job Dummy) tras confirmar ambas historificaciones.
 
 Queda fuera de alcance: la generación de `clientes.csv` en el sistema origen (no documentada en este
-material); el consumo del reporte por parte de MVP00G215 y MVP00G219 una vez recibido; la estructura
-interna exacta del motor MDX de GoldenSource que genera `Reporte_clientes_dos.csv` (ver gap G3 — gap de
-documentación aceptado, generado por motor MDX sin query SQL estática); y el resto de cadenas del sistema
-P-021, especificadas por separado.
+material); el consumo del reporte por parte de MVP00G215 y MVP00G219 una vez recibido; el detalle interno de
+la tabla de traducción `CExclusivos` más allá de su mapeo `C`/`E` (ver R10); y el resto de cadenas del
+sistema P-021, especificadas por separado — incluida `RDR_ENVIO_CLIEX_new`, con la que este `.mdx` sugiere
+un enlace real de nomenclatura (§9).
 
 ## 3. Requisitos detectados
 
@@ -33,6 +33,7 @@ P-021, especificadas por separado.
 | R7 | **Diccionario de datos de `clientes.csv` (confirmado vía `fillingRules_clientes.csv`):** 12 campos delimitados por `;`: `COD_CCLIEN`, `COD_NIF`, `COD_BDI`, `DES_NOMCLI`, `COD_BANCO`, `COD_OFICINA`, `COD_CONTRATO`, `COD_CFOLIO`, `COD_CNAE5`, `DES_CNAE5`, `COD_TIPOCLI`, `DES_RESTO`. |
 | R8 | Criticidad de cadena `W`. Máximo de relanzamientos 0. Protocolo de fallo estándar: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`). |
 | R9 | **Patrón transversal P-021 (ya confirmado en el resto de cadenas):** sin validación de integridad de negocio ni protección de concurrencia/lock documentadas. |
+| R10 | **Diccionario de datos de `Reporte_clientes_dos.csv` (confirmado vía `clientes.mdx`, pestaña Layout, GAP-CIB, 2026-09-30):** los mismos 12 campos de R7, todos `String(255)`, `Map=Yes`, `Mandatory=No` (`COD_CCLIEN`="Codigo Clientela", `COD_NIF`="Codigo Identificador", el resto sin descripción en el `.mdx`). Delimitador `;` (Semicolon), codificación de salida UTF-8. **Hallazgo no preguntado:** el `.mdx` define una tabla de traducción real llamada `CExclusivos` (`C`→`Shared`, `E`→`Exclusive`) — muy probablemente aplicada sobre `COD_TIPOCLI`, y un enlace de nomenclatura directo con el proceso hermano `RDR_ENVIO_CLIEX_new` (Clientes Exclusivos, 6/8 del sistema P-021) — ver §9. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
@@ -40,7 +41,7 @@ P-021, especificadas por separado.
 |-----|----------|------------|
 | G1 | ¿Qué ocurre si `KYTL_CLI_GSPROCESS_FW` agota los 240 min sin detectar `clientes.csv`? | **Confirmado con captura real de Control-M** (pestaña Acciones del job, ver `documentos_fuente/evidencia_rdr_clientes_cib/`): RC=7 marca el job como OK pero genera el evento huérfano `..._FW_KO` (R2). |
 | G2 | ¿`MEKYTL0148` aplica alguna transformación de formato al renombrar a `.txt`, o es el mismo contenido CSV? | Confirmado: mismo contenido, mismos delimitadores; `MEGENV0001.sh` actúa solo como pasarela de transporte, sin transformación (R4). |
-| G3 | ¿Hay diccionario de datos de `clientes.csv` y `Reporte_clientes_dos.csv`? | Parcial: `clientes.csv` confirmado (R7, vía `fillingRules_clientes.csv`). `Reporte_clientes_dos.csv` queda como gap de documentación aceptado — se genera vía motor MDX de GoldenSource sin query SQL estática asociada (a diferencia de otros procesos P-021 como Bancarización o ConBDI). |
+| G3 | ¿Hay diccionario de datos de `clientes.csv` y `Reporte_clientes_dos.csv`? | **Resuelto (2026-09-30) con el `.mdx` real de GoldenSource (`clientes.mdx`, pestaña Layout).** Confirma los mismos 12 campos ya conocidos por `fillingRules_clientes.csv` (R7), todos `String(255)`, `Map=Yes`, `Mandatory=No` — el motor MDX no añade ni quita campos respecto a `clientes.csv`: `Reporte_clientes_dos.csv` tiene la misma estructura que el fichero de entrada. Ver R10/§6.1. |
 
 ## 5. Especificación funcional
 
@@ -56,6 +57,27 @@ P-021, especificadas por separado.
 5. `RDR_CLIENTES_CIB_OUT` cierra la cadena tras confirmar ambas historificaciones.
 
 ## 6. Especificación técnica
+
+### 6.1 `clientes.mdx` (recurso de mapeo MDX, GAP-CIB resuelto)
+
+Fichero real de GoldenSource (pestaña "Input [Variable]" → Layout), Mapping Version `1.0.0.0`, Translator
+Version `8.1.1.1`, MappingDesigner `8.7.1.12`, última modificación `2020-05-27`.
+
+* **Layout — 12 campos, idénticos a los de `clientes.csv` (R7):** `COD_CCLIEN` ("Codigo Clientela"),
+  `COD_NIF` ("Codigo Identificador"), `COD_BDI`, `DES_NOMCLI`, `COD_BANCO`, `COD_OFICINA`, `COD_CONTRATO`,
+  `COD_CFOLIO`, `COD_CNAE5`, `DES_CNAE5`, `COD_TIPOCLI`, `DES_RESTO` — todos `String(255)`, `Map=Yes`,
+  `Mandatory=No`, sin `Multi`/`Match`/`Read Only`. El motor MDX pasa el fichero de entrada tal cual, sin
+  añadir ni eliminar campos: `Reporte_clientes_dos.csv` comparte estructura literal con `clientes.csv`.
+* **Input Settings:** delimitador `Semicolon` (`;`), recorte de campos "Both", codificación de salida
+  `UTF-8`.
+* **Tabla de traducción real `CExclusivos`** (pestaña "Translation Tables"): `C`→`Shared`, `E`→`Exclusive`
+  — mapeo binario, sin más valores. No se confirma sobre qué campo se aplica exactamente (probablemente
+  `COD_TIPOCLI`, el único campo de tipología de cliente del layout), pero el propio nombre de la tabla
+  conecta explícitamente este `.mdx` con el dominio de "Clientes Exclusivos" — ver hallazgo en §9.
+* **Aviso técnico observado (pestaña Output, sin impacto confirmado en el dato):** "One or more reference
+  message nodes have not been associated with their respective xsds" sobre el nodo `[1] STREET_REF` de
+  `MappingFragments` — advertencia de configuración del propio motor MDX, no relacionada con los 12 campos
+  del Layout.
 
 * **Folder Control-M:** `KYTL0000-RDR_CLIENTES_CIB_new`, servidor `MERCADOS-4`, disparo 04:00 AM L-V.
 * **Grafo:** `KYTL_CLI_GSPROCESS_FW` → `KYTL_CLI_GSPROCESS` → (Fan-Out: `MEKYTL0147` + `MEKYTL0148`) → AND
@@ -94,8 +116,13 @@ dispara con una sola de las 2 ramas paralelas completada.
   min, el job se marca OK y la cadena no se detiene ni alerta de forma diferenciada — el evento `_KO`
   generado no tiene consumidor documentado. Riesgo operativo: un retraso del fichero de origen podría pasar
   desapercibido si nadie monitoriza ese evento específico fuera de esta cadena.
-* **Gap de documentación en el reporte de salida (G3):** al generarse vía motor MDX sin query SQL estática,
-  no hay diccionario de columnas de `Reporte_clientes_dos.csv` verificable en este material.
+* **Hallazgo no preguntado — posible enlace de nomenclatura con `RDR_ENVIO_CLIEX_new` (G3/R10, §6.1):** la
+  tabla de traducción real `CExclusivos` (`C`→`Shared`, `E`→`Exclusive`) definida en `clientes.mdx` conecta
+  este proceso con el dominio de "Clientes Exclusivos" (6/8 del sistema P-021, `RDR_ENVIO_CLIEX_new`). No se
+  ha verificado si existe una dependencia funcional real entre ambas cadenas o si es coincidencia de
+  dominio de negocio (mismo tipo de hallazgo de "naming cruzado" ya documentado en otros procesos de esta
+  sesión, p. ej. RGA) — queda como pregunta abierta no bloqueante, sin gap formal asociado por no bloquear
+  ningún campo de salida de esta especificación.
 * **Sin compresión en la historificación:** a diferencia de otras cadenas de P-021, aquí los ficheros
   históricos no se comprimen — impacto en espacio de almacenamiento a largo plazo, sin política de purga
   documentada tampoco.
@@ -106,5 +133,9 @@ dispara con una sola de las 2 ramas paralelas completada.
 ## 10. Conclusión y requisitos de cierre
 
 Los 3 gaps (G1-G3) tienen resolución explícita: G1 y G2 confirmados con evidencia real (captura de
-Control-M y comportamiento conocido de `MEGENV0001.sh`), G3 parcialmente confirmado (entrada) y
-parcialmente aceptado como gap de documentación (salida, motor MDX). No quedan preguntas sin responder.
+Control-M y comportamiento conocido de `MEGENV0001.sh`), **G3 resuelto por completo (2026-09-30)** con el
+`.mdx` real de GoldenSource (`clientes.mdx`): confirma que `Reporte_clientes_dos.csv` comparte
+estructura literal (12 campos) con `clientes.csv`, ya conocida por `fillingRules_clientes.csv`. **No queda
+ningún gap técnico abierto en esta especificación.** Hallazgo no preguntado, no bloqueante: la tabla de
+traducción `CExclusivos` del `.mdx` sugiere un posible enlace de dominio con `RDR_ENVIO_CLIEX_new`, sin
+confirmar dependencia funcional real (§9).
