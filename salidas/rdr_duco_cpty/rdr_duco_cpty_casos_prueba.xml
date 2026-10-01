@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="RDR_DUCO_CPTY" fecha="2026-09-24" usuario="miguel.saavedra">
+<casosDePrueba proceso="RDR_DUCO_CPTY" fecha="2026-10-01" usuario="miguel.saavedra (revisado por pablo.llorente)">
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Ejecución diaria estándar con contrapartidas activas válidas</nombre>
     <objetivo>Verificar que la cadena genera, envía, limpia e historifica correctamente el fichero de contrapartidas en un día de ejecución normal.</objetivo>
@@ -15,13 +15,13 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar que `RDR_DUCOCPTY_GSPROCESS` se dispara después de las 04:00 AM del 2026-09-29 y finaliza en OK.</paso>
-      <paso numero="2">Verificar que `DUCOCPTY.csv` contiene exactamente 2 filas, una por cada `FINSID` (CPTY001, CPTY002).</paso>
+      <paso numero="2">Verificar que `DUCOCPTY.csv` contiene la línea de cabecera seguida de exactamente 2 líneas de datos, una por cada `FINSID` (CPTY001, CPTY002), en cualquier orden (el orden no es determinista).</paso>
       <paso numero="3">Confirmar que `MEKYTL1151` finaliza en OK tras el evento de `RDR_DUCOCPTY_GSPROCESS`.</paso>
-      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK y que el fichero llega a `Ipftp501:/unload/transmisiones/KYTL/DUCOCPTY.csv`.</paso>
+      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK y que el fichero llegó a `lpftp501:/unload/transmisiones/KYTL/DUCOCPTY.csv` (comprobar en el log de `MEGENV0001.sh` de `MEKYTL1151`, `log.Ope.*MEKYTL1151*_0.log`).</paso>
       <paso numero="5">Confirmar que `MEKYTL1151_DEL` finaliza en OK y que no quedan ficheros temporales en la pasarela.</paso>
       <paso numero="6">Confirmar que `MEKYTL1150` finaliza en OK y que existe `old/DUCOCPTY_20260929.csv.gz`.</paso>
     </pasos>
-    <resultadoEsperado>Los 5 jobs finalizan en OK; `DUCOCPTY.csv` contiene exactamente las 2 filas esperadas; el fichero histórico `old/DUCOCPTY_20260929.csv.gz` existe.</resultadoEsperado>
+    <resultadoEsperado>Los 5 jobs finalizan en OK; `DUCOCPTY.csv` contiene la cabecera y exactamente las 2 líneas de datos esperadas; el fichero histórico `old/DUCOCPTY_20260929.csv.gz` existe.</resultadoEsperado>
     <tipoValidacion>Validación funcional de extremo a extremo sobre estados de job y ficheros de salida.</tipoValidacion>
     <criterioAceptacion>Ningún job termina en NOTOK y el fichero histórico comprimido existe con el contenido esperado.</criterioAceptacion>
     <posibilidadFallo>Si falta alguna fila en el CSV, si el envío no llega a destino, o si el histórico no existe, el caso falla.</posibilidadFallo>
@@ -49,24 +49,29 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
-    <nombre>Fallo del job disparador RDR_DUCOCPTY_GSPROCESS</nombre>
-    <objetivo>Verificar que un fallo en la ejecución de GSProcess.sh detiene la cadena y no permite avanzar a MEKYTL1151.</objetivo>
+    <nombre>Error SQL en la query de lista: el job termina en OK y se envía a DUCO un fichero solo con cabecera</nombre>
+    <objetivo>Verificar el comportamiento real de ExtraccionGenericaOtherEntities ante un error de base de datos en la query de lista: lo registra, sigue con lista vacía, publica el fichero y termina con 0, de modo que la cadena continúa y envía un fichero sin contrapartidas (RK-DCP-01).</objetivo>
     <precondiciones>
-      <precondicion>Es posible forzar en entorno de pruebas la indisponibilidad de la conexión a base de datos que usa el jar `ExtraccionGenericaOtherEntities.jar` durante la ejecución de `RDR_DUCOCPTY_GSPROCESS`.</precondicion>
+      <precondicion>En `FT_T_ATE1` del entorno de pruebas, la fila `ACTION_NME='ExtraccionDUCOCPTY.sql'` tiene en `CLOB_VALUE` una query con un error de sintaxis deliberado (cambio temporal que se revierte al final; se guarda antes el valor original).</precondicion>
+      <precondicion>Existen las filas `ExtraccionAdhocDUCOCPTY.sql` (con `URL_OUTPUT_FILE`) y la cabecera `HEADER` `ACTIVE` en `FT_T_PAR1`.</precondicion>
+      <precondicion>El directorio `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/DUCOCPTY/` existe y no hay `DUCOCPTY.csv.tmp` residual en `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/`.</precondicion>
+      <precondicion>Usuario con permiso de UPDATE sobre `FT_T_ATE1` en pruebas, acceso a los logs del Java y de `GSProcess.sh`, y la configuración de pruebas de `MEKYTL1151` (`.idx` y pasarela) apuntando a un destino de pruebas, nunca a DUCO real.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Condición forzada" valor="Conexión Oracle no disponible durante la ejecución"/>
+      <dato campo="FT_T_ATE1.CLOB_VALUE (ExtraccionDUCOCPTY.sql)" valor="SELECT INST_MNEM FROM TABLA_INEXISTENTE_PRUEBA"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar la indisponibilidad de la conexión a base de datos antes de la ventana de disparo (04:00 AM).</paso>
-      <paso numero="2">Dejar que Control-M dispare `RDR_DUCOCPTY_GSPROCESS` en su ventana normal.</paso>
-      <paso numero="3">Verificar el estado final del job en Control-M.</paso>
-      <paso numero="4">Verificar el estado de `MEKYTL1151`.</paso>
+      <paso numero="1">Ejecutar `RDR_DUCOCPTY_GSPROCESS`.</paso>
+      <paso numero="2">Comprobar que el job termina OK en Control-M y que el log de `GSProcess.sh` termina en `ESTADO-0-`.</paso>
+      <paso numero="3">Comprobar en el log del Java la traza del error SQL y la línea `Cantidad de DUCOCPTY a tratar: 0`.</paso>
+      <paso numero="4">Comprobar que `.../DUCOCPTY/DUCOCPTY.csv` existe y contiene solo la cabecera.</paso>
+      <paso numero="5">Comprobar que `MEKYTL1151` se ejecuta tras el evento `RDR_DUCO_CPTY_RDR_DUCOCPTY_GSPROCESS_OK`.</paso>
+      <paso numero="6">Restaurar el `CLOB_VALUE` original.</paso>
     </pasos>
-    <resultadoEsperado>`RDR_DUCOCPTY_GSPROCESS` finaliza en NOTOK; el evento de salida no se genera; `MEKYTL1151` permanece en espera sin ejecutarse.</resultadoEsperado>
-    <tipoValidacion>Validación de manejo de errores y propagación de estado de fallo.</tipoValidacion>
-    <criterioAceptacion>Ningún job posterior al disparador se ejecuta tras el fallo.</criterioAceptacion>
-    <posibilidadFallo>Si la cadena avanza pese al fallo del disparador, el manejo de errores está roto.</posibilidadFallo>
+    <resultadoEsperado>El job de extracción termina en OK (código 0), publica `DUCOCPTY.csv` solo con la cabecera y la cadena continúa con el envío. El error solo queda en el log del Java.</resultadoEsperado>
+    <tipoValidacion>Estado en Control-M, inspección de logs y del fichero publicado.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 5. El caso documenta un riesgo (RK-DCP-01): un "OK" no garantiza que el fichero tenga contenido.</criterioAceptacion>
+    <posibilidadFallo>Si el job terminara NOTOK, la versión desplegada del jar difiere del código analizado y habría que revisar §6.2. El fallo de conexión (no de query) no se prueba aquí: depende de `ConDB` (P-DCP-07).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -119,7 +124,8 @@
     <nombre>Fallo de compresión tras movimiento exitoso en MEKYTL1150</nombre>
     <objetivo>Confirmar el riesgo documentado: un fallo del paso de compresión (gzip) tras un movimiento (mv) exitoso deja el .csv sin comprimir en destino y bloquea la reejecución automática.</objetivo>
     <precondiciones>
-      <precondicion>Existe `DUCOCPTY.csv` en `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOCPTY/` con contenido válido.</precondicion>
+      <precondicion>La línea de `MEKYTL1150` en `INFORMACION_HISTORIFICACIONES.IDX` del entorno de pruebas tiene operación `MG`, renombrado `R` a `DUCOCPTY_${AAAAMMDD}.csv`, destino `.../DUCOCPTY/old/` y campo 5 = `0` (comprobar leyendo el IDX antes de ejecutar; si no es así, el caso no aplica y se registra en P-DCP-04).</precondicion>
+      <precondicion>Existe `DUCOCPTY.csv` en `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/DUCOCPTY/` con contenido válido.</precondicion>
       <precondicion>Es posible interrumpir o forzar el fallo del comando `gzip` invocado por `RAMERC0068.sh` justo después de que el `mv` haya finalizado, en entorno de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -130,14 +136,14 @@
       <paso numero="1">Forzar el fallo del comando `gzip` que se ejecuta tras el `mv` dentro de `MEKYTL1150`.</paso>
       <paso numero="2">Ejecutar `MEKYTL1150`.</paso>
       <paso numero="3">Verificar el código de salida del job.</paso>
-      <paso numero="4">Verificar si existe `old/DUCOCPTY_YYYYMMDD.csv` (sin comprimir) en el destino.</paso>
-      <paso numero="5">Verificar si `DUCOCPTY.csv` sigue existiendo en la ruta origen.</paso>
+      <paso numero="4">Verificar que existe `old/DUCOCPTY_AAAAMMDD.csv` sin comprimir en el destino.</paso>
+      <paso numero="5">Verificar que `DUCOCPTY.csv` ya no existe en la ruta origen.</paso>
       <paso numero="6">Reejecutar manualmente `MEKYTL1150` sin corregir el estado.</paso>
       <paso numero="7">Verificar el código de salida de la reejecución.</paso>
     </pasos>
-    <resultadoEsperado>El primer intento finaliza con código de salida 16; `old/DUCOCPTY_YYYYMMDD.csv` existe sin comprimir; `DUCOCPTY.csv` ya no existe en el origen; la reejecución del paso 6 finaliza con código de salida 6 (no hay ficheros que historificar).</resultadoEsperado>
-    <tipoValidacion>Validación de riesgo de integridad confirmado por lectura del código fuente de `RAMERC0068.sh`.</tipoValidacion>
-    <criterioAceptacion>Se observan exactamente los códigos de salida 16 y 6 descritos, confirmando el hallazgo documentado en rdr_duco_cpty_spec.md §6/§9.</criterioAceptacion>
+    <resultadoEsperado>El primer intento finaliza con código de salida 16; `old/DUCOCPTY_AAAAMMDD.csv` existe sin comprimir; `DUCOCPTY.csv` ya no existe en el origen; la reejecución del paso 6 finaliza con código de salida 6 (no hay ficheros que historificar).</resultadoEsperado>
+    <tipoValidacion>Validación del riesgo RK-DCP-06, derivado del código de `RAMERC0068.sh` (operación `MG`: código 16 si falla el `gzip`; código 6 si no hay fichero y el campo 5 es `0`).</tipoValidacion>
+    <criterioAceptacion>Se observan exactamente los códigos de salida 16 y 6 descritos, confirmando RK-DCP-06.</criterioAceptacion>
     <posibilidadFallo>Si el sistema recupera automáticamente el estado o la reejecución tiene éxito, el hallazgo documentado quedaría invalidado y debería revisarse.</posibilidadFallo>
   </casoDePrueba>
 
@@ -165,20 +171,20 @@
 
   <casoDePrueba id="TC-008" tipo="regresion">
     <nombre>MEKYTL1150 mantiene la dependencia real de MEKYTL1151_DEL_OK tras republicación del plan</nombre>
-    <objetivo>Verificar que, tras una republicación o migración del plan Control-M, MEKYTL1150 sigue exigiendo el evento RDR_DUCOCPTY_MEKYTL1151_DEL_OK como prerrequisito, y no revierte al evento de MEKYTL1151 que indica (desactualizada) la ficha de cadena del gestor documental.</objetivo>
+    <objetivo>Verificar que, tras una republicación o migración del plan Control-M, MEKYTL1150 sigue exigiendo el evento OK de MEKYTL1151_DEL como prerrequisito, y no revierte al evento de MEKYTL1151 que indica (desactualizada) la ficha de cadena del gestor documental.</objetivo>
     <precondiciones>
-      <precondicion>`MEKYTL1150` exige actualmente el evento `RDR_DUCOCPTY_MEKYTL1151_DEL_OK` como único prerrequisito (confirmado en sesión de análisis).</precondicion>
+      <precondicion>`MEKYTL1150` exige actualmente como único prerrequisito el evento que publica `MEKYTL1151_DEL` (`RDR_DUCO_CPTY_MEKYTL1151_DEL_OK` según la ficha de `MEKYTL1151_DEL`; la comprobación en vivo se transcribió como `RDR_DUCOCPTY_MEKYTL1151_DEL_OK`, P-DCP-05). Como línea base se toma el nombre literal que muestre la pestaña Prerrequisitos.</precondicion>
       <precondicion>Existe un evento de republicación de plan disponible para pruebas en el entorno de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Evento prerrequisito esperado" valor="RDR_DUCOCPTY_MEKYTL1151_DEL_OK"/>
+      <dato campo="Evento prerrequisito esperado" valor="El publicado por MEKYTL1151_DEL (literal según P-DCP-05)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Registrar como línea base el evento de prerrequisito actual de `MEKYTL1150`.</paso>
       <paso numero="2">Ejecutar la republicación/migración del plan Control-M sobre el folder `KYTL0000-RDR_DUCO_CPTY` en el entorno de pruebas.</paso>
       <paso numero="3">Consultar de nuevo la pestaña Prerrequisitos de `MEKYTL1150` tras la republicación.</paso>
     </pasos>
-    <resultadoEsperado>El evento de prerrequisito de `MEKYTL1150` sigue siendo `RDR_DUCOCPTY_MEKYTL1151_DEL_OK` tras la republicación.</resultadoEsperado>
+    <resultadoEsperado>Tras la republicación, el prerrequisito de `MEKYTL1150` sigue siendo exactamente el evento que publica `MEKYTL1151_DEL` (mismo nombre literal que la línea base y que la pestaña Acciones de `MEKYTL1151_DEL`).</resultadoEsperado>
     <tipoValidacion>Prueba de regresión sobre configuración de dependencias, motivada por la discrepancia detectada entre Control-M y el gestor documental.</tipoValidacion>
     <criterioAceptacion>El evento de prerrequisito coincide con la línea base tras la republicación.</criterioAceptacion>
     <posibilidadFallo>Si el evento cambia a uno asociado a `MEKYTL1151` (no `_DEL`), la cadena se dispararía prematuramente, antes de completarse la limpieza en pasarela.</posibilidadFallo>
@@ -199,7 +205,7 @@
       <paso numero="1">Confirmar que `RDR_DUCOCPTY_GSPROCESS` se dispara después de las 04:00 AM del 2026-10-01 y finaliza en OK.</paso>
       <paso numero="2">Confirmar que `DUCOCPTY.csv` contiene las filas esperadas para `CPTY020` y `CPTY021`.</paso>
       <paso numero="3">Confirmar que `MEKYTL1151` finaliza en OK tras el evento del disparador.</paso>
-      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK y que el fichero llega a `Ipftp501`.</paso>
+      <paso numero="4">Confirmar que `MEKYTL1151_SND` finaliza en OK (transmisión desde `lpftp501`).</paso>
       <paso numero="5">Confirmar que `MEKYTL1151_DEL` finaliza en OK.</paso>
       <paso numero="6">Confirmar que `MEKYTL1150` se dispara solo tras el evento de `MEKYTL1151_DEL` y finaliza en OK.</paso>
       <paso numero="7">Verificar que `old/DUCOCPTY_20261001.csv.gz` existe y no está vacío.</paso>
@@ -208,5 +214,28 @@
     <tipoValidacion>Validación end-to-end de la cadena completa: encadenamiento de eventos y resultado final.</tipoValidacion>
     <criterioAceptacion>Los 5 jobs aparecen en estado OK en Control-M y el fichero histórico final existe con contenido.</criterioAceptacion>
     <posibilidadFallo>Cualquier job en NOTOK o cualquier discrepancia en el fichero final invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Temporal residual de una ejecución anterior: la siguiente ejecución añade detrás y el fichero enviado duplica contenido</nombre>
+    <objetivo>Verificar el riesgo RK-DCP-02: ExtraccionGenericaOtherEntities abre el temporal en modo añadir, de modo que un DUCOCPTY.csv.tmp que haya quedado de una ejecución fallida se acumula con el de la ejecución siguiente.</objetivo>
+    <precondiciones>
+      <precondicion>En `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/` existe `DUCOCPTY.csv.tmp` con exactamente 3 líneas conocidas: `CABECERA_RESIDUAL`, `"RESIDUAL1"` y `"RESIDUAL2"` (creado a mano para simular un movimiento final fallido). El nombre del temporal se confirma antes en el `.properties` de pruebas (argumento 5; según el documento, `DUCOCPTY.csv.tmp`).</precondicion>
+      <precondicion>Datos de TC-001 (2 contrapartidas `CPTY001` y `CPTY002`).</precondicion>
+      <precondicion>Jobs `MEKYTL1151*` retenidos para no enviar el fichero; acceso de lectura a los directorios de trabajo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Temporal residual" valor="3 líneas: CABECERA_RESIDUAL, &quot;RESIDUAL1&quot;, &quot;RESIDUAL2&quot;"/>
+      <dato campo="Contrapartidas" valor="CPTY001, CPTY002"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar `RDR_DUCOCPTY_GSPROCESS`.</paso>
+      <paso numero="2">Comprobar que el job termina OK.</paso>
+      <paso numero="3">Comprobar que `.../DUCOCPTY/DUCOCPTY.csv` empieza por las 3 líneas residuales.</paso>
+      <paso numero="4">Comprobar que, detrás de ellas, aparecen la cabecera de `FT_T_PAR1` y las líneas de `CPTY001` y `CPTY002`.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero publicado contiene el contenido residual seguido del nuevo (dos cabeceras y datos de dos ejecuciones) y el job termina en OK, sin ningún aviso.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero publicado y estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 4. Documenta un riesgo: antes de relanzar tras un fallo de publicación hay que borrar el temporal a mano.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero no contuviera las líneas residuales, la versión desplegada no abre el temporal en modo añadir y RK-DCP-02 se podría cerrar.</posibilidadFallo>
   </casoDePrueba>
 </casosDePrueba>

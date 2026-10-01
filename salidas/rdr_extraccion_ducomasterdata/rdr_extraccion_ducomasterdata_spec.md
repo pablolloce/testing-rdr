@@ -1,241 +1,385 @@
 # Especificación — RDR_ExtraccionDUCOMASTERDATA
 
-> **Nota de consolidación (2026-09-28):** este proceso fue analizado por separado, en paralelo, por
-> pablo.llorente (esta carpeta) y miguel.saavedra (carpeta `rdr_extraccionducomasterdata`, ahora
-> retirada). Se ha consolidado en esta única especificación, incorporando los hallazgos únicos de
-> ambas: recursos cuantitativos (G7), confirmación por ausencia de la plataforma DataX (R6),
-> resolución copia-vs-movimiento de `MEKYTL1299` (R2/§6) y criticidad por job (R1/R2). Los 13 casos
-> de prueba resultantes (`rdr_extraccion_ducomasterdata_casos_prueba.xml`) y sus prerrequisitos (`rdr_extraccion_ducomasterdata_prerrequisitos.md`) están
-> igualmente consolidados.
+> Proceso analizado por pablo.llorente y miguel.saavedra (análisis paralelos consolidados el
+> 2026-09-28). Auditoría de autosuficiencia: 2026-10-01.
+>
+> Procedencia de los datos (solo como trazabilidad; todo lo necesario está copiado o analizado en esta
+> spec): documento de cadena y fichas EX-005-02/EX-005-03 de la cadena y de sus 3 jobs (documento
+> "Extracciones hacia DUCO", 04/08/2026); ficha oficial EX-005-03-MEKYTL1300 exportada de Control-M el
+> 23/09/2026; captura de la pestaña Acciones de `MEKYTL1300`; código fuente de `Principal.java` y
+> `OperacionesDB.java` (jar `ExtraccionGenericaUnificada`); log real `ExtraccionDUCOMASTERDATA.log` con
+> tres ejecuciones en integración (25/11/2025, 26/11/2025 y 20/07/2026); inventario de transferencias
+> DataX de la wiki técnica de RDR; respuestas del usuario recogidas en §4.
+>
+> Componentes comunes que usa este proceso (su funcionamiento genérico está en su spec; lo específico
+> de este proceso está aquí): `salidas/comun_gsprocess/comun_gsprocess_spec.md`,
+> `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` (§3, variante `Unificada`),
+> `salidas/comun_ramerc0068/comun_ramerc0068_spec.md` y `salidas/comun_datax/comun_datax_spec.md`.
 
 ## 1. Resumen ejecutivo
 
-Cadena Control-M semanal (folder `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`, servidor `MERCADOS-4`) que genera
-la cesión de datos maestro (Productos, Índices, Calendarios y Bases de Cálculo) a la plataforma **DUCO**,
-copiando el resultado a la plataforma de transferencia DataX e historificándolo localmente con purga a 6
-meses. Secuencia lineal de 3 jobs, todos los viernes a las 22:00h. Es un proceso distinto y no relacionado
-con `RDR_DUCO_CPTY` (extracción de contrapartidas — ver `salidas/rdr_duco_cpty/`): jar propio, tablas
-maestras de instrumentos/calendarios/productos en lugar de contrapartidas.
+**Qué es.** Una cadena de Control-M de 3 jobs (folder `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`) que,
+**cada viernes a partir de las 22:00**, genera un fichero CSV con los **datos maestros** que necesita
+la plataforma de conciliación **DUCO**: índices, calendarios, tipos de producto y bases de cálculo
+(day count). El fichero se llama `ExtraccionDUCOMASTERDATA.csv`.
+
+**Para qué sirve.** DUCO necesita conocer los códigos de índices, calendarios, productos y bases de
+cálculo de RDR (y sus equivalencias en otros sistemas) para poder casar operaciones. Si un viernes no se
+ejecuta, DUCO sigue trabajando con la versión de la semana anterior (o recoge de nuevo el fichero
+anterior, ver §9).
+
+**Cómo funciona, en tres pasos:**
+
+1. `EXTRACCIONDUCOMASTERDATA` ejecuta `GSProcess.sh ExtraccionDUCOMASTERDATA`, que lanza el programa
+   Java `ExtraccionGenericaUnificada.jar` con el tipo `DUCOMASTERDATA`. El programa lee de la base de
+   datos de RDR la query, la cabecera y la ruta del fichero (tablas `FT_T_ATE1` y `FT_T_PAR1`), ejecuta
+   la query y escribe el CSV en
+   `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv`.
+2. `MEKYTL1299` **copia** el fichero al directorio de salida de DataX, `/unload/kytl/datsal/datax/`. Desde
+   ahí lo recoge una transferencia de la plataforma corporativa DataX que **monta y gestiona DUCO**
+   (DataObject `x_kytlProdCalIndDaysBasis_1`).
+3. `MEKYTL1300` **mueve** el fichero original a `.../DUCOMASTERDATA/backup/` con el nombre
+   `ExtraccionDUCOMASTERDATA_AAAAMMDD.csv`. Según la ficha, además hay que borrar del backup lo que tenga
+   más de 6 meses; cómo se hace ese borrado no está resuelto (P-DMD-03).
+
+**Resultado final:** un CSV de unas 26.000 líneas (26.439 líneas y 2.676.694 bytes en la última
+ejecución real conocida, integración 20/07/2026) en `/unload/kytl/datsal/datax/` para DUCO, y su copia
+histórica fechada en `backup/`.
+
+**No confundir** con la cadena `RDR_DUCO_CPTY`, que envía a DUCO las contrapartidas: es otro folder,
+otro programa (`ExtraccionGenericaOtherEntities.jar`) y otro calendario. Comparten solo el destinatario.
 
 ## 2. Alcance del proceso
 
-* **Ámbito funcional:** generar semanalmente la cesión unificada de 4 dominios de datos maestro (Índices,
-  Calendarios, Productos, Bases de Cálculo/Day Count) hacia DUCO, disponibilizarla vía DataX, e
-  historificarla localmente con purga automática a 6 meses.
-* **Ámbito técnico:** 1 cadena Control-M (`RDR_ExtraccionDUCOMASTERDATA`), 3 jobs de tipo OS: 1 extractor
-  (`GSProcess.sh` → jar `ExtraccionGenericaUnificada`), 1 copiado a la ruta de salida de DataX y 1
-  historificación con purga. Ejecutados en `pr-rdr.igrupobbva`, viernes 22:00h.
-* **Fuera de alcance:** el consumidor final real de `ExtraccionDUCOMASTERDATA.csv` una vez depositado en
-  DataX — conforme a la lección ya registrada en `memoria/memoria_datax_RDR.md`, DataX es la plataforma de
-  transferencia, no el consumidor; quién recoge el fichero y cómo llega finalmente a DUCO queda fuera de
-  alcance de esta cadena.
+**Dentro del alcance:**
+- Los 3 jobs de la cadena, su planificación, dependencias y eventos.
+- La extracción: de dónde sale la query, qué columnas tiene el fichero y de qué tablas sale cada una,
+  qué pasa con 0 filas y ante cada tipo de error.
+- La copia al directorio de DataX y la historificación local.
+
+**Fuera del alcance:**
+- La transferencia DataX desde `/unload/kytl/datsal/datax/` hasta DUCO: la define y mantiene DUCO, y RDR
+  no puede observarla (ver `salidas/comun_datax/comun_datax_spec.md` §1). La responsabilidad de RDR
+  termina cuando el fichero está en ese directorio con el nombre y el contenido correctos.
+- El tratamiento del fichero dentro de DUCO.
+- El mantenimiento de los datos maestros en las tablas de origen.
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
-| R1 | `EXTRACCIONDUCOMASTERDATA` (22:00h, Viernes) ejecuta `GSProcess.sh Extraccion DUCOMASTERDATA` bajo `xakytl1p`. Invoca el jar `ExtraccionGenericaUnificada` (clase `com.bbva.kytl.extraccion.Principal`), que genera `ExtraccionDUCOMASTERDATA.csv`. Criticidad de job **S**. Sin predecesor — inicio de cadena. |
-| R2 | `MEKYTL1299` (Run As `xsramer1`) ejecuta `RAMERC0068.sh` — **copia** (no mueve) el fichero a la ruta de salida de DataX (`/unload/kytl/datsal/datax`). Criticidad de job **S**. **Resuelto por evidencia cruzada:** `MEKYTL1300` historifica desde ese mismo path local, luego el fichero debe seguir existiendo tras `MEKYTL1299` — solo es coherente con una copia (`COPIA_FICH`/`cp -p`), no un movimiento. Reforzado por un ejemplo real de `INFORMACION_HISTORIFICACIONES.IDX` (clave `MEKYTL1320_EI`) que usa exactamente el mismo destino `/unload/kytl/datsal/datax/` con operación `C` (Copia). |
-| R3 | `MEKYTL1300` (Run As `xsramer1`) ejecuta `RAMERC0068.sh` — historifica a `backup/ExtraccionDUCOMASTERDATA_YYYYMMDD.csv` y purga automáticamente ficheros con más de 6 meses de antigüedad. Fin de cadena, sin sucesor. **Criticidad de job confirmada como `W`** (ficha oficial EX-005-03-MEKYTL1300, exportada de Control-M el 23/09/2026: casilla `W` marcada, `S`/`C` sin marcar), coincidente con la criticidad de cadena `W` — ver gap G4, resuelto. El "S / C" del documento fuente original era una inconsistencia/desactualización documental. |
-| R4 | **Diccionario de campos de `ExtraccionDUCOMASTERDATA.csv`** (confirmado por el documento fuente): registros pipe-delimited, valores entre comillas dobles. 4 secciones vía `UNION ALL` (`Index`, `Calendar`, `Products`, `DAYBASISTYPE`), cada una con las mismas 8 columnas comunes (tipo, identificador principal, estado, contexto de identificador externo, identificador externo, descripción/fuente según sección, fuente de datos, estado del identificador externo). Mapeo columna-a-columna completo por sección, transcrito del documento fuente (§7.2), en §6. |
-| R5 | **Confirmado por código fuente (`Principal.java`):** el fichero se genera y publica **incondicionalmente**, incluso si la consulta devuelve 0 filas. El propio código contempla y registra el caso explícitamente (`LOGGER.warn("Sin registros extraídos, se genera fichero vacío.")`) sin ninguna bifurcación que bloquee `publicarFicheroDefinitivo()`. |
-| R6 | El copiado a DataX (`MEKYTL1299`) deposita el fichero en `/unload/kytl/datsal/datax`; el consumo posterior por el sistema destino real (presumiblemente DUCO, vía la plataforma DataX) no está documentado en este material — mismo patrón ya confirmado en otros procesos RDR que usan DataX. **Confirmado por ausencia:** revisado el listado completo de los 202 folders de la aplicación KYTL en Control-M, no existe ninguna cadena relacionada con "DataX" ni ninguna otra que consuma `/unload/kytl/datsal/datax`. Se asume que DataX es una plataforma de distribución externa que recoge automáticamente lo depositado en esa ruta — no verificable en detalle dentro del alcance analizado. |
-| R7 | Ninguno de los 3 jobs de esta cadena requiere recursos cuantitativos de Control-M. **Confirmado en Control-M en vivo** (no una omisión documental): la sección "Recursos Cuantitativos" aparece vacía en los 3 jobs (`EXTRACCIONDUCOMASTERDATA`, `MEKYTL1299`, `MEKYTL1300`) — consistente con ser una cadena semanal que se ejecuta fuera de la ventana de las 04:00h que comparten el resto de cadenas RDR (ver G7). |
+| R1 | `EXTRACCIONDUCOMASTERDATA` se lanza los viernes a partir de las 22:00, sin predecesor, como `xakytl1p` en `pr-rdr.igrupobbva`, y ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh ExtraccionDUCOMASTERDATA`. Criticidad del job: S (aviso día siguiente incluso si es festivo). |
+| R2 | El programa obtiene la query de `FT_T_ATE1` (`ACTION_NME='ExtraccionDUCOMASTERDATA.sql'`, solo `ACTIVE`), la cabecera de `FT_T_PAR1` (`PARAMETER_CTXT_TYP='HEADER'`, solo `ACTIVE`) y la **ruta completa** del fichero de `FT_T_ATE1.URL_OUTPUT_FILE` (solo `ACTIVE`). |
+| R3 | El fichero contiene una línea por fila de la query (columna `RESULT`), con 4 secciones (`Index`, `Calendar`, `Products`, `DAYBASISTYPE`) de 8 columnas separadas por `|` y valores entre comillas dobles, según el diccionario de §5.3. |
+| R4 | El fichero se publica **siempre que no haya error**, también con 0 filas (fichero solo con cabecera, o vacío si no hay cabecera). |
+| R5 | Si falta la query o la ruta, o hay cualquier error SQL o de escritura, el programa termina con error, **no toca el fichero publicado anterior** y no deja temporal (salvo fallo en el renombrado final). `GSProcess.sh` devuelve 1, el job queda NOTOK y la cadena se detiene. |
+| R6 | `MEKYTL1299` (tras el OK del anterior) **copia** el fichero a `/unload/kytl/datsal/datax/`, de donde lo recoge la transferencia DataX de DUCO (`x_kytlProdCalIndDaysBasis_1`). Criticidad S. |
+| R7 | `MEKYTL1300` (tras el OK de `MEKYTL1299`) mueve el fichero a `.../DUCOMASTERDATA/backup/ExtraccionDUCOMASTERDATA_AAAAMMDD.csv` (fecha del sistema). Criticidad W. La ficha exige además borrar del backup los ficheros de más de 6 meses (mecanismo sin resolver, P-DMD-03). |
+| R8 | Ningún job tiene recursos cuantitativos ni relanzamientos automáticos; retención en el entorno activo de 1 día. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
+### 4.1 Gaps resueltos
+
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G4 | ¿La criticidad `W` de cadena y la criticidad dual `S / C` de `MEKYTL1300` son compatibles, o hay un error de modelado? | **Resuelto con evidencia documental real.** Ficha oficial EX-005-03-MEKYTL1300, exportada directamente de Control-M (fecha 23/09/2026): el bloque `NIVEL CRITICIDAD` marca únicamente `W` (`S`/`C` sin marcar). La criticidad real y vigente de `MEKYTL1300` es `W`, coincidente con la de cadena. El "S / C" del documento fuente original queda identificado como una inconsistencia/desactualización de ese documento, no como el valor operativo real. |
-| G5 | ¿Qué ocurre si `ExtraccionDUCOMASTERDATA.csv` resulta con 0 filas en las 4 secciones? | **Confirmado con código fuente real** (`Principal.java`, aportado y verificado en sesión — ver `documentos_fuente/codigo_fuente_duco/`): se publica un fichero vacío (o solo con cabecera) sin ningún control que lo impida ni bloquee la copia a DataX (R5). |
-| G6 | ¿Dónde vive exactamente (tabla/esquema) la query, cabecera y ruta de salida que `Principal.java` resuelve por `typeInfo`? | **Resuelto por completo con el código fuente real de `OperacionesDB.java`.** Los 3 valores viven en `FT_T_ATE1`/`FT_T_PAR1`, con las queries exactas transcritas en §6.2; la clave de búsqueda (`ACTION_NME`) es `"Extraccion" + typeInfo + ".sql"` → `ExtraccionDUCOMASTERDATA.sql`, coincidiendo con el literal ya visto en el log. Hallazgo adicional: a diferencia del motor de `RDR_EXTRACCION_CONTACTOS` (`Querys.java`, RG-19 de esa spec, que **no** filtra por `DATA_STAT_TYP`), este motor sí exige `DATA_STAT_TYP='ACTIVE'` en las 3 queries de configuración — mismo patrón data-driven sobre `FT_T_ATE1`, comportamiento distinto entre motores. |
-| G7 | A diferencia de `RDR_DUCO_CPTY`, el documento no menciona ningún recurso cuantitativo (tipo `MAX-LPRDR501`) para los 3 jobs de esta cadena — ¿es una omisión documental o un hecho confirmado? | **Confirmado en Control-M en vivo**: la sección "Recursos Cuantitativos" aparece vacía en los 3 jobs. No es una omisión documental — esta cadena no tiene control de concurrencia configurado (R7). |
+| G4 | ¿La criticidad `W` de la cadena y la criticidad "S / C" que el documento atribuye a `MEKYTL1300` son compatibles? | **Resuelto.** La ficha oficial EX-005-03-MEKYTL1300, exportada de Control-M el 23/09/2026, marca solo `W` (`S` y `C` sin marcar). La criticidad real de `MEKYTL1300` es `W`; el "S / C" del documento era una errata. |
+| G5 | ¿Qué pasa si el fichero sale con 0 filas? | **Resuelto con el código** (`Principal.java`, método `generarFicheroExtraccion`): se escribe en el log `WARN ... Sin registros extraídos, se genera fichero vacío.` y el fichero se publica igualmente (solo cabecera). Ningún job de la cadena lo impide. |
+| G6 | ¿Dónde viven la query, la cabecera y la ruta del fichero? | **Resuelto con el código** (`OperacionesDB.java`): en `FT_T_ATE1` y `FT_T_PAR1`, con las consultas literales de §6.2. |
+| G7 | ¿Por qué estos jobs no tienen recurso cuantitativo (otros procesos usan `MAX-LPRDR501`)? | **Respuesta del usuario (miguel.saavedra, 2026-09-24), literal:** "Confirmado en Control-M en vivo: los 3 jobs (EXTRACCIONDUCOMASTERDATA, MEKYTL1299, MEKYTL1300) tienen la sección "Recursos Cuantitativos" vacía — comportamiento real, no omisión documental". |
+| G8 | ¿`MEKYTL1299` copia o mueve? (la ficha dice "copiar" en la descripción funcional y "mover" en la nota operativa) | **Respuesta del usuario (miguel.saavedra, 2026-09-24), literal:** "Resuelto por evidencia cruzada (MEKYTL1300 necesita el fichero original tras MEKYTL1299) y por ejemplo real en INFORMACION_HISTORIFICACIONES.IDX (clave MEKYTL1320_EI, mismo destino /unload/kytl/datsal/datax/, operación C=Copia) — es copia, no movimiento, pese a que la "Nota Operativa" del documento dijera "mover"". La línea del IDX de `MEKYTL1299` sigue sin verse (P-DMD-02). |
+| G9 | ¿Existe en Control-M una cadena "DataX" que consuma el fichero? | **Respuesta del usuario (miguel.saavedra, 2026-09-24), literal:** "No existe ninguna cadena relacionada con "DataX" en el listado completo de 202 folders de la aplicación KYTL en Control-M". Coherente con el funcionamiento de DataX: la transferencia la monta el sistema destino, no RDR (ver §5.4). |
+
+### 4.2 Preguntas pendientes al usuario
+
+| Id | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-DMD-01 | ¿Se puede obtener `ExtraccionDUCOMASTERDATA.properties` (el que lee `GSProcess.sh`)? | Es lo que se ejecuta. Sin él no se conocen el segundo argumento del Java (configuración de log4j: dónde escribe su log), si lleva directivas `DirJavaN` (que quitarían `-Dfile.encoding=iso-8859-1` y cambiarían la codificación del CSV) ni si tiene `StopJava`. Del log real solo se conocen los argumentos 1, 3, 4 y 5. |
+| P-DMD-02 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de producción para las claves `MEKYTL1299` y `MEKYTL1300`? | Deciden la operación real (copia o movimiento), el nombre exacto en destino, si falla cuando no hay fichero (campo 5) y si se sobrescribe un histórico del mismo día. Hoy se conocen solo por las fichas. |
+| P-DMD-03 | ¿Quién borra del backup los ficheros de más de 6 meses? | `RAMERC0068.sh` admite **una sola línea y una sola operación por clave** (`salidas/comun_ramerc0068/comun_ramerc0068_spec.md` §4 y §7): con la clave `MEKYTL1300` no puede a la vez mover el fichero y borrar los antiguos. Si no hay otro mecanismo, el histórico crece sin límite. |
+| P-DMD-04 | ¿Cuál es el texto literal, en producción, de la query (`CLOB_VALUE` de `ExtraccionDUCOMASTERDATA.sql`), de la cabecera (`PAR1_VALUE_CLOB`) y de `URL_OUTPUT_FILE`? | El diccionario de §5.3 procede del análisis de la query hecho en el documento fuente; la query, la cabecera y la ruta de producción no se han visto. La ruta de integración sí (§6.2). |
+| P-DMD-05 | ¿Qué versión del jar está desplegada en producción? | La versión de noviembre de 2025 montaba la ruta como `<argumento 4>/<tipo>/<fichero>` y, con el argumento 4 terminado en `DUCOMASTERDATA`, escribió en `.../DUCOMASTERDATA/DUCOMASTERDATA/` (log del 26/11/2025), donde `MEKYTL1299` no lo encontraría. La de julio de 2026 usa `URL_OUTPUT_FILE` completa. |
+| P-DMD-06 | ¿El nombre en `/unload/kytl/datsal/datax/` es `ExtraccionDUCOMASTERDATA.csv` (inventario DataX de la wiki) o `Extraccion DUCOMASTERDATA.csv`, con espacio (ficha de `MEKYTL1299`)? | Si el nombre no coincide con el que espera la transferencia de DUCO, el fichero no se recoge. |
 
 ## 5. Especificación funcional
 
-1. Todos los viernes a las 22:00h, `EXTRACCIONDUCOMASTERDATA` ejecuta la extracción unificada de los 4
-   dominios de datos maestro y genera `ExtraccionDUCOMASTERDATA.csv` — publicado siempre, incluso vacío
-   (R5).
-2. `MEKYTL1299` copia el fichero a la ruta de salida de DataX, sin control adicional sobre su contenido.
-3. `MEKYTL1300` historifica el fichero con sufijo de fecha en `backup/` y purga automáticamente los
-   ficheros con más de 6 meses de antigüedad, cerrando la cadena.
+### 5.1 Qué hay inicialmente
+
+- **Datos de origen** en el esquema de RDR (Oracle, servicio `BKYTL003`, usuario `KYTL_GC` según el log de
+  integración): `FT_T_ISSU` y `FT_T_ISID` (índices), `FT_T_CADF` y `FT_T_CID1` (calendarios), `FT_T_ISTY`,
+  `FT_T_ISCD`, `FT_T_EIST` y `FT_T_DSRC` (tipos de producto), `FT_T_IDMV` y `FT_T_EDMV` (bases de cálculo).
+- **Configuración de la extracción** en `FT_T_ATE1` (query y ruta) y `FT_T_PAR1` (cabecera), filas
+  `ACTIVE`.
+- **Directorios**: `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/` (si no existe, el
+  programa lo crea), su subdirectorio `backup/` y `/unload/kytl/datsal/datax/` (ambos deben existir: si el
+  directorio destino de una clave de `RAMERC0068.sh` no existe, el job termina con código 5).
+- **Fichero de credenciales** `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` (lo leen
+  `GSProcess.sh` y el propio Java).
+- Al empezar, el directorio de trabajo debería estar vacío: el fichero de la semana anterior lo movió
+  `MEKYTL1300` a `backup/`.
+
+### 5.2 Cuándo y quién lo lanza
+
+- Folder `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`, servidor Control-M `MERCADOS-4`, método de carga *User
+  Daily* `PLAN_1200`, aplicación `KYTL`, UUAA `KYTL0000`, *site standard* `KYTL0000_SS_PR_HR`.
+- Periodicidad semanal: día `5` de la planificación avanzada (viernes) a partir de las 22:00. Sin
+  calendario de festivos documentado: un viernes festivo se ejecuta igual.
+- Solo el primer job tiene hora; los otros dos arrancan en cuanto llega el evento del anterior.
+- Ningún proceso depende de esta cadena dentro de Control-M; su consumidor es la transferencia DataX de
+  DUCO.
+
+### 5.3 Resultado: `ExtraccionDUCOMASTERDATA.csv` campo a campo
+
+**Formato** (según el análisis de la query del documento fuente; la query literal no se ha visto,
+P-DMD-04): primera línea la cabecera de `FT_T_PAR1` si existe; después una línea por fila de la query,
+que la propia query construye ya concatenada en la columna `RESULT`. Campos separados por `|`, cada valor
+entre comillas dobles. La query une 4 bloques con `UNION ALL`, ordenados por la columna 1. Las filas cuyo
+`RESULT` venga nulo o vacío se saltan sin contarlas. Fin de línea LF (el que escribe Java en Unix).
+Codificación: la que tenga la JVM (`FileWriter` sin juego de caracteres explícito); con las opciones por
+defecto de `GSProcess.sh` es ISO-8859-1 (pendiente de confirmar con el `.properties`, P-DMD-01).
+
+**Estructura común de las 8 columnas:**
+
+| Col. | Contenido |
+|---|---|
+| 1 | Etiqueta fija del tipo de dato maestro: `Index`, `Calendar`, `Products` o `DAYBASISTYPE` |
+| 2 | Identificador principal del elemento |
+| 3 | Estado (`DATA_STAT_TYP`) del elemento principal |
+| 4 | Contexto (tipo) del identificador externo o alterno |
+| 5 | Identificador externo o alterno (vacío en `Products`) |
+| 6 | Vacío, salvo en `Products`, donde va la descripción externa del tipo |
+| 7 | Fuente de datos (`DATA_SRC_ID`) del identificador externo |
+| 8 | Estado del identificador externo |
+
+**Origen de cada columna por sección:**
+
+| Sección (col. 1) | Col. 2 | Col. 3 | Col. 4 | Col. 5 | Col. 6 | Col. 7 | Col. 8 | Tablas | Filtro |
+|---|---|---|---|---|---|---|---|---|---|
+| `Index` | `issu.pref_iss_id` | `issu.data_stat_typ` | `isid.id_ctxt_typ` | `isid.iss_id` | vacío | `isid.data_src_id` | `isid.data_stat_typ` | `ft_t_issu` (issu) LEFT JOIN `ft_t_isid` (isid) por `instr_id` | `issu.iss_typ` en `INDEXBS, INDEXCUR, INDEXFRA, INDEXFUT, INDEXFXF, INDEXINF, INDEXINT, INDEXSMM, INDEXSOF, INDEXSOS, INDEXSW, NOTIFACT` |
+| `Calendar` | `cadf.cal_id` | `cadf.data_stat_typ` | `cid1.id_ctxt_typ` | `cid1.alt_id` | vacío | `cid1.data_src_id` | `cid1.data_stat_typ` | `ft_t_cadf` (cadf) LEFT JOIN `ft_t_cid1` (cid1) por `cal_id` | ninguno (todos los calendarios) |
+| `Products` | `isty.iss_typ_nme` | `isty.data_stat_typ` | `eist.ext_iss_typ_nme` | vacío | `eist.ext_iss_typ_desc` | `dsrc.data_src_id` | `eist.data_stat_typ` | `ft_t_isty` (isty) JOIN `ft_t_iscd` (iscd) por `iss_typ`, LEFT JOIN `ft_t_eist` (eist) por `iscd_oid`, LEFT JOIN `ft_t_dsrc` (dsrc) por `data_src_id` | ninguno |
+| `DAYBASISTYPE` | `idmv.intrnl_dmn_val_nme` | `idmv.data_stat_typ` | `edmv.ext_dmn_val_nme` | `edmv.ext_dmn_val_txt` | vacío | `edmv.data_src_id` | `edmv.data_stat_typ` | `ft_t_idmv` (idmv) LEFT JOIN `ft_t_edmv` (edmv) por `intrnl_dmn_val_id` | `idmv.fld_data_cl_id = 'DAYBASIS'` |
+
+Consecuencias que importan al probar:
+- Los `LEFT JOIN` hacen que un elemento sin identificador externo salga igualmente, con las columnas
+  4-8 vacías (salvo la 6 en `Products`), y que un elemento con varios identificadores externos salga
+  **una vez por cada uno**. No hay deduplicación: dos calendarios distintos con el mismo `alt_id` salen
+  como dos líneas.
+- El documento no indica que la query filtre por `DATA_STAT_TYP`: los elementos `INACTIVE` también salen,
+  con su estado en la columna 3. No confirmado con la query literal (P-DMD-04).
+- Un cambio en las filas de `FT_T_ATE1`/`FT_T_PAR1` cambia el fichero **sin desplegar código**.
+
+### 5.4 Destino y entrega
+
+- `MEKYTL1299` deja el fichero en `/unload/kytl/datsal/datax/`. Fila del inventario de DataX que le
+  corresponde: entidad "Productos, calendarios, índices y day basis"; nombre en `datsal/datax`
+  `ExtraccionDUCOMASTERDATA.csv`; ruta de trabajo en RDR (pr)
+  `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA`; DataObject
+  `x_kytlProdCalIndDaysBasis_1`; sistema destino **DUCO**; contacto `duco.onsite@bbva.com`; job
+  `MEKYTL1299`.
+- La transferencia la monta DUCO y puede cambiar nombre, hora y ruta en destino sin avisar a RDR. Desde
+  RDR no se puede comprobar la entrega: una prueba de RDR termina en "el fichero está en
+  `/unload/kytl/datsal/datax/` con el nombre y el contenido correctos". El esquema o la transformación que
+  DataX aplique a este fichero no están documentados.
+- El fichero se **copia**, no se mueve: queda también en `/unload/kytl/datsal/datax/` hasta que la
+  siguiente ejecución lo sustituya (ver riesgo de reenvío del fichero anterior en §9).
+
+### 5.5 Historificación
+
+`MEKYTL1300` mueve `ExtraccionDUCOMASTERDATA.csv` a
+`/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/ExtraccionDUCOMASTERDATA_AAAAMMDD.csv`,
+con `AAAAMMDD` = fecha del sistema al ejecutarse. Tras él, el directorio de trabajo queda vacío. La
+ficha exige borrar del backup los ficheros con más de 6 meses; el mecanismo no está resuelto (P-DMD-03).
 
 ## 6. Especificación técnica
 
-* **Folder Control-M:** `KYTL0000-RDR_ExtraccionDUCOMASTERDATA`, servidor `MERCADOS-4`, disparo viernes
-  22:00h.
-* **Motor:** `GSProcess.sh Extraccion DUCOMASTERDATA` → jar `ExtraccionGenericaUnificada` (clase
-  `com.bbva.kytl.extraccion.Principal`, paquete `com.bbva.kytl.extraccion`), con soporte JDBC vía
-  `ConexionDB`/`OperacionesDB`.
-* **Copiado/historificación:** ambos vía `RAMERC0068.sh`, con operaciones distintas: `MEKYTL1299` (copia,
-  `COPIA_FICH`/`cp -p`) y `MEKYTL1300` (traslado, `HISTORIFICA_FICH`/`mv`) — ver R2.
-* **Grafo:** `EXTRACCIONDUCOMASTERDATA` → `MEKYTL1299` → `MEKYTL1300` (lineal, sin fan-out/fan-in).
-* **Retención:** entorno activo 1 día (jobs); purga de histórico a 6 meses en `backup/`.
-* **Sin recursos cuantitativos** en ninguno de los 3 jobs (G7/R7) — comportamiento confirmado, no gap.
-* **Riesgo confirmado por analogía — reejecución en el mismo día (TC-006):** al igual que `MEKYTL1150` en
-  `RDR_DUCO_CPTY`, `MEKYTL1300` nombra el fichero destino solo por `YYYYMMDD` (sin hora ni secuencia) y usa
-  `mv`; una reejecución el mismo viernes sobrescribiría silenciosamente el backup ya generado ese día.
+### 6.1 Jobs de la cadena
 
-### 6.1 Diccionario de campos por sección (mapeo columna a columna)
+| Job | Qué ejecuta | Host / usuario | Espera a | Publica | Planificación | Criticidad | Otros datos |
+|---|---|---|---|---|---|---|---|
+| `EXTRACCIONDUCOMASTERDATA` | Script `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh`, variable `PARM1=ExtraccionDUCOMASTERDATA` | `pr-rdr.igrupobbva` / `xakytl1p` | nada (arranca por hora) | `RDR_ExtraccionDUCOMASTERDATA_EXTRACCIONDUCOMASTERDATA_OK` | Día 5 (viernes), desde 22:00 | S | Descripción `SS-638901`; creado por `a923577`; activo desde 13/12/2025; relanzamientos 0; retención 1 día |
+| `MEKYTL1299` | Script `/pr/pl/scrt/RAMERC0068.sh`, `PARM1=MEKYTL1299` | `pr-rdr.igrupobbva` / `xsramer1` | `RDR_ExtraccionDUCOMASTERDATA_EXTRACCIONDUCOMASTERDATA_OK` (no lo elimina) | `RDR_ExtraccionDUCOMASTERDATA_MEKYTL1299_OK` | Día 5, desde 22:00 | S | Igual que el anterior |
+| `MEKYTL1300` | Script `/pr/pl/scrt/RAMERC0068.sh`, `PARM1=MEKYTL1300` | `pr-rdr.igrupobbva` / `xsramer1` | `RDR_ExtraccionDUCOMASTERDATA_MEKYTL1299_OK` (no lo elimina) | `RDR_ExtraccionDUCOMASTERDATA_MEKYTL1300_OK` (captura de la pestaña Acciones; sin "Acciones Si", gestión de la salida "Ninguno") | Día 5, desde 22:00 | W | Igual que el anterior |
 
-El fichero es una única query con 4 bloques unidos por `UNION ALL`, ordenados por la Columna 1 (tipo de dato
-maestro). Las 8 columnas son comunes en posición pero cambian de origen según la sección; detalle transcrito
-de `documentos_fuente/extraccion_cesion_contrapartidas_cestas_masterdata_duco.md` (§7.2):
+Ninguno tiene recursos cuantitativos (G7) ni reglas "Acciones Si": si un job termina con código distinto
+de 0 queda NOTOK, no publica su evento y los siguientes no se ejecutan. Protocolo ante fallo de los 3
+jobs: avisar a "ANS RDR (BZG03906)", correo a `ans_rdr.es@bbva.com` y grupo Remedy ANS RDR.
 
-| Sección (Columna 1) | Col.2 (id. principal) | Col.3 (estado principal) | Col.4 (contexto id. externo) | Col.5 (id. externo/alterno) | Col.6 | Col.7 (fuente de datos) | Col.8 (estado id. externo) | Tablas origen | Filtro |
-|---|---|---|---|---|---|---|---|---|---|
-| `Index` | `issu.pref_iss_id` | `issu.data_stat_typ` | `isid.id_ctxt_typ` | `isid.iss_id` | vacío | `isid.data_src_id` | `isid.data_stat_typ` | `ft_t_issu` (issu) LEFT JOIN `ft_t_isid` (isid) por `instr_id` | `issu.iss_typ` en `INDEXBS, INDEXCUR, INDEXFRA, INDEXFUT, INDEXFXF, INDEXINF, INDEXINT, INDEXSMM, INDEXSOF, INDEXSOS, INDEXSW, NOTIFACT` |
-| `Calendar` | `cadf.cal_id` | `cadf.data_stat_typ` | `cid1.id_ctxt_typ` | `cid1.alt_id` | vacío | `cid1.data_src_id` | `cid1.data_stat_typ` | `ft_t_cadf` (cadf) LEFT JOIN `ft_t_cid1` (cid1) por `cal_id` | sin filtro adicional (todos los calendarios) |
-| `Products` | `isty.iss_typ_nme` | `isty.data_stat_typ` | `eist.ext_iss_typ_nme` | vacío | `eist.ext_iss_typ_desc` (descripción externa, no fuente) | `dsrc.data_src_id` | `eist.data_stat_typ` | `ft_t_isty` (isty) JOIN `ft_t_iscd` (iscd) por `iss_typ`, LEFT JOIN `ft_t_eist` (eist) por `iscd_oid`, LEFT JOIN `ft_t_dsrc` (dsrc) por `data_src_id` | sin filtro adicional |
-| `DAYBASISTYPE` | `idmv.intrnl_dmn_val_nme` | `idmv.data_stat_typ` | `edmv.ext_dmn_val_nme` | `edmv.ext_dmn_val_txt` | vacío | `edmv.data_src_id` | `edmv.data_stat_typ` | `ft_t_idmv` (idmv) LEFT JOIN `ft_t_edmv` (edmv) por `intrnl_dmn_val_id` | `idmv.fld_data_cl_id = 'DAYBASIS'` |
+> **Corrección:** la spec anterior escribía la orden como `GSProcess.sh Extraccion DUCOMASTERDATA` (con
+> espacio, como la ficha funcional). `GSProcess.sh` exige **exactamente un** parámetro y con dos termina
+> con código 1 (`salidas/comun_gsprocess/comun_gsprocess_spec.md` §2). El valor real del job es
+> `PARM1=ExtraccionDUCOMASTERDATA` (bloque técnico de la ficha), que corresponde a
+> `ExtraccionDUCOMASTERDATA.properties`.
 
-Notas:
-- Columna 6 es la excepción de la estructura común: en `Index`/`Calendar`/`DAYBASISTYPE` está vacía (la fuente
-  de datos va en la Columna 7); en `Products` contiene la descripción externa del tipo
-  (`eist.ext_iss_typ_desc`) y la fuente de datos se desplaza a la Columna 7 (`dsrc.data_src_id`).
-- Un cambio en cualquiera de estas columnas de origen (JOIN, filtro o campo) cambia directamente el contenido
-  de `ExtraccionDUCOMASTERDATA.csv` en esa sección; por eso se documenta el mapeo completo, no solo el nombre
-  de tabla.
+### 6.2 Paso 1: `GSProcess.sh` y `ExtraccionGenericaUnificada.jar`
 
-### 6.2 Dónde vive la lógica de extracción y qué pasa si falla
+**Mapa de llamadas:** Control-M → `GSProcess.sh ExtraccionDUCOMASTERDATA` → lee
+`/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionDUCOMASTERDATA.properties` (**no
+recibido**, P-DMD-01) → acción `Java` → `java ... com.bbva.kytl.extraccion.Principal <5 argumentos>`.
 
-Leyendo `documentos_fuente/codigo_fuente_duco/Principal.java`: **la query SQL, la cabecera y la ruta/nombre
-del fichero de salida no están hardcodeados en el jar** — se obtienen en tiempo de ejecución desde base de
-datos, por `typeInfo` (`DUCOMASTERDATA`), a través de `OperacionesDB`:
+Argumentos que recibe el Java (los valores salen del log real de integración; el segundo no aparece en
+el log):
 
-- `jdbc.obtenerQueryExtraccion(con, typeInfo)` — obtiene la query a ejecutar.
-- `jdbc.obtenerHeader(con, typeInfo)` — obtiene la cabecera CSV.
-- `jdbc.obtenerFicheroSalida(con, typeInfo)` — obtiene la ruta completa del fichero de salida.
+| Arg. | Significado | Valor observado (integración) |
+|---|---|---|
+| 1 | Nivel de log (`1` DEBUG, `2` INFO, `3` ERROR, `4` FATAL) | `2` |
+| 2 | Configuración de log4j (decide dónde se escribe el log) | No visible (P-DMD-01) |
+| 3 | Tipo de extracción | `DUCOMASTERDATA` |
+| 4 | Directorio de salida. **En la versión actual no se usa** (la ruta sale de `URL_OUTPUT_FILE`) | `/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA` |
+| 5 | Fichero de credenciales | `/ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` |
 
-Este patrón (consulta y ruta de salida resueltas por configuración en BD, no en el código desplegado) es
-análogo al del **Planificador Genérico RDR** (`memoria/memoria_planificador_generico_RDR.md`: tabla
-`FT_T_ATE1` guarda la query y `URL_OUTPUT_FILE`), aunque aquí el mecanismo de resolución es propio de
-`OperacionesDB`, no el mismo jar `ProjectMain.jar`.
+Con menos de 5 argumentos el programa lanza `IllegalArgumentException` y termina con error.
 
-**G6 resuelto por completo con el código fuente real de `OperacionesDB.java`
-(`com.bbva.kytl.extraccion.jdbc.OperacionesDB`).** Los 3 métodos usan la misma clave de búsqueda,
-`actionName = "Extraccion" + typeInfo + ".sql"` (para `DUCOMASTERDATA`: `ExtraccionDUCOMASTERDATA.sql`,
-coincidiendo con el literal exacto ya visto en el log), y consultan:
+**Consultas de configuración** (código literal de `OperacionesDB.java`; todas con
+`ACTION_NME = 'ExtraccionDUCOMASTERDATA.sql'`, que el programa construye como `"Extraccion" + tipo + ".sql"`):
 
-- `obtenerQueryExtraccion`: `SELECT clob_value FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'`
-  — la query SQL completa vive en `FT_T_ATE1.CLOB_VALUE`.
-- `obtenerHeader`: `SELECT PAR1_VALUE_CLOB FROM ft_t_par1 WHERE PARAMETER_CTXT_TYP = 'HEADER' AND ACT1_OID =
-  (SELECT ACT1_OID FROM ft_t_ate1 WHERE ACTION_NME = ?) AND DATA_STAT_TYP = 'ACTIVE'` — la cabecera vive en
-  `FT_T_PAR1.PAR1_VALUE_CLOB`, enlazada a la acción por `ACT1_OID` (FK a `FT_T_ATE1`).
-- `obtenerFicheroSalida`: `SELECT URL_OUTPUT_FILE FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'`
-  — la ruta completa del fichero de salida vive en `FT_T_ATE1.URL_OUTPUT_FILE`.
+```sql
+-- Query de extracción (si no hay fila: "No se encontró query activa para ACTION_NME: ..." y aborta)
+SELECT clob_value FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'
+-- Cabecera (opcional: si no hay fila devuelve null y el CSV sale sin cabecera)
+SELECT PAR1_VALUE_CLOB FROM ft_t_par1 WHERE PARAMETER_CTXT_TYP = 'HEADER'
+  AND ACT1_OID = (SELECT ACT1_OID FROM ft_t_ate1 WHERE ACTION_NME = ?) AND DATA_STAT_TYP = 'ACTIVE'
+-- Ruta completa del fichero (si no hay fila: "No se encontró fichero de salida para ACTION_NME: ..." y aborta)
+SELECT URL_OUTPUT_FILE FROM ft_t_ate1 WHERE ACTION_NME = ? AND DATA_STAT_TYP = 'ACTIVE'
+```
 
-**Diferencia de comportamiento entre motores data-driven, transversal al repositorio:** las 3 queries de
-`OperacionesDB` exigen explícitamente `DATA_STAT_TYP = 'ACTIVE'` sobre `FT_T_ATE1`/`FT_T_PAR1` — a
-diferencia del motor de `RDR_EXTRACCION_CONTACTOS` (`Querys.java`, ver `salidas/extraccion_contactos/extraccion_contactos_spec.md`
-RG-19), que consulta la misma tabla `FT_T_ATE1` por `ACTION_NME` **sin** filtrar por ese campo. Mismo patrón
-arquitectónico (acciones data-driven registradas en `FT_T_ATE1`), 2 jars distintos (`ExtraccionGenericaUnificada`
-aquí, `ExtraccionGenericaOtherEntities.jar` allí) con comportamiento distinto ante un registro marcado
-`INACTIVE` — no es un defecto de ninguno de los 2, pero es una inconsistencia arquitectónica no documentada
-hasta ahora entre 2 motores hermanos del mismo patrón.
+Particularidades de este proceso que salen de esas consultas:
+- Si hay **dos filas `ACTIVE`** con ese `ACTION_NME`, el programa usa la primera que devuelva Oracle
+  (orden no garantizado).
+- La subconsulta de la cabecera **no filtra por estado**: si existen dos filas en `FT_T_ATE1` con ese
+  `ACTION_NME` (aunque una sea `INACTIVE`), Oracle da error de subconsulta de varias filas
+  (ORA-01427), la lectura de la cabecera lanza `SQLException` y el programa aborta.
+- Valor de `URL_OUTPUT_FILE` observado en integración (log del 20/07/2026):
+  `/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv`. En
+  producción se espera la misma ruta con `pr` (es la ruta origen que usan `MEKYTL1299` y `MEKYTL1300`),
+  pero el valor no se ha visto (P-DMD-04).
 
-**Asimetría confirmada en el tratamiento de errores (código real, no inferida):** `obtenerQueryExtraccion` y
-`obtenerFicheroSalida` comprueban explícitamente el resultado y lanzan `SQLException` si viene `null`/vacío
-— fallo duro, ya documentado más abajo. `obtenerHeader`, en cambio, **no tiene esa comprobación**: si no
-existe una fila `HEADER` activa en `FT_T_PAR1` para la acción, el método simplemente devuelve `null` sin
-error. `Principal.java` lo trata como caso válido y ya previsto (`@param header Cabecera CSV (puede ser
-null)`, `escribirFicheroTemporal`: `if (header != null && !header.isEmpty()) { bw.write(header); ... }`) —
-si falta la configuración de cabecera, el CSV se publica sin línea de cabecera, sin abortar el proceso.
-Es un caso manejado deliberadamente, no un fallo silencioso: se deja constancia porque compone con el
-comportamiento ya confirmado en R5/G5 (fichero publicado incluso con 0 filas) — un CSV sin cabecera y sin
-filas sería indistinguible de un fichero vacío por error.
+**Algoritmo** (genérico en `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` §3; aquí
+lo que produce en este proceso):
+1. Lee query, cabecera y ruta (consultas de arriba). Crea el directorio si no existe.
+2. Escribe `<ruta>.tmp` (`.../ExtraccionDUCOMASTERDATA.csv.tmp`): la cabecera seguida de salto de línea,
+   y después la columna `RESULT` de cada fila, leyendo de 5.000 en 5.000.
+3. Con 0 filas escribe `WARN ... Sin registros extraídos, se genera fichero vacío.` y sigue.
+4. Renombra el temporal a `ExtraccionDUCOMASTERDATA.csv` (renombrado atómico si el sistema lo permite;
+   si no, movimiento sustituyendo el existente).
+5. Marca cada consulta en la sesión de Oracle con el módulo `ExtraccionGenericaUnificada`
+   (`DBMS_APPLICATION_INFO`), visible en `v$session` mientras se ejecuta.
 
-La traza real en `documentos_fuente/codigo_fuente_duco/ExtraccionDUCOMASTERDATA.log` confirma este
-comportamiento en ejecución: `OperacionesDB:47 - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql`,
-seguido de `OperacionesDB:75 - Header obtenido para tipo: DUCOMASTERDATA` y
-`OperacionesDB:106/107 - Ruta completa de fichero salida obtenida: ...`.
+**Log de una ejecución correcta** (secuencia real, integración 20/07/2026):
 
-**Qué pasa si falla o falta** (confirmado por código, `Principal.java`, método `ejecutarExtraccion`):
-- Si `obtenerQueryExtraccion()` devuelve `null` o vacío, `Principal` lanza
-  `IllegalStateException("No se encontró query para tipo: " + typeInfo)` — el proceso aborta antes de tocar
-  el fichero de salida.
-- Si `obtenerFicheroSalida()` devuelve `null` o vacío, lanza igualmente
-  `IllegalStateException("No se encontró nombre de fichero de salida para tipo: " + typeInfo)`, con el mismo
-  efecto de aborto.
-- Cualquier `IOException`/`SQLException` durante la escritura se relanza como
-  `IllegalStateException("Error fatal en extracción: " + typeInfo, e)` desde `main()`, y el fichero temporal
-  `.tmp` se borra explícitamente (`escribirFicheroTemporal`) antes de propagar el error, de forma que no queda
-  un fichero definitivo corrupto ni a medias — el `.csv` final solo se publica (`Files.move`, con
-  `ATOMIC_MOVE`/`REPLACE_EXISTING` como fallback) si la escritura del temporal terminó sin error.
+```
+INFO Principal - ******** INICIO EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+INFO OperacionesDB - Query obtenida para ACTION_NME: ExtraccionDUCOMASTERDATA.sql
+INFO OperacionesDB - Header obtenido para tipo: DUCOMASTERDATA
+INFO OperacionesDB - Ruta completa de fichero salida obtenida: /fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv
+INFO Principal - Escribiendo fichero temporal: .../ExtraccionDUCOMASTERDATA.csv.tmp
+INFO OperacionesDB - Extracción completada. Total registros: 26439
+INFO Principal - Fichero definitivo generado: .../ExtraccionDUCOMASTERDATA.csv (26439 líneas, 2676694 bytes)
+INFO Principal - Proceso finalizado correctamente. Tiempo: 00:00:03
+INFO Principal - ******** FIN EXTRACCION GENERICA UNIFICADA: DUCOMASTERDATA ********
+```
+
+El log también escribe la URL de conexión, el usuario de base de datos y la contraseña enmascarada
+(`password=te***`). Dónde se escribe este log lo decide la configuración de log4j del argumento 2
+(P-DMD-01). Además, `GSProcess.sh` deja su propio log en el directorio `<logs>` de `credentials.xml`:
+`execute_ExtraccionDUCOMASTERDATA_<AAAAMMDD>.log` (con el comando Java exacto y la salida de error del
+Java) y una línea de resumen en `execute_<AAAAMMDD>.log`; la ejecución correcta termina con `ESTADO-0-`.
+
+**Qué pasa si falla:**
+
+| Situación | Comportamiento | Fichero | Código | Control-M |
+|---|---|---|---|---|
+| Falta la fila `ACTIVE` de la query o su `URL_OUTPUT_FILE` | Aborta antes de escribir | Ninguno nuevo; no queda temporal | Java ≠ 0 → `GSProcess.sh` 1 | NOTOK, `MEKYTL1299` no se ejecuta |
+| Falta la cabecera | Sigue | CSV sin línea de cabecera | 0 | OK |
+| Error SQL en la query de extracción o error de escritura | Borra el `.tmp` y aborta | El publicado antes (si lo hubiera) no se toca | Java ≠ 0 → 1 | NOTOK |
+| Error al renombrar el temporal | Aborta | El `.tmp` se queda; la siguiente ejecución lo sobrescribe | Java ≠ 0 → 1 | NOTOK |
+| 0 filas | Aviso en log y sigue | CSV solo con cabecera | 0 | OK; la cadena sigue y el fichero vacío llega a DataX |
+| Falta `credentials.xml` | `GSProcess.sh` sale sin ejecutar nada | Ninguno | **0** (defecto de `GSProcess.sh`) | **OK**; `MEKYTL1299` copiaría lo que haya en el directorio, o fallaría si está vacío (según el campo 5 de su línea IDX, P-DMD-02) |
+| Nombre de máquina sin prefijo `lp`/`lw`/`li`/`ld` | `GSProcess.sh` no deduce el entorno | Ninguno | 254 | NOTOK |
+
+### 6.3 Pasos 2 y 3: `RAMERC0068.sh`
+
+Funcionamiento genérico en `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`. Lo específico de este
+proceso:
+
+| Clave | Línea del IDX | Comportamiento documentado (fichas) | Si falla |
+|---|---|---|---|
+| `MEKYTL1299` | **No disponible** (P-DMD-02) | Copia `ExtraccionDUCOMASTERDATA.csv` de `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA/` a `/unload/kytl/datsal/datax/` (operación de copia, `cp -p`, por G8) | Código 11 si falla la copia; 6 si no hay fichero y el campo 5 es `0` o vacío; 4/5 si falta el directorio origen/destino. El job queda NOTOK y `MEKYTL1300` no se ejecuta |
+| `MEKYTL1300` | **No disponible** (P-DMD-02) | Mueve el fichero a `.../DUCOMASTERDATA/backup/` renombrándolo `ExtraccionDUCOMASTERDATA_AAAAMMDD.csv` (con `RAMERC0068.sh` el renombrado sería `R` con `${AAAAMMDD}`, fecha de la máquina al arrancar). Purga a 6 meses: sin mecanismo (P-DMD-03) | Código 7 si falla el movimiento; 6 si no hay fichero (según campo 5) |
+
+El script deja su log en `/pr/pl/log/<CLAVE>_<HHMMSS>.log` y, por `set -x`, la traza de cada orden en la
+salida del job. Si el nombre de máquina no permite deducir el entorno, trabaja como producción.
+
+### 6.4 Inventario de ejecutables
+
+| Ejecutable | Lo invoca | ¿Aportado? | Dónde está analizado / gap |
+|---|---|---|---|
+| `GSProcess.sh` | Job `EXTRACCIONDUCOMASTERDATA` | Sí (componente común) | `salidas/comun_gsprocess/comun_gsprocess_spec.md`; uso aquí en §6.2 |
+| `ExtraccionDUCOMASTERDATA.properties` | `GSProcess.sh` | **No** | P-DMD-01 |
+| `ExtraccionGenericaUnificada.jar` (`Principal`, `OperacionesDB`) | Acción `Java` del `.properties` | Código fuente de las 2 clases funcionales; no `ConexionDB` ni `ConfiguracionCredenciales` | §6.2 y `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` §3 |
+| Query `ExtraccionDUCOMASTERDATA.sql` (`FT_T_ATE1.CLOB_VALUE`) | El jar | Analizada en el documento fuente; texto literal **no** recibido | §5.3; P-DMD-04 |
+| `RAMERC0068.sh` | Jobs `MEKYTL1299`, `MEKYTL1300` | Sí (componente común) | `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`; uso aquí en §6.3 |
+| Líneas IDX `MEKYTL1299`, `MEKYTL1300` | `RAMERC0068.sh` | **No** | P-DMD-02 |
 
 ## 7. Especificación de testing
 
-La estrategia combina 10 pruebas troceadas por sub-flujo/tipo de gap (TC-001 a TC-010) más 3 casos
-adicionales consolidados de la versión paralela de pablo.llorente (TC-011 a TC-013), cubriendo el 100% de
-las transiciones del grafo lineal, el filtrado de las 4 secciones, la publicación incondicional ante 0
-filas (R5), la purga a 6 meses, la sobrescritura por reejecución el mismo día y la regresión de criticidad/
-máscara de fecha. Los 13 casos están definidos en `rdr_extraccion_ducomasterdata_casos_prueba.xml`, cada uno con pasos y datos concretos,
-ejecutables sin interpretación adicional.
+**Estrategia.** Pruebas troceadas por paso (extracción, copia, historificación) más una prueba
+end-to-end. La extracción se prueba sobre todo a nivel de contenido (filtros y `LEFT JOIN` de cada
+sección) y de comportamiento ante errores de configuración, que es donde están los riesgos. Los 15 casos
+están en `rdr_extraccion_ducomasterdata_casos_prueba.xml`:
+
+- `happy_path`: TC-001 (las 4 secciones, copia y backup).
+- `negativo`: TC-002 (índice de tipo no permitido), TC-011 (fallo del primer job bloquea la cadena),
+  TC-014 (query `INACTIVE`: aborta sin tocar ficheros).
+- `error_funcional`: TC-003 (fallo de conexión), TC-010 (0 filas: se publica igualmente).
+- `borde`: TC-004 (base de cálculo sin equivalencia externa), TC-012 (purga a 6 meses, bloqueado por
+  P-DMD-03), TC-015 (dos filas en `FT_T_ATE1` con el mismo `ACTION_NME`).
+- `duplicidad`: TC-005 (un índice con 2 identificadores externos → 2 líneas).
+- `conflicto_integridad`: TC-006 (reejecución el mismo día sobrescribe el backup).
+- `datos_sinteticos`: TC-007 (dos calendarios con el mismo `alt_id`).
+- `regresion`: TC-008 (criticidad W de `MEKYTL1300`), TC-013 (dos viernes seguidos no colisionan).
+- `e2e`: TC-009.
+
+Cada caso tiene pasos y datos concretos y un resultado esperado decidido. Dos casos dependen de material
+pendiente y lo dicen en sus precondiciones: TC-006 (línea IDX de `MEKYTL1300`, P-DMD-02) y TC-012
+(mecanismo de purga, P-DMD-03). La suma de casos cubre todas las transiciones de la cadena (arranque por
+hora, OK→siguiente, NOTOK→parada), las 4 secciones del fichero y todas las ramas de error del programa
+documentadas en §6.2.
 
 ## 8. Validaciones de casos de prueba
 
-| Requisito/Tipo | Qué garantiza | Caso(s) |
-|-----------|--------------------|----------------|
-| R1 (disparo) | El job cabeza dispara correctamente y su fallo detiene la cadena. | TC-003, TC-009, TC-011 |
-| R2 (extracción unificada, 4 secciones) | La query une correctamente las 4 secciones, aplica sus filtros y no deduplica indebidamente. | TC-001, TC-002, TC-004, TC-005, TC-007 |
-| R2/R3 (copia, no movimiento) | El fichero original sigue disponible para `MEKYTL1300` tras `MEKYTL1299`, y se documenta el riesgo de sobrescritura en reejecución. | TC-001, TC-006, TC-009 |
-| R3 (historificación y purga) | El traslado final funciona, purga solo lo caducado, y su criticidad no sufre regresión. | TC-006, TC-008, TC-009, TC-012, TC-013 |
-| R5 (publicación incondicional ante 0 filas) | El fichero se publica igualmente y la cadena no se bloquea, confirmado por código real de `Principal.java`. | TC-010 |
-| R7 (sin recursos cuantitativos) | Confirmado por observación directa en Control-M, no requiere caso de prueba dedicado (ausencia estructural). | — |
-| `conflicto_integridad` | Reejecución de la cadena el mismo viernes sobrescribe silenciosamente el backup generado por la primera ejecución. | TC-006 |
-| `e2e` | Ciclo completo desde la extracción hasta la historificación con purga, en la ventana real. | TC-009 |
+| Requisito | Casos | Qué garantiza |
+|-----------|-------|---------------|
+| R1 | TC-001, TC-003, TC-009, TC-011 | Arranque por hora y parada de la cadena si falla |
+| R2 | TC-014, TC-015 | La configuración se lee de `FT_T_ATE1`/`FT_T_PAR1` con los filtros de estado del código |
+| R3 | TC-001, TC-002, TC-004, TC-005, TC-007 | Filtros, `LEFT JOIN` y ausencia de deduplicación en las 4 secciones |
+| R4 | TC-010 | Publicación con 0 filas |
+| R5 | TC-003, TC-011, TC-014 | Error → NOTOK, sin fichero nuevo y sin avanzar |
+| R6 | TC-001, TC-009 | Copia a DataX y permanencia del original |
+| R7 | TC-001, TC-006, TC-012, TC-013 | Nombre del histórico, sobrescritura el mismo día, purga |
+| R8 | TC-008 | Configuración de Control-M estable tras republicar |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-* **Publicación incondicional ante 0 filas (R5, confirmado):** el fichero se copia a DataX aunque no
-  contenga datos en ninguna de las 4 secciones — riesgo operativo si el consumidor final espera siempre
-  contenido; el propio código solo deja constancia en log (`WARN`), sin alerta operativa diferenciada hacia
-  ANS RDR.
-* **Errata detectada en el documento fuente original (G4, ya resuelta):** el documento de análisis declaraba
-  criticidad dual "S / C" para `MEKYTL1300`; la ficha oficial vigente de Control-M confirma `W`. Se deja
-  constancia de la discrepancia por si el mismo documento fuente contiene otras erratas similares aún no
-  detectadas en otros jobs.
-* **DataX no es el consumidor final:** el copiado a `/unload/kytl/datsal/datax` no garantiza por sí mismo
-  la entrega a DUCO; el consumo real queda fuera de alcance (R6).
-* **Purga de 6 meses sin papelera de seguridad documentada:** la eliminación de histórico en `backup/` es
-  automática e irreversible según lo documentado, sin período de gracia adicional.
-* **Riesgo confirmado por analogía — sobrescritura en reejecución el mismo día (TC-006):** mismo patrón
-  que el hallazgo de `MEKYTL1150` en `RDR_DUCO_CPTY`: nombre de fichero destino basado solo en `YYYYMMDD`,
-  con `mv` sin comprobación de existencia previa — una segunda ejecución manual el mismo viernes perdería
-  silenciosamente el backup de la primera.
-* **Duplicidad por diseño, no error (TC-005):** un instrumento con varios contextos de identificador
-  externo genera varias filas `Index` — comportamiento esperado, confirmado por el `LEFT JOIN` documentado
-  en §6.1, no un defecto.
-* **Inconsistencia arquitectónica entre motores hermanos data-driven (§6.2, G6):** `OperacionesDB` (este
-  proceso) exige `DATA_STAT_TYP='ACTIVE'` al resolver query/cabecera/ruta desde `FT_T_ATE1`/`FT_T_PAR1`;
-  `Querys.java` (`RDR_EXTRACCION_CONTACTOS`, RG-19 de esa spec) consulta la misma tabla `FT_T_ATE1` sin ese
-  filtro. Mismo patrón arquitectónico, comportamiento distinto ante un registro `INACTIVE` — no es un
-  defecto de ninguno de los 2 motores, pero conviene tenerlo presente si se auditan o modifican registros
-  de `FT_T_ATE1` compartidos entre procesos.
+| Id | Riesgo | Impacto |
+|---|---|---|
+| RK-DMD-01 | **Publicación con 0 filas** (R4): un fallo de datos que vacíe las tablas no se detecta; DUCO recibe un fichero solo con cabecera y la cadena termina en verde | Alto |
+| RK-DMD-02 | **Reenvío del fichero anterior**: si la extracción falla, el `ExtraccionDUCOMASTERDATA.csv` de la semana anterior sigue en `/unload/kytl/datsal/datax/` (se copió, no se movió) y la transferencia de DUCO puede recogerlo otra vez | Medio |
+| RK-DMD-03 | **Purga a 6 meses sin mecanismo conocido** (P-DMD-03): el histórico puede crecer sin límite | Bajo |
+| RK-DMD-04 | **Sobrescritura del histórico** si se relanza el mismo día: el nombre solo lleva la fecha (TC-006) | Bajo |
+| RK-DMD-05 | **Dos filas en `FT_T_ATE1` con el mismo `ACTION_NME`**: con dos `ACTIVE` la query elegida es arbitraria; con una `INACTIVE` además, la cabecera falla y el proceso aborta (TC-015) | Medio |
+| RK-DMD-06 | **Versión del jar**: la versión de noviembre de 2025 escribía en un subdirectorio duplicado (P-DMD-05) | Medio |
+| RK-DMD-07 | **Falta de `credentials.xml`**: `GSProcess.sh` termina con 0 sin hacer nada | Medio |
+| RK-DMD-08 | **Codificación** dependiente de la JVM (P-DMD-01): caracteres no ASCII podrían cambiar si se añaden directivas Java | Bajo |
+| Duplicidad por diseño | Un elemento con varios identificadores externos genera varias líneas (TC-005); no es un defecto | — |
 
 ## 10. Conclusión y requisitos de cierre
 
-Los 2 gaps funcionales originales quedan confirmados con evidencia real: G5 con código fuente (`Principal.java`,
-aportado y verificado en sesión) y G4 con la ficha oficial de Control-M para `MEKYTL1300` (EX-005-03,
-exportada el 23/09/2026), que corrige la criticidad dual "S / C" del documento fuente original a `W`. No
-quedan preguntas funcionales sin responder ni riesgos de criticidad sin resolver.
+El proceso queda descrito de principio a fin con material verificado: planificación y dependencias de
+los 3 jobs, lógica completa del programa de extracción (código fuente), configuración que lee de base de
+datos, diccionario de las 4 secciones, destino DataX con su DataObject y comportamiento ante cada error.
 
-Al aplicar la regla de rigor técnico (regla 7) se han cerrado además, con material ya presente en el
-repositorio: el mapeo columna-a-columna completo de las 4 secciones del diccionario de campos (§6.1) y la
-localización de la lógica de extracción (BD, vía `OperacionesDB`, no el jar) junto con su comportamiento de
-fallo real (§6.2). **G6 queda resuelto por completo (2026-09-28) con el código fuente real de
-`OperacionesDB.java`**: las 3 tablas/columnas exactas (`FT_T_ATE1.CLOB_VALUE`, `FT_T_PAR1.PAR1_VALUE_CLOB`,
-`FT_T_ATE1.URL_OUTPUT_FILE`) quedan transcritas en §6.2, junto con 2 hallazgos adicionales — una asimetría
-de tratamiento de errores ya manejada de forma deliberada en `obtenerHeader` (sin guardia de `null`, a
-diferencia de los otros 2 métodos) y una inconsistencia arquitectónica frente al motor hermano de
-`RDR_EXTRACCION_CONTACTOS` en el filtrado por `DATA_STAT_TYP`.
-
-**Consolidación (2026-09-28) con el análisis paralelo de miguel.saavedra** (carpeta
-`rdr_extraccionducomasterdata`, ahora retirada — ver nota al inicio del documento): se incorporan 4
-hallazgos únicos de esa versión, todos con evidencia real y ninguno contradictorio con lo ya cerrado aquí —
-**G7** (ausencia confirmada de recursos cuantitativos en los 3 jobs, R7), la resolución copia-vs-movimiento
-de `MEKYTL1299` con el ejemplo real de `INFORMACION_HISTORIFICACIONES.IDX` (R2/§6), la confirmación por
-ausencia de que no existe ninguna cadena "DataX" propia entre los 202 folders de KYTL (R6), y la criticidad
-`S` específica de `EXTRACCIONDUCOMASTERDATA`/`MEKYTL1299` (R1/R2). Los 13 casos de prueba resultantes
-(`rdr_extraccion_ducomasterdata_casos_prueba.xml`) y sus prerrequisitos (`rdr_extraccion_ducomasterdata_prerrequisitos.md`) quedan igualmente consolidados en un único
-juego, sin duplicar cobertura. **No queda ningún gap técnico abierto en esta especificación.**
+Quedan **6 preguntas abiertas** (§4.2). Las que más afectan a las pruebas son P-DMD-01 (el `.properties`
+que se ejecuta), P-DMD-02 (las líneas IDX de `MEKYTL1299` y `MEKYTL1300`) y P-DMD-03 (la purga a 6
+meses). Mientras no se respondan, TC-006 y TC-012 se ejecutan condicionados a lo que digan sus
+precondiciones y el resto de casos no se ve afectado.

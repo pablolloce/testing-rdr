@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="RDR_ExtraccionDUCOMASTERDATA" fecha="2026-09-28" usuario="pablo.llorente (consolidado con miguel.saavedra, ver rdr_extraccion_ducomasterdata_spec.md)">
+<casosDePrueba proceso="RDR_ExtraccionDUCOMASTERDATA" fecha="2026-10-01" usuario="pablo.llorente (consolidado con miguel.saavedra, ver rdr_extraccion_ducomasterdata_spec.md)">
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Ejecución semanal estándar con datos maestro válidos en las 4 secciones</nombre>
     <objetivo>Verificar que la cadena genera, copia a DataX e historifica correctamente el fichero de datos maestro en una ejecución semanal normal.</objetivo>
@@ -22,7 +22,7 @@
       <paso numero="3">Verificar que el mismo CSV contiene una fila con `Tipo=Calendar` y `Columna2=CAL001`.</paso>
       <paso numero="4">Verificar que el mismo CSV contiene una fila con `Tipo=Products` y `Columna2=PROD001`.</paso>
       <paso numero="5">Verificar que el mismo CSV contiene una fila con `Tipo=DAYBASISTYPE` y `Columna2=DBT001`.</paso>
-      <paso numero="6">Confirmar que `MEKYTL1299` finaliza en OK y que `/unload/kytl/datsal/datax/ExtraccionDUCOMASTERDATA.csv` existe con el mismo contenido.</paso>
+      <paso numero="6">Confirmar que `MEKYTL1299` finaliza en OK y que `/unload/kytl/datsal/datax/ExtraccionDUCOMASTERDATA.csv` existe con el mismo contenido (nombre según el inventario DataX; si la línea IDX usara `Extraccion DUCOMASTERDATA.csv`, registrar la discrepancia en P-DMD-06).</paso>
       <paso numero="7">Confirmar que `ExtraccionDUCOMASTERDATA.csv` sigue existiendo en la ruta local tras `MEKYTL1299`.</paso>
       <paso numero="8">Confirmar que `MEKYTL1300` finaliza en OK y que `backup/ExtraccionDUCOMASTERDATA_20260925.csv` existe.</paso>
     </pasos>
@@ -123,7 +123,9 @@
     <nombre>Sobrescritura silenciosa del backup ante reejecución en el mismo viernes</nombre>
     <objetivo>Confirmar que una segunda ejecución de la cadena el mismo día de calendario sobrescribe sin aviso el backup generado por la primera ejecución.</objetivo>
     <precondiciones>
+      <precondicion>La línea de `MEKYTL1300` en `INFORMACION_HISTORIFICACIONES.IDX` del entorno de pruebas tiene operación `M` (mover) y renombrado `R` a `ExtraccionDUCOMASTERDATA_${AAAAMMDD}.csv` hacia `.../DUCOMASTERDATA/backup/` (comprobar leyendo el IDX antes de ejecutar; si la operación es otra, el caso no aplica y se registra en P-DMD-02).</precondicion>
       <precondicion>La cadena ya se ejecutó con éxito una vez en el día de prueba, generando `backup/ExtraccionDUCOMASTERDATA_20261002.csv` con contenido conocido (4 filas, una por sección, ver TC-001).</precondicion>
+      <precondicion>Acceso de lectura a `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/` y permiso para relanzar manualmente los 3 jobs en el entorno de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero backup existente" valor="ExtraccionDUCOMASTERDATA_20261002.csv con 4 filas (Index, Calendar, Products, DAYBASISTYPE)"/>
@@ -136,7 +138,7 @@
       <paso numero="4">Tras la segunda ejecución de `MEKYTL1300`, inspeccionar `backup/ExtraccionDUCOMASTERDATA_20261002.csv`.</paso>
     </pasos>
     <resultadoEsperado>El fichero `backup/ExtraccionDUCOMASTERDATA_20261002.csv` queda sobrescrito con el contenido de la segunda ejecución (solo la fila Calendar), perdiéndose sin aviso ni error el contenido original de la primera ejecución.</resultadoEsperado>
-    <tipoValidacion>Validación de riesgo de integridad confirmado por analogía con el hallazgo de `MEKYTL1150` en `rdr_duco_cpty`.</tipoValidacion>
+    <tipoValidacion>Validación del riesgo RK-DMD-04: el nombre del histórico solo lleva la fecha y `mv` sustituye el fichero existente.</tipoValidacion>
     <criterioAceptacion>El backup final solo contiene la fila Calendar, y `MEKYTL1300` finaliza en OK pese a la pérdida de información de la primera ejecución.</criterioAceptacion>
     <posibilidadFallo>Si el sistema conservara ambos backups o fallara la segunda ejecución, el hallazgo documentado quedaría invalidado y debería revisarse.</posibilidadFallo>
   </casoDePrueba>
@@ -220,8 +222,9 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar EXTRACCIONDUCOMASTERDATA con la BD sin registros en ninguna sección.</paso>
-      <paso numero="2">Verificar que el job termina OK, registra el log "Sin registros extraídos, se genera fichero vacío" y publica el fichero igualmente.</paso>
-      <paso numero="3">Verificar que MEKYTL1299 copia igualmente el fichero vacío a DataX.</paso>
+      <paso numero="2">Verificar que el job termina OK y que el log del Java contiene `WARN` con el texto `Sin registros extraídos, se genera fichero vacío.`</paso>
+      <paso numero="3">Verificar que `ExtraccionDUCOMASTERDATA.csv` existe y contiene solo la línea de cabecera (o está vacío si no hay fila `HEADER` activa en `FT_T_PAR1`).</paso>
+      <paso numero="4">Verificar que MEKYTL1299 copia igualmente el fichero a `/unload/kytl/datsal/datax/`.</paso>
     </pasos>
     <resultadoEsperado>La cadena se completa igual que con datos; el fichero vacío se copia a DataX y se historifica sin ninguna alerta operativa diferenciada — comportamiento confirmado por código fuente (Principal.java), no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de estado Control-M + inspección del log y del contenido de ExtraccionDUCOMASTERDATA.csv.</tipoValidacion>
@@ -250,22 +253,27 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-012" tipo="borde">
-    <nombre>Purga automática de ficheros con más de 6 meses en backup/</nombre>
-    <objetivo>Verificar que MEKYTL1300 elimina únicamente los ficheros históricos con más de 6 meses de antigüedad.</objetivo>
+    <nombre>Purga de ficheros de más de 6 meses en backup/ (bloqueado por P-DMD-03)</nombre>
+    <objetivo>Verificar el requisito de la ficha de MEKYTL1300: tras la historificación semanal, en backup/ no quedan ficheros con más de 6 meses de antigüedad y sí se conservan los más recientes.</objetivo>
     <precondiciones>
-      <precondicion>Directorio backup/ con ficheros de antigüedad variada: uno de 5 meses, uno de exactamente 6 meses y uno de 7 meses.</precondicion>
+      <precondicion>P-DMD-03 respondida: se conoce qué job y qué configuración (clave y línea IDX, o script) realizan la purga. Sin esa respuesta el caso no se ejecuta: `RAMERC0068.sh` con la clave `MEKYTL1300` solo puede aplicar una operación (el movimiento) y no puede purgar a la vez.</precondicion>
+      <precondicion>En `/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/DUCOMASTERDATA/backup/` del entorno de pruebas existen dos ficheros de prueba con fecha de modificación forzada (`touch -d`): `ExtraccionDUCOMASTERDATA_PRUEBA5M.csv` con 150 días y `ExtraccionDUCOMASTERDATA_PRUEBA7M.csv` con 213 días.</precondicion>
+      <precondicion>Usuario con permiso de escritura en ese directorio (`xsramer1` o equivalente en pruebas).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Ficheros de prueba" valor="ExtraccionDUCOMASTERDATA_5meses.csv, _6meses.csv, _7meses.csv"/>
+      <dato campo="Fichero reciente" valor="ExtraccionDUCOMASTERDATA_PRUEBA5M.csv, 150 días"/>
+      <dato campo="Fichero antiguo" valor="ExtraccionDUCOMASTERDATA_PRUEBA7M.csv, 213 días"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar MEKYTL1300 con los 3 ficheros de prueba presentes en backup/.</paso>
-      <paso numero="2">Verificar cuáles de los 3 ficheros se eliminan y cuáles se conservan.</paso>
+      <paso numero="1">Listar `backup/` con fechas (`ls -l --time-style=+%Y-%m-%d`) y anotar los dos ficheros.</paso>
+      <paso numero="2">Ejecutar el job o mecanismo de purga identificado en P-DMD-03.</paso>
+      <paso numero="3">Comprobar que `ExtraccionDUCOMASTERDATA_PRUEBA7M.csv` ya no existe.</paso>
+      <paso numero="4">Comprobar que `ExtraccionDUCOMASTERDATA_PRUEBA5M.csv` sigue existiendo.</paso>
     </pasos>
-    <resultadoEsperado>El fichero de 7 meses se elimina; el de 5 meses se conserva. El comportamiento exacto en el límite de 6 meses debe registrarse tal cual se observe, sin asumir de antemano el criterio de corte.</resultadoEsperado>
-    <tipoValidacion>Verificación de existencia de los 3 ficheros tras la ejecución.</tipoValidacion>
-    <criterioAceptacion>Ficheros con más de 6 meses eliminados, ficheros con menos de 6 meses conservados; el caso límite (exactamente 6 meses) documentado según el resultado observado.</criterioAceptacion>
-    <posibilidadFallo>Purga excesiva (elimina ficheros recientes) o insuficiente (conserva ficheros muy antiguos).</posibilidadFallo>
+    <resultadoEsperado>El fichero de 213 días se ha borrado y el de 150 días se conserva. El límite exacto (6 meses justos) no se prueba hasta que P-DMD-03 diga cómo se calcula la antigüedad.</resultadoEsperado>
+    <tipoValidacion>Inspección del sistema de ficheros antes y después de la purga.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 3 y 4. Mientras P-DMD-03 siga abierta, el caso queda como bloqueado, no como superado.</criterioAceptacion>
+    <posibilidadFallo>Purga excesiva (borra ficheros recientes) o inexistente (el histórico crece sin límite, RK-DMD-03).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="regresion">
@@ -285,6 +293,53 @@
     <tipoValidacion>Verificación de existencia y nombre de los ficheros en backup/.</tipoValidacion>
     <criterioAceptacion>2 ficheros distintos en backup/, ninguno sobrescrito.</criterioAceptacion>
     <posibilidadFallo>Colisión de nombre si se relanza más de una vez la misma semana (ver también TC-006, que ejercita justo ese escenario como hallazgo de riesgo).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="negativo">
+    <nombre>Query de extracción INACTIVE en FT_T_ATE1: el programa aborta sin tocar ficheros</nombre>
+    <objetivo>Verificar que ExtraccionGenericaUnificada exige DATA_STAT_TYP='ACTIVE' en FT_T_ATE1 y que, sin query activa, termina con error, no genera fichero y la cadena se detiene.</objetivo>
+    <precondiciones>
+      <precondicion>En `FT_T_ATE1` del entorno de pruebas, la única fila con `ACTION_NME='ExtraccionDUCOMASTERDATA.sql'` está en `DATA_STAT_TYP='INACTIVE'` (cambio temporal que se revierte al terminar).</precondicion>
+      <precondicion>En `.../extracciongenerica/DUCOMASTERDATA/` existe un `ExtraccionDUCOMASTERDATA.csv` de una ejecución anterior con fecha de modificación conocida.</precondicion>
+      <precondicion>Usuario con permiso de UPDATE sobre `FT_T_ATE1` en pruebas y acceso a los logs de `GSProcess.sh` y del Java.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_ATE1.DATA_STAT_TYP (ExtraccionDUCOMASTERDATA.sql)" valor="INACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="2">Comprobar que el job termina NOTOK en Control-M.</paso>
+      <paso numero="3">Comprobar en el log del Java el texto `No se encontró query activa para ACTION_NME: ExtraccionDUCOMASTERDATA.sql`.</paso>
+      <paso numero="4">Comprobar que el `ExtraccionDUCOMASTERDATA.csv` anterior sigue con la misma fecha de modificación y que no existe `ExtraccionDUCOMASTERDATA.csv.tmp`.</paso>
+      <paso numero="5">Comprobar que `MEKYTL1299` no se ha ejecutado.</paso>
+      <paso numero="6">Revertir la fila de `FT_T_ATE1` a `ACTIVE`.</paso>
+    </pasos>
+    <resultadoEsperado>El Java termina con excepción, `GSProcess.sh` devuelve 1 (`ESTADO-1-` en su log), el job queda NOTOK, el fichero anterior no se modifica, no queda temporal y la cadena se detiene.</resultadoEsperado>
+    <tipoValidacion>Estado en Control-M, inspección de logs y del sistema de ficheros.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 5.</criterioAceptacion>
+    <posibilidadFallo>Si el job terminara OK, el filtro por estado no estaría en la versión desplegada (P-DMD-05) y una fila desactivada seguiría ejecutándose.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="borde">
+    <nombre>Dos filas en FT_T_ATE1 con el mismo ACTION_NME (una ACTIVE y otra INACTIVE): la lectura de la cabecera aborta</nombre>
+    <objetivo>Verificar el riesgo RK-DMD-05: la subconsulta de la cabecera no filtra por estado y falla si hay dos filas con el mismo ACTION_NME.</objetivo>
+    <precondiciones>
+      <precondicion>En `FT_T_ATE1` del entorno de pruebas hay dos filas con `ACTION_NME='ExtraccionDUCOMASTERDATA.sql'`: la original `ACTIVE` y una copia `INACTIVE` con otro `ACT1_OID` (se borra al terminar).</precondicion>
+      <precondicion>Usuario con permiso de INSERT/DELETE sobre `FT_T_ATE1` en pruebas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Filas con ACTION_NME=ExtraccionDUCOMASTERDATA.sql" valor="2 (ACTIVE + INACTIVE)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar `EXTRACCIONDUCOMASTERDATA`.</paso>
+      <paso numero="2">Comprobar que el job termina NOTOK.</paso>
+      <paso numero="3">Comprobar en el log del Java `Error obteniendo header para tipo: DUCOMASTERDATA` con el error Oracle de subconsulta que devuelve más de una fila (ORA-01427).</paso>
+      <paso numero="4">Borrar la fila copiada.</paso>
+    </pasos>
+    <resultadoEsperado>El programa aborta al leer la cabecera, el job queda NOTOK y no se genera fichero nuevo.</resultadoEsperado>
+    <tipoValidacion>Estado en Control-M e inspección del log.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 y 3.</criterioAceptacion>
+    <posibilidadFallo>Si terminara OK, la versión desplegada difiere del código analizado.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
