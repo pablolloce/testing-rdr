@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="opiniones_legales" fecha="2026-10-01" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Cadena 1 completa, extracción y envío sin incidencias</nombre>
+    <objetivo>Confirmar que RDR_LEGALOPINION_new genera el fichero a partir del SQL, lo formatea y lo envía a Mentor correctamente.</objetivo>
+    <precondiciones>
+      <precondicion>Existen Legal Agreements/Collaterals ISDA (org 0182) modificados el día anterior con clasificación Legal Opinion activa en FT_T_LLD1.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fecha_ejecucion" valor="martes"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">RDR_LEGALOPINION_new_IN se dispara a las 14:00.</paso>
+      <paso numero="2">MEKYTL0930 ejecuta LegalOpinion.sql y genera BBVAContracts_UpdtLO.csv con las 12 columnas esperadas.</paso>
+      <paso numero="3">RDR_LEGALOPINION_FW detecta el fichero.</paso>
+      <paso numero="4">MEKYTL0924 envía el fichero a Mentor (pr-mentor.igrupobbva) e historifica localmente.</paso>
+      <paso numero="5">MEKYTL0938 historifica una copia comprimida adicional.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs finalizan OK, el fichero BBVAContracts_UpdtLO_yyyymmdd.csv llega a Mentor con los registros esperados, y quedan 2 copias historificadas (local y remota comprimida).</resultadoEsperado>
+    <tipoValidacion>Monitorización de eventos en Control-M + verificación del fichero en destino</tipoValidacion>
+    <criterioAceptacion>Cadena completa OK, fichero presente en Mentor con el contenido esperado del SQL.</criterioAceptacion>
+    <posibilidadFallo>Ninguna si existen registros válidos; si no hay ninguno, ver TC-003.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Cadena 2, registro reconciliado correctamente (Legal Agreement real)</nombre>
+    <objetivo>Confirmar que una línea de loadLegalOpinionLog.csv cuyo RDR_ID corresponde a un Legal Agreement real genera un registro OK en FT_T_RLT1.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un Legal Agreement activo en FT_T_LAID (DATA_SRC_ID='Generic') con LEGAL_AGRMNT_ID conocido.</precondicion>
+      <precondicion>loadLegalOpinionLog.csv contiene una línea "MENTOR_ID|RDR_ID|LOG" válida para ese ID, con un mensaje que no es ninguno de los 7 errores reconocidos de Mentor.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea" valor="12345|AGR-0001|Updated correctly"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar LegalOpinionResponse.jar (ProcesadorLEOP) sobre el fichero de prueba.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 filtrando MAIN_ENTITY_ID='AGR-0001' y DATA_SRC_APP='LEGALOPINION'.</paso>
+    </pasos>
+    <resultadoEsperado>Se inserta una fila en FT_T_RLT1 con GS_VALUE='OK', SRC_VALUE='12345', MAIN_ENTITY_ID='AGR-0001', LAST_CHG_USR_ID='LEGALOPINION:ACK'.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>Fila OK presente con los campos exactos esperados.</criterioAceptacion>
+    <posibilidadFallo>Si el LEGAL_AGRMNT_ID de prueba no existe activo en FT_T_LAID con DATA_SRC_ID='Generic', el caso no es representativo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Cadena 1, 0 registros modificados el día anterior</nombre>
+    <objetivo>Confirmar que, si LegalOpinion.sql no devuelve filas, el pipeline de formateo igualmente genera y envía un fichero (solo cabecera).</objetivo>
+    <precondiciones>
+      <precondicion>No existe ningún Legal Agreement/Collateral ISDA modificado el día anterior con Legal Opinion activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="filas_sql" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0930 con el SQL devolviendo 0 filas.</paso>
+      <paso numero="2">Verificar que BBVAContracts_UpdtLO.csv se genera igualmente (con cabecera, sin filas de datos).</paso>
+      <paso numero="3">Verificar que el fichero se envía a Mentor sin error.</paso>
+    </pasos>
+    <resultadoEsperado>El pipeline de 8 pasos de GSProcess.sh LegalOpinion completa sin error, generando un fichero solo con cabecera, que se envía a Mentor con normalidad.</resultadoEsperado>
+    <tipoValidacion>Verificación del contenido del fichero generado y enviado</tipoValidacion>
+    <criterioAceptacion>Fichero presente en Mentor con solo la línea de cabecera.</criterioAceptacion>
+    <posibilidadFallo>No confirmado con evidencia de ejecución real si el pipeline maneja explícitamente el caso de 0 filas o simplemente no falla por ausencia de líneas de datos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Cadena 1, ejecución en lunes usa sysdate-2</nombre>
+    <objetivo>Confirmar que, al ejecutarse en lunes, LegalOpinion.sql filtra por sysdate-2 en vez de sysdate-1, cubriendo el fin de semana.</objetivo>
+    <precondiciones>
+      <precondicion>Existen Legal Agreements modificados el sábado y el domingo anteriores (no el viernes).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fecha_ejecucion" valor="lunes"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0930 un lunes.</paso>
+      <paso numero="2">Verificar que el fichero generado incluye los registros modificados en sábado y domingo.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero incluye los Legal Agreements modificados en el fin de semana (sábado y domingo), confirmando que el filtro usa sysdate-2 ese día.</resultadoEsperado>
+    <tipoValidacion>Verificación del contenido del fichero generado contra los registros de prueba</tipoValidacion>
+    <criterioAceptacion>Registros del fin de semana presentes en el fichero de un lunes.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — comportamiento confirmado en el documento fuente (SQL real).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Cadena 2, línea con MENTOR_ID o RDR_ID vacío</nombre>
+    <objetivo>Confirmar que una línea de loadLegalOpinionLog.csv con MENTOR_ID o RDR_ID vacío se marca KO con el mensaje específico correspondiente, sin comprobar FT_T_LAID/FT_T_LAAN.</objetivo>
+    <precondiciones>
+      <precondicion>loadLegalOpinionLog.csv contiene una línea con el campo MENTOR_ID vacío y otra con RDR_ID vacío.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea_1" valor="|AGR-0002|algún mensaje"/>
+      <dato campo="linea_2" valor="99999||algún mensaje"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ProcesadorLEOP sobre ambas líneas.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 para ambos casos.</paso>
+    </pasos>
+    <resultadoEsperado>Línea 1 genera KO con mensaje "No hay Mentor ID en el fichero para este ID de RDR AGR-0002". Línea 2 genera KO con mensaje "No hay ID de RDR en el fichero para este Mentor ID 99999". Ninguna de las 2 consulta FT_T_LAID/FT_T_LAAN.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1 + revisión de log (ausencia de consultas a FT_T_LAID/FT_T_LAAN para estas líneas)</tipoValidacion>
+    <criterioAceptacion>Ambos mensajes de KO coinciden exactamente con los textos esperados.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — comportamiento confirmado por código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="negativo">
+    <nombre>Cadena 1, fichero no detectado dentro de la ventana de 150 minutos</nombre>
+    <objetivo>Confirmar que, si MEKYTL0930 no genera BBVAContracts_UpdtLO.csv (fallo del SQL o del pipeline de formateo), RDR_LEGALOPINION_FW no detecta el fichero y la cadena no avanza.</objetivo>
+    <precondiciones>
+      <precondicion>MEKYTL0930 falla o no genera el fichero esperado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular el fallo de generación en MEKYTL0930.</paso>
+      <paso numero="2">Verificar que RDR_LEGALOPINION_FW espera hasta 150 minutos.</paso>
+      <paso numero="3">Verificar que MEKYTL0924 no se lanza.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena no avanza más allá del filewatcher; tras 150 minutos sin detectar el fichero, vence por timeout con criticidad W (aviso día siguiente).</resultadoEsperado>
+    <tipoValidacion>Monitorización de estado y tiempos en Control-M</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al filewatcher se ejecuta.</criterioAceptacion>
+    <posibilidadFallo>Verificar por lectura del estado del job, no requiere ejecución destructiva.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="negativo">
+    <nombre>Cadena 2, log no llega dentro de la ventana 18:00-23:00</nombre>
+    <objetivo>Confirmar que, si loadLegalOpinionLog.csv no llega antes de las 23:00, RESPONSE_LEGAL_OPINION_FW termina en KO real, sin tolerancia Force-OK.</objetivo>
+    <precondiciones>
+      <precondicion>loadLegalOpinionLog.csv no existe en /fichtemcomp/pr/descargas/kytl/agreements/ a las 23:00.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que RESPONSE_LEGAL_OPINION_FW no detecta el fichero antes de las 23:00.</paso>
+      <paso numero="2">Verificar el estado final del job a las 23:00.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina en estado KO real y visible (no se marca OK automáticamente), con aviso a ANS RDR (BZG03906).</resultadoEsperado>
+    <tipoValidacion>Monitorización de estado en Control-M</tipoValidacion>
+    <criterioAceptacion>Estado KO confirmado a las 23:00, sin enmascaramiento.</criterioAceptacion>
+    <posibilidadFallo>Verificar por lectura del estado del job, no requiere ejecución destructiva.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Cadena 2, mensaje de error reconocido de Mentor genera KO directo</nombre>
+    <objetivo>Confirmar que una línea cuyo mensaje coincide con uno de los 7 errores reconocidos de Mentor se marca KO sin comprobar FT_T_LAID/FT_T_LAAN.</objetivo>
+    <precondiciones>
+      <precondicion>loadLegalOpinionLog.csv contiene una línea con MENTOR_ID y RDR_ID válidos, pero mensaje = "The Agreement does not exist in Mentor".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea" valor="500|AGR-0003|The Agreement does not exist in Mentor"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ProcesadorLEOP sobre la línea de prueba.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 para AGR-0003.</paso>
+    </pasos>
+    <resultadoEsperado>Se inserta KO en FT_T_RLT1 con el mensaje literal "The Agreement does not exist in Mentor", sin que se ejecute ninguna consulta a FT_T_LAID/FT_T_LAAN para ese registro.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1 + revisión de log</tipoValidacion>
+    <criterioAceptacion>KO presente con el mensaje exacto, sin consultas de verificación adicionales.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — confirmado por código (comparación case-insensitive contra la lista de 7 mensajes).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="error_funcional">
+    <nombre>Cadena 2, RDR_ID corresponde a un Collateral, no a un Legal Agreement</nombre>
+    <objetivo>Confirmar que, cuando el RDR_ID no es un Legal Agreement pero sí un Collateral válido, se genera OK con el ID compuesto.</objetivo>
+    <precondiciones>
+      <precondicion>No existe ningún Legal Agreement activo con ese LEGAL_AGRMNT_ID en FT_T_LAID.</precondicion>
+      <precondicion>Existe un Collateral activo en FT_T_LAAN con LAAN_OID igual a ese ID.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea" valor="600|COL-0001|Updated correctly"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ProcesadorLEOP sobre la línea de prueba.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 filtrando por el ID compuesto esperado (LEGAL_AGRMNT_ID-ANNEX_TYP).</paso>
+    </pasos>
+    <resultadoEsperado>Se inserta OK en FT_T_RLT1 con MAIN_ENTITY_ID igual al ID compuesto resuelto desde FT_T_LAID/FT_T_LAAN (formato LEGAL_AGRMNT_ID-ANNEX_TYP).</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>OK presente con el ID compuesto exacto.</criterioAceptacion>
+    <posibilidadFallo>Si el Collateral de prueba no cumple los filtros exactos de RecuperaCollateral/RecuperaCollateralID, el caso no es representativo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="duplicidad">
+    <nombre>Mismo RDR_ID repetido en 2 líneas del log</nombre>
+    <objetivo>Documentar el comportamiento real (sin control de duplicados) cuando loadLegalOpinionLog.csv contiene 2 líneas con el mismo RDR_ID.</objetivo>
+    <precondiciones>
+      <precondicion>loadLegalOpinionLog.csv contiene 2 líneas con el mismo RDR_ID y mensajes distintos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea_1" valor="700|AGR-0004|Updated correctly"/>
+      <dato campo="linea_2" valor="701|AGR-0004|The Fund does not exist in Mentor"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ProcesadorLEOP sobre el fichero con las 2 líneas.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 filtrando MAIN_ENTITY_ID='AGR-0004'.</paso>
+    </pasos>
+    <resultadoEsperado>Se insertan 2 filas en FT_T_RLT1 para el mismo MAIN_ENTITY_ID, una por cada línea procesada de forma independiente (una OK, una KO) — no hay deduplicación ni control de conflicto entre ambas.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1, contando filas para ese ID</tipoValidacion>
+    <criterioAceptacion>2 filas confirmadas, una por línea.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — comportamiento confirmado por código (sin lógica de deduplicación en ProcesadorLEOP).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="conflicto_integridad">
+    <nombre>RDR_ID que no es ni Legal Agreement ni Collateral</nombre>
+    <objetivo>Confirmar que un RDR_ID que no existe en FT_T_LAID ni en FT_T_LAAN se marca KO con el mensaje específico de "no existe collateral".</objetivo>
+    <precondiciones>
+      <precondicion>No existe ningún registro activo con ese ID ni en FT_T_LAID ni en FT_T_LAAN.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea" valor="800|ID-INEXISTENTE|Updated correctly"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ProcesadorLEOP sobre la línea de prueba.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 para ID-INEXISTENTE.</paso>
+    </pasos>
+    <resultadoEsperado>Se inserta KO en FT_T_RLT1 con mensaje "No existe collateral con id ID-INEXISTENTE en RDR."</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>KO presente con el mensaje exacto.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — confirmado por código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="datos_sinteticos">
+    <nombre>3 filas sintéticas cubriendo las 3 ramas de validación</nombre>
+    <objetivo>Confirmar que 3 registros sintéticos (Legal Agreement real, Collateral real, ninguno de los 2) siguen cada uno su rama de procesamiento esperada.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con capacidad de insertar filas sintéticas y datos de referencia controlados en FT_T_LAID/FT_T_LAAN.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_sintetica_1_legal_agreement" valor="900|AGR-SINT-1|Updated correctly"/>
+      <dato campo="fila_sintetica_2_collateral" valor="901|COL-SINT-1|Updated correctly"/>
+      <dato campo="fila_sintetica_3_ninguno" valor="902|NOEXISTE-SINT-1|Updated correctly"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar las 3 filas sintéticas en el fichero de prueba, con datos de referencia correspondientes en RDR.</paso>
+      <paso numero="2">Ejecutar ProcesadorLEOP.</paso>
+      <paso numero="3">Verificar el resultado en FT_T_RLT1 para cada una de las 3 filas.</paso>
+    </pasos>
+    <resultadoEsperado>Fila 1: OK con MAIN_ENTITY_ID=AGR-SINT-1. Fila 2: OK con ID compuesto de Collateral. Fila 3: KO "No existe collateral con id NOEXISTE-SINT-1 en RDR."</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1 para los 3 IDs sintéticos</tipoValidacion>
+    <criterioAceptacion>Las 3 ramas confirmadas con el resultado exacto esperado.</criterioAceptacion>
+    <posibilidadFallo>Si los datos de referencia sintéticos no cumplen los filtros exactos de las queries, el caso no es representativo — repetir con datos ajustados.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>MEKYTL0938 sigue usando RAMERC0068.sh real pese a la ficha SSDD</nombre>
+    <objetivo>Detectar si en el futuro MEKYTL0938 deja de usar RAMERC0068.sh (comportamiento real confirmado por Control-M, que prevalece sobre la ficha SSDD que indicaba "N/A").</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de solo lectura a la Planificación de Control-M del folder KYTL0000-RDR_LEGALOPINION_new.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_a_verificar" valor="MEKYTL0938"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Abrir la Planificación del job MEKYTL0938.</paso>
+      <paso numero="2">Verificar que el script ejecutado sigue siendo /pr/pl/scrt/RAMERC0068.sh.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0938 sigue ejecutando RAMERC0068.sh — si cambia, esta especificación debe revisarse.</resultadoEsperado>
+    <tipoValidacion>Inspección visual de la Planificación de Control-M</tipoValidacion>
+    <criterioAceptacion>Script idéntico al confirmado en este análisis.</criterioAceptacion>
+    <posibilidadFallo>Si el script cambió, este caso debe fallar explícitamente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="regresion">
+    <nombre>RESPONSE_LEGAL_OPINION_FW mantiene su ventana estricta sin Force-OK</nombre>
+    <objetivo>Detectar si en el futuro se añade tolerancia Force-OK a RESPONSE_LEGAL_OPINION_FW, cambiando su comportamiento actual (KO real sin enmascarar).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de solo lectura a la Planificación de Control-M del folder KYTL0000-RESPONSE_LEGAL_OPINION.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_a_verificar" valor="RESPONSE_LEGAL_OPINION_FW"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Abrir la configuración de "Acciones Si" (On-Do) del job RESPONSE_LEGAL_OPINION_FW.</paso>
+      <paso numero="2">Verificar que no existe ninguna regla de Force-OK ante estado No OK.</paso>
+    </pasos>
+    <resultadoEsperado>No existe regla de Force-OK — el job sigue terminando en KO real si no detecta el fichero a tiempo.</resultadoEsperado>
+    <tipoValidacion>Inspección visual de la configuración del job en Control-M</tipoValidacion>
+    <criterioAceptacion>Ausencia de regla Force-OK confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si se añadió una regla Force-OK, este caso debe fallar explícitamente y disparar la revisión de RISK-OPLEG-002.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="e2e">
+    <nombre>Flujo end-to-end completo de la Cadena 1</nombre>
+    <objetivo>Validar el flujo completo de RDR_LEGALOPINION_new desde la generación del SQL hasta la historificación final.</objetivo>
+    <precondiciones>
+      <precondicion>Existen Legal Agreements modificados el día anterior con Legal Opinion activa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="BBVAContracts_UpdtLO_20261001.csv con registros válidos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">RDR_LEGALOPINION_new_IN se dispara a las 14:00.</paso>
+      <paso numero="2">MEKYTL0930 genera el fichero vía LegalOpinion.sql + pipeline de formateo de 8 pasos.</paso>
+      <paso numero="3">RDR_LEGALOPINION_FW detecta el fichero.</paso>
+      <paso numero="4">MEKYTL0924 envía a Mentor e historifica localmente.</paso>
+      <paso numero="5">MEKYTL0938 historifica la copia comprimida remota.</paso>
+    </pasos>
+    <resultadoEsperado>Los 5 jobs finalizan OK, el fichero llega a Mentor con el contenido correcto del SQL, y quedan ambas copias historificadas.</resultadoEsperado>
+    <tipoValidacion>Monitorización completa de la cadena + verificación de ficheros resultantes</tipoValidacion>
+    <criterioAceptacion>Cadena completa OK sin reintentos ni intervención manual.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio detiene el flujo en ese punto — ver TC-006.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="e2e">
+    <nombre>Flujo end-to-end completo de la Cadena 2</nombre>
+    <objetivo>Validar el flujo completo de RESPONSE_LEGAL_OPINION desde la llegada del log hasta el cierre de la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>loadLegalOpinionLog.csv llega entre 18:00 y 23:00 con al menos 1 registro válido.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="loadLegalOpinionLog.csv con 1 registro válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">RESPONSE_LEGAL_OPINION_FW detecta el fichero dentro de la ventana.</paso>
+      <paso numero="2">KYTL_RESPONSE_LEGAL_OPINION ejecuta GSProcess.sh LegalOpinionResponse: valida el registro, genera el informe de alerta, borra los ficheros de trabajo.</paso>
+      <paso numero="3">MEKYTL0978 historifica el log procesado.</paso>
+      <paso numero="4">RESPONSE_LEGAL_OPINION_IN marca el cierre de la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs finalizan OK, el registro de prueba queda auditado en FT_T_RLT1 (OK o KO según corresponda), y el log original queda historificado en old/.</resultadoEsperado>
+    <tipoValidacion>Monitorización completa de la cadena + verificación de FT_T_RLT1 y del fichero historificado</tipoValidacion>
+    <criterioAceptacion>Cadena completa OK, auditoría confirmada en FT_T_RLT1.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo intermedio (ausencia de fichero) detiene el flujo — ver TC-007.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
