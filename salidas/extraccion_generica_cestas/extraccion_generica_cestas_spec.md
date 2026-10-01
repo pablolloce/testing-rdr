@@ -368,7 +368,7 @@ extracción, 1 validación, 10 ramas de distribución directa, 5 jobs de la rama
 | R7 | Todos los jobs de esta cadena usan el protocolo de soporte único ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`, Remedy). |
 | R8 | `MEKYTL1116` (envío a Cloudera) tiene un requisito explícito de fallar de forma visible (sin tolerancia) si no encuentra el fichero origen — a diferencia del resto de la cadena, sin On-Do documentado en ningún job salvo `VALIDACION_XSD`. |
 
-## 4. Discrepancias documentales y decisiones de alcance
+## 4. Gaps identificados y preguntas pendientes (discrepancias documentales y decisiones de alcance)
 
 No se abrió ningún GAP de evidencia — el documento fuente ya trae, para casi todos los jobs, tanto la ficha
 funcional como la ficha "extraída de capturas de Control-M". Se detectaron y resolvieron las siguientes
