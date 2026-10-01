@@ -4,7 +4,7 @@
 
 | Origen | Alimenta |
 |---|---|
-| Oracle `KYTL_GC` (17 tablas: `FT_T_LAGR`, `FT_T_LAID`, `FT_T_LAAN`, etc.) | `LegalOpinion.sql` extrae los Legal Agreements/Collaterals ISDA modificados el día anterior (TC-001, TC-003, TC-004, TC-015). |
+| Oracle `KYTL_GC` (17 tablas: `FT_T_LAGR`, `FT_T_LAID`, `FT_T_LAAN`, etc.) | `LegalOpinion.sql` extrae los Legal Agreements/Collaterals ISDA modificados el día anterior (TC-001, TC-003, TC-004, TC-015). La ejecuta el Planificador Genérico (job `RDRKYTL001`, cadena `RDR_SW_PLANIFICADOR_new`), no la cadena: fila 17 de su inventario, `ACT1_OID` `04859C08B`, martes a sábado 14:00, salida `/fichtemcomp/pr/descargas/kytl/LAGR/MENTOR/BBVAContracts_UpdtLO.csv`; la fila de `FT_T_ATE1` y su calendario en `FT_T_QPF1` deben estar `ACTIVE`. |
 | Sistema externo Mentor | Destino del fichero de la Cadena 1; origen de `loadLegalOpinionLog.csv` que consume la Cadena 2 (indirectamente, vía `Legal_Opinion_Cargador`, fuera de alcance de este documento — ver `opiniones_legales_spec.md` §2). |
 | `FT_T_LAID`/`FT_T_LAAN` | Universo de referencia para validar cada registro del log de la Cadena 2 (TC-002, TC-009, TC-011, TC-012). |
 
@@ -42,10 +42,10 @@
 
 | Fichero/parámetro | Rol | Relevante para |
 |---|---|---|
-| `LegalOpinion.sql` (843 líneas) | Query real de extracción (Cadena 1) | TC-001, TC-003, TC-004, TC-015 |
+| `LegalOpinion.sql` (843 líneas) | Query real de extracción, guardada en `FT_T_ATE1` y ejecutada por el Planificador (Cadena 1) | TC-001, TC-003, TC-004, TC-015 |
 | `LegalOpinion.properties` | Pipeline de formateo de 8 pasos (Cadena 1) | TC-001, TC-003, TC-015 |
 | `CabeceraLegalOpinion.csv` | Cabecera fija concatenada al CSV de salida | TC-001, TC-003 |
-| `LegalOpinionResponse.properties` | Pipeline de 5 pasos (Cadena 2): valida, alerta, limpia | TC-002, TC-005, TC-007-TC-012, TC-016 |
+| `LegalOpinionResponse.properties` | Pipeline de 5 pasos (Cadena 2): valida, alertas (Barrido, Cocinado, envío), limpia | TC-002, TC-005, TC-007-TC-012, TC-016 |
 | `log4jLegal_Opinion_Cargador.properties` | Configuración de log del cargador (fuera de alcance de testing, contexto en `opiniones_legales_spec.md` §6.4) | — |
 
 ## Sistema de ficheros
@@ -68,6 +68,14 @@
   18:00-23:00), a diferencia del patrón mayoritario visto en otras cadenas de esta sesión (TC-007, TC-014).
 - Normas de Rearranque: escalado real a "ANS RDR (BZG03906)", `ans_rdr.es@bbva.com`, en los jobs
   principales de ambas cadenas.
+
+## Alertas (Cadena 2)
+
+Para TC-016 y las comprobaciones de alertas deben existir en `KYTL_GC`: la fila del informe de Legal Opinion en
+`FT_T_REP1` (`ACTIVE`, con plantilla Excel, query y ruta), al menos un destinatario activo en `FT_T_ALR1`/`FT_T_ALU1`,
+los programas `RDR_AlertasBarrido.jar` y `RDR_AlertasCocinado.jar`, y el workflow `RDR_AlertasEnvio` (que envía
+los informes pendientes de todos los procesos, por lo que la prueba no es aislable). Los `.properties`
+`GestionAlertas_Legal_Opinion_Response` y `...1` no se han recibido (P-OPLEG-03).
 
 ## Entorno de pruebas
 

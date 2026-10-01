@@ -3,7 +3,7 @@
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Cadena 1 completa, extracción y envío sin incidencias</nombre>
-    <objetivo>Confirmar que RDR_LEGALOPINION_new genera el fichero a partir del SQL, lo formatea y lo envía a Mentor correctamente.</objetivo>
+    <objetivo>Confirmar que el CSV que deja el Planificador Genérico (fila 17, LegalOpinion.sql) es formateado y enviado a Mentor correctamente por RDR_LEGALOPINION_new.</objetivo>
     <precondiciones>
       <precondicion>Existen Legal Agreements/Collaterals ISDA (org 0182) modificados el día anterior con clasificación Legal Opinion activa en FT_T_LLD1.</precondicion>
     </precondiciones>
@@ -12,7 +12,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">RDR_LEGALOPINION_new_IN se dispara a las 14:00.</paso>
-      <paso numero="2">MEKYTL0930 ejecuta LegalOpinion.sql y genera BBVAContracts_UpdtLO.csv con las 12 columnas esperadas.</paso>
+      <paso numero="2">El Planificador Genérico ya ha escrito LAGR/MENTOR/BBVAContracts_UpdtLO.csv (LegalOpinion.sql, martes a sábado 14:00); MEKYTL0930 ejecuta GSProcess.sh LegalOpinion y lo deja formateado (cabecera fija + 12 columnas de datos).</paso>
       <paso numero="3">RDR_LEGALOPINION_FW detecta el fichero.</paso>
       <paso numero="4">MEKYTL0924 envía el fichero a Mentor (pr-mentor.igrupobbva) e historifica localmente.</paso>
       <paso numero="5">MEKYTL0938 historifica una copia comprimida adicional.</paso>
@@ -45,7 +45,7 @@
 
   <casoDePrueba id="TC-003" tipo="borde">
     <nombre>Cadena 1, 0 registros modificados el día anterior</nombre>
-    <objetivo>Confirmar que, si LegalOpinion.sql no devuelve filas, el pipeline de formateo igualmente genera y envía un fichero (solo cabecera).</objetivo>
+    <objetivo>Confirmar que, si LegalOpinion.sql (ejecutado por el Planificador) no devuelve filas, el pipeline de formateo igualmente deja y envía un fichero (solo cabecera). No está confirmado si el Planificador escribe un fichero cuando no hay filas.</objetivo>
     <precondiciones>
       <precondicion>No existe ningún Legal Agreement/Collateral ISDA modificado el día anterior con Legal Opinion activa.</precondicion>
     </precondiciones>
@@ -53,7 +53,7 @@
       <dato campo="filas_sql" valor="0"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar MEKYTL0930 con el SQL devolviendo 0 filas.</paso>
+      <paso numero="1">Con la extracción del Planificador sin filas, ejecutar MEKYTL0930.</paso>
       <paso numero="2">Verificar que BBVAContracts_UpdtLO.csv se genera igualmente (con cabecera, sin filas de datos).</paso>
       <paso numero="3">Verificar que el fichero se envía a Mentor sin error.</paso>
     </pasos>
@@ -65,7 +65,7 @@
 
   <casoDePrueba id="TC-004" tipo="borde">
     <nombre>Cadena 1, ejecución en lunes usa sysdate-2</nombre>
-    <objetivo>Confirmar que, al ejecutarse en lunes, LegalOpinion.sql filtra por sysdate-2 en vez de sysdate-1, cubriendo el fin de semana.</objetivo>
+    <objetivo>Comprobar la rama de lunes de LegalOpinion.sql (sysdate-2 en vez de sysdate-1) y que el fin de semana queda cubierto. La fila 17 del Planificador solo corre de martes a sábado, así que en producción esa rama no se ejecuta (P-OPLEG-01); este caso debe ejecutarse lanzando la query a mano en un lunes de test.</objetivo>
     <precondiciones>
       <precondicion>Existen Legal Agreements modificados el sábado y el domingo anteriores (no el viernes).</precondicion>
     </precondiciones>
@@ -73,7 +73,7 @@
       <dato campo="fecha_ejecucion" valor="lunes"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar MEKYTL0930 un lunes.</paso>
+      <paso numero="1">Ejecutar LegalOpinion.sql (a mano, o con el Planificador forzado) un lunes y después MEKYTL0930.</paso>
       <paso numero="2">Verificar que el fichero generado incluye los registros modificados en sábado y domingo.</paso>
     </pasos>
     <resultadoEsperado>El fichero incluye los Legal Agreements modificados en el fin de semana (sábado y domingo), confirmando que el filtro usa sysdate-2 ese día.</resultadoEsperado>
@@ -104,9 +104,9 @@
 
   <casoDePrueba id="TC-006" tipo="negativo">
     <nombre>Cadena 1, fichero no detectado dentro de la ventana de 150 minutos</nombre>
-    <objetivo>Confirmar que, si MEKYTL0930 no genera BBVAContracts_UpdtLO.csv (fallo del SQL o del pipeline de formateo), RDR_LEGALOPINION_FW no detecta el fichero y la cadena no avanza.</objetivo>
+    <objetivo>Confirmar que, si no existe BBVAContracts_UpdtLO.csv (el Planificador no lo escribió, o falló el pipeline de formateo de MEKYTL0930), RDR_LEGALOPINION_FW no detecta el fichero y la cadena no avanza.</objetivo>
     <precondiciones>
-      <precondicion>MEKYTL0930 falla o no genera el fichero esperado.</precondicion>
+      <precondicion>El Planificador no escribió el CSV, o MEKYTL0930 falla o no deja el fichero esperado.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="fichero" valor="ausente"/>
@@ -281,7 +281,7 @@
 
   <casoDePrueba id="TC-015" tipo="e2e">
     <nombre>Flujo end-to-end completo de la Cadena 1</nombre>
-    <objetivo>Validar el flujo completo de RDR_LEGALOPINION_new desde la generación del SQL hasta la historificación final.</objetivo>
+    <objetivo>Validar el flujo completo: extracción por el Planificador Genérico (fila 17) y RDR_LEGALOPINION_new desde el formateo hasta la historificación final.</objetivo>
     <precondiciones>
       <precondicion>Existen Legal Agreements modificados el día anterior con Legal Opinion activa.</precondicion>
     </precondiciones>
@@ -290,7 +290,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">RDR_LEGALOPINION_new_IN se dispara a las 14:00.</paso>
-      <paso numero="2">MEKYTL0930 genera el fichero vía LegalOpinion.sql + pipeline de formateo de 8 pasos.</paso>
+      <paso numero="2">El CSV de LegalOpinion.sql ya está escrito por el Planificador; MEKYTL0930 lo formatea con el pipeline de 8 pasos.</paso>
       <paso numero="3">RDR_LEGALOPINION_FW detecta el fichero.</paso>
       <paso numero="4">MEKYTL0924 envía a Mentor e historifica localmente.</paso>
       <paso numero="5">MEKYTL0938 historifica la copia comprimida remota.</paso>
@@ -312,11 +312,11 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">RESPONSE_LEGAL_OPINION_FW detecta el fichero dentro de la ventana.</paso>
-      <paso numero="2">KYTL_RESPONSE_LEGAL_OPINION ejecuta GSProcess.sh LegalOpinionResponse: valida el registro, genera el informe de alerta, borra los ficheros de trabajo.</paso>
+      <paso numero="2">KYTL_RESPONSE_LEGAL_OPINION ejecuta GSProcess.sh LegalOpinionResponse: valida el registro, ejecuta la gestión de alertas (Barrido, Cocinado, envío) y borra los ficheros de trabajo.</paso>
       <paso numero="3">MEKYTL0978 historifica el log procesado.</paso>
       <paso numero="4">RESPONSE_LEGAL_OPINION_IN marca el cierre de la cadena.</paso>
     </pasos>
-    <resultadoEsperado>Los 4 jobs finalizan OK, el registro de prueba queda auditado en FT_T_RLT1 (OK o KO según corresponda), y el log original queda historificado en old/.</resultadoEsperado>
+    <resultadoEsperado>Los 4 jobs finalizan OK, el registro de prueba queda auditado en FT_T_RLT1 (OK o KO según corresponda), FT_T_REP1.SEND_PEND del proceso vuelve a 'N' tras el envío del informe (el fallo de las alertas no se ve en Control-M), y el log original queda historificado en old/ (ver P-OPLEG-06).</resultadoEsperado>
     <tipoValidacion>Monitorización completa de la cadena + verificación de FT_T_RLT1 y del fichero historificado</tipoValidacion>
     <criterioAceptacion>Cadena completa OK, auditoría confirmada en FT_T_RLT1.</criterioAceptacion>
     <posibilidadFallo>Cualquier fallo intermedio (ausencia de fichero) detiene el flujo — ver TC-007.</posibilidadFallo>

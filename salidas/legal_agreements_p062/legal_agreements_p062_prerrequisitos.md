@@ -4,11 +4,12 @@
 
 Ambas cadenas asumen que su fichero de entrada ya existe (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`
 para la Cadena 1, `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` para la Cadena 2), en
-`/fichtemcomp/pr/descargas/kytl/SAIT/`. **El proceso real que los genera desde `FT_T_LAGR` no está
-identificado** (límite de alcance declarado, no bloqueante, ver `legal_agreements_p062_spec.md` §4) — no depende de ningún job
-de este documento, y ninguna de las 2 cadenas se comporta de forma distinta según quién lo genere. TC-001
-a TC-009 y TC-010/TC-015 dependen de poder depositar manualmente ese fichero de entrada, no de observar
-su generación real.
+`/fichtemcomp/pr/descargas/kytl/SAIT/`. Los escribe el **Planificador Genérico** (job `RDRKYTL001` de la cadena
+`RDR_SW_PLANIFICADOR_new`): el diario con la fila 9 (`BATCH_SAIT_DIARIO.sql`, martes a sábado 04:45) y el
+total con la fila 20 (`BATCH_SAIT.sql`, domingo 04:45); ver `legal_agreements_p062_spec.md` §1. Ninguna de las
+2 cadenas depende de un job de este documento para tenerlos. TC-001 a TC-009 y TC-010/TC-015 pueden
+ejecutarse depositando manualmente ese fichero de entrada (o esperando al del Planificador); solo TC-014
+observa su generación real.
 
 ## Datos mínimos
 
@@ -27,7 +28,7 @@ su generación real.
 | TC-011 | Capacidad de simular la ausencia del fichero total durante 240 minutos |
 | TC-012 | Capacidad de forzar un fallo de conectividad hacia Datio Cloud S3 |
 | TC-013 | Acceso de lectura a Control-M (pestaña Prerrequisitos) |
-| TC-014 | Acceso al inventario de jobs/jars fuera del árbol de ambas cadenas |
+| TC-014 | Acceso de lectura a `FT_T_ATE1`/`FT_T_QPF1` (esquema `KYTL_GC`) y a la carpeta `SAIT/` |
 | TC-015 | 1 XML total válido, para recorrer la Cadena 2 completa |
 
 ## Entorno de ejecución
@@ -43,7 +44,7 @@ su generación real.
 - **TC-002, TC-003, TC-004, TC-005, TC-007, TC-008, TC-012 (entorno de test/preproducción, nunca
   producción):** requieren poder forzar condiciones de fallo/relanzamiento sin afectar la generación
   real ni las transmisiones reales a Mentor/Datio Cloud.
-- **TC-014 (cualquier entorno con acceso a Control-M):** solo observación/búsqueda, sin ejecución.
+- **TC-014 (entorno con Planificador activo):** solo observación de configuración y de la carpeta `SAIT/`, sin ejecución.
 
 ## Configuración
 
@@ -54,10 +55,10 @@ su generación real.
 - `credentials.xml` real de producción debe contener las rutas de JDK, credenciales de BD y logs
   correctas para el entorno (`pr`) — el script valida el usuario de ejecución contra este fichero
   (TC-003).
-- `MEGENV0001.sh` (motor genérico de transferencias, ya documentado en profundidad en otros procesos de
-  esta sesión) debe estar correctamente configurado para `MEKYTL0357`, `MEKYTL0894_CLOUD` y `MEKYTL0356`
+- `MEGENV0001.sh` (motor genérico de transferencias, `salidas/comun_megenv0001/comun_megenv0001_spec.md`)
+  debe estar correctamente configurado para `MEKYTL0357`, `MEKYTL0894_CLOUD` y `MEKYTL0356`
   (TC-010, TC-012, TC-015).
-- `RAMERC0068.sh` (motor genérico de historificación, ya documentado) debe estar correctamente
+- `RAMERC0068.sh` (motor genérico de historificación, `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`) debe estar correctamente
   configurado para `MEKYTL0949`, `MEKYTL0950` y `MEKYTL0948` (TC-006, TC-007, TC-009, TC-015).
 
 ## Sistema de ficheros

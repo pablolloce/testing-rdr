@@ -6,18 +6,18 @@
     <objetivo>Verificar el ciclo end-to-end: dependencia cross-chain satisfecha → MEKYTL0357_LISTA transmite y historifica → MEKYTL0357_BORRA limpia el origen.</objetivo>
     <precondiciones>
       <precondicion>Evento RDR_DAILY_LA_PRO_new_MEKYTL0357_OK generado (cadena RDR_DAILY_LA_PRO_new completada con éxito).</precondicion>
-      <precondicion>KYTL_RDR_EXTRACTION_contratos_Diario_AAAAMMDD.xml presente en /fichtemcomp/pr/descargas/kytl/SAIT/ (LPFTP503).</precondicion>
+      <precondicion>KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml presente en /fichtemcomp/pr/descargas/kytl/SAIT/ (LPFTP503).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario_AAAAMMDD.xml" valor="fichero XML de contratos válido, presente en origen"/>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml" valor="fichero XML de contratos válido, presente en origen"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar que MEKYTL0357_LISTA arranca tras el evento cross-chain.</paso>
       <paso numero="2">Verificar la transmisión Connect:Direct a WVMSAITDB01:\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\.</paso>
-      <paso numero="3">Verificar que se historifican en /fichtemcomp/pr/descargas/kytl/SAIT/Backup/ tanto el fichero fechado como KYTL_RDR_EXTRACTION_contratos_Diario.xml (sin fecha).</paso>
-      <paso numero="4">Verificar que MEKYTL0357_BORRA arranca tras el evento de salida de MEKYTL0357_LISTA y borra el fichero fechado de origen.</paso>
+      <paso numero="3">Verificar que se historifican en /fichtemcomp/pr/descargas/kytl/SAIT/Backup/ tanto el _20000101.xml enviado como el XML de entrada KYTL_RDR_EXTRACTION_contratos_Diario.xml (sin sufijo).</paso>
+      <paso numero="4">Verificar que MEKYTL0357_BORRA arranca tras el evento de salida de MEKYTL0357_LISTA y borra el _20000101.xml de origen.</paso>
     </pasos>
-    <resultadoEsperado>Ambos jobs terminan OK; el XML llega a WVMSAITDB01 con el mismo nombre; ambos ficheros quedan historificados en Backup/; el fichero fechado de origen queda borrado; ningún evento de salida se publica tras MEKYTL0357_BORRA.</resultadoEsperado>
+    <resultadoEsperado>Ambos jobs terminan OK; el XML llega a WVMSAITDB01 con el mismo nombre; ambos ficheros quedan historificados en Backup/; el _20000101.xml de origen queda borrado; ningún evento de salida se publica tras MEKYTL0357_BORRA.</resultadoEsperado>
     <tipoValidacion>Estado OK de ambos jobs en Control-M + verificación de presencia del fichero en destino + verificación de historificación y borrado en origen.</tipoValidacion>
     <criterioAceptacion>Fichero presente en destino, historificación doble confirmada, origen limpio, sin KOs.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada; cualquier KO real o fichero ausente en destino invalida el caso.</posibilidadFallo>
@@ -85,9 +85,9 @@
 
   <casoDePrueba id="TC-005" tipo="regresion">
     <nombre>Validación del diccionario de campos real del XML de contratos (GAP-SAIT-004 resuelto)</nombre>
-    <objetivo>Verificar que el XML de entrada que consume Batch_Sait (KYTL_RDR_EXTRACTION_contratos_Diario.xml, generado por un proceso aún no identificado — GAP-SAIT-008) mantiene el elemento raíz &lt;Agreement&gt; con la estructura de campos confirmada por BATCH_SAIT.sql, incluyendo el filtro de exclusión de orígenes Sentry/MENTOR. Nota 2026-09-30: no se ha confirmado si Sait_Diario.xsl altera esta estructura al producir el fichero de salida con sufijo _20000101.xml — este caso valida el XML de entrada, no el de salida.</objetivo>
+    <objetivo>Verificar que el XML de entrada que consume Batch_Sait (KYTL_RDR_EXTRACTION_contratos_Diario.xml, escrito por el Planificador Genérico, fila 9 BATCH_SAIT_DIARIO.sql — GAP-SAIT-008) mantiene el elemento raíz &lt;Agreement&gt; con la estructura de campos confirmada por BATCH_SAIT.sql, incluyendo el filtro de exclusión de orígenes Sentry/MENTOR. Nota 2026-09-30: no se ha confirmado si Sait_Diario.xsl altera esta estructura al producir el fichero de salida con sufijo _20000101.xml — este caso valida el XML de entrada, no el de salida.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a un XML de contratos real (el de entrada, KYTL_RDR_EXTRACTION_contratos_Diario.xml, sin sufijo de fecha) generado por el proceso aún no identificado que ejecuta BATCH_SAIT.sql.</precondicion>
+      <precondicion>Acceso a un XML de contratos real (el de entrada, KYTL_RDR_EXTRACTION_contratos_Diario.xml, sin sufijo de fecha) escrito por el Planificador Genérico (fila 9). La estructura documentada procede de BATCH_SAIT.sql (fila 20, carga total); la query de la fila 9 no se ha recibido (P-SAIT-01), así que las diferencias de subconjunto de contratos son esperables.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Entidad raíz" valor="KYTL_GC.FT_T_LAGR (alias lagr), con WHERE data_src_id != 'Sentry' AND data_src_id != 'MENTOR'"/>
@@ -101,28 +101,29 @@
       <paso numero="4">Verificar que AgmtContacts incluye el sub-bloque de dirección completo (Address, ZipCode, City, CountryCde) cuando existan contactos asociados.</paso>
     </pasos>
     <resultadoEsperado>El XML generado respeta íntegramente la estructura de campos confirmada en BATCH_SAIT.sql; ningún &lt;Agreement&gt; corresponde a un origen Sentry/MENTOR.</resultadoEsperado>
-    <tipoValidacion>Validación estructural del XML de salida contra el diccionario de campos documentado en GAP-SAIT_jobs_extraidos.md (Addendum 4), campo a campo en los bloques críticos (FinDetls, AgmtContacts).</tipoValidacion>
+    <tipoValidacion>Validación estructural del XML de salida contra el diccionario de campos documentado en extraccion_sait_contratos_spec.md §1.2, campo a campo en los bloques críticos (FinDetls, AgmtContacts).</tipoValidacion>
     <criterioAceptacion>Estructura completa presente y coherente con BATCH_SAIT.sql; sin registros Sentry/MENTOR; sin campos inesperados no documentados.</criterioAceptacion>
     <posibilidadFallo>Si aparece un bloque no documentado o un registro de origen Sentry/MENTOR, indicaría un cambio en la query real no reflejado en esta especificación.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
-    <nombre>Origen real del fichero sin fecha KYTL_RDR_EXTRACTION_contratos_Diario.xml (GAP-SAIT-008, observación complementaria, no bloqueante)</nombre>
-    <objetivo>Identificar, si es posible, qué proceso genera realmente KYTL_RDR_EXTRACTION_contratos_Diario.xml (el XML de entrada que Batch_Sait transforma vía XSLT). Su naturaleza ya quedó aclarada el 2026-09-30 por decompilación real (es el fichero de entrada de la transformación, no un artefacto sin propósito). No afecta al comportamiento de TRANSMISIONES_CIB_RDR_SAIT (que solo transmite el fichero ya generado) — este caso documenta el límite de alcance, no bloquea el cierre de la especificación.</objetivo>
+    <nombre>El Planificador deja el XML de entrada antes de que arranque la cadena (GAP-SAIT-008 resuelto; P-SAIT-03)</nombre>
+    <objetivo>Comprobar que la extracción de la fila 9 del Planificador Genérico (BATCH_SAIT_DIARIO.sql) sigue activa y deja KYTL_RDR_EXTRACTION_contratos_Diario.xml en /fichtemcomp/pr/descargas/kytl/SAIT/ antes de las 06:00, y documentar qué pasa cuando no lo hace (la cadena diaria no tiene filewatcher). No afecta al comportamiento de TRANSMISIONES_CIB_RDR_SAIT, que solo transmite el fichero ya generado.</objetivo>
     <precondiciones>
-      <precondicion>Acceso al inventario de jobs/jars que se ejecutan de forma autónoma fuera del árbol de RDR_DAILY_LA_PRO_new antes de las 06:00 (patrón ya visto en ExtraccionGenericaOtherEntities.jar/ExtraccionGenericaCPTY.jar para Contrapartidas; candidato plausible localizado sin confirmar: ExtraccionGenericaUnificada.jar, motor genérico parametrizado por tipo).</precondicion>
+      <precondicion>Acceso de lectura a la tabla FT_T_ATE1/FT_T_QPF1 (esquema KYTL_GC) y a la carpeta /fichtemcomp/pr/descargas/kytl/SAIT/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="fichero sin fecha, consumido por Batch_Sait como entrada; generador real no identificado"/>
+      <dato campo="Extracción" valor="fila 9: ACT1_OID 0134FA845, BATCH_SAIT_DIARIO.sql, martes a sábado 04:45, salida SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml, etiqueta raíz &lt;AgreementResp&gt;"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Buscar en Control-M jobs/jars programados antes de las 06:00 que escriban en /fichtemcomp/pr/descargas/kytl/SAIT/, o que invoquen ExtraccionGenericaUnificada.jar.</paso>
-      <paso numero="2">Si se identifica, confirmar que ejecuta BATCH_SAIT.sql (o una query equivalente) y que su salida coincide con la estructura documentada en extraccion_sait_contratos_spec.md §1.2.</paso>
+      <paso numero="1">Verificar que las filas de FT_T_ATE1 y FT_T_QPF1 de la fila 9 están en estado ACTIVE.</paso>
+      <paso numero="2">Un día de martes a sábado, comprobar que Diario.xml existe antes de las 06:00, con fecha de modificación de ese día, y que su raíz es &lt;AgreementResp&gt; con elementos &lt;Agreement&gt;.</paso>
+      <paso numero="3">En entorno de test, retirar Diario.xml y lanzar RDR_DAILY_LA_JAVA; anotar si se genera el _20000101.xml y si LISTA falla (P-SAIT-03).</paso>
     </pasos>
-    <resultadoEsperado>Se identifica el proceso real que genera el fichero de entrada, si la evidencia lo permite; en caso contrario, se documenta como límite de alcance conocido.</resultadoEsperado>
-    <tipoValidacion>Inspección de Control-M + comparación de la query real ejecutada contra BATCH_SAIT.sql.</tipoValidacion>
-    <criterioAceptacion>Proceso identificado con evidencia real, o límite de alcance confirmado explícitamente sin bloquear el cierre de la especificación.</criterioAceptacion>
-    <posibilidadFallo>Ninguna — este caso no puede "fallar" en el sentido de invalidar la especificación; documenta una observación complementaria.</posibilidadFallo>
+    <resultadoEsperado>El fichero existe antes de las 06:00 los días de generación. El comportamiento sin fichero de entrada queda documentado (no confirmado hasta ejecutarlo).</resultadoEsperado>
+    <tipoValidacion>Inspección de la configuración del Planificador y de la carpeta SAIT/; ejecución controlada en test para el paso 3.</tipoValidacion>
+    <criterioAceptacion>Extracción activa, fichero presente y bien formado; comportamiento sin fichero anotado.</criterioAceptacion>
+    <posibilidadFallo>El paso 3 no debe hacerse en producción. Si el Planificador se retrasa más allá de las 06:00 el caso falla y evidencia la ausencia de control de espera.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">

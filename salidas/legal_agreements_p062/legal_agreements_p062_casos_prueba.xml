@@ -167,7 +167,7 @@
     <resultadoEsperado>El fichero de salida final refleja únicamente la versión sintética 2 (AgmtStat='CANCELLED'); no existe en el log ni en el nombre del fichero ninguna marca que permita distinguir qué versión de entrada lo produjo.</resultadoEsperado>
     <tipoValidacion>Ejecución controlada en entorno de test + comparación de contenido del fichero de salida y revisión de log</tipoValidacion>
     <criterioAceptacion>Confirmado que no hay marca de versión/control; el resultado final es indistinguible de una ejecución única con la versión 2. No ejecutar en producción.</criterioAceptacion>
-    <posibilidadFallo>Depende de poder construir XML sintéticos válidos según la estructura documentada en BATCH_SAIT.sql (ver salidas/extraccion_sait_contratos/extraccion_sait_contratos_spec.md §1.2).</posibilidadFallo>
+    <posibilidadFallo>Depende de poder construir XML sintéticos válidos según la estructura documentada en legal_agreements_p062_spec.md §6.7 (raíz AgreementResp, un Agreement por contrato con AgreementID, Pty, FinDetls, etc.).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="e2e">
@@ -275,22 +275,25 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-014" tipo="conflicto_integridad">
-    <nombre>Origen real de los ficheros de entrada de ambas cadenas (observación complementaria, no bloqueante)</nombre>
-    <objetivo>Identificar, si es posible, qué proceso genera realmente KYTL_RDR_EXTRACTION_contratos_Diario.xml y KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml desde FT_T_LAGR. Ninguna de las 2 cadenas analizadas lo genera, pero esto no afecta a su comportamiento testeable (criterio de profundidad) — este caso documenta el límite de alcance, no bloquea el cierre de la especificación.</objetivo>
+    <nombre>El Planificador Genérico deja los ficheros de entrada de ambas cadenas antes de que arranquen</nombre>
+    <objetivo>Comprobar que las extracciones de las filas 9 (BATCH_SAIT_DIARIO.sql) y 20 (BATCH_SAIT.sql) del Planificador Genérico siguen activas y que sus ficheros existen antes de las 06:00 de cada cadena. Es una observación: no cambia el comportamiento de las 2 cadenas, que asumen que el fichero ya existe.</objetivo>
     <precondiciones>
-      <precondicion>Acceso al inventario de jobs/jars que se ejecutan de forma autónoma fuera de los árboles de RDR_DAILY_LA_PRO_new y RDR_TOTAL_LA_PRO_new, antes de sus respectivas ventanas de arranque.</precondicion>
+      <precondicion>Acceso de lectura a FT_T_ATE1 y FT_T_QPF1 (esquema KYTL_GC) y a /fichtemcomp/pr/descargas/kytl/SAIT/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ficheros de origen desconocido" valor="KYTL_RDR_EXTRACTION_contratos_Diario.xml (diario) y KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml (semanal)"/>
+      <dato campo="fila 9" valor="ACT1_OID 0134FA845, BATCH_SAIT_DIARIO.sql, martes a sábado 04:45, salida SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml, raíz &lt;AgreementResp&gt;"/>
+      <dato campo="fila 20" valor="ACT1_OID 0134FA848, BATCH_SAIT.sql, domingo 04:45, salida SAIT/KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml, raíz &lt;AgreementResp MsgType=&quot;UNTTG2&quot;&gt;"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Buscar en Control-M jobs/jars programados antes de las respectivas ventanas (06:00 L-V / 06:00 domingo) que escriban en /fichtemcomp/pr/descargas/kytl/SAIT/.</paso>
-      <paso numero="2">Si se identifican, confirmar si ejecutan BATCH_SAIT.sql (u otra query análoga) desde FT_T_LAGR.</paso>
+      <paso numero="1">Verificar que las filas de FT_T_ATE1 y FT_T_QPF1 de ambas extracciones están en estado ACTIVE.</paso>
+      <paso numero="2">Un martes a sábado, comprobar antes de las 06:00 que existe Diario.xml con fecha de modificación de ese día y raíz &lt;AgreementResp&gt;.</paso>
+      <paso numero="3">Un domingo, comprobar antes de las 06:00 que existe Total_20000101.xml con la raíz y el encabezado esperados, y que KYTL_MEKYTL0894_FW lo detecta.</paso>
+      <paso numero="4">Anotar qué ocurre un lunes (la Cadena 1 corre pero el Planificador no genera el diario ese día; P-LA-02).</paso>
     </pasos>
-    <resultadoEsperado>Se identifican los procesos reales que generan ambos ficheros de entrada, cerrando el gap de §4.</resultadoEsperado>
-    <tipoValidacion>Inspección de Control-M + comparación de la query real ejecutada contra BATCH_SAIT.sql</tipoValidacion>
-    <criterioAceptacion>Procesos identificados con evidencia real, documentados en una futura actualización de legal_agreements_p062_spec.md.</criterioAceptacion>
-    <posibilidadFallo>Si no se localiza ningún job/jar candidato, el gap permanece abierto — no forzar una atribución sin evidencia.</posibilidadFallo>
+    <resultadoEsperado>Ambas extracciones activas y ficheros presentes y bien formados antes de las 06:00. El comportamiento del lunes queda anotado.</resultadoEsperado>
+    <tipoValidacion>Inspección de configuración del Planificador y de la carpeta SAIT/.</tipoValidacion>
+    <criterioAceptacion>Extracciones activas, ficheros presentes antes de las 06:00 y con la etiqueta raíz documentada.</criterioAceptacion>
+    <posibilidadFallo>Si el Planificador se retrasa más allá de las 06:00, la Cadena 1 puede transformar un fichero ausente o antiguo sin avisar (ver TC-005).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="e2e">

@@ -1,46 +1,44 @@
 # Especificación — Extracción/Transmisión SAIT (Contratos), `TRANSMISIONES_CIB_RDR_SAIT`
 
-> Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-28.
-> Fuentes: `Envio_de_ficheros_GUIDO_usuario-rol_y_extraccion_SAIT.docx` (documento original, comparte fuente con
-> "Envío de roles GUIDO a EINS" — ver `salidas/envio_guido_roles_eins/`), 12 capturas reales de Control-M de
-> `TRANSMISIONES_CIB_RDR_SAIT` (`documentos_fuente/GAP-SAIT_capturas_TRANSMISIONES_CIB_RDR_SAIT.docx`), 2
-> fichas oficiales EX-005-03 de esa cadena (`MEKYTL0357_LISTA`/`_BORRA`), 4 fichas oficiales EX-005-03 de la
-> cadena de generación `RDR_DAILY_LA_PRO_new` (`RDR_DAILY_LA_JAVA`, `MEKYTL0357`, `MEKYTL0949`, `MEKYTL0950`),
-> y 27 capturas reales de Control-M de esa misma cadena
-> (`documentos_fuente/GAP-SAIT_capturas_RDR_DAILY_LA_PRO_new.docx`). Detalle completo de evidencia en
-> `documentos_fuente/GAP-SAIT_jobs_extraidos.md`.
+> Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-28; revisada el 2026-10-01 (origen del XML de entrada identificado, ver abajo).
+> Procedencia de la evidencia (todo lo necesario está volcado en este documento): documento original
+> "Envío de ficheros GUIDO (usuario/rol) y extracción SAIT" (comparte fuente con "Envío de roles GUIDO a
+> EINS", spec propia en `salidas/envio_guido_roles_eins/`); 12 capturas reales de Control-M de
+> `TRANSMISIONES_CIB_RDR_SAIT`; fichas oficiales EX-005-03 de `MEKYTL0357_LISTA` y `_BORRA` y de los 4 jobs
+> de la cadena de generación `RDR_DAILY_LA_PRO_new` (`RDR_DAILY_LA_JAVA`, `MEKYTL0357`, `MEKYTL0949`,
+> `MEKYTL0950`); 27 capturas de Control-M de esa cadena; el script real `RDR_Transformacion_SAIT.sh`; la
+> query Oracle `BATCH_SAIT.sql` (900 líneas); la clase `Batch_Diario_Sait.Batch_Sait` decompilada del `.jar`
+> real; y el inventario del Planificador Genérico (`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`, §5).
 >
-> Cuarta ronda de evidencia: `BATCH_SAIT.sql` (900 líneas, query Oracle real,
-> `documentos_fuente/GAP-SAIT_BATCH_SAIT.sql`) — resuelve GAP-SAIT-004 (diccionario de campos del XML) con
-> evidencia literal. Detalle en `documentos_fuente/GAP-SAIT_jobs_extraidos.md` (Addendum 4).
->
-> **Corrección posterior (2026-09-30, sesión de "Procesos diarios de Legal Agreements", P-062):** se
-> decompiló el `.jar` real de `RDR_Transformacion_SAIT.jar` (clase `Batch_Diario_Sait.Batch_Sait`). El
-> código confirma que **esta clase no ejecuta `BATCH_SAIT.sql` ni consulta `FT_T_LAGR` directamente** —
-> solo lee un XML **ya existente** (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`, generado por otro proceso
-> no identificado) y le aplica una transformación XSLT (`Sait_Diario.xsl`), escribiendo el resultado con
-> nombre fijo `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` ("20000101" confirmado hardcodeado en el
-> propio bytecode, no es un artefacto de Control-M ni de documentación). La atribución original de
-> §1.2/GAP-SAIT-004 ("la query que ejecuta la clase Java... para construir el XML directamente en base de
-> datos") era incorrecta — ver §1.2 corregida y GAP-SAIT-008 (nuevo, límite de alcance declarado, no
-> bloqueante — no cambia el comportamiento testeable de esta cadena). El diccionario de campos en sí
-> (§1.2) sigue siendo evidencia real y válida de la estructura del dato, solo cambia quién la genera.
-> Hallazgo adicional: el `catch` de la transformación XSLT solo loguea el error pero el proceso sigue
-> logueando "FINALIZADA" incondicionalmente — ver RISK-SAIT-003 en §9.
+> **Correcciones acumuladas sobre la primera versión:**
+> 1. (2026-09-30, análisis de P-062) `Batch_Diario_Sait.Batch_Sait` **no ejecuta `BATCH_SAIT.sql` ni consulta
+>    ninguna base de datos**: lee un XML ya existente (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`), le aplica
+>    la hoja XSLT `Sait_Diario.xsl` y escribe `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (el
+>    `20000101` está escrito literalmente en el código). Además su `catch` solo registra el error y el proceso
+>    loguea "FINALIZADA" siempre (RISK-SAIT-003).
+> 2. (2026-10-01) **Quién genera el XML de entrada: el Planificador Genérico**, no un "proceso no
+>    identificado". Lo escriben dos extracciones activas de su inventario (job de Control-M `RDRKYTL001`,
+>    cadena `RDR_SW_PLANIFICADOR_new`): la fila 9 (`BATCH_SAIT_DIARIO.sql`, martes a sábado 04:45,
+>    `KYTL_RDR_EXTRACTION_contratos_Diario.xml`) y la fila 20 (`BATCH_SAIT.sql`, domingo 04:45,
+>    `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml`). GAP-SAIT-008 queda resuelto. La query de
+>    `BATCH_SAIT.sql` es la de la fila 20 (carga total); la de la fila 9 no se ha recibido (P-SAIT-01).
+> 3. (2026-10-01) El nombre del fichero transmitido es siempre el literal
+>    `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml`: así lo escriben las fichas EX-005-03 de
+>    `MEKYTL0357_LISTA`, `_BORRA`, `MEKYTL0949` y `RDR_DAILY_LA_JAVA`. No hay `${FECHA}` en el nombre (la
+>    versión anterior lo suponía por error). La fecha real solo aparece al historificar
+>    (`..._20000101_yyyymmdd.xml`, ficha de `MEKYTL0949`).
 >
 > **Este documento cubre únicamente el flujo SAIT** (extracción/transmisión de contratos), que el documento
-> original combinaba con el flujo GUIDO (ya cerrado por separado). Es la ronda de evidencia que quedaba
-> pendiente desde el cierre de "Envío de roles GUIDO a EINS" (2026-09-21).
+> original combinaba con el flujo GUIDO (ya cerrado por separado).
 >
-> **Estado: 7 de 7 gaps originales resueltos. GAP-SAIT-008 (origen real del XML consumido por
-> `Batch_Sait`) documentado como límite de alcance no bloqueante, no como gap abierto — proceso
-> considerado cerrado.**
+> **Estado: 8 de 8 gaps resueltos (GAP-SAIT-001 a 008); quedan 5 preguntas abiertas no bloqueantes
+> (P-SAIT-01 a 05, §4).**
 
 ## 1. Resumen ejecutivo
 
 La cadena real **`TRANSMISIONES_CIB_RDR_SAIT`** (distinta del nombre genérico "SAIT" usado en el documento
 original) es una cadena de **transmisión pura**, de solo 2 jobs: `MEKYTL0357_LISTA` (envía por Connect:Direct
-el XML de contratos `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` a un servidor Windows externo,
+el XML de contratos `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` a un servidor Windows externo,
 `WVMSAITDB01`) y `MEKYTL0357_BORRA` (limpieza posterior). **Esta cadena no genera el XML** — lo recibe ya
 generado, vía dependencia cross-chain, de la cadena `RDR_DAILY_LA_PRO_new`.
 
@@ -52,6 +50,19 @@ distinto (`MEKYTL0357`, dentro de `RDR_DAILY_LA_PRO_new` — no confundir con `M
 `TRANSMISIONES_CIB_RDR_SAIT`) ejecuta `MEGENV0001.sh` (mismo script genérico de envío ya visto en otros
 procesos) y dispara, en paralelo, una historificación local (`MEKYTL0949`→`MEKYTL0950`) y el evento cross-chain
 que consume la cadena de transmisión ya documentada.
+
+**Cadena completa de extremo a extremo (resumen):**
+
+| Etapa | Qué ocurre | Cuándo | Resultado |
+|---|---|---|---|
+| 1. Planificador Genérico (job `RDRKYTL001`, cadena `RDR_SW_PLANIFICADOR_new`, ver `salidas/comun_planificador_generico/comun_planificador_generico_spec.md`) | Ejecuta en la base Oracle de RDR la query `BATCH_SAIT_DIARIO.sql` sobre `KYTL_GC.FT_T_LAGR` (fila 9 de su inventario, `ACT1_OID` `0134FA845`) y escribe el XML con la etiqueta raíz `<AgreementResp>` | Martes a sábado, 04:45 (el Planificador decide cada 30-60 min qué extracciones tocan) | `/fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml` |
+| 2. `RDR_DAILY_LA_JAVA` | `RDR_Transformacion_SAIT.sh` → `Batch_Sait`: aplica `Sait_Diario.xsl` al fichero anterior | Lunes a viernes, desde las 06:00 | `.../SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` |
+| 3. `MEKYTL0357` | `MEGENV0001.sh` (envío interno a la pasarela) y publica dos eventos | Tras el paso 2 | Eventos `RDR_DAILY_LA_PRO_MEKYTL0357_OK_new` (interno) y `RDR_DAILY_LA_PRO_new_MEKYTL0357_OK` (cross-chain) |
+| 4. `MEKYTL0949` → `MEKYTL0950` | `RAMERC0068.sh`: historifican con fecha el fichero transformado y el de entrada | Tras `MEKYTL0357` (rama interna) | `.../SAIT/Backup/..._20000101_yyyymmdd.xml` y `..._Diario_yyyymmdd.xml` |
+| 5. `MEKYTL0357_LISTA` → `MEKYTL0357_BORRA` (cadena `TRANSMISIONES_CIB_RDR_SAIT`, la que se testea aquí) | Transmite por Connect:Direct a `WVMSAITDB01`, historifica y borra el origen | Tras el evento cross-chain | Fichero en `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\` |
+
+La carga **total** (fila 20, domingo) no pertenece a esta cadena: la consume la Cadena 2 del proceso
+`legal_agreements_p062`.
 
 ## 2. Alcance del proceso
 
@@ -76,7 +87,8 @@ RDR_DAILY_LA_PRO_IN (Dummy, sin prerrequisitos, arranca 06:00 AM)
    ▼
 RDR_DAILY_LA_JAVA (Script RDR_Transformacion_SAIT.sh, xakytl1p)
    │ Comando: RDR_Transformacion_SAIT.sh fileloading /pr/kytl/.../cfg/entorno/credentials.xml
-   │ Genera: /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml
+   │ Lee   : /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml (lo deja el Planificador)
+   │ Genera: /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml
    ▼
 MEKYTL0357 (Script MEGENV0001.sh, xsramer1 — cadena RDR_DAILY_LA_PRO_new, homónimo de pero distinto de
    │        MEKYTL0357_LISTA/_BORRA) — publica 2 eventos simultáneos, sin bifurcación visual en el folder:
@@ -129,7 +141,7 @@ Esta clase **no consulta `FT_T_LAGR` ni ninguna base de datos**: lee un XML **ya
 un artefacto de Control-M ni de plantilla documental, sino texto fijo en el `.class`). El fichero de
 entrada sin sufijo es el mismo que `MEKYTL0950` historifica como "fichero adicional sin fecha" (§1,
 RISK-SAIT-002) — ahora se explica su naturaleza: es el XML genérico de origen que esta clase consume
-cada día, no un artefacto sin propósito.
+cada día, no un artefacto sin propósito; lo escribe el Planificador Genérico (fila 9, `BATCH_SAIT_DIARIO.sql`).
 
 **Hallazgo de riesgo confirmado por código:** si la transformación XSLT falla
 (`TransformerConfigurationException`/`TransformerException`), el `catch` solo registra el error en el
@@ -145,63 +157,72 @@ era correcto; el contenido de la tabla de pasos era un artefacto de copia/planti
 homónimas, sin duplicación funcional real.
 
 **Hallazgo no preguntado, ahora confirmado como intencional:** el fichero se historifica en dos sitios
-independientes — una vez por `MEKYTL0949`/`MEKYTL0950` (dentro de `RDR_DAILY_LA_PRO_new`) y otra vez por
+(ambas ramas actúan sobre la misma carpeta, ver RISK-SAIT-004) — una vez por `MEKYTL0949`/`MEKYTL0950` (dentro de `RDR_DAILY_LA_PRO_new`) y otra vez por
 `MEKYTL0357_LISTA` (dentro de `TRANSMISIONES_CIB_RDR_SAIT`, §6) — cada cadena historifica su propia copia de
 forma independiente, patrón consistente y no un error de diseño aparente.
 
-### 1.2 Diccionario de campos del XML de contratos — `BATCH_SAIT.sql` (GAP-SAIT-004 resuelto; atribución corregida)
+### 1.2 Estructura del XML de contratos (diccionario de campos, procedente de `BATCH_SAIT.sql`)
 
-**Cuarta ronda de evidencia (2026-09-28):** el usuario aportó `BATCH_SAIT.sql` (900 líneas, query Oracle real,
-`documentos_fuente/GAP-SAIT_BATCH_SAIT.sql`) que construye el XML directamente en base de datos vía
-`XMLELEMENT`/`XMLAGG`/`.getClobVal()` — mismo tipo de evidencia definitiva que cerró GAP-CTPY-003 en esta
-sesión. **Corrección 2026-09-30:** esta query **no la ejecuta** `Batch_Diario_Sait.Batch_Sait` (confirmado
-por decompilación real del `.jar` en §1.1 — esa clase solo hace una transformación XSLT sobre un XML ya
-existente, sin acceso a base de datos). Sigue sin identificarse qué proceso ejecuta realmente
-`BATCH_SAIT.sql` para generar `KYTL_RDR_EXTRACTION_contratos_Diario.xml` — ver GAP-SAIT-008. El
-diccionario de campos que sigue documentado abajo sigue siendo evidencia real y válida de la estructura
-del dato (la query es real, con su propio texto literal), solo cambia la atribución de quién la ejecuta.
+**Qué query es esta.** `BATCH_SAIT.sql` (900 líneas, Oracle) es el texto de la extracción de la **fila 20**
+del Planificador Genérico (carga total del domingo, `ACT1_OID` `0134FA848`). Construye el XML en la propia
+base de datos con `XMLELEMENT`/`XMLAGG` —cada `XMLELEMENT (NAME "...")` es literalmente una etiqueta del
+XML— y devuelve cada contrato como CLOB (`.getClobVal() xmlResult`). Contiene tres marcadores de paginación
+(`:paginacionInicio`, `:paginacionResultado`, `:paginacionFinal`) que el propio Planificador rellena al ejecutar
+la query en bloques de 1.000 filas (`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`, §4).
+El Planificador ejecuta cada extracción como máximo una vez al día (compara solo la fecha), escribe el XML con
+20 hilos en paralelo y lo valida contra su XSD, pero **si la validación falla solo lo anota en su log y entrega el
+fichero igualmente**. La **fila 9** (`BATCH_SAIT_DIARIO.sql`, la que alimenta esta cadena) es otra query cuyo texto no
+se ha recibido: se asume, sin confirmar (P-SAIT-01), que genera la misma estructura `<Agreement>` con un
+subconjunto de contratos. `Batch_Sait` no ejecuta ninguna de las dos (ver §1.1).
 
-**Entidad raíz:** `KYTL_GC.FT_T_LAGR` (alias `lagr`, "Legal Agreement" — contratos/acuerdos legales de
-GoldenSource), con filtro explícito `WHERE data_src_id != 'Sentry' AND data_src_id != 'MENTOR'`. Esto confirma
-que los nombres de variable `FILESMENTOR`/`XSLT_MENTOR` vistos en `RDR_Transformacion_SAIT.sh` (§1.1) son
-vestigiales de plantilla: el proceso **excluye** explícitamente los contratos de origen Mentor, sin relación
-funcional real con ese sistema. Query paginada (`:paginacionInicio`/`:paginacionResultado`/`:paginacionFinal`),
-resultado como CLOB — consistente con invocación desde Java.
+**Etiquetas raíz** (las escribe el Planificador con parámetros de la tabla `FT_T_PAR1`, que sustituyen el
+texto de apertura y cierre):
 
-**Elemento raíz XML:** `<Agreement>` por cada registro de `FT_T_LAGR`, con los siguientes bloques de primer
-nivel (diccionario completo en `documentos_fuente/GAP-SAIT_jobs_extraidos.md`, Addendum 4):
+| Fichero | Parámetro | Apertura | Cierre |
+|---|---|---|---|
+| Diario (fila 9) | `0134FA847` | `<AgreementResp>` | `</AgreementResp>` |
+| Total (fila 20) | `0134FA84A` | `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` | `</AgreementResp>` |
+
+**Entidad raíz:** `KYTL_GC.FT_T_LAGR` ("Legal Agreement": contratos/acuerdos legales de GoldenSource), con
+`from Ft_T_Lagr Lagr where data_src_id != 'Sentry' and data_src_id != 'MENTOR'` (columnas leídas: `org_id`,
+`exp_tms`, `last_chg_usr_id`, `agrmnt_cmnt_txt`, `leg_agrmnt_id`, `agrmnt_desc`, `agrmnt_typ`,
+`data_stat_typ`, `agrmnt_sign_dte`, `doc_eff_dte_tms`, `agrmnt_version_yr_typ`, `agrmnt_curr_cde`,
+`leg_agrmnt_doc_id`, `created_tms`, `last_chg_tms`). Es decir, **excluye** los contratos de origen Sentry y
+Mentor; por eso los nombres `FILESMENTOR`/`XSLT_MENTOR` de `RDR_Transformacion_SAIT.sh` son restos de
+plantilla sin relación con Mentor.
+
+**Elemento por contrato:** `<Agreement>`, con estos bloques de primer nivel (los nombres de campo son los
+`NAME` literales de la query):
 
 | Bloque | Contenido |
 |---|---|
-| `AgreementID` | Identificador del acuerdo |
-| `AgmtMultiBrInd` | Indicadores de multi-sucursal |
-| `Pty` (externa/interna) | Partes del acuerdo — ID, tipo de cliente, nombre, rol (Matrix/Enterprise) |
-| `FinDetls` | Detalle financiero: tipo/estado/fecha/versión/moneda del acuerdo, listas de inclusión/exclusión de trading, auditoría de última modificación, bloque `Other` (~20 indicadores), SSI, autorización, firma, revisión legal |
-| `PtySecT` | Tipos de valores/producto por parte (branch) |
-| `Coll` | Colaterales/anexos del acuerdo |
-| `AgmtMarket` | Mercado y submercado |
-| `AgmtExeCntc` | Contacto ejecutivo |
-| `AgmtContacts` | Contactos completos, con dirección y teléfonos/emails/faxes anidados |
-| `AgmtPlazas` | Plazas/ciudades del acuerdo |
-| `AgmtProdLists` | Listas de producto |
-| `AgmtParts` | Partes/firmantes del acuerdo |
-| `AgmtSub` | Datos de custodia/BUC |
-| `ExternalIdentifiers` | Identificadores externos (excluye `Generic`/`PRODUCT32`/`Onboarding Digital`) |
+| `AgreementID` | Identificador del acuerdo (`FT_T_LAID` con fuente `Generic`, activo) |
+| `AgmtMultiBrInd` | Indicadores de multi-sucursal: `AgmtCPMultBrInd` (de `FT_T_FLAR.mult_branch_ind`, parte externa) y `AgmtMultBrInd` (texto fijo "MÉXICO") |
+| `Pty` (dos listas) | Partes del acuerdo según `FT_T_FLAR`. Lista de partes **externas** (`rl_typ='EXTERNAL'`): `ID`, `IDSTAR` (identificador STAR_MEXICO), `AgmtClientTypInd` (fijo `Y`), `Src` (fijo `O`), `PartyShort`, `PartyName`, `R` (fijo `Matrix`), `Typ` (fijo `39`) y sub-bloques `Sub`. Lista de partes **internas** (`rl_typ='INTERNAL'`): `ID`, `IDSTAR`, `Src` (`O`), `R` (fijo `Enterprise`) |
+| `FinDetls` | Detalle financiero: `AgmtDesc`, `AgmtID`, `AgmtTyp`/`AgmtTypCve`, `AgmtStat`, `AgmtDt`, `StartDt`/`EndDt`, `AgrVersion`, `AgmtCcy`, `AgmInclExcl`, listas `AgmtTrdTyp` (inclusión/exclusión de trading, de `FT_T_LARS` con `rst_reas_typ` `TRAD_INC`/`TRAD_EXC`, cada elemento con `TrdSrc`), `AgmtDocID`, `AgmtCreatedTMS`, `NLS_CDE`, `Product32`, `Bancomercom`, `Tax_Gain`, `Netcash`, `AgmtRefCli`, `AgmtCNLRSN`, `AgmtObser`, `Last_Chg_Usr`/`Last_Chg_Tms` (auditoría calculada cruzando unas 17 tablas), bloque `Other` (`AgmtAppKey`, `AgmtCollInd`, `AgmtSndInd`, `AgmtExnInd`, `AgmtConfInd`, `AgmtSucNum`, `AgmtFldNum`, `AgmtOblInd`, `AgmtBnkCliInd`, `AgmtLngFrmConf`, `AgmtBrkTyp`, `AgmtBLKStat`, `AgmtObvTxt`, `AgmtRskTxt`, `AgmtBrkName`, `RepurchaseOblig`, `Institutional_Inv`, `AccountNum`, `AccountOffice`, `AccountStatus`), `AgmtIndi` (8 pares indicador/timestamp), `AgmtSettle` (SSI), `AgmtDer` (autorización), `AgmtSig` (firma), `AgmtLegalRev` (revisión legal) |
+| `PtySecT` | Tipos de valores/producto asociados a partes (branch/sucursal) |
+| `Coll` (lista) | Colaterales/anexos: `CollID`, `Coll_Typ`, `Coll_StartTMS`, `Coll_EligblTyp`, `Coll_Vcl`, `Coll_EjctNME`/`_TMS`, `Coll_ConvTXT`/`_TMS`, `Coll_CCCExpTMS`, `Coll_ExpTMS`, `Coll_Credit_Prod` |
+| `AgmtMarket` | Mercado y submercado: `AgmtMarket`, `AgmtSubMarket`, `AgmtSubMarketCve` |
+| `AgmtExeCntc` | Contacto ejecutivo (nombre, teléfono) |
+| `AgmtContacts` (lista) | Contactos: `ContactID`, `AgmtCntcFuncTyp`/`AgmtCntcFunc`, `AgmtCntcPrior`, `AgmtCntcObv`, `AgmtCntcName`, `AgmtCntcStatus`, más `RelatedElements` anidado con la dirección (`Address`, `ZipCode`, `City`, `CountyName`/`Code`, `CountryCde`/`Nme`, `NeighborhoodNme`, `IntNum`/`ExtNum`, `TownshipNme`) y listas `Phones`/`Emails`/`Faxes` |
+| `AgmtPlazas` (lista) | Plazas/ciudades del acuerdo: `AgmtPlaza`, `AgmtPlazaCve`, `AmgtPlazaSTARID` |
+| `AgmtProdLists` (lista) | Listas de producto: `AgmtProdListNme`, `AgmtProdListTms`, `AgmtProdListObv` |
+| `AgmtParts` (lista) | Partes/firmantes: `AgmtPrtID`, `AgmtPrtNme`, `AgmtPrtContactRel`, `AgmtPrtRol`, `AgmtPrtAdmInd`, `AgmtPrtDomInd`, `AgmtPrtPodInd`/`Desc`, `AgmtPrtSigTyp`/`Desc`, `AgmtPrtSigDocTyp`, `AgmtPrtDoc`, `AgmtPrtDocEndTms`, `AgmtPrtEscDesc` |
+| `AgmtSub` | Datos de custodia/BUC: `AgmtSubCstdyNum`, `AgmtSubBUCNme`, `AgmtSubBUCStartTms`/`EndTms` |
+| `ExternalIdentifiers` (lista) | Identificadores externos de `FT_T_LAID` activos: `ExternalID`, `Data_Src_ID`, excluyendo la fuente `Generic` y los contextos `PRODUCT32`/`Onboarding Digital` |
 
-**GAP-SAIT-004 — RESUELTO.** Diccionario de campos completo y literal, mismo nivel de evidencia que
-GAP-CTPY-003. Nota de alcance: no se ha confirmado si la hoja `.xsl` (cuyo nombre real sigue sin verse) aplica
-algún filtrado/renombrado adicional sobre esta estructura antes de la transmisión final — detalle menor, no
-bloqueante (`$FILESEXGEN`=`$FILESMENTOR` en el script, es decir origen y destino son la misma carpeta, lo que
-sugiere una transformación de paso más que una reestructuración profunda).
+No se ha visto el contenido de `Sait_Diario.xsl`: no se sabe si filtra o renombra algo de esta estructura
+antes de escribir el fichero transmitido (P-SAIT-04). Como origen y destino de `Batch_Sait` son la misma
+carpeta, lo razonable es una transformación de paso, pero no está confirmado.
 
 ## 3. Requisitos detectados
 
 | ID | Requisito |
 |----|-----------|
 | R1 | `MEKYTL0357_LISTA` espera el evento cross-chain `RDR_DAILY_LA_PRO_new_MEKYTL0357_OK` — el XML debe estar generado y disponible por la cadena `RDR_DAILY_LA_PRO_new` antes de poder transmitirse. |
-| R2 | `MEKYTL0357_LISTA` (`LPFTPEXCA0000.sh`, usuario `xtsftp1`, en `lpftp503`) transmite `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` desde `/fichtemcomp/pr/descargas/kytl/SAIT/` (en `LPFTP503`) hacia `WVMSAITDB01` (IP `150.100.230.96`, nodo Connect:Direct `CDWVMSAITBD01`), ruta `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\`, mismo nombre de fichero. |
-| R3 | Tras el envío, `MEKYTL0357_LISTA` historifica en `/fichtemcomp/pr/descargas/kytl/SAIT/Backup/` **dos ficheros**: el fechado recién enviado y un fichero adicional sin fecha, `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (hallazgo no documentado antes, naturaleza no confirmada). |
-| R4 | `MEKYTL0357_BORRA` (`LPFTPEXCA0002.sh`, mismo usuario/host) borra el fichero fechado de origen tras la confirmación de envío (prerrequisito: `TRANSMISIONES_CIB_RDR_SAIT_MEKYTL0357_LISTA_OK`). |
+| R2 | `MEKYTL0357_LISTA` (`LPFTPEXCA0000.sh`, usuario `xtsftp1`, en `lpftp503`) transmite `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` desde `/fichtemcomp/pr/descargas/kytl/SAIT/` (en `LPFTP503`) hacia `WVMSAITDB01` (IP `150.100.230.96`, nodo Connect:Direct `CDWVMSAITBD01`), ruta `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\`, mismo nombre de fichero. |
+| R3 | Tras el envío, `MEKYTL0357_LISTA` historifica en `/fichtemcomp/pr/descargas/kytl/SAIT/Backup/` **dos ficheros**: el `_20000101.xml` recién enviado y el XML de entrada sin sufijo `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (el que escribe el Planificador). |
+| R4 | `MEKYTL0357_BORRA` (`LPFTPEXCA0002.sh`, mismo usuario/host) borra el `_20000101.xml` de origen tras la confirmación de envío (prerrequisito: `TRANSMISIONES_CIB_RDR_SAIT_MEKYTL0357_LISTA_OK`). |
 | R5 | La cadena es estrictamente lineal (`LISTA → BORRA`), sin Fan-Out/Fan-In, y `MEKYTL0357_BORRA` no publica ningún evento de salida (hoja terminal del folder). |
 | R6 | Criticidad W (aviso día siguiente) en ambos jobs; días de ejecución D-L-M-X-J (`0,1,2,3,4`); User Daily `PLAN_1300`, server `MERCADOS-4`. |
 | R7 | Recursos Cuantitativos vacíos (con icono de alerta) en ambos jobs — mismo patrón atípico ya observado en otros jobs de pasarela de esta sesión. |
@@ -235,45 +256,62 @@ sugiere una transformación de paso más que una reestructuración profunda).
 
 **Balance: 7 de 7 gaps resueltos con evidencia literal completa.**
 
-- **GAP-SAIT-008 (nuevo, 2026-09-30, límite de alcance no bloqueante) — origen real de
-  `KYTL_RDR_EXTRACTION_contratos_Diario.xml`.** Al decompilar `RDR_Transformacion_SAIT.jar` (clase
-  `Batch_Diario_Sait.Batch_Sait`, en el marco del proceso "Procesos diarios de Legal Agreements", P-062)
-  se confirmó que esa clase no ejecuta `BATCH_SAIT.sql` ni accede a `FT_T_LAGR` — solo transforma vía
-  XSLT un XML que ya debe existir de antemano. No hay ningún job anterior a `RDR_DAILY_LA_JAVA` dentro de
-  la cadena `RDR_DAILY_LA_PRO_new` que pueda generarlo, así que su origen real queda fuera del árbol de
-  jobs conocido de esta cadena — patrón similar a `ExtraccionGenericaOtherEntities.jar`/
-  `ExtraccionGenericaCPTY.jar` en "Extracción Genérica de Contrapartidas", que generan sus ficheros de
-  origen de forma autónoma antes de que arranque la cadena que los consume, aceptado igual sin más
-  investigación en ese proceso ya cerrado. Se localizó un candidato plausible sin confirmar
-  (`ExtraccionGenericaUnificada.jar`, motor genérico parametrizado por tipo, con query/cabecera/fichero
-  de salida en configuración de BD), pero no se identificó el job de Control-M que lo invoca. Aplicando
-  el criterio de profundidad: no cambia ningún campo de salida de `TRANSMISIONES_CIB_RDR_SAIT` (que solo
-  transmite el fichero ya generado, sea cual sea su origen) — se documenta como límite de alcance, no
-  como gap bloqueante.
+- **GAP-SAIT-008 (origen real de `KYTL_RDR_EXTRACTION_contratos_Diario.xml`) — RESUELTO el 2026-10-01.** Lo
+  genera el **Planificador Genérico** (`ProjectMain.jar`, job `RDRKYTL001` de la cadena
+  `RDR_SW_PLANIFICADOR_new`), que ejecuta extracciones SQL configuradas en las tablas `FT_T_ATE1`/`FT_T_QPF1`
+  de la base RDR (esquema `KYTL_GC`). Son dos filas activas de su inventario:
 
-**Proceso cerrado**, con GAP-SAIT-008 documentado como límite de alcance no bloqueante tras la
-corrección de 2026-09-30 (7/7 gaps originales resueltos + 1 observación de alcance).
+  | Fila | `ACT1_OID` | Query (`ACTION_NME`) | Fichero que escribe (bajo `/fichtemcomp/pr/descargas/kytl/`) | Días | Hora |
+  |---|---|---|---|---|---|
+  | 9 | `0134FA845` | `BATCH_SAIT_DIARIO.sql` | `SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml` | martes a sábado | 04:45 |
+  | 20 | `0134FA848` | `BATCH_SAIT.sql` | `SAIT/KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` | domingo | 04:45 |
+
+  La fila 9 es la que alimenta esta cadena (la fila 20 la consume la Cadena 2 de `legal_agreements_p062`).
+  La hora es la programada en `FT_T_QPF1`; el Planificador revisa qué toca cada 30-60 minutos, así que el
+  fichero puede aparecer algo después.
+
+**Proceso cerrado en gaps (8 de 8), con las preguntas abiertas siguientes, ninguna bloqueante:**
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-SAIT-01 | ¿Qué selecciona exactamente `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?, ¿la misma estructura `<Agreement>` que `BATCH_SAIT.sql`?)? El texto de esa query no se ha recibido; solo el de `BATCH_SAIT.sql` (fila 20) | El diccionario de §1.2 es el de la carga total; saber qué contratos entran cada día define el contenido esperado del fichero y los datos de prueba |
+| P-SAIT-02 | `MEKYTL0357` y `MEKYTL0949`/`MEKYTL0950` actúan sobre `.../SAIT/`: ¿`RAMERC0068.sh` *mueve* (`M`) o *copia* (`C`) en esas claves?, ¿qué contiene el `.idx` de `MEKYTL0357`? Además la ficha de `MEKYTL0357` dice que envía por Connect:Direct a `lpftp503:/unload/transmisiones/SAIT/`, pero `LISTA` lee de `LPFTP503:/fichtemcomp/pr/descargas/kytl/SAIT/`. Las líneas IDX y la configuración de la pasarela no se han recibido | Las dos ramas (historificación y transmisión) arrancan a la vez tras `MEKYTL0357`; si la historificación mueve el fichero antes de que `LISTA` lo envíe, el envío falla (RISK-SAIT-004) |
+| P-SAIT-03 | ¿Qué ocurre si el Planificador no ha dejado `Diario.xml` cuando arranca la cadena a las 06:00 (la cadena no tiene `ctmfw`), o un día en que no genera (el lunes: el Planificador solo genera de martes a sábado)? | `Batch_Sait` no aborta ni avisa (RISK-SAIT-003); se podría transmitir un fichero ausente, antiguo o vacío |
+| P-SAIT-04 | ¿Qué hace `Sait_Diario.xsl` (filtros, renombrados)? | Define el contenido real del fichero que recibe SAIT |
+| P-SAIT-05 | Días de ejecución: Control-M muestra `0,1,2,3,4` y la captura se leyó como domingo-jueves, mientras que las fichas EX-005-03 dicen L M X J V. ¿Cuál es el calendario real de `LISTA`/`BORRA`? | Determina si el viernes se transmite y si el domingo hay envío sin fichero nuevo |
 
 ## 5. Especificación funcional
 
-**Entidad:** `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` — extracto diario de contratos financieros
-estructurados, consumido por el sistema SAIT (Windows, `WVMSAITDB01`).
+**Entidad:** `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` — extracto diario de contratos legales
+(*Legal Agreements*, `FT_T_LAGR`), consumido por el sistema SAIT (Windows, `WVMSAITDB01`; aplicativo
+exclusivamente mexicano). Formato XML, un `<Agreement>` por contrato dentro de `<AgreementResp>` (§1.2).
 
-**Origen del dato:** generado por el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new`, ejecutando
-`RDR_Transformacion_SAIT.sh` (usuario `xakytl1p`, 06:00 AM) — contenido real del script confirmado: invoca
-`java -cp RDR_Transformacion_SAIT.jar:... Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION
-$XSLT_MENTOR` (ver §1.1).
+**Origen del dato (de atrás hacia delante):**
+1. El Planificador Genérico escribe `.../SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml` (fila 9, martes a
+   sábado 04:45; §4).
+2. `RDR_DAILY_LA_JAVA` (06:00, usuario `xakytl1p`) ejecuta `RDR_Transformacion_SAIT.sh fileloading
+   /pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`, que a su vez lanza `java -cp
+   RDR_Transformacion_SAIT.jar:... Batch_Diario_Sait.Batch_Sait $FILESEXGEN $FILESMENTOR $LOG_EXTRACTION
+   $XSLT_MENTOR` (§1.1) y deja `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml`.
 
-**Estructura del XML (GAP-SAIT-004 resuelto):** confirmada por `BATCH_SAIT.sql` — entidad raíz `FT_T_LAGR`,
-elemento raíz `<Agreement>` por registro, con 14 bloques de primer nivel (`AgreementID`, `AgmtMultiBrInd`,
-`Pty` externa/interna, `FinDetls`, `PtySecT`, `Coll`, `AgmtMarket`, `AgmtExeCntc`, `AgmtContacts`,
-`AgmtPlazas`, `AgmtProdLists`, `AgmtParts`, `AgmtSub`, `ExternalIdentifiers`) — ver §1.2 para el detalle
-completo y `documentos_fuente/GAP-SAIT_jobs_extraidos.md` (Addendum 4) para el diccionario campo a campo.
-Excluye explícitamente registros de origen `Sentry`/`MENTOR`.
+**Estructura del XML:** §1.2 (14 bloques de primer nivel bajo `<Agreement>`, excluye contratos de origen
+`Sentry`/`Mentor`).
 
-**Fichero adicional sin fecha:** además del fichero fechado (`_${FECHA}.xml`), existe un fichero maestro sin
-fecha (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`) que también se historifica tras cada envío — su relación
-exacta con el fechado (¿copia previa, plantilla, fichero de referencia?) no está confirmada.
+**Resultado esperado y cómo saber si fue bien:**
+- *Bien:* `MEKYTL0357_LISTA` y `MEKYTL0357_BORRA` en verde en Control-M; el `_20000101.xml` presente en
+  `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\` con el mismo nombre; `Backup/` con los dos ficheros
+  historificados; el `_20000101.xml` de origen borrado; evento `TRANSMISIONES_CIB_RDR_SAIT_MEKYTL0357_LISTA_OK`
+  publicado.
+- *Mal:* `LISTA` en error (fallo de Connect:Direct o fichero no encontrado): no se publica su evento, `BORRA`
+  no arranca y el fichero de origen queda para el reintento (no hay reintento automático, `MAXRERUN` 0). Un
+  fallo de la transformación en `Batch_Sait` **no** aparece en Control-M ni en el log final (RISK-SAIT-003):
+  hay que comprobar el fichero `_20000101.xml` (existencia, fecha de modificación, tamaño).
+- *Qué queda después:* en `.../SAIT/`, el `Diario.xml` de entrada hasta que se historifique
+  (`MEKYTL0950` o el paso 2 de `LISTA`); en `Backup/`, los ficheros con fecha (`..._20000101_yyyymmdd.xml`,
+  `..._Diario_yyyymmdd.xml`); en destino, el `_20000101.xml` enviado.
+
+**Fichero sin fecha:** `KYTL_RDR_EXTRACTION_contratos_Diario.xml` es el XML de entrada que escribe el
+Planificador y consume `Batch_Sait`; `LISTA` (paso 2) y `MEKYTL0950` lo historifican (ver RISK-SAIT-004 y P-SAIT-02).
 
 ## 6. Especificación técnica
 
@@ -288,37 +326,35 @@ jobs — comportamiento estricto por defecto: un fallo real detiene la cadena.
 
 **Detalle funcional de `MEKYTL0357_LISTA` (ficha EX-005-03), 2 pasos:**
 ```
-Paso 1 — Transmisión:
-  Origen:  LPFTP503:/fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml
+Paso 1 — Transmisión (Connect:Direct):
+  Origen:  LPFTP503:/fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml
   Destino: WVMSAITDB01 (150.100.230.96, nodo CDWVMSAITBD01)
-           \\150.100.230.96\Home\Transmisiones\Recepcion\RDR\KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml
+           \\150.100.230.96\Home\Transmisiones\Recepcion\RDR\KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml
 
 Paso 2 — Historificación (tras envío OK):
   Mueve a /fichtemcomp/pr/descargas/kytl/SAIT/Backup/:
-    - KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml (el recién enviado)
-    - KYTL_RDR_EXTRACTION_contratos_Diario.xml (fichero adicional sin fecha)
+    - KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml (el recién enviado)
+    - KYTL_RDR_EXTRACTION_contratos_Diario.xml (el XML de entrada sin sufijo, que escribe el Planificador)
 ```
-**Nota 2026-09-30 (no reconfirmada con captura propia de este job):** la ficha usa `${FECHA}` de forma
-genérica, pero la corrección de §1.1 confirma que `Batch_Diario_Sait.Batch_Sait` siempre produce el
-fichero con nombre **literal** `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (sin fecha real en el
-nombre). Es probable que `${FECHA}` en la ficha sea una simplificación documental y que el nombre real
-transmitido sea literalmente `..._20000101.xml`, no uno con la fecha del día — pero esto no se ha
-reconfirmado con una captura real del comando propio de `MEKYTL0357_LISTA` (fuera del alcance de la
-corrección actual, que se centró en `Batch_Sait`). Se deja anotado, no se fuerza el cierre.
+Las fichas de `MEKYTL0357_LISTA`, `MEKYTL0357_BORRA`, `MEKYTL0949` y `RDR_DAILY_LA_JAVA` escriben todas el
+nombre literal `..._Diario_20000101.xml`; no hay `${FECHA}`. La ficha de `LISTA` no dice si en `Backup/`
+el fichero se renombra con fecha (el renombrado con fecha lo describe la ficha de `MEKYTL0949`, ver §1.1).
+Qué parámetros concretos configura el identificador `MEKYTL0357` en la pasarela (protocolo, reintentos,
+códigos de salida) no se ha recibido; la spec común de `LPFTPEXCA0000/0002.sh` recoge lo genérico.
 
 **Detalle funcional de `MEKYTL0357_BORRA`:**
 ```
-Borra /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml
+Borra /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml
   una vez confirmado el envío.
 ```
+(No borra el fichero sin sufijo.)
 
 ## 7. Especificación de testing
 
 **Estrategia:** dada la cadena corta (2 jobs) y bien documentada con evidencia literal, los casos cubren el
 ciclo funcional completo de transmisión/limpieza/historificación, la dependencia cross-chain de entrada, la
-validación estructural del diccionario de campos real, y documentan el hallazgo del fichero sin fecha (ya
-explicado tras la corrección de 2026-09-30: es el XML de entrada que consume `Batch_Sait`, no un artefacto
-sin propósito) y el nuevo hallazgo de riesgo de fallo silencioso en la transformación XSLT. Casos completos
+validación estructural del diccionario de campos real, y comprueban el fichero sin fecha (es el XML de entrada que escribe el Planificador y consume `Batch_Sait`) y
+el riesgo de fallo silencioso en la transformación XSLT. Casos completos
 en `extraccion_sait_contratos_casos_prueba.xml`.
 
 Referencia de casos por tipo:
@@ -329,8 +365,8 @@ Referencia de casos por tipo:
   XSD añadida); TC-005 (valida el diccionario de campos real del XML de contratos, GAP-SAIT-004); **TC-007
   (nuevo, 2026-09-30, regresión) — confirma que un fallo de la transformación XSLT en `Batch_Sait` no impide
   que el log registre "FINALIZADA" (RISK-SAIT-003).**
-- `conflicto_integridad`: TC-006 (naturaleza del fichero sin fecha `KYTL_RDR_EXTRACTION_contratos_Diario.xml`
-  — ahora explicada, ver §1.1).
+- `conflicto_integridad`: TC-006 (el Planificador deja `KYTL_RDR_EXTRACTION_contratos_Diario.xml` antes de las
+  06:00; ver §1.1 y §4).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -343,54 +379,55 @@ Referencia de casos por tipo:
 | R5 (topología, sin evento de salida) | TC-004 | Confirma en revisiones futuras que la cadena sigue siendo terminal de 2 jobs |
 | R6, R7 (criticidad/recursos) | TC-004 | Confirma que no han cambiado en revisiones futuras |
 | GAP-SAIT-004 (diccionario del XML) | TC-005 | Valida la estructura real de campos confirmada por `BATCH_SAIT.sql` (del XML de entrada, no del de salida) |
-| GAP-SAIT-008 (origen real del XML de entrada, límite de alcance) | TC-006 | Documenta, si se identifica, el proceso que genera `KYTL_RDR_EXTRACTION_contratos_Diario.xml` |
+| GAP-SAIT-008 (origen del XML de entrada: Planificador Genérico, fila 9) | TC-006 | Comprueba que la extracción de la fila 9 sigue activa y deja el XML de entrada antes de las 06:00 |
 | RISK-SAIT-003 (fallo silencioso XSLT) | TC-007 | Confirma que un fallo de transformación no se refleja en el log final de `Batch_Sait` |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
-1. **Gaps: 7 de 7 originales resueltos.** GAP-SAIT-008 (ver §4) documentado como límite de alcance no
-   bloqueante tras la corrección de 2026-09-30 — no cambia el comportamiento testeable de esta cadena.
+1. **Gaps: 8 de 8 resueltos.** GAP-SAIT-008 (origen del XML de entrada) se resolvió el 2026-10-01: lo
+   genera el Planificador Genérico (filas 9 y 20 de su inventario). Las dudas que quedan son preguntas
+   concretas (P-SAIT-01 a 05, §4), no bloquean el testing de la cadena.
 2. **RISK-SAIT-001 — sin soft-failure configurado, comportamiento estricto por defecto.** A diferencia de
    varios procesos de esta sesión (que enmascaran fallos de transmisión con "código ≠ 0 → OK"), aquí un fallo
    real de Connect:Direct **sí detiene la cadena** — más seguro desde el punto de vista de detección de fallos,
    pero conviene confirmarlo explícitamente en testing (TC-003) al ser la excepción, no la norma, dentro de
    esta sesión.
-3. **RISK-SAIT-002 — naturaleza del fichero sin fecha, ahora explicada (2026-09-30).**
-   `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (sin sufijo) es el XML de entrada que `Batch_Sait` consume cada
-   día para generar, vía XSLT, el fichero con sufijo `_20000101.xml` — no es un artefacto sin propósito.
-   Sigue sin confirmarse quién genera ese fichero de entrada (GAP-SAIT-008, límite de alcance no
-   bloqueante — no afecta a esta cadena de transmisión).
-4. **RISK-SAIT-003 (nuevo, 2026-09-30) — fallo silencioso en la transformación XSLT de `Batch_Sait`.**
-   Confirmado por decompilación real: si `TransformerFactory`/`Transformer.transform()` lanza una excepción,
-   el `catch` solo registra el error, pero el proceso continúa y loguea igualmente "Salida específica para
-   SAIT Diario generada" / "FINALIZADA SAIT Diario" — el log no permite distinguir un fallo real de una
+3. **RISK-SAIT-002 — fichero sin sufijo.** `KYTL_RDR_EXTRACTION_contratos_Diario.xml` es el XML de entrada
+   que el Planificador deja cada mañana y que `Batch_Sait` consume para generar, vía XSLT, el fichero
+   `_20000101.xml`; no es un artefacto sin propósito. La cadena corre de lunes a viernes y el Planificador
+   genera de martes a sábado, y la cadena diaria no espera al fichero (no tiene `ctmfw`): si un día el
+   Planificador no lo deja, el resultado depende de si el fichero antiguo sigue en la carpeta o ya fue
+   historificado (P-SAIT-03).
+4. **RISK-SAIT-003 — fallo silencioso en la transformación XSLT de `Batch_Sait`.** Confirmado por
+   decompilación real: si `TransformerFactory`/`Transformer.transform()` lanza una excepción, el `catch`
+   solo registra el error, pero el proceso continúa y loguea igualmente "Salida específica para SAIT
+   Diario generada" / "FINALIZADA SAIT Diario" — el log no permite distinguir un fallo real de una
    ejecución correcta. Ver TC-007.
-5. **Detalle menor no bloqueante — contenido exacto de `Sait_Diario.xsl` (nombre ahora confirmado).** El
-   diccionario de campos del XML de entrada está confirmado con evidencia literal (`BATCH_SAIT.sql`, §1.2,
-   aunque su ejecutor real quede en GAP-SAIT-008); no se ha confirmado si `Sait_Diario.xsl` aplica algún
-   filtrado/renombrado adicional sobre esa estructura antes de escribir la salida. No bloquea el cierre.
+5. **RISK-SAIT-004 — carrera entre las dos ramas paralelas sobre los mismos ficheros.** Tras `MEKYTL0357`
+   arrancan a la vez la rama de historificación (`MEKYTL0949 → MEKYTL0950`) y la de transmisión
+   (`MEKYTL0357_LISTA → MEKYTL0357_BORRA`); ninguna espera a la otra y ambas trabajan sobre
+   `/fichtemcomp/pr/descargas/kytl/SAIT/`. Si la historificación *mueve* el fichero antes de que
+   `LISTA` lo transmita, `LISTA` no lo encuentra (P-SAIT-02).
+6. **Detalle menor — contenido exacto de `Sait_Diario.xsl`** (P-SAIT-04): no se ha visto si filtra o
+   renombra campos de la estructura de §1.2.
 
 ## 10. Conclusión
 
 Se documenta la cadena completa `TRANSMISIONES_CIB_RDR_SAIT` (2 jobs) y su cadena de generación
-`RDR_DAILY_LA_PRO_new` con evidencia literal completa (12 + 27 capturas de Control-M, 6 fichas oficiales
-EX-005-03, contenido real de `RDR_Transformacion_SAIT.sh`, de `BATCH_SAIT.sql`, y del `.jar` decompilado de
-`Batch_Diario_Sait.Batch_Sait`), resolviendo los **7 de 7 gaps originales**: GAP-SAIT-001, 002 y 005/006/007
-resueltos en la primera ronda; GAP-SAIT-003 (mecanismo y topología de generación del XML) resuelto en la
-segunda ronda y reconfirmado a nivel de jar/clase en la tercera; y **GAP-SAIT-004 (diccionario de campos del
-XML) resuelto en la cuarta ronda** gracias a `BATCH_SAIT.sql`, la query Oracle real que construye el XML vía
-`XMLELEMENT`/`XMLAGG` a partir de `FT_T_LAGR`, con el elemento raíz `<Agreement>` y sus 14 bloques de campos
-documentados (§1.2).
+`RDR_DAILY_LA_PRO_new` (5 jobs) con evidencia literal: 12 + 27 capturas de Control-M, 6 fichas
+EX-005-03, el contenido real de `RDR_Transformacion_SAIT.sh`, de `BATCH_SAIT.sql` y de la clase
+`Batch_Diario_Sait.Batch_Sait` decompilada, y el inventario del Planificador Genérico. Resultado final:
 
-**Corrección 2026-09-30 (sesión de "Procesos diarios de Legal Agreements", P-062):** la decompilación real
-del `.jar` de `Batch_Diario_Sait.Batch_Sait` reveló que la atribución de `BATCH_SAIT.sql` a esa clase era
-incorrecta — la clase solo hace una transformación XSLT de un XML ya existente, sin acceso a base de datos.
-Esto añade un nuevo elemento (**GAP-SAIT-008**, origen real del XML de entrada), documentado como límite de
-alcance no bloqueante porque no cambia el comportamiento testeable de `TRANSMISIONES_CIB_RDR_SAIT` (mismo
-criterio ya aplicado a los jars de generación autónoma de "Extracción Genérica de Contrapartidas"), y un
-hallazgo de riesgo de código (**RISK-SAIT-003**, fallo silencioso de la transformación XSLT). El
-diccionario de campos en sí permanece válido como evidencia de la estructura del dato. **El proceso SAIT
-queda con 3 riesgos propios registrados (RISK-SAIT-001/002/003), con los 7/7 gaps originales resueltos y
-GAP-SAIT-008 documentado como límite de alcance — proceso cerrado.** Con esta salida, ambos flujos del
-documento original ("Envío de ficheros GUIDO usuario-rol y extracción SAIT") quedan cubiertos por
-especificaciones propias.
+- **Origen del dato:** el Planificador Genérico escribe `KYTL_RDR_EXTRACTION_contratos_Diario.xml`
+  (fila 9, `BATCH_SAIT_DIARIO.sql`, martes a sábado 04:45) en `/fichtemcomp/pr/descargas/kytl/SAIT/`.
+- **Transformación:** `RDR_DAILY_LA_JAVA` (`RDR_Transformacion_SAIT.sh` → `Batch_Sait`) le aplica
+  `Sait_Diario.xsl` y escribe `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (nombre fijo). Sin
+  base de datos; un fallo de la transformación no se refleja en el log (RISK-SAIT-003).
+- **Distribución:** `MEKYTL0357` publica dos eventos; `MEKYTL0949 → MEKYTL0950` historifican con fecha;
+  `MEKYTL0357_LISTA` envía por Connect:Direct a `WVMSAITDB01` y `MEKYTL0357_BORRA` borra el origen.
+- **Gaps:** 8 de 8 resueltos (GAP-SAIT-008, el origen del XML de entrada, se resolvió el 2026-10-01 al
+  identificar las filas 9 y 20 del Planificador). Quedan 5 preguntas abiertas no bloqueantes
+  (P-SAIT-01 a 05, §4) y 4 riesgos propios (RISK-SAIT-001 a 004).
+
+Con esta salida, ambos flujos del documento original ("Envío de ficheros GUIDO usuario-rol y extracción
+SAIT") quedan cubiertos por especificaciones propias.

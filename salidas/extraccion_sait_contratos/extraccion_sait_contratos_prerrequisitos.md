@@ -2,20 +2,19 @@
 
 ## Datos y ficheros previos
 
-- `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (nombre confirmado literal, no `${FECHA}` — ver
-  corrección 2026-09-30) debe existir en `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor
-  `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA` pueda transmitirlo — lo produce el job
-  `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (06:00 AM, cross-chain, mecanismo de invocación
-  confirmado con evidencia real — GAP-SAIT-003 resuelto, ver `extraccion_sait_contratos_spec.md` §1.1), que a su vez requiere que
-  exista de antemano `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (sin sufijo) — **generado por un proceso
-  aún no identificado, fuera del árbol de esta cadena (GAP-SAIT-008, límite de alcance no bloqueante, ver
-  `extraccion_sait_contratos_spec.md` §4)**. No es un prerrequisito operativo de esta cadena: `TRANSMISIONES_CIB_RDR_SAIT` solo
-  necesita que el fichero exista, sea cual sea su origen.
-- El script (`RDR_Transformacion_SAIT.sh`) y la hoja de transformación (`Sait_Diario.xsl`) que produce el
-  XML final están confirmados con evidencia literal (código real de `Batch_Diario_Sait.Batch_Sait`
-  decompilado, ver `extraccion_sait_contratos_spec.md` §1.1). La query Oracle `BATCH_SAIT.sql` (entidad raíz `KYTL_GC.FT_T_LAGR`,
-  excluye orígenes `Sentry`/`MENTOR`) sigue siendo evidencia real de la estructura del dato, pero **no la
-  ejecuta esta clase** — su ejecutor real es el mismo proceso no identificado de GAP-SAIT-008.
+- `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (nombre literal, sin fecha real) debe existir en
+  `/fichtemcomp/pr/descargas/kytl/SAIT/` (servidor `pr-rdr.igrupobbva`) antes de que `MEKYTL0357_LISTA`
+  pueda transmitirlo. Lo produce el job `RDR_DAILY_LA_JAVA` de la cadena `RDR_DAILY_LA_PRO_new` (lunes a
+  viernes, desde las 06:00; ver `extraccion_sait_contratos_spec.md` §1.1), que a su vez necesita el XML de
+  entrada `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (sin sufijo) en la misma carpeta. Ese XML lo escribe el
+  **Planificador Genérico** (fila 9 de su inventario, `BATCH_SAIT_DIARIO.sql`, martes a sábado 04:45; job
+  `RDRKYTL001` de la cadena `RDR_SW_PLANIFICADOR_new`; spec §4). Para probar esta cadena de transmisión basta
+  con que el `_20000101.xml` exista, sea cual sea su origen.
+- El script `RDR_Transformacion_SAIT.sh`, el jar `RDR_Transformacion_SAIT.jar` (clase `Batch_Diario_Sait.Batch_Sait`)
+  y la hoja `Sait_Diario.xsl` (en `/pr/kytl/online/multipais/multicanal/dat/properties/`) deben estar
+  instalados; la clase solo transforma el XML de entrada, no consulta la base de datos. La query
+  `BATCH_SAIT.sql` (carga total, fila 20) y su estructura están en la spec §1.2; la de la fila 9 no se ha
+  recibido (P-SAIT-01).
 
 ## Configuración e infraestructura
 
@@ -44,6 +43,9 @@
 - **Importante:** ningún job de esta cadena tiene soft-failure configurado (sin "Acciones Si" en ninguno de
   los 2) — a diferencia de otros procesos de esta sesión, un fallo real de Connect:Direct **sí detiene la
   cadena** visiblemente en Control-M (ver RISK-SAIT-001 en `extraccion_sait_contratos_spec.md`).
-- **Importante:** no asumir que `KYTL_RDR_EXTRACTION_contratos_Diario_${FECHA}.xml` es el único fichero
-  relevante — `MEKYTL0357_LISTA` también historifica un fichero sin fecha (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`)
-  de naturaleza no confirmada (ver RISK-SAIT-002 en `extraccion_sait_contratos_spec.md`).
+- **Importante:** no asumir que `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` es el único fichero
+  relevante — `MEKYTL0357_LISTA` también historifica el XML de entrada sin sufijo
+  (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`), y `MEKYTL0949`/`MEKYTL0950` historifican ambos con fecha
+  desde la otra rama (ver RISK-SAIT-002 y RISK-SAIT-004 en `extraccion_sait_contratos_spec.md`).
+- Para los casos TC-001 a TC-003 conviene ejecutar en un entorno donde se controle el orden de las dos ramas
+  paralelas de `MEKYTL0357` (P-SAIT-02), para que la historificación no retire el fichero antes del envío.
