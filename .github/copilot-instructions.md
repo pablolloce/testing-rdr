@@ -96,6 +96,50 @@ componente, también dentro de `salidas/`, y las specs de proceso la referencian
   `salidas/comun_*`. Si existe, úsala y complétala si aportas algo nuevo. Si no existe y el
   artefacto lo usa más de un proceso, créala.
 
+### Autointerrogatorio — cómo comprobar que la spec es autosuficiente
+
+No basta con que la spec no remita a fuera: tiene que **responder**. Antes de cerrarla, ponte en
+el lugar de alguien que no conoce el proceso, que solo tiene la carpeta `salidas/<proceso>/` (y
+las `salidas/comun_*` que referencie), y hazle preguntas. Por cada pregunta, clasifica:
+
+| Resultado | Qué haces |
+|---|---|
+| La spec responde, con dato concreto y sin interpretar | Nada |
+| Responde a medias o con vaguedades ("procesa los datos", "según configuración") | Es un gap: complétalo |
+| No responde, pero la respuesta está en `documentos_fuente/` | Incorpórala a la spec |
+| No responde y no está en ninguna fuente | Pregunta al usuario; sin respuesta no se cierra |
+
+**Ronda 1 — preguntas de quien llega de cero**, como mínimo:
+
+- *Qué es y para qué sirve*: ¿qué hace este proceso en una frase? ¿Qué necesidad de negocio
+  cubre? ¿Quién usa lo que produce? ¿Qué pasa si un día no se ejecuta?
+- *Qué hay inicialmente*: ¿qué tiene que existir antes de arrancar? ¿De qué tablas, ficheros o
+  servicios lee, y qué contienen? ¿Con qué formato llegan? ¿Qué volumen es normal?
+- *Cuándo y quién lo lanza*: ¿cuándo se ejecuta, con qué calendario y a qué hora? ¿Qué lo
+  dispara? ¿De qué depende y qué depende de él? ¿Qué pasa en festivos o si llega tarde la
+  entrada?
+- *Cómo funciona*: ¿qué pasos tiene y en qué orden? ¿Qué comando exacto ejecuta cada paso, con
+  qué parámetros, en qué máquina y con qué usuario? ¿Qué hace cada script, jar o workflow?
+- *Qué lógica aplica*: ¿qué filtra? ¿Qué transforma? ¿Cómo se obtiene cada campo de la salida?
+  ¿Qué valida? ¿Qué hace con duplicados, nulos o registros inválidos?
+- *Cuál es el resultado final*: ¿qué produce exactamente, dónde lo deja, con qué nombre y con
+  qué formato campo a campo? ¿Qué cambia en base de datos? ¿Quién lo recoge y cómo?
+- *Cómo sé que ha ido bien o mal*: ¿qué escribe en log y dónde? ¿Qué códigos de retorno da?
+  ¿Qué pasa si falla cada paso: salida parcial, vacía o nada? ¿Quién recibe la alerta? ¿Cómo se
+  relanza y qué hay que limpiar antes?
+- *Qué queda después*: ¿se historifica? ¿Cuánto se guarda? ¿Qué se purga y cuándo?
+- *Cómo se prueba*: ¿qué datos y qué entorno hacen falta para ejecutar cada caso?
+
+**Ronda 2 — barrido de términos.** Recorre la spec entera y, por cada nombre propio que aparezca
+(tabla, campo, script, jar, job, cadena, fichero, parámetro, sigla, sistema externo, código de
+error), pregunta "¿qué es esto y qué papel tiene aquí?". Si la spec lo nombra sin explicarlo, es
+un gap.
+
+**Ronda 3 y siguientes — preguntas que nacen de las respuestas.** Cada respuesta abre otras
+("lee de FT_T_X" → ¿qué columnas?, ¿con qué filtro?, ¿qué pasa si está vacía?). Repite rondas
+hasta que una ronda completa no encuentre ningún gap nuevo. Eso, y no otra cosa, es la señal de
+que la spec está completa.
+
 ### Límite de tamaño
 
 Si el análisis de un proceso, o de un fichero que ejecuta, es tan grande que no cabe
@@ -500,6 +544,8 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
   únicas remisiones de contenido son a `salidas/comun_*`, y esas specs de componente existen y
   cubren lo que se les delega. Compruébalo buscando en la carpeta las cadenas
   `documentos_fuente`, `memoria/` y `salidas/` y revisando cada aparición
+- has pasado el **autointerrogatorio** (§"Autosuficiencia de la especificación") hasta una ronda
+  sin gaps nuevos: toda pregunta razonable sobre el proceso se responde con la spec
 
 ## Modo ejecutable — preparar casos para AtSQA Framework
 
