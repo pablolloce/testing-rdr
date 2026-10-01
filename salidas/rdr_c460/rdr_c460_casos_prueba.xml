@@ -110,7 +110,7 @@
 
   <casoDePrueba id="TC-006" tipo="negativo">
     <nombre>Fichero CN460.csv no llega dentro de ventana</nombre>
-    <objetivo>Confirmar que, si CN460.csv no llega, FW_C460_RDR_2 no detecta el fichero y RDRKYTL001 no se lanza, sin que la cadena falle de forma incontrolada.</objetivo>
+    <objetivo>Confirmar el comportamiento real cuando CN460.csv no llega: FW_C460_RDR_2 espera 15 minutos, ctmfw sale con código 7, la regla ON "7 -> OK" marca el job OK y emite su evento, y la cadena continúa con RDRKYTL001 sin datos del día.</objetivo>
     <precondiciones>
       <precondicion>RDR_C460_IN y FW_C460_RDR han finalizado OK (CN460_F*_*.csv sí llegó).</precondicion>
       <precondicion>CN460.csv no existe en /fichtemcomp/pr/descargas/kytl/Contratos460/.</precondicion>
@@ -119,14 +119,14 @@
       <dato campo="fichero_datos" valor="ausente"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar que FW_C460_RDR_2 queda en espera (ctmfw sin detectar el fichero).</paso>
-      <paso numero="2">Verificar que no se emite RDR_C460_FW_C460_RDR_2_OK-547.</paso>
-      <paso numero="3">Confirmar que RDRKYTL001 no se lanza mientras no se emita ese evento.</paso>
+      <paso numero="1">Confirmar que FW_C460_RDR_2 queda en espera (ctmfw CREATE 0 60 10 5 15 sin detectar el fichero) durante 15 minutos.</paso>
+      <paso numero="2">Al agotarse el tiempo, verificar en el log del job que ctmfw termina con código 7, que la regla ON lo marca como OK y que se emite RDR_C460_FW_C460_RDR_2_OK-547.</paso>
+      <paso numero="3">Confirmar que RDRKYTL001 se lanza y revisar el log de GSProcess.sh: resultado del paso 1 (copia de CN460.csv ausente) y si ConContrato460 relee el CN460_ConCabecera_processed.csv del día anterior.</paso>
     </pasos>
-    <resultadoEsperado>La cadena queda en espera en FW_C460_RDR_2, sin avanzar, hasta que el fichero llegue o se agote el tiempo máximo de ctmfw (desconocido, P-C460-02). Si se agota, ctmfw sale con código 7 y, al no constar regla "7 -> OK", el job queda en NOTOK y la cadena se detiene sin procesar nada; aviso de criticidad W (día siguiente).</resultadoEsperado>
-    <tipoValidacion>Monitorización de estado en Control-M</tipoValidacion>
-    <criterioAceptacion>Ningún job posterior a FW_C460_RDR_2 se ejecuta mientras el fichero no llegue.</criterioAceptacion>
-    <posibilidadFallo>Verificar por lectura del estado del job en Control-M, no requiere ejecución destructiva.</posibilidadFallo>
+    <resultadoEsperado>FW_C460_RDR_2 espera como máximo 15 minutos a CN460.csv. Si el fichero llega en ese plazo, la cadena sigue con normalidad. Si no llega, ctmfw sale con código 7 y la regla ON "7 -> OK" marca el job OK y emite su evento, de modo que la cadena NO se detiene en el filewatcher: RDRKYTL001 se lanza igualmente. Cómo reacciona el paso 1 de GSProcess.sh a la ausencia de CN460.csv no consta (ver P-C460-05); si el pipeline continúa, se reprocesa el _processed.csv del día anterior sin aviso (RISK-C460-005, RISK-C460-006). Criticidad W (aviso al día siguiente).</resultadoEsperado>
+    <tipoValidacion>Monitorización de estado y log de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>Tras 15 minutos sin fichero, FW_C460_RDR_2 figura OK con código de retorno 7 y RDRKYTL001 arranca; queda constancia en log de lo que hizo el pipeline sin fichero.</criterioAceptacion>
+    <posibilidadFallo>Verificar por lectura del histórico/log de Control-M de un día real sin fichero; no provocar la ausencia en producción. Si el job quedara en NOTOK en vez de OK, la regla ON no está aplicada en el entorno y la spec (§5.1) debe revisarse.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="error_funcional">

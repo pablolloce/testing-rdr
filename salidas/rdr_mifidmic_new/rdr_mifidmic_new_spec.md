@@ -93,6 +93,19 @@ Excluye: el tratamiento que hacen Murex y `mcm0501`; lo que ocurre dentro de `/o
 | P-MIC-04 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0940` y `MEKYTL0941`? | Para documentar el renombrado y saber si fallan cuando no hay fichero |
 | P-MIC-05 | ¿Qué es "STAR" en el título del proceso y qué sistema recoge `FRMIC.csv` en `mcm0501`? | Para nombrar al destinatario real del envío a `mcm0501` |
 
+**Estado tras la pasada de cierre (documento original del proceso, rama de Miguel):** ninguna de las cinco
+preguntas queda resuelta; el documento original no contiene la query, el literal de los `.properties`/`.idx`
+ni el significado de "STAR". Aporta tres matices, que se recogen aquí sin cambiar el estado:
+- *P-MIC-01 (parcial):* el análisis original describe `Eliminar_fila` como "elimina la fila 1 (cabecera)" y
+  su caso de éxito de pruebas deposita `FRMIC.csv` "con cabecera"; es la intención de diseño de la cadena,
+  pero no prueba que el CSV del Planificador incluya cabecera (el texto de la query sigue sin conocerse),
+  así que el riesgo de perder un MIC por día se mantiene.
+- *P-MIC-05 (hipótesis, no confirmada):* el análisis original sugiere que `FRMIC` significaría "Ficheros de
+  Reporting MiFID" y que `mcm0501` es "otro sistema interno"; no hay evidencia, y el origen real
+  (`RDR_ExtraccionMIC.sql`, lista de MIC) apunta más bien a una lista de centros de negociación. Se deja abierta.
+- *Verificación de entrega:* el análisis original pide confirmar la recepción de `FRMIC_YYYYMMDD.csv` en
+  `ap_ejpe_pr` y de `FRMIC.csv` + `frmic.flg` en `mcm0501`; coincide con el criterio ya fijado en §7.
+
 ## 5. Especificación funcional
 
 **Estado inicial:** el Planificador ha generado `/fichtemcomp/pr/descargas/kytl/mifidmic/FRMIC.csv` (04:30 L-V);

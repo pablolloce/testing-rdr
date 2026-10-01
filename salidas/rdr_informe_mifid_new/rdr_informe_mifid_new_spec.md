@@ -84,7 +84,7 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción |
-| P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar` |
+| P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar`. **Resuelta en parte (pasada de cierre):** el análisis original del proceso confirma las tres etapas, el evento `RDR_Reporte`, el evento `RDR_InformeMIFID` y que el Java recibe el CSV y el nombre base `Reporte_informeMIFID`; nombra el jar de dos formas (`InformeMIFID.jar` y `RDR_InformeMIFID.jar`, clase `InformeMIFID`; por la convención `RDR_*.jar` de otras cadenas, el nombre real probablemente es `RDR_InformeMIFID.jar`, sin confirmar). Siguen sin constar el literal, `Stop` y el nombre exacto del jar |
 | P-INF-03 | ¿Con qué script historifican `MEKYTL0353` y `MEKYTL0362` (¿`RAMERC0068.sh`?) y con qué configuración? | Para saber si fallan cuando falta el fichero |
 | P-INF-04 | Los Excel observados (`_20260729`, `_20260827`, `_20260901`) se generaron en miércoles, jueves y martes, no en tercer lunes de mes. ¿Fueron ejecuciones manuales o la planificación real es otra? | Contradice R1; decide cuándo hay que esperar el informe |
 | P-INF-05 | ¿Cómo maneja `InformeMIFID.java` el fallo de escritura final (código de salida)? | La spec recoge que el error se captura sin propagarse: el job podría terminar OK sin Excel |
@@ -171,7 +171,7 @@ Salida: `/fichtemcomp/<env>/descargas/kytl/informeMIFID/Reporte_informeMIFID.csv
 
 ### 6.4 `InformeMIFID.jar`
 
-Clase `InformeMIFID` (código analizado en sesión). Sin lógica de negocio ni SQL: lee el CSV, abre la plantilla
+Clase `InformeMIFID` (código analizado en sesión; el jar figura en el análisis original también como `RDR_InformeMIFID.jar`, P-INF-02). Sin lógica de negocio ni SQL: lee el CSV, abre la plantilla
 `Reporte_informeMIFID_Plantilla.xlsx` con Apache POI, escribe cada línea en la hoja `CtpdasExpiran` aplicando
 estilos alternos por fila (bandas de color, bordes) y guarda `Reporte_informeMIFID_<yyyyMMdd>.xlsx` en el mismo
 directorio. Si la plantilla no existe, falla al abrir el `FileInputStream` (excepción no capturada). Un error en

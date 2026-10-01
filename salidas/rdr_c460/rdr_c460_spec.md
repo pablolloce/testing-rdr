@@ -12,7 +12,10 @@ con la jerarquía activa de BBVA, incluyendo un barrido independiente de nodos "
 Cadena de 9 jobs: 2 jobs Dummy de control (`RDR_C460_IN`/`RDR_C460_OUT`), 2 filewatchers
 (`FW_C460_RDR`/`FW_C460_RDR_2`), 1 job de procesamiento (`RDRKYTL001`, que ejecuta un pipeline de 12
 pasos vía `GSProcess.sh`) y 4 jobs de historificación (`MEKYTL0609`/`0610`/`0611`/`0642`, motor genérico
-`RAMERC0068.sh`).
+`RAMERC0068.sh`). Volumen de referencia: 2174 ejecuciones al año (dato del explorador de procesos de
+Control-M, documento original del proceso; por el orden de magnitud —unas 241 pasadas de una cadena de 9
+jobs— apunta a ejecución en días hábiles, aunque los filewatchers y `RDRKYTL001` estén definidos para los 7
+días). Criticidad `W` (aviso al día siguiente) en todos los jobs.
 
 **Hallazgo más importante:** pese a que el documento fuente clasifica el proceso bajo `Entidad: LAGR`
 (sugiriendo relación con los procesos ya analizados de Legal Agreements/SAIT), el análisis real del
@@ -98,17 +101,16 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
 | GAP-C460-005 | Los filewatchers/`RDRKYTL001` corren 7 días/semana (`LMXJVSD`/diaria) pero la historificación (`MEKYTL0609`-`0642`) solo L-V (`LMXJV`) — ¿qué pasa con el archivado en fin de semana? | No se pudo verificar con histórico de ejecuciones (pestaña "Ver reports de ejecución" sin datos disponibles). | **Cerrado como observación de riesgo no bloqueante** — ver RISK-C460-002 |
 | GAP-C460-006 | ¿Tiene `RDR_C460` relación funcional real con `legal_agreements_p062`/`extraccion_sait_contratos` (mismo dominio nominal `LAGR`)? | Verificado por código: `FT_T_LAGR` no aparece en ningún punto de `RDR_PLSQL.jar` ni `RDR_GestionCpartyC460.jar`. Las tablas reales tocadas son de dominio de jerarquía de contrapartida/cliente (`FT_T_FIID`, `FT_T_FIRL`, `FT_T_FINS`, `FT_T_FAB1`, etc.), no de Legal Agreement. | **Resuelto: sin relación técnica real** |
 
-Los gaps anteriores están resueltos. Siguen abiertas estas preguntas, cuya respuesta no está en ninguna
-fuente disponible:
+Los gaps anteriores están resueltos. Preguntas pendientes y su estado tras la pasada de cierre:
 
-| Id | Pregunta | Por qué importa |
-|---|---|---|
-| P-C460-01 | Contenido de `fillingRules_CN460.csv` (reglas por columna de las 12 columnas) | Decide qué filas llegan a `ConContrato460` y cuáles se rechazan a `_noprocessed.csv`; sin él no se pueden preparar datos de rechazo |
-| P-C460-02 | Comandos `ctmfw` exactos de `FW_C460_RDR`/`FW_C460_RDR_2` (tamaño mínimo, intervalos, mediciones, tiempo máximo), calendario, hora y reglas `ON` (¿existe "7 → OK"?) de cada job | Define qué pasa cuando el fichero no llega (TC-006) y cuándo se da por completo |
-| P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica |
-| P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` |
-| P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline |
-| P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar |
+| Id | Pregunta | Por qué importa | Estado |
+|---|---|---|---|
+| P-C460-01 | Contenido de `fillingRules_CN460.csv` (reglas por columna de las 12 columnas) | Decide qué filas llegan a `ConContrato460` y cuáles se rechazan a `_noprocessed.csv`; sin él no se pueden preparar datos de rechazo | Abierta |
+| P-C460-02 | Comandos `ctmfw` exactos de `FW_C460_RDR`/`FW_C460_RDR_2` (tamaño mínimo, intervalos, mediciones, tiempo máximo), calendario, hora y reglas `ON` (¿existe "7 → OK"?) de cada job | Define qué pasa cuando el fichero no llega (TC-006) y cuándo se da por completo | **Resuelta** — la ficha de Control-M (documento original del proceso, rama de Miguel) trae `CREATE 0 60 10 5 15` en ambos (espera máxima 15 min) y la regla `ON` "código de retorno 7 → OK" en ambos; calendario `LMXJVSD`, `RDR_C460_IN` tras las 07:00. Ver §5.1 |
+| P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica | Abierta (la ficha original de `MEKYTL0611` repite la ruta con espacio, sin aclararlo) |
+| P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` | **Resuelta en parte** — renombrado y máscaras conocidos por las fichas originales (§5.3); sigue abierto el campo "falla si no hay fichero" y la operación literal del IDX |
+| P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline | Abierta |
+| P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar | Abierta |
 
 ## 5. Especificación funcional
 
@@ -125,12 +127,27 @@ fuente disponible:
    `/fichtemcomp/pr/descargas/kytl/Contratos460/CN460.csv`. Predecesor: evento de `FW_C460_RDR`. Emite
    `RDR_C460_FW_C460_RDR_2_OK-547`.
 
-   **Parámetros exactos de ambos `ctmfw` (tamaño mínimo, intervalos, número de mediciones y tiempo máximo
-   de espera) y reglas `ON` de Control-M: no constan en ninguna fuente aportada (P-C460-02).** Consecuencia
-   para la lectura de los casos: si el tiempo máximo es 0 el filewatcher espera sin límite; si es mayor y
-   se agota, `ctmfw` termina con código 7, y como no consta ninguna regla "7 → OK" el job quedaría en NOTOK
-   y la cadena se detendría sin procesar nada. `%%$DATE` es una variable de Control-M que se sustituye por
-   la fecha del día antes de ejecutar; su formato exacto no consta.
+   **Parámetros reales de ambos `ctmfw` (ficha de Control-M, documento original del proceso, rama de
+   Miguel):** `ctmfw '/fichtemcomp/pr/descargas/kytl/Contratos460/CN460_F%%$DATE._*.csv' CREATE 0 60 10 5 15`
+   (`FW_C460_RDR`) y `ctmfw '/fichtemcomp/pr/descargas/kytl/Contratos460/CN460.csv' CREATE 0 60 10 5 15`
+   (`FW_C460_RDR_2`). Se leen: tamaño mínimo 0 (se da por llegado aunque esté vacío), búsqueda cada 60 s,
+   medición de tamaño cada 10 s, 5 mediciones seguidas iguales para darlo por completo y **espera máxima de
+   15 minutos** por filewatcher. Ambos son jobs OS que corren como `xpctma1` en `pr-rdr.igrupobbva`
+   (servidor `MERCADOS-4`), con ventana "lanzado después del siguiente nuevo día" (en la práctica arrancan
+   cuando su predecesor emite el evento), 0 relanzamientos, retención de 3 días, y consumen 1 unidad del
+   recurso `MAX-LPRDR501` (total 100).
+
+   **Regla `ON` de ambos filewatchers: código de retorno de OS = 7 → marcar como OK.** Es el patrón de
+   "regla acotada" descrito en `comun_ctmfw_spec.md`: si el fichero no llega en 15 minutos, `ctmfw` termina
+   con 7, el job se da por OK y **emite igualmente su evento** (`RDR_C460_FW_C460_RDR_OK-547` /
+   `RDR_C460_FW_C460_RDR_2_OK-547`). La cadena **no se detiene** por la falta de fichero: tras como mucho
+   unos 30 minutos de espera acumulada (15 + 15) se lanza `RDRKYTL001` aunque no haya llegado ni
+   `CN460_F…csv` ni `CN460.csv`. Lo que ocurra después depende del pipeline de `GSProcess.sh` (§6.1): el
+   comportamiento exacto de `CopiarFichero` con `CN460.csv` ausente no consta; si el pipeline sigue (por
+   ejemplo con `Stop=OK` en mayúsculas, P-C460-05), `ConContrato460` relee el `_processed.csv` del día
+   anterior (RISK-C460-005). Esto no hay que confundirlo con el caso de fichero presente pero vacío
+   (RISK-C460-003). `%%$DATE` es una variable de Control-M que se sustituye por la fecha del día antes de
+   ejecutar; su formato exacto no consta.
 
 ### 5.2 Procesamiento (`RDRKYTL001`)
 
@@ -168,9 +185,21 @@ RATINGS_ADA, KYTL_BCBS_SECTOR_ASSET_ALLOCATION) mueve, en cascada estricta y sec
 | `MEKYTL0642` | `/Contratos460/CN460_ConCabecera.csv_REPES` | `/Contratos460/old/` |
 
 Cada job depende del evento `_OK` del anterior. `MEKYTL0609` depende de `RDR_C460_new_RDRKYTL001_OK`.
-Las rutas son relativas a `/fichtemcomp/pr/descargas/kytl/`. Las líneas del IDX de historificación de cada
-clave (operación, renombrado, si falla cuando no hay fichero) no constan (P-C460-04); según las fichas
-"mueven" el fichero. Si falla uno de los cuatro (códigos de `RAMERC0068.sh`: 2 clave ausente, 4/5 directorio
+Las rutas son relativas a `/fichtemcomp/pr/descargas/kytl/`. Las fichas (documento original del proceso)
+dan, además de rutas, las máscaras y el renombrado en destino (sintaxis `máscara:R:nombre`, ver
+`comun_ramerc0068_spec.md` §5): `MEKYTL0609` mueve `CN460_F*_*.csv` a `old/` **sin renombrar**;
+`MEKYTL0610` mueve `Reportes_Contratos460.csv` renombrándolo a `Reportes_Contratos460_${AAAAMMDD}`;
+`MEKYTL0611` mueve `Reportes_GestionHuerfanos.csv` renombrándolo a `Reportes_GestionHuerfanos_${AAAAMMDD}`;
+`MEKYTL0642` mueve `CN460_ConCabecera.csv_REPES` renombrándolo a
+`CN460_ConCabecera.csv_REPES_${AAAAMMDD}`. El nombre destino que figura en las fichas de 0610/0611/0642 no
+lleva extensión `.csv` final (el sello de fecha queda al final del nombre); la ficha de `MEKYTL0611` trae
+además restos de edición en la máscara de origen (`Reportes s_GestionHuerfanos.csv`), por lo que el texto
+literal del IDX de esa clave sigue sin estar confirmado. Como `R` da un nombre fijo, los tres jobs con
+renombrado (0610, 0611, 0642) tratan un único fichero por ejecución; `MEKYTL0609`, sin renombrado, mueve
+todos los `CN460_F*_*.csv` que haya con su nombre original. Ninguna ficha historifica `CN460.csv`, `CN460_ORI.csv`,
+`CN460_ConCabecera_processed.csv` ni `_noprocessed.csv`: esos ficheros permanecen en `Contratos460/` hasta
+que los sobrescriba la siguiente ejecución (IC para `CN460.csv`; el propio pipeline para los demás). Sigue sin constar la operación exacta del IDX (la
+ficha dice "Mover a") ni el campo "falla si no hay fichero" (P-C460-04). Si falla uno de los cuatro (códigos de `RAMERC0068.sh`: 2 clave ausente, 4/5 directorio
 origen/destino inexistente, 6 sin fichero si el IDX lo exige, 7 error al mover) la cascada se detiene y
 `RDR_C460_OUT` no se publica; los ficheros ya movidos no se reponen. **Discrepancia a aclarar (P-C460-03):**
 `MEKYTL0611` toma el origen en `Reportes/Gestion Huerfanos/` (con espacio) mientras que `RDR_Report.jar`
@@ -356,6 +385,8 @@ registros internos, son las peticiones de alta/baja que deben accionarse hacia I
 esas peticiones fuera de alcance de esta cadena — documentación técnica adicional disponible en
 `DT_Regularización_Gestión_Contrato_460_v1.0.docx`, drive de ANS, no obtenido).
 
+**Posible envío por correo de los informes (dato indirecto):** el análisis del informe MIFID (documento original de ese proceso, rama de Miguel) descarta el workflow genérico `envioReporteMail.gsp` para MiFID porque "sus variables `LEI`/`C460` y sus plantillas `Reporte_LEI_*`/`Contratos460` pertenecen a otros procesos (Gestión LEI y Contratos 460)". Es decir, existe en GoldenSource un workflow de envío de informes por correo con una variante `C460` y una plantilla `Contratos460`. Ninguno de los 12 pasos de `GSProcess.sh Contrato460` lanza un evento de correo (solo los dos workflows de baja, pasos 7 y 8, de los que no se tiene definición, P-C460-07), así que no se sabe qué proceso o paso envía por correo `Reportes_Contratos460.csv`; queda como hipótesis a comprobar junto con P-C460-07.
+
 ### 6.7 Dato no verificado con el código disponible
 
 El documento fuente indica que la cadena "Acaba publicando su resultado en la cola destino
@@ -392,7 +423,7 @@ vez de ejecución directa, según el criterio de la regla 5.
 |---|---|---|
 | `happy_path` | El flujo normal (contrato activo reconciliado, cadena completa sin incidencias) funciona | TC-001, TC-002 |
 | `borde` | Filas inválidas, el centinela `000000000` y el desfase de calendario fin de semana se manejan sin romper el job | TC-003, TC-004, TC-005 |
-| `negativo` | Ausencia de fichero y fichero vacío no detienen la cadena de forma incontrolada ni corrompen el universo de conciliación | TC-006, TC-015 |
+| `negativo` | Ausencia de fichero (los filewatchers dan OK al agotar 15 min) y fichero vacío no corrompen el universo de conciliación y quedan trazados | TC-006, TC-015 |
 | `error_funcional` | Las 2 ramas de`F_CANCELACION` (activo/cancelado) y el "no concilia" siguen su camino correcto | TC-007, TC-008 |
 | `duplicidad` | El control de duplicados se ejecuta y el pipeline continúa sin fallar | TC-009 |
 | `conflicto_integridad` | Las relaciones de contrapartida que pierden conexión BBVA, y los nodos huérfanos de jerarquía, se detectan y desactivan | TC-010, TC-011 |
@@ -409,7 +440,14 @@ vez de ejecución directa, según el criterio de la regla 5.
   ningún informe: solo se ve revisando `_noprocessed.csv` o los logs.
 - **RISK-C460-005:** `ControlCargaDatos.jar` termina siempre con 0 y ningún paso borra
   `CN460_ConCabecera_processed.csv`: si un día falta el fichero de entrada o el de reglas, `ConContrato460`
-  vuelve a leer el `_processed.csv` del día anterior sin ningún aviso.
+  vuelve a leer el `_processed.csv` del día anterior sin ningún aviso. Este escenario es plausible porque
+  los filewatchers tienen la regla "7 → OK" (RISK-C460-006): la cadena arranca `RDRKYTL001` aunque IC no
+  haya entregado nada.
+- **RISK-C460-006:** los dos filewatchers esperan solo 15 minutos y tienen la regla `ON` "código 7 → OK":
+  un fichero que llega tarde (o nunca) deja la cadena en verde y sigue adelante sin datos del día; el fallo
+  solo se ve aguas abajo (informes sin cambios, `_processed.csv` antiguo, historificación que no encuentra
+  `CN460_F*_*.csv`). `MEKYTL0609` con el IDX desconocido (P-C460-04) podría además fallar y cortar la
+  cascada.
 - **RISK-C460-002:** desfase de calendario entre los filewatchers/`RDRKYTL001` (`LMXJVSD`/diaria) y la
   historificación (`MEKYTL0609`-`0642`, `LMXJV`) — no confirmado con histórico de ejecuciones (ver
   GAP-C460-005), documentado como observación de riesgo no bloqueante.
@@ -429,7 +467,7 @@ vez de ejecución directa, según el criterio de la regla 5.
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso documentado; quedan abiertas las preguntas P-C460-01 a P-C460-07 de §4.** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
+**Proceso documentado; quedan abiertas las preguntas P-C460-01, P-C460-03, P-C460-05 y P-C460-07 de §4 (P-C460-04 resuelta en parte; P-C460-02 resuelta).** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
 `.properties` de `GSProcess.sh`, 2 jars decompilados (`RDR_PLSQL.jar`, `RDR_GestionCpartyC460.jar`),
 `select.properties`, `Duplicados.sh`, captura real de la Planificación de Control-M, y confirmación de
 negocio de la wiki del proceso. La relación nominal con el dominio

@@ -99,6 +99,7 @@ patrones en este repositorio, y cada spec de proceso debe decir cuál aplica:
 | `extraccion_emisiones_mercados` | `.../markets/dictionaryMarkets.csv` | `CREATE 0 60 10 5 60` | 1 h |
 | `kytl001d_ratings_ada` | `/unload/kytl/datent/datax/%%$YEAR.%%$MONTH.%%$DAY._RatingsInternos.csv` | `CREATE 0 60 10 3 200` | 3 h 20 min |
 | `kytl_bcbs_sector_asset_allocation` | `/unload/kytl/datent/datax/%%ODATE_ClienSector.csv` | `CREATE 0 60 10 5 195` | 3 h 15 min |
+| `rdr_c460` | Los dos ficheros de entrada de contratos 460 | `CREATE 0 60 10 5 15` | 15 min. Tiene regla **7→OK**: si el fichero no llega, la cadena sigue |
 | `rdr_carga_bbg_multi_m_new`, `rdr_carga_bbg_multi_t_new` | `.../issues/ADRMultirequest/ADR_FILE.csv` | `CREATE 0 60 10 3 30` | 30 min |
 | `rdr_carga_plazas_trad_new` | `.../TradPlazas/TradPlazas.csv` | `CREATE 0 60 10 5 240` | 4 h |
 | `rdr_conc_oficinas_new` | `.../oficinas/oficinas.csv` | `CREATE 0 60 10 5 240` | 4 h |

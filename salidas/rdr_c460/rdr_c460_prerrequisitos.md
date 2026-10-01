@@ -17,7 +17,7 @@
 | TC-003 | 1 fila con un número de campos distinto de 12 (separados por `;`) |
 | TC-004 | 1 fila con `CCLIEN='000000000'` |
 | TC-005 | Una ejecución real de la cadena en sábado o domingo |
-| TC-006 | Ausencia deliberada de `CN460.csv` en la ruta de entrada |
+| TC-006 | Ausencia de `CN460.csv` en la ruta de entrada (acceso de lectura al histórico/log de Control-M de un día sin fichero; no provocarlo en producción) |
 | TC-007 | 1 folio activo en `FT_T_FAB1` y 1 fila en el fichero con `F_CANCELACION` distinto de `'0001-01-01'` para ese mismo folio/cliente |
 | TC-008 | 1 cliente en el universo de GoldenSource sin fila correspondiente en el fichero |
 | TC-009 | 2 filas con el mismo `CCLIEN` y `F_CANCELACION='0001-01-01'`, distinto `FOLIO` |
@@ -64,7 +64,9 @@
 
 - Cascada estricta de eventos: `RDR_C460_IN → FW_C460_RDR → FW_C460_RDR_2 → RDRKYTL001 → MEKYTL0609 →
   MEKYTL0610 → MEKYTL0611 → MEKYTL0642 → RDR_C460_OUT` (TC-002, TC-014).
-- Recurso cuantitativo `MAX-LPRDR501` (1/100) consumido por los 2 filewatchers y `RDRKYTL001`.
+- Recurso cuantitativo `MAX-LPRDR501` (1/100) consumido por los 2 filewatchers, `RDRKYTL001` y los 4 jobs de historificación.
+- Filewatchers: `ctmfw '<fichero>' CREATE 0 60 10 5 15` (espera máxima 15 min) con regla `ON` "código de retorno 7 → OK": si el fichero no llega la cadena continúa igualmente (TC-006).
+- Planificación: `RDR_C460_IN`/`RDR_C460_OUT` diarios tras las 07:00; filewatchers `LMXJVSD`; historificación `LMXJV`; 0 relanzamientos en todos los jobs.
 - Criticidad `W` (aviso día siguiente) en todos los jobs — no hay escalado inmediato ante fallo.
 - Normas de Rearranque solo documentadas explícitamente para `RDRKYTL001` (escalado a "ANS RDR
   (BZG03906)", `ans_rdr.es@bbva.com`); el resto de jobs no tienen instrucciones de rearranque definidas
