@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="extraccion_scis" fecha="2026-09-22" usuario="pablo.llorente">
+<casosDePrueba proceso="extraccion_scis" fecha="2026-10-01" usuario="pablo.llorente">
 
   <casoDePrueba id="TC-01" tipo="e2e">
     <nombre>Flujo completo E2E de la cadena RDR_EXTRACCIONSCIS</nombre>
     <objetivo>Verificar que los siete jobs se ejecutan en la secuencia declarada y que el ciclo completo —extracción, archivado y purga— termina correctamente, confirmando además que no se produce ninguna entrega a sistemas externos.</objetivo>
     <precondiciones>
-      <precondicion>Las queries ExtraccionSCIs.sql y ExtraccionContingenciaSCIs.sql están registradas y activas en la configuración del entorno.</precondicion>
+      <precondicion>FT_T_ATE1 contiene una única fila ExtraccionSCIs.sql y una única fila ExtraccionContingenciaSCIs.sql con URL_OUTPUT_FILE informado (el DATA_STAT_TYP de FT_T_ATE1 no influye), y FT_T_PAR1 una fila ROOT_TAG ACTIVE para ExtraccionContingenciaSCIs.sql.</precondicion>
       <precondicion>FT_T_SCIS contiene al menos 10 SCIs con END_TMS nulo, mezcla de ACTIVE e INACTIVE, ninguna asignada a la organización A15.</precondicion>
-      <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/extracciongenerica sin ficheros residuales de pasadas anteriores.</precondicion>
+      <precondicion>No existe ExtraccionContingenciaSCIs.xml.tmp en /fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/ y existe el subdirectorio SCIS/.</precondicion>
       <precondicion>Directorio SCIS/backup existente y con permisos de escritura y borrado.</precondicion>
-      <precondicion>Existe exactamente una línea MEKYTL1022@ en /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX.</precondicion>
+      <precondicion>Existe exactamente una línea MEKYTL1022@ en /&lt;env&gt;/pl/dat/INFORMACION_HISTORIFICACIONES.IDX del entorno, conocida y sin operación BD (contenido de producción pendiente, P-SCIS-01).</precondicion>
       <precondicion>El nombre del host del entorno sigue la nomenclatura esperada por RAMERC0068.sh.</precondicion>
       <precondicion>Cadena activa en Control-M con los cuatro jobs Dummy correctamente definidos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="dia_ejecucion" valor="día de la ventana domingo-jueves (0,1,2,3,4)"/>
+      <dato campo="dia_ejecucion" valor="día de orden de la cadena (WEEKDAYS 0,1,2,3,4; días naturales pendientes, P-SCIS-07)"/>
       <dato campo="hora_arranque" valor="03:30"/>
       <dato campo="user_daily" valor="PLAN_1300"/>
       <dato campo="n_scis" valor="10 (mezcla ACTIVE e INACTIVE)"/>
@@ -22,10 +22,10 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Lanzar la cadena RDR_EXTRACCIONSCIS en un día de su ventana de planificación.</paso>
-      <paso numero="2">Verificar que GS_EXTRACCIONSCIS genera ExtraccionContingenciaSCIs.xml.tmp y lo renombra a .xml.</paso>
+      <paso numero="2">Verificar que GS_EXTRACCIONSCIS termina en OK, que el fichero publicado está en extracciongenerica/SCIS/ con el nombre de URL_OUTPUT_FILE y que no queda ExtraccionContingenciaSCIs.xml.tmp en extracciongenerica/.</paso>
       <paso numero="3">Verificar que emite el evento RDR_EXTRACCIONSCIS_GS_EXTRACCIONSCIS_OK.</paso>
       <paso numero="4">Verificar que EXTRACCION_SCIS_XML_INACT y EXTRACCION_SCIS_XML se ejecutan en secuencia y emiten sus eventos sin invocar nada.</paso>
-      <paso numero="5">Verificar que MEKYTL1022 se ejecuta, archiva el fichero y emite RDR_EXTRACCIONSCIS_MEKYTL1022_OK.</paso>
+      <paso numero="5">Verificar que MEKYTL1022 se ejecuta, hace exactamente lo que dice su línea del IDX (comprobado en su log /&lt;env&gt;/pl/log/MEKYTL1022_HHMMSS.log) y emite RDR_EXTRACCIONSCIS_MEKYTL1022_OK.</paso>
       <paso numero="6">Verificar que KYTL003D_MEKYTL1023 y KYTL003D_MEKYTL1049 se activan en paralelo y emiten sus eventos.</paso>
       <paso numero="7">Verificar que MANT_RDR_EXTRACCION_SCIS se ejecuta tras recibir los dos eventos y realiza la purga.</paso>
       <paso numero="8">Verificar que la cadena cierra sin eventos de salida.</paso>
@@ -68,58 +68,59 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-03" tipo="error_funcional">
-    <nombre>La extracción falla cuando no hay SCIs que procesar</nombre>
-    <objetivo>Verificar que, si la query maestra no devuelve ningún identificador, la extracción termina en error y detiene la cadena, conforme a R-13: el proceso tiene que devolver algo.</objetivo>
+    <nombre>Universo vacío: R-13 exige fallo, el código termina en OK</nombre>
+    <objetivo>Confrontar el requisito R-13 (sin SCIs la extracción debe fallar) con el comportamiento real del programa, que publica un fichero solo con la etiqueta raíz y termina con código 0.</objetivo>
     <precondiciones>
-      <precondicion>En el entorno de pruebas, la query maestra devuelve cero filas: todas las SCIs tienen END_TMS informado o asignación BRANCH a la organización A15.</precondicion>
-      <precondicion>El directorio de extracción no contiene ningún fichero ExtraccionContingenciaSCIs previo.</precondicion>
-      <precondicion>Acceso de ejecución sobre el entorno de pruebas con el usuario que lanza GSProcess.sh, y de lectura sobre el directorio de extracción y sobre el log del proceso.</precondicion>
+      <precondicion>En el entorno de pruebas la query de lista devuelve cero filas: todas las SCIs tienen END_TMS informado o asignación BRANCH a 'A15 '.</precondicion>
+      <precondicion>FT_T_PAR1 con ROOT_TAG ACTIVE para ExtraccionContingenciaSCIs.sql.</precondicion>
+      <precondicion>Sin ExtraccionContingenciaSCIs.xml.tmp en extracciongenerica/.</precondicion>
+      <precondicion>Acceso de ejecución con el usuario que lanza GSProcess.sh y de lectura sobre extracciongenerica/SCIS/ y los logs.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="n_scis_vigentes" valor="0"/>
-      <dato campo="resultado_exigido" valor="error"/>
+      <dato campo="mensaje_log_esperado" valor="Cantidad de SCIS a tratar: 0"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dejar el universo de SCIs vigentes a cero en el entorno de pruebas.</paso>
-      <paso numero="2">Ejecutar la query maestra y comprobar que devuelve cero filas.</paso>
-      <paso numero="3">Ejecutar GS_EXTRACCIONSCIS.</paso>
-      <paso numero="4">Comprobar que la extracción termina en error.</paso>
-      <paso numero="5">Comprobar que no queda ningún fichero de extracción en el directorio de salida.</paso>
-      <paso numero="6">Comprobar que la cadena no avanza hasta MEKYTL1022.</paso>
+      <paso numero="1">Dejar el universo de SCIs vigentes a cero.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="3">Comprobar que el log del Java contiene "Cantidad de SCIS a tratar: 0".</paso>
+      <paso numero="4">Comprobar que el fichero publicado en SCIS/ contiene solo la etiqueta raíz de apertura y de cierre.</paso>
+      <paso numero="5">Comprobar el estado final de GS_EXTRACCIONSCIS.</paso>
+      <paso numero="6">Comprobar si la cadena avanza hasta MEKYTL1022.</paso>
     </pasos>
-    <resultadoEsperado>La extracción termina en error y la cadena se detiene sin archivar ni purgar nada. No se genera fichero de extracción, ni vacío ni con la raíz sin bloques.</resultadoEsperado>
-    <tipoValidacion>Estado final del job de extracción; inventario del directorio de salida; estado de los jobs posteriores.</tipoValidacion>
-    <criterioAceptacion>La extracción no termina nunca en OK cuando el universo está vacío, y no deja fichero alguno.</criterioAceptacion>
-    <posibilidadFallo>Alta — nada de lo documentado indica que el motor genérico distinga un universo vacío de una ejecución correcta. Si termina en OK, o si genera un fichero sin bloques, el caso falla y ese es precisamente el hallazgo: incumpliría R-13. El mismo escenario está abierto en RDR_EXTRACCION_CONTACTOS.</posibilidadFallo>
+    <resultadoEsperado>Según R-13, la extracción debe terminar en error y no dejar fichero. Con la implementación actual el job termina en OK, publica un fichero solo con la raíz y la cadena continúa: el caso se registra como FALLO del requisito (RG-16), salvo que el usuario acepte el comportamiento (P-SCIS-08).</resultadoEsperado>
+    <tipoValidacion>Log del Java; contenido del fichero; estado de los jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>El caso solo pasa si el job termina en error sin dejar fichero. Un OK con fichero solo con la raíz es incumplimiento de R-13.</criterioAceptacion>
+    <posibilidadFallo>Muy alta: el código (Ppal.java) no distingue un universo vacío de una ejecución correcta.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-04" tipo="negativo">
-    <nombre>Fallo de la extracción detiene la cadena</nombre>
-    <objetivo>Verificar que si la extracción falla la cadena no avanza y no se archiva ni se purga nada.</objetivo>
+    <nombre>Un aborto del programa de extracción detiene la cadena</nombre>
+    <objetivo>Verificar que, cuando el programa Java aborta (fila de la query de detalle sin URL_OUTPUT_FILE), GSProcess.sh termina con 1, la cadena se para y no se archiva ni se purga nada; y verificar que una query de lista marcada INACTIVE no es un fallo.</objetivo>
     <precondiciones>
-      <precondicion>Cadena en condiciones normales de ejecución.</precondicion>
-      <precondicion>Posibilidad de inhabilitar el acceso a la base de datos o de desactivar la query maestra en la configuración.</precondicion>
-      <precondicion>Directorio de extracción vacío.</precondicion>
+      <precondicion>Universo de 5 SCIs vigentes conocidas.</precondicion>
+      <precondicion>Permiso para modificar FT_T_ATE1 en el entorno de pruebas y para restaurarla.</precondicion>
+      <precondicion>Sin ExtraccionContingenciaSCIs.xml.tmp en extracciongenerica/; inventario previo de SCIS/ y SCIS/backup/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="modo_fallo_1" valor="conectividad con la base de datos interrumpida"/>
-      <dato campo="modo_fallo_2" valor="query maestra ExtraccionSCIs.sql inactiva o ausente en configuración"/>
-      <dato campo="modo_fallo_3" valor="query de detalle ExtraccionContingenciaSCIs.sql inactiva"/>
+      <dato campo="escenario_1" valor="URL_OUTPUT_FILE de ExtraccionContingenciaSCIs.sql a NULL"/>
+      <dato campo="escenario_2" valor="fila ExtraccionSCIs.sql con DATA_STAT_TYP='INACTIVE'"/>
       <dato campo="grupo_soporte" valor="ANS RDR (BZG03906)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Provocar el modo de fallo 1 y lanzar la cadena.</paso>
-      <paso numero="2">Verificar que GS_EXTRACCIONSCIS termina en KO.</paso>
-      <paso numero="3">Verificar que no queda ningún fichero .tmp huérfano en el directorio de extracción.</paso>
-      <paso numero="4">Verificar que ninguno de los seis jobs posteriores llega a ejecutarse.</paso>
-      <paso numero="5">Verificar que el directorio SCIS/backup no ha recibido ningún fichero y que la purga no se ha ejecutado.</paso>
-      <paso numero="6">Repetir con los modos de fallo 2 y 3.</paso>
-      <paso numero="7">Verificar que se emite el aviso a ANS RDR y que no se produce relanzamiento automático, conforme al máximo de relanzamientos a 0.</paso>
+      <paso numero="1">Escenario 1: poner a NULL URL_OUTPUT_FILE de ExtraccionContingenciaSCIs.sql y lanzar la cadena.</paso>
+      <paso numero="2">Verificar que GS_EXTRACCIONSCIS termina en KO y que el log de GSProcess.sh registra el subproceso Java como finalizado de forma incorrecta y ESTADO-1-.</paso>
+      <paso numero="3">Verificar que no se ha creado ExtraccionContingenciaSCIs.xml.tmp ni ha cambiado el contenido de SCIS/.</paso>
+      <paso numero="4">Verificar que ninguno de los seis jobs posteriores se ejecuta y que SCIS/backup no cambia.</paso>
+      <paso numero="5">Verificar que no hay relanzamiento automático (MAXRERUN=0).</paso>
+      <paso numero="6">Restaurar URL_OUTPUT_FILE. Escenario 2: marcar ExtraccionSCIs.sql como INACTIVE y lanzar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="7">Verificar que el fichero contiene las 5 SCIs y que el job termina en OK.</paso>
+      <paso numero="8">Restaurar la fila.</paso>
     </pasos>
-    <resultadoEsperado>La cadena se detiene en el primer job en los tres modos de fallo. No hay ficheros generados ni archivados, la purga no se ejecuta y se emite el aviso al grupo de soporte sin reintento automático.</resultadoEsperado>
-    <tipoValidacion>Estado de los siete jobs en Control-M; listado del directorio de extracción y de SCIS/backup; comprobación del registro de notificación.</tipoValidacion>
-    <criterioAceptacion>Cadena detenida, cero ficheros generados y aviso emitido en los tres modos.</criterioAceptacion>
-    <posibilidadFallo>Baja — el comportamiento esperado es el estándar del repositorio. El punto de atención es el paso 3, la posible permanencia de un .tmp huérfano.</posibilidadFallo>
+    <resultadoEsperado>Escenario 1: el Java aborta antes de escribir, el job termina en KO, la cadena se detiene y no hay archivado ni purga ni relanzamiento. El aviso a ANS RDR lo realiza el operador según la ficha. Escenario 2: extracción normal (el programa no mira el estado de FT_T_ATE1).</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs; log de GSProcess.sh; inventarios de extracciongenerica/, SCIS/ y SCIS/backup/.</tipoValidacion>
+    <criterioAceptacion>Los dos escenarios se comportan como se describe.</criterioAceptacion>
+    <posibilidadFallo>Baja: comportamiento derivado del código. Corrige la versión anterior, que esperaba KO también con la query desactivada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-05" tipo="happy_path">
@@ -164,14 +165,14 @@
       <dato campo="script" valor="/pr/pl/scrt/RAMERC0068.sh"/>
       <dato campo="clave" valor="MEKYTL1022"/>
       <dato campo="usuario" valor="root"/>
-      <dato campo="fichero_configuracion" valor="/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX"/>
-      <dato campo="destino_asumido" valor="/fichtemcomp/pr/descargas/kytl/extracciongenerica/SCIS/backup"/>
+      <dato campo="fichero_configuracion" valor="/&lt;env&gt;/pl/dat/INFORMACION_HISTORIFICACIONES.IDX (en producción /pr/pl/dat/)"/>
+      <dato campo="destino_asumido" valor="/fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/SCIS/backup (hipótesis, P-SCIS-01)"/>
       <dato campo="log" valor="/pr/pl/log/MEKYTL1022_HHMMSS.log"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Obtener y documentar la línea del IDX: grep ^MEKYTL1022@ sobre el fichero de configuración. Registrar los ocho campos.</paso>
       <paso numero="2">Verificar que existe exactamente una línea con esa clave: con cero o con más de una, el script termina en exit 2.</paso>
-      <paso numero="3">Comprobar que el campo OPERACION no vale BD, que provocaría un borrado recursivo del directorio origen con privilegios de root.</paso>
+      <paso numero="3">Comprobar que el campo OPERACION no vale BD, que provocaría un borrado recursivo del directorio origen con privilegios de root. Si vale BD, NO ejecutar el job y reportarlo.</paso>
       <paso numero="4">Registrar el inventario de los directorios origen y destino antes de la ejecución.</paso>
       <paso numero="5">Ejecutar MEKYTL1022 y verificar que termina en OK.</paso>
       <paso numero="6">Comparar los inventarios y determinar qué fichero se ha movido o copiado, desde dónde y hacia dónde.</paso>
@@ -179,7 +180,7 @@
       <paso numero="8">Revisar el log de la ejecución y confirmar el código de salida y la operación registrada.</paso>
       <paso numero="9">Verificar si la operación es un movimiento o una copia: en el segundo caso el fichero permanecería también en origen.</paso>
     </pasos>
-    <resultadoEsperado>El mapeo del archivado queda documentado con sus ocho campos. El fichero de extracción llega al directorio de histórico. Si el destino no fuese SCIS/backup, el caso debe reportarse como hallazgo, porque el fichero quedaría fuera del alcance de la purga y se acumularía indefinidamente.</resultadoEsperado>
+    <resultadoEsperado>El job termina en OK y hace exactamente lo que dice su línea del IDX (operación, origen, destino, renombrado), según el log y los inventarios. El fichero archivado debe quedar en SCIS/backup, único directorio que purga la cadena; si queda en otro sitio, el caso falla porque el fichero no se purgaría nunca (RG-02).</resultadoEsperado>
     <tipoValidacion>Lectura directa de la línea del IDX; comparación de inventarios antes y después; revisión del log del script.</tipoValidacion>
     <criterioAceptacion>El mapeo queda documentado y el fichero acaba en un directorio cubierto por la purga.</criterioAceptacion>
     <posibilidadFallo>Media — es el único job con efecto real sobre ficheros y su configuración no está documentada. El paso 7 puede destapar una acumulación indefinida.</posibilidadFallo>
@@ -195,7 +196,7 @@
     </precondiciones>
     <datosEmpleados>
       <dato campo="fichero_6_dias" valor="debe conservarse"/>
-      <dato campo="fichero_7_dias" valor="comportamiento límite a documentar"/>
+      <dato campo="fichero_7_dias" valor="7 días y 2 horas: debe conservarse (-mtime +7 borra a partir de 8 días completos)"/>
       <dato campo="fichero_8_dias" valor="debe borrarse"/>
       <dato campo="fichero_30_dias" valor="debe borrarse"/>
       <dato campo="subdirectorio_anidado" valor="con fichero reciente — no debe verse afectado por el filtro -type f"/>
@@ -208,14 +209,14 @@
       <paso numero="3">Registrar el inventario completo del árbol de directorios.</paso>
       <paso numero="4">Ejecutar MANT_RDR_EXTRACCION_SCIS.</paso>
       <paso numero="5">Verificar que los ficheros de 8 y 30 días han sido eliminados y el de 6 días permanece.</paso>
-      <paso numero="6">Documentar el tratamiento del fichero de 7 días exactos.</paso>
+      <paso numero="6">Verificar que el fichero de 7 días y 2 horas se conserva.</paso>
       <paso numero="7">Verificar que el subdirectorio anidado y su contenido no se han visto afectados, dado el filtro -type f.</paso>
       <paso numero="8">Verificar que ningún fichero fuera de SCIS/backup ha sido alterado.</paso>
     </pasos>
-    <resultadoEsperado>Los ficheros de 8 y 30 días eliminados, el de 6 días conservado, el límite de 7 días documentado, y el subdirectorio intacto. Ningún efecto fuera del directorio objetivo.</resultadoEsperado>
+    <resultadoEsperado>Los ficheros de 8 y 30 días eliminados; los de 6 días y de 7 días y 2 horas conservados; el subdirectorio y su fichero reciente intactos. Ningún efecto fuera del directorio objetivo.</resultadoEsperado>
     <tipoValidacion>Comparación del inventario del árbol antes y después; verificación del alcance del borrado.</tipoValidacion>
     <criterioAceptacion>Ningún fichero dentro del periodo de retención eliminado y ningún efecto fuera del directorio objetivo.</criterioAceptacion>
-    <posibilidadFallo>Media — es un borrado recursivo con privilegios de root. El paso 8 es la comprobación de seguridad del caso.</posibilidadFallo>
+    <posibilidadFallo>Media: borrado como root. El paso 8 es la comprobación de seguridad. Ejecutar solo en entorno de pruebas.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-08" tipo="regresion">
@@ -249,29 +250,29 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-09" tipo="borde">
-    <nombre>El colector cierra la cadena sobre dos predecesores Dummy</nombre>
-    <objetivo>Verificar el comportamiento de la condición AND de MANT_RDR_EXTRACCION_SCIS y documentar que, al depender de dos jobs Dummy, la protección del cierre es incondicional.</objetivo>
+    <nombre>El colector depende de MEKYTL1022 a través de los dos Dummy</nombre>
+    <objetivo>Verificar que la condición AND de MANT_RDR_EXTRACCION_SCIS se cumple siempre que MEKYTL1022 termina bien (los Dummy no añaden control) y que, si MEKYTL1022 falla, ni los Dummy ni la purga se ejecutan.</objetivo>
     <precondiciones>
-      <precondicion>Cadena en su configuración vigente con los dos Dummy de la bifurcación.</precondicion>
-      <precondicion>Posibilidad de provocar el fallo de MEKYTL1022, que está aguas arriba de la bifurcación.</precondicion>
+      <precondicion>Cadena en su configuración vigente.</precondicion>
+      <precondicion>Posibilidad de provocar el fallo de MEKYTL1022 en el entorno de pruebas, por ejemplo eliminando temporalmente su línea del IDX del entorno (RAMERC0068.sh termina con código 2).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="condicion_entrada" valor="RDR_EXTRACCIONSCIS_MEKYTL1023_OK AND RDR_EXTRACCIONSCIS_MEKYTL1049_OK"/>
-      <dato campo="naturaleza_predecesores" valor="ambos Dummy: siempre OK"/>
-      <dato campo="job_a_fallar" valor="MEKYTL1022"/>
+      <dato campo="naturaleza_predecesores" valor="ambos Dummy, que esperan RDR_EXTRACCIONSCIS_MEKYTL1022_OK"/>
+      <dato campo="job_a_fallar" valor="MEKYTL1022 (código 2: clave no configurada)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena en condiciones normales y verificar que el colector espera a los dos eventos antes de arrancar.</paso>
-      <paso numero="2">Verificar que ambos eventos se emiten siempre, al provenir de jobs Dummy.</paso>
-      <paso numero="3">Provocar el fallo de MEKYTL1022 y relanzar la cadena.</paso>
-      <paso numero="4">Verificar si los dos Dummy llegan a ejecutarse pese al KO del predecesor, y si en consecuencia el colector llega a purgar.</paso>
-      <paso numero="5">Documentar el resultado: si la purga se ejecuta con el archivado fallido, el cierre de la cadena no refleja el estado real del proceso.</paso>
-      <paso numero="6">Registrar si existe algún punto de la cadena donde el fallo del archivado impida la purga.</paso>
+      <paso numero="1">Ejecutar la cadena en condiciones normales y verificar que el colector arranca solo después de que los dos Dummy publiquen su condición.</paso>
+      <paso numero="2">Eliminar la línea MEKYTL1022 del IDX del entorno de pruebas y relanzar la cadena en otro ODATE.</paso>
+      <paso numero="3">Verificar que MEKYTL1022 termina en KO con código 2.</paso>
+      <paso numero="4">Verificar que KYTL003D_MEKYTL1023 y KYTL003D_MEKYTL1049 no se ejecutan.</paso>
+      <paso numero="5">Verificar que MANT_RDR_EXTRACCION_SCIS no se ejecuta y que SCIS/backup no cambia.</paso>
+      <paso numero="6">Restaurar la línea del IDX.</paso>
     </pasos>
-    <resultadoEsperado>A documentar. La condición AND del colector se satisface siempre mientras la cadena alcance la bifurcación, porque ningún Dummy puede fallar. El caso determina si un fallo de MEKYTL1022 detiene efectivamente el avance o si la purga se ejecuta igualmente.</resultadoEsperado>
-    <tipoValidacion>Estado de los jobs en ambas ejecuciones; verificación de si la purga se ha ejecutado en el escenario de fallo.</tipoValidacion>
-    <criterioAceptacion>El comportamiento queda documentado, en particular si el cierre de la cadena puede producirse con el archivado en KO.</criterioAceptacion>
-    <posibilidadFallo>Media — la topología heredada del diseño anterior deja el cierre protegido por dos jobs que no verifican nada.</posibilidadFallo>
+    <resultadoEsperado>Con MEKYTL1022 en OK, los Dummy terminan en OK y el colector purga. Con MEKYTL1022 en KO, la cadena se para: ni los Dummy ni la purga se ejecutan.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M en las dos ejecuciones; inventario de SCIS/backup.</tipoValidacion>
+    <criterioAceptacion>La purga solo se ejecuta si MEKYTL1022 terminó bien.</criterioAceptacion>
+    <posibilidadFallo>Baja: es el funcionamiento de las condiciones de Control-M. Corrige la afirmación anterior de que el cierre era incondicional.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-10" tipo="regresion">
@@ -288,21 +289,20 @@
       <dato campo="sci_A15" valor="NO debe aparecer"/>
       <dato campo="sci_otra_sucursal" valor="debe aparecer"/>
       <dato campo="sci_sin_sucursal" valor="debe aparecer"/>
-      <dato campo="nota" valor="misma exclusión que en extraccion_contactos (FT_T_CNTA) y en la extracción de SSIs"/>
+      <dato campo="nota" valor="A15 = COMPASS (BBVA Compass/BBVA USA); ORG_ID de ancho fijo: 'A15 ' con espacio"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Consultar FT_T_ENTR filtrando por la organización A15 y documentar su nombre legal, dejando identificado a quién afecta la exclusión.</paso>
+      <paso numero="1">Consultar SELECT ENT_LEG_NME FROM FT_T_ENTR WHERE TRIM(ORG_ID)='A15' y comprobar que devuelve COMPASS.</paso>
       <paso numero="2">Cargar los tres perfiles y ejecutar la extracción.</paso>
       <paso numero="3">Verificar que la SCI con asignación a A15 no aparece en el XML.</paso>
       <paso numero="4">Verificar que las otras dos sí aparecen.</paso>
       <paso numero="5">Determinar si la exclusión filtra por el estado de la asignación: cargar una SCI con asignación a A15 dada de baja y comprobar si queda excluida igualmente.</paso>
       <paso numero="6">Comprobar que la SCI excluida tampoco aparece en el bloque Branches de ninguna otra SCI.</paso>
-      <paso numero="7">Contrastar el resultado con el comportamiento documentado de la misma exclusión en el proceso de Contactos.</paso>
-    </pasos>
-    <resultadoEsperado>Las SCIs con asignación BRANCH a A15 quedan fuera del XML; las demás aparecen. Queda documentada la identidad de la organización y si la exclusión depende o no del estado de la asignación.</resultadoEsperado>
-    <tipoValidacion>Búsqueda de las SCIs por identificador en el XML; consulta a FT_T_ENTR; comparación con el comportamiento registrado en extraccion_contactos.</tipoValidacion>
-    <criterioAceptacion>La exclusión se comporta de forma consistente y queda documentada con precisión suficiente para detectar una regresión, en este proceso y en los otros dos que aplican la misma regla.</criterioAceptacion>
-    <posibilidadFallo>Media — el motivo de negocio no está documentado en ninguno de los tres procesos que aplican la exclusión. El paso 5 replica la asimetría de estado detectada en Contactos.</posibilidadFallo>
+          </pasos>
+    <resultadoEsperado>Las SCIs con asignación BRANCH activa a A15 quedan fuera del XML; las demás aparecen. El paso 5 deja registrado si la exclusión depende del estado de la asignación (no se puede afirmar sin el SQL, P-SCIS-03).</resultadoEsperado>
+    <tipoValidacion>Búsqueda de las SCIs por identificador en el XML; consulta a FT_T_ENTR.</tipoValidacion>
+    <criterioAceptacion>La SCI con asignación activa a A15 no aparece y las de control sí.</criterioAceptacion>
+    <posibilidadFallo>Media: sin SQL literal no se sabe si la exclusión mira el estado de la asignación (paso 5).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-11" tipo="borde">
@@ -336,7 +336,7 @@
     <nombre>Cobertura de los bloques repetibles y del árbol MediaChanelList</nombre>
     <objetivo>Verificar que los bloques repetibles se generan correctamente, con especial atención al anidamiento de tres niveles de MediaChanelList, que es la diferencia funcional de este proceso respecto a la extracción de SSIs.</objetivo>
     <precondiciones>
-      <precondicion>Entorno con capacidad de carga y limpieza de datos sintéticos sobre las tablas de prerrequisitos §1.</precondicion>
+      <precondicion>Entorno con capacidad de carga y limpieza de datos sintéticos sobre las tablas de extraccion_scis_prerrequisitos.md §1.</precondicion>
       <precondicion>Juego de datos con los perfiles descritos.</precondicion>
       <precondicion>Consulta de contraste por bloque.</precondicion>
     </precondiciones>
@@ -370,30 +370,30 @@
 
   <casoDePrueba id="TC-13" tipo="duplicidad">
     <nombre>Reejecución con ficheros residuales</nombre>
-    <objetivo>Verificar que una extracción posterior sobrescribe el fichero de una pasada anterior, conforme a R-14, y que el fichero que acaba archivado es siempre el del día.</objetivo>
+    <objetivo>Verificar que el fichero publicado de una pasada anterior se sustituye (R-14) y que un temporal .tmp residual, en cambio, se duplica porque el programa lo abre en modo añadir.</objetivo>
     <precondiciones>
-      <precondicion>El directorio de extracción contiene un ExtraccionContingenciaSCIs de una ejecución anterior que incluye una SCI marcadora.</precondicion>
-      <precondicion>Esa SCI marcadora no pertenece al universo vigente, de modo que no puede aparecer en la extracción del día.</precondicion>
-      <precondicion>La cadena no se ha lanzado todavía en el día de proceso.</precondicion>
-      <precondicion>Acceso de escritura sobre el directorio de extracción para dejar el fichero residual, y de lectura sobre el directorio de histórico.</precondicion>
+      <precondicion>5 SCIs vigentes del día.</precondicion>
+      <precondicion>En extracciongenerica/SCIS/ un fichero publicado de una ejecución anterior con una SCI marcadora M que no existe en los datos del día.</precondicion>
+      <precondicion>Para el escenario 2: un ExtraccionContingenciaSCIs.xml.tmp residual en extracciongenerica/ con la raíz de apertura, la SCI M y la raíz de cierre.</precondicion>
+      <precondicion>Acceso de escritura sobre extracciongenerica/ y SCIS/ para dejar los residuos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="marcador" valor="SCI sintética presente solo en el fichero residual"/>
-      <dato campo="residual" valor="fichero de extracción de la pasada anterior, mismo nombre que el del día"/>
+      <dato campo="marcador" valor="SCI sintética M presente solo en los ficheros residuales"/>
+      <dato campo="escenario_1" valor="residuo solo en SCIS/"/>
+      <dato campo="escenario_2" valor="además, .tmp residual en extracciongenerica/"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dejar el fichero residual con la SCI marcadora en el directorio de extracción.</paso>
-      <paso numero="2">Registrar la marca de tiempo del fichero residual.</paso>
-      <paso numero="3">Lanzar la cadena.</paso>
-      <paso numero="4">Comprobar que la extracción termina correctamente y no falla por la existencia del fichero previo.</paso>
-      <paso numero="5">Comprobar que la marca de tiempo del fichero de extracción es posterior a la registrada en el paso 2.</paso>
-      <paso numero="6">Comprobar que la SCI marcadora no aparece en el fichero de extracción.</paso>
-      <paso numero="7">Comprobar que la SCI marcadora no aparece en el fichero archivado en el directorio de histórico.</paso>
+      <paso numero="1">Escenario 1: dejar el fichero residual en SCIS/ y registrar su marca de tiempo.</paso>
+      <paso numero="2">Ejecutar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="3">Comprobar que el job termina en OK y que el fichero de SCIS/ tiene una marca de tiempo posterior, contiene las 5 SCIs y no contiene M.</paso>
+      <paso numero="4">Escenario 2: dejar además el .tmp residual y ejecutar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="5">Comprobar que el fichero publicado en SCIS/ contiene primero el contenido residual (con M) y después la nueva raíz con las 5 SCIs, es decir, dos raíces.</paso>
+      <paso numero="6">Comprobar que el job termina en OK y que MEKYTL1022 archiva ese fichero.</paso>
     </pasos>
-    <resultadoEsperado>La extracción sobrescribe el fichero residual sin fallar, y ni el fichero generado ni el archivado contienen la SCI marcadora. El archivado corresponde siempre a la extracción del día.</resultadoEsperado>
-    <tipoValidacion>Comparación de marcas de tiempo antes y después; búsqueda de la SCI marcadora en el fichero generado y en el archivado.</tipoValidacion>
-    <criterioAceptacion>El fichero archivado corresponde a la extracción del día y no conserva ningún dato de la pasada anterior.</criterioAceptacion>
-    <posibilidadFallo>Baja para la sobrescritura, que es el comportamiento confirmado al no llevar fecha el nombre del fichero. El riesgo real está en el destino del archivado: si allí el nombre sí llevase fecha, los ficheros se acumularían, algo aceptado por R-14 y acotado por la purga de 7 días siempre que el destino sea el que cubre TC-07.</posibilidadFallo>
+    <resultadoEsperado>Escenario 1: el residuo se sustituye y M no aparece. Escenario 2: el fichero publicado lleva dos raíces (no es XML bien formado) y contiene M; el job termina en OK y la cadena lo archiva sin detectarlo.</resultadoEsperado>
+    <tipoValidacion>Marcas de tiempo; búsqueda de M y conteo de raíces en el fichero publicado y en el archivado; estado de los jobs.</tipoValidacion>
+    <criterioAceptacion>Ambos escenarios se comportan como se describe. El escenario 2 confirma RG-17: antes de relanzar hay que eliminar el .tmp residual.</criterioAceptacion>
+    <posibilidadFallo>Media en el escenario 2: el .tmp residual solo aparece si una ejecución anterior se interrumpió o no pudo mover el fichero.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-14" tipo="conflicto_integridad">
@@ -449,7 +449,7 @@
     </pasos>
     <resultadoEsperado>Con host conforme, el script resuelve el entorno correcto y opera sobre sus rutas. Con host no conforme, emite el mensaje de nomenclatura y asume producción, que es el comportamiento a evitar en cualquier entorno no productivo.</resultadoEsperado>
     <tipoValidacion>Inspección del log del script en /pr/pl/log/ para identificar el entorno resuelto y las rutas empleadas; verificación del nombre del host.</tipoValidacion>
-    <criterioAceptacion>Queda verificado y documentado que el host del entorno de pruebas resuelve al entorno correcto, y no a producción.</criterioAceptacion>
+    <criterioAceptacion>Queda verificado que el host del entorno de pruebas resuelve al entorno correcto, y no a producción. El escenario de host no conforme (paso 4) NO debe ejecutarse sobre una máquina con acceso a rutas de producción: se verifica por lectura del código de RAMERC0068.sh (mensaje "ERROR: Esta maquina no sigue el formato de las nomenclaturas en funcion del entorno --&gt; &lt;maquina&gt;.Se configura para entorno PR.").</criterioAceptacion>
     <posibilidadFallo>Alta si el entorno de pruebas no respeta la nomenclatura. El fallback a producción está en el código y afecta por igual a todos los procesos del repositorio que usan este script.</posibilidadFallo>
   </casoDePrueba>
 

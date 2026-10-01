@@ -1,237 +1,168 @@
 # Prerrequisitos — Extracción Genérica de Contactos
 
-> - Proceso: Extracción diaria del universo de contactos y distribución a DataX y SAIT
-> - Cadena: `RDR_EXTRACCION_CONTACTOS` (L-V)
-> - Usuario: pablo.llorente
-> - Fecha: 2026-09-22
+> - Proceso: extracción diaria del universo de contactos y entrega a IHS Markit (vía DataX) y a
+>   SAIT (vía pasarela).
+> - Cadena: `RDR_EXTRACCION_CONTACTOS` (días de orden domingo a jueves según Control-M; ver spec
+>   §5.2 y P-CONT-04).
+> - Usuario: pablo.llorente. Fecha: 2026-09-22; revisado 2026-10-01.
+> - Derivado de `extraccion_contactos_casos_prueba.xml`. Las rutas de producción (`pr`) son
+>   **referencia** de la instalación real; en pruebas se usa la ruta equivalente del entorno de
+>   pruebas, que está por definir (§8).
 
 ---
 
-## 1. Base de datos GoldenSource
+## 1. Orígenes de datos (base de datos `KYTL_GC`)
 
-Todo el proceso depende del esquema Oracle `KYTL_GC`, y con una particularidad que lo distingue
-de los demás procesos del repositorio: **las queries no forman parte del código desplegado**,
-sino que residen en la propia base de datos.
+Todo el proceso lee del esquema Oracle `KYTL_GC` de GoldenSource. **Las queries no están en el
+código desplegado sino en la propia base de datos**, así que el comportamiento puede cambiar sin
+despliegue: antes de dar por válida una prueba hay que comprobar que las filas de configuración
+del entorno de pruebas son iguales a las de producción.
 
-### Tabla de acciones `FT_T_ATE1`
+### 1.1 Configuración en base de datos
 
-Deben existir y estar activas las dos filas siguientes, identificadas por su columna
-`ACTION_NME`:
+| Tabla | Filas necesarias | Casos |
+|---|---|---|
+| `FT_T_ATE1` | **Una sola** fila con `ACTION_NME='ExtraccionCONT.sql'` (query de lista, texto literal en la spec §6.4) y **una sola** con `ACTION_NME='ExtraccionContingenciaCONT.sql'` (query de detalle), esta última con `URL_OUTPUT_FILE` terminado en `ExtraccionContingenciaCONT.xml`. El `DATA_STAT_TYP` no importa: el programa no lo mira (en producción `ExtraccionCONT.sql` está `INACTIVE` desde el 15/09/2025 y funciona). Con dos filas del mismo nombre de detalle, el programa aborta | Todos los que ejecutan `GS_EXTRACCION_CONT`; TC-05 las modifica |
+| `FT_T_PAR1` | Una fila `PARAMETER_CTXT_TYP='ROOT_TAG'`, `DATA_STAT_TYP='ACTIVE'`, del `ACT1_OID` de `ExtraccionContingenciaCONT.sql`, con la etiqueta de apertura en `PAR1_NME` y la de cierre en `PAR1_VALUE`. Su valor en producción está pendiente (P-CONT-06) | Todos; TC-05 escenario 3 la desactiva |
 
-- **`ExtraccionCONT.sql`** — query maestra. Devuelve los `CONTCT_OID` de `FT_T_CNTC` con
-  `DATA_STAT_TYP='ACTIVE'` y `END_TMS IS NULL`, excluyendo mediante `NOT EXISTS` los contactos
-  con una asignación `FT_T_CNTA.CONTCT_ASSIGN_STAT_TYP='BRANCH'` hacia `ORG_ID='A15 '`.
-- **`ExtraccionContingenciaCONT.sql`** — query de detalle, parametrizada por identificador de
-  contacto, que devuelve su bloque XML completo.
+Para TC-05 hace falta además **permiso de modificación** sobre estas dos tablas en el entorno de
+pruebas, y restaurarlas después de cada escenario.
 
-Esto tiene una implicación directa para la preparación de entornos: **el comportamiento del
-proceso puede cambiar sin ningún despliegue de código**, con solo modificar el contenido de
-estas filas. Antes de dar por válida una ejecución de prueba debe verificarse que el SQL
-registrado en el entorno de pruebas es el mismo que el de producción; de lo contrario los
-resultados no son comparables.
+### 1.2 Tablas de datos
 
-### Tabla de parámetros `FT_T_PAR1`
-
-Debe contener las etiquetas raíz con las que el motor envuelve la concatenación de fragmentos
-XML. Sin ellas el fichero resultante no sería un documento XML bien formado, y al no existir
-validación de esquema en la cadena (§4.6 de la spec) el problema no se detectaría hasta llegar
-a los sistemas destino.
-
-### Tablas de datos
-
-La query de detalle accede a 18 tablas, todas del esquema `KYTL_GC`. El usuario de conexión
-debe tener permisos de `SELECT` sobre todas ellas:
+El usuario de base de datos que use el programa necesita `SELECT` sobre todas:
 
 | Tabla | Alimenta |
-|-------|----------|
-| `FT_T_CNTC` | Tabla conductora: datos identificativos, fechas y descripción del contacto |
-| `FT_T_CNTA` | Asignaciones del contacto: instituciones, sucursales y funciones |
-| `FT_T_CAI1` | `ContactRDRId` y el bloque `ExtIdentifiers` |
-| `FT_T_SCMO`, `FT_T_SCIS` | `SCISnum` y el bloque `SCIsAssociated` |
+|---|---|
+| `FT_T_CNTC` | Tabla conductora: contactos, fechas, descripción |
+| `FT_T_CNTA` | Asignaciones del contacto: instituciones, sucursales, funciones |
+| `FT_T_CAI1` | `ContactRDRId` y `ExtIdentifiers` |
+| `FT_T_SCMO`, `FT_T_SCIS` | `SCISnum` y `SCIsAssociated` |
 | `FT_T_COI1`, `FT_T_SCA1` | Identificador y sucursal de cada SCI |
 | `FT_T_FINS`, `FT_T_FIID` | `FinancialInstitutions` |
 | `FT_T_MADR`, `FT_T_ADTP`, `FT_T_CCRF` | `MailingAddress` |
 | `FT_T_EADR` | `ElectronicAddress` |
-| `FT_T_ENTR` | Nombre legal de la sucursal en `Branches` |
+| `FT_T_ENTR` | Nombre legal de la sucursal en `Branches`; consulta de `A15` en TC-18 |
 | `FT_T_SUBD`, `FT_T_COT1` | `Offices` y `SubFunctions` |
 | `FT_T_IDMV` | Traducción del dominio en `Functions` |
 | `FT_T_INCL` | Nombre de la subfunción |
 | `FT_T_LAC1`, `FT_T_LAGR` | `AgreementsAssociated` |
 
-La conectividad JDBC entre `pr-rdr.igrupobbva` y la instancia Oracle debe estar operativa, y el
-componente Oracle XML DB habilitado: la query construye el documento con `XMLELEMENT`/`XMLAGG` y
-lo devuelve con `.getClobVal()`.
+Oracle XML DB debe estar habilitado: la query de detalle construye el XML con
+`XMLELEMENT`/`XMLAGG`.
 
-Dos restricciones de datos conviene verificar antes de dar por buena una ejecución de prueba:
+## 2. Datos mínimos por caso
 
-- **Unicidad del identificador RDR del contacto.** `ContactRDRId` se resuelve con una subconsulta
-  escalar sobre `FT_T_CAI1`. Si un contacto tuviera dos filas activas con
-  `ID_CTXT_TYP='CONTACTID'` y `DATA_SRC_ID='RDR'`, la consulta daría `ORA-01427` y la extracción
-  fallaría entera.
-- **Columnas de ancho fijo.** `ORG_ID` e `INDUS_CL_SET_ID` se comparan con literales que incluyen
-  el relleno (`'A15 '`, `'SUBFUNC   '`). Los datos sintéticos deben cargarse con ese mismo
-  formato o los filtros no casarán.
+Los datos sintéticos son viables sobre `KYTL_GC` (usuario). **Columnas de ancho fijo**: `ORG_ID`
+e `INDUS_CL_SET_ID` se comparan con literales con relleno (`'A15 '`, `'SUBFUNC   '`); los datos
+deben cargarse con ese mismo formato.
 
-### Datos mínimos para que el proceso tenga sentido funcional
+| Caso | Datos que hacen falta para que la comprobación pueda fallar |
+|---|---|
+| TC-01 | 10 contactos vigentes, 2 de ellos con acuerdo `1145` o SCI `MEX` |
+| TC-02 | N contactos vigentes, uno con los 20 bloques informados y los repetibles con varias ocurrencias, y 3 contactos dados de baja |
+| TC-03 | Ningún contacto vigente |
+| TC-04 | 20 contactos vigentes; uno (X) con **dos** filas `ACTIVE` en `FT_T_CAI1` con `ID_CTXT_TYP='CONTACTID'` y `DATA_SRC_ID='RDR'` |
+| TC-05 | 5 contactos vigentes |
+| TC-06 | Contactos mexicanos y no mexicanos; opcionalmente un `DominiosContactosRDR.csv` en `CONT/` |
+| TC-07 | Cuatro perfiles: solo acuerdo `1145`; solo SCI `MEX`; ambos; ninguno |
+| TC-08 | Un contacto con acuerdos `1145`, `2001`, `3005` y SCIs `MEX`, `ESP`; otro solo con SCI `MEX` |
+| TC-09 | Un contacto mexicano con `DepartamentNme`, `Observ`, `Language` vacíos, `MailingAddress` con todos los subcampos en blanco y `ContactTitle` con un espacio; otro igual pero completo |
+| TC-10 | 10 contactos vigentes, ninguno mexicano |
+| TC-11 | Un `RDR_contactosSAIT.xml` válido |
+| TC-12 | Una ejecución previa completa |
+| TC-13 | Ficheros de 6 días, 7 días y 2 horas, 8 días y 30 días en `CONT/backup/` y `CONT/SAIT/old/`, y un subdirectorio con un fichero reciente en `CONT/SAIT/old/` |
+| TC-14 | Extracción correcta con ficheros de las dos ramas |
+| TC-15 | 5 contactos del día; ficheros residuales con un contacto marcador M; un `.tmp` residual para el escenario 2 |
+| TC-16 | Siete perfiles de completitud (mínimo, completo, multidirección, funciones/subfunciones, identificadores externos incluido uno `RDR`, SCIs activas, campos nulos) |
+| TC-17 | Un contacto con **dos** asignaciones `FUNCTION` activas, una con un acuerdo `1145` y otra con acuerdos de otras organizaciones, sin SCIs `MEX` |
+| TC-18 | Contactos con asignación `BRANCH` a `'A15 '` activa, a `'A15 '` dada de baja, a otra organización, y uno con `A15` y acuerdos `1145`; `A15` debe existir en `FT_T_ENTR` (`COMPASS`) |
 
-- Al menos un contacto vigente en `FT_T_CNTC` (`DATA_STAT_TYP='ACTIVE'`, `END_TMS IS NULL`) sin
-  asignación `BRANCH` a la organización `A15`, para que la query maestra devuelva universo.
-- La organización `A15` (**COMPASS**, BBVA Compass/BBVA USA — vendida a PNC en 2020, motivo real de
-  la exclusión) debe existir en `FT_T_ENTR` si se quiere ejercitar TC-18. Al cargar el dato hay que
-  respetar el ancho fijo de `ORG_ID`: el valor es `'A15 '`, con espacio final.
-- **Al menos un contacto que cumpla el filtro de México** —con un acuerdo legal de
-  `AgreementORGID = '1145'` o una SCI con `SCIsBranch = 'MEX'`—, ya que el requisito R-21
-  prohíbe que el fichero de SAIT se genere vacío y ningún control de la cadena lo impide. Un
-  entorno de pruebas poblado solo con contactos no mexicanos produciría una ejecución que
-  termina en OK entregando un fichero inválido.
+## 3. Entorno de ejecución
 
-## 2. Entorno de ejecución de la extracción
+Referencia de producción (máquina `pr-rdr.igrupobbva` salvo indicación):
 
-Deben estar desplegados y accesibles en `pr-rdr.igrupobbva`:
+| Elemento | Ruta (producción) | Usuario que lo ejecuta | Casos |
+|---|---|---|---|
+| `GSProcess.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | Todos los que ejecutan `GS_EXTRACCION_CONT` o `EXTRACCION_CONTACTOS_XML` |
+| `Generico.sh` (función `XSLT_TO_XML`, que necesita `xsltproc` instalado) | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | TC-01, TC-03, TC-05, TC-07 a TC-10, TC-15 |
+| `ExtraccionGenericaCONT.properties` (contenido en spec §6.1; con las rutas del entorno de pruebas, finales de línea CRLF) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | Todos |
+| `HistCONT.properties` (contenido pendiente, P-CONT-01) | mismo directorio | — | TC-01, TC-12 |
+| `ExtraccionGenericaOtherEntities.jar` | `/pr/kytl/online/multipais/multicanal/jar/` | — | Todos |
+| Librerías `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar` | `/pr/kytl/online/multipais/multicanal/lib/` | — | Todos |
+| Java 17 (etiqueta `<javahome17>` de `credentials.xml`) | — | — | Todos |
+| `log4jExtraccionGenericaCON.properties` (con `CON`, sin `T`) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | TC-03, TC-04, TC-05 (lectura del log del Java) |
+| `sait.xsl` | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | TC-07 a TC-10 |
+| `credentials.xml` y directorio de credenciales | `/pr/kytl/online/multipais/multicanal/cfg/entorno/` | — | Todos |
+| `RAMERC0068.sh` con las líneas de `MEKYTL1177`, `MEKYTL1027` y `MEKYTL1190` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (líneas pendientes, P-CONT-02) | `/pr/pl/scrt/` | `root` (1177, 1027), `xsramer1` (1190) | TC-01, TC-06, TC-12, TC-14 |
+| `MEGENV0001.sh`, sus módulos `SF_MEGENV0001_*.mod` y la configuración `MEKYTL1189.idx` (en `idx/` o `idx/bck/`) | `/pr/pl/envioweb/scrt/` y `/pr/pl/envioweb/idx/`, **en `pr-rdr.igrupobbva` y en `lpftp503`** | `xsramer1` | TC-01, TC-11 |
+| Comandos `find` de purga | Definidos en el job | `root` | TC-13 |
 
-- El script orquestador `GSProcess.sh` en `/pr/kytl/online/multipais/multicanal/scrt/`.
-- El fichero `ExtraccionGenericaCONT.properties`, con sus tres acciones declaradas
-  (`VariablesGlobales`, `Java`, `Script`) y el código de entidad `ArgJava6=CONT`.
-- El jar `ExtraccionGenericaOtherEntities.jar` con la clase `Ppal`, junto con sus siete
-  dependencias: `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`,
-  `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar` y `commons-pool-1.5.4.jar`.
-- El fichero de configuración de log `log4jExtraccionGenericaCON.properties` en
-  `/pr/kytl/online/multipais/multicanal/dat/properties`. **Obsérvese que el nombre lleva `CON`
-  y no `CONT`**, a diferencia del resto de identificadores del proceso. El usuario confirma que
-  es el nombre correcto. Si se desplegara como `CONT`, log4j caería a su configuración por
-  defecto y el job se quedaría sin traza, lo que en un proceso sin controles de calidad elimina
-  la única fuente de diagnóstico disponible.
-- La hoja de estilo `sait.xsl` en `/pr/kytl/online/multipais/multicanal/dat/properties/`
-  —nótese que reside en el directorio de properties, no en uno de plantillas—.
-- Los scripts utilitarios `RAMERC0068.sh` (historificación, en `/pr/pl/scrt/`) y
-  `MEGENV0001.sh` (transmisión, en `/pr/pl/envioweb/scrt/`).
+El nombre de la máquina debe seguir la nomenclatura de entorno (`GSProcess.sh` exige prefijo
+`lp`/`lw`/`li`/`ld`; `RAMERC0068.sh` y `MEGENV0001.sh` leen el 2.º carácter): en una máquina con
+otro nombre, `RAMERC0068.sh` y `MEGENV0001.sh` trabajan **contra producción**.
 
-### Sustitución del token de entorno
+> **Corrección.** La versión anterior pedía verificar la sustitución del marcador `@@ENV@@` en
+> cinco rutas del `.properties`. La copia real (de integración) no lleva marcador: lleva `/ei/`
+> escrito. En el entorno de pruebas hay que desplegar el `.properties` con las rutas de ese
+> entorno.
 
-Las rutas del properties usan el token `@@ENV@@`, que el despliegue sustituye por el código del
-entorno (`pr` producción, `pp` preproducción, `ei` integración, `de` desarrollo). Antes de
-ejecutar pruebas debe verificarse que la sustitución se ha aplicado correctamente en las cinco
-rutas que lo contienen: las dos de argumentos Java, las dos de la transformación XSLT y la del
-fichero de log.
+## 4. Configuración que hay que conocer
 
-## 3. Sistema de ficheros
+| Fichero | Valores que importan | Casos |
+|---|---|---|
+| `ExtraccionGenericaCONT.properties` | `ArgJava3=20` (hilos), `ArgJava5` (temporal en `extracciongenerica/`), `ArgJava6=CONT`, `ArgScri1..3` (entrada, hoja y salida de `xsltproc`); sin `Stop` | Todos |
+| `FT_T_PAR1` (`ROOT_TAG`) | Etiqueta raíz | TC-02, TC-05 |
+| `FT_T_ATE1.URL_OUTPUT_FILE` | Nombre del fichero publicado | TC-02 |
+| Líneas del IDX de `RAMERC0068.sh` | Operación, máscara, destino, si falla sin fichero, variable de fecha | TC-06, TC-12, TC-14 |
+| `MEKYTL1189.idx` (dos máquinas) | Protocolo, `FALLA_NO_FICHERO`, renombrado | TC-11 |
 
-### Directorio de trabajo
+## 5. Sistema de ficheros
 
-`/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/` debe existir y tener permisos de
-escritura para `xakytl1p`. **Este directorio lo comparte con otro flujo**, el que produce
-`DominiosContactosRDR.csv` para BPS & Fraud: ningún job de esta cadena lo toca, pero la
-preparación y la limpieza del entorno de pruebas deben respetarlo. La extracción escribe `ExtraccionContingenciaCONT.xml.tmp` y lo
-renombra a `.xml`, por lo que el sistema de ficheros debe permitir el renombrado atómico dentro
-del mismo directorio.
+| Directorio (producción) | Uso | Permisos | Casos |
+|---|---|---|---|
+| `/fichtemcomp/pr/descargas/kytl/extracciongenerica/` | Aquí se escribe el temporal `ExtraccionContingenciaCONT.xml.tmp`. **No debe haber un `.tmp` residual** antes de ejecutar (se añadiría detrás) | Escritura `xakytl1p` | Todos; TC-15 escenario 2 lo deja a propósito |
+| `.../extracciongenerica/CONT/` | Fichero completo publicado. Debe existir (si no, el `.tmp` no se puede mover). Compartido con `DominiosContactosRDR.csv` de otro flujo: no tocarlo | Escritura `xakytl1p` | Todos |
+| `.../CONT/SAIT/` | Fichero de SAIT | Escritura `xakytl1p`; `xsramer1` lo mueve | TC-07 a TC-12 |
+| `.../CONT/backup/` | Histórico del fichero completo | Escritura y borrado (`root`) | TC-12, TC-13 |
+| `.../CONT/SAIT/old/` | Histórico del fichero de SAIT | Escritura `xsramer1`; borrado `root` | TC-12, TC-13 |
+| `/unload/kytl/datsal/datax/` | Disponibilización para IHS Markit. Compartido por todas las cesiones de RDR vía DataX: no asumir que solo contiene este fichero. Según la ficha pertenece a `xtkytl1p` | Escritura `root` | TC-06, TC-14 (se renombra temporalmente) |
+| `lpftp503:/unload/transmisiones/KYTL/` | Pasarela | Escritura `xsramer1` | TC-11 |
 
-Al inicio de cada ejecución el directorio **no debe contener ficheros residuales** de una pasada
-anterior. Como la cadena no tiene filewatcher que verifique la frescura del fichero, un
-`ExtraccionContingenciaCONT.xml` antiguo que siguiera ahí porque la historificación del día
-previo no se completó se distribuiría a DataX sin que nada lo advierta.
+La raíz correcta es **`/fichtemcomp/`** (con M); `fichtencomp` en las fichas es errata. Retención:
+los ficheros de más de 7 días completos (8 o más) se borran de `backup/` y de `SAIT/old/`.
 
-### Subdirectorio de SAIT
+## 6. Orquestación (Control-M)
 
-`/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/SAIT/` debe existir con permisos de
-escritura: lo puebla el propio job de extracción al aplicar la transformación XSLT, no un job
-posterior.
+- Folder `KYTL0000-RDR_EXTRACCION_CONTACTOS` en `MERCADOS-4`, 9 jobs con `WEEKDAYS="0,1,2,3,4"`,
+  `GS_EXTRACCION_CONT` con `TIMEFROM="0430"`, `MAXRERUN="0"`. Definición completa en la spec §6.8.
+- Dependencias por condiciones de éxito (`INCOND`/`OUTCOND`): un job en error detiene la cadena
+  (TC-14). Si las pruebas se ejecutan job a job sin Control-M, hay que respetar el orden y no
+  lanzar un job si el anterior falló.
+- `MEKYTL1189_SND` corre en la pasarela `lpftp503`: el agente de Control-M debe estar operativo
+  allí (TC-11).
+- Los dos jobs de purga y `MEKYTL1177`/`MEKYTL1027` corren como `root` en `pr-rdr.igrupobbva`.
+  Antes de ejecutar una purga en un entorno real, verificar su comando (TC-13).
 
-### Directorios de histórico
+## 7. Conectividad con los destinos
 
-- `CONT/backup/` — destino de la historificación de la rama DataX (`MEKYTL1027`) y objeto de la
-  purga de `MANT_RDR_EXTRACCION_CONTACTOS`.
-- `CONT/SAIT/old/` — destino de la historificación de la rama SAIT (`MEKYTL1190`) y objeto de la
-  purga de `MANT_RDR_EXTRACCION_CONT_SAIT`.
+| Destino | Requisito | Casos |
+|---|---|---|
+| IHS Markit | Solo escritura en `/unload/kytl/datsal/datax/`. La transferencia (DataObject `x_kytlcontacts_1`) la monta IHS Markit y **no se prueba** | TC-06 |
+| Pasarela | `pr-rdr.igrupobbva` → `lpftp503:/unload/transmisiones/KYTL/` como `xsramer1` | TC-11 |
+| SAIT | `lpftp503` → `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\`. Contacto: `bex-sait.group@bbva.com`. En pruebas puede sustituirse por un destino de pruebas | TC-01, TC-11 |
 
-Ambos requieren permisos de escritura y de borrado. Con ejecución de lunes a viernes y retención
-de 7 días, cada uno mantiene en régimen estacionario del orden de 5 ficheros.
+## 8. Entorno de pruebas: qué falta definir
 
-> **Nota sobre la grafía de la ruta.** La documentación de la cadena escribe la raíz como
-> `fichtencomp` (con N) en tres ocasiones, y en una de ellas además sin barra inicial. La forma
-> correcta es **`fichtemcomp`**, con M, confirmada por el `.properties` y por el comando que
-> realmente ejecuta el job de purga. Debe verificarse que los directorios creados en el entorno
-> de pruebas usan la grafía correcta, especialmente los de histórico: el job de purga ejecuta un
-> borrado recursivo como `root` y un desajuste entre la ruta que se puebla y la que se purga
-> dejaría un directorio creciendo sin límite.
+Los entornos no están definidos (el usuario decidió continuar sin definirlos). Antes de ejecutar:
 
-### Directorio de disponibilización de DataX
+- Qué entorno tiene `KYTL_GC` poblable con las filas de `FT_T_ATE1`/`FT_T_PAR1` iguales a
+  producción y permisos para modificarlas (TC-05).
+- Mecanismo de carga y limpieza de los datos sintéticos de §2.
+- Si la cadena está replicada en Control-M o se ejecutará job a job.
+- Qué destinos se sustituyen por rutas locales (DataX, pasarela, SAIT).
+- Acceso de lectura a los logs: el de `GSProcess.sh` (directorio `<logs>` de `credentials.xml`),
+  el del Java (P-CONT-08) y los de `RAMERC0068.sh` y `MEGENV0001.sh`.
+- Quién recibe los avisos de la cadena (P-CONT-11).
 
-`/unload/kytl/datsal/datax/` debe existir y admitir escritura. Según la nota operativa de la
-ficha, este directorio pertenece a la máquina `LPRDR501` / `LPRDR602` y su propietario es
-`xtkytl1p`, mientras que el job que escribe en él (`MEKYTL1177`) se ejecuta como `root`.
-
-Es un directorio **compartido por todas las cesiones de RDR vía DataX**, no exclusivo de este
-proceso: el inventario de la wiki registra 18 ficheros distintos disponibilizándose ahí. Las
-pruebas no deben asumir que el directorio contiene solo el fichero de contactos.
-
-## 4. Conectividad con los sistemas destino
-
-La recepción en IHS Markit y SAIT queda fuera del alcance, pero los jobs no pueden completarse
-sin estos elementos. Nótese la asimetría entre las dos ramas: la de SAIT realiza un **envío
-efectivo** a través de la pasarela, mientras que la de Markit solo **disponibiliza** el fichero
-en un directorio del que lo recoge una transferencia ajena a RDR (ver `extraccion_contactos_spec.md` §4.5 y la
-memoria transversal `memoria/memoria_datax_RDR.md`).
-
-| Destino | Requisito |
-|---------|-----------|
-| IHS Markit (vía DataX) | Escritura en el directorio de disponibilización `/unload/kytl/datsal/datax/`. El fichero se publica como DataObject `x_kytlcontacts_1`. **La transferencia hasta Markit la monta el sistema destino**, no RDR, y puede cambiar sin aviso. Contacto: `soporte.markit.reporting.es@bbva.com` |
-| Pasarela | Acceso a `lpftp503:/unload/transmisiones/KYTL/` para el usuario `xsramer1` |
-| SAIT | Conectividad desde la pasarela `lpftp503` hacia la máquina `150.100.230.96`. Contacto aplicativo: `bex-sait.group@bbva.com` |
-
-El job `MEKYTL1189_SND` se ejecuta **en la propia pasarela** (`lpftp503`), no en
-`pr-rdr.igrupobbva` como el resto de la cadena, por lo que el agente de Control-M debe estar
-operativo en esa máquina.
-
-No existe ningún job que borre el fichero depositado en la pasarela, pero no hace falta: las
-fichas reales de `MEKYTL1189`/`MEKYTL1189_SND` confirman que el fichero se deposita siempre con el
-mismo nombre (`RDR_contactosSAIT.xml`, sin fecha) tanto en origen como en el destino intermedio de
-la pasarela, por lo que cada ejecución sobrescribe la anterior — sin acumulación (ver `extraccion_contactos_spec.md`
-§4.8, RG-05).
-
-## 5. Control-M
-
-- La cadena `RDR_EXTRACCION_CONTACTOS` debe estar activa en el folder
-  `KYTL0000-RDR_EXTRACCION_CONTACTOS` del servidor MERCADOS-4, con periodicidad LMXJV.
-- **Las dependencias entre los nueve jobs deben estar configuradas como condiciones de éxito**,
-  no de orden: el sucesor no debe arrancar si el predecesor termina en KO. Es lo contrario de
-  lo configurado en `RDR_BBVACONTRACTS_new`, por lo que no debe presuponerse al replicar la
-  cadena en un entorno de pruebas.
-- Los nueve jobs deben tener nivel de criticidad W.
-- `MEKYTL1189_SND` debe estar definido sobre el host de pasarela `lpftp503`. Su ficha en el
-  documento fuente carece del bloque de planificación; se asume LMXJV y su posición en la
-  secuencia, entre `MEKYTL1189` y `MEKYTL1190`.
-- Los dos jobs de mantenimiento deben estar definidos para ejecutarse en `LPRDR501`.
-- Debe verificarse la ruta real configurada en `MANT_RDR_EXTRACCION_CONT_SAIT` antes de
-  ejecutarlo sobre un entorno real, por tratarse de un borrado recursivo con privilegios de
-  `root`.
-
-## 6. Circuito de notificación
-
-El documento fuente **no identifica grupo de soporte para esta cadena**, a diferencia del resto
-de procesos del repositorio, que designan a ANS RDR (BZG03906, `ans_rdr.es@bbva.com`, cola
-Remedy ANS RDR). Los dos contactos que aparecen —`soporte.markit.reporting.es@bbva.com` y
-`bex-sait.group@bbva.com`— son destinatarios funcionales de los aplicativos consumidores, no el
-circuito de escalado operativo.
-
-Antes de la fase de ejecución debe confirmarse quién recibe los avisos de esta cadena. La
-cuestión no es menor: seis de los nueve jobs tienen el campo de normas de rearranque sin
-completar, de modo que ante una incidencia el operador no dispone ni de instrucciones ni de
-destinatario documentados.
-
-## 7. Entornos de prueba
-
-Los entornos **no están definidos** a fecha de esta especificación. El usuario confirma que se
-continúa sin determinarlos, por lo que los casos de prueba se han redactado de forma
-independiente del entorno concreto.
-
-Antes de la fase de ejecución será necesario establecer:
-
-- Qué entorno dispone de una instancia de `KYTL_GC` poblada o poblable, **incluyendo las filas
-  de `FT_T_ATE1` con las dos queries** y las de `FT_T_PAR1` con las etiquetas raíz.
-- El mecanismo de carga y limpieza del juego de datos sintéticos, que debe cubrir tanto
-  contactos con distinto grado de completitud sobre los 20 bloques como contactos situados a
-  ambos lados del filtro de México.
-- Si la cadena Control-M existe replicada en ese entorno o si las pruebas se ejecutarán job a
-  job de forma manual. En el segundo caso deberá simularse manualmente el comportamiento de las
-  dependencias de éxito, que es el objeto de TC-14.
-- Qué destinos están disponibles y cuáles deben sustituirse por rutas locales.
+Todos los prerrequisitos anteriores los usa al menos un caso; no hay ninguno huérfano.
