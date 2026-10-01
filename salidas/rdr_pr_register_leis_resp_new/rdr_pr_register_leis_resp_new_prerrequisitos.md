@@ -12,7 +12,7 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones enviadas, estado `LEI_REG
 | TC-002 | 1 fichero de 0 bytes en receive/ |
 | TC-003 | 1 petición LEI_REG_LINE_SENT + capacidad de forzar una excepción a mitad de proceso en entorno de test |
 | TC-004 | 1 línea de 99 caracteres (inválida) + 1 línea de 100 caracteres (válida, con petición asociada) |
-| TC-005 | 1 petición LEI_REG_LINE_SENT + 2 líneas en el mismo fichero con su mismo DOCUMPS |
+| TC-005 | 1 petición LEI_REG_LINE_SENT + 2 líneas en el mismo fichero con su mismo DOCUMPS (la primera sin TIPERROR, la segunda con TIPERROR) |
 | TC-006 | 1 línea válida con DOCUMPS sin ninguna petición LEI_REG_LINE_SENT asociada |
 | TC-007 | 1 petición LEI_REG_LINE_SENT + 3 líneas sintéticas con su mismo DOCUMPS y TIPERROR distinto |
 | TC-008 | 1 petición LEI_REG_LINE_SENT que no reciba respuesta en ningún fichero durante toda la ventana |
@@ -28,7 +28,8 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones enviadas, estado `LEI_REG
 
 - `LEI_Register_response.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`LEI_Register_response.jar`, clase `main.Main`, 7 argumentos: log, rutas `receive`/`old`/`error`, patrón `LEIsReg_`, ruta `Alertas`) para que `GSPROC_REG_LEIS_RESP` funcione (TC-001 a TC-009).
 - `LEI_Register_alertas.properties` debe existir, parametrizado con `NomProperty=GestionAlertas`, `ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER`, `ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER`, para que `GSPROC_REG_LEIS_ALERTAS` dispare correctamente la alerta (TC-009).
-- El motor genérico `GestionAlertas` debe estar operativo y con el código `RDR_ERROR_LEI_REGISTER` correctamente configurado para poder confirmar la notificación (TC-009).
+- La Gestión de alertas debe tener configurado el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` y un destinatario de pruebas en `FT_T_ALR1`/`FT_T_ALU1` (TC-009). Esa configuración no se ha recibido (P-LEIR-06). La notificación se verifica en base de datos (`FT_T_REP1.SEND_PEND` vuelve a `N`, `FT_T_ALR1.LAST_SEND_TMS` se actualiza), porque el job termina en verde aunque falle.
+- TC-004 y los ficheros de prueba en general necesitan las posiciones de los campos de la línea de 259 caracteres (P-LEIR-03).
 
 ## Sistema de ficheros
 
@@ -38,7 +39,7 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones enviadas, estado `LEI_REG
 
 ## Orquestación
 
-La cadena no tiene predecesores externos propios: `RDR_PR_REGISTER_LEIS_RESP_IN` se dispara por planificación (L-V-S-D, inicio de ventana 04:30). El orden interno depende de eventos: `RDR_PR_REGISTER_LEIS_RESP_IN` → `REG_LEIS_RESP_FILE_FW` (reintenta cada 10 min hasta las 05:30) → `GSPROC_REG_LEIS_RESP` → (solo si hay incidencias) `REG_LEIS_RESP_ALERTAS_FW` → `GSPROC_REG_LEIS_ALERTAS`. Depende funcionalmente de que la cadena `RDR_PR_REGISTER_LEIS_SEND_new` haya generado previamente las peticiones en estado `LEI_REG_LINE_SENT` que esta cadena espera encontrar respondidas. Las Normas de Rearranque de los 4 jobs reales son idénticas (aviso manual a ANS RDR en caso de error); ver `rdr_pr_register_leis_resp_new_spec.md` §4/§6.
+La cadena no tiene predecesores externos propios: `RDR_PR_REGISTER_LEIS_RESP_IN` se dispara por planificación (L-V-S-D, inicio de ventana 04:30). El orden interno depende de eventos: `RDR_PR_REGISTER_LEIS_RESP_IN` → `REG_LEIS_RESP_FILE_FW` (ejecución cíclica cada 10 minutos entre 04:30 y 05:30; cada ejecución de `ctmfw '.../receive/LEIsReg_*.txt' CREATE 0 60 10 5 60` busca cada 60 s y espera como máximo 60 minutos; la regla ante el código 7 está pendiente, P-LEIR-02) → `GSPROC_REG_LEIS_RESP` → (solo si hay incidencias) `REG_LEIS_RESP_ALERTAS_FW` → `GSPROC_REG_LEIS_ALERTAS`. Depende funcionalmente de que la cadena `RDR_PR_REGISTER_LEIS_SEND_new` haya generado previamente las peticiones en estado `LEI_REG_LINE_SENT` que esta cadena espera encontrar respondidas. Las Normas de Rearranque de los 4 jobs reales son idénticas (aviso manual a ANS RDR en caso de error); ver §4 y §6 de la spec del proceso.
 
 ## Entorno de pruebas
 

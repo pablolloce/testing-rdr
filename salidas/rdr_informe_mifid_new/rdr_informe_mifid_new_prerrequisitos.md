@@ -22,13 +22,13 @@ El proceso se nutre de 5 tablas Oracle: `FT_T_FINS` (entidades), `FT_T_FIID` (id
 
 - **Producción:** `KYTL_INFMIFID_GSPROCESS` ejecuta `GSProcess.sh informeMIFID` (ruta `/pr/kytl/online/multipais/multicanal/scrt/`) con el usuario `xakytl1p`, en el host `pr-rdr.igrupobbva` (VIPA), server Control-M `MERCADOS-4`. `MEKYTL0353` y `MEKYTL0362` ejecutan con el usuario `xsramer1`.
 - **TC-001, TC-002, TC-009 (entorno de producción o equivalente monitorizado):** requieren acceso de solo lectura a Control-M para verificar el estado de los 3 jobs, y acceso de lectura al filesystem de `/fichtemcomp/pr/descargas/kytl/informeMIFID/` y su subcarpeta `/old/`.
-- **TC-003, TC-006 (entorno de test/preproducción, nunca producción):** requieren poder invocar manualmente `InformeMIFID.jar` con los mismos parámetros que usa `GSProcess.sh`, y poder mover/renombrar temporalmente la plantilla sin afectar el directorio real de producción.
+- **TC-003, TC-006 (entorno de test/preproducción, nunca producción):** requieren poder lanzar `GSProcess.sh informeMIFID` con el usuario `xakytl1p`, un buzón de pruebas para comprobar si sale el correo, y poder mover/renombrar temporalmente la plantilla sin afectar el directorio real de producción.
 - **TC-004, TC-005, TC-007:** requieren acceso de escritura (inserción de datos sintéticos) sobre `FT_T_FIST`/`FT_T_FIRL` en un entorno donde esa escritura no afecte producción.
 
 ## Configuración
 
 - `informeMIFID.properties.pr` debe existir y estar correctamente parametrizado para que `GSProcess.sh` dispare el evento `RDR_Reporte` (TC-001, TC-002, TC-004, TC-009).
-- El nodo `id="636"` de `GenerateReports.gsp` debe apuntar a `arrayStringSelects[16]` con el SQL documentado en `rdr_informe_mifid_new_spec.md` §6 (TC-008).
+- El nodo `id="636"` de `GenerateReports.gsp` debe apuntar a `arrayStringSelects[16]` (TC-008). El texto literal del SQL aún no está en la spec (P-INF-01): hasta incorporarlo, TC-008 compara contra la copia que tenga el equipo.
 - La configuración de correo saliente (destinatarios `elegible.mifid@bbva.com`, `c014344b@bbva.com`, asunto fijo) debe estar operativa para poder confirmar recepción (TC-001, TC-002, TC-009).
 
 ## Sistema de ficheros
@@ -39,7 +39,7 @@ El proceso se nutre de 5 tablas Oracle: `FT_T_FINS` (entidades), `FT_T_FIID` (id
 
 ## Orquestación
 
-La cadena no tiene predecesores externos: `KYTL_INFMIFID_GSPROCESS` se dispara únicamente por planificación (tercer lunes de mes, ~02:30). El orden interno es fijo: `KYTL_INFMIFID_GSPROCESS` → `MEKYTL0353` → `MEKYTL0362`. No hay Normas de Rearranque específicas documentadas para ninguno de los 3 jobs (ver `rdr_informe_mifid_new_spec.md` §4/§6) — limitación conocida, no un prerrequisito que se pueda satisfacer.
+La cadena no tiene predecesores externos: `KYTL_INFMIFID_GSPROCESS` se dispara únicamente por planificación (tercer lunes de mes, 02:30; las fechas de ficheros observadas no encajan con esa regla, P-INF-04). El orden interno es fijo: `KYTL_INFMIFID_GSPROCESS` → `MEKYTL0353` → `MEKYTL0362`. No hay Normas de Rearranque específicas documentadas para ninguno de los 3 jobs (ver §4 y §6 de la spec del proceso) — limitación conocida, no un prerrequisito que se pueda satisfacer.
 
 ## Entorno de pruebas
 

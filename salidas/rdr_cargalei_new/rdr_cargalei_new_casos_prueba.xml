@@ -1,170 +1,253 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="rdr_cargalei_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+<casosDePrueba proceso="rdr_cargalei_new" fecha="2026-10-01" usuario="pablo.llorente@nfq.es">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
-    <nombre>Ciclo completo exitoso (descarga → transformación → carga → informes)</nombre>
-    <objetivo>Verificar el ciclo end-to-end con un fichero GLEIF válido: descarga, transformación a CSV, carga en GoldenSource, generación y envío de los 2 informes, historificación.</objetivo>
+    <nombre>Ciclo completo correcto (descarga, transformación, delta, carga, informes)</nombre>
+    <objetivo>Verificar de extremo a extremo la cadena con un fichero GLEIF válido: los 7 pasos de LEI.properties, el envío XCOM de Reporte_LEI.csv, el informe Excel y las dos historificaciones.</objetivo>
     <precondiciones>
-      <precondicion>Fichero GLEIF del día disponible en la URL de descarga (o entorno de pruebas con mock del proxy).</precondicion>
-      <precondicion>XML con registros &lt;lei:LEIRecord&gt; válidos y bien formados (RegistrationStatus=ISSUED, campos obligatorios presentes).</precondicion>
+      <precondicion>Entorno de pruebas con acceso de lectura a Control-M sobre el folder KYTL0000-RDR_CARGALEI_new y a la base de datos de GoldenSource (FT_T_RLT1, FT_T_JBLG, FT_T_TRID) con un usuario de consulta.</precondicion>
+      <precondicion>Acceso al proxy y a https://leidata.gleif.org desde la máquina de ejecución, o un fichero GLEIF del día servido por un simulador del proxy.</precondicion>
+      <precondicion>Existe /fichtemcomp/&lt;env&gt;/descargas/kytl/LEI/old/LEI.csv con la carga del día anterior (referencia del delta) y el directorio LEI/old/.</precondicion>
+      <precondicion>La clave LEI existe en select.properties (§6.4 de la spec) y el código de proceso Reporte_GLEIF_Entity_Status está configurado en FT_T_REP1/FT_T_ALR1 con un destinatario de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Fichero GLEIF" valor="ZIP válido con XML de LEIRecords bien formado"/>
+      <dato campo="Fichero GLEIF" valor="ZIP del día con XML de lei:LEIRecord válidos, con al menos un LEI nuevo y uno modificado respecto a old/LEI.csv"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar RDR_CARGALEI_IN → RDRKYTL001 y confirmar la descarga y descompresión correcta (gleif.sh).</paso>
-      <paso numero="2">Confirmar que LEI.sh genera LEI.csv con más de 1 línea (cabecera + registros) y 18 columnas.</paso>
-      <paso numero="3">Confirmar la carga real en GoldenSource (BusinessFeed=CargaLEI) tras el Evento MDX.</paso>
-      <paso numero="4">Confirmar la generación de Reporte_LEI.csv y su envío a XCOM (MEKYTL0349) y posterior historificación (MEKYTL0944).</paso>
-      <paso numero="5">Confirmar la generación y envío del informe Excel RDR_Reporte_GLEIF_YYYYMMDD.xlsx (INFORME_GLEIF) y su historificación (MEKYTL1237).</paso>
+      <paso numero="1">Lanzar RDR_CARGALEI_IN y esperar a que RDRKYTL001 termine.</paso>
+      <paso numero="2">Comprobar que execute_LEI_&lt;AAAAMMDD&gt;.log termina con ESTADO-0-.</paso>
+      <paso numero="3">Comprobar que old/LEI.csv contiene el fichero completo de hoy con la cabecera de 18 columnas de §6.3.</paso>
+      <paso numero="4">Comprobar que el log contiene "Proceso delta finalizado correctamente &lt;n&gt; registros diferentes" con n igual al número de LEI nuevos o modificados.</paso>
+      <paso numero="5">Comprobar en GoldenSource que los LEI nuevos y modificados tienen los valores del fichero.</paso>
+      <paso numero="6">Comprobar que LEI/Reporte_LEI.csv existe, empieza por la cabecera TYPE;LEI_CODE;COMMENTS;CAMPO_MODIFICADO;OLD;NEW;LEI_SUCESOR y que su número de filas coincide con la query de §6.4 ejecutada a mano.</paso>
+      <paso numero="7">Comprobar que MEKYTL0349 y MEKYTL0944 terminan OK y que Reporte_LEI_yyyymmdd.zip aparece en old.</paso>
+      <paso numero="8">Comprobar que INFORME_GLEIF y MEKYTL1237 terminan OK, que FT_T_REP1.SEND_PEND de Reporte_GLEIF_Entity_Status vuelve a 'N' y que RDR_Reporte_GLEIF_YYYYMMDD.xlsx aparece en old.</paso>
     </pasos>
-    <resultadoEsperado>Los 6 pasos terminan OK; LEI.csv cargado correctamente; ambos informes generados, enviados e historificados; sin entradas en FT_T_TRID con crrnt_severity_cde&gt;39.</resultadoEsperado>
-    <tipoValidacion>Estado OK de los 6 jobs en Control-M + verificación de contenido en BBDD y ficheros generados.</tipoValidacion>
-    <criterioAceptacion>Ciclo completo sin KOs, con los 2 informes correctamente entregados e historificados.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada; cualquier KO real o informe ausente invalida el caso.</posibilidadFallo>
+    <resultadoEsperado>Los 6 jobs terminan OK; GoldenSource refleja los LEI nuevos y modificados; Reporte_LEI.csv coincide con la query de la clave LEI; ambos informes quedan enviados e historificados; no hay filas en FT_T_TRID con CRRNT_SEVERITY_CDE &gt; 39 para el JOB_ID de la carga.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M, logs, ficheros y consultas a base de datos.</tipoValidacion>
+    <criterioAceptacion>Todos los pasos se cumplen. La recepción del correo y del fichero en \\S00371f2 se comprueba solo si el entorno de pruebas tiene esos destinos; en otro caso el criterio termina en "fichero preparado y SEND_PEND='N'".</criterioAceptacion>
+    <posibilidadFallo>Un job OK no basta: RDR_Report.jar y la Gestión de alertas terminan en verde aunque fallen (§9 RISK-LEI-004/005); hay que verificar los ficheros y la base de datos.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="error_funcional">
-    <nombre>Registro LEI con datos incompletos o erróneos</nombre>
-    <objetivo>Confirmar que un registro LEI mal formado genera una entrada en FT_T_TRID con severidad de error y queda recogido por ErroresCSV.gsp.</objetivo>
+    <nombre>Registro LEI con datos erróneos</nombre>
+    <objetivo>Confirmar que un registro rechazado por la carga queda en FT_T_TRID con severidad de error, que ErroresCSV lo recoge y que el resto de la carga continúa.</objetivo>
     <precondiciones>
-      <precondicion>XML de GLEIF con al menos un &lt;lei:LEIRecord&gt; sin LegalName o con RegistrationStatus inválido.</precondicion>
+      <precondicion>Las del TC-001.</precondicion>
+      <precondicion>XML de GLEIF con un lei:LEIRecord sin LegalName o con RegistrationStatus fuera de catálogo, además de registros válidos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Registro LEI malformado" valor="LEIRecord sin LegalName o con RegistrationStatus fuera de catálogo"/>
+      <dato campo="Registro erróneo" valor="LEIRecord sin LegalName"/>
+      <dato campo="Registros válidos" valor="al menos 2 LEIRecord nuevos completos"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena con el XML que contiene el registro malformado.</paso>
-      <paso numero="2">Verificar que se genera una entrada en FT_T_TRID con crrnt_severity_cde&gt;39 para ese registro.</paso>
-      <paso numero="3">Confirmar que ErroresCSV.gsp recoge el error, lo escribe en el fichero de salida, y marca el registro (MarcaRegErroneo) si corresponde JOB_ID.</paso>
+      <paso numero="1">Ejecutar la cadena con ese XML.</paso>
+      <paso numero="2">Consultar FT_T_TRID para el JOB_ID de la carga con CRRNT_SEVERITY_CDE &gt; 39.</paso>
+      <paso numero="3">Comprobar que el fichero de errores de ErroresCSV contiene el registro erróneo.</paso>
+      <paso numero="4">Comprobar que los registros válidos están cargados en GoldenSource.</paso>
     </pasos>
-    <resultadoEsperado>El registro erróneo queda aislado y documentado, sin bloquear la carga del resto de registros válidos.</resultadoEsperado>
-    <tipoValidacion>Consulta a FT_T_TRID y revisión del fichero de errores generado por ErroresCSV.gsp.</tipoValidacion>
-    <criterioAceptacion>Entrada de error presente y correctamente clasificada; resto de la carga no afectado.</criterioAceptacion>
-    <posibilidadFallo>Si el registro malformado detiene toda la carga o no se registra en FT_T_TRID, revisar el manejo de errores de ParseMDXLayout.</posibilidadFallo>
+    <resultadoEsperado>El registro erróneo aparece en FT_T_TRID con severidad mayor que 39 y en el fichero de errores; los registros válidos quedan cargados.</resultadoEsperado>
+    <tipoValidacion>Consulta a FT_T_TRID y revisión del fichero de errores.</tipoValidacion>
+    <criterioAceptacion>Error registrado y resto de la carga intacta. Si el layout MDX no considera obligatorio LegalName (P-LEI-03), el caso se repite con el campo que el layout declare obligatorio.</criterioAceptacion>
+    <posibilidadFallo>Si el registro detiene toda la carga, el evento MDX devolvería ≠ 0 y, con Stop=Ok, la cadena se pararía sin informe.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="regresion">
-    <nombre>LEI ya cargado sin cambios (delta no genera movimiento)</nombre>
-    <objetivo>Confirmar que el paso Delta omite la recarga de un LEI sin modificaciones respecto a la ejecución anterior.</objetivo>
+    <nombre>LEI sin cambios no se recarga (delta)</nombre>
+    <objetivo>Confirmar que Delta.sh excluye del fichero de carga un LEI idéntico al de la carga anterior.</objetivo>
     <precondiciones>
-      <precondicion>Mismo LEI presente en 2 ejecuciones consecutivas, sin cambios en ningún campo.</precondicion>
+      <precondicion>old/LEI.csv contiene una línea L1 de un LEI concreto.</precondicion>
+      <precondicion>El LEI.csv completo de hoy contiene exactamente la misma línea L1 (mismos 18 valores, incluido LastUpdateDate) y al menos otra línea nueva.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="LEI sin cambios" valor="mismo registro completo en ambas ejecuciones"/>
+      <dato campo="LEI sin cambios" valor="línea L1 idéntica carácter a carácter en ambos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena dos días consecutivos con el mismo registro LEI sin cambios.</paso>
-      <paso numero="2">Confirmar que el paso Delta no marca ese registro para recarga.</paso>
-      <paso numero="3">Confirmar que no se genera movimiento/actualización en GoldenSource para ese LEI en la segunda ejecución.</paso>
+      <paso numero="1">Ejecutar RDRKYTL001.</paso>
+      <paso numero="2">Comprobar old/LEI_original.csv contiene L1.</paso>
+      <paso numero="3">Comprobar que el LEI.csv resultante del delta no contiene L1.</paso>
+      <paso numero="4">Comprobar que la otra línea nueva sí está en el LEI.csv resultante.</paso>
     </pasos>
-    <resultadoEsperado>El registro sin cambios no genera actividad de carga en la segunda ejecución.</resultadoEsperado>
-    <tipoValidacion>Comparación de logs/trazas de carga entre ambas ejecuciones.</tipoValidacion>
-    <criterioAceptacion>Sin movimiento para el registro sin cambios.</criterioAceptacion>
-    <posibilidadFallo>Si el registro se recarga pese a no tener cambios, revisar la lógica de comparación de Delta.</posibilidadFallo>
+    <resultadoEsperado>L1 no aparece en el fichero de carga; la línea nueva sí.</resultadoEsperado>
+    <tipoValidacion>Comparación de ficheros en LEI/ y LEI/old/.</tipoValidacion>
+    <criterioAceptacion>L1 ausente del delta.</criterioAceptacion>
+    <posibilidadFallo>Cualquier diferencia de un solo carácter (espacios, fechas) hace que L1 salga en el delta: es el comportamiento de compare.jar, no un fallo.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="conflicto_integridad">
     <nombre>LEI con cambio de estado (ISSUED → LAPSED)</nombre>
-    <objetivo>Confirmar que un cambio de estado real de un LEI se refleja correctamente en RDR y en el informe Reporte_GLEIF_Entity_Status.</objetivo>
+    <objetivo>Confirmar que un cambio de RegistrationStatus se carga y aparece en Reporte_LEI.csv y en el Excel.</objetivo>
     <precondiciones>
-      <precondicion>Mismo LEI con RegistrationStatus/EntityStatus distinto respecto a la ejecución anterior (p. ej. ISSUED → LAPSED).</precondicion>
+      <precondicion>old/LEI.csv contiene el LEI X con RegistrationStatus=ISSUED.</precondicion>
+      <precondicion>El fichero de hoy trae el LEI X con RegistrationStatus=LAPSED.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="LEI con cambio de estado" valor="RegistrationStatus anterior=ISSUED, nuevo=LAPSED"/>
+      <dato campo="LEI X" valor="RegistrationStatus anterior ISSUED, nuevo LAPSED"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena con el cambio de estado simulado.</paso>
-      <paso numero="2">Confirmar que Delta detecta el cambio y lo marca para recarga.</paso>
-      <paso numero="3">Confirmar la actualización del estado en GoldenSource.</paso>
-      <paso numero="4">Confirmar que el informe Excel a Customer Data Management refleja el nuevo estado para ese LEI/FINSID.</paso>
+      <paso numero="1">Ejecutar la cadena.</paso>
+      <paso numero="2">Comprobar que la línea del LEI X está en el LEI.csv del delta.</paso>
+      <paso numero="3">Comprobar en GoldenSource que el LEI X tiene estado LAPSED.</paso>
+      <paso numero="4">Comprobar si Reporte_LEI.csv tiene una fila con LEI_CODE=X.</paso>
+      <paso numero="5">Comprobar que el Excel de Reporte_GLEIF_Entity_Status muestra el nuevo estado del LEI X.</paso>
     </pasos>
-    <resultadoEsperado>El cambio de estado se propaga correctamente a GoldenSource y al informe Excel.</resultadoEsperado>
-    <tipoValidacion>Consulta a GoldenSource + inspección del Excel generado.</tipoValidacion>
-    <criterioAceptacion>Estado actualizado y reflejado en el informe para el LEI probado.</criterioAceptacion>
-    <posibilidadFallo>Si el cambio no se refleja en GoldenSource o en el informe, revisar la lógica de ParseMDXLayout/GestionAlertas.</posibilidadFallo>
+    <resultadoEsperado>El LEI X sale en el delta y queda LAPSED en GoldenSource. La fila en Reporte_LEI.csv y en el Excel existe si la carga escribe el cambio en FT_T_RLT1 (P-LEI-03) y si la query del Excel incluye el cambio de estado (P-LEI-06).</resultadoEsperado>
+    <tipoValidacion>Ficheros, consulta a GoldenSource e inspección del Excel.</tipoValidacion>
+    <criterioAceptacion>Pasos 2 y 3 obligatorios; pasos 4 y 5 se dan por buenos cuando se cierren P-LEI-03 y P-LEI-06.</criterioAceptacion>
+    <posibilidadFallo>Si el estado no cambia en GoldenSource, revisar el layout MDX de CargaLEI.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
-    <nombre>Fichero GLEIF vacío o no descargado — comportamiento superficial (fallback y alerta)</nombre>
-    <objetivo>Confirmar el comportamiento documentado de Comprobar_fichero_LEI.sh: restauración de LEI_old.csv y disparo del email de aviso ante un LEI.csv con menos de 2 líneas.</objetivo>
+    <nombre>LEI.csv vacío: restauración y aviso</nombre>
+    <objetivo>Confirmar la reacción de Comprobar_fichero_LEI.sh ante un LEI.csv de menos de 2 líneas, cuando gleif.sh y LEI.sh terminan con código 0.</objetivo>
     <precondiciones>
-      <precondicion>Simular fallo de gleif.sh (URL inaccesible) o un XML sin registros útiles, de forma que LEI.csv resulte vacío o solo con cabecera.</precondicion>
+      <precondicion>Entorno de pruebas (no producción): se manipula el fichero de entrada.</precondicion>
+      <precondicion>gleif.sh y LEI.sh se ejecutan con un XML sin lei:LEIRecord, de forma que LEI.csv queda solo con la cabecera y ambos terminan con 0 (si alguno terminara con ≠ 0, aplica el TC-010).</precondicion>
+      <precondicion>Existe LEI/old/LEI.csv con datos (que el delta convertirá en old/LEI_old.csv).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="LEI.csv resultante" valor="0 o 1 líneas (vacío o solo cabecera)"/>
+      <dato campo="LEI.csv tras LEI.sh" valor="1 línea (cabecera)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Provocar el escenario de fichero vacío/no descargado.</paso>
-      <paso numero="2">Verificar que, tras el Evento MDX y el paso Java (ver TC-007 para lo que ya ocurrió en esos pasos), Comprobar_fichero_LEI.sh detecta &lt;2 líneas.</paso>
-      <paso numero="3">Confirmar que LEI.csv queda restaurado con el contenido de LEI_old.csv del día anterior.</paso>
-      <paso numero="4">Confirmar la recepción del email de aviso_LEI (asunto "Reporte error carga de LEIs", adjunto LEI.csv).</paso>
+      <paso numero="1">Ejecutar RDRKYTL001.</paso>
+      <paso numero="2">Comprobar en el log que el evento MDX y RDR_Report.jar se ejecutan antes de Comprobar_fichero_LEI.sh.</paso>
+      <paso numero="3">Comprobar que, tras la comprobación, LEI.csv tiene el contenido de old/LEI_old.csv.</paso>
+      <paso numero="4">Comprobar que se lanza GSProcess.sh aviso_LEI (log execute_aviso_LEI_&lt;AAAAMMDD&gt;.log).</paso>
+      <paso numero="5">Comprobar quién recibe el correo, con qué asunto y qué adjunto.</paso>
     </pasos>
-    <resultadoEsperado>El fichero en disco queda restaurado y se recibe la alerta — comportamiento superficial documentado, confirmado.</resultadoEsperado>
-    <tipoValidacion>Inspección del fichero LEI.csv resultante + verificación de la recepción del email.</tipoValidacion>
-    <criterioAceptacion>LEI.csv = LEI_old.csv tras el fallback; email recibido con el asunto y adjunto correctos.</criterioAceptacion>
-    <posibilidadFallo>Si no se restaura el fichero o no se envía el aviso, contradice la ficha del script — revisar el propio script real.</posibilidadFallo>
+    <resultadoEsperado>LEI.csv queda igual a old/LEI_old.csv y se lanza el aviso. Destinatarios, asunto y adjunto: los que defina aviso_LEI/SendMailReport (P-LEI-07); con la versión 16 recibida del workflow serían los cuatro destinatarios fijos, asunto "Informe diario carga contrapartidas" y adjunto Report.csv.</resultadoEsperado>
+    <tipoValidacion>Ficheros, logs de GSProcess.sh y buzones de prueba.</tipoValidacion>
+    <criterioAceptacion>Pasos 2 a 4 cumplidos. El paso 5 se acepta comparándolo con la respuesta a P-LEI-07.</criterioAceptacion>
+    <posibilidadFallo>Si no se restaura o no se avisa, el comportamiento del script difiere del documentado (P-LEI-01).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="regresion">
-    <nombre>Volumen grande (&gt;50.000 registros) — troceo sin pérdida</nombre>
-    <objetivo>Confirmar que LEI.sh trocea correctamente un XML de más de 50.000 registros en múltiples ficheros trozo_N y los consolida sin pérdida en LEI.csv final.</objetivo>
+    <nombre>Volumen mayor de 50.000 registros: troceo sin pérdida</nombre>
+    <objetivo>Confirmar que LEI.sh trocea un XML de más de 50.000 lei:LEIRecord y los consolida en LEI.csv sin pérdidas ni duplicados.</objetivo>
     <precondiciones>
-      <precondicion>XML de GLEIF con más de 50.000 &lt;lei:LEIRecord&gt;.</precondicion>
+      <precondicion>XML de GLEIF con 120.000 lei:LEIRecord distintos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Volumen" valor="&gt;50.000 registros LEIRecord"/>
+      <dato campo="Volumen" valor="120.000 LEIRecord (3 trozos: 50.000, 50.000 y 20.000)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar LEI.sh con el XML de gran volumen.</paso>
-      <paso numero="2">Confirmar la generación de múltiples ficheros trozo_N (uno por cada bloque de 50.000).</paso>
-      <paso numero="3">Confirmar que LEI.csv final contiene exactamente el número total de registros de entrada, sin duplicados ni pérdidas.</paso>
+      <paso numero="1">Ejecutar gleif.sh y LEI.sh con ese XML (sin ejecutar el resto de pasos).</paso>
+      <paso numero="2">Contar las líneas de datos de LEI.csv (sin la cabecera).</paso>
+      <paso numero="3">Contar los LEI distintos de LEI.csv (primera columna).</paso>
     </pasos>
-    <resultadoEsperado>LEI.csv consolidado contiene el 100% de los registros de entrada, sin pérdida ni duplicación.</resultadoEsperado>
-    <tipoValidacion>Conteo de líneas de LEI.csv vs. conteo de LEIRecord en el XML de origen.</tipoValidacion>
-    <criterioAceptacion>Conteo exacto coincidente.</criterioAceptacion>
-    <posibilidadFallo>Cualquier discrepancia en el conteo indica pérdida o duplicación en el troceo/consolidación paralela.</posibilidadFallo>
+    <resultadoEsperado>LEI.csv tiene 1 cabecera y 120.000 líneas de datos con 120.000 LEI distintos.</resultadoEsperado>
+    <tipoValidacion>Conteo de líneas y de valores distintos.</tipoValidacion>
+    <criterioAceptacion>Conteos exactos.</criterioAceptacion>
+    <posibilidadFallo>Una diferencia indica pérdida o duplicación en el troceo o en la sincronización en segundo plano.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="conflicto_integridad">
-    <nombre>Hallazgo GAP-LEI-001 — estado real de BBDD y del informe cuando el fichero llega vacío (más allá del fallback superficial)</nombre>
-    <objetivo>Determinar qué queda realmente cargado en GoldenSource y qué contiene el informe Reporte_LEI.csv/el Excel cuando LEI.csv llega vacío, dado que el Evento MDX (carga) y el paso Java (informe) se ejecutan ANTES que Comprobar_fichero_LEI.sh (la validación).</objetivo>
+    <nombre>Estado real de base de datos, informe y delta del día siguiente tras un fichero vacío (GAP-LEI-001)</nombre>
+    <objetivo>Medir qué queda en GoldenSource, en Reporte_LEI.csv y en la referencia del delta cuando LEI.csv llega vacío, dado que la carga y el informe se ejecutan antes de la comprobación.</objetivo>
     <precondiciones>
-      <precondicion>Mismo escenario de TC-005 (fichero GLEIF vacío/no descargado), pero con foco en los pasos 4 y 5 del pipeline (Evento MDX y Java), no en el paso 6 (Comprobar_fichero_LEI.sh).</precondicion>
+      <precondicion>Mismo escenario que el TC-005, en entorno de pruebas.</precondicion>
+      <precondicion>Recuento previo de registros del feed CargaLEI en GoldenSource y copia de LEI/old/LEI.csv.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Orden real confirmado" valor="Evento(MDX) → Java(RDR_Report.jar) → Script(Comprobar_fichero_LEI.sh)"/>
+      <dato campo="Orden real" valor="Evento MDX → Java RDR_Report → Comprobar_fichero_LEI.sh"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Provocar el escenario de LEI.csv vacío (0 registros útiles) antes de que se ejecute el Evento MDX.</paso>
-      <paso numero="2">Inspeccionar qué hace ParseMDXLayout con un fichero de entrada vacío: ¿no toca nada en GoldenSource, o borra/vacía relaciones existentes por la lógica de comparación delta?</paso>
-      <paso numero="3">Inspeccionar el contenido real de Reporte_LEI.csv generado en el paso Java para ese ciclo — ¿refleja el estado ya corrupto/vacío de BBDD?</paso>
-      <paso numero="4">Confirmar si Reporte_LEI.csv (potencialmente corrupto) llega a enviarse a XCOM (MEKYTL0349) y al informe Excel de Customer Data Management de todas formas, pese a que Comprobar_fichero_LEI.sh detecte el problema después.</paso>
+      <paso numero="1">Ejecutar RDRKYTL001 con LEI.csv solo con cabecera.</paso>
+      <paso numero="2">Repetir el recuento de GoldenSource y compararlo con el previo.</paso>
+      <paso numero="3">Inspeccionar Reporte_LEI.csv generado.</paso>
+      <paso numero="4">Comprobar el contenido de LEI/old/LEI.csv después de la ejecución.</paso>
+      <paso numero="5">Ejecutar al día siguiente con un fichero GLEIF normal y contar las líneas del delta.</paso>
     </pasos>
-    <resultadoEsperado>Se documenta con evidencia real si la carga/informe del día quedan afectados por el fichero vacío, más allá de la restauración en disco para el día siguiente — confirmando o acotando el alcance real de RISK-LEI-001.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de GoldenSource tras el Evento MDX + inspección del contenido real de Reporte_LEI.csv y del Excel generado, en el mismo ciclo del incidente.</tipoValidacion>
-    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución, confirmando si existe o no impacto real en la carga/informe del día del incidente.</criterioAceptacion>
-    <posibilidadFallo>Si se confirma que ParseMDXLayout vacía o corrompe relaciones existentes ante un fichero vacío, o que el informe corrupto llega a Customer Data Management, debe elevarse como hallazgo de prioridad alta para corrección del pipeline (reordenar la validación antes de la carga), no solo como nota de testing.</posibilidadFallo>
+    <resultadoEsperado>El recuento de GoldenSource no baja (el delta no comunica bajas; si baja, es efecto del layout MDX, P-LEI-03). Reporte_LEI.csv se genera con las filas de FT_T_RLT1 del último job CargaLEI cerrado. LEI/old/LEI.csv queda solo con la cabecera, salvo que el script lo restaure (P-LEI-01); en ese caso, el delta del día siguiente contiene el fichero completo de GLEIF.</resultadoEsperado>
+    <tipoValidacion>Consultas a GoldenSource y comparación de ficheros.</tipoValidacion>
+    <criterioAceptacion>Resultado de cada paso registrado. No ejecutar en producción: el paso 5 provoca una recarga completa.</criterioAceptacion>
+    <posibilidadFallo>Si el recuento baja o el informe enviado contiene datos erróneos, elevar como incidencia para mover la comprobación antes de la carga.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="regresion">
-    <nombre>Confirmación de topología completa (6 pasos, 3 ramas)</nombre>
-    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente los 6 pasos documentados, sin jobs añadidos ni eliminados.</objetivo>
+    <nombre>Topología y orden de LEI.properties</nombre>
+    <objetivo>Detectar cualquier cambio en los 6 jobs, en su planificación o en el orden de acciones de LEI.properties.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a la definición real de Control-M del folder KYTL0000-RDR_CARGALEI_new.</precondicion>
+      <precondicion>Acceso de lectura a la definición de Control-M del folder y a LEI.properties del entorno.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Jobs esperados" valor="RDR_CARGALEI_IN, RDRKYTL001, MEKYTL0349, MEKYTL0944, INFORME_GLEIF, MEKYTL1237"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar que el folder sigue conteniendo únicamente los 6 jobs documentados.</paso>
-      <paso numero="2">Confirmar que la planificación (L-V, ≥14:30) y la criticidad (W) no han cambiado.</paso>
-      <paso numero="3">Confirmar que el orden real de Accion= en LEI.properties no ha cambiado (relevante para RISK-LEI-001).</paso>
+      <paso numero="1">Comparar la lista de jobs del folder con la esperada.</paso>
+      <paso numero="2">Comprobar planificación L-V no antes de las 14:30 y criticidad W.</paso>
+      <paso numero="3">Comparar LEI.properties con el literal de §6.2 de la spec.</paso>
     </pasos>
-    <resultadoEsperado>Topología, planificación y orden de ejecución se mantienen sin cambios respecto a lo documentado.</resultadoEsperado>
-    <tipoValidacion>Comparación directa contra la definición real de Control-M y el LEI.properties vigente.</tipoValidacion>
-    <criterioAceptacion>Sin discrepancias respecto a lo documentado en rdr_cargalei_new_spec.md §6.</criterioAceptacion>
-    <posibilidadFallo>Si aparece un job nuevo o cambia el orden de Accion= en LEI.properties (p. ej. si se corrige RISK-LEI-001 reordenando la validación antes de la carga), este caso debe fallar y motivar una actualización de la especificación.</posibilidadFallo>
+    <resultadoEsperado>Sin diferencias con §6.1 y §6.2 de la spec.</resultadoEsperado>
+    <tipoValidacion>Revisión de configuración.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias. Una diferencia (por ejemplo, la comprobación movida antes de la carga) obliga a actualizar la spec.</criterioAceptacion>
+    <posibilidadFallo>Diferencias de rutas ei frente a pr son esperables si se compara con la copia de producción (P-LEI-09).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>GLEIF sin cambios respecto a la última carga: falso aviso de fichero vacío</nombre>
+    <objetivo>Confirmar RISK-LEI-003: un delta sin diferencias deja LEI.csv con una sola línea y la comprobación lo trata como fichero vacío.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas. LEI/old/LEI.csv igual, línea a línea, al LEI.csv completo que generará LEI.sh.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero de hoy" valor="idéntico a la referencia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDRKYTL001.</paso>
+      <paso numero="2">Comprobar en el log "Proceso delta finalizado correctamente 0 registros diferentes".</paso>
+      <paso numero="3">Comprobar que Comprobar_fichero_LEI.sh restaura LEI.csv y lanza aviso_LEI.</paso>
+    </pasos>
+    <resultadoEsperado>El delta da 0 registros, LEI.csv queda con 1 línea y se dispara la restauración y el aviso aunque no hay error.</resultadoEsperado>
+    <tipoValidacion>Logs y ficheros.</tipoValidacion>
+    <criterioAceptacion>Se confirma (o se descarta) el falso aviso.</criterioAceptacion>
+    <posibilidadFallo>Si no se dispara el aviso, el script no cuenta líneas como dice el documento (P-LEI-01).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="error_funcional">
+    <nombre>Fallo de descarga con Stop=Ok</nombre>
+    <objetivo>Confirmar que, si gleif.sh termina con código distinto de 0, GSProcess.sh se detiene sin ejecutar carga, informe, comprobación ni evento Errores.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas sin acceso a leidata.gleif.org (o proxy que responde error).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Descarga" valor="URL inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDRKYTL001.</paso>
+      <paso numero="2">Anotar el código de salida de gleif.sh en el log.</paso>
+      <paso numero="3">Si es distinto de 0: comprobar "Proceso GSProcess.sh finalizado de forma incorrecta debido a" en execute_LEI_&lt;AAAAMMDD&gt;.log, código de salida 1 y ausencia de ejecución de LEI.sh y siguientes.</paso>
+      <paso numero="4">Si es 0: comprobar qué contiene LEI.csv y seguir el TC-005.</paso>
+    </pasos>
+    <resultadoEsperado>Con código ≠ 0 de gleif.sh: RDRKYTL001 termina con código 1, sin ESTADO-1- en el log, y no se ejecuta ningún paso posterior. Con código 0: se comporta como el TC-005.</resultadoEsperado>
+    <tipoValidacion>Logs de GSProcess.sh y estado de Control-M.</tipoValidacion>
+    <criterioAceptacion>El código real de gleif.sh queda registrado y cierra parte de P-LEI-01.</criterioAceptacion>
+    <posibilidadFallo>Que MEKYTL0349 o INFORME_GLEIF se ejecuten tras un NOTOK de RDRKYTL001 depende de Control-M (P-LEI-08).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>Contenido de Reporte_LEI.csv con mensajes sintéticos</nombre>
+    <objetivo>Confirmar cómo la query de la clave LEI parte MESSAGE_RLT y qué filas incluye.</objetivo>
+    <precondiciones>
+      <precondicion>Base de datos de pruebas con escritura en FT_T_RLT1 y FT_T_JBLG.</precondicion>
+      <precondicion>Una fila en FT_T_JBLG con JOB_MSG_TYP='CargaLEI', JOB_STAT_TYP='CLOSED' y JOB_START_TMS = T.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fila A (START_TMS &gt; T)" valor="MAIN_ENTITY_ID=LEI_A, MESSAGE_RLT='Cambio; RegistrationStatus; ISSUED; LAPSED; LEI_S'"/>
+      <dato campo="Fila B (START_TMS &gt; T)" valor="MAIN_ENTITY_ID=LEI_B, MESSAGE_RLT='Alta'"/>
+      <dato campo="Fila C (START_TMS &lt; T)" valor="MAIN_ENTITY_ID=LEI_C, mismo formato que A"/>
+      <dato campo="Fila D (START_TMS &gt; T)" valor="DATA_SRC_APP distinto de 'CARGALEI'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Report.jar con select.properties y la clave LEI.</paso>
+      <paso numero="2">Comprobar la fila de LEI_A.</paso>
+      <paso numero="3">Comprobar la fila de LEI_B.</paso>
+      <paso numero="4">Comprobar que no aparecen LEI_C ni la fila D.</paso>
+    </pasos>
+    <resultadoEsperado>LEI_A: REPORTES;LEI_A;Cambio;RegistrationStatus;ISSUED;LAPSED;LEI_S. LEI_B: REPORTES;LEI_B;Alta;N/A;N/A;N/A;N/A. LEI_C y D no aparecen. Cabecera TYPE;LEI_CODE;COMMENTS;CAMPO_MODIFICADO;OLD;NEW;LEI_SUCESOR.</resultadoEsperado>
+    <tipoValidacion>Comparación del fichero con el resultado esperado.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de las dos filas (el orden entre ellas no está garantizado).</criterioAceptacion>
+    <posibilidadFallo>COMMENTS no se recorta con trim: un espacio inicial en el primer trozo se conserva.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

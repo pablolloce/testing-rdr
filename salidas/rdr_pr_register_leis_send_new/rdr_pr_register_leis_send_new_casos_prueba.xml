@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="rdr_pr_register_leis_send_new" fecha="2026-09-29" usuario="miguel.saavedra">
+<casosDePrueba proceso="rdr_pr_register_leis_send_new" fecha="2026-10-01" usuario="miguel.saavedra">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Generación, envío e historificación correctos con peticiones pendientes</nombre>
@@ -41,10 +41,10 @@
       <paso numero="3">Verificar que no existe ningún LEIsReg_&lt;fecha&gt;.req en la ruta send/.</paso>
       <paso numero="4">Verificar el estado final de GS_REGISTERLEISEND y MEKYTL0927 en Control-M.</paso>
     </pasos>
-    <resultadoEsperado>No se genera fichero .req; GS_REGISTERLEISEND termina OK; MEKYTL0927 termina OK sin fichero que enviar, sin ningún error.</resultadoEsperado>
+    <resultadoEsperado>No se genera fichero .req; GS_REGISTERLEISEND termina OK (el log muestra "File ... not found" y ESTADO-0-); MEKYTL0927 termina OK sin fichero que enviar, como pide la ficha. Este último resultado y el de MEKYTL1014 dependen de FALLA_NO_FICHERO del .idx de MEKYTL0927 y del campo 5 de la línea IDX de MEKYTL1014 (P-LEIS-04, P-LEIS-05).</resultadoEsperado>
     <tipoValidacion>Inspección de filesystem + estado de ejecución en Control-M</tipoValidacion>
     <criterioAceptacion>Ausencia confirmada del .req; ambos jobs en "Ended OK".</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada según la ficha SSDD, que documenta explícitamente este comportamiento como no error.</posibilidadFallo>
+    <posibilidadFallo>Si MEKYTL0927 termina con 60 o MEKYTL1014 con 6, su configuración obliga a que haya fichero, en contra de la ficha.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -159,23 +159,28 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="regresion">
-    <nombre>Estabilidad del riesgo de ConvertirUNIXValidaFichero</nombre>
-    <objetivo>Confirmar que el comportamiento documentado y no corregido (la función no comprueba el código de salida de dos2unix) se mantiene igual tras cualquier cambio futuro del script, para detectar cualquier modificación no documentada.</objetivo>
+    <nombre>Un fallo de dos2unix deja GS_REGISTERLEISEND en NOTOK</nombre>
+    <objetivo>Confirmar el comportamiento leído en el código de ConvertirUNIXValidaFichero: cuando el fichero existe, el código de salida es el de dos2unix y GSProcess.sh lo cuenta como subproceso fallido.</objetivo>
     <precondiciones>
-      <precondicion>Se dispone de un entorno de test/preproducción donde se puede simular de forma controlada un fallo de dos2unix (por ejemplo, fichero bloqueado o sin permisos de escritura), sin afectar producción.</precondicion>
+      <precondicion>Entorno de pruebas (nunca producción) con GSProcess.sh, Generico.sh y LEI_Register_request.properties desplegados; usuario xakytl1p.</precondicion>
+      <precondicion>Una petición PENDING completa (TESTLEI008) para que el Java genere el .req.</precondicion>
+      <precondicion>Posibilidad de forzar el fallo de dos2unix sobre el .req generado (por ejemplo, directorio send/ sin permiso de escritura para xakytl1p tras la generación, o dos2unix sustituido por un script que termine con 1 en el PATH de pruebas).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="LEIsReg_test.req (entorno de test)" valor="fichero con permisos de solo lectura para forzar el fallo de dos2unix"/>
+      <dato campo="TESTLEI008" valor="petición PENDING completa"/>
+      <dato campo="dos2unix" valor="forzado a terminar con código 1"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">En entorno de test, generar un fichero LEIsReg_test.req y quitarle permisos de escritura.</paso>
-      <paso numero="2">Invocar la función ConvertirUNIXValidaFichero sobre ese fichero.</paso>
-      <paso numero="3">Verificar el código de salida de la función/script contenedor y el contenido del log genérico.</paso>
+      <paso numero="1">Ejecutar GSProcess.sh LEI_Register_request.</paso>
+      <paso numero="2">Comprobar en execute_LEI_Register_request_&lt;AAAAMMDD&gt;.log la línea "File &lt;ruta&gt; found".</paso>
+      <paso numero="3">Comprobar en el mismo log "SubProceso ConvertirUNIXValidaFichero finalizado de forma incorrecta" y ESTADO-1-.</paso>
+      <paso numero="4">Comprobar que GSProcess.sh termina con código 1.</paso>
+      <paso numero="5">Comprobar que TESTLEI008 está en LEI_REG_LINE_SENT y que el .req sigue en send/.</paso>
     </pasos>
-    <resultadoEsperado>La función registra "File found" en el log igualmente (porque `ls` tiene éxito), pese a que `dos2unix` falla internamente por falta de permisos; no se propaga ningún código de error distinto de éxito.</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada en entorno de test + inspección de log y código de salida</tipoValidacion>
-    <criterioAceptacion>El log no distingue el fallo de dos2unix de una conversión correcta; el script no termina con código de error pese al fallo interno.</criterioAceptacion>
-    <posibilidadFallo>Si en el futuro el resultado difiere (por ejemplo, si se añade una comprobación del código de salida de dos2unix), debe tratarse como una corrección no documentada y actualizarse rdr_pr_register_leis_send_new_spec.md §9 y este caso.</posibilidadFallo>
+    <resultadoEsperado>GSProcess.sh termina con código 1 (job NOTOK); el log muestra "found" y el subproceso incorrecto; la petición ya quedó en LEI_REG_LINE_SENT y el fichero sigue en send/ sin enviar.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de pruebas, log y código de salida.</tipoValidacion>
+    <criterioAceptacion>Los cinco pasos se cumplen. Caso destructivo para el entorno: no ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si GSProcess.sh terminara con 0, el .properties tendría una configuración distinta de la descrita (P-LEIS-01) o Generico.sh no sería la versión analizada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="e2e">

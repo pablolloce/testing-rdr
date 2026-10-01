@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="rdr_informe_mifid_new" fecha="2026-09-24" usuario="miguel.saavedra">
+<casosDePrueba proceso="rdr_informe_mifid_new" fecha="2026-10-01" usuario="miguel.saavedra">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Generación y envío correcto del informe MIFID</nombre>
@@ -53,7 +53,7 @@
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
     <nombre>Plantilla ausente corta la cadena antes de generar el Excel</nombre>
-    <objetivo>Validar que, si Reporte_informeMIFID_Plantilla.xlsx no existe en el momento de la ejecución, el job Java falla al abrir el FileInputStream y la cadena se corta sin generar el Excel, sin enviar correo y sin que MEKYTL0362 llegue a ejecutarse.</objetivo>
+    <objetivo>Validar que, si Reporte_informeMIFID_Plantilla.xlsx no existe, el Java falla al abrir el FileInputStream, no se genera el Excel, GSProcess.sh termina con código 1 y MEKYTL0353/MEKYTL0362 no se ejecutan; y registrar si el workflow de correo se lanza igualmente (depende de si informeMIFID.properties tiene Stop, P-INF-02).</objetivo>
     <precondiciones>
       <precondicion>Entorno de test/preproducción donde se puede simular de forma controlada la ausencia de la plantilla, sin afectar producción — este caso no debe ejecutarse nunca contra el directorio real de producción.</precondicion>
       <precondicion>Existe al menos un registro que cumple el filtro de expiración, de forma que el CSV sí se genera correctamente antes del fallo.</precondicion>
@@ -63,16 +63,17 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">En el entorno de test, renombrar o mover temporalmente la plantilla fuera del directorio de trabajo antes de disparar la cadena.</paso>
-      <paso numero="2">Ejecutar manualmente el flujo hasta el punto del job Java InformeMIFID.jar (o invocarlo directamente con los mismos parámetros que usa GSProcess.sh).</paso>
+      <paso numero="2">Ejecutar KYTL_INFMIFID_GSPROCESS (GSProcess.sh informeMIFID) en el entorno de test.</paso>
       <paso numero="3">Verificar en el log del job el tipo de excepción registrada (FileNotFoundException u equivalente en la apertura del FileInputStream).</paso>
       <paso numero="4">Confirmar que no se generó ningún fichero Reporte_informeMIFID_&lt;yyyyMMdd&gt;.xlsx.</paso>
-      <paso numero="5">Confirmar que no se envió correo ni se ejecutó MEKYTL0362.</paso>
-      <paso numero="6">Restaurar la plantilla en el entorno de test al finalizar la prueba.</paso>
+      <paso numero="5">Comprobar en execute_informeMIFID_&lt;AAAAMMDD&gt;.log si se lanzó la acción de correo después del fallo del Java y si el buzón de pruebas recibió correo.</paso>
+      <paso numero="6">Comprobar que GSProcess.sh termina con código 1 (ESTADO-1-) y que MEKYTL0353 y MEKYTL0362 no se ejecutan.</paso>
+      <paso numero="7">Restaurar la plantilla en el entorno de test al finalizar la prueba.</paso>
     </pasos>
-    <resultadoEsperado>El job Java termina en error por no encontrar la plantilla; no se genera el Excel; el correo no se envía; MEKYTL0362 no llega a ejecutarse porque su predecesor (el paso de generación del Excel) no completó con éxito.</resultadoEsperado>
+    <resultadoEsperado>El Java termina en error por no encontrar la plantilla; no se genera el Excel; KYTL_INFMIFID_GSPROCESS termina con código 1 (NOTOK) y MEKYTL0353 y MEKYTL0362 no se ejecutan. Si el .properties no tiene Stop, la acción de correo se ejecuta igualmente sin Excel nuevo; si tiene Stop=Ok, no se ejecuta (P-INF-02).</resultadoEsperado>
     <tipoValidacion>Ejecución controlada en entorno de test + inspección de log y filesystem — no automatizable contra producción por riesgo de afectar la plantilla real</tipoValidacion>
-    <criterioAceptacion>El log muestra la excepción de fichero no encontrado; no existe el Excel de salida; no se recibió correo; MEKYTL0362 queda sin ejecutar.</criterioAceptacion>
-    <posibilidadFallo>Riesgo documentado (ver rdr_informe_mifid_new_spec.md §9): si en algún punto posterior a la apertura del fichero se produjera otro fallo de escritura, la excepción podría quedar silenciada según el código analizado — este caso valida solo el punto de apertura inicial, no ese escenario posterior.</posibilidadFallo>
+    <criterioAceptacion>El log muestra la excepción de fichero no encontrado; no existe el Excel; el job queda NOTOK; MEKYTL0353 y MEKYTL0362 sin ejecutar; queda registrado si hubo correo.</criterioAceptacion>
+    <posibilidadFallo>Riesgo documentado en §9 de la spec: si en algún punto posterior a la apertura del fichero se produjera otro fallo de escritura, la excepción podría quedar silenciada según el código analizado — este caso valida solo el punto de apertura inicial, no ese escenario posterior.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -175,8 +176,8 @@
     <pasos>
       <paso numero="1">Tras cualquier despliegue que modifique GenerateReports.gsp, localizar el nodo id="636" en la definición XML vigente.</paso>
       <paso numero="2">Verificar que su parámetro Servicio sigue siendo informeMIFID.</paso>
-      <paso numero="3">Verificar que la referencia de consulta sigue apuntando a arrayStringSelects[16] con el mismo contenido SQL documentado en rdr_informe_mifid_new_spec.md §6.</paso>
-      <paso numero="4">Ejecutar la cadena completa y confirmar que el CSV generado mantiene la misma cabecera y estructura de columnas que en rdr_informe_mifid_new_spec.md R3.</paso>
+      <paso numero="3">Verificar que la referencia de consulta sigue apuntando a arrayStringSelects[16] con las tablas, filtros y columnas descritos en §6.3 de la spec (el texto literal del SQL está pendiente, P-INF-01).</paso>
+      <paso numero="4">Ejecutar la cadena completa y confirmar que el CSV generado mantiene la misma cabecera y estructura de columnas que en el requisito R3 de la spec.</paso>
     </pasos>
     <resultadoEsperado>El nodo id="636" y su referencia SQL permanecen sin cambios no documentados; la estructura del CSV generado sigue siendo idéntica a la especificada.</resultadoEsperado>
     <tipoValidacion>Inspección de la definición XML del workflow + verificación del CSV generado tras la ejecución</tipoValidacion>

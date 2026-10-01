@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="rdr_mifidmic_new" fecha="2026-09-22" usuario="miguel.saavedra">
+<casosDePrueba proceso="rdr_mifidmic_new" fecha="2026-10-01" usuario="miguel.saavedra">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Flujo completo correcto de un día laborable</nombre>
@@ -12,7 +12,7 @@
       <dato campo="FRMIC.csv" valor="cabecera + 3 filas de datos, separador ';', 8 columnas cada fila (más de las 7 requeridas)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Depositar FRMIC.csv válido antes de las 6:00.</paso>
+      <paso numero="1">Comprobar que el Planificador ha generado FRMIC.csv a las 04:30 (o depositar un FRMIC.csv válido antes de las 06:00 en el entorno de pruebas).</paso>
       <paso numero="2">Esperar la ejecución completa de la cadena (06:00 en adelante).</paso>
       <paso numero="3">Verificar que FRMIC_2.csv tiene las 3 filas de datos sin la cabecera.</paso>
       <paso numero="4">Verificar que FRMIC_1.csv tiene exactamente las columnas 1-7 de FRMIC_2.csv.</paso>
@@ -33,11 +33,11 @@
       <precondicion>El directorio /fichtemcomp/pr/descargas/kytl/mifidmic/ no contiene FRMIC.csv en todo el día de la prueba.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="FRMIC.csv" valor="ausente durante toda la ventana 6:00-6:35"/>
+      <dato campo="FRMIC.csv" valor="ausente durante toda la espera de FW_MIFIDMIC_RDR (90 minutos desde las 06:00)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar que no hay FRMIC.csv antes de las 6:00.</paso>
-      <paso numero="2">Esperar a que pasen ambas ventanas del filewatcher (inicial y reintento a los 25 min).</paso>
+      <paso numero="2">Esperar a que se agote la espera máxima de ctmfw (90 minutos desde el arranque de FW_MIFIDMIC_RDR, en torno a las 07:30).</paso>
       <paso numero="3">Verificar el estado final de FW_MIFIDMIC_RDR en Control-M.</paso>
       <paso numero="4">Verificar que RDRKYTL001 no se ha disparado.</paso>
       <paso numero="5">Comprobar si se ha recibido alguna notificación (correo/alerta) por esta ausencia.</paso>

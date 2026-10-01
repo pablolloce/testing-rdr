@@ -1,46 +1,69 @@
 # Prerrequisitos — Carga del LEI GLEIF (RDR_CARGALEI_new)
 
-## Datos y ficheros previos
+Lo que debe estar en su sitio para ejecutar los casos de `rdr_cargalei_new_casos_prueba.xml`. Las rutas usan
+`<env>` (`pr`, `pp`, `ei`, `de`); los casos destructivos (TC-005, TC-007, TC-009, TC-010) se ejecutan solo en un
+entorno de pruebas.
 
-- Conectividad de red hacia `https://leidata.gleif.org/api/v1/concatenated-files/lei2/<YYYYMMDD>/zip` (vía
-  proxy corporativo, con credenciales en `credentials.xml`) operativa desde el nodo de ejecución.
-- Fichero `/old/LEI_old.csv` (backup del día anterior) presente y con contenido válido — es la base del
-  fallback de `Comprobar_fichero_LEI.sh` y del cálculo de `Delta`.
-- `LEI.properties`, `Reporte_GLEIF_Entity_Status.properties`, `GestionAlertas.properties` y
-  `aviso_LEI.properties.pr` desplegados y consistentes con lo documentado en `rdr_cargalei_new_spec.md` §6.2.
-- Hoja XSLT `GLEIF_traductor_New.xsl` operativa en la ruta esperada por `LEI.sh` (no aportada en esta ronda,
-  pero necesaria en producción — ver `rdr_cargalei_new_spec.md` GAP-LEI-002).
+## Orígenes de datos
 
-## Configuración e infraestructura
+| Origen | Qué alimenta | Casos |
+|--------|--------------|-------|
+| `https://leidata.gleif.org/api/v1/concatenated-files/lei2/<YYYYMMDD>/zip` (vía proxy) o un simulador que sirva un ZIP preparado | `gleif.sh` → `LEI.sh` → `LEI.csv` | TC-001 a TC-007, TC-009, TC-010 |
+| `FT_T_RLT1`, `FT_T_JBLG` | Contenido de `Reporte_LEI.csv` | TC-001, TC-004, TC-011 |
+| `FT_T_TRID` | Errores de la carga | TC-001, TC-002 |
+| Configuración de Gestión de alertas del proceso `Reporte_GLEIF_Entity_Status` (`FT_T_REP1`, `FT_T_ALR1`, `FT_T_ALU1`, `FT_T_ALM1`) | Informe Excel | TC-001, TC-004 |
 
-- Cadena Control-M `KYTL0000-RDR_CARGALEI_new` dada de alta y activa, servidor `MERCADOS-4`, L-V, no antes
-  de las 14:30.
-- Workflows GoldenSource `LoadMDX.gsp`→`ParseMDXLayout.gsp` y `ErroresCSV.gsp` desplegados y operativos.
-- Motor genérico `GestionAlertas` operativo (ya confirmado en otros procesos de esta sesión) para el informe
-  `Reporte_GLEIF_Entity_Status`.
-- Motores genéricos `MEGENV0001.sh` (envío XCOM) y `RAMERC0068.sh` (historificación) operativos para
-  `MEKYTL0349`/`MEKYTL0944` y `MEKYTL1237`.
-- Conectividad hacia `XCOMWPMER` (`\\S00371f2\DATOS\TRANSMI\MVP00G215\RDR\LEI\REPORTE\`) con permisos de
-  escritura.
+## Datos mínimos por caso
 
-## Roles y permisos
+| Caso | Datos |
+|------|-------|
+| TC-001 | ZIP con LEI nuevos y modificados respecto a `LEI/old/LEI.csv` |
+| TC-002 | Un `lei:LEIRecord` sin `LegalName` y 2 válidos |
+| TC-003 | Una línea idéntica en `old/LEI.csv` y en el fichero de hoy |
+| TC-004 | Un LEI con `ISSUED` en la referencia y `LAPSED` hoy |
+| TC-005, TC-007 | XML sin `lei:LEIRecord`; referencia `old/LEI.csv` con datos y copia de seguridad de ella |
+| TC-006 | XML con 120.000 `lei:LEIRecord` distintos |
+| TC-009 | Fichero de hoy idéntico a `old/LEI.csv` |
+| TC-010 | Proxy o URL inaccesible |
+| TC-011 | Filas sintéticas A, B, C, D en `FT_T_RLT1` y un job `CargaLEI` cerrado en `FT_T_JBLG` |
 
-- Grupo de soporte: ANS RDR, para toda la cadena.
-- Destinatario de alertas de fichero vacío: `ans_rdr.es@bbva.com` (workflow `SendMailReport`).
-- Destinatario del informe Excel: Customer Data Management (vía `GestionAlertas`).
+## Entorno de ejecución
 
-## Flujos previos que deben haberse completado
+| Elemento | Detalle | Usuario / privilegio |
+|----------|---------|----------------------|
+| `GSProcess.sh`, `Generico.sh`, `Delta.sh` | `/<env>/kytl/online/multipais/multicanal/scrt/` | Usuario de ejecución de `RDRKYTL001` (no consta, P-LEI-08) |
+| `gleif.sh`, `LEI.sh`, `Comprobar_fichero_LEI.sh` | Mismo directorio `scrt/` | Ídem |
+| `RDR_Report.jar`, `compare.jar`, `RDRCommon.jar` y librerías | `.../multicanal/jar` y `.../multicanal/lib` | — |
+| `executeBbvaEvent.sh` y servidor GoldenSource con el feed `CargaLEI` y los workflows `ParseMDXLayout` y `ErroresCSV` | `/usr/local/<env>/goldensource_87/...` | — |
+| `MEGENV0001.sh` (`.idx` de `MEKYTL0349`), `RAMERC0068.sh` (IDX de `MEKYTL0944`, `MEKYTL1237`) | `/<env>/pl/...` | Usuario de los jobs (no consta) |
+| Consulta a base de datos | Esquema de GoldenSource | Usuario de solo lectura; TC-011 necesita escritura en `FT_T_RLT1`/`FT_T_JBLG` |
 
-- **Importante:** el fichero GLEIF del día debe estar publicado por GLEIF antes de que arranque la cadena
-  (~12:00, con margen hasta las 14:30) — un retraso de GLEIF más allá de ese margen puede producir un
-  escenario de fichero no disponible (ver TC-005).
-- **Crítico, no bloqueante para el testing pero sí para la interpretación de resultados (RISK-LEI-001):** el
-  orden real de `LEI.properties` ejecuta la carga en GoldenSource (`Evento MDX`) y la generación del informe
-  (`Java RDR_Report.jar`) **antes** de la validación de fichero vacío (`Comprobar_fichero_LEI.sh`). Cualquier
-  prueba sobre el escenario de fichero vacío debe distinguir entre el comportamiento superficial (fallback
-  en disco + alerta, TC-005) y el estado real de BBDD/informe del día del incidente (TC-007) — no asumir
-  que el fallback protege la carga de ese mismo día sin confirmarlo con evidencia de ejecución.
-- **Importante:** no confundir este proceso con `rdr_pr_register_leis_send_new`/`rdr_pr_register_leis_resp_new`
-  (ya documentados en este repositorio) — aquellos gestionan peticiones/respuestas de alta LEI con
-  Clientela; este proceso es la descarga/carga del repositorio global GLEIF, dominio funcional distinto,
-  sin jobs compartidos.
+## Configuración
+
+- `LEI.properties` con el contenido de §6.2 de la spec (copia de integración; la de producción no se ha
+  recibido, P-LEI-09). Debe tener finales de línea CRLF.
+- `select.properties` con la clave `LEI` (§6.4) y `ruta` terminada en `/`.
+- `credentials.xml` del entorno con `<logs>`, `<javahome17>`, proxy y base de datos.
+- `aviso_LEI.properties` y `SendMailReport.wkf` (TC-005): su contenido real es la pregunta P-LEI-07.
+
+## Sistema de ficheros
+
+| Ruta | Requisito | Casos |
+|------|-----------|-------|
+| `/fichtemcomp/<env>/descargas/kytl/LEI/` | Existe y es escribible | Todos |
+| `/fichtemcomp/<env>/descargas/kytl/LEI/old/` | Existe (`Delta.sh` no la crea); contiene `LEI.csv` de referencia | TC-001, TC-003, TC-005, TC-007, TC-009 |
+| `<logs>` de `credentials.xml` | Escribible; ahí están `execute_LEI_<AAAAMMDD>.log` y `gleif_download_<fecha>.log` | Todos |
+| Carpeta `old` de la historificación de informes | Según el IDX (P-LEI-05) | TC-001 |
+
+## Orquestación
+
+Folder `KYTL0000-RDR_CARGALEI_new`, L-V no antes de las 14:30. El fichero de GLEIF debe estar publicado antes
+de la ejecución. Para pruebas aisladas de `LEI.properties` basta con lanzar `GSProcess.sh LEI`; para TC-001 y
+TC-008 se necesita la cadena completa.
+
+## Entorno de pruebas: qué falta por definir
+
+- Destinatario de pruebas en `FT_T_ALR1` para `Reporte_GLEIF_Entity_Status` y un destino XCOM de pruebas para
+  `MEKYTL0349`; sin ellos, TC-001 se acepta en "fichero preparado" (ver su criterio).
+- Código de los scripts propios (P-LEI-01) para fijar los resultados de TC-005, TC-009 y TC-010 sin
+  observación previa.

@@ -2,15 +2,15 @@
 
 ## Infraestructura y planificación
 
-El folder Control-M `KYTL0000-RDR_MIFIDMIC_new` debe existir y estar planificado de lunes a viernes a las 06:00, en el server `MERCADOS-4`, host `pr-rdr.igrupobbva`. El grupo de soporte responsable debe tener visibilidad sobre esta cadena, aunque no se ha detectado ninguna notificación configurada específicamente para el caso de ausencia de fichero (ver `rdr_mifidmic_new_spec.md` §4/§9).
+El folder Control-M `KYTL0000-RDR_MIFIDMIC_new` debe existir y estar planificado de lunes a viernes a las 06:00, en el server `MERCADOS-4`, host `pr-rdr.igrupobbva`. El grupo de soporte responsable debe tener visibilidad sobre esta cadena, aunque no hay ninguna notificación configurada para el caso de ausencia de fichero (ver §4 y §9 de la spec del proceso).
 
 ## Datos de entrada
 
-Antes de que `FW_MIFIDMIC_RDR` arranque su ventana de escucha (6:00–6:15, con reintento hasta aproximadamente 6:35), debe existir (o no, es un caso válido que no llegue) el fichero `/fichtemcomp/pr/descargas/kytl/mifidmic/FRMIC.csv`, generado por un proceso previo no documentado en el alcance de esta cadena. El fichero debe tener formato CSV con separador `;`, una fila de cabecera, y al menos 7 columnas por fila para que el recorte `Cortar` produzca el resultado esperado sin truncamiento.
+Durante la espera de `FW_MIFIDMIC_RDR` (desde las 06:00, como máximo 90 minutos: `ctmfw ... CREATE 0 60 10 3 90`) debe aparecer (o no, en TC-002) el fichero `/fichtemcomp/pr/descargas/kytl/mifidmic/FRMIC.csv`. En el entorno real lo genera el Planificador Genérico a las 04:30 de lunes a viernes (`ACT1_OID=01FCD78BF`, `RDR_ExtraccionMIC.sql`); para las pruebas puede depositarse a mano. Si el Planificador no escribe cabecera, `Eliminar_fila` borrará el primer registro (P-MIC-01 de la spec). El fichero debe tener formato CSV con separador `;`, una fila de cabecera, y al menos 7 columnas por fila para que el recorte `Cortar` produzca el resultado esperado sin truncamiento.
 
 ## Usuarios y permisos
 
-- `RDRKYTL001` se ejecuta con el usuario de aplicación KYTL habitual (mismo patrón que otras cadenas RDR sobre `pr-rdr.igrupobbva`).
+- `RDRKYTL001` se ejecuta con el usuario `xakytl1p`.
 - `MEKYTL0890`, `MEKYTL0770`, `MEKYTL0771`, `MEKYTL0940` y `MEKYTL0941` se ejecutan con el usuario `xsramer1`.
 - El directorio `/fichtemcomp/pr/descargas/kytl/mifidmic/` y su subcarpeta `/old` deben existir y ser escribibles por el usuario de ejecución.
 
@@ -21,7 +21,7 @@ Antes de que `FW_MIFIDMIC_RDR` arranque su ventana de escucha (6:00–6:15, con 
 
 ## Flujos previos que deben haberse completado
 
-El proceso que genera `FRMIC.csv` debe haber finalizado antes de la ventana del filewatcher (6:00–6:35 aproximadamente) para que la cadena avance ese día. No es un prerrequisito estricto de fallo: si el fichero no llega, la cadena simplemente no avanza, sin error (ver `rdr_mifidmic_new_spec.md` R2).
+La extracción del Planificador (04:30) debe haber terminado antes de que se agote la espera del filewatcher (hacia las 07:30) para que la cadena avance ese día. Si el fichero no llega, la cadena no avanza y no hay error (R2 de la spec). Para TC-008 hace falta que la fila `01FCD78BF` de `FT_T_ATE1` y su calendario en `FT_T_QPF1` estén `ACTIVE` en el entorno de pruebas.
 
 ## Confirmación de negocio y comportamiento de historificación
 

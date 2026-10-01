@@ -15,19 +15,20 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones de registro LEI, estado y
 | TC-005 | 2 peticiones PENDING con distinto OID pero mismos datos de negocio |
 | TC-006 | 1 petición PENDING válida + capacidad de forzar un fallo de envío en entorno de test |
 | TC-007 | 3 peticiones PENDING sintéticas con datos de negocio idénticos y OID distintos |
-| TC-008 | Entorno de test donde forzar un fallo de `dos2unix` (permisos) sobre un fichero de prueba |
+| TC-008 | 1 petición PENDING completa y un entorno de test donde forzar que `dos2unix` termine con error sobre el `.req` generado |
 | TC-009 | 1 petición PENDING limpia (sin conflictos) que cumpla el flujo completo |
 
 ## Entorno de ejecución
 
 - **Producción:** `GS_REGISTERLEISEND` ejecuta `GSProcess.sh LEI_Register_request` (ruta `/pr/kytl/online/multipais/multicanal/scrt/`) con el usuario `xakytl1p`, en el host `pr-rdr.igrupobbva` (VIPA), server Control-M `MERCADOS-4`. `MEKYTL0927` y `MEKYTL1014` ejecutan con el usuario `xsramer1`.
 - **TC-001, TC-002, TC-003, TC-004, TC-005, TC-007, TC-009 (producción o entorno equivalente monitorizado):** requieren acceso de solo lectura a Control-M para verificar el estado de los jobs, y acceso de lectura al filesystem de `/fichtemcomp/pr/descargas/kytl/Clientela_LEI/LEI_register/send/` y `.../old/`.
-- **TC-006, TC-008 (entorno de test/preproducción, nunca producción):** requieren poder forzar de forma controlada un fallo de envío (TC-006, configuración `.idx` inválida) o un fallo de `dos2unix` (TC-008, permisos de fichero), sin afectar producción.
+- **TC-006, TC-008 (entorno de test/preproducción, nunca producción):** requieren poder forzar de forma controlada un fallo de envío (TC-006, configuración `.idx` inválida) o un fallo de `dos2unix` (TC-008: permisos del directorio `send/` o un `dos2unix` de pruebas que termine con 1), sin afectar producción. En TC-008 el job debe quedar NOTOK: es el resultado esperado.
 
 ## Configuración
 
 - `LEI_Register_request.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`LEI_Register_request.jar`, clase `main.Main`, ruta de salida `.../send/LEIsReg_YYYYMMDDHHMMSS.req`) para que `GS_REGISTERLEISEND` dispare correctamente las 3 acciones (VariablesGlobales, Java, Script) (TC-001 a TC-009).
-- El script `ConvertirUNIXValidaFichero` debe estar desplegado y ser invocable desde `GSProcess.sh` (TC-001, TC-008).
+- `Generico.sh` (función `ConvertirUNIXValidaFichero`, código en §6.4 de la spec) debe estar desplegado en `/<env>/kytl/online/multipais/multicanal/scrt/` y `dos2unix` disponible en el `PATH` de `xakytl1p` (TC-001, TC-008).
+- Para TC-002 hay que conocer `FALLA_NO_FICHERO` del `.idx` de `MEKYTL0927` y el campo 5 de la línea IDX de `MEKYTL1014` (preguntas P-LEIS-04 y P-LEIS-05 de la spec).
 - El fichero `idx/{CLAVE}.idx` de `MEKYTL0927` debe existir y apuntar correctamente al destino mainframe (`vdrcdexp-anycast.igrupobbva`, patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`) para TC-001, TC-009; TC-006 exige poder invalidarlo temporalmente en entorno de test.
 
 ## Sistema de ficheros
@@ -38,7 +39,7 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones de registro LEI, estado y
 
 ## Orquestación
 
-La cadena no tiene predecesores externos: `RDR_PR_REGISTER_LEIS_SEND_new_IN` se dispara únicamente por planificación (diaria, 00:30). El orden interno es fijo: `RDR_PR_REGISTER_LEIS_SEND_new_IN` → `GS_REGISTERLEISEND` → `MEKYTL0927` → `MEKYTL1014`. Las Normas de Rearranque de los 3 jobs reales son idénticas (aviso manual a ANS RDR); no hay reintento automático más allá del nativo de Control-M (0 relanzamientos configurados), ver `rdr_pr_register_leis_send_new_spec.md` §4/§6.
+La cadena no tiene predecesores externos: `RDR_PR_REGISTER_LEIS_SEND_new_IN` se dispara únicamente por planificación (diaria, 00:30). El orden interno es fijo: `RDR_PR_REGISTER_LEIS_SEND_new_IN` → `GS_REGISTERLEISEND` → `MEKYTL0927` → `MEKYTL1014`. Las Normas de Rearranque de los 3 jobs reales son idénticas (aviso manual a ANS RDR); no hay reintento automático más allá del nativo de Control-M (0 relanzamientos configurados), ver §4 y §6 de la spec del proceso.
 
 ## Entorno de pruebas
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="rdr_pr_register_leis_resp_new" fecha="2026-09-29" usuario="miguel.saavedra">
+<casosDePrueba proceso="rdr_pr_register_leis_resp_new" fecha="2026-10-01" usuario="miguel.saavedra">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Procesamiento correcto de un fichero de respuesta con todas las líneas OK</nombre>
@@ -13,7 +13,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Colocar el fichero LEIsReg_20261001120000.txt en receive/ dentro de la ventana 04:30-05:30.</paso>
-      <paso numero="2">Esperar a que REG_LEIS_RESP_FILE_FW detecte el fichero en su siguiente ciclo de 10 minutos.</paso>
+      <paso numero="2">Esperar a que REG_LEIS_RESP_FILE_FW detecte el fichero (ctmfw lo busca cada 60 s y lo da por completo tras 5 mediciones de tamaño iguales, una cada 10 s).</paso>
       <paso numero="3">Verificar que GSPROC_REG_LEIS_RESP se dispara y termina OK.</paso>
       <paso numero="4">Verificar en FT_T_VREQ que la petición con DOCUMPS=549300TESTRESP001 pasó a LEI_OK.</paso>
       <paso numero="5">Verificar en FT_T_UTD1 que se insertaron los atributos de respuesta (usage FIELD_RESP) para esa petición.</paso>
@@ -92,7 +92,7 @@
 
   <casoDePrueba id="TC-005" tipo="duplicidad">
     <nombre>Dos líneas con el mismo DOCUMPS en el mismo fichero</nombre>
-    <objetivo>Confirmar que no existe control de duplicidad de LEI dentro de un mismo fichero de respuesta: dos líneas con el mismo DOCUMPS se procesan secuencialmente, la segunda sobrescribiendo el resultado de la primera sobre la misma petición.</objetivo>
+    <objetivo>Confirmar qué ocurre con dos líneas del mismo DOCUMPS en un fichero: según la condición de identificaCliente (petición en LEI_REG_LINE_SENT), la primera línea cambia el estado y la segunda ya no encuentra la petición.</objetivo>
     <precondiciones>
       <precondicion>Existe una única petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTDUPRESP.</precondicion>
     </precondiciones>
@@ -106,10 +106,10 @@
       <paso numero="3">Verificar el estado final en FT_T_VREQ de la petición DOCUMPS=549300TESTDUPRESP.</paso>
       <paso numero="4">Revisar el log en busca de algún aviso de línea duplicada.</paso>
     </pasos>
-    <resultadoEsperado>El estado final de la petición es LEI_KO (el de la línea 2, procesada en último lugar), sin ningún aviso de duplicidad en el log.</resultadoEsperado>
+    <resultadoEsperado>El estado final de la petición es LEI_OK (el de la línea 1); la línea 2 solo deja en el log el mensaje de petición no encontrada; FT_T_UTD1 solo tiene los atributos FIELD_RESP de la línea 1; no hay aviso de duplicidad.</resultadoEsperado>
     <tipoValidacion>Verificación de BBDD + revisión de log</tipoValidacion>
-    <criterioAceptacion>FT_T_VREQ muestra LEI_KO (resultado de la última línea procesada); ningún mensaje de control de duplicidad en el log.</criterioAceptacion>
-    <posibilidadFallo>Si el orden de procesamiento no fuera estrictamente secuencial (por ejemplo, paralelo), el resultado final podría no ser determinista — este caso asume y valida procesamiento secuencial según el código.</posibilidadFallo>
+    <criterioAceptacion>FT_T_VREQ muestra LEI_OK y el log registra la línea 2 como petición no encontrada.</criterioAceptacion>
+    <posibilidadFallo>Si el estado final fuera LEI_KO, identificaCliente no filtraría por LEI_REG_LINE_SENT como describe el documento y habría que corregir §4.1 y §9 de la spec.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="conflicto_integridad">
@@ -135,7 +135,7 @@
 
   <casoDePrueba id="TC-007" tipo="datos_sinteticos">
     <nombre>Tres líneas sintéticas con el mismo DOCUMPS y resultados mixtos</nombre>
-    <objetivo>Confirmar con datos sintéticos el comportamiento ante DOCUMPS repetido con resultados distintos. Campo que se repite: DOCUMPS. Cuántas veces se repite: 3. Valor que se considera conflicto: mismo DOCUMPS en 3 líneas del mismo fichero, con TIPERROR distinto en cada una. Resultado que confirma la ausencia de detección: el estado final es el de la última línea procesada, sin ningún aviso.</objetivo>
+    <objetivo>Confirmar con datos sintéticos el comportamiento ante DOCUMPS repetido con resultados distintos. Campo que se repite: DOCUMPS. Cuántas veces se repite: 3. Valor que se considera conflicto: mismo DOCUMPS en 3 líneas del mismo fichero, con TIPERROR distinto en cada una. Resultado que confirma la ausencia de detección: el estado final es el de la primera línea y las otras dos solo quedan en el log, sin ningún aviso.</objetivo>
     <precondiciones>
       <precondicion>Existe una única petición LEI_REG_LINE_SENT con DOCUMPS=549300TESTSINT03.</precondicion>
     </precondiciones>
@@ -150,10 +150,10 @@
       <paso numero="3">Verificar el estado final en FT_T_VREQ.</paso>
       <paso numero="4">Verificar en FT_T_UTD1 qué valores de TIPERROR/atributos de respuesta quedaron finalmente insertados.</paso>
     </pasos>
-    <resultadoEsperado>El estado final de la petición es LEI_KO con TIPERROR='02' (el de la línea 3, procesada en último lugar); no se emite ningún aviso de conflicto por las 3 actualizaciones sucesivas sobre la misma petición.</resultadoEsperado>
+    <resultadoEsperado>El estado final de la petición es LEI_OK (línea 1); las líneas 2 y 3 se registran en el log como petición no encontrada; FT_T_UTD1 solo contiene los atributos de la línea 1 (sin TIPERROR); no hay aviso de conflicto ni cuentan para errores.err.</resultadoEsperado>
     <tipoValidacion>Verificación de BBDD (estado final y atributos) + revisión de log</tipoValidacion>
-    <criterioAceptacion>FT_T_VREQ en LEI_KO; FT_T_UTD1 refleja los atributos de la línea 3; ningún mensaje de duplicidad en el log.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada a nivel de código actual; documenta el mismo riesgo que TC-005 con un escenario más amplio (3 repeticiones en vez de 2).</posibilidadFallo>
+    <criterioAceptacion>FT_T_VREQ en LEI_OK; FT_T_UTD1 con los atributos de la línea 1; dos mensajes de petición no encontrada en el log.</criterioAceptacion>
+    <posibilidadFallo>Mismo riesgo que TC-005 con 3 repeticiones: las respuestas posteriores a la primera se pierden sin alerta.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="regresion">
@@ -196,10 +196,10 @@
       <paso numero="6">Confirmar el envío de la alerta RDR_ERROR_LEI_REGISTER y que el .err se borra tras notificar.</paso>
       <paso numero="7">Verificar que el fichero de respuesta original quedó movido a old/.</paso>
     </pasos>
-    <resultadoEsperado>Los 5 jobs de la cadena se ejecutan en el orden correcto y terminan OK; los estados de ambas peticiones quedan correctamente reflejados; la alerta se genera y notifica solo por la incidencia real; el fichero queda historificado.</resultadoEsperado>
+    <resultadoEsperado>Los 5 jobs terminan OK en orden; E2E-OK queda en LEI_OK y E2E-KO en LEI_KO; Alertas/errores.err contiene "Existen 1 errores." (o más si hay otras peticiones LEI_REG_LINE_SENT sin respuesta, que pasan a NO_RESPONSE); GSPROC_REG_LEIS_ALERTAS ejecuta la Gestión de alertas con RDR_ERROR_LEI_REGISTER y borra el .err; el fichero queda en old/. El contenido y los destinatarios del correo son los configurados en FT_T_REP1/FT_T_ALR1 (P-LEIR-06).</resultadoEsperado>
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 5 jobs) + inspección de BBDD, filesystem y alerta</tipoValidacion>
     <criterioAceptacion>Los 5 jobs terminan "Ended OK" (los 2 de alerta solo se disparan por la incidencia); FT_T_VREQ refleja LEI_OK/LEI_KO correctamente; alerta notificada; errores.err eliminado tras notificar; fichero en old/.</criterioAceptacion>
-    <posibilidadFallo>Si GestionAlertas no estuviera correctamente parametrizado con el código RDR_ERROR_LEI_REGISTER, la alerta podría no notificarse pese a que el resto del flujo funcione correctamente.</posibilidadFallo>
+    <posibilidadFallo>GSPROC_REG_LEIS_ALERTAS termina en verde y borra el .err aunque la alerta no salga (acción Property): la notificación se verifica en FT_T_REP1.SEND_PEND (vuelve a N) y FT_T_ALR1.LAST_SEND_TMS, no por el estado del job.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

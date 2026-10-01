@@ -1,104 +1,272 @@
 # Especificación — RDR_PR_REGISTER_LEIS_SEND_new
 
-**Usuario:** miguel.saavedra &nbsp;|&nbsp; **Fecha:** 2026-09-29 &nbsp;|&nbsp; **Fuente:** `documentos_fuente/Registro_de_nuevos_LEI_enviorespuesta.docx.md` (Parte 1), fichas del gestor documental (`GS_REGISTERLEISEND`, `MEKYTL0927`, `MEKYTL1014`), capturas de Control-M (Resumen/General/Programación de folder y jobs), fragmento real de `LEI_Register_request.properties`, código fuente del script `ConvertirUNIXValidaFichero`, sesión de preguntas/respuestas en chat.
+**Usuario:** miguel.saavedra &nbsp;|&nbsp; **Fecha:** 2026-09-29 &nbsp;|&nbsp; **Revisión de autosuficiencia:** 2026-10-01 (pablo.llorente@nfq.es)
+
+**Procedencia de los datos** (solo trazabilidad; el contenido está en esta spec): documento "Registro de nuevos
+LEI (envío + respuesta)", parte 1, construido con 5 capturas de Control-M, las fichas SSDD de los 4 pasos
+(`RDR_PR_REGISTER_LEIS_SEND_new`, `GS_REGISTERLEISEND`, `MEKYTL0927`, `MEKYTL1014`), `LEI_Register_request.properties`
+y el código Java del proyecto `lei_register_request` (`Main.java`, `GenerateLEISFile.java`, `Peticion.java`,
+`QuerysStr.java`, `QueryExec.java`); capturas de Control-M (Resumen/General/Programación); el código real de la
+función `ConvertirUNIXValidaFichero` de `Generico.sh`; respuestas del usuario en sesión. **Ni el `.properties`
+ni el código Java están en el repositorio**: lo que se dice de ellos procede del documento y de la sesión.
 
 ## 1. Resumen ejecutivo
 
-`RDR_PR_REGISTER_LEIS_SEND_new` es una cadena Control-M de 4 pasos que corre a diario (L-D, 00:30h) en el folder `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`. Detecta en RDR las peticiones de alta de código LEI pendientes de envío a Clientela, genera un fichero de ancho fijo con una línea por petición válida, lo normaliza a formato UNIX, lo envía al mainframe vía el motor genérico `MEGENV0001.sh`, y lo historifica. Es la mitad "de ida" del ciclo petición/respuesta de LEIs frente a Clientela; la respuesta la procesa la cadena complementaria `RDR_PR_REGISTER_LEIS_RESP_new`.
+`RDR_PR_REGISTER_LEIS_SEND_new` es una cadena Control-M de 4 pasos (folder `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`)
+que corre todos los días a las 00:30. Busca en RDR las **peticiones de alta de código LEI pendientes de enviar
+a Clientela** (Clientela es el sistema corporativo de clientes del mainframe, que es quien registra el LEI del
+cliente), genera un fichero de ancho fijo con una línea de 160 caracteres por petición válida, lo pasa a
+formato Unix, lo envía al mainframe con `MEGENV0001.sh` y lo historifica.
+
+Es la mitad "de ida" del ciclo petición/respuesta: las peticiones que esta cadena deja en estado
+`LEI_REG_LINE_SENT` son exactamente las que busca la cadena `RDR_PR_REGISTER_LEIS_RESP_new` cuando llega la
+respuesta de Clientela.
+
+**Para qué sirve / qué pasa si no se ejecuta:** sin ella, las peticiones de alta de LEI se quedan en `PENDING`
+y Clientela no recibe nada; al día siguiente se envían junto con las nuevas (la selección no tiene límite de
+fecha). Si nunca hay peticiones pendientes, la cadena no genera fichero y no es un error.
 
 ## 2. Alcance del proceso
 
-Incluye: detección de peticiones pendientes en `FT_T_VREQ`/`FT_T_UTD1`, generación del fichero `.req` de ancho fijo, normalización de formato, envío al mainframe e historificación.
+Incluye: selección de peticiones pendientes en `FT_T_VREQ`/`FT_T_UTD1`, generación de `LEIsReg_<yyyymmddhhmiss>.req`,
+conversión a formato Unix, envío al mainframe e historificación.
 
-Excluye (fuera de alcance): el proceso que crea las peticiones originales en `FT_T_VREQ` (`PETI_SDI_SOLICITADA`/`GENERATED_FUND`), el procesamiento que Clientela hace del fichero recibido, el mecanismo de arranque del JCL `EMFDJL43`/arrancador `EMFDXL43` en el lado mainframe, y el procesamiento de la respuesta (cadena `RDR_PR_REGISTER_LEIS_RESP_new`, especificada aparte).
+Excluye: el proceso que crea las peticiones (`PENDING`) y sus peticiones previas (`PETI_SDI_SOLICITADA`/
+`GENERATED_FUND`); lo que hace Clientela con el fichero (JCL `EMFDJL43`, arrancador `EMFDXL43`); el
+tratamiento de la respuesta (cadena `RDR_PR_REGISTER_LEIS_RESP_new`).
 
 ## 3. Requisitos detectados
 
-- R1: la cadena debe ejecutarse diariamente a las 00:30 (L-D).
-- R2: debe detectar las peticiones pendientes en `FT_T_VREQ` (estado `PENDING`, contexto `LEI_REGISTER`, con una petición previa asociada en estado `PETI_SDI_SOLICITADA` o `GENERATED_FUND`).
-- R3: por cada petición pendiente válida, debe componer una línea de 160 caracteres (2+4+9+25+10+10+100: `PAIS`, `ENTIDAD`, `PERSCTPN`, `DOCUMPS`, `INICVIG`, `FINVIG`, `FILLER`), obtenida de `FT_T_UTD1`, truncando los valores más largos que su longitud fija y rellenando con espacios los más cortos.
-- R4: si falta algún atributo obligatorio de una petición, esa petición debe marcarse `ERROR_SEND_REG_LEI` y quedar excluida del fichero, sin que ello impida procesar el resto de peticiones válidas.
-- R5: si al menos una petición se procesó correctamente, debe generarse el fichero `LEIsReg_<yyyymmddhhmmss>.req` con todas las líneas OK, y esas peticiones deben pasar a `LEI_REG_LINE_SENT`.
-- R6: si no hay ninguna petición pendiente, o ninguna se procesa correctamente, no debe generarse fichero, y esto no debe tratarse como error.
-- R7: el fichero generado debe normalizarse a formato UNIX (`dos2unix`) antes del envío.
-- R8: el fichero debe enviarse al mainframe (patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`) mediante el motor genérico `MEGENV0001.sh`.
-- R9: si no hay fichero que enviar, el job de envío debe finalizar sin error.
-- R10: tras el envío, el fichero debe historificarse a `.../LEI_register/old/`.
+- R1: la cadena se ejecuta diariamente (lunes a domingo) a las 00:30.
+- R2: selecciona las peticiones de `FT_T_VREQ` en estado `PENDING`, contexto `LEI_REGISTER`, que tengan una
+  petición previa asociada en estado `PETI_SDI_SOLICITADA` o `GENERATED_FUND`.
+- R3: por cada petición compone una línea de 160 caracteres con 7 campos de longitud fija leídos de
+  `FT_T_UTD1` (§6.3): los valores más largos se truncan y los más cortos se rellenan con espacios.
+- R4: si falta algún atributo de una petición, o hay una excepción al tratarla, la petición pasa a
+  `ERROR_SEND_REG_LEI` y queda fuera del fichero; el resto se sigue tratando.
+- R5: si al menos una petición es correcta, se escribe `LEIsReg_<yyyymmddhhmiss>.req` con todas las líneas
+  correctas y esas peticiones pasan a `LEI_REG_LINE_SENT`.
+- R6: si no hay peticiones, o ninguna es correcta, no se genera fichero, y no es un error.
+- R7: el fichero se convierte a formato Unix (`dos2unix`) antes del envío.
+- R8: el fichero se envía al mainframe (destino `EBPEMFD.FTEXD05X.LEIRDR.ALTA`) con `MEGENV0001.sh`.
+- R9: según la ficha de la cadena, si no hay fichero el envío no debe dar error.
+- R10: tras el envío, el fichero se mueve a `.../LEI_register/old/`.
 
 ## 4. Gaps identificados y preguntas pendientes
 
-Todos los gaps detectados durante el análisis quedaron resueltos con evidencia (fichas del gestor documental, capturas de Control-M, `.properties` real, código fuente, o confirmación explícita del usuario):
+### 4.1 Respuestas obtenidas
 
 | Pregunta | Respuesta | Evidencia |
 | :---- | :---- | :---- |
-| ¿Nombre exacto del folder Control-M? | `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`. | Captura de Control-M (pestaña Resumen del folder). |
-| ¿Server y host de ejecución? | Server `MERCADOS-4`, host `pr-rdr.igrupobbva` (VIPA; antes IP directa `22.156.148.85`, según nota de modificación en las fichas). | Capturas de Control-M y fichas del gestor documental. |
-| ¿Usuario de ejecución de cada job? | `RDR_PR_REGISTER_LEIS_SEND_new_IN` (Dummy) → `DUMMYUSR`. `GS_REGISTERLEISEND` → `xakytl1p`. `MEKYTL0927`/`MEKYTL1014` → `xsramer1`. | Capturas de Control-M (pestaña General) y fichas del gestor documental. |
-| ¿Normas de Rearranque definidas? | Sí, la misma en los 3 jobs reales: "Avisar a 'ANS RDR (BZG03906)' ans_rdr.es@bbva.com grupo soporte remedy ANS RDR". Sin reintento automático más allá del nativo de Control-M (Máximo de relanzamientos: 0 en todos). | Fichas del gestor documental (columna "Normas de Rearranque"). |
-| ¿Qué hace `ConvertirUNIXValidaFichero` exactamente? | Función shell: si el fichero (`LEIsReg_*.req`) existe, ejecuta `dos2unix` sobre él in-place (normaliza CRLF→LF, no altera el contenido de los campos) y lo registra en el log; si no existe, solo registra "not found", sin error. **Hallazgo de riesgo:** el `if ls $ARG1` solo comprueba la existencia del fichero, nunca el código de salida de `dos2unix` — un fallo de `dos2unix` a mitad de conversión no se detectaría, y el fichero (potencialmente corrupto) se enviaría igualmente. | Código fuente real de la función, aportado por el usuario. |
-| ¿Criticidad real de cada job? (el documento fuente decía "W" para toda la cadena) | Discrepancia confirmada: `GS_REGISTERLEISEND` = **C** (aviso inmediato); `MEKYTL0927` y `MEKYTL1014` = **W** (aviso día siguiente). No es uniforme como indicaba el documento fuente. | Fichas del gestor documental (campo Criticidad), prevalecen sobre el documento fuente. |
+| ¿Nombre del folder? | `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`. | Captura de Control-M (Resumen). |
+| ¿Servidor y máquina? | Server `MERCADOS-4`, host `pr-rdr.igrupobbva` (VIPA; antes la IP `22.156.148.85`). | Capturas y fichas. |
+| ¿Usuarios? | `RDR_PR_REGISTER_LEIS_SEND_new_IN` (Dummy) → `DUMMYUSR`; `GS_REGISTERLEISEND` → `xakytl1p`; `MEKYTL0927` y `MEKYTL1014` → `xsramer1`. | Capturas (General) y fichas. |
+| ¿Normas de rearranque? | Las mismas en los 3 jobs reales: "Avisar a 'ANS RDR (BZG03906)' ans_rdr.es@bbva.com grupo soporte remedy ANS RDR". Máximo de relanzamientos: 0. | Fichas. |
+| ¿Qué hace `ConvertirUNIXValidaFichero`? | Código real en §6.4. | Código de `Generico.sh`. |
+| ¿Criticidad? | `GS_REGISTERLEISEND` = **C** (aviso inmediato); `MEKYTL0927` y `MEKYTL1014` = **W** (aviso al día siguiente). El documento decía W para todo. | Fichas (prevalecen). |
 
-No queda pendiente ninguna otra pregunta de la lista obligatoria de gaps.
+> **Corrección (2026-10-01):** la versión anterior afirmaba que `ConvertirUNIXValidaFichero` "nunca comprueba el
+> código de salida de `dos2unix`" y que un fallo de conversión pasaría desapercibido. Leyendo el código
+> (§6.4), `dos2unix` es la **última orden** de la función cuando el fichero existe, y `Generico.sh` termina con
+> el código de la función. Por tanto un fallo de `dos2unix` **sí** llega a `GSProcess.sh` como subproceso
+> fallido: `GS_REGISTERLEISEND` termina con código 1 y queda NOTOK. Lo que no se detecta es la **ausencia** del
+> fichero (termina con 0), que aquí es el comportamiento deseado (R6).
+
+### 4.2 Preguntas pendientes al usuario
+
+| ID | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-LEIS-01 | ¿Se puede incorporar el contenido literal de `LEI_Register_request.properties` (valores de `ArgJava*`, `PreArgScri1`/`ArgScri1` del `Script`, y si hay `Stop`)? | Sin `Stop`, `ConvertirUNIXValidaFichero` se ejecuta aunque el Java falle; con `Stop=Ok`, no. Decide el estado final de la cadena ante fallos |
+| P-LEIS-02 | ¿Con qué código termina `main.Main` si falla la conexión a base de datos o la escritura del fichero? ¿Escribe el fichero con finales de línea CRLF? | Si siempre termina con 0, un fallo del Java no se ve en Control-M; y decide si `dos2unix` cambia algo |
+| P-LEIS-03 | ¿Formato exacto de `INICVIG` y `FINVIG` (fechas) y significado de `PERSCTPN` y `FILLER` en `FT_T_UTD1`? ¿Qué SQL literal tienen `selectClientesAltaPending()` y `selectAtributos()`? | Para poder construir datos de prueba y verificar la línea campo a campo |
+| P-LEIS-04 | ¿Cuál es el `.idx` de la clave `MEKYTL0927` (sentido, protocolo, `FICHERO_ORIGEN`, `FALLA_NO_FICHERO`, `RUTA_HISTORIFICACION`)? | R9 (no fallar sin fichero) depende de `FALLA_NO_FICHERO`; y si la máscara es `LEIsReg_*.req`, un `.req` antiguo que se quedara en `send/` se enviaría otra vez |
+| P-LEIS-05 | ¿Cuál es la línea de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL1014`? En concreto el campo 5 (falla si no hay fichero) | Si vale `0` o está vacío, los días sin fichero `MEKYTL1014` termina con código 6 (NOTOK), en contra de R6 |
 
 ## 5. Especificación funcional
 
-1. A las 00:30 (L-D), Control-M dispara `RDR_PR_REGISTER_LEIS_SEND_new_IN` (Dummy), que marca el inicio lógico de la cadena.
-2. `GS_REGISTERLEISEND` ejecuta `GSProcess.sh LEI_Register_request` con el usuario `xakytl1p`, que a su vez ejecuta 3 acciones en orden:
-   a. Conecta a BBDD y consulta las peticiones pendientes (`FT_T_VREQ`, `PENDING`, contexto `LEI_REGISTER`, con petición previa en `PETI_SDI_SOLICITADA`/`GENERATED_FUND`).
-   b. Por cada petición pendiente: marca `PROCESSING`, recupera sus atributos de `FT_T_UTD1` (`PAIS`, `ENTIDAD`, `PERSCTPN`, `DOCUMPS`, `INICVIG`, `FINVIG`, `FILLER`), compone la línea de 160 caracteres truncando/rellenando según longitud fija. Si todos los atributos están presentes, pasa a `LEI_REG_LINE_SENT` y añade la línea al fichero; si falta alguno, pasa a `ERROR_SEND_REG_LEI` y se excluye.
-   c. Si hay al menos una línea OK, escribe `LEIsReg_<fecha>.req`; ejecuta `ConvertirUNIXValidaFichero` sobre él (normaliza a UNIX). Si ninguna petición fue OK, no se genera fichero.
-3. `MEKYTL0927` ejecuta `MEGENV0001.sh` con el usuario `xsramer1`, enviando el fichero (si existe) al mainframe (`vdrcdexp-anycast.igrupobbva`, patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`, JCL `EMFDJL43`). Si no hay fichero que enviar, termina sin error.
-4. `MEKYTL1014` ejecuta `RAMERC0068.sh` con el usuario `xsramer1`, historificando el fichero enviado a `.../LEI_register/old/`.
+**Estado inicial:** peticiones en `FT_T_VREQ` en `PENDING` (contexto `LEI_REGISTER`) con su petición previa;
+sus atributos en `FT_T_UTD1`; directorio `send/` vacío de ficheros de días anteriores.
+
+1. A las 00:30 Control-M lanza `RDR_PR_REGISTER_LEIS_SEND_new_IN` (Dummy).
+2. `GS_REGISTERLEISEND` ejecuta `GSProcess.sh LEI_Register_request` (usuario `xakytl1p`):
+   a. `main.Main` conecta a base de datos y sustituye `YYYYMMDDHHMMSS` de la ruta de salida por la fecha y
+      hora del sistema (`.../send/LEIsReg_<yyyymmddhhmiss>.req`).
+   b. `GenerateLEISFile.procesaPeticiones()` lee las peticiones pendientes; si no hay, escribe un mensaje
+      informativo y termina sin fichero.
+   c. Por cada petición (`Peticion`): la marca `PROCESSING`; lee sus atributos de `FT_T_UTD1`; compone la
+      línea; si todo está, la marca `LEI_REG_LINE_SENT` y guarda la línea; si falta algo o hay excepción, la
+      marca `ERROR_SEND_REG_LEI`.
+   d. Si hay al menos una línea, escribe el fichero `.req`.
+   e. `ConvertirUNIXValidaFichero` convierte el fichero a formato Unix si existe.
+3. `MEKYTL0927` (`MEGENV0001.sh`, usuario `xsramer1`) envía el fichero al mainframe.
+4. `MEKYTL1014` (`RAMERC0068.sh`, usuario `xsramer1`) mueve el fichero a `old/`.
+
+**Resultado final:** peticiones en `LEI_REG_LINE_SENT` o `ERROR_SEND_REG_LEI`; fichero entregado en el
+mainframe con el patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`; copia en `old/`.
 
 ## 6. Especificación técnica
 
-- **Folder Control-M:** `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`. Server `MERCADOS-4`, host `pr-rdr.igrupobbva`. Aplicación `KYTL`, sub-aplicación `RDR_PR_REGISTER_LEIS_SEND_new`, UUAA `KYTL0000`. Método de ejecución: User Daily específico (`PLAN_1200`). Planificación: L-M-X-J-V-S-D a las 00:30. Grupo de soporte: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`).
-- **Jobs:**
-  - `RDR_PR_REGISTER_LEIS_SEND_new_IN` (Dummy): usuario `DUMMYUSR`. Sin predecesor. Sucesor: `GS_REGISTERLEISEND`. Criticidad no aplica (Dummy).
-  - `GS_REGISTERLEISEND` (OS): script `GSProcess.sh`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`, parámetro `LEI_Register_request`, usuario `xakytl1p`. Criticidad **C**. Predecesor: `RDR_PR_REGISTER_LEIS_SEND_new_IN`. Sucesor: `MEKYTL0927`.
-    - **Pipeline interno** (`LEI_Register_request.properties`, confirmado con el fichero real): `Accion=VariablesGlobales` (jars `ConexionBD.jar` + `LEI_Register_request.jar`, clase `main.Main`, log `log4jLEI_Register.properties`, salida `.../send/LEIsReg_YYYYMMDDHHMMSS.req`) → `Accion=Java` (ejecuta el jar: `Main` sustituye el timestamp e invoca `GenerateLEISFile.procesaPeticiones()`, que ejecuta la lógica de R2-R6) → `Accion=Script` (`ConvertirUNIXValidaFichero` sobre `LEIsReg_*.req` en `send/`: `dos2unix` in-place si el fichero existe, ver Gap resuelto en §4 y riesgo en §9).
-    - **SQL/Tablas:** `selectClientesAltaPending()` (`FT_T_VREQ`, self-join, `PENDING`+contexto `LEI_REGISTER`+previa `PETI_SDI_SOLICITADA`/`GENERATED_FUND`); `selectAtributos()` (`FT_T_UTD1`, pares clave/valor `usage FIELD`); `updateVREQStatusByOid()`/`updateVREQDescripByOid()` (`FT_T_VREQ`, actualización de estado).
-  - `MEKYTL0927` (OS): script `MEGENV0001.sh`, ruta `/pr/pl/envioweb/scrt/`, usuario `xsramer1`. Criticidad **W**. Predecesor: `GS_REGISTERLEISEND`. Sucesor: `MEKYTL1014`. Envía `.../send/LEIsReg_*.req` al servidor `vdrcdexp-anycast.igrupobbva`, patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`, sistema remoto mainframe, acción `CREATE`, JCL `EMFDJL43` (arrancador `EMFDXL43`). Motor genérico ya documentado en `rdr_sendbbg_asset` (códigos de error conocidos 105/110/301).
-  - `MEKYTL1014` (OS): script `RAMERC0068.sh`, ruta `/pr/pl/scrt`, usuario `xsramer1`. Criticidad **W**. Predecesor: `MEKYTL0927`. Sin sucesor (último job). Historifica `LEIsReg_<yyyymmddhhmiss>.req` a `.../LEI_register/old/` (mueve el fichero; motor genérico ya documentado, función `HISTORIFICA_FICH`).
-- **Normas de Rearranque:** las mismas en los 3 jobs reales — aviso manual al grupo ANS RDR, sin reintento automático más allá del nativo de Control-M (0 relanzamientos configurados).
+### 6.1 Folder y jobs
+
+- **Folder:** `KYTL0000-RDR_PR_REGISTER_LEIS_SEND_new`. Server `MERCADOS-4`, host `pr-rdr.igrupobbva`.
+  Aplicación `KYTL`, subaplicación `RDR_PR_REGISTER_LEIS_SEND_new`, UUAA `KYTL0000`. Carga en malla con el
+  User Daily `PLAN_1200`. Lunes a domingo, 00:30. Soporte ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`).
+
+| Job | Tipo / comando | Usuario | Criticidad | Predecesor → Sucesor |
+|-----|----------------|---------|------------|----------------------|
+| `RDR_PR_REGISTER_LEIS_SEND_new_IN` | Dummy | `DUMMYUSR` | — | — → `GS_REGISTERLEISEND` |
+| `GS_REGISTERLEISEND` | `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh LEI_Register_request` | `xakytl1p` | C | `..._IN` → `MEKYTL0927` |
+| `MEKYTL0927` | `/pr/pl/envioweb/scrt/MEGENV0001.sh` con clave `MEKYTL0927` | `xsramer1` | W | `GS_REGISTERLEISEND` → `MEKYTL1014` |
+| `MEKYTL1014` | `/pr/pl/scrt/RAMERC0068.sh MEKYTL1014` | `xsramer1` | W | `MEKYTL0927` → — |
+
+Relanzamientos automáticos: 0 en todos. Ante error: aviso manual a ANS RDR.
+
+### 6.2 `GS_REGISTERLEISEND` — `LEI_Register_request.properties`
+
+Contenido descrito (literal no incorporado, P-LEIS-01), en este orden:
+1. `Accion=VariablesGlobales`.
+2. `Accion=Java`: `ConexionBD.jar` + `LEI_Register_request.jar`, clase `main.Main`; argumentos: nivel de log,
+   `log4jLEI_Register.properties` y ruta + patrón de salida `.../Clientela_LEI/LEI_register/send/LEIsReg_YYYYMMDDHHMMSS.req`.
+   `GSProcess.sh` lo ejecuta con `-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF`
+   salvo que el `.properties` traiga directivas `DirJava`.
+3. `Accion=Script`: `NomScript=ConvertirUNIXValidaFichero` sobre `.../send/LEIsReg_*.req`, es decir
+   `$SCRIPT/Generico.sh ConvertirUNIXValidaFichero /fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/LEIsReg_*.req`.
+
+Si un paso devuelve ≠ 0 y no hay `Stop`, el siguiente se ejecuta igualmente y `GSProcess.sh` termina al
+final con código 1 (`ESTADO-1-` en `execute_LEI_Register_request_<AAAAMMDD>.log`). Correcto: `ESTADO-0-`.
+
+**Tablas y consultas (`jdbc.QuerysStr`)**:
+
+| Consulta | Tabla | Qué hace |
+|----------|-------|----------|
+| `selectClientesAltaPending()` | `FT_T_VREQ` (cruzada consigo misma) | Peticiones `PENDING`, contexto `LEI_REGISTER`, con petición previa en `PETI_SDI_SOLICITADA` o `GENERATED_FUND` |
+| `selectAtributos()` | `FT_T_UTD1` | Pares clave/valor (`UTD_ID_PURP_TYP`/`UTD_ID`) de la petición, uso `FIELD` |
+| `updateVREQStatusByOid()` | `FT_T_VREQ` | Marca `PROCESSING` |
+| `updateVREQDescripByOid()` | `FT_T_VREQ` | Estado final (`LEI_REG_LINE_SENT`/`ERROR_SEND_REG_LEI`) y descripción |
+
+El documento anota `LEI_REQUEST` junto a los cambios de estado, sin explicar si es el usuario de modificación
+u otro campo. Columnas relevantes de `FT_T_VREQ` (las mismas que usa la cadena de respuesta):
+`VND_RQST_OID` (identificador de la petición), `VND_RQST_STAT_TYP` (estado), `VND_RQST_XREF_ID` (LEI),
+`LAST_CHG_TMS`, `LAST_CHG_USR_ID`. SQL literal: P-LEIS-03.
+
+**Log:** el de `log4jLEI_Register.properties` (ruta no documentada) traza petición a petición.
+
+### 6.3 Fichero `LEIsReg_<yyyymmddhhmiss>.req`
+
+Ruta: `/fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/`. Una línea por petición correcta,
+160 caracteres, sin separadores. `yyyymmddhhmiss` = fecha y hora del sistema al ejecutar el Java.
+
+| Posiciones | Campo (`FT_T_UTD1`) | Longitud | Contenido |
+|------------|---------------------|----------|-----------|
+| 1-2 | `PAIS` | 2 | País |
+| 3-6 | `ENTIDAD` | 4 | Entidad |
+| 7-15 | `PERSCTPN` | 9 | Código de persona/contrapartida en Clientela (significado exacto: P-LEIS-03) |
+| 16-40 | `DOCUMPS` | 25 | Código LEI (20 caracteres + 5 espacios) |
+| 41-50 | `INICVIG` | 10 | Inicio de vigencia (formato: P-LEIS-03) |
+| 51-60 | `FINVIG` | 10 | Fin de vigencia |
+| 61-160 | `FILLER` | 100 | Relleno |
+
+Las posiciones se deducen de las longitudes `2+4+9+25+10+10+100` en ese orden. Valor más largo → se trunca
+(por ejemplo `PERSCTPN="CLIENTELA01"` → `CLIENTELA`); más corto → se rellena con espacios.
+
+### 6.4 `ConvertirUNIXValidaFichero` (código real de `Generico.sh`)
+
+```
+function ConvertirUNIXValidaFichero(){
+	if ls $ARG1;
+	then
+		echo "File $ARG1 found" >> $LOG_GENERICO
+		dos2unix $ARG1
+	else
+		echo "File $ARG1 not found" >> $LOG_GENERICO
+	fi
+}
+```
+
+- Hay fichero → escribe `File <ruta> found` y convierte en sitio (CRLF → LF). El código de salida es el de
+  `dos2unix`: si falla, `GSProcess.sh` lo cuenta como subproceso fallido y el job termina NOTOK.
+- No hay fichero → escribe `File <ruta> not found` y termina con 0 (caso R6).
+- El patrón `LEIsReg_*.req` va sin comillas: si hubiera varios `.req` en `send/` (por ejemplo, uno de un día
+  en que falló el envío), el resultado depende de cómo se expanda el comodín al pasar por `GSProcess.sh` y
+  `Generico.sh`; no se ha analizado ese caso.
+
+### 6.5 `MEKYTL0927` — envío (`MEGENV0001.sh`)
+
+Envía `.../LEI_register/send/LEIsReg_*.req` al servidor `vdrcdexp-anycast.igrupobbva`, destino
+`EBPEMFD.FTEXD05X.LEIRDR.ALTA`, máquina remota de tipo host (mainframe), acción en destino `CREATE`, y en el
+host se arranca el JCL `EMFDJL43` (arrancador `EMFDXL43`). La ficha anota que pasó a ejecutarse en la VIPA
+`pr-rdr.igrupobbva` en vez de la IP directa (sin efecto funcional). El `.idx` de la clave no se ha recibido
+(P-LEIS-04); por eso no se sabe con certeza qué hace si no hay fichero (la ficha pide que no falle). Códigos
+de salida del script: ver la spec común (por ejemplo 60 si no hay ficheros y `FALLA_NO_FICHERO=SI`; 43 error
+de envío; el error interno 301 aparece en Control-M como 45). No hay confirmación de recepción por parte del
+mainframe: el éxito es que el script termine con 0.
+
+### 6.6 `MEKYTL1014` — historificación (`RAMERC0068.sh`)
+
+Mueve `LEIsReg_<yyyymmddhhmiss>.req` de `send/` a `/fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/old/`.
+Línea del IDX no recibida (P-LEIS-05).
+
+### 6.7 Inventario de ejecutables
+
+| Ejecutable | Lo invoca | ¿Recibido? | Dónde está analizado |
+|------------|-----------|------------|----------------------|
+| `GSProcess.sh` | `GS_REGISTERLEISEND` | Sí | `salidas/comun_gsprocess/comun_gsprocess_spec.md`; uso en §6.2 |
+| `LEI_Register_request.properties` | `GSProcess.sh` | Descrito; literal no | §6.2; P-LEIS-01 |
+| `LEI_Register_request.jar` (`main.Main`, `GenerateLEISFile`, `Peticion`, `QuerysStr`, `QueryExec`), `ConexionBD.jar` | Acción `Java` | Código analizado en sesión; no está en el repositorio | §5, §6.2, §6.3; P-LEIS-02/03 |
+| `Generico.sh ConvertirUNIXValidaFichero` | Acción `Script` | Sí | §6.4; `salidas/comun_generico_sh/comun_generico_sh_spec.md` |
+| `MEGENV0001.sh` (`.idx` `MEKYTL0927`) | `MEKYTL0927` | Script sí; `.idx` no | `salidas/comun_megenv0001/comun_megenv0001_spec.md`; P-LEIS-04 |
+| `RAMERC0068.sh` (IDX `MEKYTL1014`) | `MEKYTL1014` | Script sí; línea no | `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`; P-LEIS-05 |
 
 ## 7. Especificación de testing
 
-La estrategia combina 8 casos troceados por sub-flujo/condición (`rdr_pr_register_leis_send_new_casos_prueba.xml`, TC-001 a TC-008) con una prueba end-to-end (TC-009) que valida el flujo completo, desde la detección de peticiones pendientes hasta la historificación del fichero enviado.
+8 casos por condición (TC-001 a TC-008) y uno de extremo a extremo (TC-009), en
+`rdr_pr_register_leis_send_new_casos_prueba.xml`:
 
-- **TC-001 (happy_path):** camino feliz — 1+ peticiones pendientes válidas, fichero generado, normalizado, enviado e historificado. Cubre R1-R3, R5, R7, R8, R10.
-- **TC-002 (negativo):** sin peticiones pendientes — no se genera fichero, sin error, el envío tampoco falla al no haber nada que enviar (R6, R9).
-- **TC-003 (error_funcional):** una petición con un atributo faltante en `FT_T_UTD1` (ej. `DOCUMPS`) — pasa a `ERROR_SEND_REG_LEI`, se excluye del fichero, el resto de peticiones válidas sí se procesan (R4).
-- **TC-004 (borde):** un valor de campo más largo que su longitud fija (ej. `PERSCTPN` > 9 caracteres) — se trunca automáticamente sin error (R3).
-- **TC-005 (duplicidad):** dos peticiones distintas (`VND_RQST_OID` diferentes) con el mismo `DOCUMPS`/`PAIS`/`ENTIDAD`/`PERSCTPN` — ambas se procesan y generan dos líneas independientes, sin ningún control de duplicidad de contenido a este nivel.
-- **TC-006 (conflicto_integridad):** si `MEKYTL0927` falla en el envío después de que `GS_REGISTERLEISEND` ya marcó las peticiones como `LEI_REG_LINE_SENT` — el estado en BBDD queda diciendo "enviado" aunque el fichero nunca llegó realmente al mainframe, una inconsistencia entre el estado de negocio y la realidad de la transmisión.
-- **TC-007 (datos_sinteticos):** 3 peticiones sintéticas pendientes con el mismo `DOCUMPS`+`PERSCTPN` (simulando una ráfaga de altas duplicadas) — confirma que las 3 se procesan y generan 3 líneas en el fichero, sin ningún aviso de conflicto.
-- **TC-008 (regresion):** ligado al hallazgo de `ConvertirUNIXValidaFichero` (§4/§9: no comprueba el código de salida de `dos2unix`) — confirma que este comportamiento se mantiene estable tras cualquier cambio futuro del script, para detectar si se corrige o empeora sin quedar documentado.
-- **TC-009 (e2e):** flujo completo de un día típico, desde la detección de peticiones pendientes hasta la historificación del fichero enviado.
+- **TC-001 (happy_path):** una petición completa → fichero, formato Unix, envío, historificación (R1-R3, R5, R7, R8, R10).
+- **TC-002 (negativo):** sin peticiones → sin fichero, sin error en los jobs (R6, R9; el de `MEKYTL0927` y `MEKYTL1014` depende de P-LEIS-04/05).
+- **TC-003 (error_funcional):** una petición sin `DOCUMPS` → `ERROR_SEND_REG_LEI`; la otra se envía (R4).
+- **TC-004 (borde):** `PERSCTPN` de más de 9 caracteres → se trunca (R3).
+- **TC-005 (duplicidad):** dos peticiones con los mismos datos de negocio → dos líneas, sin aviso.
+- **TC-006 (conflicto_integridad):** fallo de envío tras marcar `LEI_REG_LINE_SENT` → el estado no se revierte.
+- **TC-007 (datos_sinteticos):** 3 peticiones idénticas → 3 líneas.
+- **TC-008 (regresion):** fallo de `dos2unix` → el job queda NOTOK (comportamiento corregido, §4).
+- **TC-009 (e2e):** día completo desde las 00:30 hasta `old/`.
 
-**Confirmación de cobertura:** cada caso está definido con datos y pasos concretos, directamente ejecutables sin interpretación adicional (ver `rdr_pr_register_leis_send_new_casos_prueba.xml`). La suma de TC-001 a TC-008 cubre cada sub-flujo, condición de borde/error y hallazgo confirmado de los requisitos R1-R10 y del §4; TC-009 cubre el flujo íntegro de extremo a extremo. No queda ninguna transición o condición conocida sin cubrir.
+Cada caso tiene datos y pasos concretos. TC-001 a TC-008 cubren cada rama de §5 y §6 (selección, error por
+petición, truncado, ausencia de fichero, fallo de conversión, fallo de envío); TC-009 encadena el flujo
+completo. Los resultados de TC-002 para `MEKYTL0927`/`MEKYTL1014` quedan condicionados a P-LEIS-04/05.
 
 ## 8. Validaciones de casos de prueba
 
-| Caso | Qué garantiza | Requisito(s) cubierto(s) |
+| Caso | Qué garantiza | Requisitos |
 | :---- | :---- | :---- |
-| TC-001 | El camino feliz completo funciona end-to-end en una sola pasada | R1-R3, R5, R7, R8, R10 |
-| TC-002 | La ausencia de peticiones pendientes no se trata como error | R6, R9 |
-| TC-003 | Una petición con atributo faltante no bloquea el resto | R4 |
-| TC-004 | El truncamiento por longitud fija no rompe la lógica | R3 |
-| TC-005 | No hay control de duplicidad de contenido entre peticiones distintas | R3, R5 (riesgo) |
-| TC-006 | El estado `LEI_REG_LINE_SENT` puede quedar inconsistente si el envío falla después | R5, R8 (riesgo) |
-| TC-007 | Confirma con datos sintéticos la ausencia de control de duplicidad | R3, R5 (riesgo) |
-| TC-008 | El riesgo de `ConvertirUNIXValidaFichero` no cambia de comportamiento sin que se note | R7 (riesgo) |
-| TC-009 | El flujo completo de negocio funciona de principio a fin | R1-R10 |
+| TC-001 | Camino feliz completo | R1-R3, R5, R7, R8, R10 |
+| TC-002 | Sin peticiones no es error | R6, R9 |
+| TC-003 | Una petición incompleta no bloquea el resto | R4 |
+| TC-004 | Truncado por longitud fija | R3 |
+| TC-005 | Sin control de duplicidad de contenido | R3, R5 (riesgo) |
+| TC-006 | Estado `LEI_REG_LINE_SENT` aunque falle el envío | R5, R8 (riesgo) |
+| TC-007 | Duplicados sintéticos se envían todos | R3, R5 (riesgo) |
+| TC-008 | Un fallo de `dos2unix` deja el job NOTOK | R7 |
+| TC-009 | Flujo completo | R1-R10 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-- **`ConvertirUNIXValidaFichero` no comprueba el código de salida de `dos2unix` (hallazgo confirmado por código fuente):** un fallo de conversión a mitad de proceso no se detectaría, y el fichero (potencialmente corrupto o truncado) se enviaría igualmente al mainframe sin ningún aviso.
-- **Inconsistencia de estado ante fallo de envío posterior:** las peticiones se marcan `LEI_REG_LINE_SENT` en el paso de generación (`GS_REGISTERLEISEND`), antes de que `MEKYTL0927` haya intentado realmente el envío. Si el envío fallara, el estado en BBDD seguiría indicando "enviado" sin que el fichero hubiera llegado a Clientela.
-- **Sin control de duplicidad de contenido entre peticiones:** dos peticiones distintas con los mismos datos de negocio (mismo LEI/cliente) se procesan de forma independiente, sin ninguna detección ni aviso (ver TC-005, TC-007).
-- **Criticidad no uniforme dentro de la misma cadena (confirmado, no es un defecto):** `GS_REGISTERLEISEND` tiene criticidad C mientras que los jobs de envío/historificación tienen W — documentado como hecho operativo real, no como inconsistencia a corregir.
+- **Estado "enviado" antes de enviar:** las peticiones pasan a `LEI_REG_LINE_SENT` en `GS_REGISTERLEISEND`,
+  antes del envío. Si `MEKYTL0927` falla, siguen como enviadas; la cadena de respuesta las marcará
+  `NO_RESPONSE` cuando no lleguen en la respuesta.
+- **Fallo de `dos2unix` tras marcar estados:** el job queda NOTOK, pero las peticiones ya están en
+  `LEI_REG_LINE_SENT` y el fichero sigue en `send/`; si no se relanza, no se envía.
+- **Reenvío de ficheros antiguos:** si un `.req` se queda en `send/` (envío fallido), el siguiente envío con
+  máscara `LEIsReg_*.req` lo mandaría de nuevo junto al nuevo (depende del `.idx`, P-LEIS-04).
+- **Sin control de duplicidad de contenido:** dos peticiones con los mismos datos generan dos líneas.
+- **Criticidad distinta por job:** `GS_REGISTERLEISEND` es C y los otros dos W (dato real, no defecto).
+- **Días sin fichero y `MEKYTL1014`:** si su línea del IDX obliga a que haya fichero, ese día queda NOTOK
+  (P-LEIS-05).
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se considera completa según el criterio de cierre del agente. Todos los gaps detectados, incluido el comportamiento real de `ConvertirUNIXValidaFichero` (verificado con su código fuente) y la discrepancia de criticidad frente al documento fuente, quedan resueltos con evidencia documental, de fichas del gestor documental, de capturas de Control-M, o de código fuente real.
+La cadena queda descrita con su lógica, formato de fichero y comportamiento ante fallos. Se ha corregido la
+interpretación de `ConvertirUNIXValidaFichero`. **No está cerrada**: faltan el literal del `.properties`
+(P-LEIS-01), el comportamiento de salida del Java (P-LEIS-02), los formatos de campo y el SQL literal
+(P-LEIS-03) y la configuración de `MEKYTL0927` y `MEKYTL1014` (P-LEIS-04, P-LEIS-05).
