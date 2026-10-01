@@ -37,7 +37,7 @@
 | Elemento | Detalle |
 |---|---|
 | Servidor Control-M | `MERCADOS-4`, host `pr-rdr.igrupobbva` (historificación sobre `LPRDR503`) |
-| Ventana | 01:00-04:00 AM, martes a sábado (LMXJVSD) |
+| Ventana | 01:00-04:00 AM; calendario ambiguo en la ficha: "martes a sábado" y `LMXJVSD` (P-REF-02 de la spec) |
 | Run As `xpctma1` | `KYTL_REF_GSPROCESS_FW` |
 | Run As `xakytl1p` | `KYTL_REF_GSPROCESS` |
 | Run As `xsramer1` | `MEKYTL0107`, `MEKYTL0121` |
@@ -49,12 +49,26 @@
 | `/fichtemcomp/pr/descargas/kytl/Refundicion/` | Directorio activo |
 | `/fichtemcomp/pr/descargas/kytl/Refundicion/old/` | Histórico |
 
+## Configuración necesaria
+
+- Comando del filewatcher: `ctmfw '/fichtemcomp/pr/descargas/kytl/Refundicion/Refundicion.csv' CREATE 0 60 10 5 180`
+  (espera que aparezca el fichero; busca cada 60 s; ya encontrado, mide el tamaño cada 10 s y lo da por completo
+  tras 5 mediciones iguales; código 7 si en 180 min no aparece).
+- `Refundicion.properties` de `GSProcess.sh` (literal en la spec §6.1), `fillingRules_Refundicion.csv` y
+  `select.properties` (clave `Refundicion`) en el directorio de configuración, y el directorio `Refundicion/old/`
+  con escritura (lo usa `Delta`).
+- Recurso cuantitativo `MAX-LPRDR501` (tope 100) con 4 unidades libres a lo largo de la cadena.
+- Workflows `RDR_Refundicion`, `RDR_Clientela460` (`BajaClientela460`) y `ErroresCSV` desplegados en GS, cola MQ
+  `CLIENTELA` operativa. `Refundicion.csv` de prueba con cabecera `COD-CCLIEND` en la columna 1 y `COD-CCLIENP`
+  en la columna 5 (el resto de columnas se ignora).
+
 ## Orquestación
 
 - **Fan-Out real de salida hacia otra cadena de P-021:** el evento de `KYTL_REF_GSPROCESS` dispara en paralelo
   `MEKYTL0107` (interno) y `KYTL_CONCLI_GSPROCESS_FW` (externo, cadena `RDR_CONCILIACION_CLIENTELA_new`) —
-  necesario para TC-003 y TC-006. Ver `salidas/rdr_conciliacion_clientela/rdr_conciliacion_clientela_prerrequisitos.md` para la cadena
-  receptora.
+  necesario para TC-003 y TC-006. La cadena receptora es `RDR_CONCILIACION_CLIENTELA_new` (job `KYTL_CONCLI_GSPROCESS_FW`, que espera
+  `ConClientela.csv`; su evento de arranque es la finalización de `KYTL_REF_GSPROCESS`): en pruebas basta con
+  observar en Control-M que su condición de entrada se cumple.
 - **Motor GoldenSource `PLSQL_Load`/`Sub_Load` (procedimiento `REFUNDICION`, código real confirmado esta
   ronda):** procesamiento asíncrono en lotes de 500 registros; el sub-workflow `Sub_Load` es el mismo motor
   compartido con `rdr_reubicacion_new` (mismo `.wkf`, distinta rama por `messageType`). Necesario para TC-007
@@ -62,7 +76,7 @@
   Altamira, todo con impacto directo en tablas GoldenSource más allá de la escala de los casos TC-001/TC-003/
   TC-006.
 - **Circuito `Evento(Errores)`/`ErroresCSV`/`MarcaRegErroneo`:** necesario para TC-012 — la fila `ERRORES`
-  insertada por cualquiera de las 5 excepciones de `REFUNDICION` alimenta este circuito de reprocesamiento
+  insertada por 4 de las 5 excepciones de `REFUNDICION` (todas salvo `CLIENTED_NOT_FOUND`) alimenta este circuito de reprocesamiento
   automático (`Delta=Si` en `Refundicion.properties`).
 - **`Workflow(RDR_Clientela460)`/`BajaClientela460` (código real confirmado, cerrado al 100% esta ronda):**
   ejecuta inmediatamente después de `Workflow(RDR_Refundicion)` dentro de `KYTL_REF_GSPROCESS` (R2); consume

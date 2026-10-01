@@ -13,7 +13,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Verificar que KYTL_REF_GSPROCESS_FW detecta Refundicion.csv.</paso>
-      <paso numero="2">Verificar que KYTL_REF_GSPROCESS termina RC=0 y genera Reporte_Refundicion_dos.csv.</paso>
+      <paso numero="2">Verificar que KYTL_REF_GSPROCESS termina RC=0 y genera Reporte_Refundicion_dos.csv; en el directorio Refundicion/ comprobar Refundicion.tmp (solo columnas 1 y 5), Refundicion_processed.csv, Refundicion_noprocessed.csv y old/Refundicion.csv (copia del completo del día), y que Refundicion.csv contiene solo las líneas nuevas o cambiadas respecto al día anterior (Delta=Si).</paso>
       <paso numero="3">Verificar que MEKYTL0107 transmite el reporte a MVP00G215.</paso>
       <paso numero="4">Verificar que MEKYTL0121 historifica Refundicion.csv en old/.</paso>
     </pasos>
@@ -34,7 +34,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Mantener Refundicion.csv ausente durante toda la ventana de KYTL_REF_GSPROCESS_FW.</paso>
-      <paso numero="2">Verificar que la cadena se detiene sin ejecutar KYTL_REF_GSPROCESS.</paso>
+      <paso numero="2">Verificar que KYTL_REF_GSPROCESS_FW (ctmfw ... CREATE 0 60 10 5 180) termina a los 180 minutos con código 7 (tiempo agotado), queda NOTOK (no consta regla 7→OK) y la cadena se detiene sin ejecutar KYTL_REF_GSPROCESS.</paso>
       <paso numero="3">Verificar que RDR_CONCILIACION_CLIENTELA_new no recibe el disparo externo.</paso>
     </pasos>
     <resultadoEsperado>La cadena se detiene tras el filewatcher; la cadena externa tampoco arranca por esta vía.</resultadoEsperado>
@@ -228,7 +228,7 @@
 
   <casoDePrueba id="TC-012" tipo="error_funcional">
     <nombre>Excepciones controladas de REFUNDICION — doble auditoría REPORTES+ERRORES</nombre>
-    <objetivo>Confirmar que las 5 excepciones controladas del procedimiento REFUNDICION (CLIENTED_NOT_FOUND, CLIENTED_DUPLICATE, CLIENTEP_NOT_FOUND, CLIENTEP_DUPLICATE, WHEN OTHERS) insertan 2 filas en FT_T_RLT1 (RLT_PURP_TYP=REPORTES y RLT_PURP_TYP=ERRORES) sin relanzar la excepción, y que la fila ERRORES alimenta el circuito ErroresCSV/MarcaRegErroneo (a diferencia del Sub_Load de rdr_reubicacion_new, que inserta una sola fila por excepción).</objetivo>
+    <objetivo>Confirmar que las 5 excepciones controladas del procedimiento REFUNDICION (CLIENTED_NOT_FOUND, CLIENTED_DUPLICATE, CLIENTEP_NOT_FOUND, CLIENTEP_DUPLICATE, WHEN OTHERS) insertan filas en FT_T_RLT1 sin relanzar la excepción: CLIENTED_NOT_FOUND solo 1 (REPORTES, "No existe el Clientela a Refundir") y las otras 4 dos (RLT_PURP_TYP=REPORTES y RLT_PURP_TYP=ERRORES), y que la fila ERRORES alimenta el circuito ErroresCSV/MarcaRegErroneo (a diferencia del Sub_Load de rdr_reubicacion_new, que inserta una sola fila por excepción).</objetivo>
     <precondiciones>
       <precondicion>Al menos 1 línea de Refundicion.csv por cada uno de los 5 escenarios de excepción, dentro de un lote con otras líneas válidas.</precondicion>
     </precondiciones>
@@ -237,11 +237,11 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar cada uno de los 5 escenarios de excepción en líneas separadas del mismo lote.</paso>
-      <paso numero="2">Confirmar que cada una inserta exactamente 2 filas en FT_T_RLT1 (REPORTES + ERRORES), no 1.</paso>
+      <paso numero="2">Confirmar que CLIENTED_NOT_FOUND inserta exactamente 1 fila (REPORTES) y que CLIENTED_DUPLICATE, CLIENTEP_NOT_FOUND, CLIENTEP_DUPLICATE y WHEN OTHERS insertan exactamente 2 (REPORTES + ERRORES).</paso>
       <paso numero="3">Confirmar que el resto de líneas válidas del lote se procesan con normalidad.</paso>
-      <paso numero="4">Confirmar que la fila ERRORES resultante es recogida por una ejecución posterior de ErroresCSV y, dado que Refundicion.properties tiene Delta=Si, provoca el reprocesamiento automático vía MarcaRegErroneo al día siguiente.</paso>
+      <paso numero="4">Confirmar que la fila ERRORES resultante es recogida por una ejecución posterior de ErroresCSV y, dado que Refundicion.properties tiene Delta=Si, se pretende que provoque el reprocesamiento vía MarcaRegErroneo al día siguiente (efecto no verificado, P-REF-04 de la spec; anotar lo observado).</paso>
     </pasos>
-    <resultadoEsperado>Doble auditoría confirmada para las 5 excepciones, sin aborto del lote, con enlace real al reprocesamiento automático de ErroresCSV.</resultadoEsperado>
+    <resultadoEsperado>Doble auditoría confirmada para 4 de las 5 excepciones (1 sola fila REPORTES en CLIENTED_NOT_FOUND), sin aborto del lote, con enlace real al reprocesamiento automático de ErroresCSV.</resultadoEsperado>
     <tipoValidacion>Verificación de FT_T_RLT1 por excepción + observación de una ejecución posterior de ErroresCSV/MarcaRegErroneo.</tipoValidacion>
     <criterioAceptacion>Comportamiento de doble canal y reprocesamiento automático confirmado end-to-end.</criterioAceptacion>
     <posibilidadFallo>Si falta la fila ERRORES, o el reprocesamiento automático no se dispara pese a Delta=Si, es una desviación del comportamiento documentado en G3/R6-bis.</posibilidadFallo>
@@ -324,6 +324,7 @@
       <paso numero="1">Forzar un fallo controlado en un paso intermedio (p. ej. Java(ControlCargaDatos.jar)).</paso>
       <paso numero="2">Confirmar en los logs que GSProcess.sh registra el fallo (incrementa $Errores) pero continúa con los pasos siguientes (Workflow(RDR_Refundicion), Workflow(RDR_Clientela460), etc.).</paso>
       <paso numero="3">Confirmar que el job reporta RC=1 (ESTADO-1-) solo al finalizar todos los pasos, no en el momento del fallo.</paso>
+      <paso numero="4">Repetir forzando un fallo de Workflow(RDR_Clientela460) (p. ej. workflow inexistente o BD caída): confirmar que GSProcess.sh NO lo cuenta como error (el resultado evaluado es el del borrado del temporal), de modo que si es el único fallo el job acaba con RC=0 y ESTADO-0-.</paso>
     </pasos>
     <resultadoEsperado>Comportamiento de tolerancia total a fallos intermedios confirmado: todos los pasos se ejecutan pese al fallo forzado, con RC=1 solo al final.</resultadoEsperado>
     <tipoValidacion>Fallo controlado + inspección de logs de GSProcess.sh (LOG_GENERICO/LOG_DIA) + verificación del RC final del job en Control-M.</tipoValidacion>

@@ -23,18 +23,19 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Fallo de generación, ninguna rama se ejecuta</nombre>
+    <nombre>Fallo de generación (Unix2Dos sin origen): ninguna rama se ejecuta</nombre>
     <objetivo>Verificar que si KYTL_BANC_GSPROCESS falla, las 3 ramas de envío no se ejecutan.</objetivo>
     <precondiciones>
-      <precondicion>Fuente de datos de RDR_Report.jar simulada como no disponible.</precondicion>
+      <precondicion>Entorno de prueba sin ListadoClientesBancarizacion.txt previo en bancarizacion/ y con la BD de GS inaccesible (RDR_Report.jar no puede generar el informe).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fuente_de_datos" valor="simulada como inaccesible"/>
+      <dato campo="fuente_de_datos" valor="simulada como inaccesible; sin informe previo en bancarizacion/"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar el fallo de la fuente de datos antes de ejecutar KYTL_BANC_GSPROCESS.</paso>
       <paso numero="2">Ejecutar la cadena el día programado.</paso>
-      <paso numero="3">Verificar el estado de KYTL_BANC_GSPROCESS y de las 3 ramas.</paso>
+      <paso numero="3">Verificar el estado de KYTL_BANC_GSPROCESS y de las 3 ramas. Nota: RDR_Report.jar sale siempre con 0; el fallo lo produce Unix2Dos (código 4) al no existir el origen.</paso>
+      <paso numero="4">Variante (riesgo documentado): repetir con un ListadoClientesBancarizacion.txt de ayer ya presente. Esperado: KYTL_BANC_GSPROCESS termina en OK y los 3 envíos transmiten el listado de ayer sin ningún aviso (no hay control de fecha ni de recuento).</paso>
     </pasos>
     <resultadoEsperado>KYTL_BANC_GSPROCESS finaliza en error; MEKYTL0157, MEKYTL0158 y MEKYTL0436 no se ejecutan (dependen del evento OK); se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
     <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>

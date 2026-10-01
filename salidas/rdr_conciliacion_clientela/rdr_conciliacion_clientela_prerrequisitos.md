@@ -31,8 +31,18 @@
 
 ## Configuración
 
-- Parámetros `ctmfw`: `CREATE`, tamaño mínimo 0 bytes, chequeo 60s, 10 comprobaciones de estabilidad,
-  retardo inicial 5 min, timeout 240 min.
+- Comando `ctmfw '/fichtemcomp/pr/descargas/kytl/ConClientela/ConClientela.csv' CREATE 0 60 10 5 240`:
+  `CREATE` (esperar a que aparezca), tamaño mínimo 0 bytes, busca cada 60 s, una vez encontrado mide el
+  tamaño cada 10 s y lo da por completo tras 5 mediciones iguales, y termina con código 7 (tiempo agotado) si
+  no lo detecta en 240 minutos.
+- Recurso cuantitativo `MAX-LPRDR501` (tope 100) con al menos 4 unidades libres a lo largo de la cadena
+  (cada job consume 1).
+- Ficheros de configuración en `/<entorno>/kytl/online/multipais/multicanal/dat/properties/`:
+  `fillingRules_ConClientela.csv` y `select.properties` (clave `ConClientela`, ver spec §6.1); y
+  `ConClientela.properties` de `GSProcess.sh` (spec §6). Directorio `ConClientela/old/` existente y con
+  escritura (lo necesitan `Delta` y la historificación).
+- BD GoldenSource accesible desde `pr-rdr.igrupobbva` con el procedimiento `CONCLI2` y las tablas
+  `FT_T_JBLG`, `FT_T_RLT1`, `FT_T_VREQ`, `FT_T_FIID`, `FT_T_FIRL`, `FT_T_FRRL`, `FT_T_FINR`.
 
 ## Sistema de ficheros
 
@@ -44,8 +54,9 @@
 ## Orquestación
 
 - **Dependencia externa real:** evento de `KYTL_REF_GSPROCESS` (cadena `RDR_REFUNDICION_new`) — necesario
-  para TC-001, TC-003, TC-006. Ver `salidas/rdr_refundicion/rdr_refundicion_prerrequisitos.md` para su propia cadena de
-  prerrequisitos.
+  para TC-001, TC-003, TC-006. Es el job de la cadena `RDR_REFUNDICION_new` que ejecuta `GSProcess.sh Refundicion`
+  (necesita su `Refundicion.csv`, ver spec §2); en pruebas puede sustituirse por una condición Control-M
+  equivalente puesta a mano.
 - **Eventos internos:** `..._FW_OK_new`, `..._GSPROCESS_OK_new`, `..._MEKYTL0131_OK_new` (cierre en
   `MEKYTL0130`).
 

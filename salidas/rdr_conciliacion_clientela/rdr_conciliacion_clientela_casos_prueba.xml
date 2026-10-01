@@ -36,12 +36,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Mantener ConClientela.csv ausente durante toda la ventana de KYTL_CONCLI_GSPROCESS_FW.</paso>
-      <paso numero="2">Verificar que la cadena se detiene sin ejecutar KYTL_CONCLI_GSPROCESS.</paso>
+      <paso numero="2">Verificar que KYTL_CONCLI_GSPROCESS_FW (ctmfw ... CREATE 0 60 10 5 240) termina tras 240 minutos con código 7 (tiempo agotado), queda en NOTOK (no consta regla 7→OK) y que la cadena se detiene sin ejecutar KYTL_CONCLI_GSPROCESS.</paso>
       <paso numero="3">Verificar la generación de la notificación por correo a ans_rdr.es@bbva.com y la apertura de ticket Remedy (BZG03906).</paso>
     </pasos>
     <resultadoEsperado>La cadena se detiene; se genera 1 notificación por correo y 1 ticket Remedy — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de estado Control-M + registro de alerta/ticket.</tipoValidacion>
-    <criterioAceptacion>0 jobs posteriores ejecutados; 1 alerta y 1 ticket generados.</criterioAceptacion>
+    <criterioAceptacion>FW con código 7 y NOTOK; 0 jobs posteriores ejecutados; 1 alerta y 1 ticket generados.</criterioAceptacion>
     <posibilidadFallo>Que la cadena continúe pese a la ausencia del fichero (contradiría R1/G1).</posibilidadFallo>
   </casoDePrueba>
 

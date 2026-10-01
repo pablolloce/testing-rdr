@@ -3,11 +3,26 @@
 ## 1. Resumen ejecutivo
 
 Cadena Control-M diaria (folder `KYTL0000-RDR_REFUNDICION_new`, servidor `MERCADOS-4`, ventana de filewatcher
-01:00-04:00 AM, martes a sábado — LMXJVSD) que detecta `Refundicion.csv`, ejecuta los workflows de
+01:00-04:00 AM; la ficha dice a la vez "martes a sábado" y calendario `LMXJVSD` = 7 días, ver P-REF-02) que detecta `Refundicion.csv`, ejecuta los workflows de
 refundición/unificación de cartera de clientela (`RDR_Refundicion`, `RDR_Clientela460`) mediante el motor
 genérico GoldenSource `PLSQL_Load`, transmite el reporte resultante por XCOM a `MVP00G215`, historifica el
 fichero fuente, y **dispara externamente el arranque de `RDR_CONCILIACION_CLIENTELA_new`**. 4 jobs propios,
 más un evento de salida externo (Fan-Out real hacia otra cadena de P-021).
+
+**Qué es y para qué sirve.** Cuando dos códigos de cliente de **Clientela** (sistema origen de clientes) pasan a
+ser uno solo (el cliente "cerrado" se refunde en el cliente "destino"), RDR (la base de contrapartes en
+GoldenSource, "GS") tiene que reflejarlo: el código del cerrado deja de ser válido, sus contrapartidas
+operativas pasan al destino y se avisa al sistema de contratos 460 (alta/baja de "contrato 460", ver glosario
+en §6.1). Esta cadena automatiza ese proceso a partir del fichero **`Refundicion.csv`**, que deposita un sistema
+origen no identificado en las fuentes (P-REF-01): una cabecera y una línea por refundición, separado por `;`,
+del que el proceso solo usa la **columna 1 (`COD-CCLIEND`, código de cliente que se cierra)** y la **columna 5
+(`COD-CCLIENP`, código de cliente destino)**; las demás columnas se descartan en el paso `LimpiarRefundicion`.
+**Quién la lanza y cuándo:** Control-M, sin intervención humana, cuando aparece `Refundicion.csv` dentro de la
+ventana 01:00-04:00 (ver calendario dudoso en P-REF-02). **Qué hay al inicio:** `Refundicion.csv` en
+`/fichtemcomp/pr/descargas/kytl/Refundicion/`, la BD GS accesible y la configuración de §6.1. **Qué queda al
+final:** GS actualizado (clientes cerrados inactivos, contrapartidas reasignadas), peticiones 460 enviadas por
+cola MQ, `Reporte_Refundicion_yyyymmdd.csv` entregado en `MVP00G215`, fichero fuente movido a `old/` y la cadena
+`RDR_CONCILIACION_CLIENTELA_new` desbloqueada.
 
 ## 2. Alcance del proceso
 
@@ -25,11 +40,11 @@ mutuamente, sin necesidad de pregunta al usuario).
 
 | ID | Requisito |
 |----|-----------|
-| R1 | `KYTL_REF_GSPROCESS_FW` (filewatcher, Run As `xpctma1`, `ctmfw ... CREATE 0 60 10 5 180`) espera `Refundicion.csv` en `/fichtemcomp/pr/descargas/kytl/Refundicion/`, ventana 01:00-04:00 AM (martes a sábado). Puerta de entrada estricta: si no llega, detiene la cadena. |
-| R2 | `KYTL_REF_GSPROCESS` (Run As `xakytl1p`): `Script(Delta)` → `Script(LimpiarRefundicion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Refundicion)` → `Workflow(RDR_Clientela460)` → `Evento(Errores)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`. Genera `Reporte_Refundicion_dos.csv`. |
+| R1 | `KYTL_REF_GSPROCESS_FW` (filewatcher, Run As `xpctma1`) ejecuta literalmente `ctmfw '/fichtemcomp/pr/descargas/kytl/Refundicion/Refundicion.csv' CREATE 0 60 10 5 180`: espera a que **aparezca** `Refundicion.csv` (`CREATE`), de cualquier tamaño (`0` bytes mínimo), lo busca **cada 60 s**; una vez encontrado mide su tamaño **cada 10 s** y lo da por completo tras **5 mediciones iguales** seguidas (40-50 s sin crecer); si en **180 minutos** (de 01:00 a 04:00) no lo detecta termina con **código 7 (tiempo agotado)**. Consume 1 unidad del recurso `MAX-LPRDR501` (tope global 100). Ventana 01:00-04:00 AM; calendario ambiguo (P-REF-02). Puerta de entrada estricta: si no llega, el job acaba con código 7 y la cadena se detiene. **No consta en las fuentes ninguna regla Control-M "código 7 → OK"** para este job (a diferencia de otras cadenas): se asume NOTOK, la cadena no avanza y, por tanto, `RDR_CONCILIACION_CLIENTELA_new` tampoco arranca ese día (P-REF-02). Genérico de `ctmfw`: `salidas/comun_ctmfw/comun_ctmfw_spec.md`. |
+| R2 | `KYTL_REF_GSPROCESS` (Run As `xakytl1p`, ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh Refundicion`; consume 1 unidad de `MAX-LPRDR501`): `Script(Delta)` (argumento `Si`) → `Script(LimpiarRefundicion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Workflow(RDR_Refundicion)` → `Workflow(RDR_Clientela460)` → `Evento(Errores)` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`. Genera `Reporte_Refundicion_dos.csv` en `/fichtemcomp/pr/descargas/kytl/Refundicion/`. Paso a paso, con el `.properties` literal, en §6.1. Al terminar publica `RDR_REFUNDICION_KYTL_REF_GSPROCESS_OK_new` (para `MEKYTL0107`) y dispara `KYTL_CONCLI_GSPROCESS_FW` (externo). |
 | R3 | **Fan-Out real confirmado (auto-verificado por referencia cruzada en el documento fuente):** al finalizar con éxito, `KYTL_REF_GSPROCESS` dispara 2 sucesores en paralelo: el evento interno que da paso a `MEKYTL0107` (dentro de esta cadena), y el evento externo `KYTL_CONCLI_GSPROCESS_FW` que arranca `RDR_CONCILIACION_CLIENTELA_new`. |
-| R4 | `MEKYTL0107` (Run As `xsramer1`, `MEGENV0001.sh`) transmite `Reporte_Refundicion_dos.csv` a `XCOMWPMER` (ruta `MVP00G215`) como `Reporte_Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. |
-| R5 | `MEKYTL0121` (Run As `xsramer1`, `RAMERC0068.sh`) historifica `Refundicion.csv` a `/fichtemcomp/pr/descargas/kytl/Refundicion/old/` como `Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. Cierra la cadena. |
+| R4 | `MEKYTL0107` (Run As `xsramer1`, `/pr/pl/envioweb/scrt/MEGENV0001.sh MEKYTL0107`, máquina `pr-rdr.igrupobbva`) transmite `Reporte_Refundicion_dos.csv` (de `/fichtemcomp/pr/descargas/kytl/Refundicion/`) a la máquina `XCOMWPMER`, ruta `\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\`, como `Reporte_Refundicion_yyyymmdd.csv` (año-mes-día del envío); publica `RDR_REFUNDICION_MEKYTL0107_OK_new`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. |
+| R5 | `MEKYTL0121` (Run As `xsramer1`, `/pr/pl/scrt/RAMERC0068.sh MEKYTL0121`, servidor `LPRDR503`) historifica `Refundicion.csv` a `/fichtemcomp/pr/descargas/kytl/Refundicion/old/` como `Refundicion_yyyymmdd.csv`. **Soft Failure documentado explícitamente**: si no existe el fichero de origen, no falla. Cierra la cadena. |
 | R6 | **Motor GoldenSource `PLSQL_Load`** (workflow genérico, versión 8, `RDR_UGS87_ASYN_v1`, `clustered=true`, asíncrono): abre el fichero, lo fracciona en lotes de 500 registros (`File Split Condition`), procesa cada mensaje vía sub-workflow `Sub_Load` en paralelo (`For Each Split` asíncrono), y sincroniza el cierre del lote (`Synchronize`, `StandardAndJoinHandler`) antes de solicitar el siguiente. Patrón genérico ya visto en `RDR_CONCILIACION_BDI_new` (`informeBroker_BDI`), reutilizado aquí para `RDR_Refundicion`/`RDR_Clientela460`. **Mismo workflow, misma versión y mismo comentario interno que el `PLSQL_Load` usado por `RDR_Reubicacion` en `rdr_reubicacion_new`** — confirmado con `PLSQL_Load.wkf`. |
 | R6-bis | **`Sub_Load` — lógica real de negocio confirmada con código PL·SQL completo (`Sub_Load.wkf`, aportado esta ronda desde `rdr_reubicacion_new`, mismo fichero compartido).** El sub-workflow discrimina por `properties.messageType`; la rama `Refundicion` (líneas 420-820 del `.wkf`) trocea cada línea CSV por `;` (`CLIENTED=campos[0]`, `CLIENTEP=campos[1]`) y ejecuta el procedimiento PL·SQL **`REFUNDICION`** — ver detalle completo en §6.1. Confirma de forma directa, no por analogía, qué hace realmente `Workflow(RDR_Refundicion)` (distinto de `Workflow(RDR_Clientela460)`/`BajaClientela460`, ver G4 resuelto). |
 | R7 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado (QT1, gap transversal ya resuelto en `RDR_CONCILIACION_CLIENTELA_new` y `RDR_PR_BDICLIENREG_RESP_new`)** como placeholder de cabecera, no un valor único job a job. |
@@ -40,8 +55,8 @@ mutuamente, sin necesidad de pregunta al usuario).
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
-| G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos destino, `COD-CCLIEND` (cliente destino) y `COD-CCLIENP` (cliente previo/origen) — coherente con el propósito de la cadena (unificar 2 códigos de cliente). Ambos con valor por defecto `NULL` y ambos marcados `USAR`, sin regla posicional ni de exclusión — ver §6.1. |
-| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente. Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
+| G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos, `COD-CCLIEND` (columna 1 = `CLIENTED`, cliente que se cierra, según el código de `Sub_Load`) y `COD-CCLIENP` (`CLIENTEP`, cliente destino). Regla `NULL` (campo **obligatorio**, no valor por defecto) y regla `USAR` (solo caracteres permitidos) en ambos, sin regla de longitud — ver §6.1. |
+| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente (efecto exacto no verificado, P-REF-04). Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
 | G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía por MQ (cola `CLIENTELA`) a un sistema externo vía 2 sub-workflows reales, ambos aportados y confirmados (`SendClientelaRequest`, `BAJA_460_CLI`) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`). El parámetro `Tipologia` que decide la rama (`ALTA`/`BAJA`/`TOTAL`/`OTHER` por defecto) se inyecta dinámicamente desde `GSProcess.sh` (no un `HashMap` Java) y su valor literal real, confirmado con `Refundicion.properties`, es **`TOTAL`** — el pipeline real siempre procesa las 3 señales en un único paso, sin riesgo de no-op. Ver detalle completo en §6.1. `ConContrato460.java`/`ConDB.java` quedan como un mecanismo real pero **de una cadena o proceso distinto, no identificado**, ajeno a este pipeline — sus 2 hallazgos de código (defecto `NUMFOLII`/`NUMFOLIO`, tipo de job `C460`/`CCL`) se mantienen documentados como información confirmada, pero ya no como parte de `RDR_REFUNDICION_new`. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
@@ -49,6 +64,16 @@ auto-confirmada por referencia cruzada explícita en el documento fuente (secci�
 cadenas se citan mutuamente), sin requerir pregunta al usuario. G3 y G4 son gaps técnicos internos de
 `KYTL_REF_GSPROCESS` (regla 7 de rigor técnico), abiertos y no bloqueantes para el resto de la especificación
 ya cerrada; G2 queda resuelto (§6.1).
+
+**Preguntas pendientes (no resolubles con las fuentes; no se inventa la respuesta):**
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-REF-01 | ¿Qué sistema deposita `Refundicion.csv`, a qué hora, y cuál es su layout oficial (cabecera, significado de cada columna; solo se usan la 1 y la 5)? | Sin él no se pueden construir ficheros de prueba reales ni saber a quién avisar si no llega. |
+| P-REF-02 | ¿Corre la cadena de martes a sábado (como dice la ficha en texto) o los 7 días (calendario `LMXJVSD`)? ¿Hay regla Control-M para el código 7 de `ctmfw` (OK o NOTOK)? | Si no corre domingo-lunes, `RDR_CONCILIACION_CLIENTELA_new` (que depende de ella y es de 7 días) tampoco arranca esos días; con regla 7→OK la cadena quedaría verde sin procesar nada. |
+| P-REF-03 | Claves `.idx` reales de `MEKYTL0107` y `MEKYTL0121` (protocolo, usuario, `FALLA_NO_FICHERO`, historificación). | Confirma la tolerancia a fichero ausente (Soft Failure) más allá de lo que dice la ficha. |
+| P-REF-04 | Contenido del sub-workflow `MarcaRegErroneo` y nombre/ruta exacta del `<Servicio>_errores.csv`. ¿Cómo se "reprocesa al día siguiente" con `Delta=Si`? | La spec previa afirmaba reproceso automático; no está verificado y con `Delta` solo vuelven los registros nuevos/cambiados. |
+| P-REF-05 | Definición de negocio de "contrato 460" y destino de la cola MQ `CLIENTELA` (qué sistema responde y cuándo). | El ciclo es asíncrono: nada en esta cadena comprueba la respuesta. |
 
 ## 5. Especificación funcional
 
@@ -69,38 +94,138 @@ ya cerrada; G2 queda resuelto (§6.1).
   P-021 (`RDR_CONCILIACION_CLIENTELA_new`) — patrón inverso y complementario al de entrada ya documentado en
   esa cadena.
 
+* **Parámetros de planificación (ficha EX-005-03):** User Daily de carga automático (`PLAN_1200`); Site Standard
+  `KYTL0000_SS_PR_HR` / `KYTL0000_SS_PR_HI`; máximo de relanzamientos automáticos `0`; retención del log
+  3 días; criticidad "W / S / C" (W = aviso al día siguiente, S = aviso al día siguiente incluso en festivo,
+  C = aviso inmediato); soporte ANS RDR (`ans_rdr.es@bbva.com`, Remedy `BZG03906`). Eventos: `..._FW_OK_new` →
+  `..._KYTL_REF_GSPROCESS_OK_new` → `..._MEKYTL0107_OK_new` → fin (prefijo `RDR_REFUNDICION_`).
+
 ### 6.1 Cadena interna de `KYTL_REF_GSPROCESS` (`Refundicion.properties`)
 
-El job `KYTL_REF_GSPROCESS` no es una caja negra: ejecuta el pipeline `Refundicion.properties`, con 4 fases
-documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clientes_bdi.md`), encadenadas
-`Script(Delta)` → `Script(LimpiarRefundicion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` →
-`Workflow(RDR_Refundicion)` → `Workflow(RDR_Clientela460)` → `Evento(Errores)` → `Java(RDR_Report.jar)` →
-`Script(Unix2Dos)`.
+El job `KYTL_REF_GSPROCESS` ejecuta `GSProcess.sh Refundicion`. `GSProcess.sh` es el orquestador genérico de la
+plataforma: lee `Refundicion.properties` y ejecuta, una tras otra, las acciones que contiene (genérico:
+`salidas/comun_gsprocess/comun_gsprocess_spec.md`).
 
-* **`Script(Delta)`** (Fase 1.1): recibe el argumento `Si` (parámetro global `Delta=Si` del `.properties`) y
-  fija las variables de entorno que ponen el pipeline en **modo incremental/delta**, es decir, procesa solo
-  los cambios/novedades del lote en vez del universo completo. No escribe campos del fichero de salida por sí
-  mismo; condiciona qué subconjunto de registros entra al resto de la cadena. Si falla o no se ejecuta, el
-  procesamiento posterior no tiene garantizada la semántica delta esperada — no está documentado un fallback
-  explícito a modo total en el propio `.properties`.
-* **`Script(LimpiarRefundicion)`** (Fase 1.2): limpia ficheros temporales o de ejecuciones previas en
-  `$FILES/Refundicion`, para garantizar un estado limpio antes de la ingesta. No transforma datos ni afecta
-  campos de salida; su fallo (si dejara residuos de una ejecución previa) podría contaminar el `.tmp` que
-  procesa la fase siguiente con datos de un ciclo anterior.
-* **`Java(ControlCargaDatos.jar, javacsv.jar)`, clase `ControlCase`** (Fase 2): recibe como entrada
-  `$FILES/Refundicion/Refundicion.tmp`, aplica sobre él las reglas de `$CONF/fillingRules_Refundicion.csv`
-  (enriquecimiento, formateo y validación de estructura) y produce el fichero procesado
-  (`Refundicion_processed.csv`, según el parámetro global `File` del `.properties`), dejando log de auditoría
-  en `$LOG/Refundicion_preprocess_summary.log`. Esta fase determina directamente el contenido de los campos
-  que luego carga `PLSQL_Load`/`Sub_Load` en las tablas maestras de clientela, por lo que un fallo o cambio
-  aquí impacta el fichero de salida final. **G2 resuelto:** el fichero real (`fillingRules_Refundicion.csv`)
-  aportado por el usuario define únicamente 2 campos de salida, `COD-CCLIEND` y `COD-CCLIENP`, ambos con
-  valor por defecto `NULL` y ambos marcados `USAR` (sin regla posicional ni de exclusión, a diferencia del
-  fichero equivalente de `ConBDI`, con 45 campos — ver `salidas/rdr_conciliacion_bdi/rdr_conciliacion_bdi_spec.md` §6.2).
-  Semántica coherente con el propósito de la cadena: unificar el código de cliente de origen
-  (`COD-CCLIENP`, previo) con el de destino (`COD-CCLIEND`) en la refundición de cartera. No documentado
-  el comportamiento ante fallo del propio `ControlCase` (código no aportado); cabo suelto no bloqueante,
-  distinto del gap G2 ya cerrado.
+**`Refundicion.properties` literal** (fichero real aportado; copia del entorno de integración `ei`, en producción
+el segmento es `pr`). Sin ninguna clave `Stop*=Ok`:
+
+```
+MOD_EJECUCION=Refundicion
+Ruta=/fichtemcomp/ei/descargas/kytl/
+File=/fichtemcomp/ei/descargas/kytl/Refundicion/Refundicion_processed.csv
+Servicio=Refundicion
+BusinessFeed=Refundicion
+SuccessAction=LEAVE
+MessageType=Refundicion
+Delta=Si
+Tipologia=TOTAL
+Accion=VariablesGlobales
+NomScript=Delta
+ArgScri1=Si
+Accion=Script
+NomScript=LimpiarRefundicion
+PreArgScri1=$FILES
+ArgScri1=Refundicion
+Accion=Script
+JDKV=17
+NomPaquete1=ControlCargaDatos.jar
+NomPaquete2=javacsv.jar
+NomClaseJava=controlcargadatos.ControlCase
+ServicioJava=Refundicion
+PreArgJava1=$FILES
+ArgJava1=Refundicion/Refundicion.tmp
+PreArgJava2=$LOG
+ArgJava2=Refundicion_preprocess_summary.log
+PreArgJava3=$CONF
+ArgJava3=fillingRules_Refundicion.csv
+Libreria1=ojdbc8.jar
+Libreria2=common-lang3.jar
+Libreria3=log4j.jar
+Accion=Java
+NomEvento=Workflow
+NomWorkflow=RDR_Refundicion
+Accion=Evento
+NomEvento=Workflow
+NomWorkflow=RDR_Clientela460
+Accion=Evento
+NomEvento=Errores
+Accion=Evento
+JDKV=17
+NomPaquete1=RDR_Report.jar
+NomClaseJava=rdr_report.CreateReport
+ServicioJava=ReportRefundicion
+PreArgJava1=$CONF
+ArgJava1=select.properties
+ArgJava2=Refundicion
+Libreria1=ojdbc8.jar
+Libreria2=common-lang3.jar
+Libreria3=log4j.jar
+Accion=Java
+NomScript=Unix2Dos
+PreArgScri1=$FILES
+ArgScri1=Refundicion/Reporte_Refundicion.csv
+Accion=Script
+```
+
+`$FILES` = `/fichtemcomp/<entorno>/descargas/kytl`; `$CONF` y `$LOG` = directorios de configuración y de logs de
+`GSProcess.sh`. Las variables `Delta`, `Tipologia`, `MessageType`, `BusinessFeed`... del bloque inicial son
+las que lee el workflow GoldenSource (`GSProcess.sh` entrega al workflow este mismo `.properties`).
+
+**Glosario mínimo.** *GS*: GoldenSource, producto sobre el que está RDR. *FT_T_xxxx*: tablas de GS —
+`FIID` identificadores de institución (aquí `FINS_ID_CTXT_TYP='CLIENTELAID'` = código de cliente de Clientela),
+`FIRL` relaciones entre instituciones (`LOCAL` = vínculo cliente local-global, `OPERATIVE`/`CPARTY` = contrapartida
+operativa), `FINS`/`FINR` institución y su rol, `RLT1` registro de resultados/discrepancias/señales,
+`JBLG` log de jobs, `TRID` errores técnicos, `UTD1` auditoría de mensajes, `ENFR` entidades legales.
+*Local/global*: cada cliente tiene un nivel local (el código de Clientela) colgado de una entidad global
+(matriz). *Altamira*: entidad mexicana (`FT_T_ENFR.ORG_ID='1145'`). *Contrato 460*: tipo de contrato en
+Clientela al que se pide alta (`A460`) o baja (`B460`, `B460C` a nivel de folio); su definición de negocio no
+está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no se ha enviado; pasa a `OK` al enviarla.
+
+**Los 8 pasos, qué hace cada uno, qué deja y qué pasa si falla:**
+
+* **`Script(Delta)` con argumento `Si`** (modo delta; genérico en `salidas/comun_delta/comun_delta_spec.md`):
+  ejecuta `Delta.sh Si`, que compara `Refundicion/Refundicion.csv` (hoy) con `Refundicion/old/Refundicion.csv`
+  (el completo de la última carga) y **sustituye el fichero de hoy por otro que solo contiene la cabecera y las
+  líneas nuevas o cambiadas** (comparación literal de la línea completa). **No emite bajas** (una refundición
+  que ya no viene en el fichero no genera nada) y **siempre acaba con código 0** aunque la comparación falle
+  (si falla, el fichero de hoy queda completo). Rota ficheros: `old/Refundicion.csv` pasa a ser el completo de
+  hoy, el anterior se guarda en `old/Refundicion_old.csv` y una copia en `old/Refundicion_original.csv`.
+  Si es un relanzamiento sin fichero nuevo (marcas de fecha a ≤5 s), deshace la rotación y repite el mismo
+  delta. El fichero que genera tiene un defecto conocido: **una línea en blanco tras el primer registro** y no
+  termina en salto de línea. Consecuencia para el resto del pipeline: una refundición ya cargada ayer y que
+  siga en el fichero de hoy **no se reprocesa**; y el `Refundicion.csv` que historifica `MEKYTL0121` es este
+  delta, no el fichero completo recibido (el completo queda en `old/Refundicion.csv` hasta el día siguiente).
+* **`Script(LimpiarRefundicion)`** (función de `Generico.sh`, `LimpiarRefundicion $FILES/Refundicion`; genérico
+  en `salidas/comun_generico_sh/comun_generico_sh_spec.md`): **no limpia ficheros temporales**. Parte de
+  `Refundicion/Refundicion.csv` (ya delta): guarda la cabecera, ordena el resto numéricamente por los
+  caracteres 21-47 (`sort -n -k1.21,1.25 ...`), **se queda solo con las columnas 1 y 5** (`cut -f 1,5 -d ";"`),
+  elimina líneas consecutivas repetidas (`uniq`) y deja el resultado en **`Refundicion/Refundicion.tmp`**
+  (borra sus temporales intermedios). Falla con código 1 si falla cualquier paso (p. ej. el fichero no
+  existe). La cabecera de `Refundicion.tmp` son los nombres de las columnas 1 y 5 de la cabecera del csv, que
+  deben ser `COD-CCLIEND;COD-CCLIENP` para casar con el fichero de reglas del paso siguiente.
+* **`Java(ControlCargaDatos.jar, javacsv.jar)`, clase `controlcargadatos.ControlCase`** (JDK 17): **valida,
+  no transforma ni enriquece** `Refundicion/Refundicion.tmp` contra `$CONF/fillingRules_Refundicion.csv`
+  (genérico: `salidas/comun_controlcargadatos/comun_controlcargadatos_spec.md`). Produce, en el mismo
+  directorio, `Refundicion/Refundicion_processed.csv` (cabecera + registros válidos, `;`, ISO-8859-1, sin
+  espacios laterales) y `Refundicion/Refundicion_noprocessed.csv` (primera línea `FICHERO DE REGISTROS NO
+  PROCESADOS` + una línea por rechazado), y deja el resumen (cargados / no cargados / duplicados) en
+  `$LOG/Refundicion_preprocess_summary.log`. **Siempre sale con 0**, incluso rechazando todo; si falta el
+  fichero de entrada o el de reglas, **no toca `_processed.csv` y se queda el del día anterior**, que cargará
+  el workflow del paso siguiente. **Contenido real de `fillingRules_Refundicion.csv` (completo):**
+
+  ```
+  COD-CCLIEND;COD-CCLIENP
+  NULL;NULL
+  USAR;USAR
+  ```
+
+  Significa: los dos campos son **obligatorios** (`NULL` = campo obligatorio, no valor por defecto; un valor
+  vacío rechaza el registro) y solo pueden contener caracteres permitidos (`USAR`: letras, dígitos y un
+  conjunto de signos; ver lista en el genérico). No hay regla de longitud, así que un código de cliente con
+  longitud distinta de 9 no se rechaza aquí (el procedimiento `REFUNDICION` declara 9 caracteres). Las
+  reglas se aplican por posición de columna, no por nombre. Orden de las columnas: **`COD-CCLIEND` = columna 1
+  = `CLIENTED` = cliente que se cierra; `COD-CCLIENP` = columna 2 de `Refundicion.tmp` = `CLIENTEP` = cliente
+  destino** (así lo usa el código de `Sub_Load`; corrige la lectura anterior "D = destino / P = previo").
 * **`Workflow(RDR_Refundicion)` → Motor GoldenSource `PLSQL_Load` → sub-workflow `Sub_Load` (confirmado con
   código PL·SQL real esta ronda):** el evento `RDR_Refundicion.gsp` (paquete GoldenSource 8.7.1.106,
   `ApplicationEvent`/`GenericEvent`) recibe el `HashMap` de variables globales del pipeline y delega en el
@@ -153,10 +278,15 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   5. **CASO C — destino duplicado (`COUNT_INST_MNEM_CLP>1`):** `RAISE CLIENTEP_DUPLICATE`.
   6. **Excepciones (5, todas controladas, sin relanzar — el lote de 500 continúa):**
      `CLIENTED_NOT_FOUND`/`CLIENTED_DUPLICATE`/`CLIENTEP_NOT_FOUND`/`CLIENTEP_DUPLICATE`/`WHEN OTHERS`.
-     **Diferencia confirmada frente a la excepción equivalente de `Sub_Load` en `rdr_reubicacion_new`:** aquí
-     cada excepción inserta **2 filas** en `FT_T_RLT1` (una `RLT_PURP_TYP='REPORTES'` y otra
-     `RLT_PURP_TYP='ERRORES'`), no 1 sola — doble canal de auditoría, uno orientado a reporte de negocio y
-     otro al circuito de errores técnicos (`Evento(Errores)`/`ErroresCSV`, ver más abajo).
+     **Corrección verificada contra el código de `Sub_Load.wkf`:** `CLIENTED_NOT_FOUND` inserta **1 sola fila**
+     en `FT_T_RLT1` (`RLT_PURP_TYP='REPORTES'`, mensaje `No existe el Clientela a Refundir`); las otras 4
+     (`CLIENTED_DUPLICATE`, `CLIENTEP_NOT_FOUND`, `CLIENTEP_DUPLICATE`, `WHEN OTHERS`) insertan **2 filas**: una
+     `REPORTES` y otra `ERRORES` (mensajes `El Clientela a Refundir esta duplicado`, `No existe el Clientela
+     destino`, `El Clientela destino esta duplicado`, `Error inesperado`), que alimenta el circuito de errores
+     (`Evento(Errores)`/`ErroresCSV`, ver más abajo). Antes se afirmaba que las 5 insertaban 2 filas. Las filas
+     de excepción llevan `RLT_FIELD='NOT_FOUND'`, `RLT_DIF_STAT='NO'`. Mensajes de éxito (filas `REPORTES`):
+     CASO A `El Clientela se ha actualizado de forma correcta`; CASO B, una por contrapartida reasignada,
+     `Refundicion realizada de forma correcta`.
 * **`Workflow(RDR_Clientela460)` — G4 resuelto (2026-09-30) con `BajaClientela460.wkf` real completo**
   (versión 10, grupo `Custom/RDR/Integracion_MGC-GS/Bajas`, `lastChangeUser=KYTL_GC`, `lastUpdate=2022-11-05`).
   **Corrige de raíz la hipótesis documentada en rondas anteriores:** este workflow **no invoca ninguna clase
@@ -269,22 +399,83 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
      erróneos para que se reprocesen automáticamente al día siguiente; si no, el workflow simplemente
      termina. **Confirmado que `Refundicion.properties` fija `Delta=Si`** (ver R2/§6.1 más arriba), por lo
      que para este proceso concreto la rama de reprocesamiento automático vía `MarcaRegErroneo` **sí se
-     ejecuta**. Evidencia: `documentos_fuente/evidencia_rdr_refundicion/ErroresCSV.wkf`.
-* **`Java(RDR_Report.jar)`, clase `CreateReport`** (Fase 4.1): usa `$CONF/select.properties`, bloque
-  `Refundicion`, para las consultas SQL que generan `Reporte_Refundicion_dos.csv`. El fichero
-  `documentos_fuente/evidencia_rdr_bancarizacion/select.properties` sí contiene ese bloque, con las mismas 3
-  claves ya usadas para ConBDI/ConClientela:
-  - `queryRefundicion`: `select RLT1.message_rlt Estado_Refundicion, rlt1.src_value Clientela_Cerrado, rlt1.gs_value Clientela_Destino, rlt1.main_entity_id FINSID_Clientela_Cerrado FROM FT_T_RLT1 RLT1 where RLT_PURP_TYP='REPORTES' AND DATA_SRC_APP = 'REFUNDICION' and RLT1.start_tms > (SELECT START_TMS FROM(SELECT JOB_START_TMS START_TMS FROM fT_T_JBLG WHERE JOB_MSG_TYP = 'Refundicion' AND job_stat_typ = 'CLOSED' ORDER BY JOB_START_TMS DESC) WHERE ROWNUM <2)` — selecciona, de la tabla de resultados de relación `FT_T_RLT1` filtrada a propósito `REPORTES` y origen `REFUNDICION`, solo los registros posteriores al inicio del último job `Refundicion` cerrado (`FT_T_JBLG`).
-  - `cabeceraRefundicion`: `Estado_Refundicion;Clientela_Cerrado;Clientela_Destino;FINSID_Clientela_Cerrado` — fija los 4 campos exactos que produce el reporte, en este orden.
-  - `fileNameRefundicion`: `Reporte_Refundicion.csv` (el nombre base antes del ajuste `Unix2Dos`, que en la cadena Control-M se distribuye ya como `Reporte_Refundicion_dos.csv`).
+     ejecuta**. Procedencia: `ErroresCSV.wkf` aportado. **Cómo lo lanza `GSProcess.sh`:** `NomEvento=Errores` ejecuta `executeBbvaEvent.sh fileloading RDR_ErroresCSV <credenciales> Refundicion.properties`; este sí devuelve su código real (tiempo agotado = 1), a diferencia de los eventos `Workflow`. El contenido del sub-workflow `MarcaRegErroneo` **no se ha aportado**: que "reprocesa al día siguiente" es la interpretación previa del nombre y de la ficha, no un comportamiento verificado (P-REF-04). Nótese además que con `Delta=Si`, un registro marcado erróneo solo vuelve a procesarse si reaparece como "nuevo/cambiado" respecto al fichero de referencia del `Delta`.
+* **`Java(RDR_Report.jar)`, clase `CreateReport`** (genérico: `salidas/comun_rdr_report/comun_rdr_report_spec.md`):
+  `CreateReport $CONF/select.properties Refundicion` escribe `<ruta>Refundicion/Reporte_Refundicion.csv`
+  (`ruta=/fichtemcomp/<entorno>/descargas/kytl/`): cabecera literal en la primera línea y después una fila por
+  registro, campos separados por `;`, ISO-8859-1, LF. Antes de escribir guarda el informe anterior comprimido en
+  `Refundicion/old/Reporte_Refundicion.zip` (solo la última versión). **Siempre sale con 0**; si falla la
+  conexión a BD o falta la clave, el informe del día anterior queda sin tocar y se acabará enviando como si
+  fuera de hoy. Los nulos sin `NVL` salen como el texto `null`. Líneas literales de `select.properties`
+  (clave `Refundicion`):
 
-  Estas 3 claves determinan directamente los 4 campos del fichero de salida (`Reporte_Refundicion_dos.csv`):
-  si la query cambia o falla, cambia o falta el contenido reportado; si `cabeceraRefundicion` cambia, cambia
-  la cabecera del CSV entregado. **Gap parcialmente cerrado:** el contenido de las 3 claves queda transcrito
-  arriba a partir de `select.properties`; no hay gap adicional sobre este artefacto.
-* **`Script(Unix2Dos)`:** conversión trivial de fin de línea (LF→CRLF) sobre el reporte generado; no afecta
-  ningún campo de datos. Se mantiene como simple mención, sin análisis adicional (no cambia el fichero de
-  salida en su contenido).
+  ```
+  queryRefundicion=select RLT1.message_rlt Estado_Refundicion, rlt1.src_value Clientela_Cerrado, rlt1.gs_value Clientela_Destino, rlt1.main_entity_id FINSID_Clientela_Cerrado FROM FT_T_RLT1 RLT1 where RLT_PURP_TYP='REPORTES' AND DATA_SRC_APP = 'REFUNDICION' and RLT1.start_tms > (SELECT START_TMS FROM(SELECT JOB_START_TMS START_TMS FROM fT_T_JBLG WHERE JOB_MSG_TYP = 'Refundicion' AND job_stat_typ = 'CLOSED' ORDER BY JOB_START_TMS DESC) WHERE ROWNUM <2)
+  cabeceraRefundicion=Estado_Refundicion;Clientela_Cerrado;Clientela_Destino;FINSID_Clientela_Cerrado
+  fileNameRefundicion=Reporte_Refundicion.csv
+  ```
+
+  Contenido: una fila por cada fila `REPORTES` insertada por `Sub_Load`/`REFUNDICION` desde el inicio del último
+  job `Refundicion` cerrado: `Estado_Refundicion` = mensaje (p. ej. `Refundicion realizada de forma correcta`,
+  `No existe el Clientela destino`), `Clientela_Cerrado` = `CLIENTED`, `Clientela_Destino` = `CLIENTEP`,
+  `FINSID_Clientela_Cerrado` = identificador del cerrado (en CASO A y en las excepciones el campo lleva
+  `CLIENTED;CLIENTEP`; en CASO B, el FINSID de la local cerrada). Sin `ORDER BY`. Esta consulta no usa `NVL`:
+  un campo nulo saldría como `null`. Si ese día no hubo filas, el informe solo trae la cabecera. Si el job de
+  la carga no llegó a cerrarse, la ventana "desde el último job cerrado" abarcaría el día anterior.
+* **`Script(Unix2Dos)`:** función de `Generico.sh` (`Unix2Dos Refundicion/Reporte_Refundicion.csv`): crea
+  `Refundicion/Reporte_Refundicion_dos.csv` con fin de línea CRLF (el original se conserva). Si el origen no
+  existe sale con código 4 (el job lo cuenta como error). No altera ningún dato.
+
+### 6.2 Resultado, éxito/fallo y estado final de la cadena
+
+**Ficheros y datos que quedan** (directorio `/fichtemcomp/pr/descargas/kytl/Refundicion/`):
+
+| Fichero | Origen | Contenido |
+|---|---|---|
+| `Refundicion.csv` | sistema origen (P-REF-01) | Tras `Delta` es solo el delta del día; `MEKYTL0121` lo mueve a `old/` |
+| `Refundicion.tmp` | `LimpiarRefundicion` | Cabecera + columnas 1 y 5, ordenado y sin repetidos consecutivos |
+| `Refundicion_processed.csv` / `Refundicion_noprocessed.csv` | `ControlCargaDatos` | Registros válidos / rechazados (se sobrescriben cada día) |
+| `Reporte_Refundicion.csv` / `Reporte_Refundicion_dos.csv` | `RDR_Report` / `Unix2Dos` | Informe (LF) / mismo informe en CRLF (el que se envía) |
+| `<Servicio>_errores.csv` | `Evento(Errores)` (`ErroresCSV`) | Auditoría de errores funcionales (`FT_T_RLT1`, `ERRORES`) y técnicos (`FT_T_TRID`, severidad >39) del job; solo si se encuentra el job `CLOSED` de la última hora; cabecera de 11 columnas `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`. Nombre y directorio exactos no verificados (P-REF-04) |
+| `old/Refundicion.csv`, `old/Refundicion_old.csv`, `old/Refundicion_original.csv` | `Delta` | Referencia del delta (completo del día, anterior, copia) |
+| `old/Refundicion_yyyymmdd.csv` | `MEKYTL0121` | Fichero (delta) del día historificado |
+| `old/Reporte_Refundicion.zip` | `RDR_Report` | Informe del día anterior comprimido (solo el último) |
+| `$LOG/Refundicion_preprocess_summary.log` | `ControlCargaDatos` | Recuento de cargados / no cargados / duplicados |
+
+En GS quedan: un job `Refundicion` en `FT_T_JBLG` (`OPEN` → `CLOSED`), clientes cerrados `INACTIVE`, contrapartidas
+reasignadas, filas `FT_T_RLT1` (`REPORTES`, `ERRORES`, y señales `PROCESO` `A460`/`B460`/`B460C` que
+`BajaClientela460` marca `OK` al enviarlas), y auditoría de los envíos MQ en `FT_T_UTD1`. En el destino
+`MVP00G215`: `Reporte_Refundicion_yyyymmdd.csv`.
+
+**Cómo saber si fue bien o mal:** (a) en Control-M, los 4 jobs en OK y los eventos `..._OK_new` publicados (y el
+arranque de `KYTL_CONCLI_GSPROCESS_FW`); (b) log de `GSProcess.sh`: `ESTADO-0-` y líneas `SubProceso <nombre>
+finalizado de forma correcta` (`ESTADO-1-` = algún paso devolvió error); (c) `Refundicion_preprocess_summary.log`
+con `Registros NO CARGADOS correctamente: 0`; (d) en el informe, filas `Refundicion realizada de forma correcta`
+/ `El Clientela se ha actualizado de forma correcta` y ninguna con `No existe...`, `...duplicado` o `Error
+inesperado`; (e) ninguna fila `PENDING` de `A460`/`B460`/`B460C` en `FT_T_RLT1` al acabar. **Un job en OK no
+garantiza éxito de negocio:** `ControlCargaDatos`, `RDR_Report` y `Delta.sh` salen siempre con 0, y un fallo de
+los eventos `Workflow` no lo ve `GSProcess.sh` nunca (ver siguiente tabla).
+
+**Qué pasa si falla cada cosa:**
+
+| Fallo | Efecto |
+|---|---|
+| No llega `Refundicion.csv` en 180 min | `ctmfw` código 7; cadena parada; `RDR_CONCILIACION_CLIENTELA_new` no arranca |
+| `Delta` o `LimpiarRefundicion` fallan | `LimpiarRefundicion` sale con 1 y se cuenta error; el pipeline sigue con un `Refundicion.tmp` ausente o del día anterior; `Delta` fallido deja el fichero completo (no se detecta) |
+| `ControlCargaDatos` rechaza todo / falta fichero | Sale con 0; si falta entrada, se carga el `_processed.csv` anterior |
+| `Workflow(RDR_Refundicion)` o `Workflow(RDR_Clientela460)` fallan o agotan tiempo | **No se detecta** (el resultado que evalúa `GSProcess.sh` es el del `rm` del temporal, no el del evento): el job sigue en verde para esa acción. Revisar `FT_T_JBLG`, `FT_T_TRID` y el informe |
+| `Evento(Errores)` falla | Sí lo cuenta (error), pero no se detiene nada |
+| `RDR_Report` sin conexión | Sale con 0; se envía el informe del día anterior |
+| `Unix2Dos` sin informe | Código 4, cuenta error |
+| Cualquier error contado | Sin `Stop*=Ok`, se ejecutan todos los pasos y el job acaba con **código 1 (NOTOK)**; `MAXRERUN=0`: no se relanza solo, `MEKYTL0107` y la cadena de conciliación no continúan |
+| `MEKYTL0107` / `MEKYTL0121` sin fichero origen | Terminan OK (Soft Failure); no se envía/historifica nada |
+| Fallo de red/destino en `MEKYTL0107` | El script devuelve código ≠ 0 (genérico `MEGENV0001.sh`: 43 envío fallido, 60/45 fichero ausente si `FALLA_NO_FICHERO=SI`); aviso a ANS RDR |
+
+**Relanzar:** hay que hacerlo manualmente (ANS RDR; 0 relanzamientos automáticos). `Delta.sh` detecta el
+relanzamiento (≤5 s entre las marcas de fecha de `Refundicion.csv` y `old/Refundicion_old.csv`) y repone el
+mismo delta. Deducido del código de `Sub_Load`: una refundición ya aplicada tiene su cliente de cierre
+inactivo, así que si se vuelve a procesar el mismo par se reportará `No existe el Clientela a Refundir`
+(fila `REPORTES`, sin dañar datos); el efecto sobre las señales 460 ya enviadas no está verificado.
 
 ## 7. Especificación de testing
 
@@ -293,7 +484,7 @@ fallo (Soft Failure) de los 2 últimos jobs, y — con el código PL·SQL real d
 el comportamiento funcional detallado del procedimiento `REFUNDICION`: los 3 casos (destino no existe, destino
 existe, destino duplicado), la reactivación en bloque de tablas tras un `BAJA_CPARTY` previo, el cierre en
 cascada local/global, el caso especial de entidades mexicanas (Altamira), y el doble canal de auditoría
-(`REPORTES`/`ERRORES`) de las 5 excepciones controladas. Con el código real de `BajaClientela460.wkf`,
+(`REPORTES`/`ERRORES`) de 4 de las 5 excepciones controladas (`CLIENTED_NOT_FOUND` solo deja la fila `REPORTES`). Con el código real de `BajaClientela460.wkf`,
 `SendClientelaRequest.wkf`, `BAJA_460_CLI.wkf` y `Refundicion.properties` aportados esta ronda, cubre
 también el consumo real de las señales `PENDING` de alta/baja 460 (3 tipologías, `ALTA`/`BAJA`/`TOTAL`,
 confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parada temprana en
@@ -314,7 +505,7 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 | `conflicto_integridad` | Refundición sobre un destino previamente inactivo por `BAJA_CPARTY`: reactivación en bloque de las ~40 tablas maestras, a nivel local y, si procede, global. | TC-009 |
 | `conflicto_integridad` | Cierre en cascada del cliente local y, si corresponde, del global, al no quedarle contrapartidas operativas activas. | TC-010 |
 | `borde` | Caso especial de entidad mexicana (Altamira, `ORG_ID='1145'`): migración de identificadores y domicilio fiscal del cerrado al destino. | TC-011 |
-| `error_funcional` | Las 5 excepciones controladas de `REFUNDICION` insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
+| `error_funcional` | 4 de las 5 excepciones controladas de `REFUNDICION` (todas salvo `CLIENTED_NOT_FOUND`, que solo deja `REPORTES`) insertan doble fila de auditoría (`REPORTES`+`ERRORES`) sin detener el lote — comportamiento distinto del de `Sub_Load` en `rdr_reubicacion_new` (una sola fila). | TC-012 |
 | `conflicto_integridad` | `ThreadComprobacion` no reintenta ni audita una sentencia RLT1 que falla al ejecutarse (se retira de la cola antes de intentarlo). | TC-013 |
 | `happy_path` | `BajaClientela460` se invoca siempre con `Tipologia=TOTAL` (confirmado en `Refundicion.properties`), procesando `B460`→`B460C`→`A460` en un único paso — descarta el riesgo de no-op. | TC-014 |
 | `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
@@ -347,6 +538,12 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
   `RC=1` al final, después de haber corrido todos los pasos igualmente (posiblemente sobre datos
   parciales). Aplica también a `Workflow(RDR_Refundicion)`: un fallo ahí no impediría que
   `Workflow(RDR_Clientela460)` se invoque igualmente a continuación.
+  **Matiz verificado contra `GSProcess.sh` (genérico, riesgo R14):** para las acciones `Evento` de tipo
+  `Workflow` (`RDR_Refundicion`, `RDR_Clientela460`) el script evalúa el código del último comando de la rama,
+  que es el borrado del temporal y no el lanzamiento del evento; por tanto **un workflow fallido ni siquiera
+  suma al contador de errores**: el job puede acabar con código 0 aunque ambos workflows hayan fallado. Lo que
+  sí cuentan como error son `Delta` (nunca falla), `LimpiarRefundicion`, `Evento(Errores)`, `RDR_Report`
+  (nunca falla) y `Unix2Dos`.
   **Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence):**
   a nivel de Control-M, el `RC=1` final del script hace que el job `KYTL_REF_GSPROCESS` quede `Ended NOTOK`,
   deteniendo el avance de los jobs dependientes en la malla; la directiva de sitio `MAXRERUN=0` impediría
@@ -381,8 +578,8 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
   riesgo real que subsiste no es la ausencia de consumo, sino la ausencia de parada temprana en
   `KYTL_REF_GSPROCESS` (arriba) y el reintento sin alerta ante un fallo persistente (§6.1).
 * **[Confirmado, no bloqueante] Doble canal de auditoría en las excepciones de `REFUNDICION`:** a diferencia
-  del `Sub_Load` de `rdr_reubicacion_new` (que inserta 1 sola fila por excepción), aquí cada una de las 5
-  excepciones controladas inserta 2 filas en `FT_T_RLT1` (`REPORTES` + `ERRORES`) — la segunda alimenta
+  del `Sub_Load` de `rdr_reubicacion_new` (que inserta 1 sola fila por excepción), aquí 4 de las 5
+  excepciones controladas (todas salvo `CLIENTED_NOT_FOUND`) insertan 2 filas en `FT_T_RLT1` (`REPORTES` + `ERRORES`) — la segunda alimenta
   directamente el circuito `Evento(Errores)`/`ErroresCSV` (§6.1, G3), lo que implica que un fallo de
   refundición individual **sí** puede disparar el reprocesamiento automático vía `MarcaRegErroneo` al día
   siguiente (a diferencia de Reubicación, donde ese canal doble no existe).
