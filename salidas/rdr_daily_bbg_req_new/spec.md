@@ -8,17 +8,19 @@
 > historificación `RAMERC0068.sh`, los 2 eventos GoldenSource (`RDR_BBG_Request.gsp`/`RDR_BBG_Response.gsp`),
 > los 2 workflows GoldenSource reales con SQL completo (`BBG_Batch_Request`/`BBG_Batch_Response`), el
 > sub-workflow real `BBG_Batch_ProcessFile` (procesado línea a línea de la respuesta, con parseo posicional
-> completo) y los 2 scripts reales de transporte SFTP a Bloomberg (`Batch_BBG_sftp.sh`/`Resp_Batch_BBG_sftp.sh`).
-> **Nivel de confianza:** la totalidad del pipeline de negocio (SQL de selección del universo de emisores,
-> formato del fichero de solicitud, recogida/reintento/parseo/carga de la respuesta, transporte SFTP en ambos
-> sentidos) está confirmada con código real, no inferida. Esta revisión **corrige una afirmación del spec
+> completo), los 2 scripts reales de transporte SFTP a Bloomberg (`Batch_BBG_sftp.sh`/`Resp_Batch_BBG_sftp.sh`)
+> y el fichero real de configuración `RDR_BBG_Response.properties` con los valores literales de despliegue del
+> evento `RDR_BBG_Response`. **Nivel de confianza:** la totalidad del pipeline de negocio (SQL de selección del
+> universo de emisores, formato del fichero de solicitud, recogida/reintento/parseo/carga de la respuesta,
+> transporte SFTP en ambos sentidos, y ahora también la configuración literal del feed de carga final) está
+> confirmada con código/configuración real, no inferida. Esta revisión **corrige una afirmación del spec
 > anterior**: no existe un mecanismo de registro de errores por línea de respuesta (CSV + correo); ese
 > mecanismo solo cubre el caso "el fichero de respuesta completo nunca llegó", no líneas individuales mal
 > formadas o sin casar (ver R4, TC-008 y §8.1). Queda sin aportar, y fuera de alcance por motivos de seguridad:
 > `credentials.xml` (fichero real con credenciales en claro de Oracle, Bloomberg, JMS, etc. — **no se
-> incorpora al repositorio**; solo se documenta el mecanismo de uso, nunca los valores). La configuración
-> concreta del feed de carga final (`BusinessFeed`/`MessageType`, que determina la tabla Oracle destino exacta)
-> sigue sin confirmar a nivel de valor literal (son variables de despliegue del workflow).
+> incorpora al repositorio**; solo se documenta el mecanismo de uso, nunca los valores). El único punto que
+> permanece como valoración experta no confirmada por configuración explícita es la tabla Oracle exacta a la
+> que mapea internamente el feed `Load_BBG_Ratings` dentro del motor "Standard File Load" (ver §5.5/§8.1).
 
 ## 1. Resumen ejecutivo
 
@@ -45,13 +47,12 @@ MERCADOS-4 (host `pr-rdr.igrupobbva`). **Criticidad:** W (aviso al día siguient
 * **Ámbito técnico:** los 3 jobs del folder Control-M `KYTL0000-RDR_DAILY_BBG_REQ_new`
   (`RDR_BBG_REQUEST`/`RDR_BBG_RESPONSE`/`MEKYTL0451`), los 2 scripts `.sh` de Control-M, los 2 eventos
   GoldenSource, los 2 workflows GoldenSource (`BBG_Batch_Request`/`BBG_Batch_Response`) con su SQL completo,
-  el sub-workflow `BBG_Batch_ProcessFile` y los 2 scripts de transporte SFTP a Bloomberg
-  (`Batch_BBG_sftp.sh`/`Resp_Batch_BBG_sftp.sh`).
-* **Fuera de alcance** (detalle completo en §8.2): la configuración de despliegue del feed de carga final
-  (`BusinessFeed`/`MessageType`, que fija la tabla Oracle destino exacta de los ratings); el contenido de
-  `credentials.xml` (fichero real con credenciales en claro aportado como evidencia pero **excluido
-  deliberadamente** de este repositorio y de cualquier valor citado en este documento, por motivos de
-  seguridad — ver nota en §8.2).
+  el sub-workflow `BBG_Batch_ProcessFile`, los 2 scripts de transporte SFTP a Bloomberg
+  (`Batch_BBG_sftp.sh`/`Resp_Batch_BBG_sftp.sh`) y la configuración literal de despliegue
+  (`RDR_BBG_Response.properties`).
+* **Fuera de alcance** (detalle completo en §8.2): el contenido de `credentials.xml` (fichero real con
+  credenciales en claro aportado como evidencia pero **excluido deliberadamente** de este repositorio y de
+  cualquier valor citado en este documento, por motivos de seguridad).
 
 ## 3. Requisitos detectados
 
@@ -132,8 +133,9 @@ MERCADOS-4 (host `pr-rdr.igrupobbva`). **Criticidad:** W (aviso al día siguient
    `<ID>|BB_GLOBAL|` y compone el fichero (cabecera de la Query 1 + 1 línea por emisor).
 4. **BeanShell "Eliminamos las líneas en blanco final del CLOB"**: limpia la cabecera.
 5. **Write File**: escribe el `.req` en disco.
-6. **CommandLine "Call Batch_BBG_sftp"**: `./Batch_BBG_sftp.sh <FileName>` (script no aportado — transporte
-   SFTP a Bloomberg, fuera de alcance de este análisis, ver §8.2).
+6. **CommandLine "Call Batch_BBG_sftp"**: `./Batch_BBG_sftp.sh <FileName>` — transporte SFTP a Bloomberg,
+   confirmado con código real; ver detalle completo (purga de `Backup/`, `mv` sin comprobar éxito del envío)
+   en §5.4.
 
 ### 5.3 Workflow `BBG_Batch_Response` (mismo grupo) — pipeline confirmado íntegramente con código real
 
@@ -175,11 +177,19 @@ MERCADOS-4 (host `pr-rdr.igrupobbva`). **Criticidad:** W (aviso al día siguient
    (input `FileNameMDX`, `lineResponse`, `pathResponseFile=pathMDX`) — ver detalle completo en §5.3bis. Al
    terminar el bucle (`end-loop`), continúa al paso 8.
 8. **CallSubWorkflow "Call MDX" (name = "Standard File Load")**: carga `pathNameMDX` (`Load_BBG_Ratings.txt`)
-   en Oracle RDR vía el motor genérico de carga de ficheros de GoldenSource, parametrizado por
-   `BusinessFeed`/`MessageType`/`BulkSize`/`ParallelFileLoadSub`/`SuccessAction` — **estos 2 primeros valores
-   siguen siendo variables de configuración del workflow, no literales fijos en el `.gsp` aportado**, así que
-   el feed concreto y la tabla Oracle final de destino de los ratings no están confirmados a ese nivel de
-   detalle (ver §8.2). Tras esto, **Stop**.
+   en Oracle RDR vía el motor genérico de carga de ficheros de GoldenSource, con los valores de despliegue
+   **confirmados** en `RDR_BBG_Response.properties`: `BusinessFeed=Load_BBG_Ratings`,
+   `MessageType=Load_BBG_Ratings`, `MessageBulkSize=100`, `ParallelFileLoadSub="Parallel File Load Sub"`,
+   `SuccessAction=LEAVE` (el motor **no mueve ni borra** `Load_BBG_Ratings.txt` tras la carga exitosa — de ahí
+   que sea necesario el job posterior `MEKYTL0451` para historificarlo explícitamente, coherente con el resto
+   del pipeline). El mismo fichero de propiedades confirma `TIMEWAIT=5` (segundos de espera entre cada uno de
+   los 20 reintentos del paso 4, es decir, hasta ~100 s de espera activa antes de agotar el reintento, sin
+   contar el tiempo de ejecución del propio script SFTP) y los dos contactos de notificación:
+   `contact_ANS=contact_USER=errores-funcionalestecnicos.group@bbva.com` — **el mismo buzón para ambos**, lo
+   que confirma que, aunque se activase alguna vez la rama "toUser" muerta (ver §8.1), no cambiaría el equipo
+   receptor real de la alerta. El mapeo interno exacto del feed `Load_BBG_Ratings` a una tabla Oracle concreta
+   dentro del motor "Standard File Load" no está en este `.properties` (es configuración interna del motor
+   genérico, no de este workflow) — ver valoración experta en §5.5. Tras esto, **Stop**.
 
 ### 5.3bis Sub-workflow `BBG_Batch_ProcessFile` — procesado de cada línea de respuesta, confirmado con código real
 
@@ -269,9 +279,17 @@ ambos scripts, es decir, mismo extremo para envío y recogida).
 | `FT_T_FRID` | **Consulta independiente** (por cada línea de respuesta): resuelve el/los `INST_MNEM` activos para el `BBGCID` recibido (`finsrl_id_ctxt_typ='BBGCID'`, `end_tms is null`, `ACTIVE`) — no reutiliza el universo calculado en la solicitud; si el `BBGCID` ya no casa con ningún `INST_MNEM` activo, la línea se descarta en silencio. |
 
 **Destino Oracle en `BBG_Batch_Response`:** `Load_BBG_Ratings.txt` se carga vía el motor genérico "Standard
-File Load" de GoldenSource — el feed concreto (`BusinessFeed`/`MessageType`) y, por tanto, la tabla Oracle
-final de destino de los ratings, son parámetros de despliegue del workflow, no valores fijos confirmados en
-el `.gsp` aportado (ver §8.2).
+File Load" de GoldenSource, con el feed `BusinessFeed=MessageType=Load_BBG_Ratings` **confirmado como valor
+literal** en `RDR_BBG_Response.properties` (ver §5.3, paso 8). El mapeo interno de ese feed a la(s) tabla(s)
+Oracle concretas es configuración propia del motor genérico "Standard File Load" (no de este `.gsp`) y no se
+ha aportado como artefacto de configuración. **Valoración experta del usuario (no confirmada por código ni
+configuración de este feed específico):** dado el esquema de datos de RDR, las tablas más probables son
+`FT_T_RTNG` (cabecera del "set" de ratings) y `FT_T_RTVL` (valores individuales de ese set) como destino
+directo de la carga, con `FT_T_IRST` (ya vista en §5.2/§5.3bis como tabla de estado/fuente de rating del
+emisor) como la tabla funcional final donde queda reflejado el rating aplicado al emisor — consistente con que
+`FT_T_IRST` ya es, en `BBG_Batch_Request`, la tabla que determina qué emisores tienen a Bloomberg como fuente
+activa. Esta hipótesis queda etiquetada como tal (no como hecho confirmado por artefacto) hasta disponer de la
+configuración de "Business Feed" del motor GoldenSource.
 
 **Ficheros:**
 
@@ -317,7 +335,7 @@ evidencia que permanece (configuración de despliegue del feed de carga final).
 | `regresion` | `MEKYTL0451` historifica `Load_BBG_Ratings.txt` a `Backup/Load_BBG_Ratings_<yyyymmdd>.txt` mediante el motor genérico `RAMERC0068.sh`, igual que en otros procesos ya confirmados de este audit. | TC-010 |
 | `conflicto_integridad` | Ausencia de `Load_BBG_Ratings.txt` en el momento de `MEKYTL0451` — comportamiento depende del campo `FALLASINOFICHS` de la clave `MEKYTL0451` en el `.IDX`, mecanismo ya confirmado en otros procesos de este audit pero con el valor concreto de esta clave sin aportar. | TC-011 |
 | `borde` | Un mismo identificador Bloomberg (`BBGCID`) con más de un `INST_MNEM` activo asociado en `FT_T_FRID` genera, para una única línea de respuesta de Bloomberg, una línea en `Load_BBG_Ratings.txt` por cada `INST_MNEM` (mismos datos de rating, distinto `INST_MNEM` prefijo). | TC-012 |
-| `negativo` | Configuración real del feed de carga final (`BusinessFeed`/`MessageType`) y tabla Oracle destino exacta de los ratings — pendiente de evidencia, no ejecutable hasta aportarla. | TC-013 |
+| `happy_path` | El "Call MDX" de `BBG_Batch_Response` invoca "Standard File Load" con los valores de despliegue confirmados (`BusinessFeed=MessageType=Load_BBG_Ratings`, `MessageBulkSize=100`, `SuccessAction=LEAVE`) y el fichero `Load_BBG_Ratings.txt` permanece en su ruta original tras la carga (no se mueve/borra), disponible para que `MEKYTL0451` lo historifique. | TC-013 |
 | `error_funcional` | Un `.IDX` de historificación corrupto en la clave `MEKYTL0451` explota el uso de `eval` sobre variables no saneadas en `RAMERC0068.sh` — riesgo ya documentado en este audit para el mismo script genérico. | TC-014 |
 | `negativo` | Una línea de respuesta de Bloomberg con menos campos de los esperados (recorte de cabecera incorrecto, formato de Bloomberg distinto al previsto) provoca un acceso fuera de rango en el parseo posicional de `datos[]` (sin `try/catch` visible ni validación de longitud) — comportamiento a confirmar: si aborta solo esa línea o todo el `For Loop` restante de la respuesta del día. | TC-015 |
 | `negativo` | `Batch_BBG_sftp.sh` mueve el `.req` a `Backup/` aun cuando el `lftp put` ha fallado (no se comprueba el código de resultado del `lftp` antes del `mv`) — un fallo de conexión/autenticación SFTP queda archivado como "enviado" sin alerta. | TC-016 |
@@ -367,14 +385,19 @@ evidencia que permanece (configuración de despliegue del feed de carga final).
   abiertos, solo uno se cierra en el `finally`; impacto limitado por ser un proceso batch de corta duración.
 * **[Confirmado, calidad de código] Nodo "File exist?" duplicado literalmente dos veces** en el grafo de
   `BBG_Batch_Response`, en vez de reutilizarse con más entradas/salidas de `Merge`.
-* **[No confirmado] Tabla Oracle destino final de los ratings:** el `BusinessFeed`/`MessageType` del motor
-  "Standard File Load" son parámetros de despliegue, no valores fijos en el `.gsp` — sin esa configuración
-  concreta, no se puede confirmar en qué tabla(s) Oracle quedan los ratings de Bloomberg cargados.
+* **[Parcialmente confirmado] Tabla Oracle destino final de los ratings:** el feed (`BusinessFeed`/
+  `MessageType=Load_BBG_Ratings`) ya está confirmado como valor literal (`RDR_BBG_Response.properties`), pero
+  el mapeo interno de ese feed a la(s) tabla(s) Oracle concretas es configuración propia del motor genérico
+  "Standard File Load", no aportada. La hipótesis experta del usuario (`FT_T_RTNG`/`FT_T_RTVL` como destino
+  directo de carga, `FT_T_IRST` como tabla funcional final del rating aplicado al emisor — ver §5.5) es
+  razonable mirando el esquema de datos ya usado en `BBG_Batch_Request`, pero no está confirmada por código ni
+  configuración de este feed específico.
 
 ### 8.2 Fuera de alcance
 
-* **Configuración del feed `BusinessFeed`/`MessageType`** del "Standard File Load" — determinaría la tabla
-  Oracle final donde quedan cargados los ratings; no incluida como valor fijo en el `.gsp` aportado.
+* **Mapeo interno del feed `Load_BBG_Ratings`** a tabla(s) Oracle concretas dentro del motor "Standard File
+  Load" — es configuración propia del motor genérico GoldenSource (pantalla/tabla de administración de
+  "Business Feed"), no de este `.gsp` ni del `.properties` de despliegue ya aportado.
 * **`credentials.xml`** — **aportado como evidencia real** (contiene credenciales en texto plano de Oracle,
   WebSphere/JBoss, Bloomberg, Sentry, Insight, proxy, cola JMS y una API key), pero **excluido
   deliberadamente de este repositorio**: no se ha copiado el fichero a `documentos_fuente/`, y ningún valor
@@ -396,8 +419,11 @@ rastro. Se han confirmado además varios riesgos concretos no documentados previ
 (sin fallo de Control-M) al agotar el reintento de 20 iteraciones, el parseo posicional sin validación de
 longitud en `BBG_Batch_ProcessFile`, el `mv` sin comprobar éxito del `lftp` en `Batch_BBG_sftp.sh`, la posible
 duplicación de datos por `sed >>` en modo *append* en `Resp_Batch_BBG_sftp.sh`, y la purga automática a 3 días
-de `Backup/`. Queda un único hueco de evidencia genuino y no bloqueante para el propósito de testing: la
-configuración de despliegue del feed de carga final (`BusinessFeed`/`MessageType`), que determinaría la tabla
-Oracle destino exacta de los ratings. `credentials.xml` se ha recibido como evidencia real pero se excluye
-deliberadamente de este repositorio por contener credenciales en texto plano (ver §8.2) — su ausencia no
-afecta a la confianza del resto del análisis, ya confirmado sin necesidad de sus valores.
+de `Backup/`. La configuración de despliegue del feed de carga final queda ahora **confirmada con valores
+literales** (`RDR_BBG_Response.properties`: `BusinessFeed=MessageType=Load_BBG_Ratings`,
+`SuccessAction=LEAVE`, `TIMEWAIT=5`, contactos de notificación). Solo queda como valoración experta no
+confirmada por artefacto de configuración el mapeo interno exacto de ese feed a tabla(s) Oracle dentro del
+motor genérico "Standard File Load" (candidatas razonadas: `FT_T_RTNG`/`FT_T_RTVL`/`FT_T_IRST`, ver §5.5),
+hueco residual y no bloqueante para el propósito de testing. `credentials.xml` se ha recibido como evidencia
+real pero se excluye deliberadamente de este repositorio por contener credenciales en texto plano (ver §8.2)
+— su ausencia no afecta a la confianza del resto del análisis, ya confirmado sin necesidad de sus valores.
