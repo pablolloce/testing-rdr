@@ -293,6 +293,15 @@ a que el diseño original pedía eliminarla.
   es una instrucción que nunca llegó a implementarse, o una dependencia añadida después sin actualizar la
   ficha de diseño — en cualquier caso, es una discrepancia real y documentada entre intención y
   configuración viva, no una suposición (ver TC-010).
+  **Aclaración de negocio/arquitectura aportada, contradice evidencia ya confirmada — no incorporada:** se
+  propuso que `MEKYTL0122` "genera y cierra en disco el fichero base de reubicaciones" y que la dependencia
+  hacia `MEKYTL0234` evita una condición de carrera (el fichero debe estar listo antes de que `MEKYTL0234` lo
+  lea). Esto **contradice la topología real ya confirmada con Control-M** (R4/R7, arriba): `MEKYTL0122`
+  ejecuta `RAMERC0068.sh` (historificación, no generación) y es el punto de convergencia **Fan-In** que
+  **depende de** `MEKYTL0234_OK` (entre otros 2) para arrancar — no al revés —, y `MEKYTL0234` está
+  diseñado para quedar como `Dummy` ("DEBE QUEDAR A DUMMY" en su propia ficha), por lo que no "lee" ningún
+  fichero. La discrepancia entre la ficha de diseño y Control-M real sigue abierta, sin explicación de
+  negocio verificada.
 * **RISK-REUB-005 [no bloqueante]:** máximo de relanzamientos configurado a 0, confirmado en los 6 jobs.
 * **RISK-REUB-009 [nuevo, prioridad media, confirmado con 2 fuentes oficiales que se contradicen]:** la ficha
   de diseño EX-005-02 (a nivel de cadena) declara criticidad **W** ("aviso día siguiente"). Sin embargo, las 4
@@ -301,6 +310,12 @@ a que el diseño original pedía eliminarla.
   evidencia de cuál de las 2 clasificaciones rige realmente en el sistema de alertas operativo (Remedy/ANS
   RDR); si la clasificación real y operativa es C, un aviso "día siguiente" (W) sería demasiado laxo para el
   nivel de urgencia que las propias fichas de job declaran.
+  **Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence):**
+  la criticidad **W** sería la que rige operativamente para la monitorización de mallas y la gestión de
+  alertas de guardia de esta cadena — es la configurada en la definición oficial de los jobs en Control-M;
+  un fallo en ventana nocturna no paralizaría el cierre contable global, sino que encaminaría la incidencia
+  a la cola de soporte `ANS RDR` dentro del SLA de operación. No verificado con una ficha/captura adicional
+  — se documenta como aclaración, no como cierre definitivo del riesgo.
 * **RISK-REUB-006 [nuevo, prioridad media, confirmado con código PL·SQL real]:** el procedimiento
   `REUBICACION` de `Sub_Load` **traga las 4 excepciones controladas** (oficina de cierre no encontrada, destino
   no encontrado, destino duplicado, y un `WHEN OTHERS` genérico) sin relanzarlas — solo inserta una fila de
@@ -336,12 +351,16 @@ a que el diseño original pedía eliminarla.
   motivo: mecanismo ya confirmado con código real (`exit 60`/`exit 45` según el caso, ver R6b), pero los
   `.idx` de producción no son obtenibles. Solo confirmable observando una ejecución real (TC-004/TC-005).
 * **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
-  causa (¿instrucción no implementada?, ¿dependencia re-añadida después?).
+  causa (¿instrucción no implementada?, ¿dependencia re-añadida después?). Una aclaración de negocio aportada
+  (carrera de condición, `MEKYTL0122` generando el fichero) resultó contradecir la topología real ya
+  confirmada (§8.1) — descartada, sigue sin una explicación de negocio verificada.
 * **Motivo real de la discrepancia de criticidad EX-005-02 (W) vs. EX-005-03 (C)** (RISK-REUB-009) —
-  confirmada su existencia con 2 fuentes oficiales, no cuál de las 2 clasificaciones rige realmente en el
-  sistema de alertas operativo.
+  confirmada su existencia con 2 fuentes oficiales. Aclaración de negocio aportada (pendiente de verificación
+  documental): la clasificación **W** sería la que rige operativamente — ver §8.1.
 * **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
-  no confirmado.
+  no confirmado con un nombre concreto; una aclaración de negocio aportada solo reafirma genéricamente "la
+  plataforma receptora del área de Reubicaciones/Gestión de Riesgos", sin nombrar un sistema — no añade
+  información nueva verificable.
 * **Contenido interno de la cadena downstream de difusión** (se conocen ya los 3 primeros nombres reales —
   `RDR_DIFUSION_BATCH_IN`, `KYTL_DIF_BATCH_GSPROCESS`, `MEKYTL0251` — pero no su lógica ni sus fichas).
 
@@ -401,3 +420,10 @@ RISK-REUB-004, motivo de la discrepancia de criticidad RISK-REUB-009, y el valor
 `FALLASINOFICHS`/`FALLA_NO_FICHERO` para `MEKYTL0122`/`MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`) quedan listados
 en §8.2 como fuera de alcance. **La cadena hermana `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado
 esta misma ronda** (`salidas/rdr_carga_plazas_trad_new/`).
+
+**Ronda adicional (2026-10-01):** el usuario aportó aclaraciones de negocio/arquitectura (no verificadas con
+código ni ficha, etiquetadas como tal en §8.1/§8.2) sobre RISK-REUB-004, RISK-REUB-009 y el sistema receptor
+de `MEKYTL0233`. RISK-REUB-009 queda con una aclaración razonable (criticidad **W** rige operativamente),
+pendiente de verificación documental. RISK-REUB-004 recibió una explicación que **contradice la topología
+real ya confirmada con Control-M** (se descartó, ver §8.1) — sigue sin explicación de negocio verificada. El
+sistema receptor de `MEKYTL0233` sigue sin nombre concreto.

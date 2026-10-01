@@ -99,6 +99,13 @@ geográficos reales (nombre, código postal), en volumen compatible con el nomen
 de España. **El significado funcional exacto de `CCPPOS`/`CCOMUN` (posiblemente tipo de entidad y comunidad
 autónoma, respectivamente) no está confirmado con negocio** — mismo tratamiento cauteloso que
 `CBAMUT`/`CBACOM` en `oficinas.csv` (`rdr_conc_oficinas_new`): estructura confirmada, semántica exacta no.
+**Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence),
+en conflicto con el dato real ya observado:** se propuso `CCPPOS`="Código Plaza Posición" (plaza financiera
+donde se custodia la posición) y `CCOMUN`="Código Comunidad" (comunidad autónoma). **Nota de rigor:** en la
+fila de ejemplo real (arriba), `CCPPOS="C"` y `CCOMUN="A "` son campos de **1 carácter** — una longitud poco
+compatible con un identificador de plaza financiera o de comunidad autónoma (que en España se codifica
+normalmente con 2 dígitos INE), más propia de un indicador categórico corto (p. ej. un flag de tipo). Se
+documenta como hipótesis adicional, no como resolución, dado el conflicto con la longitud real del campo.
 
 ## 5. Especificación técnica
 
@@ -174,14 +181,30 @@ cruzadas de negocio descritas solo por texto (R7).
 
 * **Contenido interno del pipeline de `GSProcess.sh` para `PARM1=TradPlazas`** — se sabe que invoca el mismo
   motor genérico ya confirmado en las 2 cadenas hermanas, y que incluye preprocesado/carga/reporte (confirmado
-  por la ficha EX-005-03), pero no qué scripts/jars concretos ejecuta para esta clave.
+  por la ficha EX-005-03), pero no qué scripts/jars concretos ejecuta para esta clave. **Aclaración de
+  negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence), consistente con
+  el patrón de `GSProcess.sh` ya confirmado con código real en `rdr_refundicion`:** `PARM1=TradPlazas` haría
+  que el script cargue un `TradPlazas.properties` (mismo patrón que `Refundicion.properties`/`MOD_EJECUCION`),
+  que a su vez invocaría un Java genérico leyendo el fichero de entrada, validando claves geográficas contra
+  tablas `FT_T_...` de GoldenSource, e insertando/actualizando el maestro de plazas — no se ha aportado el
+  `.properties`/clase Java concretos para confirmarlo al 100%.
 * **Significado funcional exacto de los campos `CCPPOS`/`CCOMUN`** de `TradPlazas.csv` — estructura y ejemplo
-  real confirmados (§4), semántica de negocio exacta no.
+  real confirmados (§4), semántica de negocio exacta no (ver aclaración aportada y nota de rigor en §4).
 * **Confirmación operativa real de las 2 dependencias cruzadas de negocio** descritas en la ficha del
   filewatcher (predecesor `RDR_CARGA_PLAZAS`, sucesor "Carga de nombres legales en RDR") — confirmadas por
-  texto, no reflejadas en el Control-M real (RISK-CARGATRAD-004).
+  texto, no reflejadas en el Control-M real (RISK-CARGATRAD-004). **Aclaración de negocio aportada (pendiente
+  de verificación documental):** la carga de `TradPlazas` sería un prerrequisito estructural para que el
+  código de plaza exista en RDR antes de asociarle festivos o contratos en mallas downstream — justificación
+  de negocio razonable, pero no aporta evidencia de Control-M nueva: la ausencia de `INCOND`/`OUTCOND` cruzado
+  en el export real sigue sin explicarse operativamente.
 * **Significado exacto del calendario `RDR_FEST_HOST_PREV`** — distinto del `RDR_FEST_HOST` usado en
-  `RDR_CONC_OFICINAS_new`; el sufijo `_PREV` no está explicado en el material disponible.
+  `RDR_CONC_OFICINAS_new`; el sufijo `_PREV` no está explicado en el material disponible. **Aclaración de
+  negocio aportada, en conflicto con la naturaleza real del objeto — no incorporada:** se propuso que
+  `RDR_FEST_HOST_PREV`/`RDR_FEST_HOST` serían un fichero/tabla "de paso previo" y uno "consolidado
+  definitivo" respectivamente. **Nota de rigor:** ambos son, con evidencia ya confirmada en el export real de
+  Control-M, valores del atributo `CONFCAL` (**calendario de planificación**, no una tabla ni un fichero de
+  datos) que gobierna en qué días puede ejecutarse el filewatcher — la explicación aportada confunde la
+  naturaleza del objeto. Sigue sin explicación verificada el motivo del sufijo `_PREV`.
 * **Contenido del campo "Normas de rearranque"** de 2 de las 3 fichas EX-005-03 (`KYTL_PLATR_GSPROCESS_FW`,
   `MEKYTL0129`) — quedó como texto plantilla sin rellenar en el origen; no es un hueco de esta auditoría, sino
   de la propia ficha fuente.
@@ -211,3 +234,10 @@ Control-M (0=lunes...4=viernes) queda confirmada con 2 fuentes independientes cr
 `RDR_CONC_OFICINAS_new`. Quedan fuera de alcance: el desglose script a script del pipeline interno de
 `GSProcess.sh` para esta clave, la semántica exacta de `CCPPOS`/`CCOMUN`, el significado del calendario
 `RDR_FEST_HOST_PREV`, y la confirmación operativa real de las 2 dependencias cruzadas de negocio.
+
+**Ronda adicional (2026-10-01):** el usuario aportó aclaraciones de negocio/arquitectura (no verificadas con
+código ni ficha, etiquetadas en §8.2) sobre estos 4 puntos. El mecanismo de `GSProcess.sh`/`TradPlazas.properties`
+y la justificación de negocio de RISK-CARGATRAD-004 son razonables y no contradicen nada confirmado. Las
+explicaciones de `CCPPOS`/`CCOMUN` y de `RDR_FEST_HOST_PREV` sí entran en conflicto con evidencia real ya
+confirmada (longitud de 1 carácter de los campos; naturaleza de `RDR_FEST_HOST_PREV` como calendario
+`CONFCAL`, no como tabla/fichero) — se documentan como hipótesis descartadas, no como resolución.

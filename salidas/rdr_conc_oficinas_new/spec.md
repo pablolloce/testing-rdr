@@ -109,6 +109,15 @@ confirmada: en la muestra real, 2 oficinas con `FCIERR` poblado tienen `CBAMUT`/
 código/actividad de la oficina). Contiene datos reales de producción (~680 líneas/oficinas en la muestra
 aportada).
 
+**Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence),
+no resuelve del todo la duda — posible interpretación alternativa a valorar:** `CBA`=código de banco/entidad,
+`COF`=código de oficina en ambos pares; `MUT` correspondería a entidades del segmento mutual, cooperativas de
+crédito o entidades no bancarias comerciales, y `COM` a la red de Banca Comercial estándar — una distinción
+por **tipo de entidad**, no por tipo de evento. **Nota de rigor:** esta lectura no encaja con la evidencia
+real ya observada arriba (`CBAMUT`/`COFMUT` vacíos específicamente en oficinas con `FCIERR` poblado, lo que
+apuntaría más a `MUT`="mutación"/evento de cambio que a un tipo de entidad fijo) — se documenta como hipótesis
+adicional, no como resolución, dado el conflicto con el patrón ya observado en datos reales.
+
 ## 5. Especificación técnica
 
 | Paso | Job | TASKTYPE (confirmado Control-M) | Script/Comando | Usuario | Predecesor / Sucesor (confirmado Control-M) |
@@ -213,7 +222,9 @@ cierre de cadena).
   ronda como la invocada por `Delta.sh` — ver R3b) — la existencia y coincidencia exacta de clase/paquete ya
   no están fuera de alcance; el detalle del algoritmo de comparación fila a fila sí sigue sin decompilar.
 * **Significado funcional exacto de los pares `CBAMUT`/`COFMUT` vs. `CBACOM`/`COFCOM`** en `oficinas.csv`
-  (ver R3/§4) — estructura confirmada, semántica de negocio no.
+  (ver R3/§4) — estructura confirmada, semántica de negocio no. Aclaración de negocio aportada (tipo de
+  entidad mutual/comercial) entra en conflicto con el patrón ya observado en datos reales — sigue sin
+  resolución verificada.
 * **Cadenas downstream** (`RDR_DIFUSION_BATCH_CIERREOFI_new`, `RDR_INFORME_CIERREOFI_new`,
   `RDR_SIMU_CIERRE_OFI_new`) — explícitamente fuera de alcance del documento fuente, documentadas aparte.
 
