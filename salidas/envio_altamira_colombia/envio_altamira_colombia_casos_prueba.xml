@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="envio_altamira_colombia" fecha="2026-09-17" usuario="pablo.llorente">
+<casosDePrueba proceso="envio_altamira_colombia" fecha="2026-10-01" usuario="pablo.llorente">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Distribución diaria completa (happy path)</nombre>
@@ -26,23 +26,50 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Fichero no recibido por el filewatcher</nombre>
-    <objetivo>Verificar que si el fichero no llega, el resto de la cadena no se ejecuta.</objetivo>
+    <nombre>Sin base de datos: la cadena se detiene en la extracción</nombre>
+    <objetivo>Verificar que, si ColombiaEnvio no puede conectar con la base de datos, el job de extracción termina NOTOK (la excepción no se captura) y el resto de la cadena no se ejecuta.</objetivo>
     <precondiciones>
-      <precondicion>EXTRACCION_ALTAMIRA_SEND falla o no genera el fichero.</precondicion>
+      <precondicion>Entorno de pruebas con la cadena cargada y la conexión a base de datos de la extracción cortada (credenciales o servicio no disponibles), con permiso de administrador del entorno para hacerlo.</precondicion>
+      <precondicion>Ningún CONCILIA_*.txt en /fichtemcomp/&lt;env&gt;/descargas/kytl/AltamiraColombia/send/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="CONCILIA_AAAAMMDD.txt" valor="no se genera / no se deposita en la ruta de origen"/>
+      <dato campo="conexión a base de datos" valor="no disponible"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Impedir la generación del fichero (simular fallo de extracción o no depositarlo).</paso>
-      <paso numero="2">Esperar hasta el cierre del día operativo.</paso>
-      <paso numero="3">Verificar el estado de FW_RDR_ALTAMIRA_COLOMBIA_SEND y de MEKYTL1044.</paso>
+      <paso numero="1">Cortar la conexión a base de datos del entorno de pruebas.</paso>
+      <paso numero="2">Lanzar EXTRACCION_ALTAMIRA_SEND.</paso>
+      <paso numero="3">Comprobar el estado y el código de retorno de EXTRACCION_ALTAMIRA_SEND.</paso>
+      <paso numero="4">Comprobar que no existe ningún CONCILIA_*.txt en send/.</paso>
+      <paso numero="5">Comprobar que FW_RDR_ALTAMIRA_COLOMBIA_SEND no se ha ejecutado.</paso>
     </pasos>
-    <resultadoEsperado>El resto de la cadena (MEKYTL1044, MEKYTL1044_SND, MEKYTL1045) no se ejecuta; se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
-    <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Ningún job posterior al filewatcher se ejecuta; alerta recibida.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: la no ejecución es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>EXTRACCION_ALTAMIRA_SEND termina NOTOK (GSProcess.sh devuelve 1 porque el Java termina con excepción no capturada); no se genera fichero; FW_RDR_ALTAMIRA_COLOMBIA_SEND, MEKYTL1044, MEKYTL1044_SND y MEKYTL1045 no se ejecutan; aviso a ANS RDR (ans_rdr.es@bbva.com) con criticidad W.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M + listado del directorio send/.</tipoValidacion>
+    <criterioAceptacion>Extracción en NOTOK y ningún job posterior ejecutado. Corrección: la versión anterior mezclaba "fallo de extracción" y "fichero no depositado"; el código distingue ambos casos (ver TC-005).</criterioAceptacion>
+    <posibilidadFallo>Si la extracción terminara en OK, la versión desplegada de ColombiaEnvio (o de ConDB) capturaría la excepción y la cadena podría seguir sin fichero.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Query con error: se genera y envía un fichero vacío</nombre>
+    <objetivo>Verificar que un error SQL en obtenerIDs con conexión válida no hace fallar la extracción: se crea CONCILIA_&lt;AAAAMMDD&gt;.txt de 0 bytes.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas donde se pueda provocar un error en la query sin cortar la conexión (por ejemplo, retirar al usuario de la aplicación el permiso de lectura sobre FT_T_FIRL), con permiso de administrador de base de datos.</precondicion>
+      <precondicion>Ningún CONCILIA_*.txt en send/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_FIRL" valor="sin permiso de lectura para el usuario de conexión"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Retirar el permiso de lectura sobre FT_T_FIRL al usuario de conexión.</paso>
+      <paso numero="2">Lanzar EXTRACCION_ALTAMIRA_SEND.</paso>
+      <paso numero="3">Comprobar que el job termina en OK.</paso>
+      <paso numero="4">Buscar en el log del Java el texto "obtenerIDs::Fallo al ejecutar la siguiente modificacion".</paso>
+      <paso numero="5">Comprobar que existe CONCILIA_&lt;fecha del servidor&gt;.txt con 0 bytes.</paso>
+      <paso numero="6">Restaurar el permiso.</paso>
+    </pasos>
+    <resultadoEsperado>EXTRACCION_ALTAMIRA_SEND termina en OK; el log contiene el error de obtenerIDs; existe un CONCILIA_&lt;AAAAMMDD&gt;.txt de 0 bytes. Que la cadena lo envíe después depende del tamaño mínimo de ctmfw (P-AACS-02): con tamaño mínimo 0, FW_RDR_ALTAMIRA_COLOMBIA_SEND lo da por llegado y los saltos lo envían.</resultadoEsperado>
+    <tipoValidacion>Estado del job + log del Java + tamaño del fichero.</tipoValidacion>
+    <criterioAceptacion>Job en OK con fichero de 0 bytes. No dejar que la cadena llegue a MEKYTL1044_SND contra el destino real.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: Colombia recibiría un fichero vacío sin ninguna alerta.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -173,7 +200,7 @@
 
   <casoDePrueba id="TC-010" tipo="regresion">
     <nombre>Fichero vacío o parcialmente escrito no detectado</nombre>
-    <objetivo>Documentar y verificar el gap de diseño: el filewatcher no detecta ficheros vacíos o incompletos (mismo gap que Calendarios).</objetivo>
+    <objetivo>Documentar y verificar el gap de diseño: el file watcher no valida el contenido del fichero.</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba donde se pueda depositar un fichero controlado en la ruta monitoreada.</precondicion>
     </precondiciones>
@@ -185,7 +212,7 @@
       <paso numero="2">Verificar el estado de FW_RDR_ALTAMIRA_COLOMBIA_SEND.</paso>
       <paso numero="3">Verificar si la cadena distribuye el fichero igualmente.</paso>
     </pasos>
-    <resultadoEsperado>El filewatcher no detecta el problema (solo controla presencia); la cadena distribuye el fichero vacío/incompleto a los destinos.</resultadoEsperado>
+    <resultadoEsperado>Según la respuesta del usuario (el file watcher solo controla presencia), FW_RDR_ALTAMIRA_COLOMBIA_SEND termina en OK con el fichero de 0 bytes o truncado (una vez estable su tamaño) y la cadena lo distribuye. Condicionado al tamaño mínimo real del comando ctmfw (P-AACS-02): si fuera mayor que 0, el fichero de 0 bytes no se daría por llegado y el job acabaría con código 7 al agotar la espera.</resultadoEsperado>
     <tipoValidacion>Verificación manual del contenido en los ficheros de destino tras la distribución.</tipoValidacion>
     <criterioAceptacion>Se confirma la ausencia de control; el caso documenta el comportamiento actual como riesgo abierto, no como validación superada.</criterioAceptacion>
     <posibilidadFallo>Riesgo real de negocio: Altamira Colombia podría recibir un fichero de conciliación vacío o incompleto sin alerta.</posibilidadFallo>
@@ -215,7 +242,7 @@
 
   <casoDePrueba id="TC-012" tipo="regresion">
     <nombre>Ejecuciones concurrentes de la cadena</nombre>
-    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas (mismo gap que Calendarios).</objetivo>
+    <objetivo>Documentar y verificar el gap de diseño: ausencia de protección contra ejecuciones solapadas (confirmada por el usuario).</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba donde se pueda relanzar manualmente la cadena mientras otra instancia sigue activa.</precondicion>
     </precondiciones>
@@ -250,7 +277,7 @@
       <paso numero="4">Verificar la transmisión a 82.255.60.120 (Salto 2).</paso>
       <paso numero="5">Verificar la historificación a /backup/.</paso>
     </pasos>
-    <resultadoEsperado>Los 5 jobs terminan en OK, el fichero llega íntegro al destino final con el naming real `AAAAMMDD`, y queda historificado.</resultadoEsperado>
+    <resultadoEsperado>Los 5 jobs terminan en OK; el fichero se genera en origen como CONCILIA_&lt;AAAAMMDD&gt;.txt (fecha del servidor), llega con el mismo contenido al destino final y queda en send/backup/. El nombre con el que llega a lpftp503 y a Colombia se anota como observación hasta resolver P-AACS-04 (las fichas dicen CONCILIA_YYYYDDMM.txt).</resultadoEsperado>
     <tipoValidacion>Verificación de estado de los 5 jobs + comparación de contenido origen/destino + verificación de naming.</tipoValidacion>
     <criterioAceptacion>Cadena completa ejecutada sin KOs, contenido íntegro en destino final, historificación confirmada.</criterioAceptacion>
     <posibilidadFallo>Cualquier KO no esperado, contenido distinto, o naming incorrecto invalida el caso.</posibilidadFallo>

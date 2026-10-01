@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="envio_altamira_bancomer_mexico" fecha="2026-09-18" usuario="pablo.llorente">
+<casosDePrueba proceso="envio_altamira_bancomer_mexico" fecha="2026-10-01" usuario="pablo.llorente">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Ciclo semanal completo con ambas ramas exitosas</nombre>
@@ -13,40 +13,46 @@
       <dato campo="codigos_ALID" valor="conjunto de códigos activos válidos, ninguno de la lista de exclusión"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX el viernes y verificar la generación de RDR_clientesYYYYMMDD.csv.</paso>
-      <paso numero="2">Verificar que MEKYTL1205 copia el fichero a /unload/kytl/datsal/datax/ con el cambio de propietario a xtkytl1p:gtkecs1.</paso>
-      <paso numero="3">Verificar que MEKYTL1206 historifica el fichero e dispara RDR_ALTAMIRAMEX_SEND_OUT.</paso>
-      <paso numero="4">Verificar que MEKYTL1221 transmite el fichero a DataX y dispara RDR_ALTAMIRAMEX_SEND_MEKYTL1221_OK.</paso>
+      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX el viernes.</paso>
+      <paso numero="2">Comprobar que existe /fichtemcomp/&lt;env&gt;/descargas/kytl/AltamiraMexico/send/RDR_clientes&lt;AAAAMMDD de hoy&gt;.csv con la cabecera de 30 columnas y al menos una línea de datos.</paso>
+      <paso numero="3">Comprobar que MEKYTL1205 termina en OK y que /unload/kytl/datsal/datax/RDR_clientes&lt;AAAAMMDD&gt;.csv existe con el mismo contenido (mismo md5) que el original.</paso>
+      <paso numero="4">Anotar el propietario y grupo de la copia (ls -l); es una observación ligada a P-ABM-01, no un criterio de aceptación.</paso>
+      <paso numero="5">Comprobar que MEKYTL1206 termina en OK, que el fichero está en send/backup/ y que se activa RDR_ALTAMIRAMEX_SEND_OUT.</paso>
+      <paso numero="6">Comprobar que MEKYTL1221 termina en OK y que se activa RDR_ALTAMIRAMEX_SEND_MEKYTL1221_OK.</paso>
     </pasos>
-    <resultadoEsperado>Los 4 jobs reales terminan en OK; el fichero llega íntegro a /unload/kytl/datsal/datax/, se historifica en /backup/, y se transmite correctamente a DataX.</resultadoEsperado>
-    <tipoValidacion>Verificación de estado de los 4 jobs en Control-M + comparación de contenido entre origen y destino + confirmación de recepción en DataX.</tipoValidacion>
+    <resultadoEsperado>Los 4 jobs reales terminan en OK; el fichero está, con contenido idéntico, en /unload/kytl/datsal/datax/ y en send/backup/; se activan los dos eventos de salida. La llegada al destino no es comprobable desde RDR: se valida por el OK de MEKYTL1221.</resultadoEsperado>
+    <tipoValidacion>Estado de los 4 jobs en Control-M + comparación md5 entre origen, copia DataX e histórico.</tipoValidacion>
     <criterioAceptacion>Los 4 jobs en OK, contenido idéntico en destino, historificación y transmisión confirmadas.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada; cualquier KO o contenido distinto invalida el caso.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Fallo de extracción, la cadena no avanza</nombre>
-    <objetivo>Verificar que si GS_CODIGOS_ALTMEX falla, el resto de la cadena no se ejecuta.</objetivo>
+    <nombre>Sin base de datos: la generación termina en OK sin fichero</nombre>
+    <objetivo>Verificar el comportamiento real cuando no hay conexión a base de datos: el Java no genera fichero pero termina con 0, y el fallo aparece en MEKYTL1205.</objetivo>
     <precondiciones>
       <precondicion>Conexión a base de datos simulada como no disponible durante la ejecución de GS_CODIGOS_ALTMEX.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ConexionBD" valor="simulada como inaccesible (ojdbc8.jar no puede conectar)"/>
+      <dato campo="send/" valor="sin ningún RDR_clientes*.csv antes de empezar"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar la indisponibilidad de la conexión a BD antes de ejecutar GS_CODIGOS_ALTMEX.</paso>
       <paso numero="2">Ejecutar la cadena el viernes programado.</paso>
-      <paso numero="3">Verificar el estado de GS_CODIGOS_ALTMEX y de MEKYTL1205.</paso>
+      <paso numero="3">Comprobar el estado de GS_CODIGOS_ALTMEX.</paso>
+      <paso numero="4">Buscar en el log del Java el texto "IDs es nulo, no se puede generar el fichero".</paso>
+      <paso numero="5">Comprobar que no existe ningún RDR_clientes*.csv en send/.</paso>
+      <paso numero="6">Comprobar el estado y el código de retorno de MEKYTL1205.</paso>
     </pasos>
-    <resultadoEsperado>GS_CODIGOS_ALTMEX finaliza en error; MEKYTL1205, MEKYTL1206 y MEKYTL1221 no se ejecutan; se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
-    <tipoValidacion>Estado de los jobs en Control-M + verificación de correo de alerta.</tipoValidacion>
-    <criterioAceptacion>Job de extracción en error, ningún job posterior ejecutado, alerta recibida.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: la no ejecución es el resultado válido de este caso.</posibilidadFallo>
+    <resultadoEsperado>GS_CODIGOS_ALTMEX termina en OK (MexicoEnvio acaba siempre con System.exit(0)); su log contiene "IDs es nulo, no se puede generar el fichero" y no existe RDR_clientes&lt;AAAAMMDD&gt;.csv en send/. MEKYTL1205 se ejecuta y no encuentra fichero: si su línea del IDX tiene el campo 5 a 0 o vacío, termina con código 6 (NOTOK) y MEKYTL1206/MEKYTL1221 no se ejecutan; el código exacto queda condicionado a P-ABM-01.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M + log del Java + listado del directorio send/.</tipoValidacion>
+    <criterioAceptacion>GS_CODIGOS_ALTMEX en OK sin fichero generado y el mensaje de log presente. Corrección: la versión anterior esperaba GS_CODIGOS_ALTMEX en error, lo que el código no hace.</criterioAceptacion>
+    <posibilidadFallo>Si GS_CODIGOS_ALTMEX acabara en error, el comportamiento del Java no sería el del código analizado (versión desplegada distinta). Si MEKYTL1205 terminara en OK sin fichero, su IDX tendría el campo 5 distinto de 0 y la cadena seguiría sin enviar nada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
-    <nombre>Fallo de copia/chown en MEKYTL1205</nombre>
-    <objetivo>Verificar el comportamiento cuando la copia con cambio de propietario falla (p. ej. permisos insuficientes en destino).</objetivo>
+    <nombre>Fallo de copia en MEKYTL1205</nombre>
+    <objetivo>Verificar el comportamiento cuando la copia de RAMERC0068.sh falla (permisos insuficientes en destino).</objetivo>
     <precondiciones>
       <precondicion>Fichero RDR_clientesYYYYMMDD.csv generado correctamente por GS_CODIGOS_ALTMEX.</precondicion>
       <precondicion>Directorio /unload/kytl/datsal/datax/ simulado sin permisos de escritura para xsramer1.</precondicion>
@@ -59,7 +65,7 @@
       <paso numero="2">Ejecutar la cadena con el fichero generado a tiempo.</paso>
       <paso numero="3">Verificar el estado de MEKYTL1205 y la alerta emitida.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL1205 finaliza en error; MEKYTL1206 y MEKYTL1221 no se ejecutan (dependen de MEKYTL1205); se notifica a ans_rdr.es@bbva.com con criticidad W.</resultadoEsperado>
+    <resultadoEsperado>MEKYTL1205 termina NOTOK (código 11 de RAMERC0068.sh si la operación del IDX es C, copia; 7 si fuera M; pendiente de P-ABM-01); su log /pr/pl/log/MEKYTL1205_&lt;HHMMSS&gt;.log muestra el error de la copia; MEKYTL1206 y MEKYTL1221 no se ejecutan; se avisa a ANS RDR (ans_rdr.es@bbva.com) con criticidad W.</resultadoEsperado>
     <tipoValidacion>Estado del job + correo de alerta.</tipoValidacion>
     <criterioAceptacion>Job en error, ramas paralelas no ejecutadas, alerta recibida.</criterioAceptacion>
     <posibilidadFallo>Fallo esperado y correcto: el error controlado es el resultado válido de este caso.</posibilidadFallo>
@@ -139,13 +145,14 @@
       <dato campo="combinacion_con_multiples_codigos" valor="una misma combinación institución/sucursal con 3 códigos ALID distintos asociados en FT_T_FIID/FT_T_FIRL"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX con una combinación institución/sucursal que tenga múltiples ALID asociados.</paso>
-      <paso numero="2">Inspeccionar RDR_clientesYYYYMMDD.csv.</paso>
-      <paso numero="3">Verificar si esa línea contiene un único código o los 3 códigos concatenados con `|` en el mismo campo.</paso>
+      <paso numero="1">Ejecutar la query de Querys.obtenerIDs en el entorno de prueba y anotar el valor ALTAMIRA_MEX de esa institución.</paso>
+      <paso numero="2">Ejecutar GS_CODIGOS_ALTMEX.</paso>
+      <paso numero="3">Comprobar que no hay ningún carácter "|" en el fichero.</paso>
+      <paso numero="4">Comprobar que cada uno de los 3 códigos aparece en su propia línea.</paso>
     </pasos>
-    <resultadoEsperado>Si la combinación institución/sucursal tiene varios ALID asociados, la línea del fichero contendrá los 3 códigos concatenados con `|` en un único campo (comportamiento confirmado por el código real de Querys.obtenerIDs(), no un fallo de la prueba) — rompiendo la estructura de "un código por línea" documentada en R6.</resultadoEsperado>
-    <tipoValidacion>Inspección de contenido + búsqueda del carácter `|` en el fichero.</tipoValidacion>
-    <criterioAceptacion>Se documenta si aparece o no una concatenación `|`; en la muestra real de producción analizada no se observó ninguna, pero el escenario está confirmado como posible por diseño.</criterioAceptacion>
+    <resultadoEsperado>La query devuelve para esa institución una sola fila con los 3 códigos concatenados ("A|B|C"). Según la confirmación del usuario (sacarFichero separa por "|"), el fichero contiene 3 líneas, una por código, cada una con 30 campos, y ningún carácter "|". Queda condicionado a P-ABM-03 (código de Ficheros.sacarFichero no recibido).</resultadoEsperado>
+    <tipoValidacion>Ejecución directa de la query + inspección del fichero (grep del carácter "|" y de los 3 códigos).</tipoValidacion>
+    <criterioAceptacion>Los 3 códigos aparecen en líneas separadas y no hay ningún "|" en el fichero. Corrección: la versión anterior esperaba la línea concatenada; el código recibido (Querys) solo demuestra que la query concatena, no cómo escribe el fichero sacarFichero.</criterioAceptacion>
     <posibilidadFallo>Riesgo real y ya confirmado por código: si Altamira México recibe un campo con varios ALID concatenados con `|`, lo trataría como un identificador de cliente ininterpretable o inválido.</posibilidadFallo>
   </casoDePrueba>
 
@@ -210,6 +217,28 @@
     <posibilidadFallo>Riesgo de negocio: la conciliación podría no marcar como discrepancia un código que en realidad nunca se envió a Altamira México.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Fecha del nombre del fichero en un relanzamiento fuera de día</nombre>
+    <objetivo>Verificar que la fecha del nombre es la del reloj del servidor en el momento de ejecutar y no la ODATE de Control-M (MexicoEnvio no recibe la ODATE y formatea con la zona por defecto de la JVM).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con la cadena cargada y permiso para forzar GS_CODIGOS_ALTMEX con una ODATE anterior (por ejemplo, el viernes de la semana pasada).</precondicion>
+      <precondicion>Directorio send/ sin ficheros RDR_clientes*.csv.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="viernes anterior (AAAAMMDD)"/>
+      <dato campo="fecha del servidor" valor="día de ejecución (date +%Y%m%d en la máquina)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Anotar la fecha del servidor con date +%Y%m%d.</paso>
+      <paso numero="2">Forzar GS_CODIGOS_ALTMEX con la ODATE anterior.</paso>
+      <paso numero="3">Listar send/ y anotar el nombre del fichero generado.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se llama RDR_clientes&lt;fecha del servidor&gt;.csv, no RDR_clientes&lt;ODATE&gt;.csv.</resultadoEsperado>
+    <tipoValidacion>Comparación del nombre del fichero con la fecha del servidor y con la ODATE.</tipoValidacion>
+    <criterioAceptacion>El nombre lleva la fecha del servidor. No ejecutar MEKYTL1221 en este caso: la transferencia recibiría la ODATE antigua (P-ABM-06).</criterioAceptacion>
+    <posibilidadFallo>Si el nombre llevara la ODATE, la versión desplegada de MexicoEnvio no sería la analizada. Riesgo de negocio: en un relanzamiento la transferencia DataX (que usa la ODATE) podría no encontrar el fichero.</posibilidadFallo>
+  </casoDePrueba>
+
   <casoDePrueba id="TC-012" tipo="e2e">
     <nombre>Ciclo semanal completo end-to-end</nombre>
     <objetivo>Validar el flujo completo desde la extracción hasta ambas ramas finales (historificación y transmisión DataX).</objetivo>
@@ -221,7 +250,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar GS_CODIGOS_ALTMEX y verificar la generación del fichero con naming y estructura correctos.</paso>
-      <paso numero="2">Verificar la copia con cambio de propietario en MEKYTL1205.</paso>
+      <paso numero="2">Verificar que MEKYTL1205 deja una copia idéntica (md5) en /unload/kytl/datsal/datax/.</paso>
       <paso numero="3">Verificar la historificación en MEKYTL1206 y el disparo de RDR_ALTAMIRAMEX_SEND_OUT.</paso>
       <paso numero="4">Verificar la transmisión a DataX en MEKYTL1221 y el disparo de su propio evento de salida.</paso>
     </pasos>

@@ -1,79 +1,83 @@
 # Prerrequisitos — Recepción Altamira Colombia (P-065, `RDR_ALTAMIRA_COLOMBIA_RECEIVE`)
 
-## Orígenes de datos
+Lo que tiene que estar en su sitio para ejecutar los casos de `recepcion_altamira_colombia_casos_prueba.xml`.
+Las rutas con `/pr/` describen **producción** (referencia); en pruebas se usan las del entorno de
+pruebas (`/fichtemcomp/ei/...` en integración).
 
-| Origen | Alimenta |
-|---|---|
-| Host de Altamira Colombia (`82.255.60.120`/`svrtantiapr.co.igrupobbva`) | Deposita `CONCILIA*.TXT` (cifrado) en `\\co.igrupobbva\svrfilesystem\TX\RECEPCION_HOST\FINANCIERA\CDD\RDR\` (TC-002, TC-005, TC-013, TC-014). |
-| Servicio externo SHIVA (vía `com.bbva.kytl.services.SHIVAToken`, autenticación por token) | Llave 1 de descifrado, obtenida por `GET` HTTP autenticado contra la URL de `FT_T_PAR1` (`JUNCTION`/`ConciliaColombia`) (TC-006). |
-| `FT_T_PAR1` (`LLAVE2`/`ConciliaColombia`) | Llave 2 de descifrado (TC-006). |
-| GoldenSource (`FT_T_FIID`/`FT_T_FINS`/`FT_T_FIRL`/`FT_T_ENFR`) | Universo de clientes activos `FINS_ID_CTXT_TYP='ID_ALTAMIRA_COL'`, `ORG_ID='9020'` — el mismo universo que `envio_altamira_colombia` (TC-001, TC-007, TC-008, TC-010, TC-011). |
+## 1. Orígenes de datos
 
-## Datos mínimos
-
-| Caso | Dato mínimo necesario |
-|---|---|
-| TC-001 | 1 cliente activo en GoldenSource y 1 línea de 360 caracteres en el fichero descifrado con el mismo NUMCLIEN |
-| TC-003 | Fichero descifrado con 0 líneas de datos |
-| TC-004 | 1 línea de longitud distinta a 360 caracteres |
-| TC-005 | Ausencia deliberada de `CONCILIAYYYYMMDD.TXT` en el host de Colombia |
-| TC-006 | Entorno de prueba donde se pueda forzar un fallo de SHIVA/BBDD en la obtención de alguna llave |
-| TC-007 | 1 cliente en el universo de GoldenSource sin línea correspondiente en el fichero |
-| TC-008 | 1 cliente con línea correspondiente en el fichero |
-| TC-009 | 2 líneas con el mismo `NUMCLIEN`, datos distintos en el resto de campos |
-| TC-010 | Acceso de lectura a las mismas tablas desde `envio_altamira_colombia` y este proceso |
-| TC-011 | 3 líneas sintéticas: esperado-presente, esperado-ausente, presente-no-esperado |
-| TC-012 | Acceso de solo lectura a la Planificación de Control-M del folder |
-| TC-013 | Fichero completo y válido con al menos 1 registro reconciliable |
-| TC-014 | Condición simulada de falta de permisos/espacio en la pasarela `LPFTP503` |
-| TC-015 | Condición simulada de `/receive/backup/` sin espacio |
-
-## Entorno de ejecución
-
-- Servidor Control-M: `MERCADOS-4`. Folder `KYTL0000-RDR_ALTAMIRA_COLOMBIA_RECEIVE`, aplicación `KYTL`,
-  sub-aplicación `RDR_ALTAMIRA_COLOMBIA_RECEIVE`.
-- Usuarios de ejecución: `xsramer1` (jobs 1-3 y 6), `xpctma1` (filewatcher), `xakytl1p` (`GSProcess.sh`).
-- Script `MEGENV0001.sh`: `/pr/pl/envioweb/scrt/`, `PARM1=MEKYTL1091` (jobs 1 y 2).
-- Script `GSProcess.sh`: `/pr/kytl/online/multipais/multicanal/scrt/`, parámetro `ExtraccionAltamiraReceive`.
-- Script `RAMERC0068.sh`: `/pr/pl/scrt/`, `PARM1=MEKYTL1046`.
-- Ruta de ficheros de trabajo: `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/receive/` (y subcarpeta
-  `backup/`). Pasarela: `/unload/transmisiones/KYTL/` en `LPFTP503`/`604`.
-
-## Configuración
-
-| Fichero/parámetro | Rol | Relevante para |
+| Origen | Alimenta | Casos |
 |---|---|---|
-| `FT_T_PAR1` (`JUNCTION`/`ConciliaColombia`/`CONCILIA_COLOMBIA`) | URL de junction SHIVA para obtener llave 1 | TC-006 |
-| `FT_T_PAR1` (`LLAVE2`/`ConciliaColombia`/`CONCILIA_COLOMBIA`) | Llave 2 de descifrado | TC-006 |
-| Credenciales/token SHIVA (`args[4]`, fichero de datos SHIVA) | Autenticación del `GET` HTTP para llave 1 | TC-006 |
-| `log4j` de `ColombiaConciliacion` (`args[1]`) | Configuración de logging | Transversal |
+| Host de Colombia (`82.255.60.120`, `svrtantiapr.co.igrupobbva`), `\\co.igrupobbva\svrfilesystem\TX\RECEPCION_HOST\FINANCIERA\CDD\RDR\` | El fichero cifrado `CONCILIA*.TXT` | TC-002, TC-005, TC-013, TC-014 |
+| Servicio SHIVA (token con el fichero de datos SHIVA del argumento 5 del Java) | Llave 1 | TC-006, y todos los que descifran |
+| `FT_T_PAR1` (`PARAMETER_CTXT_TYP` `JUNCTION` y `LLAVE2`, `PAR1_NME='ConciliaColombia'`, `DATA_SRC_ID='CONCILIA_COLOMBIA'`, `ACTIVE`) | Ruta del servicio SHIVA y llave 2 | TC-006, y todos los que descifran |
+| `FT_T_FIID`, `FT_T_FINS`, `FT_T_FIRL`, `FT_T_ENFR` | Universo esperado (`ID_ALTAMIRA_COL`, entidad `9020`) | TC-001, TC-003, TC-004, TC-007, TC-008, TC-010, TC-011, TC-016 |
+| `PCK_CON_ALT_COL.PR_MAIN` compilado en la base de datos de pruebas | Conciliación de cada registro | TC-001, TC-009, TC-011, TC-013 |
 
-## Sistema de ficheros
+## 2. Datos mínimos por caso
 
-- `CONCILIAYYYYMMDD.TXT`: nombre real del fichero en tránsito, con `DD` = día de España menos 1 (cálculo
-  real: "ayer" vía `System.currentTimeMillis()`, formateado con el huso horario por defecto de la JVM —
-  ver RISK-REC-006 en `recepcion_altamira_colombia_spec.md`).
-- `..._DES.TXT`: copia descifrada generada por `Utils.decrypt()`, consumida por el parseo de 360
-  caracteres/19 campos.
-- Retención de 3 días en el entorno activo para los jobs con planificación estándar.
+Para generar ficheros de prueba hace falta poder **cifrarlos** con las llaves del entorno de pruebas
+(3DES CBC sin relleno, vector de ceros, clave = XOR de las dos llaves, una línea hexadecimal por
+registro de 360 caracteres).
 
-## Orquestación
+| Caso | Dato mínimo |
+|---|---|
+| TC-001 | 1 cliente del universo (por ejemplo `10203040`) y su registro de 360 caracteres en el fichero |
+| TC-003 | Fichero cifrado sin líneas |
+| TC-004 | Fichero de 25 registros con el 5.º de 120 caracteres; los 25 `NUMCLIEN` en el universo |
+| TC-005 | Ningún `CONCILIA*.TXT` en origen, pasarela ni `receive/` |
+| TC-006 | Posibilidad de dejar sin respuesta válida a SHIVA o vaciar la fila `LLAVE2` en pruebas |
+| TC-007 | Cliente del universo (`50607080`) ausente del fichero |
+| TC-008 | Cliente del universo (`60708090`) presente en el fichero |
+| TC-009 | Dos registros con el mismo `NUMCLIEN` (`70809010`) y distinto resto |
+| TC-010 | Lectura de las tablas del universo |
+| TC-011 | Tres registros: esperado-presente, esperado-ausente y presente-no-esperado |
+| TC-012 | Lectura de la planificación del folder en Control-M |
+| TC-013 | Fichero completo y válido con al menos un registro conciliable |
+| TC-014 | Pasarela `LPFTP503` sin permisos o sin espacio en `/unload/transmisiones/KYTL/` (simulado) |
+| TC-015 | `receive/backup/` sin espacio (simulado) |
+| TC-016 | Fichero con 3 registros, una línea vacía y 2 registros (`11111111`…`55555555`), todos en el universo |
 
-- Cascada estricta de eventos: `MEKYTL1091_RECEPCION → MEKYTL1091 → MEKYTL1091_BORRADO →
-  FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE → KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE → MEKYTL1046` (TC-002, TC-013).
-- Recurso cuantitativo `MAX-LPRDR501` (1/100) consumido por todos los jobs.
-- Criticidad `W` (aviso día siguiente) en todos los jobs.
-- Calendario real confirmado uniforme (martes a viernes, "2,3,4,5") en los 6 jobs — corrige la errata del
-  documento fuente que atribuía sábado adicional a `MEKYTL1091_RECEPCION` (TC-012).
-- Tolerancias explícitas: `MEKYTL1091_RECEPCION` se marca OK automáticamente ante No OK; `MEKYTL1091` no
-  falla si no encuentra el fichero (TC-005).
-- Normas de Rearranque documentadas (escalado a "ANS RDR (BZG03906)", `ans_rdr.es@bbva.com`) para todos
-  los jobs salvo `MEKYTL1091_RECEPCION`, sin instrucciones definidas en su ficha — hecho documental.
+## 3. Entorno de ejecución
 
-## Entorno de pruebas
+| Elemento | Producción (referencia) | Usuario | Casos |
+|---|---|---|---|
+| `MEGENV0001.sh` (clave `MEKYTL1091`) y su configuración en cada máquina | `/pr/pl/envioweb/` en `LPFTP503` y `pr-rdr.igrupobbva` | `xsramer1` | TC-002, TC-005, TC-013 |
+| Comando de purga del job 3 | `LPFTP503` | `xsramer1` | TC-005, TC-014 |
+| `ctmfw` | `pr-rdr.igrupobbva` | `xpctma1` | TC-002, TC-005, TC-013, TC-015 |
+| `GSProcess.sh`, `ExtraccionAltamiraReceive.properties`, `RDR_ConciliaColombia.jar`, `ConexionBD.jar`, `XMASToken-0.0.1.jar`, `RDR_AlertasCocinado.jar` | `/pr/kytl/online/multipais/multicanal/` | `xakytl1p` | TC-001, TC-003, TC-004, TC-006 a TC-011, TC-013, TC-016 |
+| `RAMERC0068.sh` (clave `MEKYTL1046`) | `/pr/pl/scrt/`, `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` | `xsramer1` | TC-013, TC-015 |
+| Usuario de consulta de base de datos (lectura de `FT_T_RLT1`, `FT_T_JBLG`, universo) | — | consulta | TC-001, TC-003, TC-004, TC-006 a TC-011, TC-016 |
 
-- No se confirmó en esta sesión un entorno de pruebas aislado para simular fallos de SHIVA (TC-006),
-  pérdida de permisos en la pasarela (TC-014) o saturación de `/backup/` (TC-015) — estos 3 casos no deben
-  ejecutarse contra producción sin verificar primero que existe dicho entorno.
-- TC-010 requiere acceso de lectura simultáneo a las tablas de GoldenSource desde ambos procesos
-  (`envio_altamira_colombia` y este) para comparar universos de clientes en el mismo instante.
+## 4. Configuración
+
+| Elemento | Qué hay que conocer | Casos |
+|---|---|---|
+| `ExtraccionAltamiraReceive.properties` | Plantilla del nombre (argumento 4), fichero SHIVA (argumento 5), pasos de alertas (P-RAC-01) | Todos los de ingesta |
+| Configuración `MEKYTL1091` de `MEGENV0001.sh` | Sentido, rutas y tolerancia sin fichero (P-RAC-02) | TC-002, TC-005 |
+| Línea `MEKYTL1046` del IDX | En integración: `MEKYTL1046_EI@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/@CONCILIA_*.txt@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/backup/@0@TIPO@@M`. Comprobar que el nombre del fichero de prueba cumple la máscara (P-RAC-04) | TC-013, TC-015 |
+| Comando del file watcher | `ctmfw '/fichtemcomp/pr/descargas/kytl/AltamiraColombia/receive/CONCILIA*.TXT' CREATE 0 60 10 3 105` | TC-005 |
+| Configuración log4j del Java (argumento 2) | Dónde está su log | TC-004, TC-006, TC-016 |
+
+## 5. Sistema de ficheros
+
+- `receive/` y `receive/backup/` en `pr-rdr.igrupobbva`; `/unload/transmisiones/KYTL/` en la pasarela.
+- Nombres: el Java busca `<plantilla>` con la fecha de **ayer** (hora del servidor) y escribe al lado
+  `<nombre>_DES.TXT` (descifrado, en claro), que no borra.
+- Antes de cada caso, `receive/` debe quedar limpio de ficheros de casos anteriores.
+
+## 6. Orquestación
+
+Folder `KYTL0000-RDR_ALTAMIRA_COLOMBIA_RECEIVE` en `MERCADOS-4`, cargado por `PLAN_1200`, martes a
+viernes desde las 23:00, cadena secuencial de 6 jobs (`MEKYTL1091_RECEPCION` → `MEKYTL1091` →
+`MEKYTL1091_BORRADO` → `FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE` → `KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE` →
+`MEKYTL1046`). Regla "No OK → marcar OK" en el primer job. Para los casos de ingesta hace falta poder
+forzar `KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE` suelto.
+
+## 7. Entorno de pruebas: qué falta por definir
+
+- Entorno aislado donde simular SHIVA caído (TC-006), la pasarela sin permisos (TC-014) y `backup/`
+  lleno (TC-015): no confirmado. No ejecutar estos casos contra producción.
+- TC-004 y TC-016 dejan registros "no localizado" falsos o jobs `OPEN` en `FT_T_JBLG`: solo en pruebas.
+- Herramienta para cifrar ficheros de prueba con las llaves del entorno de pruebas: no documentada.
+- Comando real de la purga (P-RAC-03) para fijar el resultado de TC-005.

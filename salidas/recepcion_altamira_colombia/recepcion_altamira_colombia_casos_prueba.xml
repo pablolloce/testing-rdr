@@ -66,44 +66,51 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
-    <nombre>Línea con longitud distinta de 360 caracteres</nombre>
-    <objetivo>Confirmar que una línea de longitud incorrecta (que provoca una excepción al extraer alguno de los 19 campos por substring) se descarta con log, sin detener la lectura del resto del fichero.</objetivo>
+    <nombre>Línea más corta de 360 caracteres en el fichero descifrado</nombre>
+    <objetivo>Confirmar el comportamiento real del código ante una línea corta: la excepción del substring se captura, pero desalinea los lotes; ninguna línea posterior llega a PR_MAIN y el Java termina con código distinto de 0 sin insertar "no localizados" ni cerrar el job.</objetivo>
     <precondiciones>
-      <precondicion>El fichero descifrado contiene al menos una línea con menos de 360 caracteres.</precondicion>
+      <precondicion>Entorno de pruebas con las llaves de descifrado operativas y un fichero cifrado de prueba de 25 líneas cuya línea 5 descifrada mide 120 caracteres y el resto 360.</precondicion>
+      <precondicion>Los 25 NUMCLIEN existen en el universo de obtenerIDs del entorno de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="linea_invalida" valor="línea truncada de 120 caracteres"/>
+      <dato campo="linea_5" valor="línea truncada de 120 caracteres"/>
+      <dato campo="lineas_1_4_y_6_25" valor="registros válidos de 360 caracteres"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero con la línea truncada incluida.</paso>
-      <paso numero="2">Revisar el log buscando el mensaje de excepción capturada para esa línea.</paso>
-      <paso numero="3">Confirmar que el resto de líneas válidas del fichero se procesan con normalidad.</paso>
+      <paso numero="1">Ejecutar KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE con el fichero de prueba.</paso>
+      <paso numero="2">Comprobar el código de salida del Java en el log de GSProcess.sh.</paso>
+      <paso numero="3">Contar las llamadas a PCK_CON_ALT_COL.PR_MAIN registradas (traza de sesión o efecto en tablas).</paso>
+      <paso numero="4">Consultar FT_T_JBLG para el JOB_ID de la ejecución.</paso>
+      <paso numero="5">Consultar FT_T_RLT1 con MESSAGE_RLT='Cliente no localizado en Altamira Colombia' y ese JOB_ID.</paso>
     </pasos>
-    <resultadoEsperado>La línea inválida se omite (excepción capturada y logueada, sin detener el job) y el resto de líneas válidas se concilian correctamente.</resultadoEsperado>
-    <tipoValidacion>Revisión de log + verificación de que las líneas válidas restantes sí generan actividad en BBDD</tipoValidacion>
-    <criterioAceptacion>El job termina OK, con el mensaje de excepción presente en el log para la línea inválida y sin impacto en las demás líneas.</criterioAceptacion>
-    <posibilidadFallo>Ninguna conocida — comportamiento confirmado por código (try/catch por línea).</posibilidadFallo>
+    <resultadoEsperado>El Java termina con código distinto de 0 (IndexOutOfBoundsException no capturada al preparar el último lote); no se llama a PR_MAIN para ninguna de las 25 líneas (el primer lote, líneas 1-10, ya falla al construirse porque la lista tiene 9 elementos); el job queda en FT_T_JBLG con JOB_STAT_TYP='OPEN'; no se inserta ningún "no localizado". KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE termina NOTOK y MEKYTL1046 no se ejecuta.</resultadoEsperado>
+    <tipoValidacion>Código de salida + recuento de llamadas a PR_MAIN + consulta de FT_T_JBLG y FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Se cumplen las cuatro observaciones. Corrección: la versión anterior esperaba que la línea se descartara y el resto se procesara con normalidad, lo que el código no hace. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si las líneas 6-25 se procesaran, la versión desplegada del jar no sería la analizada. Una línea más larga de 360 caracteres no provoca este efecto (se ignora lo que pasa de la posición 360).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="negativo">
-    <nombre>Fichero no llega desde Colombia dentro de ventana</nombre>
-    <objetivo>Confirmar que, si el host de Colombia no entrega el fichero, el Force-OK de MEKYTL1091_RECEPCION y la tolerancia de MEKYTL1091 enmascaran el fallo hasta que el filewatcher vence por timeout a los 105 minutos.</objetivo>
+    <nombre>Fichero no llega desde Colombia</nombre>
+    <objetivo>Confirmar que, si Colombia no entrega el fichero, la marca OK de MEKYTL1091_RECEPCION y la tolerancia de MEKYTL1091 dejan pasar la cadena hasta la purga o el file watcher, y que la ingesta no se ejecuta.</objetivo>
     <precondiciones>
-      <precondicion>El fichero CONCILIAYYYYMMDD.TXT no existe en el host de Colombia (82.255.60.120) o la conexión falla.</precondicion>
+      <precondicion>Entorno de pruebas sin ningún CONCILIA*.TXT en el origen de Colombia (o con la conexión cortada), en /unload/transmisiones/KYTL/ de la pasarela ni en receive/.</precondicion>
+      <precondicion>Acceso de lectura al estado de los jobs en Control-M.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fichero" valor="ausente"/>
+      <dato campo="fichero" valor="ausente en origen, pasarela y receive/"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar que MEKYTL1091_RECEPCION termina marcado como OK pese a fallar la extracción remota (regla Force-OK).</paso>
-      <paso numero="2">Confirmar que MEKYTL1091 no falla al no encontrar el fichero en receive/.</paso>
-      <paso numero="3">Confirmar que FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE espera hasta 105 minutos y después vence por timeout.</paso>
-      <paso numero="4">Confirmar que KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE no se lanza.</paso>
+      <paso numero="1">Lanzar la cadena a las 23:00 (o forzar MEKYTL1091_RECEPCION).</paso>
+      <paso numero="2">Comprobar que MEKYTL1091_RECEPCION queda en OK (marcado por la regla No OK → OK).</paso>
+      <paso numero="3">Comprobar que MEKYTL1091 termina en OK.</paso>
+      <paso numero="4">Comprobar el estado y el código de MEKYTL1091_BORRADO.</paso>
+      <paso numero="5">Si MEKYTL1091_BORRADO terminó en OK, comprobar que FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE termina con código 7 a los 105 minutos.</paso>
+      <paso numero="6">Comprobar que KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE no se ha ejecutado.</paso>
     </pasos>
-    <resultadoEsperado>La cadena no falla visiblemente hasta el timeout del filewatcher (105 min), momento en el que la ingesta Java no se ejecuta, protegiendo la BBDD de una carga vacía.</resultadoEsperado>
-    <tipoValidacion>Monitorización de estado y tiempos en Control-M</tipoValidacion>
-    <criterioAceptacion>Ningún job posterior al filewatcher se ejecuta y el timeout se produce en el minuto 105, no antes ni después.</criterioAceptacion>
-    <posibilidadFallo>Verificar por lectura del estado del job en Control-M, no requiere ejecución destructiva sobre datos reales.</posibilidadFallo>
+    <resultadoEsperado>MEKYTL1091_RECEPCION y MEKYTL1091 en OK. Con el comando literal de la ficha (rm sin -f), MEKYTL1091_BORRADO termina NOTOK con código 1 y la cadena se detiene ahí; si su comando real tolera la ausencia (P-RAC-03), el file watcher agota los 105 minutos y termina con código 7 (NOTOK, sin regla 7 → OK). En los dos casos KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE no se ejecuta y no se toca la base de datos.</resultadoEsperado>
+    <tipoValidacion>Estado, códigos y tiempos de los jobs en Control-M.</tipoValidacion>
+    <criterioAceptacion>La ingesta no se ejecuta y la cadena queda detenida en MEKYTL1091_BORRADO (código 1) o en el file watcher (código 7, a los 105 minutos). Corrección: la versión anterior solo contemplaba la parada en el file watcher.</criterioAceptacion>
+    <posibilidadFallo>Verificar en entorno de pruebas o por lectura del estado de los jobs; no requiere tocar datos reales.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="negativo">
@@ -120,8 +127,9 @@
       <paso numero="2">Ejecutar KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE en el entorno de prueba.</paso>
       <paso numero="3">Verificar el código de salida del proceso Java.</paso>
       <paso numero="4">Verificar que no se procesó ninguna línea ni se invocó PCK_CON_ALT_COL.PR_MAIN.</paso>
+      <paso numero="5">Consultar FT_T_JBLG con JOB_MSG_TYP='COLOMBIA' y comprobar que el job de esta ejecución sigue en estado OPEN.</paso>
     </pasos>
-    <resultadoEsperado>El proceso termina con código de salida 0 (éxito) pese a no haber procesado ningún dato — el log contiene el mensaje "FALLO: alguna de las llaves no ha podido ser obtenida" o "FALLO: Descifrado no correcto", pero Control-M vería esta ejecución como correcta.</resultadoEsperado>
+    <resultadoEsperado>El Java termina con código 0 sin haber procesado ningún dato; el log contiene "FALLO: alguna de las llaves no ha podido ser obtenida" (llave 1 nula) o "FALLO: Descifrado no correcto" (llave 2 vacía o descifrado erróneo); el job creado en FT_T_JBLG (JOB_MSG_TYP='COLOMBIA') queda con JOB_STAT_TYP='OPEN'; no hay filas nuevas en FT_T_RLT1 para ese JOB_ID. Control-M ve el job como correcto.</resultadoEsperado>
     <tipoValidacion>Verificación de código de salida del proceso + ausencia de actividad en BBDD + presencia del mensaje de fallo en log</tipoValidacion>
     <criterioAceptacion>Código de salida 0 confirmado junto con el mensaje de fallo en log y cero actividad de conciliación.</criterioAceptacion>
     <posibilidadFallo>No ejecutar sobre el entorno real de producción — requiere entorno de prueba donde se pueda simular el fallo del servicio SHIVA sin afectar producción.</posibilidadFallo>
@@ -198,7 +206,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar la query obtenerIDs de ColombiaConciliacion (este proceso) y capturar el conjunto resultante.</paso>
-      <paso numero="2">Ejecutar la query obtenerIDs de ColombiaEnvio (envio_altamira_colombia) sobre el mismo entorno y capturar su conjunto resultante.</paso>
+      <paso numero="2">Ejecutar la query obtenerIDs de ColombiaEnvio (proceso de envío P-035; su texto es idéntico al de §6.5 de la spec de este proceso) sobre el mismo entorno y capturar su conjunto resultante.</paso>
       <paso numero="3">Comparar ambos conjuntos.</paso>
     </pasos>
     <resultadoEsperado>Ambos conjuntos de ClientelaID/FINS_ID son idénticos en el mismo instante de ejecución (mismas tablas, mismos filtros), confirmando que ambos procesos operan sobre el mismo universo de clientes del ciclo de conciliación con Altamira Colombia.</resultadoEsperado>
@@ -307,12 +315,35 @@
       <paso numero="1">Simular la condición de backup/ sin espacio en entorno de prueba.</paso>
       <paso numero="2">Ejecutar MEKYTL1046.</paso>
       <paso numero="3">Verificar si el fichero CONCILIA*.TXT permanece en receive/ tras la ejecución.</paso>
-      <paso numero="4">Verificar si el siguiente ciclo del filewatcher detecta de nuevo ese mismo fichero.</paso>
+      <paso numero="4">Comprobar el código de retorno de MEKYTL1046 en su log /pr/pl/log/MEKYTL1046_&lt;HHMMSS&gt;.log.</paso>
+      <paso numero="5">En el ciclo siguiente, sin fichero nuevo, comprobar que FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE termina OK con el fichero antiguo.</paso>
+      <paso numero="6">Comprobar que el Java escribe "FALLO: Descifrado no correcto" y termina con 0.</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL1046 no logra mover el fichero a backup/, este permanece en receive/, y el filewatcher del siguiente ciclo lo detecta de nuevo — riesgo de reprocesamiento duplicado, según lo documentado en el fuente. Contingencia: mover manualmente los ficheros y notificar a soporte.</resultadoEsperado>
+    <resultadoEsperado>MEKYTL1046 termina NOTOK (código 7 de RAMERC0068.sh, error al mover) y el fichero permanece en receive/. En el ciclo siguiente, si no llega fichero nuevo, el file watcher se da por satisfecho con el antiguo (el comodín CONCILIA*.TXT lo encuentra), pero el Java busca el fichero de "ayer" por nombre, no lo encuentra, el descifrado falla y termina con código 0 sin procesar nada (no hay reproceso del fichero antiguo). Contingencia: mover manualmente los ficheros y avisar a soporte.</resultadoEsperado>
     <tipoValidacion>Verificación del sistema de ficheros antes/después de la ejecución simulada</tipoValidacion>
     <criterioAceptacion>Comportamiento de permanencia del fichero confirmado en entorno de prueba, sin ejecutar contra producción.</criterioAceptacion>
     <posibilidadFallo>No ejecutar sobre el entorno real de producción — simular en entorno de prueba aislado con cuota de disco controlada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="borde">
+    <nombre>Línea en blanco en medio del fichero descifrado</nombre>
+    <objetivo>Confirmar que una línea vacía detiene la lectura (break) y que los clientes de las líneas posteriores se marcan como "no localizados" aunque vinieran en el fichero.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con llaves operativas y un fichero cifrado de prueba con 3 registros válidos, una línea vacía y 2 registros válidos más (NUMCLIEN 11111111, 22222222, 33333333 | vacía | 44444444, 55555555), todos en el universo de obtenerIDs.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="lineas_antes_del_blanco" valor="11111111, 22222222, 33333333"/>
+      <dato campo="lineas_despues_del_blanco" valor="44444444, 55555555"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE con el fichero de prueba.</paso>
+      <paso numero="2">Comprobar que el Java termina con código 0.</paso>
+      <paso numero="3">Consultar FT_T_RLT1 con MESSAGE_RLT='Cliente no localizado en Altamira Colombia' para el JOB_ID de la ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>Código 0; PR_MAIN se llama solo para 11111111, 22222222 y 33333333; en FT_T_RLT1 aparecen como "no localizado" 44444444 y 55555555 (además de cualquier otro cliente del universo no incluido en el fichero).</resultadoEsperado>
+    <tipoValidacion>Código de salida + consulta de FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>44444444 y 55555555 marcados como no localizados pese a venir en el fichero. No ejecutar en producción (deja no localizados falsos).</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio: falsos "no localizados" sin ningún aviso en el job.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
