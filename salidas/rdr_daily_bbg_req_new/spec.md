@@ -162,9 +162,14 @@ MERCADOS-4 (host `pr-rdr.igrupobbva`). **Criticidad:** W (aviso al día siguient
    - **NO** (nunca llegó el fichero tras los 20 reintentos) → **BeanShell "Write Error"** (mensaje `"<fecha>
      -Bloomberg response not found"`) → **Write File** (añade la línea al CSV `pathBatch + fileNameANS`,
      `BBG_loadRating_failures_toANS_<fecha>.csv`) → **CallSubWorkflow "Mail"** (`Destination=contact_ANS`,
-     `FileMail=pathNameANS`, `NameFile=fileNameANS`, `Subject="Bloomberg load ratings failures <fecha>"`) →
-     **Stop**. **El workflow termina aquí sin error de ejecución** (no hay excepción ni código de fallo que
-     Control-M pueda detectar): el único indicio de que no se cargó ningún rating ese día es el correo a ANS.
+     `FileMail=pathNameANS`, `NameFile=fileNameANS`, `Subject="Bloomberg load ratings failures <fecha>"`) —
+     **confirmado con `.wkf` real** (grupo `Custom/RDR/Common`, componente compartido documentado en detalle
+     en `salidas/rdr_pr_bdiclienreg_resp/spec.md` §6.15bis): envío SMTP puro, sin autenticación real, que
+     traga cualquier excepción internamente sin relanzarla ni devolver resultado alguno — **si el propio envío
+     de correo fallara (SMTP caído, destinatario inválido), este workflow no se enteraría** → **Stop**. **El
+     workflow termina aquí sin error de ejecución** (no hay excepción ni código de fallo que Control-M pueda
+     detectar): el único indicio de que no se cargó ningún rating ese día es el correo a ANS — **y ni siquiera
+     ese correo tiene garantía de llegar, dado que `Mail` no informa de un fallo de envío a quien lo invoca**.
    - **YES** → continúa al paso 6.
 6. **BeanShell "Read BBG Response"**: abre el fichero (`path`) con **dos lectores distintos**: uno cuenta
    líneas hasta `END-OF-DATA` (marcador de fin de datos del formato Bloomberg Data License), el otro vuelca
@@ -345,6 +350,11 @@ evidencia que permanece (configuración de despliegue del feed de carga final).
   20 reintentos se agotan, `BBG_Batch_Response` escribe el CSV de error y envía correo a ANS, pero llega a
   `Stop` de forma normal — no hay excepción ni código de fallo. La criticidad W (aviso al día siguiente) de
   Control-M no se dispararía por el estado del job en sí, solo el correo a ANS detecta el incidente (TC-007).
+  **Agravante confirmado con `.wkf` real del subworkflow `Mail`** (componente compartido, ver
+  `salidas/rdr_pr_bdiclienreg_resp/spec.md` §6.15bis): `Mail` traga cualquier excepción de envío SMTP
+  internamente sin informar a quien lo invoca, así que un fallo del propio envío (SMTP caído, etc.) tampoco
+  se detectaría aquí — el único indicio del incidente diario podría no llegar a enviarse nunca, sin que nada
+  lo refleje.
 * **[Confirmado] Descarte silencioso de líneas de respuesta sin `INST_MNEM` activo:** `BBG_Batch_ProcessFile`
   no registra ni notifica cuando el `BBGCID` de una línea de respuesta no casa con ningún `INST_MNEM` activo
   (rama `nothing-found` → `Stop` directo). A diferencia de lo que sugería la documentación previa, **no existe

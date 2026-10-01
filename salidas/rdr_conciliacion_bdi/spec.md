@@ -61,7 +61,10 @@ automatizado — ver gap G1).
 * **Transmisión simulada:** `MEGENV0001.sh` en modo "A DUMMY" (`MEKYTL0135`).
 * **Historificación:** `RAMERC0068.sh` (3 jobs en cascada, sin compresión).
 * **Evento final:** dispara el workflow GoldenSource `RDR_informeBroker_BDI` (BeanShell + Switch Case +
-  sub-workflow `Mail` condicional, R6).
+  sub-workflow `Mail` condicional, R6). `Mail` **confirmado con `.wkf` real** (componente compartido, grupo
+  `Custom/RDR/Common` — ver `salidas/rdr_pr_bdiclienreg_resp/spec.md` §6.15bis): envío SMTP puro que traga
+  cualquier excepción internamente sin informar a su llamante — un fallo del propio envío del informe Broker
+  no quedaría registrado en ningún sitio.
 
 ### 6.1 Pipeline `ConBDI.properties.de` (documento fuente, líneas 903-946)
 
