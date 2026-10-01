@@ -290,27 +290,26 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
-    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — catálogo de columnas confirmado, punto de escritura aún sin atribuir</nombre>
+    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — prácticamente resuelto: muy probablemente de solo lectura para este jar</nombre>
     <objetivo>Confirmar, con una decompilación más profunda del bytecode o con observación de una ejecución real instrumentada, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a una decompilación más detallada del jar, o a trazas/logs de una ejecución real que muestren INSERT/UPDATE sobre estas 5 tablas — PARCIALMENTE CUMPLIDA: las 5 entidades JPA reales (.java) aportadas 2026-10-01 confirman el catálogo de columnas, pero ninguna declara @OneToMany/@ManyToOne propia, así que no muestran ni descartan por sí solas una escritura real.</precondicion>
-      <precondicion>Código fuente de FT_T_FINS/FT_T_ISGU (posible lado padre de una relación @OneToMany hacia estas 5 entidades), o de un Service/Repository/DAO que las persista explícitamente — NO APORTADO, sigue siendo el material que falta.</precondicion>
+      <precondicion>Acceso a una decompilación más detallada del jar, o a trazas/logs de una ejecución real que muestren INSERT/UPDATE sobre estas 5 tablas — CUMPLIDA al nivel de anotaciones JPA: las 5 entidades (FINR/FIRL/FRID/GUNT/REP1) más FT_T_FINS y FT_T_ISGU (posibles "padres") aportadas 2026-10-01 confirman con código real que no hay ninguna relación de escritura declarada hacia estas 5 tablas.</precondicion>
+      <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService/LoaderProcess, para descartar al 100% una escritura explícita que no pase por una relación JPA (p. ej. entityManager.persist(new FT_T_FINR()) directo) — NO APORTADO, único resto para el cierre total.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="FT_T_FINR (confirmado 2026-10-01)" valor="39 columnas reales, @Id FINR_OID; sin relación JPA declarada hacia FT_T_FIRL/FT_T_FRID pese a que estas sí la referencian por columna FINR_OID"/>
-      <dato campo="FT_T_FIRL / FT_T_FRID (confirmado 2026-10-01)" valor="ambas referencian FINR_OID como columna String simple (no @ManyToOne navegable); FRID añade GUNT_OID/GU_ID/GU_TYP/GU_CNT — relaciona FINR con GUNT y con un MKT_OID"/>
-      <dato campo="FT_T_GUNT (confirmado 2026-10-01)" valor="32 columnas reales, jerarquía propia autorreferenciada (prntGuId/prntGuTyp/prntGuCnt) + catálogo geográfico completo (continente/país/región/ciudad/coordenadas)"/>
-      <dato campo="FT_T_REP1 (confirmado 2026-10-01)" valor="columnas PROCESO/TIPO/QUERY/RUTA/EXCEL_TEMPLATE/EXCEL_SHEET/CABECERA — compatibles con una fila de configuración de informe por proceso (hipótesis razonable por nombre de columna, no confirmada; posible relación con el motor GestionAlertas/RDR_AlertasCocinado del job 7, §5.4)"/>
+      <dato campo="FT_T_FINS (confirmado 2026-10-01) — hallazgo clave" valor="declara @OneToMany(fetch=LAZY) hacia finrList (FT_T_FINR), firlList (FT_T_FIRL) y fridList (FT_T_FRID), con @JoinColumn(insertable=false, updatable=false) y SIN atributo cascade — relación JPA de solo lectura: Hibernate nunca gestiona ni escribe la FK de estas 3 colecciones al persistir FT_T_FINS"/>
+      <dato campo="FT_T_ISGU (confirmado 2026-10-01) — contraste" valor="no declara ninguna relación JPA hacia FT_T_GUNT pese a tener la columna guntOid (misma referencia-por-columna-simple que en FT_T_FRID); SÍ tiene un constructor dedicado FT_T_ISGU(EntityManager) que genera un OID nuevo vía UtilsMethods.createOid() — patrón de creación de fila nueva, propio de una tabla ya confirmada como escrita (Grupo C), y AUSENTE en las 5 entidades del Grupo E"/>
+      <dato campo="FT_T_GUNT / FT_T_REP1" valor="ninguna entidad inspeccionada en todo el proceso (incluidas FINS e ISGU) declara una relación JPA entrante hacia estas 2 tablas"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>
-      <paso numero="2">Si recibe filas, identificar qué servicio/relación (@OneToMany/cascada) las origina — descartado que sea una cascada declarada en estas 5 clases; queda por revisar si está en FT_T_FINS/FT_T_ISGU (lado padre) o en un Service explícito.</paso>
-      <paso numero="3">Si no recibe ninguna fila en ningún escenario real, documentar como código muerto/entidad no usada.</paso>
+      <paso numero="2">Si recibe filas, identificar qué servicio/relación (@OneToMany/cascada) las origina — descartado a nivel JPA para las 3 tablas con relación conocida (FINR/FIRL/FRID, relación de solo lectura desde FINS); sin relación conocida para GUNT/REP1.</paso>
+      <paso numero="3">Si no recibe ninguna fila en ningún escenario real, documentar como código de solo lectura/entidad no escrita por este jar.</paso>
     </pasos>
-    <resultadoEsperado>Atribución real confirmada (servicio concreto, o código muerto) para las 5 tablas del Grupo E.</resultadoEsperado>
-    <tipoValidacion>Decompilación adicional (FT_T_FINS/FT_T_ISGU o el Service/Repository real) + observación de ejecución real con trazas de BD.</tipoValidacion>
-    <criterioAceptacion>Cada una de las 5 tablas queda clasificada como "escrita por X" o "sin escritura confirmada en ningún escenario observado".</criterioAceptacion>
-    <posibilidadFallo>Las 5 entidades aportadas esta ronda no declaran @OneToMany/@ManyToOne propia: descarta que el ORM dispare la escritura desde estas clases, pero no confirma ni descarta una cascada declarada del lado padre ni una escritura explícita por servicio — caso sigue bloqueado por falta de ese material concreto, ya no por falta de las propias entidades.</posibilidadFallo>
+    <resultadoEsperado>Atribución real confirmada (servicio concreto, o solo lectura/código muerto) para las 5 tablas del Grupo E.</resultadoEsperado>
+    <tipoValidacion>Decompilación adicional (IssuersService/UnderlyingService/ListedDerivativesService/LoaderProcess) + observación de ejecución real con trazas de BD.</tipoValidacion>
+    <criterioAceptacion>Cada una de las 5 tablas queda clasificada como "escrita por X" o "de solo lectura para este jar, sin escritura confirmada en ningún escenario observado".</criterioAceptacion>
+    <posibilidadFallo>La relación @OneToMany de solo lectura en FT_T_FINS confirma, con la propia anotación, que FT_T_FINR/FT_T_FIRL/FT_T_FRID no se escriben por esa vía — pero no descarta al 100% una escritura explícita vía entityManager.persist() directo en un Service no aportado. Si una futura revisión asumiera "Grupo E = código muerto" sin esa confirmación final, podría pasar por alto una vía de escritura real fuera del grafo de relaciones JPA inspeccionado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-016" tipo="negativo">

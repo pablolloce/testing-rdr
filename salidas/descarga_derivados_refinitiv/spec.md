@@ -145,16 +145,31 @@ ANS RDR.
     ya confirmado en §5.4 de este mismo proceso y en otros del audit, filtrado por `PROCESO`; **hipótesis
     razonable por el nombre de columnas, no confirmada** — no se ha visto ningún `SELECT`/`INSERT` real sobre
     esta tabla).
-    **Hallazgo de esta ronda:** ninguna de las 5 clases declara una anotación `@OneToMany`/`@ManyToOne`/
-    `@JoinColumn` — son entidades JPA independientes con referencias cruzadas solo a nivel de columna
-    (`FINR_OID`/`GUNT_OID`/etc. como `String`, no como relación JPA navegable). Esto **descarta, para estas 5
-    clases en concreto, que el propio ORM dispare una escritura en cascada desde ellas** — si existe una
-    cascada real, tendría que declararse en el lado "padre" de la relación (p. ej. un `@OneToMany` en
-    `FT_T_FINS` o `FT_T_ISGU` apuntando a estas clases), entidades que no se han aportado en esta ronda y
-    siguen sin inspeccionar. El punto de escritura real (si existe) solo puede confirmarse con: (a) el código
-    fuente de `FT_T_FINS`/`FT_T_ISGU` (para ver si declaran la relación `@OneToMany` del lado padre), o (b)
-    un `Service`/`Repository`/`DAO` que llame explícitamente a `save()`/`persist()` sobre alguna de estas 5
-    entidades — ninguno de los dos aportado todavía.
+    **[CONFIRMADO esta ronda (2026-10-01) con `FT_T_FINS.java`/`FT_T_ISGU.java` reales — ya no hipótesis]:**
+    ninguna de las 5 clases declara `@OneToMany`/`@ManyToOne`/`@JoinColumn` propia — descarta que el ORM
+    dispare cascada desde ellas mismas. `FT_T_FINS` sí declara 3 colecciones `@OneToMany` hacia 3 de las 5
+    tablas (`finrList`→`FT_T_FINR`, `firlList`→`FT_T_FIRL`, `fridList`→`FT_T_FRID`), pero **las 3 con
+    `@JoinColumn(insertable = false, updatable = false)` y sin ningún atributo `cascade`** — en JPA/Hibernate
+    esto significa que la relación es **puramente de lectura** (permite navegar/leer `finsInstance.getFinrList()`
+    vía `fetch = LAZY`, pero Hibernate nunca gestiona ni escribe la clave foránea de esas 3 colecciones al
+    persistir `FT_T_FINS`). **Confirma, con la propia anotación JPA, que `refinitivDerivativesLoader.jar` no
+    escribe `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID` a través de esta relación.** `FT_T_ISGU` (tabla del Grupo C,
+    no del E) no declara ninguna relación hacia `FT_T_GUNT` pese a tener la columna `guntOid` — mismo patrón
+    de referencia por columna simple, sin relación JPA navegable; `FT_T_GUNT`/`FT_T_REP1` siguen sin ninguna
+    relación entrante declarada en ningún lado, de ninguna de las entidades inspeccionadas hasta ahora.
+    **Indicio adicional (contraste, no concluyente):** `FT_T_ISGU` tiene un constructor dedicado
+    `FT_T_ISGU(EntityManager)` que genera un OID nuevo (`UtilsMethods.createOid(...)`) — patrón típico de
+    "creación de fila nueva" que SÍ aparece en una tabla ya confirmada como escrita (Grupo C, §5.2). Ninguna
+    de las 5 entidades del Grupo E tiene un constructor equivalente (solo el constructor vacío implícito) —
+    consistente con que no se instancian para insertar, aunque no lo demuestra de forma concluyente sin ver
+    el código del `Service`/`LoaderProcess` que las usaría. **Conclusión de esta ronda:** el peso de la
+    evidencia apunta a que las 5 tablas del Grupo E **no se escriben desde `refinitivDerivativesLoader.jar`**
+    (existen en el jar como entidades de solo lectura, probablemente para consultas de enriquecimiento contra
+    datos ya mantenidos por otro proceso) — no se puede afirmar al 100% sin ver el código de los 3 servicios
+    de carga (`IssuersService`/`UnderlyingService`/`ListedDerivativesService`) o del propio `LoaderProcess`,
+    que podrían en teoría invocar `entityManager.persist(new FT_T_FINR())` directamente, sin pasar por la
+    colección `@OneToMany` de `FT_T_FINS` (ese código no se ha aportado ni en esta ronda ni en las
+    anteriores).
 
 ### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
 
@@ -371,13 +386,12 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   un problema de falta de muestra, sino de falta de código fuente de los 3 servicios de carga. Hallazgo nuevo
   no bloqueante: `Subyacentes*.txt` tiene solo 3 campos, muy por debajo de lo esperado para alimentar
   directamente las 3 tablas del Grupo B — ver §5.6 para las 2 hipótesis abiertas, ninguna confirmada.
-* **[Precisado, 2026-10-01, sigue sin punto de escritura confirmado] 5 tablas del Grupo E:** las 5 entidades
-  JPA reales (`.java`, aportadas esta ronda) confirman el catálogo completo de columnas (§5.2) y revelan que
-  **ninguna declara `@OneToMany`/`@ManyToOne` propia** — descarta una cascada disparada desde estas 5 clases
-  en concreto, pero no descarta una cascada declarada del lado padre (`FT_T_FINS`/`FT_T_ISGU`, no aportados) ni
-  una escritura explícita vía `Service`/`Repository` (tampoco aportado). Si ninguna de las 2 vías existe
-  realmente, podría tratarse de código muerto o de un flujo funcional no cubierto por este análisis — sigue
-  sin confirmar en ningún sentido (ver TC-015).
+* **[Prácticamente resuelto, 2026-10-01] 5 tablas del Grupo E, muy probablemente no escritas por este jar:**
+  `FT_T_FINS.java` real confirma que sus 3 `@OneToMany` hacia `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID` son de solo
+  lectura (`insertable=false, updatable=false`, sin `cascade`) — descarta que el ORM las escriba desde ahí.
+  `FT_T_GUNT`/`FT_T_REP1` siguen sin ninguna relación entrante declarada. El peso de la evidencia apunta a
+  código de solo lectura (consultas de enriquecimiento contra datos mantenidos por otro proceso), no a
+  escritura activa — queda un resto no cerrable sin el código de los 3 servicios de carga (ver §5.2/TC-015).
 * **[Riesgo no bloqueante] Job 1 sin script propio documentado:** la recogida SFTP desde Refinitiv no tiene
   un `.sh` propio identificado — se describe solo a partir de fichas/capturas de Control-M, no de código
   fuente real, a diferencia del resto de jobs de la cadena.
@@ -391,10 +405,11 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
   (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
-* **Atribución exacta de las 5 tablas del Grupo E** a un servicio/línea de código concreto — catálogo de
-  columnas ya confirmado con las 5 entidades JPA reales (§5.2), sin `@OneToMany` propia en ninguna de ellas
-  (descarta cascada desde estas clases); falta el código fuente de `FT_T_FINS`/`FT_T_ISGU` (posible lado
-  padre de una cascada) o de un `Service`/`Repository` que las persista explícitamente.
+* **Atribución exacta de las 5 tablas del Grupo E** a un servicio/línea de código concreto — prácticamente
+  resuelta en sentido negativo (§5.2): `FT_T_FINS.java` real confirma que su `@OneToMany` hacia 3 de las 5
+  tablas es de solo lectura (sin `cascade`, `insertable=false`/`updatable=false`); muy probablemente no se
+  escriben desde este jar. Solo queda descartar, sin el código de `IssuersService`/`UnderlyingService`/
+  `ListedDerivativesService`/`LoaderProcess`, una escritura explícita que no pase por esa relación.
 * **Mapeo campo del fichero origen (`.txt` de Refinitiv) → columna Oracle** — estructura real de
   `Subyacentes*.txt`/`Derivados_Enriquecido.txt` ya confirmada con muestra real (§5.6); el mapeo exacto a
   columna Oracle, y toda la estructura de `Emisores*.txt` (muestra vacía), siguen sin confirmar — requiere el
@@ -453,3 +468,15 @@ que el propio ORM dispare cascada desde estas 5 entidades; si existe una escritu
 una relación `@OneToMany` declarada en el lado padre (`FT_T_FINS`/`FT_T_ISGU`, no aportados) o de un
 `Service`/`Repository` explícito (tampoco aportado) — el objetivo original de TC-015 (atribuir el punto de
 escritura) sigue sin resolver, ahora con un hueco de evidencia más concreto.
+
+**Ronda adicional (2026-10-01, cuarta del día):** el usuario aportó `FT_T_FINS.java` y `FT_T_ISGU.java`
+reales. **TC-015 queda prácticamente resuelto en sentido negativo:** `FT_T_FINS` sí declara `@OneToMany`
+hacia `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`, pero con `@JoinColumn(insertable = false, updatable = false)` y
+sin `cascade` — es decir, **una relación JPA de solo lectura**, que confirma con la propia anotación (no ya
+por ausencia de evidencia) que estas 3 tablas no se escriben a través de ella. `FT_T_ISGU` no declara ninguna
+relación hacia `FT_T_GUNT` pese a referenciarla por columna (`guntOid`), y ninguna entidad inspeccionada en
+todo el proceso declara una relación hacia `FT_T_REP1`. Indicio de contraste: `FT_T_ISGU` sí tiene un
+constructor que genera un OID nuevo (patrón de "creación de fila", propio de una tabla ya confirmada como
+escrita en el Grupo C), patrón ausente en las 5 entidades del Grupo E. El peso de la evidencia ya apunta con
+bastante confianza a que el Grupo E es de solo lectura para este jar; el resto no cerrable sin el código de
+los 3 servicios de carga queda documentado en TC-015.
