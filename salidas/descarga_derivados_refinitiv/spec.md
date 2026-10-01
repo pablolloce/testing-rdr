@@ -52,11 +52,11 @@ ANS RDR.
 * **Ámbito técnico:** las 2 cadenas Control-M completas (`KYTL001D...`/`KYTL001P...`, 7 pasos cada una), el
   script `Refinitiv_Derivados_Batch.sh` y el jar `refinitivDerivativesLoader.jar`.
 * **Fuera de alcance** (detalle completo en §8.2): la generación del fichero en la plataforma Refinitiv
-  (proveedor externo); el contenido del sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor` (único punto interno
-  de toda la cadena de workflows GoldenSource sin confirmar tras esta ronda — ver §5.3); `DerivativesProcessor`
-  (mapeo campo→columna de las tablas satélite del Grupo C); el algoritmo interno del servicio externo
-  OpenFigi. La atribución de las 5 tablas satélite del Grupo E y el mapeo campo a campo de
-  Emisores/Subyacentes/Derivados quedan resueltos esta ronda (ver §5.2/§5.6).
+  (proveedor externo); el consumidor real del mensaje JMS `AltaRolEmisor` que inserta en `FT_T_FINR` (el
+  disparo y el payload sí están confirmados — ver §5.3); el algoritmo interno del servicio externo OpenFigi.
+  La atribución de las 5 tablas del Grupo E, el contenido de toda la cadena de workflows de los jobs 5/6, y
+  el mapeo campo a campo de Emisores/Subyacentes/Derivados (incluidas las tablas satélite del Grupo C) quedan
+  resueltos esta ronda (ver §5.2/§5.3/§5.6).
 
 ## 3. Requisitos detectados
 
@@ -151,51 +151,96 @@ ANS RDR.
     de otra naturaleza, **es literalmente el único fichero que este servicio necesita**). Busca `FT_T_ISSU`
     por `(underlyingId, underlyingIdType)`; si hay más de un resultado distinto, lo marca duplicado (alerta
     `UNDERLYING_DUPLICATED_EXCEPTION`, suprimida si `vreqOid != null` — ver más abajo) y no toca nada; si
-    existe exactamente 1, **no lo reinserta** — solo consulta (lectura) `FT_T_MKIS` para obtener la divisa de
-    cotización cuando el identificador es RIC, generando distintas alertas (`UNDERLYING_RIC_...`) si falta la
-    asociación; si no existe, **crea una nueva fila `FT_T_ISSU` con 2 `FT_T_ISID`** (una con el identificador
-    de negocio RIC/ISIN, otra con un `RDR_ID` generado) y la persiste. **`FT_T_MKIS` nunca se inserta/actualiza
-    desde `UnderlyingService`** — es de solo lectura aquí; su alta real (si ocurre) no está confirmada en
-    ningún código aportado.
-  - **Grupo C (Derivados → `ListedDerivativesService`+`DerivativesProcessor`):** `ListedDerivativesService`
-    confirma el fichero real de 45 campos `|`-delimitados (§5.6) y resuelve varios de esos campos por nombre
-    de negocio real (vía la clase `PositionsTemplate`, constantes de índice no decompiladas: `RIC`,
-    `QUOTE_PERM_ID`, `UNDERLYING_RIC`, `UNDERLYING_ISIN`, `UNDERLYING_CHEAPEST_ISIN`, `UNDERLYING_ISIN_ESMA`,
-    `ASSET_STATUS`, `ACTION`, `CURRENCY`, `EXERCISE_STYLE`, `REFINITIV_CLASSIFICATION_SCHEME`,
-    `METHOD_OF_DELIVERY`, `MIC`, `EXCHANGE_CODE`). Antes de cargar, valida en cadena (cada fallo genera una
-    excepción específica vía `ExceptionService` y **descarta solo esa línea**, no todo el lote): divisa
-    conocida en RDR, estilo de ejercicio válido (solo opciones), método de entrega traducible, subyacente no
-    duplicado, tipo de emisión (`REFINITIV_CLASSIFICATION_SCHEME`) traducible, y mercado (`MIC`/código de
-    bolsa) resuelto contra `FT_T_GUNT` (vía mapas `StaticData.getMarketGuntMapMic()`/`...ExchangeCode()` —
-    primer uso confirmado de `FT_T_GUNT`, de **lectura**, en este jar, aunque no cambia la conclusión de
-    solo-lectura del Grupo E: sigue sin ningún `INSERT`/`UPDATE` sobre esa tabla en ningún código aportado).
-    Si una línea tiene `UNDERLYING_RIC` marcado inactivo (carácter `^`), estado `INACTIVE` o `ACTION='D'`, en
-    vez de cargarla **desactiva** el `FT_T_ISSU`/`FT_T_ISID` existente. Si pasa todos los filtros, delega en
-    `DerivativesProcessor.updateDerivativeData()` (ya existe en RDR) o `.insertDerivativeData()` (nuevo) —
-    **`DerivativesProcessor` no se ha aportado**, así que el mapeo campo→columna exacto de las tablas satélite
-    (`FT_T_OPCH`/`FT_T_SWCH`/`FT_T_UWCH`/`FT_T_RIDF`/`FT_T_RISS`/`FT_T_FECH`/`FT_T_FNCH`/`FT_T_IEDF`/
-    `FT_T_ISCL`/`FT_T_ISDE`/`FT_T_ISGU`/`FT_T_RGCH`) sigue sin confirmar a ese nivel (sí lo está, en cambio,
-    el fichero de entrada y el catálogo de columnas por tabla — ver §5.6/TC-016).
+    existe exactamente 1, **no lo reinserta en `FT_T_ISSU`/`FT_T_ISID`** — solo consulta (lectura) `FT_T_MKIS`
+    para obtener la divisa de cotización cuando el identificador es RIC, generando distintas alertas
+    (`UNDERLYING_RIC_...`) si falta la asociación; si no existe, **crea una nueva fila `FT_T_ISSU` con 2
+    `FT_T_ISID`** (una con el identificador de negocio RIC/ISIN, otra con un `RDR_ID` generado) y la persiste.
+    `UnderlyingService` nunca inserta/actualiza `FT_T_MKIS` — **pero sí lo hace `DerivativesProcessor`** (ver
+    Grupo C), así que la escritura real de `FT_T_MKIS` ocurre al cargar el derivado, no el subyacente.
+  - **Grupo C (Derivados → `ListedDerivativesService`+`DerivativesProcessor`, ambos reales, 2026-10-01):**
+    `ListedDerivativesService` confirma el fichero real de 45 campos `|`-delimitados (§5.6) y resuelve varios
+    de esos campos por nombre de negocio real (vía la clase `PositionsTemplate`, constantes de índice no
+    decompiladas: `RIC`, `QUOTE_PERM_ID`, `UNDERLYING_RIC`, `UNDERLYING_ISIN`, `UNDERLYING_CHEAPEST_ISIN`,
+    `UNDERLYING_ISIN_ESMA`, `ASSET_STATUS`, `ACTION`, `CURRENCY`, `EXERCISE_STYLE`,
+    `REFINITIV_CLASSIFICATION_SCHEME`, `METHOD_OF_DELIVERY`, `MIC`, `EXCHANGE_CODE`, más otros de solo
+    `DerivativesProcessor`: `EXPIRATION_DATE`/`LAST_TRADING_DATE`/`FIRST_TRADING_DATE`/`LAST_DELIVERY_DATE`,
+    `ASSET_CATEGORY`, `SECURITY_DESCRIPTION`, `ISIN`, `FIGI`, `TRADING_STYLE`, `NOTIONAL_CURRENCY_ESMA`/`_2`,
+    `MIFID_UNDERLYING_INDEX_NAME`, `STRIKE_PRICE`, `LOT_SIZE`, `PUT_CALL_INDICATOR`, `CFI_CODE`,
+    `COUNTRY_OF_INCORPORATION`, `EEA_VENUE_ELIGIBLE_FLAG`, `ISSUER_ORG_ID`, `TRADING_SYMBOL`,
+    `TICKER_RFTNV`/`TICKER`, `HOFURI_CHG_DTE`, `END_TMS`). Antes de cargar, valida en cadena (cada fallo
+    genera una excepción específica vía `ExceptionService` y **descarta solo esa línea**, no todo el lote):
+    divisa conocida en RDR, estilo de ejercicio válido (solo opciones), método de entrega traducible,
+    subyacente no duplicado, tipo de emisión (`REFINITIV_CLASSIFICATION_SCHEME`) traducible, y mercado
+    (`MIC`/código de bolsa) resuelto contra `FT_T_GUNT` (vía mapas `StaticData.getMarketGuntMapMic()`/
+    `...ExchangeCode()`). Si una línea tiene `UNDERLYING_RIC` marcado inactivo (carácter `^`), estado
+    `INACTIVE` o `ACTION='D'`, en vez de cargarla **desactiva** el `FT_T_ISSU`/`FT_T_ISID` existente. Si pasa
+    todos los filtros, delega en `DerivativesProcessor.updateDerivativeData()`/`.insertDerivativeData()` —
+    **ambos aportados y confirmados esta ronda**, mapeo campo→columna completo por tabla satélite:
+    - `FT_T_ISDE` (descripción, `issNme`=`SECURITY_DESCRIPTION`, `issDesc`=`ISIN`) y `FT_T_ISGU` (2 filas
+      independientes: contexto `REGSTRTN` desde `COUNTRY_OF_INCORPORATION`, contexto `ISSUANCE` desde
+      `EXCHANGE_CODE`/`MIC`, ambas resueltas contra mapas geográficos de `StaticData` — **lectura de
+      `FT_T_GUNT`**, nunca escritura) — siempre se procesan.
+    - `FT_T_ISCL` (clasificación CFI, desde `CFI_CODE` contra `StaticData.getCfiMap()`) — se inactiva si el
+      CFI no está vacío pero no existe en RDR, o si llega vacío.
+    - `FT_T_FECH` (`lastDlvDte`=`LAST_DELIVERY_DATE`, `prcngSessionTyp`=`TRADING_STYLE`) y `FT_T_UWCH`
+      (`dlvTyp`=método de entrega traducido) — siempre se procesan, para cualquier tipo de derivado.
+    - `FT_T_SWCH` (`swapNotlCurrCde`/`swapNotl2CurrCde`=`NOTIONAL_CURRENCY_ESMA`/`_2`) — **[hallazgo] se
+      procesa incondicionalmente para TODOS los tipos de derivado, no solo swaps** (a diferencia de
+      `FT_T_OPCH`, que sí está condicionado a `issTyp=="OPTIONS"`): una opción o un futuro sin esos 2 campos
+      de negocio recibe igualmente una fila `FT_T_SWCH` con las divisas nocionales a `null` — asimetría de
+      diseño confirmada, no un error de transcripción.
+    - `FT_T_OPCH` (`callPutTyp`/`strkeCprc`/`strkeprcCurrCde`/`exerTyp`) — **solo si `issTyp=="OPTIONS"`**.
+    - `FT_T_FNCH` (`underlyIndexId`=`MIFID_UNDERLYING_INDEX_NAME`) — solo si ese campo viene informado.
+    - `FT_T_IEDF` — **solo en alta** (`insertDerivativeData`, nunca en `updateDerivativeData`), con valores
+      siempre constantes (`EvTyp=OTHER`, `RndMethTyp=R`, `VerifInd=Y`), no derivados de ningún campo del
+      fichero.
+    - `FT_T_MKIS` (`prcCurrCde`/`trdngCurrCde`=`CURRENCY`, `firstTrdngTms`=`FIRST_TRADING_DATE`,
+      `mktOid`=calculado desde `MIC`/`EXCHANGE_CODE`) — **[corrige Grupo B] se inserta/actualiza aquí**, no
+      en `UnderlyingService`.
+    - `FT_T_RIDF`+`FT_T_RISS` (relación con el subyacente: `acltCntrctSizeCamt`=`LOT_SIZE`,
+      `callPutTyp`=`PUT_CALL_INDICATOR`, `underlyCurrCde`=divisa del subyacente vía `StaticData` —
+      alimentada por `UnderlyingService`—, `relTyp`=tipo de emisión; `FT_T_RISS.instrId`=`instrId` del
+      subyacente ya cargado) — confirma la dependencia de orden Issuers→Underlyings→Derivatives también a
+      nivel de esta tabla.
+    - `FT_T_RGCH` (ToTV/MiFID: `mifidRegulatedInd`=`EEA_VENUE_ELIGIBLE_FLAG`, `guId`/`guCnt`/`guTyp`/`guntOid`
+      resueltos contra `FT_T_GUNT` vía `StaticData.getMarketGuntMapMic()`/`...ExchangeCode()` — **segunda
+      lectura confirmada de `FT_T_GUNT`**, nunca escritura).
+    **Ninguna referencia a `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_REP1` en todo `DerivativesProcessor.java`**
+    (confirmado por búsqueda exhaustiva) — cierra definitivamente el Grupo E a nivel del jar, ver más abajo.
     **Dependencia de orden confirmada en código:** `UnderlyingService` publica sus resultados (duplicados,
     relación subyacente→`instrId`, relación subyacente→divisa) en una caché estática compartida
-    (`StaticData`), que `ListedDerivativesService` consulta (`checkIfUnderlyingIsDuplicated`) — confirma que
-    el orden Issuers→Underlyings→Derivatives no es solo una convención, es una dependencia de datos real.
+    (`StaticData`), que `ListedDerivativesService`/`DerivativesProcessor` consultan — confirma que el orden
+    Issuers→Underlyings→Derivatives no es solo una convención, es una dependencia de datos real.
   - **Grupo D (cierre de ciclo):** `FT_T_VREQ.VND_RQST_STAT_TYP` — **[CORREGIDO, ver hallazgo de código
     arriba]** se marca `PROCESSED` siempre que no esté ya `FAILED`, **no "tras completar las 3 cargas"** como
     se documentaba; `FT_T_ALD1`/`FT_T_ALG1` (definición/log de alertas, escritas por `ExceptionService` ante
     cada validación fallida a nivel de línea, con nombres de excepción específicos y distintos según si la
     ejecución es `BATCH` (job 4) o acompañada de `vreqOid` (jobs 5/6: sufijo `_ONLINE_VREQ` en el catálogo de
     excepciones).
-  - **Grupo E — [CERRADO esta ronda, confirmado con los 4 servicios reales, ya no solo por ausencia de
-    `@OneToMany`]:** `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1` — **ninguna de las 4 clases
-    que forman el 100% del jar `refinitivDerivativesLoader.jar` (`LoaderProcess`, `IssuersService`,
-    `UnderlyingService`, `ListedDerivativesService`) importa, consulta o persiste ninguna de estas 5
-    entidades**, ni directamente ni a través de la relación de solo lectura ya confirmada en `FT_T_FINS`.
-    `FT_T_GUNT` sí se **lee** (ver Grupo C, validación de `MIC`/código de bolsa), pero nunca se escribe. El
-    único punto que queda sin ver es `DerivativesProcessor` (invocado por `ListedDerivativesService` para las
-    tablas satélite del Grupo C) — posible, aunque de bajo impacto dado que gestiona tablas de un grupo
-    distinto, que allí se use alguna de las 5 tablas del Grupo E; no aportado. **Conclusión: las 5 tablas del
-    Grupo E no se escriben desde ningún código confirmado de este jar — ver TC-015.**
+  - **Grupo E — [CERRADO al 100% esta ronda con el 100% del código del jar + el workflow
+    `Refinitiv_Bloomberg_AltaRolEmisor.wkf` real]:** resultado final, tabla por tabla:
+    - **`FT_T_FINR` — SÍ SE ESCRIBE, pero no desde el jar.** `Refinitiv_Bloomberg_AltaRolEmisor.wkf`
+      (invocado por `Load_Refinitiv_Response.wkf`, rama `issueRequest`/job 5 — ver §5.3) resuelve el
+      `FINS_ID` de cada entidad recibida (por `LEI`, con lógica de resolución de grupo/matriz vía
+      `FT_T_FIRL` si el LEI es compartido por varias entidades), comprueba si ya tiene rol `ISSUER` activo en
+      `FT_T_FINR` (join con `FT_T_FIID`) y, si no, construye un XML `PtyDetlListUpd`/`RolDetl` (rol
+      `CPARTY`, `ORG_ID`+`LEIID`) y lo envía vía el sub-workflow `AltaRolEmisor` (mensaje JMS) — **este es el
+      punto de alta real del rol `ISSUER` en `FT_T_FINR`**, confirmado por el payload XML y la condición de
+      guarda (`Issuer Exist?`), aunque el `INSERT` SQL final ocurre en el consumidor de ese mensaje (fuera de
+      alcance, ver §8.2).
+    - **`FT_T_FIRL` — de solo lectura**, usada en `Refinitiv_Bloomberg_AltaRolEmisor.wkf` para resolver la
+      entidad "operativa" (no subsidiaria) cuando un mismo `LEI` identifica a un grupo/matriz (2 saltos de
+      join sobre `FT_T_FIRL`, filtrando `subsidiary_ind='N'`) — nunca se escribe.
+    - **`FT_T_GUNT` — de solo lectura**, confirmado en 2 puntos de `DerivativesProcessor` (geolocalización de
+      emisión/registro vía `FT_T_ISGU`, y resolución de ToTV/MiFID vía `FT_T_RGCH`) y 1 de
+      `ListedDerivativesService` (validación de `MIC`/código de bolsa) — nunca se escribe en ningún código
+      inspeccionado.
+    - **`FT_T_FRID`/`FT_T_REP1` — sin ninguna referencia** (ni lectura ni escritura) en ningún código ni
+      workflow inspeccionado en todo este proceso.
+    **Conclusión:** de las 5 tablas del Grupo E, 1 (`FT_T_FINR`) sí se escribe — pero por un mecanismo externo
+    al jar `refinitivDerivativesLoader.jar` (el workflow `Refinitiv_Bloomberg_AltaRolEmisor` vía mensajería
+    JMS/ESB), no por el código Java de carga. Las otras 4 no tienen ninguna escritura confirmada en todo el
+    código y los workflows inspeccionados — ver TC-015.
 
 ### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
 
@@ -286,9 +331,25 @@ Load"** (el mismo patrón `CallSubWorkflow` reutilizado en todo este audit), no 
    emisiones/subyacentes del job 5 pasa por el motor nativo de parsing de GoldenSource, no por
    `refinitivDerivativesLoader.jar`**. Durante el parseo (rama `issueRequest`), por cada línea extrae
    `Requested Identifier`/`MIC List` a un mapa en memoria, e invoca el sub-workflow
-   `Refinitiv_Bloomberg_AltaRolEmisor` (no aportado; mismo prefijo `Refinitiv_Bloomberg` que
-   `BBG_Refinitiv_Batch.wkf`, ya confirmado en el proceso hermano `RDR_BATCH_EMISORES_REFINITIV` de este
-   mismo audit — otro punto de reutilización entre ambos procesos).
+   `Refinitiv_Bloomberg_AltaRolEmisor` (mismo prefijo `Refinitiv_Bloomberg` que `BBG_Refinitiv_Batch.wkf`, ya
+   confirmado en el proceso hermano `RDR_BATCH_EMISORES_REFINITIV` de este mismo audit).
+   **[CERRADO esta ronda (2026-10-01) con `Refinitiv_Bloomberg_AltaRolEmisor.wkf` real]** — lee, línea a
+   línea, un fichero de identificadores a nivel de **entidad** (no de instrumento), en 2 formatos posibles:
+   64 campos `|`-delimitados (`TIPO_PROVEEDOR=REFINITIV`: `LEI`=campo 22, `ORG_ID`=campo 21,
+   `INSTRUMENT_TYPE`=campo 6, `ClassificationScheme`=campo 8) o 47 campos (`TIPO_PROVEEDOR=BLOOMBERG`:
+   `LEI`=campo 21, `ORG_ID`=campo 22) — un `LEI` con longitud ≠20 caracteres invalida la línea. Para cada
+   línea: resuelve el `FINS_ID` por `LEI` (`FT_T_FIID`, contexto `LEIID`); si ese `LEI` identifica a más de
+   una entidad (grupo/matriz), resuelve la entidad "operativa" (no subsidiaria) mediante 2 saltos de join
+   sobre `FT_T_FIRL` (`subsidiary_ind='N'`) — **lectura confirmada de `FT_T_FIRL`**. Comprueba si esa entidad
+   tiene rol de **gestora de fondos** (`FT_T_FIGP`, `PRT_PURP_TYP='FUNDMNGR'`); si lo tiene y el instrumento
+   es de tipo ETF/EXTF, fija `IS_EXTF="Y"` (persistente para toda la ejecución, no solo esa línea) y **no crea
+   ningún rol de emisor para esa línea** — es un diseño confirmado, no un defecto: una ETF gestionada por un
+   fondo no recibe alta de rol `ISSUER` por esta vía. En caso contrario, comprueba si el `FINS_ID` ya tiene un
+   rol `ISSUER` activo en `FT_T_FINR` (join con `FT_T_FIID`); si no lo tiene, construye un XML
+   `PtyDetlListUpd`/`PtyDetlUpd`/`RolDetl` (rol `CPARTY`, `AltPty` con `ORG_ID` y `LEIID`) y lo envía como
+   mensaje JMS al sub-workflow `AltaRolEmisor` — **este es el punto de alta real del rol `ISSUER` en
+   `FT_T_FINR`** (ver §5.2 Grupo E), aunque el `INSERT` SQL final lo ejecuta el consumidor de ese mensaje
+   (fuera de alcance, ver §8.2).
 4. Tras la carga, comprueba `FT_T_NTEL` (vía `FT_T_TRID`/`job_id`) por mensajes con `MSG_SEVERITY_CDE > 20`:
    si los hay, inserta una alerta en `TABLEALERTGENER` (`PROCESO='PETICION_REFINITIV_EMISIONES'`) y marca
    `FT_T_VREQ` `FAILED` con "Load failed" — mismo mecanismo de alerta ya confirmado en el propio
@@ -297,14 +358,16 @@ Load"** (el mismo patrón `CallSubWorkflow` reutilizado en todo este audit), no 
    (`RLT_PURP_TYP='LISTED_MIC'`,`DATA_SRC_APP='RFNT_ISSUE_REQUEST'`, por `job_id`) con el mapa de MIC en
    memoria para generar un segundo fichero (`CargaListedMIC_<timestamp>.xml`), cargado a su vez por otro
    sub-workflow genérico (`Carga_Listed_MIC`) que asocia los mercados (MIC) a las emisiones recién creadas.
-6. Marca `FT_T_VREQ` `PROCESSED` — **salvo que el flag `IS_EXTF`** (salida del sub-workflow
-   `Refinitiv_Bloomberg_AltaRolEmisor`) **sea `"Y"`**, en cuyo caso este cierre final se omite y la solicitud
-   puede quedar sin un estado terminal explícito — matiz nuevo, no bloqueante, para TC-017.
+6. Marca `FT_T_VREQ` `PROCESSED` — **salvo que el flag `IS_EXTF`** (confirmado arriba: al menos 1 entidad del
+   lote es una ETF gestionada por un fondo) **sea `"Y"`**, en cuyo caso este cierre final se omite
+   deliberadamente — la solicitud queda sin marcar como completada mientras el lote incluya un caso de este
+   tipo, ya no un "matiz" sino un comportamiento de diseño confirmado (ver TC-017).
 
-**Único resto sin evidencia propia tras esta ronda:** el contenido del sub-workflow
-`Refinitiv_Bloomberg_AltaRolEmisor` (bajo impacto: ya se sabe qué invoca y con qué datos, falta solo su
-lógica interna de alta de rol emisor, probablemente solapada con `Refinitiv_Bloomberg_AltaRolEmisor`/
-`BBG_Refinitiv_Batch` del proceso hermano).
+**Esta ronda (2026-10-01) cierra por completo la cadena de workflows de los jobs 5/6** — las 3 piezas
+(`Refinitiv_Request_Response.wkf`, `Load_Refinitiv_Response.wkf`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf`)
+están ya inspeccionadas nodo a nodo. Único resto, fuera de alcance por naturaleza: el consumidor real del
+mensaje JMS `AltaRolEmisor` (presumiblemente un servicio ESB/de gestión de terceros compartido en BBVA, no
+propio de este proceso) — ver §8.2.
 
 ### 5.4 Job 7 (reporte/alertas) — `.properties` real confirmado: es el motor genérico `GestionAlertas`
 
@@ -410,13 +473,13 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 | `regresion` | Confirmar que D y P ejecutan el mismo binario (`Refinitiv_Derivados_Batch.sh`) y el mismo jar (`refinitivDerivativesLoader.jar`), con comportamiento idéntico salvo el parámetro de modo. | TC-007 |
 | `happy_path` | Carga real de Emisores: `Emisores*.txt` → `IssuersService` → `FT_T_FINS`/`FT_T_ISSR`. | TC-008 |
 | `happy_path` | Carga real de Subyacentes: `Subyacentes*.txt` → `UnderlyingService` → `FT_T_ISID`/`FT_T_ISSU`/`FT_T_MKIS`. | TC-009 |
-| `happy_path` | Carga real de Derivados por tipo (opción/swap/futuro): `Derivados_Enriquecido*.txt` → `ListedDerivativesService` → tablas satélite correspondientes (`FT_T_OPCH`/`FT_T_SWCH`/etc.). | TC-010 |
+| `happy_path` | Carga real de Derivados por tipo (opción/swap/futuro): `Derivados_Enriquecido*.txt` → `ListedDerivativesService`+`DerivativesProcessor` → tablas satélite correspondientes (`FT_T_OPCH` solo opciones, `FT_T_SWCH` siempre, `FT_T_FECH`/`FT_T_UWCH` siempre, `FT_T_FNCH` si aplica, `FT_T_IEDF` solo alta). | TC-010 |
 | `error_funcional` | **[Corregido]** `FT_T_VREQ.VND_RQST_STAT_TYP` se marca `PROCESSED` sin comprobar si las 3 cargas tuvieron éxito — un fallo de lectura de fichero puede dejarlo marcado como procesado sin haber cargado nada (defecto confirmado por código). | TC-011 |
 | `error_funcional` | Un registro inválido de `Derivados_Enriquecido.txt` (divisa/estilo de ejercicio/método de entrega/mercado desconocido, o subyacente duplicado) hace que `ListedDerivativesService` descarte solo esa línea vía una excepción específica de `ExceptionService`, sin detener el resto del lote. | TC-012 |
 | `error_funcional` | Un fallo del servicio externo OpenFigi (paso 4 del pipeline) se trata como "cualquier otro error" — log de error + `exit -1`, detiene la carga. | TC-013 |
-| `negativo` | Contenido nodo a nodo de toda la cadena de workflows (`Refinitiv_Request_Response`→`Load_Refinitiv_Response`) invocada por los jobs 5/6 — **confirmado al 100% salvo el sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor`**. | TC-014 |
-| `negativo` | Atribución real del punto de escritura de las 5 tablas del Grupo E (`FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1`) — **resuelto: ninguno de los 4 servicios del jar las escribe ni las referencia.** | TC-015 |
-| `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — **resuelto para Emisores/Subyacentes/Derivados** (confirmado por código real de los 3 servicios); solo quedan las tablas satélite del Grupo C (`DerivativesProcessor`, no aportado). | TC-016 |
+| `negativo` | Contenido nodo a nodo de toda la cadena de workflows de los jobs 5/6 (`Refinitiv_Request_Response`→`Load_Refinitiv_Response`→`Refinitiv_Bloomberg_AltaRolEmisor`) — **confirmado al 100%**, único resto fuera de alcance por naturaleza (consumidor del mensaje JMS). | TC-014 |
+| `negativo` | Atribución real del punto de escritura de las 5 tablas del Grupo E (`FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1`) — **resuelto al 100%: `FT_T_FINR` se escribe vía mensaje JMS desde `Refinitiv_Bloomberg_AltaRolEmisor`; `FT_T_FIRL`/`FT_T_GUNT` se leen; `FT_T_FRID`/`FT_T_REP1` sin ninguna referencia.** | TC-015 |
+| `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — **resuelto al 100% para Emisores/Subyacentes/Derivados**, incluidas las 11 tablas satélite del Grupo C (confirmado por código real de los 5 componentes del jar). | TC-016 |
 | `conflicto_integridad` | Los parámetros `idType`/`requestType`/`vreqOid` de los jobs 5/6 llegan realmente al workflow `Refinitiv_Request_Response` (confirmar el efecto colateral de arrays deducido en §5.3 con un log/traza real). | TC-017 |
 | `happy_path` | El job 7 ejecuta correctamente el motor genérico `GestionAlertas` filtrado por `DERIVADOS_REFINITIV` (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`). | TC-018 |
 
@@ -428,11 +491,12 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   directa de `FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ`/`FT_T_REP1`:** la hipótesis hedged del documento fuente
   queda sustituida por el mecanismo real confirmado en §5.4 (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`,
   filtrado por `DERIVADOS_REFINITIV`) — ya no es una suposición.
-* **[Resuelto con el workflow real, 2026-10-01] Jobs 5/6 disparan una nueva solicitud a Refinitiv y el job 6
-  reutiliza el pipeline completo de carga del job 4:** confirmado al 100% con `Refinitiv_Request_Response.wkf`
-  real (ver §5.3) — ya no es una hipótesis deducida solo de los nombres. El job 4 **no es el único punto que
-  escribe en las 20 tablas Oracle de §5.2** cuando se considera la cascada completa (job 6 → workflow →
-  `refinitivDerivativesLoader.jar`), lo que matiza R4 tal y como estaba redactado.
+* **[Resuelto con los workflows reales, 2026-10-01] Jobs 5/6 disparan una nueva solicitud a Refinitiv, el
+  job 6 reutiliza el pipeline de carga del job 4, y el job 5 da de alta el rol de emisor vía mensajería
+  JMS/ESB:** confirmado al 100% con las 3 piezas de workflow (`Refinitiv_Request_Response.wkf`,
+  `Load_Refinitiv_Response.wkf`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — ver §5.3) — ya no es una hipótesis
+  deducida solo de los nombres. El job 4 **no es el único punto que escribe en las 20 tablas Oracle de §5.2**
+  cuando se considera la cascada completa, lo que matiza R4 tal y como estaba redactado.
 * **[NUEVO, prioridad media-alta, DEFECTO CONFIRMADO con `LoaderProcess.java` real, 2026-10-01] `FT_T_VREQ`
   puede marcarse `PROCESSED` sin haberse cargado nada:** `setVreqStatus()` marca `PROCESSED` siempre que el
   estado actual no sea ya literalmente `'FAILED'`, **sin comprobar en ningún momento si las 3 cargas
@@ -442,11 +506,6 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   propio workflow invocador marcó `FAILED` por otra vía antes (p. ej. "file not found" en
   `Refinitiv_Request_Response.wkf`, §5.3) — no cubre el caso de fichero presente pero ilegible/incompleto. Ver
   TC-011.
-* **[Resuelto con el workflow real, 2026-10-01] Jobs 5/6 disparan una nueva solicitud a Refinitiv y el job 6
-  reutiliza el pipeline completo de carga del job 4:** confirmado al 100% con `Refinitiv_Request_Response.wkf`
-  real (ver §5.3) — ya no es una hipótesis deducida solo de los nombres. El job 4 **no es el único punto que
-  escribe en las 20 tablas Oracle de §5.2** cuando se considera la cascada completa (job 6 → workflow →
-  `refinitivDerivativesLoader.jar`), lo que matiza R4 tal y como estaba redactado.
 * **[NUEVO, no bloqueante, deducido de código ya confirmado de `GSProcess.sh`] Los parámetros `idType`/
   `requestType`/`vreqOid` de los jobs 5/6 llegarían al workflow por un efecto colateral de los arrays
   `clave[]`/`valor[]` no limpiados entre bloques `Accion`, no por un mecanismo explícito para campos
@@ -455,35 +514,36 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **[No confirmado] Función exacta del job 2:** el documento describe la función de `MEKYTL10{80|81}` como
   "probable control de seguridad/red antes de exponer el fichero" — lenguaje explícitamente hedged, no una
   confirmación del propósito real de la pasarela intermedia.
-* **[Resuelto en su mayor parte, 2026-10-01] Mapeo campo a campo de Subyacentes/Derivados confirmado por
-  código; solo quedan las tablas satélite del Grupo C:** `UnderlyingService.java`/`ListedDerivativesService.java`
-  reales confirman que los 3 campos de `Subyacentes*.txt` (`UNDERLYING_ID`/`UNDERLYING_ID_TYPE`/
-  `UNDERLYING_TYPOLOGY`) son exactamente los que el servicio necesita — no hay ningún campo más que mapear — y
-  que los 45 campos de `Derivados_Enriquecido.txt` se resuelven por nombre real vía `PositionsTemplate` (ver
-  §5.2/§5.6). Solo falta `DerivativesProcessor` para el mapeo campo→columna de las tablas satélite del Grupo C
-  (`FT_T_OPCH`/`FT_T_SWCH`/etc.) y una muestra de contenido real de `Emisores*.txt` (su estructura — un
-  `orgId` por línea — ya está confirmada por código).
-* **[Resuelto, 2026-10-01] 5 tablas del Grupo E, confirmado que no se escriben desde este jar:** ninguna de
-  las 4 clases que forman el 100% de `refinitivDerivativesLoader.jar`
-  (`LoaderProcess`/`IssuersService`/`UnderlyingService`/`ListedDerivativesService`) importa, consulta o
-  persiste `FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1` — ver §5.2/TC-015. Único resto de bajo
-  impacto: `DerivativesProcessor` (tablas satélite del Grupo C, distinto grupo), no aportado.
+* **[Resuelto, 2026-10-01] Mapeo campo a campo de Emisores/Subyacentes/Derivados, incluidas las tablas
+  satélite del Grupo C:** `UnderlyingService.java`/`ListedDerivativesService.java`/`DerivativesProcessor.java`
+  reales confirman que los 3 campos de `Subyacentes*.txt` son exactamente los que `UnderlyingService`
+  necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §5.2). Único resto:
+  una muestra de contenido real de `Emisores*.txt` (su estructura — un `orgId` por línea — ya está confirmada
+  por código).
+* **[Resuelto, 2026-10-01] Las 5 tablas del Grupo E quedan atribuidas al 100%:** `FT_T_FINR` **sí se escribe**
+  — no desde el jar, sino desde el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` vía un mensaje JMS
+  (`AltaRolEmisor`) que da de alta el rol `ISSUER`; `FT_T_FIRL`/`FT_T_GUNT` se **leen** (resolución de
+  grupo/matriz y geolocalización, respectivamente) pero nunca se escriben; `FT_T_FRID`/`FT_T_REP1` no tienen
+  ninguna referencia (ni lectura ni escritura) en ningún código ni workflow inspeccionado — ver §5.2/TC-015.
 * **[Riesgo no bloqueante] Job 1 sin script propio documentado:** la recogida SFTP desde Refinitiv no tiene
   un `.sh` propio identificado — se describe solo a partir de fichas/capturas de Control-M, no de código
   fuente real, a diferencia del resto de jobs de la cadena.
-* **[NUEVO, bajo impacto, 2026-10-01] Posible solicitud sin estado terminal:** `Load_Refinitiv_Response.wkf`
-  (rama `issueRequest`/job 5) omite la actualización final `FT_T_VREQ=PROCESSED` si el flag `IS_EXTF` (salida
-  del sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor`, no aportado) vale `"Y"` — ver §5.3. Sin el contenido
-  de ese sub-workflow no se puede evaluar la frecuencia real de este caso.
+* **[Confirmado, no un riesgo — diseño intencional] Solicitud sin estado terminal ante una ETF gestionada por
+  fondo:** `Load_Refinitiv_Response.wkf` (rama `issueRequest`/job 5) omite deliberadamente
+  `FT_T_VREQ=PROCESSED` si el flag `IS_EXTF` (confirmado en `Refinitiv_Bloomberg_AltaRolEmisor.wkf`, ver
+  §5.3) vale `"Y"` — ocurre cuando al menos una entidad del lote es una ETF con rol de gestora de fondos
+  activo; no recibe alta de rol `ISSUER` por este mecanismo. Confirmado como diseño, no como defecto.
+* **[NUEVO, no bloqueante, 2026-10-01] `FT_T_SWCH` se crea para todos los tipos de derivado, no solo
+  swaps:** a diferencia de `FT_T_OPCH` (condicionado a `issTyp=="OPTIONS"`), `DerivativesProcessor` procesa
+  `FT_T_SWCH` incondicionalmente — una opción o un futuro sin divisas nocionales ESMA recibe igualmente una
+  fila `FT_T_SWCH` con esos 2 campos a `null`. Confirmado por código, asimetría de diseño respecto a `FT_T_OPCH`.
 
-### 8.2 Fuera de alcance (sin material propio aportado)
+### 8.2 Fuera de alcance
 
-* **Contenido del sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor`** (invocado por `Load_Refinitiv_Response.wkf`,
-  rama `issueRequest`/job 5, ya confirmado en §5.3) — no aportado; único punto interno de toda la cadena de
-  workflows GoldenSource de este proceso que queda sin evidencia tras esta ronda.
-* **`DerivativesProcessor`** (clase invocada por `ListedDerivativesService` para insertar/actualizar las
-  tablas satélite del Grupo C según el tipo de derivado) — no aportada; es el único resto para el mapeo
-  campo→columna exacto de `FT_T_OPCH`/`FT_T_SWCH`/`FT_T_UWCH`/etc. (ver §5.2/§5.6/TC-016).
+* **Consumidor real del mensaje JMS `AltaRolEmisor`** (invocado por `Refinitiv_Bloomberg_AltaRolEmisor.wkf`
+  para dar de alta el rol `ISSUER` en `FT_T_FINR`, ver §5.3/§5.2) — el disparo, el payload XML y la condición
+  de guarda están confirmados; el `INSERT` SQL final lo ejecuta un servicio externo (presumiblemente un
+  ESB/motor de gestión de terceros compartido en BBVA, no propio de este proceso), fuera de alcance.
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
   (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
@@ -593,3 +653,35 @@ esta ronda se cierran TC-014, TC-015 y TC-016 casi por completo:**
 la ronda anterior (contenido del workflow, atribución del Grupo E, mapeo campo-columna), los 3 quedan
 resueltos o prácticamente resueltos. Restan solo 2 puntos de bajo impacto, ambos aislados y no bloqueantes:
 el sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor` y la clase `DerivativesProcessor`.
+
+**Ronda adicional (2026-10-01, sexta y última del día) — cierre total del proceso.** El usuario aportó los 2
+puntos que quedaban pendientes (`DerivativesProcessor.java`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf`) más una
+línea sintética de prueba para el swap de TC-010.
+
+* **`DerivativesProcessor.java` real** resuelve el mapeo campo→columna completo de las 11 tablas satélite del
+  Grupo C (ver §5.2): `FT_T_ISDE`/`FT_T_ISGU`/`FT_T_FECH`/`FT_T_UWCH`/`FT_T_SWCH`/`FT_T_MKIS`/`FT_T_RIDF`/
+  `FT_T_RISS`/`FT_T_RGCH` se procesan siempre, `FT_T_OPCH` solo para opciones, `FT_T_FNCH` solo si el dato
+  llega informado, `FT_T_IEDF` solo en alta con valores constantes. Corrige una asunción anterior: `FT_T_MKIS`
+  sí se escribe, pero desde aquí, no desde `UnderlyingService`. Revela una asimetría de diseño confirmada:
+  `FT_T_SWCH` se crea para cualquier tipo de derivado, no solo swaps (a diferencia de `FT_T_OPCH`). Búsqueda
+  exhaustiva confirma, además, que esta clase tampoco referencia ninguna de las 5 tablas del Grupo E.
+* **`Refinitiv_Bloomberg_AltaRolEmisor.wkf` real** cierra TC-014 al 100% y resuelve, de la forma más completa
+  posible, TC-015 para `FT_T_FINR`: este workflow (no el jar) es quien **sí da de alta el rol `ISSUER`** en
+  `FT_T_FINR`, resolviendo el `FINS_ID` por `LEI` (con lógica de resolución de grupo/matriz vía `FT_T_FIRL`,
+  confirmando su uso de solo lectura) y enviando un XML `PtyDetlListUpd`/`RolDetl` por mensaje JMS al
+  sub-workflow `AltaRolEmisor` — el único resto, ya fuera de alcance por naturaleza, es el consumidor de ese
+  mensaje. También confirma como **diseño intencional, no defecto**, el comportamiento de `IS_EXTF`: una ETF
+  con rol de gestora de fondos activo no recibe alta de rol `ISSUER` y dejar la solicitud sin `PROCESSED` es
+  deliberado.
+* **Línea sintética de swap para TC-010:** el usuario aportó
+  `SWAP_TC-010_LINEA_SINTETICA.txt`, una línea de prueba de tipo `SWAP` para cubrir el hueco de la muestra
+  real (que no traía ningún swap). **Nota de calidad del dato:** la línea tiene 43 campos `|`-delimitados,
+  no los 45 confirmados como ancho real de `Derivados_Enriquecido.txt` en la muestra de producción (§5.6) —
+  antes de usarla en TC-010 conviene ajustarla a 45 campos (añadiendo 2 campos vacíos finales) para que
+  coincida exactamente con el formato real que `ListedDerivativesService`/`DerivativesProcessor` esperan.
+
+**Con esta ronda, el proceso queda cerrado al 100% en todos los huecos de evidencia que eran responsabilidad
+de este audit.** Los 2 puntos que quedan fuera de alcance (el consumidor del mensaje JMS `AltaRolEmisor`, y
+el algoritmo interno de OpenFigi) lo están por naturaleza — pertenecen a sistemas externos a
+`refinitivDerivativesLoader.jar` y a los workflows GoldenSource de este proceso, no a huecos de material no
+aportado.

@@ -185,28 +185,29 @@
     <resultadoEsperado>El subyacente nuevo queda correctamente cargado en FT_T_ISSU/FT_T_ISID; el subyacente existente no genera ninguna escritura, solo una lectura de FT_T_MKIS.</resultadoEsperado>
     <tipoValidacion>Inspección directa de FT_T_ISSU/FT_T_ISID/FT_T_MKIS tras la carga.</tipoValidacion>
     <criterioAceptacion>Filas nuevas consistentes en FT_T_ISSU/FT_T_ISID para el subyacente nuevo; ninguna escritura para el existente.</criterioAceptacion>
-    <posibilidadFallo>Confirmado por código: `UnderlyingService` nunca inserta ni actualiza `FT_T_MKIS` — si algún subyacente necesitara una fila de cotización en mercado nueva, tendría que originarse en otro punto no identificado (posiblemente `DerivativesProcessor`, no aportado), no en esta carga de subyacentes.</posibilidadFallo>
+    <posibilidadFallo>Confirmado por código: `UnderlyingService` nunca inserta ni actualiza `FT_T_MKIS` — la fila de cotización en mercado de un subyacente se crea/actualiza realmente desde `DerivativesProcessor` (confirmado 2026-10-01, al procesar el derivado que referencia a ese subyacente, vía `processMarketIssueCharacteristics`), no en esta carga de subyacentes. Si una prueba esperara ver `FT_T_MKIS` poblada justo tras cargar `Subyacentes*.txt`, antes de cargar ningún derivado, no la encontraría.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="happy_path">
-    <nombre>Carga real de Derivados por tipo (opción/swap/futuro) en sus tablas satélite</nombre>
-    <objetivo>Confirmar que ListedDerivativesService+DerivativesProcessor cargan un derivado del fichero Derivados_Enriquecido*.txt en FT_T_ISID/FT_T_ISSU (comunes) y en la tabla satélite correspondiente a su tipo (p. ej. FT_T_OPCH para una opción, con CALL_PUT_TYP/STRKE_CPRC poblados).</objetivo>
+    <nombre>Carga real de Derivados por tipo (opción/swap/futuro) en sus tablas satélite — mapeo completo confirmado, FT_T_SWCH se crea para cualquier tipo</nombre>
+    <objetivo>Confirmar que ListedDerivativesService+DerivativesProcessor cargan un derivado del fichero Derivados_Enriquecido*.txt en FT_T_ISSU/FT_T_ISID (comunes) y en las tablas satélite correspondientes, incluida la asimetría confirmada entre FT_T_OPCH (solo opciones) y FT_T_SWCH (siempre, cualquier tipo).</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap. PARCIALMENTE CUMPLIDA: la muestra real aportada 2026-10-01 (1.837 derivados) solo contiene OPT (1.703), FUT (128) y BONDFUT (6) — ningún SWAP en el lote real; sigue haciendo falta un derivado de tipo swap (real o de prueba) para cubrir esa rama.</precondicion>
+      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap. La muestra real (1.837 derivados) solo contiene OPT/FUT/BONDFUT, ningún SWAP — el usuario aportó 2026-10-01 una línea sintética (SWAP_TC-010_LINEA_SINTETICA.txt) para cubrir ese hueco. AVISO DE CALIDAD DE DATO: esa línea tiene 43 campos |-delimitados, no los 45 confirmados como ancho real del fichero en §5.6 — ajustar a 45 campos (añadiendo 2 vacíos al final) antes de usarla, para que coincida con el formato exacto que ListedDerivativesService/DerivativesProcessor esperan.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Derivado de prueba 1 (opción, cubierto con muestra real)" valor="p. ej. AMATj162610200.U|...|AMAT261016C01020000|OPRA|OPT|...|C|...|1020|...|US0382221051|...|AMAT.O|...|UNDLYRFV|||  — campo 19=C (call), campo 23=1020 (strike)"/>
-      <dato campo="Derivado de prueba 2 (swap, sin cobertura en la muestra real)" valor="swap con SWAP_NOTL_CURR_CDE poblado — pendiente de un ejemplo real o sintético"/>
+      <dato campo="Derivado de prueba 2 (swap, línea sintética aportada 2026-10-01)" valor="TCSWP00010R|...|SWAP|...|EUR|USD|... — tipo SWAP en campo 6; ajustar a 45 campos antes de usar"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el paso 5 del pipeline con el fichero de prueba.</paso>
-      <paso numero="2">Confirmar la fila común en FT_T_ISID/FT_T_ISSU para cada derivado.</paso>
-      <paso numero="3">Confirmar la fila en FT_T_OPCH para el derivado de tipo opción, y en FT_T_SWCH para el de tipo swap.</paso>
+      <paso numero="1">Ajustar la línea sintética de swap a 45 campos y ejecutar la carga con el fichero de prueba (opción + swap).</paso>
+      <paso numero="2">Confirmar la fila común en FT_T_ISSU/FT_T_ISID para cada derivado.</paso>
+      <paso numero="3">Confirmar que ambos derivados (opción y swap) reciben una fila en FT_T_SWCH (confirmado por código: se crea incondicionalmente, no solo para swaps) y que solo la opción recibe fila en FT_T_OPCH (condicionado a issTyp=="OPTIONS").</paso>
+      <paso numero="4">Confirmar las tablas comunes a ambos tipos: FT_T_ISDE/FT_T_ISGU/FT_T_FECH/FT_T_UWCH/FT_T_MKIS/FT_T_RIDF/FT_T_RISS/FT_T_RGCH (siempre) y FT_T_IEDF (solo en alta).</paso>
     </pasos>
-    <resultadoEsperado>Cada derivado queda cargado en las tablas comunes más la tabla satélite exacta correspondiente a su tipo, sin filas espurias en tablas de otros tipos.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de FT_T_ISID/FT_T_ISSU/FT_T_OPCH/FT_T_SWCH tras la carga.</tipoValidacion>
-    <criterioAceptacion>Filas exactas en las tablas correspondientes al tipo de cada derivado de prueba.</criterioAceptacion>
-    <posibilidadFallo>Si un derivado de un tipo recibiera filas en la tabla satélite de otro tipo, o ninguna tabla satélite, sería una desviación del mapeo documentado en §5.2.</posibilidadFallo>
+    <resultadoEsperado>Cada derivado queda cargado en las tablas comunes y FT_T_SWCH (ambos), más FT_T_OPCH solo para la opción — confirma la asimetría de diseño real, no un error de carga.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de FT_T_ISSU/FT_T_ISID/FT_T_OPCH/FT_T_SWCH/resto de tablas satélite tras la carga.</tipoValidacion>
+    <criterioAceptacion>FT_T_SWCH presente para ambos derivados (con divisas nocionales null para la opción); FT_T_OPCH presente solo para la opción; resto de tablas comunes presentes para ambos.</criterioAceptacion>
+    <posibilidadFallo>Confirmado por código que FT_T_SWCH no es exclusiva de swaps — si un hallazgo o una prueba asumiera "FT_T_SWCH solo para swaps" (simétrico a FT_T_OPCH), subestimaría el volumen real de filas en esa tabla. Si un derivado de un tipo recibiera filas en una tabla satélite condicional de otro tipo (p. ej. FT_T_OPCH para un futuro), sería una desviación real del mapeo documentado en §5.2.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-011" tipo="error_funcional">
@@ -275,73 +276,73 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-014" tipo="conflicto_integridad">
-    <nombre>Contenido nodo a nodo de la cadena de workflows de los jobs 5/6 — CERRADO al 100% salvo un sub-workflow de bajo impacto</nombre>
-    <objetivo>Confirmar, con los workflows reales Refinitiv_Request_Response.wkf y Load_Refinitiv_Response.wkf aportados por el usuario, qué solicita realmente a Refinitiv y cómo procesa la respuesta en las ramas issueRequest/UNDLY_ISSUES_ENRICHMENT (job 5) y optionsfuturesRequest/OPTIONS_FUTURES_ENRICHMENT (job 6).</objetivo>
+    <nombre>Contenido nodo a nodo de toda la cadena de workflows de los jobs 5/6 — CERRADO AL 100%</nombre>
+    <objetivo>Confirmar, con las 3 piezas reales de workflow (Refinitiv_Request_Response.wkf, Load_Refinitiv_Response.wkf, Refinitiv_Bloomberg_AltaRolEmisor.wkf), qué solicita realmente a Refinitiv, cómo procesa la respuesta, y cómo da de alta el rol de emisor en las ramas issueRequest/UNDLY_ISSUES_ENRICHMENT (job 5) y optionsfuturesRequest/OPTIONS_FUTURES_ENRICHMENT (job 6).</objetivo>
     <precondiciones>
-      <precondicion>Fichero real Refinitiv_Request_Response.wkf — APORTADO (idéntico, salvo versión/ruta JDK, al ya usado por RDR_BATCH_EMISORES_REFINITIV para otras ramas).</precondicion>
-      <precondicion>Fichero real Load_Refinitiv_Response.wkf (sub-workflow de la rama issueRequest) — APORTADO 2026-10-01, cierra el único resto que quedaba de esta cadena.</precondicion>
+      <precondicion>Las 3 piezas de workflow — TODAS APORTADAS (2026-10-01 la última, Refinitiv_Bloomberg_AltaRolEmisor.wkf): cierra la cadena completa, nodo a nodo.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Rama issueRequest (job 5) — Refinitiv_Request_Response.wkf" valor="pathOut=.../Enrichment/issues/; lanza RDR_Refinitiv_Request.jar (REFINITIV UNDLY_ISSUES_ENRICHMENT issueRequest); espera hasta 300s la respuesta; invoca Load_Refinitiv_Response y PRC_ESCOBA_SUBYACENTES()"/>
-      <dato campo="Load_Refinitiv_Response.wkf (confirmado 2026-10-01)" valor="comprueba si FT_T_VREQ ya está FAILED; busca el layout de la respuesta en FT_T_PAR1 (REFINITIV_PARAMS/&lt;requestType&gt;Output); carga el fichero vía el motor GENÉRICO GoldenSource 'Standard File Load' (BusinessFeed=Refinitiv_Issue_Response o Refinitiv_Identifiers_Response), NO el jar Java; invoca el sub-workflow Refinitiv_Bloomberg_AltaRolEmisor (no aportado); comprueba FT_T_NTEL (severidad&gt;20) tras la carga — si hay errores, inserta en TABLEALERTGENER y marca FT_T_VREQ FAILED; si no, cruza FT_T_RLT1 (LISTED_MIC) con el mapa MIC extraído de la respuesta y carga un 2º fichero (CargaListedMIC_&lt;timestamp&gt;.xml) vía otro sub-workflow genérico; marca FT_T_VREQ PROCESSED salvo que el flag IS_EXTF (salida de Refinitiv_Bloomberg_AltaRolEmisor) sea 'Y'"/>
+      <dato campo="Rama issueRequest (job 5) — Refinitiv_Request_Response.wkf" valor="pathOut=.../Enrichment/issues/; lanza RDR_Refinitiv_Request.jar; espera hasta 300s la respuesta; invoca Load_Refinitiv_Response y PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Load_Refinitiv_Response.wkf" valor="carga la respuesta vía el motor GENÉRICO GoldenSource 'Standard File Load' (BusinessFeed=Refinitiv_Issue_Response/Refinitiv_Identifiers_Response), NO el jar Java; invoca Refinitiv_Bloomberg_AltaRolEmisor; comprueba FT_T_NTEL tras la carga; marca FT_T_VREQ PROCESSED salvo IS_EXTF='Y'"/>
+      <dato campo="Refinitiv_Bloomberg_AltaRolEmisor.wkf (confirmado 2026-10-01)" valor="lee un fichero de identificadores a nivel de ENTIDAD (64 campos formato REFINITIV: LEI=campo22, ORG_ID=campo21, INSTRUMENT_TYPE=campo6, ClassificationScheme=campo8; o 47 campos formato BLOOMBERG: LEI=campo21, ORG_ID=campo22); resuelve FINS_ID por LEI (FT_T_FIID), con resolución de grupo/matriz vía FT_T_FIRL si el LEI es compartido; si la entidad es gestora de fondos (FT_T_FIGP) Y el instrumento es ETF/EXTF, fija IS_EXTF='Y' y NO crea rol; si no, comprueba si ya existe rol ISSUER en FT_T_FINR y, si no, construye XML PtyDetlListUpd/RolDetl y lo envía por JMS al sub-workflow AltaRolEmisor — ESTE es el punto de alta real de FT_T_FINR"/>
       <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §5.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Inspeccionar el contenido real de ambos workflows (hecho).</paso>
+      <paso numero="1">Inspeccionar el contenido real de las 3 piezas de workflow (hecho).</paso>
       <paso numero="2">Confirmar que construyen y envían una solicitud real a Refinitiv, no una operación puramente interna (confirmado en ambas ramas).</paso>
-      <paso numero="3">Confirmar el mecanismo de carga de cada rama: job 5 vía el motor genérico "Standard File Load" de GoldenSource; job 6 vía el mismo jar Java que el job 4.</paso>
+      <paso numero="3">Confirmar el mecanismo de carga/alta de cada pieza: job 5 vía el motor genérico "Standard File Load" de GoldenSource + alta de rol vía mensaje JMS; job 6 vía el mismo jar Java que el job 4.</paso>
     </pasos>
-    <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia para ambas ramas (job 5 y job 6), cerrando el gap de §8.2 salvo el sub-workflow Refinitiv_Bloomberg_AltaRolEmisor.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de ambos workflows reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
-    <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga distintos (motor genérico GoldenSource para job 5, jar Java para job 6).</criterioAceptacion>
-    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2 (job 6 también escribe vía refinitivDerivativesLoader.jar). Además, la rama issueRequest/job 5 puede dejar una solicitud sin estado terminal explícito si IS_EXTF='Y' (ver §5.3/§8.1) — matiz de bajo impacto para TC-017. El contenido exacto de Refinitiv_Bloomberg_AltaRolEmisor sigue sin confirmar (bajo impacto, ya se conoce su rol).</posibilidadFallo>
+    <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia completa, cerrando el gap de §8.2 al 100% salvo el consumidor externo del mensaje JMS (fuera de alcance por naturaleza).</resultadoEsperado>
+    <tipoValidacion>Inspección directa de las 3 piezas de workflow reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
+    <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga/alta distintos (motor genérico GoldenSource + JMS para job 5, jar Java para job 6).</criterioAceptacion>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía JMS). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §5.3/§8.1/TC-017).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
-    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — CERRADO: ninguno de los 4 componentes del jar las escribe</nombre>
-    <objetivo>Confirmar, con el 100% del código Java del jar (LoaderProcess, IssuersService, UnderlyingService, ListedDerivativesService) más las entidades JPA relevantes, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
+    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — CERRADO AL 100%: FT_T_FINR se escribe vía JMS, el resto no se escribe en ningún código inspeccionado</nombre>
+    <objetivo>Confirmar, con el 100% del código Java del jar más el workflow Refinitiv_Bloomberg_AltaRolEmisor.wkf, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
     <precondiciones>
-      <precondicion>Código fuente de los 4 componentes que forman el 100% de refinitivDerivativesLoader.jar — APORTADO 2026-10-01 (LoaderProcess.java, IssuersService.java, UnderlyingService.java, ListedDerivativesService.java).</precondicion>
-      <precondicion>Entidades JPA de las 5 tablas del Grupo E + FT_T_FINS/FT_T_ISGU (posibles "padres") — APORTADAS en rondas previas, confirman además que no hay relación de escritura declarada hacia estas 5 tablas.</precondicion>
+      <precondicion>Código fuente de los 5 componentes que forman el 100% de refinitivDerivativesLoader.jar — APORTADO (LoaderProcess/IssuersService/UnderlyingService/ListedDerivativesService/DerivativesProcessor.java, este último 2026-10-01).</precondicion>
+      <precondicion>Refinitiv_Bloomberg_AltaRolEmisor.wkf — APORTADO 2026-10-01, revela el punto de escritura real de FT_T_FINR, externo al jar.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Resultado de la búsqueda en los 4 componentes (confirmado 2026-10-01)" valor="ninguna de las 4 clases (LoaderProcess/IssuersService/UnderlyingService/ListedDerivativesService) importa, referencia o persiste FT_T_FINR/FT_T_FIRL/FT_T_FRID/FT_T_GUNT/FT_T_REP1; FT_T_GUNT sí se LEE (ListedDerivativesService.checkMarketOid, vía StaticData.getMarketGuntMapMic()/...ExchangeCode()), pero nunca se escribe"/>
-      <dato campo="FT_T_FINS — relación de solo lectura (confirmado ronda anterior)" valor="@OneToMany(fetch=LAZY) hacia finrList/firlList/fridList con @JoinColumn(insertable=false, updatable=false) y sin cascade"/>
-      <dato campo="Único resto" valor="DerivativesProcessor (invocado por ListedDerivativesService para las tablas satélite del Grupo C) no aportado — bajo impacto, grupo de tablas distinto al E"/>
+      <dato campo="FT_T_FINR — SÍ SE ESCRIBE, confirmado 2026-10-01" valor="Refinitiv_Bloomberg_AltaRolEmisor.wkf: nodo 'Issuer Exist?' comprueba rol ISSUER activo en FT_T_FINR (join FT_T_FIID); si no existe, construye XML PtyDetlListUpd/RolDetl (rol CPARTY, ORG_ID+LEIID) y lo envía por JMS al sub-workflow 'AltaRolEmisor' — alta real del rol ISSUER, el INSERT SQL lo ejecuta el consumidor del mensaje (fuera de alcance)"/>
+      <dato campo="FT_T_FIRL — de solo lectura, confirmado 2026-10-01" valor="usada en 2 saltos de join (Refinitiv_Bloomberg_AltaRolEmisor.wkf) para resolver la entidad operativa/no-subsidiaria cuando un LEI identifica a un grupo; nunca se escribe"/>
+      <dato campo="FT_T_GUNT — de solo lectura, confirmado en 3 puntos" valor="ListedDerivativesService.checkMarketOid + DerivativesProcessor.processIssueGeoUnit/processTotv (StaticData.getMarketGuntMapMic()/...ExchangeCode()) — nunca se escribe"/>
+      <dato campo="FT_T_FRID / FT_T_REP1 — sin ninguna referencia" valor="ni lectura ni escritura en ningún código Java (5/5 componentes del jar) ni en ningún workflow inspeccionado de todo el proceso"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>
-      <paso numero="2">Confirmado por inspección exhaustiva del código: ninguno de los 4 componentes del jar las escribe ni las referencia (salvo lectura de FT_T_GUNT).</paso>
-      <paso numero="3">Documentar las 5 tablas como de solo lectura/no escritas por este jar, con el resto (DerivativesProcessor) como único punto no verificado.</paso>
+      <paso numero="2">Confirmado: FT_T_FINR se escribe, pero desde Refinitiv_Bloomberg_AltaRolEmisor.wkf (vía JMS), no desde el jar; FT_T_FIRL/FT_T_GUNT se leen; FT_T_FRID/FT_T_REP1 no tienen ninguna referencia.</paso>
+      <paso numero="3">Documentar la atribución final tabla por tabla, distinguiendo "escrita por X" de "de solo lectura" y "sin referencia en ningún código inspeccionado".</paso>
     </pasos>
-    <resultadoEsperado>Atribución real confirmada: las 5 tablas del Grupo E no se escriben desde ningún código confirmado del jar.</resultadoEsperado>
-    <tipoValidacion>Inspección exhaustiva del código fuente real de los 4 componentes del jar + las entidades JPA relevantes.</tipoValidacion>
-    <criterioAceptacion>Las 5 tablas quedan clasificadas como "sin escritura confirmada en ningún código del jar inspeccionado (100% de LoaderProcess/IssuersService/UnderlyingService/ListedDerivativesService)".</criterioAceptacion>
-    <posibilidadFallo>Si DerivativesProcessor (no aportado) resultara escribir alguna de estas 5 tablas al construir una tabla satélite del Grupo C, esta conclusión debería revisarse — bajo impacto dado que las tablas satélite documentadas pertenecen a un catálogo distinto (Grupo C) sin relación por nombre con el Grupo E.</posibilidadFallo>
+    <resultadoEsperado>Atribución real confirmada y completa para las 5 tablas del Grupo E.</resultadoEsperado>
+    <tipoValidacion>Inspección exhaustiva del código fuente real de los 5 componentes del jar + el workflow Refinitiv_Bloomberg_AltaRolEmisor.wkf.</tipoValidacion>
+    <criterioAceptacion>FT_T_FINR clasificada como "escrita por Refinitiv_Bloomberg_AltaRolEmisor.wkf vía JMS"; FT_T_FIRL/FT_T_GUNT como "de solo lectura"; FT_T_FRID/FT_T_REP1 como "sin referencia en ningún código inspeccionado".</criterioAceptacion>
+    <posibilidadFallo>Sin la confirmación de Refinitiv_Bloomberg_AltaRolEmisor.wkf, una conclusión anterior de esta misma ronda ("Grupo E = código muerto/solo lectura en bloque") habría sido incorrecta para FT_T_FINR — lección: la ausencia de escritura en el jar no implica ausencia de escritura en el proceso completo, si existen workflows GoldenSource paralelos con su propio mecanismo de persistencia (aquí, mensajería JMS/ESB).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-016" tipo="negativo">
-    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — RESUELTO para Emisores/Subyacentes/Derivados, solo faltan las tablas satélite del Grupo C</nombre>
-    <objetivo>Confirmar, con el código fuente real de los 3 servicios de carga y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
+    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — CERRADO AL 100% para Emisores/Subyacentes/Derivados, incluidas las tablas satélite del Grupo C</nombre>
+    <objetivo>Confirmar, con el código fuente real de los 5 componentes del jar y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
     <precondiciones>
       <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
-      <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService — APORTADO 2026-10-01, resuelve el mapeo campo→columna para Emisores/Subyacentes/Derivados a nivel de tablas maestras (FT_T_FINS lectura/FT_T_ISSR escritura; FT_T_ISSU/FT_T_ISID escritura/FT_T_MKIS lectura).</precondicion>
-      <precondicion>DerivativesProcessor (mapeo campo→columna de las tablas satélite del Grupo C según tipo de derivado) — NO APORTADO, único resto.</precondicion>
+      <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService/DerivativesProcessor — TODOS APORTADOS (DerivativesProcessor.java, 2026-10-01), resuelven el mapeo campo→columna para los 3 ficheros a nivel de tablas maestras y de las 11 tablas satélite del Grupo C.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Emisores*.txt (confirmado 2026-10-01)" valor="un orgId por línea, SIN delimitador |; usado solo para localizar FT_T_FINS (lectura) y crear FT_T_ISSR (escritura) — no es un fichero de campos múltiples como se asumía"/>
-      <dato campo="Subyacentes*.txt (confirmado 2026-10-01)" valor="3 campos |-delimitados = exactamente UnderlyingPositionsTemplate.UNDERLYING_ID/UNDERLYING_ID_TYPE/UNDERLYING_TYPOLOGY; alimentan FT_T_ISSU (prefIssId/prefIdCtxtTyp/issTyp) y 2 FT_T_ISID (idCtxtTyp=RIC|ISIN y RDR_ID) — no hay más campos que mapear"/>
-      <dato campo="Derivados_Enriquecido.txt (confirmado 2026-10-01)" valor="45 campos resueltos por nombre real vía PositionsTemplate: RIC, QUOTE_PERM_ID, UNDERLYING_RIC/ISIN/CHEAPEST_ISIN/ISIN_ESMA, ASSET_STATUS, ACTION, CURRENCY, EXERCISE_STYLE, REFINITIV_CLASSIFICATION_SCHEME, METHOD_OF_DELIVERY, MIC, EXCHANGE_CODE — índices numéricos exactos no decompilados (PositionsTemplate no aportada), pero el significado de negocio de cada campo usado por el servicio sí"/>
-      <dato campo="Correlación cruzada verificada (ronda anterior)" valor="82/83 valores distintos del RIC de subyacente de Derivados_Enriquecido.txt aparecen en Subyacentes*.txt; dominio UNDLYRFV/FUTRFV idéntico entre ambos ficheros"/>
+      <dato campo="Emisores*.txt" valor="un orgId por línea, SIN delimitador |; usado solo para localizar FT_T_FINS (lectura) y crear FT_T_ISSR (escritura)"/>
+      <dato campo="Subyacentes*.txt" valor="3 campos |-delimitados = exactamente UnderlyingPositionsTemplate.UNDERLYING_ID/UNDERLYING_ID_TYPE/UNDERLYING_TYPOLOGY; alimentan FT_T_ISSU/FT_T_ISID (escritura) y FT_T_MKIS (solo lectura aquí)"/>
+      <dato campo="Derivados_Enriquecido.txt — mapeo completo confirmado 2026-10-01 (DerivativesProcessor.java)" valor="45 campos → FT_T_ISSU (comunes) + FT_T_ISDE/FT_T_ISGU(x2)/FT_T_FECH/FT_T_UWCH/FT_T_SWCH/FT_T_MKIS/FT_T_RIDF/FT_T_RISS/FT_T_RGCH (siempre) + FT_T_OPCH (solo OPTIONS) + FT_T_FNCH (si aplica) + FT_T_IEDF (solo alta, valores constantes) — ver §5.2 para el detalle campo a campo de cada tabla satélite"/>
+      <dato campo="Correlación cruzada verificada" valor="82/83 valores distintos del RIC de subyacente de Derivados_Enriquecido.txt aparecen en Subyacentes*.txt; dominio UNDLYRFV/FUTRFV idéntico entre ambos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente de contenido (lote sin altas).</paso>
-      <paso numero="2">Correlacionar cada campo del fichero con la columna Oracle que alimenta, usando el código fuente real de los 3 servicios — hecho para FT_T_FINS/FT_T_ISSR/FT_T_ISSU/FT_T_ISID/FT_T_MKIS; pendiente para las tablas satélite del Grupo C (DerivativesProcessor, no aportado).</paso>
+      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente solo de contenido (lote sin altas), no de estructura.</paso>
+      <paso numero="2">Correlacionar cada campo del fichero con la columna Oracle que alimenta, usando el código fuente real de los 5 componentes — hecho para todas las tablas de los Grupos A/B/C.</paso>
     </pasos>
-    <resultadoEsperado>Mapeo campo a campo documentado para los 3 ficheros de carga a nivel de tablas maestras (Grupos A/B); pendiente a nivel de tablas satélite de derivados (Grupo C).</resultadoEsperado>
-    <tipoValidacion>Inspección de fichero real + código fuente real de IssuersService/UnderlyingService/ListedDerivativesService (ya aportado); DerivativesProcessor pendiente para el resto.</tipoValidacion>
-    <criterioAceptacion>Tabla de mapeo campo→columna completa para Emisores/Subyacentes/Derivados a nivel de tablas maestras; pendiente solo para las tablas satélite del Grupo C.</criterioAceptacion>
-    <posibilidadFallo>La hipótesis (a) de la ronda anterior (Subyacentes*.txt como lista de claves distinta del fichero final) queda descartada por código: es literalmente el único fichero que UnderlyingService necesita. Si DerivativesProcessor resultara usar campos de Derivados_Enriquecido.txt de forma distinta a lo documentado aquí por PositionsTemplate, debería revisarse el detalle de las tablas satélite del Grupo C.</posibilidadFallo>
+    <resultadoEsperado>Mapeo campo a campo documentado al 100% para los 3 ficheros de carga, en todas las tablas de los Grupos A/B/C.</resultadoEsperado>
+    <tipoValidacion>Inspección de fichero real + código fuente real de los 5 componentes del jar (todos aportados).</tipoValidacion>
+    <criterioAceptacion>Tabla de mapeo campo→columna completa para Emisores/Subyacentes/Derivados, incluidas las tablas satélite del Grupo C.</criterioAceptacion>
+    <posibilidadFallo>La hipótesis (a) sobre Subyacentes*.txt como lista de claves distinta del fichero final queda descartada por código. El hallazgo de que FT_T_SWCH se crea para cualquier tipo de derivado (no solo swaps) corrige una asunción implícita de simetría con FT_T_OPCH — ver TC-010.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-017" tipo="conflicto_integridad">
