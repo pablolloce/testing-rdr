@@ -48,6 +48,11 @@ El job `EXTRACCIONGENERICACONTRBBVA` requiere que estén desplegados y accesible
   `ojdbc8.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-io-2.5.jar`,
   `log4j.jar`, `commons-dbcp-1.4.jar` y `commons-pool-1.5.4.jar`.
 - El script `CopiarFichero` invocado en el segundo paso del properties.
+- `ctmfw` (usuario `xpctma1`) para el filewatcher y `MEGENV0001.sh` con los `.idx` de cada envío
+  (`MEKYTL0900`, `0886`, `0892_CLOUD`, `0543`, `1051`, `1172`, `1246`, `1264`, `1307`, `MEXIRM0022`,
+  `MEXIRM0096`).
+- En la pasarela `lpftp501`: `LPFTPEXCA0000.sh` y `LPFTPEXCA0002.sh` en `/pr/pl/scrt`, con la configuración
+  de los identificadores de transferencia `MEXIRM0022` y `MEXIRM0096`.
 - El transformador `BBVA_Contrats_CSV.xsl`, que genera el fichero CSV a partir del XML total.
 - El validador `GenericValidator.sh` y el XSD asociado al parámetro `ValidationBBVAContracts`.
 - El script `RAMERC0068.sh`, utilizado por los jobs de historificación `MEKYTL0953` y
@@ -62,8 +67,12 @@ trabajo.
 
 `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONTRBBVA/` debe existir y tener permisos de
 escritura para `xakytl1p`. La extracción escribe primero
-`ExtraccionContingenciaCONTRBBVA.xml.tmp` y lo renombra a `.xml` al finalizar, por lo que el
-sistema de ficheros debe permitir el renombrado atómico dentro del mismo directorio.
+`../ExtraccionContingenciaCONTRBBVA.xml.tmp` (en `extracciongenerica/`) y lo mueve a esta subcarpeta al
+finalizar. La subcarpeta `CONTRBBVA/` **debe existir** (si no, el jar sale con 0, deja el `.tmp` y la
+ejecución siguiente añade su contenido detrás). No debe haber un `.tmp` residual al empezar.
+En `FT_T_ATE1` deben existir una sola fila `ExtraccionCONTRBBVA.sql` (lista, `LAGR_OID`) y una sola
+`ExtraccionContingenciaCONTRBBVA.sql` (detalle, `XMLRESULT`, con `URL_OUTPUT_FILE`), y en `FT_T_PAR1` una
+fila `ROOT_TAG` `ACTIVE` (`nettingContractArray`) para la de detalle.
 
 ### Directorio de trabajo de la cadena
 
@@ -109,7 +118,7 @@ El destino externo IHS Markit es el único fuera de la red interna y el único c
 sujetas a caducidad por parte de un tercero. Conviene verificar su vigencia antes de cualquier
 campaña de pruebas que lo involucre.
 
-Los jobs de borrado `MEXIRM1104_DEL` y `MEXIRM1104_S_DEL` se ejecutan en la máquina
+Los jobs de borrado `MEKYTL1104_DEL` y `MEKYTL1104_S_DEL` se ejecutan en la máquina
 `LPFTP501/502`, no en `pr-rdr.igrupobbva`, y requieren permisos de borrado sobre la ruta `rdr`
 de la pasarela.
 
@@ -117,25 +126,24 @@ de la pasarela.
 
 - La cadena `RDR_BBVACONTRACTS_new` debe estar activa (no bloqueada ni en hold) en el servidor
   MERCADOS-4, con periodicidad martes, miércoles, jueves, viernes y sábado a las 13:00.
-- El filewatcher `FW_BBVAContracts_RDR_1` debe tener una ventana de detección compatible con la
-  hora real de arranque de la cadena. La ficha documenta 09:30–11:15, anterior a las 13:00, lo
-  que haría imposible la detección: **esta definición debe verificarse y corregirse en Control-M
-  antes de ejecutar pruebas**, ya que un fallo aquí bloquea la cadena completa.
-- El job `VALIDACION_XSD_EXTRACT_BBVA` debe estar configurado de forma que un fallo de
-  validación detenga la cadena. La ficha lo documenta con flag "Force OK", contrario al
-  comportamiento requerido: debe verificarse igualmente.
+- El filewatcher `FW_BBVAContracts_RDR_1` debe tener la ventana vigente 14:00–15:30 (`TIMEFROM=1400`,
+  `TIMETO=1530`, cíclico cada 15 min), comando `ctmfw '…/LAGR/BBVAContracts.xml' CREATE 0 60 10 3 15` y las
+  reglas `COMPSTAT=7` → OK y `COMPSTAT EQ 0` → añadir `RDR_BBVACONTRACTS_FW_BBVAContracts_RDR_1_OK_new`. (La
+  ficha original decía 09:30–11:15; es una errata.) Si la regla del evento falta, la cadena no continúa.
+- El job `VALIDACION_XSD_EXTRACT_BBVA` tiene la regla `ON NOTOK → OK` (Force OK) en el export real: un
+  fallo de validación NO detiene la cadena. Para probar el comportamiento real debe mantenerse así.
 - Las dependencias entre jobs deben estar definidas como condiciones de orden y no de éxito, de
   forma que el fallo de un envío no impida la ejecución de los jobs sucesores.
-- El calendario `MX3_1MART_M` (primer martes de mes) debe estar definido y asociado únicamente
-  a `MEKYTL1051`.
-- `MEKYTL1104_S` y `MEXIRM1104_S_SND` deben estar planificados solo en sábado y configurados
+- El calendario `MX3_1MART_M` (primer martes de mes) debería estar asociado únicamente a `MEKYTL1051`
+  según la ficha, pero **no aparece en el export** (ahí `MEKYTL1051` corre martes a sábado): comprobar en
+  Control-M cuál es la configuración vigente antes de probar TC-11.
+- `MEKYTL1104_S` y `MEKYTL1104_S_SND` deben estar planificados solo en sábado y configurados
   con `ODATE+2`.
-- Los jobs de borrado deben buscarse en Control-M por sus nombres actuales `MEXIRM1104_DEL` y
-  `MEXIRM1104_S_DEL`; los nombres `MEKYTL1104_DEL` y `MEKYTL1104_S_DEL` que aparecen en la
-  documentación de la cadena fueron sustituidos el 12/09/25.
-- Debe disponerse del inventario de jobs activos de la estructura para contrastar los 30 pasos
-  declarados en la ficha con los 21 vigentes identificados, dado que el recuento incluye jobs
-  decomisados.
+- Los jobs de envío/borrado de la pasarela se llaman `MEKYTL1104_SND`, `MEKYTL1104_DEL`,
+  `MEKYTL1104_S_SND` y `MEKYTL1104_S_DEL` en el export de 24/09/2026; las fichas los llaman
+  `MEXIRM1104_*` (renombrados el 12/09/25). Buscar por ambos nombres.
+- El folder debe tener los 23 jobs activos del export (ver spec 4.10); los 30 pasos declarados en la ficha
+  incluyen jobs decomisados (rama Mentor, `MEKYTL1053`).
 
 ## 6. Circuito de notificación
 

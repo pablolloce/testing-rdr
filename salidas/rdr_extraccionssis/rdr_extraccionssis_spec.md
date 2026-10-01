@@ -5,6 +5,10 @@
 **Usuario:** miguel.saavedra
 **Fecha:** 2026-09-23
 
+> Siglas: SSI = Standing Settlement Instruction (instrucción de liquidación estándar); `FT_T_ATE1` = tabla de
+> queries guardadas de la extracción genérica; `FT_T_PAR1` = tabla de etiquetas; A15 = identificador de organización
+> (`ORG_ID`) que se excluye; RAMERC0068.sh = script genérico de historificación de ficheros.
+
 ## 1. Resumen ejecutivo
 
 `RDR_EXTRACCIONSSIS` es una cadena Control-M de 7 jobs, propiedad de la aplicación KYTL (grupo de
@@ -12,7 +16,9 @@ soporte ANS RDR), que ejecuta diariamente (domingo a jueves) la extracción gen�
 instrucciones de liquidación estándar (SSIs, *Standing Settlement Instructions*) desde las tablas
 Oracle de FINS/RDR y genera un documento XML de contingencia (`ExtraccionContingenciaSSIS_YYYYMMDD.xml`)
 con el detalle completo de cada instrucción vigente, en formato `SettInstruction`. El fichero
-generado se historifica en un directorio de backup local y se purga automáticamente a los 7 días.
+generado se historifica en un directorio de backup local y se purga automáticamente a los 7 días
+(el XML recién publicado se llama como diga `URL_OUTPUT_FILE` en la base de datos, `ExtraccionContingenciaSSIs…xml`;
+al historificarlo se renombra con la fecha de ejecución).
 A diferencia de otros procesos RDR analizados en este ciclo (BBVA, Índices, Bloomberg, MIFIDMIC),
 esta cadena **no distribuye el XML a ningún consumidor externo**: su alcance termina en la
 generación, historificación y purga del fichero.
@@ -30,8 +36,9 @@ confirmada de esta cadena es el XML de contingencia de SSIs.
   `ExtraccionGenericaSSIs.properties`, que lanza el jar genérico `ExtraccionGenericaOtherEntities.jar`
   (clase `Ppal`, compartido con otras extracciones como DUCOCPTY) con tipo de extracción `SSIS`.
 - Generación del fichero temporal `ExtraccionContingenciaSSIs.xml.tmp` mediante las queries
-  `ExtraccionSSIs.sql` (selección de `SSI_OID` a procesar) y `ExtraccionContingenciaSSIs.sql`
-  (construcción del bloque XML `SettInstruction` por cada SSI).
+  `ExtraccionSSIs.sql` (lista: selección de `SSI_OID` a procesar) y `ExtraccionContingenciaSSIs.sql`
+  (detalle: construcción del bloque XML `SettInstruction` por cada SSI). Ambas están guardadas en la tabla
+  `FT_T_ATE1` y las lee el jar por nombre (`ACTION_NME`).
 - Dos jobs `Dummy` de sincronización (`EXTRACCION_SSIS_XML_INACT`, `EXTRACCION_SSIS_XML`) que
   jalonan el flujo sin ejecutar código.
 - Historificación del XML temporal a `backup/ExtraccionContingenciaSSIS_YYYYMMDD.xml` mediante
@@ -48,8 +55,8 @@ confirmada de esta cadena es el XML de contingencia de SSIs.
   etc. — esta cadena solo lee esas tablas, no las alimenta.
 - Cualquier consumo, distribución o envío externo del XML generado: se ha confirmado que no existe
   ninguna cadena Control-M consumidora (ver §4 Gap 3).
-- La lógica interna completa del jar `ExtraccionGenericaOtherEntities.jar` más allá de las dos
-  queries SQL confirmadas (`ExtraccionSSIs.sql`, `ExtraccionContingenciaSSIs.sql`).
+- El código del jar que no se ha recibido (hilo de escritura `MyThreadCpty`, `ConDB`, `Constants`) y el
+  texto íntegro de `ExtraccionContingenciaSSIs.sql`; el comportamiento del jar ya conocido se describe en §5.
 - El contenido/retención dentro del directorio de backup una vez transcurridos los 7 días de purga.
 
 ## 3. Requisitos detectados
@@ -57,8 +64,8 @@ confirmada de esta cadena es el XML de contingencia de SSIs.
 | ID | Requisito |
 |----|-----------|
 | R1 | `GS_EXTRACCION_CONT` debe lanzarse tras las 04:00 AM, sin predecesor, como cabeza de la cadena, invocando `GSProcess.sh ExtraccionGenericaSSIs`. |
-| R2 | El jar `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`) debe ejecutar `ExtraccionSSIs.sql` para obtener la lista de `SSI_OID` vigentes (estado ACTIVE/INACTIVE, `END_TMS` nulo, sin asignación BRANCH a la organización A15) y, por cada uno, `ExtraccionContingenciaSSIs.sql` para construir el bloque `SettInstruction` correspondiente. |
-| R3 | El resultado debe escribirse como `ExtraccionContingenciaSSIs.xml.tmp` en `/fichtemcomp/pr/descargas/kytl/extracciongenerica/`. |
+| R2 | El jar `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`) debe ejecutar `ExtraccionSSIs.sql` para obtener la lista de `SSI_OID` vigentes (estado ACTIVE/INACTIVE, `END_TMS` nulo, sin asignación BRANCH a la organización A15) y, por cada uno, en paralelo, `ExtraccionContingenciaSSIs.sql` para construir el bloque `SettInstruction` correspondiente. El orden de los bloques en el fichero no es determinista. |
+| R3 | El resultado debe escribirse como `ExtraccionContingenciaSSIs.xml.tmp` en `/fichtemcomp/pr/descargas/kytl/extracciongenerica/` y, al terminar, el jar lo mueve a `/fichtemcomp/pr/descargas/kytl/extracciongenerica/SSIS/<nombre de URL_OUTPUT_FILE>` (la subcarpeta `SSIS/` debe existir). |
 | R4 | Los dos jobs Dummy de sincronización (`EXTRACCION_SSIS_XML_INACT`, `EXTRACCION_SSIS_XML`) deben propagar el evento de su predecesor a su sucesor sin ejecutar lógica adicional. |
 | R5 | `MEKYTL1024` debe trasladar (mover) el fichero temporal a `backup/ExtraccionContingenciaSSIS_YYYYMMDD.xml`, donde `YYYYMMDD` es la fecha de ejecución. |
 | R6 | `KYTL003D_MEKYTL1025` y `KYTL003D_MEKYTL1047` deben estar configurados como `Dummy` (no ejecutar script físico), pese a que su documentación teórica describa una historificación de CSV. |
@@ -82,16 +89,43 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
 | Gap 6 — Uso de usuario `root` | `MEKYTL1024` y `MANT_RDR_EXTRACCION_SSIS` (jobs OS reales) se ejecutan con usuario `root`, a diferencia del patrón de usuario de aplicación dedicado visto en el resto de procesos RDR. ¿Es intencional? | **Confirmado como decisión conocida y aceptada** por el usuario en sesión. No se documenta como hallazgo de riesgo. |
 | Gap 7 — Duplicidad/integridad en `SSI_OID` y `Participants` | ¿Puede la query maestra devolver el mismo `SSI_OID` más de una vez? ¿Puede el bloque `Participants` contener bloques duplicados para el mismo participante? | **Confirmado mediante lectura del SQL real:** la query maestra (`ExtraccionSSIs.sql`) usa `NOT EXISTS` (no un `JOIN`), por lo que cada `SSI_OID` se procesa una única vez — sin riesgo de duplicidad ahí. El bloque `Participants` sí carece de `DISTINCT`/`GROUP BY` en la subquery sobre `FT_T_SSIR` (filtrada solo por `SSI_OID` y `DATA_STAT_TYP='ACTIVE'`): si existiera más de una fila `ACTIVE` para el mismo participante en la misma SSI, el XML generaría bloques `Parties` duplicados sin ninguna protección. Se documenta como hallazgo técnico confirmado (comportamiento real del código), no como hipótesis. |
 
+### Preguntas pendientes
+
+| Id | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-SSI-01 | Lista completa de los ~40 campos planos de `SettInstruction` y de los 8 bloques, con tabla/columna de origen | Para validar el contenido del XML campo a campo; hoy solo se conocen los citados en §6 |
+| P-SSI-02 | Contenido de `ExtraccionGenericaSSIs.properties` (argumentos 1-7 del jar: nivel de log, fichero log4j, número de hilos, ubicación de credenciales; claves `Stop*`) | Dónde está el log del jar, que es la única señal de fallo |
+| P-SSI-03 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` para la clave `MEKYTL1024` (máscara de origen, ruta, operación mover, renombrado, `FALLASINOFICH`) | Qué hace si no hay fichero y cómo se forma exactamente el nombre del backup |
+| P-SSI-04 | Export de Control-M de la cadena: nombres exactos de los eventos intermedios, condiciones de entrada, reglas `ON` (si las hay), criticidad de `GS_EXTRACCION_CONT` y `MEKYTL1024` | Poder afirmar qué ocurre cuando un job falla en mitad de la cadena |
+| P-SSI-05 | Valores de `ROOT_TAG` y `URL_OUTPUT_FILE` de `ExtraccionContingenciaSSIs.sql` en `FT_T_PAR1`/`FT_T_ATE1` | Forma exacta del XML y nombre del fichero publicado |
+
 ## 5. Especificación funcional
 
 1. **Disparo (04:00 AM, domingo a jueves):** `GS_EXTRACCION_CONT` arranca sin predecesor,
    ejecutando `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh ExtraccionGenericaSSIs` con
    usuario `xakytl1p`. Genera el evento `RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK`.
-2. **Extracción (jar + SQL):** El proceso invocado internamente ejecuta `ExtraccionSSIs.sql`
-   contra `FT_T_SSIS`/`FT_T_SSIA` para obtener el listado de `SSI_OID` vigentes y no asignados
-   exclusivamente a la organización BRANCH A15. Por cada `SSI_OID`, ejecuta
-   `ExtraccionContingenciaSSIs.sql` para construir el bloque `SettInstruction` con ~40 campos
-   (ver §6, diccionario de campos) y lo añade al fichero `ExtraccionContingenciaSSIs.xml.tmp`.
+2. **Extracción (jar + SQL).** `GSProcess.sh` carga `ExtraccionGenericaSSIs.properties` y lanza el jar
+   `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`) con tipo `SSIS` (argumento 6). El jar hace, según el
+   código recibido (`Ppal.java`/`Querys.java`) y la especificación común
+   `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.3:
+   1. Lee de `FT_T_ATE1` la query `ExtraccionSSIs.sql` (`ACTION_NME`), **sin filtrar por estado `ACTIVE`**, y la
+      ejecuta; de cada fila guarda la columna `SSI_OID`. La query (texto real):
+      `SELECT SSIS.SSI_OID FROM FT_T_SSIS SSIS WHERE SSIS.DATA_STAT_TYP IN ('ACTIVE','INACTIVE') AND SSIS.END_TMS IS NULL AND NOT EXISTS(SELECT 1 FROM FT_T_SSIA SSIA WHERE SSIS.SSI_OID=SSIA.SSI_OID AND SSIA.SSI_ASSIGN_PURP_TYP='BRANCH' AND SSIA.ORG_ID='A15 ')`
+      (excluye las SSIs asignadas a la oficina/organización A15 con finalidad BRANCH).
+   2. Lee `ExtraccionContingenciaSSIs.sql` (detalle) y las etiquetas: la fila `ROOT_TAG` `ACTIVE` de `FT_T_PAR1`
+      asociada a esa query (se espera `<SettInstructions>` como apertura y `</SettInstructions>` como cierre, según
+      la consulta comentada en el código; el valor vigente en base de datos no se ha visto) y el nombre del
+      fichero final (parte tras la última `/` de `URL_OUTPUT_FILE`).
+   3. Escribe en `ExtraccionContingenciaSSIs.xml.tmp` la etiqueta de apertura; procesa los `SSI_OID` en paralelo
+      (hilos = argumento 3 del `.properties`): por cada uno ejecuta el detalle con ese `SSI_OID` y añade la
+      columna `XMLRESULT` (un `<SettInstruction>`); escribe la etiqueta de cierre.
+   4. Mueve el temporal a `…/extracciongenerica/SSIS/<nombre>`, sustituyendo el anterior.
+   **Errores:** casi todos (BBDD, query rota, una SSI que falla, falta de etiqueta, falta de la subcarpeta
+   `SSIS/`) se registran en el log del jar y el programa **termina con código 0**: el job queda en OK con un
+   fichero vacío (solo etiquetas), incompleto, sin etiquetas o —si no se puede mover— con el `.tmp` residual al que
+   la ejecución siguiente añade su contenido (fichero duplicado). Solo aborta con ≠0 si hay dos filas de detalle
+   con el mismo nombre en `FT_T_ATE1` o falta `URL_OUTPUT_FILE`. `GSProcess.sh` solo termina con 1 si no
+   encuentra el `.properties` o si el jar no arranca o devuelve ≠0.
 3. **Sincronización lógica:** `EXTRACCION_SSIS_XML_INACT` y `EXTRACCION_SSIS_XML` esperan
    respectivamente los eventos de su predecesor y simplemente generan su propio evento de salida,
    sin ejecutar ningún comando de sistema operativo.
@@ -106,8 +140,32 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
 6. **Purga final:** `MANT_RDR_EXTRACCION_SSIS` (usuario `root`), tras recibir ambos eventos
    (`..._MEKYTL1025_OK` Y `..._MEKYTL1047_OK`), ejecuta
    `find /fichtemcomp/pr/descargas/kytl/extracciongenerica/SSIS/backup -type f -mtime +7 -exec rm -r {} \;`,
-   eliminando cualquier fichero regular del directorio de backup con más de 7 días de antigüedad.
+   eliminando cualquier fichero regular (también en subcarpetas, no hay `-maxdepth`) del directorio de backup cuya
+   antigüedad, en días completos, sea mayor que 7: es decir, a partir de 8 días; un fichero de 7 días y unas
+   horas se conserva.
    No genera evento de salida: es el cierre de la cadena.
+
+**Orden y eventos de la cadena** (los nombres de evento son los citados en la documentación; el export de
+Control-M de esta cadena no se ha recibido, P-SSI-04):
+
+| Orden | Job | Tipo | Usuario | Espera | Emite |
+|-------|-----|------|---------|--------|-------|
+| 1 | `GS_EXTRACCION_CONT` | OS (`GSProcess.sh ExtraccionGenericaSSIs`) | `xakytl1p` | hora (desde 04:00) | `RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK` |
+| 2 | `EXTRACCION_SSIS_XML_INACT` | Dummy | `xakytl1p` | evento de 1 | evento propio |
+| 3 | `EXTRACCION_SSIS_XML` | Dummy | `xakytl1p` | evento de 2 | evento propio |
+| 4 | `MEKYTL1024` | OS (`RAMERC0068.sh` clave `MEKYTL1024`) | `root` | evento de 3 | evento propio |
+| 5 | `KYTL003D_MEKYTL1025` | Dummy | `root` | evento de 4 | `…_MEKYTL1025_OK` |
+| 6 | `KYTL003D_MEKYTL1047` | Dummy | `root` | evento de 5 | `…_MEKYTL1047_OK` |
+| 7 | `MANT_RDR_EXTRACCION_SSIS` | OS (`find`) | `root` | eventos `…_MEKYTL1025_OK` Y `…_MEKYTL1047_OK` | — (cierre) |
+
+**Cómo saber si fue bien o mal.** Control-M no basta: el éxito real se comprueba (a) en el log del jar
+(`Cantidad de SSIS a tratar: <n>` debe coincidir con el recuento de `SettInstruction` del XML;
+`*****Se ha producido un error en ObtenerQueryCpty******** <id> SSIS` indica SSIs perdidas;
+`Error: No se ha podido renombrar el fichero.` indica que el fichero no se publicó) y (b) en la existencia y
+tamaño de `backup/ExtraccionContingenciaSSIS_<fecha>.xml`. Si falla `MEKYTL1024` (por ejemplo, no hay fichero
+que mover o falta la clave en el `.idx`), el fichero queda sin historificar en `SSIS/` y la ejecución siguiente
+lo sustituye al publicar; los dummies y la purga siguen su curso o no según su definición (P-SSI-04).
+Al terminar la cadena queda: el XML del día en `backup/`, los de los 7 días previos y nada más (el resto se purga).
 
 ## 6. Especificación técnica
 
@@ -124,14 +182,19 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
   confirmado en `rdr_sendbbg_asset` y `rdr_mifidmic_new`; para esta clave el propio documento
   fuente confirma explícitamente comportamiento de traslado ("Traslada los ficheros... 
   renombrándolos"), no de copia.
-- **Diccionario de campos del XML `SettInstruction`** (fuente: `ExtraccionContingenciaSSIs.sql`,
-  documento fuente §8): ~40 campos planos (`ActualDate`, `StartDate`, `Status`, `PartyId`,
-  `SettMethod`, `SettPriority`, etc.) más 8 bloques repetibles: `Statistics`, `Classification`,
-  `Products`, `Branches`, `Offices`, `Currencies`, `Participants` (con 12 subcampos anidados por
-  participante: `PartyId`, `PartyShort`, `Role`, `SecondRole`, `Account`, `GLAccount`,
-  `Identifier`, `OtherCode`, `MessageTo`, `BicCode`, `ABACode`, `AccountValid`, `SetOffice`) y
-  `ExtIdentifiers`. El detalle campo a campo con su tabla/columna de origen está documentado en
-  `documentos_fuente/Extraccion_generica_de_SSIs.docx.md` §8.1 y no se duplica aquí.
+- **Estructura del XML `SettInstruction`** (generado por `ExtraccionContingenciaSSIs.sql`): cada SSI es un
+  elemento `<SettInstruction>` con unos 40 campos planos (entre ellos `ActualDate`, `StartDate`, `Status`,
+  `PartyId`, `SettMethod`, `SettPriority`, `SettID` —identificador alterno RDR—) más 8 bloques repetibles:
+  `Statistics`, `Classification`, `Products`, `Branches`, `Offices`, `Currencies`, `Participants` y
+  `ExtIdentifiers`. El bloque `Participants` contiene un `<Parties>` por cada fila `ACTIVE` de `FT_T_SSIR`, con
+  los subcampos `PartyId`, `PartyShort`, `Role`, `SecondRole`, `Account`, `GLAccount`, `Identifier`,
+  `OtherCode`, `MessageTo`, `BicCode`, `ABACode`, `AccountValid` y `SetOffice` (13). Tablas de origen: `FT_T_SSIS`
+  (SSI), `FT_T_SSIA` (asignaciones: producto, branch, divisa), `FT_T_SSIR` (participantes), `FT_T_SSAC`
+  (cuentas de custodia), `FT_T_SAP1`/`FT_T_SAT1` (atributos y clasificadores), `FT_T_FIID`/`FT_T_FRID`
+  (identificadores y nombres de contraparte), `FT_T_ISTY`/`FT_T_ISSU` (tipo y divisa de emisión),
+  `FT_T_ENTR`/`FT_T_EERL` (entidades y sucursales), `FT_T_SUBD` (subdivisiones/oficinas) y `FT_T_SAI1`
+  (identificadores externos). La lista campo a campo con su tabla/columna de origen no figura en la información
+  disponible (P-SSI-01).
 - **Hallazgo técnico confirmado (Gap 7):** la subquery que construye `Participants` no tiene
   `DISTINCT`/`GROUP BY` — solo filtra por `SSIR.SSI_OID = SSIS.SSI_OID AND SSIR.DATA_STAT_TYP =
   'ACTIVE'`. Si `FT_T_SSIR` contuviera más de una fila `ACTIVE` para el mismo participante en la
@@ -159,8 +222,9 @@ con 1 prueba end-to-end (TC-009) que recorre la cadena completa. Los 9 casos est
   correcta del XML y el mapeo de campos principal.
 - **TC-002** (`negativo`): valida la exclusión de SSIs asignadas exclusivamente a BRANCH/A15
   (regla de negocio de la query maestra).
-- **TC-003** (`error_funcional`): fallo del job disparador (`GS_EXTRACCION_CONT`), valida que la
-  cadena no avanza y se dispara la criticidad S configurada.
+- **TC-003** (`error_funcional`): fallo del job disparador (`GS_EXTRACCION_CONT`): con `.properties`
+  inexistente el job termina en NOTOK y la cadena no avanza; con un error de base de datos dentro del jar el
+  job termina en OK con un fichero vacío y la cadena continúa.
 - **TC-004** (`borde`): valida el límite exacto de purga de 7 días (`-mtime +7`).
 - **TC-005** (`duplicidad`): valida el comportamiento confirmado de duplicación de bloques
   `Parties` cuando `FT_T_SSIR` tiene más de una fila `ACTIVE` para el mismo participante.
@@ -188,7 +252,7 @@ tramo, transición o condición sin cubrir.
 
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
-| R1 (disparo) | TC-003, TC-009 | El job cabeza dispara correctamente y su fallo detiene la cadena. |
+| R1 (disparo) | TC-003, TC-009 | El job cabeza dispara correctamente; su fallo detectado (KO de `GSProcess.sh`) detiene la cadena, y el error silencioso del jar no. |
 | R2 (extracción SQL) | TC-001, TC-002, TC-007 | La query maestra y la de detalle seleccionan y mapean correctamente las SSIs, incluida la exclusión BRANCH/A15. |
 | R5 (historificación XML) | TC-001, TC-006, TC-009 | El traslado del XML temporal al backup funciona y se documenta su riesgo de sobrescritura en reejecución. |
 | R6 (Dummy inertes) | TC-008 | Los nodos `KYTL003D_MEKYTL1025`/`1047` permanecen inertes tras cambios de configuración. |
@@ -205,6 +269,10 @@ tramo, transición o condición sin cubrir.
   anterior, sin error ni aviso. Documentado como riesgo conocido (mismo patrón que el hallazgo del
   `>>` de la función `Cortar` en `rdr_mifidmic_new`); no se corrige en el alcance de esta
   especificación.
+- **Riesgo confirmado — fallo silencioso de la extracción (TC-003):** el jar sale con código 0 ante casi
+  cualquier error (§5 paso 2). Un XML vacío, incompleto, sin etiquetas o duplicado por un `.tmp` residual se
+  historifica como si fuera correcto, sin KO ni aviso; la purga a 7 días acaba borrando además las copias buenas
+  si el problema dura más de una semana.
 - **Riesgo confirmado — duplicidad de participantes (TC-005):** ausencia de `DISTINCT`/`GROUP BY`
   en la subquery de `Participants`; si el dato origen (`FT_T_SSIR`) contuviera filas duplicadas
   para el mismo participante, el XML las reproduciría sin control. Riesgo de calidad de datos

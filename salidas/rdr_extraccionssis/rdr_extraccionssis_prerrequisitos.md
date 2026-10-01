@@ -36,6 +36,12 @@ ejecución de `GS_EXTRACCION_CONT`; su mantenimiento queda fuera del alcance de 
   no un hallazgo a corregir.
 - El directorio `/fichtemcomp/pr/descargas/kytl/extracciongenerica/SSIS/` y su subcarpeta
   `/backup` deben existir y ser escribibles por los usuarios de ejecución correspondientes.
+- Si la subcarpeta `SSIS/` no existe, el jar no puede publicar el XML, sale igualmente con código 0 y deja el
+  `.tmp` en `extracciongenerica/`. No debe haber un `ExtraccionContingenciaSSIs.xml.tmp` residual al empezar
+  (la ejecución añadiría su contenido detrás).
+- En `FT_T_ATE1` deben existir una sola fila `ExtraccionSSIs.sql` (lista, columna `SSI_OID`) y una sola
+  `ExtraccionContingenciaSSIs.sql` (detalle, columna `XMLRESULT`, con `URL_OUTPUT_FILE`), y en `FT_T_PAR1` una
+  fila `ROOT_TAG` con `DATA_STAT_TYP='ACTIVE'` para la de detalle (si no, el XML sale sin etiqueta raíz).
 
 ## Configuración de los motores genéricos
 

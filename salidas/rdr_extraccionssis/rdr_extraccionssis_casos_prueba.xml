@@ -17,7 +17,7 @@
     <pasos>
       <paso numero="1">Confirmar que GS_EXTRACCION_CONT se dispara después de las 04:00 AM sin predecesores.</paso>
       <paso numero="2">Verificar en el log de GSProcess.sh que ExtraccionSSIs.sql devuelve exactamente los 3 SSI_OID esperados (500001, 500002, 500003) y ninguno adicional.</paso>
-      <paso numero="3">Verificar que ExtraccionContingenciaSSIs.xml.tmp contiene 3 bloques SettInstruction, uno por cada SSI_OID.</paso>
+      <paso numero="3">Verificar en el log del jar "Cantidad de SSIS a tratar: 3" y que el fichero publicado en extracciongenerica/SSIS/ (antes de que MEKYTL1024 lo mueva) contiene 3 bloques SettInstruction, uno por cada SSI_OID, entre las etiquetas raíz; no debe quedar ningún .tmp.</paso>
       <paso numero="4">Confirmar que EXTRACCION_SSIS_XML_INACT y EXTRACCION_SSIS_XML finalizan en OK sin ejecutar comando de sistema operativo.</paso>
       <paso numero="5">Confirmar que MEKYTL1024 mueve el fichero a backup/ExtraccionContingenciaSSIS_20260927.xml.</paso>
       <paso numero="6">Abrir el XML resultante y validar que cada SettInstruction contiene los campos ActualDate, StartDate, Status, PartyId, SettMethod y al menos un bloque Participants con PartyId, Role y SecondRole poblados.</paso>
@@ -52,24 +52,24 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
-    <nombre>Fallo del job disparador GS_EXTRACCION_CONT</nombre>
-    <objetivo>Verificar que un fallo en la ejecución de GSProcess.sh (por ejemplo, por indisponibilidad de la base de datos Oracle) detiene la cadena y no permite avanzar a los jobs sucesores.</objetivo>
+    <nombre>Fallo de la extracción: KO de GSProcess.sh frente a error silencioso del jar</nombre>
+    <objetivo>Verificar los dos modos de fallo de GS_EXTRACCION_CONT: (a) fallo que el job sí detecta (GSProcess.sh o el jar terminan con código distinto de 0) y (b) error de base de datos dentro del jar, que el jar registra y termina con código 0.</objetivo>
     <precondiciones>
-      <precondicion>Es posible simular en entorno de pruebas la indisponibilidad de la conexión a la base de datos que usa GSProcess.sh/ExtraccionGenericaOtherEntities.jar.</precondicion>
+      <precondicion>Entorno de pruebas donde se pueda renombrar temporalmente ExtraccionGenericaSSIs.properties y cortar o romper la consulta a la base de datos (por ejemplo, haciendo inválida la query ExtraccionSSIs.sql en FT_T_ATE1).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Condición forzada" valor="Conexión Oracle no disponible durante la ejecución de GS_EXTRACCION_CONT"/>
+      <dato campo="Modo A" valor=".properties inexistente"/>
+      <dato campo="Modo B" valor="query de lista ExtraccionSSIs.sql inválida en FT_T_ATE1"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar la indisponibilidad de la conexión a la base de datos justo antes de que GS_EXTRACCION_CONT invoque GSProcess.sh.</paso>
-      <paso numero="2">Dejar que Control-M dispare GS_EXTRACCION_CONT en su ventana normal.</paso>
-      <paso numero="3">Verificar el código de salida del job en Control-M.</paso>
-      <paso numero="4">Verificar el estado de EXTRACCION_SSIS_XML_INACT (debe permanecer en espera, sin ejecutarse).</paso>
+      <paso numero="1">Modo A: renombrar ExtraccionGenericaSSIs.properties y dejar que Control-M dispare GS_EXTRACCION_CONT; verificar su código de salida y el estado de EXTRACCION_SSIS_XML_INACT.</paso>
+      <paso numero="2">Restaurar el .properties. Modo B: invalidar la query de lista y relanzar el job; verificar el código de salida, el log del jar y el contenido de extracciongenerica/SSIS/.</paso>
+      <paso numero="3">En el modo B, verificar si los jobs sucesores arrancan y qué contiene el backup que genera MEKYTL1024.</paso>
     </pasos>
-    <resultadoEsperado>GS_EXTRACCION_CONT finaliza en NOTOK; el evento RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK no se genera; EXTRACCION_SSIS_XML_INACT no se dispara; se activa la criticidad S configurada (aviso al día siguiente incluso si es festivo).</resultadoEsperado>
-    <tipoValidacion>Validación de manejo de errores y propagación de estado de fallo en Control-M.</tipoValidacion>
-    <criterioAceptacion>Ningún job posterior a GS_EXTRACCION_CONT se ejecuta tras el fallo, y el job queda marcado en NOTOK.</criterioAceptacion>
-    <posibilidadFallo>Si la cadena avanza pese al fallo del disparador, el manejo de errores está roto.</posibilidadFallo>
+    <resultadoEsperado>Modo A: GS_EXTRACCION_CONT termina en NOTOK (GSProcess.sh sale con 1), no se emite RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK y la cadena no avanza. Modo B: el jar registra el error SQL en su log y sale con 0; GS_EXTRACCION_CONT queda en OK; se publica un fichero solo con las etiquetas raíz (cero SettInstruction); la cadena continúa y MEKYTL1024 historifica ese fichero vacío; nadie recibe aviso.</resultadoEsperado>
+    <tipoValidacion>Código de salida y estado en Control-M, log del jar, contenido del fichero y del backup.</tipoValidacion>
+    <criterioAceptacion>Ambos modos se comportan como se describe; el modo B demuestra que un OK en Control-M no garantiza datos.</criterioAceptacion>
+    <posibilidadFallo>Si el modo B termina en NOTOK, el comportamiento real del jar difiere del código analizado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">

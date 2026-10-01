@@ -29,9 +29,10 @@ vía `XFIN_SOLAR_RDRBASKET`), fuera del alcance de esta especificación. La cade
       ▼
  GS_EXTRACCION_BASKETS (GSProcess.sh ExtraccionGenericaBASKETS)
       │  jar ExtraccionGenericaOtherEntities.jar, clase Ppal, ArgJava6=BASKETS
-      │  ejecuta Baskets.sql (batch paginado, todas las cestas activas con MUREXID) o
-      │  ExtraccionContingenciaBASKETS.sql (reproceso de una cesta puntual, instr_id=?) — mismo XML resultante
-      │  genera Baskets.xml.tmp → baskets.xml en /fichtemcomp/pr/descargas/kytl/issues/Baskets/
+      │  lee de FT_T_ATE1 la query de lista (ExtraccionBASKETS.sql → INSTR_ID de cada cesta) y, por cada
+      │  cesta y en paralelo, la query de detalle (ExtraccionContingenciaBASKETS.sql → fragmento XML)
+      │  escribe Baskets.xml.tmp → lo publica como baskets.xml en /fichtemcomp/pr/descargas/kytl/issues/Baskets/
+      │  (sale con 0 aunque falle la BBDD: el fichero puede salir incompleto o vacío)
       │  emite RDR_BASKETS_EXTRACCION_new_GS_EXTRACCION_BASKETS_OK
       ▼
  VALIDACION_XSD (RDR_Validacion_XSD.sh pr BASKET)
@@ -91,13 +92,37 @@ observado en Extracción de Emisiones y Mercados; ver sección 9).
 `GSProcess.sh ExtraccionGenericaBASKETS`. Prerrequisito: `RDR_MARKETS_EXTRACCION_IN_OK_new` (mismo evento
 anómalo del paso 1 — coherente, es el mismo folder). Programación avanzada L-V, sin hora de inicio propia
 (reactivo), retención 3 días, consume `MAX-LPRDR501` (1/100). El `.properties ExtraccionGenericaBASKETS`
-carga el jar `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`, `ArgJava6=BASKETS`), que ejecuta una de dos
-queries SQL equivalentes en estructura de campos:
-- `Baskets.sql` — query **principal** del batch diario: recorre TODAS las cestas activas de tipo `BASKETS`
-  con identificador de contexto `MUREXID`, con paginación de resultados.
-- `ExtraccionContingenciaBASKETS.sql` — versión de **contingencia**: misma estructura de campos, pero
-  parametrizada por un único `instr_id = ?`, sin paginación — regenera el XML de una cesta puntual si el
-  batch principal falla o necesita reproceso individual.
+carga el jar `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`, `ArgJava6=BASKETS`; sección 6.1).
+Comportamiento real del jar para el tipo `BASKETS` (según el análisis del código del jar recogido en la
+especificación común `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.3; no son dos
+modos alternativos, las dos queries se usan en cada ejecución):
+1. Lee de la tabla `FT_T_ATE1` (almacén de queries guardadas) la query de **lista** de nombre
+   `ExtraccionBASKETS.sql` y la ejecuta; de cada fila guarda la columna `INSTR_ID` (identificador de la
+   cesta). **No filtra por estado `ACTIVE`** de la fila de `FT_T_ATE1`; si hubiera dos filas con el mismo
+   nombre usa una arbitraria.
+2. Lee de `FT_T_ATE1` la query de **detalle** `ExtraccionContingenciaBASKETS.sql` (parametrizada por
+   `instr_id = ?`, sin paginación) y, por cada `INSTR_ID` de la lista, la ejecuta en paralelo (varios hilos;
+   el número lo fija `ArgJava3` del `.properties`, ver sección 6.1) y añade al temporal la columna
+   `XMLRESULT` (un fragmento XML `<Security>` por cesta; si la query devolviera varias filas para una cesta
+   solo se guarda la última). **El orden de las cestas en el fichero no es determinista.**
+3. Antes de las cestas escribe la etiqueta de apertura y al final la de cierre (la fila `ROOT_TAG` activa de
+   `FT_T_PAR1` asociada a la query de detalle). Si no existe esa fila `ACTIVE`, el fichero sale sin
+   apertura ni cierre (XML no válido) y el job sigue en verde.
+4. Publica: mueve `Baskets.xml.tmp` (directorio `/fichtemcomp/pr/descargas/kytl/issues/`) a
+   `/fichtemcomp/pr/descargas/kytl/issues/Baskets/<nombre>` donde `<nombre>` es el nombre de fichero de
+   `URL_OUTPUT_FILE` de la query de detalle en `FT_T_ATE1` (`baskets.xml`; la ruta de `URL_OUTPUT_FILE` se
+   ignora). La subcarpeta `Baskets/` debe existir; sustituye el `baskets.xml` anterior.
+5. Casi cualquier error (BBDD caída, query rota, una cesta que falla, subcarpeta inexistente) se escribe en
+   el log del jar y el programa **termina con código 0**. Solo aborta con ≠0 si hay dos filas con el mismo
+   nombre de detalle o no encuentra `URL_OUTPUT_FILE`. Por tanto un `GS_EXTRACCION_BASKETS` en verde **no
+   garantiza** un `baskets.xml` completo. Si el movimiento falla, el `.tmp` queda y la ejecución siguiente
+   **añade** su contenido detrás (fichero duplicado).
+
+La query de lista aplica el filtro de universo: instrumentos activos de tipo `BASKETS` con identificador de
+contexto `MUREXID` (sección 5). El fichero fuente recuperado como `Baskets.sql` (con marcadores de
+paginación) se corresponde presumiblemente con la query de lista `ExtraccionBASKETS.sql` (pregunta
+P-CES-01); `ExtraccionContingenciaBASKETS.sql` es la de detalle por `instr_id`. Ambas producen la misma
+estructura de campos (diccionario de la sección 5).
 
 Genera `Baskets.xml.tmp` → `baskets.xml` en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/`. Al finalizar OK,
 agrega `RDR_BASKETS_EXTRACCION_new_GS_EXTRACCION_BASKETS_OK` (este sí sigue el patrón de nomenclatura estándar
@@ -253,7 +278,7 @@ del evento `..._VALIDACION_XSD_OK` (que llega hacia las 18:00, mucho después de
 queda satisfecho de sobra — el disparador real es el evento, no la hora. Lo único discrepante y relevante es el
 **día de la semana** (Avanzado 1-5 = L-V real, frente a "Martes a Sábado" de la ficha funcional).
 
-**Jobs creados por un usuario distinto de `algocmd`:** 8 de los 19 jobs (`MEKYTL0846`, `MEKYTL0847`,
+**Jobs creados por un usuario distinto de `algocmd`:** 10 de los 19 jobs (`MEKYTL0846`, `MEKYTL0847`,
 `MEKYTL1103`, `MEKYTL1116`, `MEKYTL1126`, `MEKYTL1153`, `MEKYTL1132`, `MEKYTL1132_SND`, `MEKYTL1132_DEL`,
 `MEKYTL1133`) — la mayoría creados por `xe30690`/`XE30690`, dos por `emuser`. Dato observado tal cual, sin
 explicación documentada, no bloqueante (mismo patrón ya visto en otros procesos de este intake, p. ej.
@@ -295,7 +320,8 @@ la cadena (ver sección 9).
 
 | Rama | Paso | Escenario | Comportamiento real | Efecto en la cadena |
 |------|------|-----------|----------------------|----------------------|
-| Tramo inicial | `GS_EXTRACCION_BASKETS` | Fallo real de extracción (BBDD no disponible) | Sin On-Do documentado | KO real; `VALIDACION_XSD` y las 11 ramas no arrancan ese día |
+| Tramo inicial | `GS_EXTRACCION_BASKETS` | BBDD no disponible, query de `FT_T_ATE1` rota o cesta que falla | El jar registra el error en su log y **sale con 0** (ver 1.2 paso 2): el job queda en OK con un `baskets.xml` vacío (solo etiquetas), incompleto o sin etiquetas | Sin KO: `VALIDACION_XSD` y las 11 ramas arrancan y distribuyen el fichero defectuoso; solo se detecta mirando el log del jar o el contenido del fichero |
+| Tramo inicial | `GS_EXTRACCION_BASKETS` | Fallo del propio `GSProcess.sh` (p. ej. falta `ExtraccionGenericaBASKETS.properties` o el jar no arranca) | `GSProcess.sh` termina con código ≠0 (ver `salidas/comun_gsprocess/comun_gsprocess_spec.md` §8) | KO real; `VALIDACION_XSD` y las 11 ramas no arrancan ese día |
 | Tramo inicial | `VALIDACION_XSD` | Validación XSD falla (código 1) | Force OK genérico → Marcar como OK | La malla **continúa** hacia las 11 ramas pese al fallo real de validación (requisito de diseño, no defecto) |
 | Distribución directa | Cualquiera de las 10 ramas | Fallo real de envío (destino no disponible) | Sin On-Do documentado | KO real de esa rama únicamente; las demás ramas no se ven afectadas; `MEKYTL0856` no se ejecuta hasta resolver el fallo (si la rama forma parte del AND) |
 | Distribución directa | `MEKYTL1116` | Fichero origen no encontrado | Sin On-Do; requisito explícito de error visible | KO real explícito, sin tolerancia — comportamiento deliberadamente distinto al resto |
@@ -323,11 +349,10 @@ extracción, 1 validación, 10 ramas de distribución directa, 5 jobs de la rama
   documento fuente más allá del punto de entrega.
 - La cadena externa **`XFIN_SOLAR_RDRBASKET`** (job `XFIN012D_RDR_BASK_IN`) que consume la copia local dejada
   por `MEKYTL1126` — no descrita en el documento fuente más allá del punto de entrega.
-- La lógica interna del jar `ExtraccionGenericaOtherEntities.jar` (clase `Ppal`) más allá de las dos queries
-  SQL ya analizadas (`Baskets.sql` / `ExtraccionContingenciaBASKETS.sql`) — motor caja negra ya documentado a
-  nivel de comportamiento observable (mismo motor referenciado por el documento fuente como ya usado en otros
-  procesos de extracción genérica, p. ej. Contactos/Contrapartidas/ThirdParties, no documentados en este
-  repositorio).
+- El texto SQL íntegro de `ExtraccionBASKETS.sql` / `ExtraccionContingenciaBASKETS.sql` (solo se documentan sus
+  campos de salida y su filtro de universo) y el código no recibido del jar (clase del hilo de escritura,
+  valor literal del tipo): el comportamiento del jar se describe en 1.2 y 6.1 y en
+  `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md`.
 - El consumo/interpretación de `baskets.xml`/`baskets_TRS.csv` en cada sistema destino una vez recibido.
 
 ## 3. Requisitos detectados
@@ -366,6 +391,17 @@ discrepancias con la propia evidencia interna del documento y reglas ya establec
    no gap de evidencia: se documentan solo hasta el punto de entrega (`MEKYTL1103` y `MEKYTL1126`
    respectivamente), consistente con el criterio ya aplicado a SAIT en Envío de roles GUIDO a EINS.
 
+### Preguntas pendientes (no están en ninguna fuente disponible)
+
+| Id | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-CES-01 | ¿`Baskets.sql` (fichero recuperado, paginado) es la query de lista `ExtraccionBASKETS.sql` de `FT_T_ATE1`, o el jar usa otro nombre de `ACTION_NME`? | Determina qué query define el universo y si la ficha describe correctamente "batch + contingencia" |
+| P-CES-02 | ¿Valores literales de `ROOT_TAG` de `BASKETS` en `FT_T_PAR1` (etiqueta de apertura/cierre) y nombre exacto de `URL_OUTPUT_FILE` (se asume `baskets.xml`)? | Sin ellos no se puede validar la forma exacta del XML ni la ruta final |
+| P-CES-03 | ¿Valores de `ArgJava1..7` de `ExtraccionGenericaBASKETS.properties` (hilos, log, credenciales)? | Rendimiento y ubicación del log del jar, que es la única señal fiable de fallo |
+| P-CES-04 | ¿Contenido de `TransforBaskets.properties` y columnas/separador de `baskets_TRS.csv`? | Contrato con DUCO; hoy no se puede verificar el contenido del envío |
+| P-CES-05 | ¿Contenido de los `.idx` de `MEGENV0001.sh` (protocolo XCOM/CD/SFTP, rutas) de los 10 jobs de envío y de `RAMERC0068.sh` para `MEKYTL1126/1133/0856`? | Solo se conoce destino y nombre por la ficha del job; no el protocolo ni el código de salida exacto |
+| P-CES-06 | ¿Código de `RDR_Validacion_XSD.sh` (ruta del XSD, dónde deja el resultado)? | Para saber cómo ver si la validación falló, ya que el Force OK oculta el fallo |
+
 ## 5. Especificación funcional
 
 **Entidad: `Security` (Basket)** — elemento raíz del XML de cada cesta extraída. Diccionario de campos
@@ -395,8 +431,11 @@ discrepancias con la propia evidencia interna del documento y reglas ya establec
 | `Weight` / `ComponentType` / `InitialSpot` / `Shares` / `FreeFloat` / `CapFactor` / `WeightFactor` | Atributos del componente |
 | `CloseUnadjustedLocal` / `CloseAdjustedLocal` / `ExchangeRate` / `MarketCapitalization` / `NumOfShares` | Precios y capitalización del componente |
 
-**Filtro de universo (batch principal):** solo instrumentos activos de tipo `BASKETS` con identificador de
-contexto `MUREXID` — cualquier cesta sin ese identificador queda fuera de la extracción.
+**Filtro de universo (query de lista):** solo instrumentos activos de tipo `BASKETS` con identificador de
+contexto `MUREXID` — cualquier cesta sin ese identificador queda fuera de la extracción. El fichero final
+`baskets.xml` es: etiqueta de apertura (`ROOT_TAG` de `FT_T_PAR1`, literal desconocido, P-CES-02) + un
+fragmento `<Security …>` por cesta (orden no determinista, sin salto de línea tras la etiqueta de apertura) +
+etiqueta de cierre.
 
 **Transformación DUCO:** `baskets_TRS.csv` es un fichero plano derivado de `baskets.xml` — su estructura de
 columnas exacta no está detallada en el documento fuente (transformación interna de `GSProcess.sh
@@ -415,6 +454,35 @@ TransforBaskets`, caja negra a nivel de mapeo campo a campo).
 | `LPFTPEXCA0000.sh` | `MEKYTL1132_SND` | Transmisión efectiva desde la pasarela hacia DUCO (externo) |
 | `LPFTPEXCA0002.sh` | `MEKYTL1132_DEL` | Limpieza de la pasarela tras la transmisión |
 
+### 6.0 Cómo fallan los scripts de envío
+
+- `MEGENV0001.sh <CLAVE>` (10 jobs de envío): lee `/pr/pl/envioweb/idx/<CLAVE>.idx` (o su copia `idx/bck/`); si no
+  existe sale con **110**; otros códigos de error (protocolo XCOM/CD/SFTP, transferencia) se detallan en
+  `salidas/comun_megenv0001/comun_megenv0001_spec.md` §6. El contenido del `.idx` de cada clave no consta
+  (P-CES-05). Códigos > 255 se truncan módulo 256 en Control-M.
+- `RAMERC0068.sh <CLAVE>` (`MEKYTL1126`, `1133`, `0856`): lee la línea de su clave en el `.idx` de historificación;
+  códigos 1-9 (parámetros, clave ausente o duplicada, sin ficheros, ruta origen/destino inexistente, fallo al
+  mover/borrar) y 68 (fallo de gzip); ver `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`.
+- `LPFTPEXCA0000.sh` / `LPFTPEXCA0002.sh` (`MEKYTL1132_SND` / `_DEL`): transmisión y limpieza en la pasarela
+  `lpftp501`; identificador `MEXIRM…`/clave en PARM1; ver `salidas/comun_lpftpexca/comun_lpftpexca_spec.md`.
+
+### 6.1 Configuración de `GSProcess.sh` para los dos pasos GS
+
+- `GS_EXTRACCION_BASKETS` → `GSProcess.sh ExtraccionGenericaBASKETS` carga `ExtraccionGenericaBASKETS.properties`
+  (acción `Java`). Valores confirmados por la ficha: jar `ExtraccionGenericaOtherEntities.jar`, clase `Ppal`,
+  `ArgJava6=BASKETS` (tipo de extracción), temporal `Baskets.xml.tmp` (argumento 5) en el directorio
+  `/fichtemcomp/@@ENV@@/descargas/kytl/issues` (con `pr` en producción; `GSProcess.sh` solo sustituye `$ENV`,
+  no `@@ENV@@`, pregunta abierta común P-GSP-01 en `salidas/comun_gsprocess/comun_gsprocess_spec.md`). El resto de
+  argumentos (nivel de log, fichero log4j, **número de hilos**, directorio de ficheros, ubicación de
+  credenciales, librerías) no figuran en la ficha: el resto de procesos que usan el mismo jar emplean el
+  formato descrito en `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.1 (P-CES-03).
+- Regla general de `GSProcess.sh` (`salidas/comun_gsprocess/comun_gsprocess_spec.md` §7): sin clave `Stop*=Ok`
+  los pasos siguientes se ejecutan aunque falle uno anterior; las claves `Stop` de estos dos `.properties` no
+  constan en las fuentes.
+- `RDR_TRANSFORM_BASKETS_DUCO` → `GSProcess.sh TransforBaskets` carga `TransforBaskets.properties`. Su
+  contenido no consta en las fuentes: se sabe solo que lee `baskets.xml` y escribe el plano `baskets_TRS.csv`
+  (ruta de salida, separador y columnas desconocidos, P-CES-04).
+
 **Único On-Do documentado en toda la cadena:** `VALIDACION_XSD` — "Cuándo Job completado No OK -> Marcar como
 OK" (soft-failure genérico, no acotado a un código de retorno específico). Ningún otro job de las 19 tiene
 acción On-Do — un fallo real en cualquiera de las demás ramas detiene esa rama concreta sin afectar a las
@@ -430,7 +498,7 @@ de ejecución, y uno para la condición AND completa del colector. Los casos com
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001, TC-004, TC-007, TC-009.
-- `error_funcional`: TC-002, TC-005, TC-008.
+- `error_funcional`: TC-002, TC-005, TC-008, TC-012.
 - `borde`: TC-003, TC-006.
 - `conflicto_integridad`: TC-010.
 - `regresion`: TC-011.
@@ -439,7 +507,7 @@ Referencia de casos por tipo:
 
 | Requisito | Caso(s) de prueba | Qué garantiza |
 |-----------|--------------------|----------------|
-| R1 (extracción) | TC-001 | Genera baskets.xml correctamente desde el batch principal |
+| R1 (extracción) | TC-001, TC-004, TC-012 | Genera baskets.xml (lista + detalle por cesta) y comportamiento ante error de BBDD (job en verde, fichero incompleto) |
 | R2 (Force OK) | TC-002 | Confirma que la malla continúa aunque la validación XSD falle |
 | R3 (fan-out 10 ramas) | TC-001, TC-004, TC-005 | Distribución correcta y comportamiento ante fallo real de una rama aislada |
 | R4 (rama DUCO) | TC-007, TC-008 | Transformación + envío SFTP + limpieza + backup, y comportamiento ante fallo en la pasarela |
@@ -480,6 +548,14 @@ Referencia de casos por tipo:
    completado correctamente — riesgo de espacio en disco en la pasarela y de un backup local incompleto pese a
    una entrega externa exitosa. No confirmado como comportamiento observado, es una deducción de la topología
    de dependencias real (sección 1.4/1.7); a validar con TC-008 de `extraccion_generica_cestas_casos_prueba.xml`.
+
+7. **Un `GS_EXTRACCION_BASKETS` en verde no garantiza un `baskets.xml` válido.** El jar sale con 0 ante casi
+   cualquier error; combinado con el Force OK de `VALIDACION_XSD`, un fichero vacío, truncado, duplicado (por un
+   `.tmp` residual) o sin etiqueta raíz se distribuye a los 10 destinos y se archiva sin ningún KO. La
+   verificación fiable es el log del jar (líneas `Cantidad de BASKETS a tratar: <n>` y `Proceso finalizado`; un
+   `Se ha producido un error en ObtenerQueryCpty` por cesta indica cestas perdidas) y el contenido del fichero.
+8. El orden de las cestas dentro de `baskets.xml` cambia entre ejecuciones; no se puede comparar línea a línea
+   con el de otro día.
 
 ## 10. Conclusión
 

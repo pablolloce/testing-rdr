@@ -66,22 +66,44 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="happy_path">
-    <nombre>Extracción de contingencia de una cesta puntual (ExtraccionContingenciaBASKETS.sql)</nombre>
-    <objetivo>Verificar que el modo de contingencia (reproceso de una sola cesta por instr_id) genera el mismo XML resultante que el batch principal.</objetivo>
+    <nombre>Consulta de lista + detalle por cesta: cada cesta de la lista aparece como un fragmento Security</nombre>
+    <objetivo>Verificar que el jar ejecuta la query de lista (ExtraccionBASKETS.sql, INSTR_ID) y, por cada INSTR_ID, la de detalle (ExtraccionContingenciaBASKETS.sql) y que baskets.xml contiene un fragmento por cesta.</objetivo>
     <precondiciones>
-      <precondicion>Necesidad operativa de reprocesar una cesta concreta de forma individual.</precondicion>
+      <precondicion>Cestas activas con MUREXID en el origen y filas de lista/detalle presentes en FT_T_ATE1.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="instr_id" valor="identificador de una cesta activa concreta"/>
+      <dato campo="instr_id" valor="identificadores de las cestas devueltas por la query de lista"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Invocar el modo de contingencia con un instr_id válido.</paso>
-      <paso numero="2">Comparar la estructura de campos del XML resultante con la de una extracción batch de la misma cesta.</paso>
+      <paso numero="1">Ejecutar GS_EXTRACCION_BASKETS.</paso>
+      <paso numero="2">Leer en el log del jar la línea "Cantidad de BASKETS a tratar: n".</paso>
+      <paso numero="3">Contar los fragmentos Security de baskets.xml y comparar con n y con la query de lista.</paso>
+      <paso numero="4">Comparar los campos de una cesta con el resultado de ejecutar la query de detalle con su instr_id.</paso>
     </pasos>
-    <resultadoEsperado>El XML generado en modo contingencia tiene exactamente la misma estructura de campos que el generado por el batch principal para la misma cesta.</resultadoEsperado>
-    <tipoValidacion>Comparación campo a campo del XML resultante.</tipoValidacion>
-    <criterioAceptacion>Estructura idéntica, solo difiere el modo de selección (una cesta vs. todas paginadas).</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada; una discrepancia de estructura invalidaría la equivalencia documentada entre ambos SQL.</posibilidadFallo>
+    <resultadoEsperado>Hay tantos fragmentos Security como cestas devueltas por la lista; el XML de cada cesta coincide con la query de detalle de su instr_id; el orden entre cestas puede variar entre ejecuciones.</resultadoEsperado>
+    <tipoValidacion>Contraste de recuento y de contenido entre log, base de datos y baskets.xml.</tipoValidacion>
+    <criterioAceptacion>Recuento igual a n y estructura de campos idéntica a la del diccionario de la sección 5.</criterioAceptacion>
+    <posibilidadFallo>Una cesta con error en el detalle falta en el fichero con el job en verde (aparece solo en el log); orden no determinista no es fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Origen de datos caído: GS_EXTRACCION_BASKETS termina en verde con fichero incompleto</nombre>
+    <objetivo>Confirmar que ante un error de base de datos el jar sale con código 0, publica un baskets.xml sin cestas y la cadena lo distribuye.</objetivo>
+    <precondiciones>
+      <precondicion>Conexión a la base de datos de origen deshabilitada o query de lista de FT_T_ATE1 inválida (simulado en entorno de pruebas).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="origen" valor="base de datos no disponible (simulado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_EXTRACCION_BASKETS.</paso>
+      <paso numero="2">Revisar el estado del job, el log del jar y el contenido de baskets.xml.</paso>
+      <paso numero="3">Verificar el estado de VALIDACION_XSD y de las ramas de distribución.</paso>
+    </pasos>
+    <resultadoEsperado>El job termina OK (código 0); el log del jar registra el error SQL; baskets.xml contiene solo la etiqueta de apertura y cierre (o ninguna si falta ROOT_TAG); VALIDACION_XSD queda OK por Force OK y las ramas distribuyen el fichero vacío.</resultadoEsperado>
+    <tipoValidacion>Estado en Control-M + log del jar + contenido del fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento As-Is reproducido; un KO real en este job sería una diferencia respecto al código del jar.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero queda sin etiquetas, VALIDACION_XSD devuelve 1 y se fuerza OK igualmente.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="error_funcional">

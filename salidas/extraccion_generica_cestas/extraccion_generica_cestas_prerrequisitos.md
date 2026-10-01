@@ -2,7 +2,13 @@
 
 ## Datos y ficheros previos
 
-- El origen real de los datos (Murex, vía GoldenSource, tablas/vista consultadas por `Baskets.sql`) debe tener
+- En la tabla `FT_T_ATE1` deben existir una sola fila `ExtraccionBASKETS.sql` (lista, columna `INSTR_ID`) y una sola
+  `ExtraccionContingenciaBASKETS.sql` (detalle, columna `XMLRESULT`, con `URL_OUTPUT_FILE` = `baskets.xml`), y en
+  `FT_T_PAR1` una fila `ROOT_TAG` `ACTIVE` para la query de detalle (si no, el XML sale sin etiqueta raíz). La
+  subcarpeta `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` debe existir y no debe haber un
+  `Baskets.xml.tmp` residual en `/fichtemcomp/pr/descargas/kytl/issues/` (la ejecución añadiría su contenido
+  detrás).
+- El origen real de los datos (Murex, vía GoldenSource, tablas/vista consultadas por la query de lista) debe tener
   al menos una cesta activa con identificador `MUREXID` para que la extracción genere contenido; sin ninguna
   cesta que cumpla el filtro, `baskets.xml` se genera igualmente pero sin datos (comportamiento no verificado
   explícitamente en el documento fuente, análogo al patrón "cuenta a 0" visto en otros procesos RDR).
