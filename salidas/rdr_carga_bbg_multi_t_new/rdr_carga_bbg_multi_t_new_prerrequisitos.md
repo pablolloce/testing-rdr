@@ -28,7 +28,7 @@ El proceso se dispara por la llegada de `ADR_FILE.csv` en `/fichtemcomp/pr/desca
 
 - `BLOOMBERG_PARAMETERS.properties` debe existir en `/$ENV/kytl/online/multipais/multicanal/dat/properties/` con el contenido confirmado (cabecera Data License `getdata`, 41 campos) para que la petición se construya correctamente — mismo fichero compartido que `_M_new` (TC-001, TC-004, TC-005, TC-007, TC-009).
 - `credentials.xml` debe existir y contener credenciales Bloomberg válidas para el envío/descarga SFTP (TC-001, TC-009).
-- `executeBbvaEvent.sh` y `BloombergMultiResponse.properties` deben estar desplegados y ser invocables para la carga en GoldenSource (TC-001, TC-006, TC-009).
+- `executeBbvaEvent.sh` y `BloombergMultiResponse.properties` deben estar desplegados y ser invocables para la carga en GoldenSource (TC-001, TC-006, TC-009). El contenido de `BloombergMultiResponse.properties` y las tablas que carga el evento `Bloomberg_Response` no están documentados (pregunta P-BBGT-02 de la spec): por eso los casos verifican la carga por el log del script y no por base de datos.
 
 ## Sistema de ficheros
 
@@ -39,6 +39,8 @@ El proceso se dispara por la llegada de `ADR_FILE.csv` en `/fichtemcomp/pr/desca
 ## Orquestación
 
 La cadena depende externamente de `MEKYTL0898` (cadena `TR_RDR_CARGA_BBG_MULTI_T`, fuera de alcance) para la llegada del CSV. El orden interno es por eventos: `FICHERO_RDR_FW` → (si detecta fichero) `RDR_BBG_REQUEST` → `RDR_CARGA_BBG_MULTI_OUT` → notifica a `GC_TESO` (externo). El folder se carga en la malla diaria vía User Daily específico `PLAN_1200`, a diferencia de `_M_new` que es Automático. Las Normas de Rearranque no están definidas para ninguno de los 2 jobs OS reales (ver `rdr_carga_bbg_multi_t_new_spec.md` §4/§6).
+
+**Evento de arranque (TC-001, TC-002, TC-009):** `FICHERO_RDR_FW` solo arranca si existe el evento `GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_T_OK` de la fecha de ejecución. En pruebas hay que publicarlo a mano en Control-M (permiso de operación sobre el folder) o esperar a que lo publique `MEKYTL0898`; dejar el CSV en el directorio no basta. Una vez arrancado, `ctmfw` busca el fichero cada 60 s, lo da por completo cuando su tamaño se repite en 3 mediciones de 10 s y espera como máximo 30 minutos; pasado ese tiempo termina con código 7 y Control-M marca el job como OK (TC-002). Las cadenas M y T vigilan el mismo fichero: para no interferir, en las pruebas solo debe estar publicado el evento de la variante que se prueba.
 
 ## Entorno de pruebas
 

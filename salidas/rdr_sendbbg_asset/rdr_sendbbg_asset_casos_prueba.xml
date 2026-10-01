@@ -6,7 +6,8 @@
     <objetivo>Validar el camino feliz completo: las 4 categorías tienen .req, se generan los 4 .tar y se envían sin error a Asset Control.</objetivo>
     <precondiciones>
       <precondicion>Los 4 directorios origen (BATCHISSUES, ONLINEISSUES, BATCHISSUER, ONLINEISSUER) existen y son escribibles, con sus subcarpetas /old.</precondicion>
-      <precondicion>Los ficheros idx/{CLAVE}.idx o idx/bck/{CLAVE}.idx existen y son válidos para MEKYTL0967-0970.</precondicion>
+      <precondicion>Los ficheros idx/{CLAVE}.idx o idx/bck/{CLAVE}.idx existen y son válidos para MEKYTL0967-0970 (contenido pendiente, P-SBA-02).</precondicion>
+      <precondicion>Los nombres de los .req de prueba cumplen la máscara que busca RDR_Asset_Control.sh (pendiente, P-SBA-03; los nombres BBVA_ASSET_*.req valen tanto para *.req como para BBVA_*.req).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="BATCHISSUES" valor="BBVA_ASSET_BI_001.req (fichero de solicitud válido)"/>
@@ -24,7 +25,7 @@
     <resultadoEsperado>Los 4 .tar se generan con el fichero correspondiente comprimido dentro, los .req originales quedan historificados en /old, no quedan .zip intermedios, y los 4 jobs de envío terminan OK.</resultadoEsperado>
     <tipoValidacion>Verificación de log de aplicación + estado de ejecución en Control-M + inspección de filesystem</tipoValidacion>
     <criterioAceptacion>Los 4 .tar existen con contenido correcto, /old contiene los 4 .req originales, y los 4 jobs MEKYTL09xx están en estado "Ended OK".</criterioAceptacion>
-    <posibilidadFallo>Si algún .idx no está correctamente configurado, el envío correspondiente fallará con código 110 (IDX no existe) aunque el empaquetado haya sido correcto.</posibilidadFallo>
+    <posibilidadFallo>Si no existe la configuración de alguna clave, el envío correspondiente terminará con código 110 aunque el empaquetado haya sido correcto.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
@@ -56,19 +57,22 @@
     <objetivo>Validar la reacción del job de envío correspondiente cuando el .tar que debería enviar no fue generado (consecuencia directa de TC-002).</objetivo>
     <precondiciones>
       <precondicion>La categoría BATCHISSUER no generó emisoresBatch_&lt;fecha&gt;.tar (partir del estado final de TC-002).</precondicion>
+      <precondicion>Se conoce qué clave envía la categoría Batch Issuer (pregunta P-SBA-01; la hipótesis por orden de la cadena es MEKYTL0969) y el valor de FALLA_NO_FICHERO en su configuración idx/bck/&lt;CLAVE&gt;.idx (pregunta P-SBA-02).</precondicion>
+      <precondicion>Acceso de lectura a Control-M y a /&lt;env&gt;/pl/envioweb/log/ y /&lt;env&gt;/pl/envioweb/idx/bck/ en el entorno de prueba.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="fichero_origen_esperado" valor="emisoresBatch_&lt;fecha&gt;.tar (inexistente)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Dejar que la cadena continúe hasta el job de envío correspondiente a la categoría Batch Issuer (MEKYTL0969).</paso>
-      <paso numero="2">Verificar el estado final de ese job en Control-M.</paso>
-      <paso numero="3">Abrir su log y anotar el código de error devuelto por MEGENV0001.sh.</paso>
+      <paso numero="1">Leer FALLA_NO_FICHERO en la configuración de la clave que envía Batch Issuer y anotar su valor.</paso>
+      <paso numero="2">Dejar que la cadena continúe hasta ese job de envío.</paso>
+      <paso numero="3">Verificar el estado final y el código de salida de ese job en Control-M.</paso>
+      <paso numero="4">Abrir su log de operación en /&lt;env&gt;/pl/envioweb/log/ y comprobar el código interno que figura al final del nombre del fichero de log.</paso>
     </pasos>
-    <resultadoEsperado>El job de envío termina en error (no en OK) al no encontrar el fichero origen configurado en su .idx.</resultadoEsperado>
+    <resultadoEsperado>Si FALLA_NO_FICHERO=SI: el job termina en error con código 60 y el log contiene "ERROR: No hay ficheros que enviar para la mascara". Si FALLA_NO_FICHERO=NO o está vacío: el job termina con código 0 (con NO, el log contiene un aviso de que no hay ficheros; vacío, sin aviso) y no se envía nada.</resultadoEsperado>
     <tipoValidacion>Verificación de estado de ejecución y log de Control-M</tipoValidacion>
-    <criterioAceptacion>El job queda en estado de fallo, con un código de error de MEGENV0001.sh (105, 110, 301 u otro) registrado en su log.</criterioAceptacion>
-    <posibilidadFallo>Si el job termina en OK pese a la ausencia del fichero origen, el manejo de errores de MEGENV0001.sh no funciona como está documentado.</posibilidadFallo>
+    <criterioAceptacion>El estado y el código del job coinciden con la rama que corresponde al valor leído en el paso 1. Cualquier otro código (por ejemplo 110, configuración ausente) es un fallo del caso.</criterioAceptacion>
+    <posibilidadFallo>Mientras P-SBA-01 y P-SBA-02 estén abiertas, el caso no se puede ejecutar con un único resultado esperado: hay que leer primero la configuración. Si el job no sigue la rama de su FALLA_NO_FICHERO, el comportamiento de MEGENV0001.sh no coincide con su spec común.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -181,7 +185,7 @@
     <resultadoEsperado>Las 4 categorías se procesan y envían correctamente en una única pasada, sin intervención manual, desde el disparo automático a las 00:30 hasta el fin del último job de envío.</resultadoEsperado>
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 5 jobs) + inspección de filesystem y logs</tipoValidacion>
     <criterioAceptacion>Los 5 jobs de la cadena terminan en estado "Ended OK"; los 4 .tar se generaron y los 4 .req originales quedaron historificados.</criterioAceptacion>
-    <posibilidadFallo>Cualquier fallo puntual de red/protocolo (XCOM/CD/SFTP) en el envío haría fallar el job correspondiente sin afectar a los demás (ver R7), pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+    <posibilidadFallo>Cualquier fallo puntual de red o de protocolo en un envío haría fallar ese job. No está documentado si los jobs siguientes se ejecutan igualmente (pregunta P-SBA-05).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

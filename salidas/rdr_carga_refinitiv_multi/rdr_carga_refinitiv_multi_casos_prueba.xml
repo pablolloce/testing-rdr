@@ -6,6 +6,7 @@
     <objetivo>Verificar el flujo completo cuando el fichero llega antes del primer ciclo del día (8:00h).</objetivo>
     <precondiciones>
       <precondicion>REFINITIV_MULTI_ISSUE.csv depositado en la ruta origen antes de las 8:00h.</precondicion>
+      <precondicion>Lectura en Control-M, en /fichtemcomp/pr/descargas/kytl/issues/Refinitiv/Multi_Request/ y consulta SQL sobre FT_T_VREQ y KYTL_GC.TABLEALERTGENER en el entorno de prueba.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero" valor="REFINITIV_MULTI_ISSUE.csv"/>
@@ -16,9 +17,11 @@
       <paso numero="2">Verificar detección del fichero y disparo de MEKYTL1058.</paso>
       <paso numero="3">Verificar transferencia a LPRDR501 y borrado del fichero origen.</paso>
       <paso numero="4">Verificar que FICHERO_RDR_REFINITIV_FW detecta el fichero en destino.</paso>
-      <paso numero="5">Verificar que RDR_REFINITIV_REQUEST se ejecuta con RC=0.</paso>
+      <paso numero="5">Verificar que RDR_REFINITIV_REQUEST se ejecuta con RC=0 y que execute_RefinitivIssueMultiRequest_&lt;AAAAMMDD&gt;.log termina en ESTADO-0-.</paso>
+      <paso numero="6">Consultar SELECT VND_RQST_STAT_TYP, LAST_CHG_TMS FROM FT_T_VREQ WHERE VND_RQST_OID='MULTI_ISSUE' y verificar PROCESSED con fecha del ciclo.</paso>
+      <paso numero="7">Verificar que existe /fichtemcomp/pr/descargas/kytl/issues/Refinitiv/Multi_Request/old/RFNT_BBVA_MULTI_&lt;aaaaMMdd-HHmmss&gt;.txt del ciclo.</paso>
     </pasos>
-    <resultadoEsperado>Los 4 jobs terminan OK en orden; el fichero queda transferido a LPRDR501 y borrado en origen.</resultadoEsperado>
+    <resultadoEsperado>Los 4 jobs terminan OK en orden; el fichero queda transferido a LPRDR501 y borrado en origen; FT_T_VREQ de MULTI_ISSUE queda en PROCESSED; la respuesta de Refinitiv queda en Multi_Request/old/; no hay filas nuevas en TABLEALERTGENER con PROCESO='PETICION_REFINITIV_EMISIONES' y MENSAJE que empiece por '|Load Failed|MULTI|MULTI|'.</resultadoEsperado>
     <tipoValidacion>Verificación de estado Control-M + existencia/ausencia de fichero en origen y destino.</tipoValidacion>
     <criterioAceptacion>4 jobs OK, fichero presente solo en destino.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
@@ -54,7 +57,7 @@
       <dato campo="Fichero" valor="Ausente todo el día"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Recorrer todos los ciclos de 45 min entre 8:00h y 00:00h sin que el fichero llegue.</paso>
+      <paso numero="1">Recorrer todos los ciclos de 30 min entre 8:00h y 00:00h sin que el fichero llegue.</paso>
       <paso numero="2">Verificar ausencia total de alertas a ANS RDR o de tickets Remedy generados por esta causa.</paso>
     </pasos>
     <resultadoEsperado>El día transcurre sin ejecutar RDR_REFINITIV_REQUEST y sin ninguna alerta — riesgo confirmado, no un fallo de la prueba.</resultadoEsperado>
@@ -94,7 +97,7 @@
     <pasos>
       <paso numero="1">Forzar un fallo de transferencia en MEKYTL1058.</paso>
       <paso numero="2">Verificar que el fichero origen NO se ha borrado tras el fallo.</paso>
-      <paso numero="3">Verificar que el siguiente ciclo (45 min después) reintenta la detección/transferencia sobre el mismo fichero.</paso>
+      <paso numero="3">Verificar que el siguiente ciclo (30 min después) reintenta la detección/transferencia sobre el mismo fichero.</paso>
     </pasos>
     <resultadoEsperado>El fichero origen permanece intacto tras un fallo de transferencia; no hay pérdida de datos.</resultadoEsperado>
     <tipoValidacion>Verificación de existencia del fichero en origen tras el fallo simulado.</tipoValidacion>
@@ -106,16 +109,16 @@
     <nombre>Detección solapada del fichero entre 2 ciclos consecutivos</nombre>
     <objetivo>Verificar que un fichero que tarda en transferirse no se reprocesa por el ciclo siguiente antes de completarse el borrado en origen.</objetivo>
     <precondiciones>
-      <precondicion>MEKYTL1058 en curso de transferencia cuando se cumplen los 45 min del ciclo siguiente.</precondicion>
+      <precondicion>MEKYTL1058 en curso de transferencia cuando se cumplen los 30 min del ciclo siguiente.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Duración simulada de la transferencia" valor="Mayor a 45 minutos"/>
+      <dato campo="Duración simulada de la transferencia" valor="Mayor a 30 minutos"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Simular una transferencia de MEKYTL1058 que dure más de 45 minutos.</paso>
+      <paso numero="1">Simular una transferencia de MEKYTL1058 que dure más de 30 minutos.</paso>
       <paso numero="2">Verificar si el ciclo siguiente de FICHERO_REFINITIV_FW vuelve a detectar el mismo fichero (aún no borrado) y dispara una segunda transferencia en paralelo.</paso>
     </pasos>
-    <resultadoEsperado>Sin lock documentado entre ciclos, existe riesgo de doble disparo del mismo fichero — se debe documentar el resultado observado, no asumirlo.</resultadoEsperado>
+    <resultadoEsperado>Resultado no definible hasta resolver P-RFM-02 y P-RFM-03 de la spec (comportamiento real de los file watchers y qué se hace con el CSV tras usarlo). Mientras tanto el caso solo registra si hubo dos ejecuciones concurrentes de MEKYTL1058 sobre el mismo fichero; no puede darse por superado ni por fallado.</resultadoEsperado>
     <tipoValidacion>Verificación de instancias concurrentes de MEKYTL1058 en Control-M.</tipoValidacion>
     <criterioAceptacion>Se registra si hubo o no doble ejecución concurrente sobre el mismo fichero.</criterioAceptacion>
     <posibilidadFallo>Doble transferencia y doble solicitud a Refinitiv por el mismo fichero de origen.</posibilidadFallo>
@@ -137,7 +140,7 @@
     <resultadoEsperado>Ambos días completan la cadena correctamente sin acumular estado residual del día anterior.</resultadoEsperado>
     <tipoValidacion>Comparación de resultados entre ambos días.</tipoValidacion>
     <criterioAceptacion>Mismo comportamiento y tiempos de respuesta en ambos días, sin arrastre de estado.</criterioAceptacion>
-    <posibilidadFallo>Un fichero no borrado el día anterior interfiere con la detección del día siguiente.</posibilidadFallo>
+    <posibilidadFallo>Un fichero no retirado de Multi_Request/ el día anterior interfiere con el día siguiente (pendiente P-RFM-03). Además, si el día anterior dejó FT_T_VREQ de MULTI_ISSUE en FAILED y nadie lo reinicia, el día siguiente no se cierra la petición (P-RFM-06).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="e2e">
@@ -160,4 +163,28 @@
     <posibilidadFallo>Cualquier fallo intermedio detiene el flujo antes del disparo final a Refinitiv.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-009" tipo="error_funcional">
+    <nombre>La respuesta de Refinitiv no llega en 300 segundos</nombre>
+    <objetivo>Verificar la rama de error del workflow Refinitiv_Request_Response cuando el fichero de respuesta no aparece.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba (no producción) en el que RDR_Refinitiv_Request.jar no deja el fichero de respuesta (por ejemplo, sin conectividad con Refinitiv).</precondicion>
+      <precondicion>REFINITIV_MULTI_ISSUE.csv presente en /fichtemcomp/&lt;env&gt;/descargas/kytl/issues/Refinitiv/Multi_Request/.</precondicion>
+      <precondicion>Lectura en Control-M y consulta SQL sobre FT_T_VREQ y KYTL_GC.TABLEALERTGENER.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="vreqOid" valor="MULTI_ISSUE"/>
+      <dato campo="Mensaje esperado" valor="Unable to load response, file not found"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_REFINITIV_REQUEST (GSProcess.sh RefinitivIssueMultiRequest).</paso>
+      <paso numero="2">Esperar a que termine (al menos 300 s de espera del workflow tras el fin del cliente Java).</paso>
+      <paso numero="3">Consultar FT_T_VREQ WHERE VND_RQST_OID='MULTI_ISSUE'.</paso>
+      <paso numero="4">Consultar TABLEALERTGENER WHERE PROCESO='PETICION_REFINITIV_EMISIONES' con START_TMS del ciclo.</paso>
+      <paso numero="5">Anotar el estado final del job en Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>FT_T_VREQ de MULTI_ISSUE queda en FAILED con VND_RQST_STAT_TXT='Unable to load response, file not found'; hay una fila nueva en TABLEALERTGENER con MENSAJE='|Load Failed|MULTI|MULTI|Unable to load response, file not found', TIPO='CELDAEXCEL' y PROCESADO='N'. El estado del job en Control-M depende de P-RFM-07 y se registra como dato para cerrar esa pregunta.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL + estado en Control-M</tipoValidacion>
+    <criterioAceptacion>Las dos filas de base de datos coinciden literalmente con lo esperado.</criterioAceptacion>
+    <posibilidadFallo>Si FT_T_VREQ no cambia, el workflow no siguió la rama de error documentada. No ejecutar en producción: deja la petición MULTI_ISSUE en FAILED.</posibilidadFallo>
+  </casoDePrueba>
 </casosDePrueba>

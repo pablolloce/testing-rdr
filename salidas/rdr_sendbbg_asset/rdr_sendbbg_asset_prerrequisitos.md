@@ -23,7 +23,11 @@ Cada uno de estos directorios debe tener su subcarpeta `/old` ya creada, con per
 
 ## Configuración del motor de envío
 
-Para que `MEKYTL0967`-`MEKYTL0970` puedan enviar los `.tar` a Asset Control, deben existir previamente los ficheros de configuración `idx/{CLAVE}.idx` (o, como mínimo, su backup estático `idx/bck/{CLAVE}.idx`, ya que la generación dinámica vía `GENV.jar` está desactivada) para cada una de las 4 claves, con el protocolo (XCOM/Connect Direct/SFTP), ruta origen y destino remoto correctamente configurados hacia Asset Control.
+Para que `MEKYTL0967`-`MEKYTL0970` puedan enviar los `.tar` a Asset Control, debe existir la configuración de cada clave en `/<env>/pl/envioweb/idx/<CLAVE>.idx` o en su copia de respaldo `idx/bck/<CLAVE>.idx` (no está confirmado que la generación desde base de datos esté desactivada; ver la spec común de `MEGENV0001.sh`, P-MEG-02). Su contenido no se ha recibido (P-SBA-02 de la spec): para TC-001, TC-003 y TC-008 hay que leer antes, en el entorno de prueba, `FICHERO_ORIGEN`, `RUTA_ORIGEN`, `FALLA_NO_FICHERO`, `PROTOCOLO` y `MAQUINA_DESTINO` de cada clave, y saber qué categoría envía cada una (P-SBA-01). Quien ejecute TC-003 necesita lectura de `/<env>/pl/envioweb/idx/bck/` y `/<env>/pl/envioweb/log/`.
+
+**Nombres de los `.req` de prueba (TC-001, TC-002, TC-004, TC-006, TC-008):** deben cumplir la máscara que busca el script (P-SBA-03). Los ficheros reales se llaman `BK_All_BBVARDR_<ddmm>_<hhmmss>.req` en Batch Issues y `BBVARDR_MM_dd_yyyy.req` en Batch Issuer.
+
+**Purga ajena en Batch Issuer:** el script `Batch_BBG_sftp.sh` de `RDR_DAILY_BBG_REQ_new` borra los ficheros de más de 3 días de `riesgoemisorBatch/Backup/` y sus subdirectorios. Las pruebas que dejen datos ahí no deben depender de ficheros con más de 3 días.
 
 ## Flujos previos que deben haberse completado
 

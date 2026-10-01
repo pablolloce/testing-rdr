@@ -132,11 +132,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Relanzar manualmente RDR_REFINITIV_BATCH_REQUEST tras una ejecución ya completada con éxito el mismo día.</paso>
-      <paso numero="2">Verificar el comportamiento de la tabla FT_T_VREQ/FT_T_VRPM ante el vreqOid repetido (si el entorno de prueba lo permite consultar).</paso>
+      <paso numero="2">Contar las filas de FT_T_VREQ con VND_RQST_OID='BATCH_ISSUER' antes y después del relanzamiento.</paso>
+      <paso numero="3">Comprobar que en /fichtemcomp/&lt;env&gt;/descargas/kytl/riesgoemisorBatch/Refinitiv/old/ hay dos respuestas RFNT_BBVA_BATCH_&lt;aaaaMMdd-HHmmss&gt;.txt con distinta hora.</paso>
     </pasos>
-    <resultadoEsperado>No hay control de duplicidad documentado a nivel de Control-M para este escenario; el resultado depende de la lógica interna de GoldenSource, no verificada documentalmente (ver rdr_batch_emisores_refinitiv_spec.md sección 9).</resultadoEsperado>
+    <resultadoEsperado>El relanzamiento no se impide: el workflow vuelve a pedir y a cargar la respuesta, y queda una segunda respuesta en Refinitiv/old/ con otra hora. El workflow no crea filas en FT_T_VREQ (usa la fila fija BATCH_ISSUER); el número de filas no debe cambiar. Qué hace el cliente RDR_Refinitiv_Request.jar con esa fila está pendiente (P-BER-07) y el efecto de cargar dos veces la misma respuesta depende del feed Refinitiv_Issuer_Batch_Response (P-BER-02).</resultadoEsperado>
     <tipoValidacion>Inspección de tabla GoldenSource (si el entorno de prueba lo permite) + verificación de estado en Control-M.</tipoValidacion>
-    <criterioAceptacion>Se documenta explícitamente el comportamiento observado ante la repetición, sin asumir de antemano un resultado.</criterioAceptacion>
+    <criterioAceptacion>Dos respuestas en old/ y el mismo número de filas BATCH_ISSUER en FT_T_VREQ antes y después.</criterioAceptacion>
     <posibilidadFallo>Sobrescritura silenciosa o generación de un segundo registro conflictivo en FT_T_VREQ.</posibilidadFallo>
   </casoDePrueba>
 
@@ -152,12 +153,38 @@
     <pasos>
       <paso numero="1">Ejecutar la cadena completa (21:00h→22:00h→23:00h) en entorno de prueba.</paso>
       <paso numero="2">Verificar los 3 eventos de salida y ausencia de relanzamientos.</paso>
-      <paso numero="3">Si el entorno lo permite, consultar FT_T_FIRT/FT_T_RLT1 para confirmar en runtime el impacto ya verificado con código real en R6 de rdr_batch_emisores_refinitiv_spec.md.</paso>
+      <paso numero="3">Consultar FT_T_VREQ: las filas BATCH_ISSUER y BATCH_RATINGS no deben estar en FAILED con LAST_CHG_TMS del día.</paso>
+      <paso numero="4">Consultar FT_T_RLT1 WHERE RLT_PURP_TYP='Refinitiv_Ratings' con START_TMS del día: RLT_DIF_STAT debe ser OK.</paso>
+      <paso numero="5">Consultar FT_T_RLT1 WHERE RLT_DIF_STAT='PENDING_ESB' AND DATA_SRC_APP='BB' AND LAST_CHG_USR_ID='BBVA:CUSTOMER' con START_TMS posterior a las 23:00: debe haber una fila por cada rating de FT_T_FIRT con LAST_CHG_USR_ID='BBVA:CUSTOMER' y DATA_SRC_ID='BB' modificado en la ejecución.</paso>
+      <paso numero="6">Comprobar que las respuestas RFNT_BBVA_BATCH_*.txt y RFNT_BBVA_MULTI_*.txt del día están en riesgoemisorBatch/Refinitiv/old/ y riesgoemisor/Refinitiv/old/.</paso>
     </pasos>
-    <resultadoEsperado>La cadena completa termina OK y, si el entorno lo permite verificar, se observa el impacto en las tablas GoldenSource confirmado documentalmente en R6.</resultadoEsperado>
+    <resultadoEsperado>Los 3 jobs terminan OK; ninguna petición queda en FAILED; la fila de seguimiento de Refinitiv_Ratings está en OK; cada rating oficial modificado en FT_T_FIRT tiene su fila PENDING_ESB en FT_T_RLT1; las dos respuestas están en sus old/.</resultadoEsperado>
     <tipoValidacion>Verificación combinada Control-M + BD (sujeta a disponibilidad de entorno).</tipoValidacion>
     <criterioAceptacion>Cadena completa OK; impacto en BD confirmado o explícitamente marcado como no verificable por falta de entorno.</criterioAceptacion>
-    <posibilidadFallo>Imposibilidad de verificar el impacto real en BD por falta de acceso a GSDM-1, dejando el caso parcialmente cerrado (limitación ya explicitada en rdr_batch_emisores_refinitiv_spec.md sección 7).</posibilidadFallo>
+    <posibilidadFallo>Sin acceso de lectura a GSDM-1 el caso no se puede cerrar. Un OK de la fila Refinitiv_Ratings no prueba que se hayan cargado los ratings (riesgo R-03 de la spec).</posibilidadFallo>
+  </casoDePrueba>
+  <casoDePrueba id="TC-009" tipo="happy_path">
+    <nombre>Un rating sin clasificación "Automatic" también se actualiza y se difunde</nombre>
+    <objetivo>Verificar la regla del workflow BBG_Refinitiv_Batch: el UPDATE de FT_T_FIRT y la fila PENDING_ESB se hacen para todo rating con cambio de mapeo; la clasificación REU "Automatic" solo decide la marca CALCULATE_REU.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con escritura en GSDM-1 (no producción).</precondicion>
+      <precondicion>Entidad E1 con rating BBGSPLT y rating oficial SPRLOTRT activos en FT_T_FIRT, con equivalencia vigente en FT_T_RVXR hacia un valor de SPRLOTRT distinto del actual, y SIN fila en FT_T_FRRL/FT_T_INCL con INCL.CL_NME='Automatic' e INDUS_CL_SET_ID like 'REUORG%'.</precondicion>
+      <precondicion>Entidad E2 igual que E1 pero CON esa clasificación "Automatic".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="E1" valor="INST_MNEM sintético sin clasificación Automatic"/>
+      <dato campo="E2" valor="INST_MNEM sintético con clasificación Automatic"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_BBG_REFINITIV_BATCH (GSProcess.sh RDR_BBG_Refinitiv_Batch).</paso>
+      <paso numero="2">Consultar FT_T_FIRT del rating SPRLOTRT de E1 y de E2.</paso>
+      <paso numero="3">Consultar FT_T_RLT1 con RLT_DIF_STAT='PENDING_ESB' y MAIN_ENTITY_ID igual a E1 y a E2.</paso>
+      <paso numero="4">Consultar FT_T_RLT1 con RLT_DIF_STAT='CALCULATE_REU' y RLT_FIELD igual a E1 y a E2.</paso>
+    </pasos>
+    <resultadoEsperado>En E1 y en E2, el rating SPRLOTRT pasa al valor equivalente, con DATA_STAT_TYP='ACTIVE', LAST_CHG_USR_ID='BBVA:CUSTOMER' y DATA_SRC_ID='BB', y existe una fila PENDING_ESB nueva. Solo E2 tiene fila CALCULATE_REU nueva.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL</tipoValidacion>
+    <criterioAceptacion>Las cuatro comprobaciones coinciden con lo esperado. Caso con escritura en base de datos: no ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si solo se procesa una de las dos entidades, puede ser el efecto de la variable del bucle (P-BER-05): repetir con una sola entidad cada vez para distinguirlo.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

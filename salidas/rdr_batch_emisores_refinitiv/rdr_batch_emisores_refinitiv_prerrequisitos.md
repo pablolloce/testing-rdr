@@ -8,8 +8,8 @@
   Refinitiv (protocolo/autenticación no documentados en el material fuente de este proceso).
 - Debe existir conectividad JDBC entre el motor `GSProcess.sh`/workflows GoldenSource y la base de datos
   `GSDM-1`, donde se actualizan las tablas `FT_T_FIRT`, `FT_T_RTNG`, `FT_T_RVXR`, `FT_T_RTVL`, `FT_T_VREQ`,
-  `FT_T_VRPM`, `FT_T_PAR1`, `FT_T_RLT1`, `FT_T_FRRL` y `FT_T_INCL` — confirmado con los 3 workflows
-  GoldenSource reales (ver `rdr_batch_emisores_refinitiv_spec.md` R6 y sección 9).
+  `FT_T_VRPM`, `FT_T_PAR1`, `FT_T_RLT1`, `FT_T_FRRL` y `FT_T_INCL` — según los 3 workflows
+  GoldenSource reales (spec, §6.3-§6.6).
 
 ## Configuración e infraestructura
 
@@ -32,4 +32,11 @@
 - **Riesgo operativo a tener en cuenta:** no existe lock/PID/semáforo documentado que impida relanzar
   manualmente la cadena mientras una ejecución programada siga en curso.
 - La cadena hermana `RDR_CARGA_REFINITIV_Multi` no es un prerrequisito de esta cadena: son integraciones
-  independientes según confirmación del usuario (ver `rdr_batch_emisores_refinitiv_spec.md` gap G3).
+  independientes según confirmación del usuario (spec, §4.1 G3).
+
+## Datos y accesos para los casos con base de datos (TC-007, TC-008, TC-009)
+
+- Lectura en GSDM-1 de `FT_T_VREQ` (filas `BATCH_ISSUER` y `BATCH_RATINGS`), `FT_T_RLT1`, `FT_T_FIRT`, `FT_T_RTNG`, `FT_T_RVXR`, `FT_T_RTVL`, `FT_T_FRRL` y `FT_T_INCL`; para TC-009, además escritura (entorno de prueba).
+- Lectura de `/fichtemcomp/<env>/descargas/kytl/riesgoemisorBatch/Refinitiv/old/`, `/fichtemcomp/<env>/descargas/kytl/riesgoemisor/Refinitiv/old/` y `/fichtemcomp/<env>/descargas/kytl/riesgoemisorBatch/Backup/`.
+- Contactos `CONTACT_ANS_<env>` y `CONTACT_User_<env>` activos en `FT_T_PAR1` (`PARAMETER_CTXT_TYP='REFINITIV_CONTACT'`) del entorno de prueba, para no enviar correos a destinatarios reales.
+- TC-009: dos entidades sintéticas con ratings `BBGSPLT` y `SPRLOTRT` y una equivalencia vigente en `FT_T_RVXR`; una con clasificación REU "Automatic" (`FT_T_FRRL` + `FT_T_INCL` con `INDUS_CL_SET_ID like 'REUORG%'` y `CL_NME='Automatic'`) y otra sin ella.

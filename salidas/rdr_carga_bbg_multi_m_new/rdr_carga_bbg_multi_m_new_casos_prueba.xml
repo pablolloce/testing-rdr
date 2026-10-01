@@ -7,6 +7,7 @@
     <precondiciones>
       <precondicion>No existe ya un ADR_FILE.csv en /fichtemcomp/pr/descargas/kytl/issues/ADRMultirequest/ antes de la prueba.</precondicion>
       <precondicion>Las credenciales de Bloomberg en credentials.xml son válidas y el host 160.43.94.77 es alcanzable.</precondicion>
+      <precondicion>El evento GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_M_OK de la fecha de ejecución está publicado (lo publica MEKYTL0898 o, en pruebas, se añade a mano en Control-M); sin él FICHERO_RDR_FW no arranca.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ADR_FILE.csv" valor="cabecera + 1 fila: ID1;NombreTest;ISIN (columna 3='ISIN')"/>
@@ -30,21 +31,23 @@
     <nombre>Ausencia de ADR_FILE.csv no genera error</nombre>
     <objetivo>Confirmar que, si ADR_FILE.csv no aparece dentro de la ventana de comprobación del filewatcher, el job se marca OK sin disparar el resto de la cadena, sin que ello se trate como error.</objetivo>
     <precondiciones>
-      <precondicion>No existe ADR_FILE.csv en la ruta de monitoreo antes ni durante la ventana de comprobación.</precondicion>
+      <precondicion>No existe ADR_FILE.csv en la ruta de monitoreo antes ni durante los 30 minutos de espera de ctmfw.</precondicion>
+      <precondicion>El evento GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_M_OK de la fecha de ejecución está publicado, para que FICHERO_RDR_FW arranque.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ADR_FILE.csv" valor="ausente"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar la ausencia del fichero antes del ciclo de FICHERO_RDR_FW.</paso>
-      <paso numero="2">Esperar a que el filewatcher agote su ciclo de comprobación (código de retorno 7).</paso>
+      <paso numero="2">Esperar a que ctmfw agote su espera máxima de 30 minutos (parámetro wait_time = 30) y termine con código de retorno 7.</paso>
       <paso numero="3">Verificar el estado final de FICHERO_RDR_FW en Control-M.</paso>
       <paso numero="4">Verificar que RDR_BBG_REQUEST no se disparó.</paso>
+      <paso numero="5">Verificar que el evento GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_M_OK se ha borrado y que no se ha publicado GC_TESO_RDR_CARGA_BBG_MULTI_OUT_M_OK_new.</paso>
     </pasos>
-    <resultadoEsperado>FICHERO_RDR_FW termina en estado OK pese a no encontrar el fichero; RDR_BBG_REQUEST no se ejecuta en este ciclo; no se registra ningún error de cadena.</resultadoEsperado>
+    <resultadoEsperado>FICHERO_RDR_FW termina en estado OK pese a no encontrar el fichero; RDR_BBG_REQUEST no se ejecuta en este ciclo; el evento de entrada GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_M_OK queda borrado; no se publica el evento de fin hacia GC_TESO; no se registra ningún error de cadena.</resultadoEsperado>
     <tipoValidacion>Estado de ejecución en Control-M</tipoValidacion>
     <criterioAceptacion>FICHERO_RDR_FW en "Ended OK"; RDR_BBG_REQUEST sin ejecución en este ciclo.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada según la configuración documentada (On/Do Actions: retorno 7 → marcar OK).</posibilidadFallo>
+    <posibilidadFallo>Si ctmfw devolviera un código distinto de 7 al agotar el tiempo (pregunta P-CFW-01 de la spec común de ctmfw), la regla 7 → OK no se activaría y el job quedaría en error.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -181,6 +184,7 @@
     <precondiciones>
       <precondicion>ADR_FILE.csv válido con al menos 2 filas de datos (una ISIN, otra de otro tipo) llega antes de las 11:45 AM.</precondicion>
       <precondicion>El host Bloomberg y las credenciales son válidos y alcanzables.</precondicion>
+      <precondicion>El evento GC-AR-M4_TR_RDR_CARGA_BBG_MULTI_MEKYTL0898_M_OK de la fecha de ejecución está publicado.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ADR_FILE.csv" valor="cabecera + 2 filas (E2E-1: ISIN, E2E-2: BB_GLOBAL)"/>
