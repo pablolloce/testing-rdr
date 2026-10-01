@@ -176,7 +176,8 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
       `GLOBAL`**, a diferencia de la cascada local/global de `REFUNDICION`) y marca `OK`; después consulta
       `FT_T_RLT1` con `RLT_DIF_ACC='B460C'` (**tipología no documentada hasta ahora**, a nivel de
       folio/contrato vía `SRC_VALUE`, no de cliente) y, por cada folio, invoca `SendClientelaRequest`
-      (`ACCION=B460`, `FOLIO=`<folio>) y marca `OK`.
+      (`ACCION=B460`, `BRANCH="A1"`, `CODBAN="0182"`, `CODOFI="0997"` — **mismos literales hardcodeados que el
+      bloque `ALTA`**, no resueltos desde Tablas Generales — `FOLIO=`<folio>) y marca `OK`.
     - **`TOTAL`:** ejecuta la misma secuencia `B460` → `B460C` → `A460` en un único paso.
   - **Confirma y cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí":** las 3
     tipologías consumen exactamente las señales `PENDING`/`A460`/`B460` que `Sub_Load`/`REFUNDICION` inserta
@@ -231,6 +232,24 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
       tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
       `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
       simplemente no se marcaría `OK` y se reintentaría al día siguiente.
+    - **[Detalle adicional, confirmado con desglose nodo a nodo completo de `SendClientelaRequest.wkf`]
+      Asimetría `CONS`/`CONS1`:** ambas ramas de consulta componen y envían el mismo mensaje a Clientela, pero
+      **solo `CONS` comprueba antes, vía `Sub_check_CCLIENIDFISCAL_GS`, si la combinación `CCLIEN`/`IDFISCAL`
+      ya existe en GoldenSource** — y si existe, el workflow **termina sin llegar a enviar nada** (`OUTPUT =
+      "...ya existe en GS"`, `Stop` directo). `CONS1` es la misma consulta sin ese filtro previo — ninguno de
+      los 2 llamantes conocidos de esta cadena (`BajaClientela460`/`BAJA_460_CLI`) usa la rama de consulta, así
+      que esta asimetría no afecta al pipeline de R2, pero queda documentada para quien audite otros llamantes
+      de `SendClientelaRequest`.
+    - **[Hallazgo de calidad de código, `BajaClientela460.wkf`] Copy-paste confirmado en el bloque `ALTA`:**
+      el `UPDATE FT_T_RLT1` que cierra cada alta (`RLT_DIF_ACC='A460'`) fija `LAST_CHG_USR_ID='BAJA_CLIENTELA'`
+      — el mismo literal que los bloques de baja, en vez de algo como `'ALTA_CLIENTELA'` — indicio de que el
+      bloque `ALTA` se construyó copiando el de baja sin adaptar ese campo. Sin efecto funcional (el campo es
+      solo auditoría), pero puede confundir una investigación de incidencias basada en ese campo.
+    - **[Hallazgo de calidad de código] Duplicación de nodos entre `TOTAL` y las ramas `BAJA`/`ALTA`
+      independientes:** en vez de reutilizar el mismo sub-árbol (p. ej. con `idref`), el `Switch Case` de
+      `BajaClientela460` construye una copia completa y separada de la lógica de baja+alta para la rama
+      `TOTAL` (nodos XML distintos, mismo SQL y mismos sub-workflows) — mismo patrón de duplicación ya visto
+      en otros workflows de este audit.
 * **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: mecanismo real pero de un
   proceso no identificado, ajeno a esta cadena.** Estas 3 clases, aportadas en rondas anteriores bajo la
   hipótesis de que implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la
@@ -476,3 +495,16 @@ invoca `NIVEL=LOCAL`). Nuevos TC-016; TC-014/TC-015 reformulados como confirmaci
 prioridad alta pendientes de material** (G1-G4 resueltos al 100%); el único riesgo real que subsiste
 (ausencia de parada temprana en `KYTL_REF_GSPROCESS`) es una característica de diseño ya confirmada con
 código real, no un hueco de evidencia.
+
+**Ronda adicional (2026-10-01):** el usuario reaportó `SendClientelaRequest`/`BAJA_460_CLI`/`BajaClientela460`
+en formato de resumen (`.md`, mismo contenido de fondo que los `.wkf` ya analizados en la ronda anterior, sin
+información nueva de estructura). El repaso añade 4 matices menores, ya incorporados arriba: la asimetría
+`CONS`/`CONS1` en `SendClientelaRequest` (solo `CONS` comprueba existencia previa en GS, y si existe no llega
+a enviar nada a Clientela), un copy-paste confirmado (`LAST_CHG_USR_ID='BAJA_CLIENTELA'` también en el
+`UPDATE` del bloque `ALTA`), la duplicación de nodos entre `TOTAL` y las ramas `BAJA`/`ALTA` independientes, y
+la confirmación de que `CODBAN='0182'`/`CODOFI='0997'` están hardcodeados también en el bloque `B460C`, no
+solo en `ALTA`. Ninguno cambia el balance de 0 gaps bloqueantes ya alcanzado. Los 2 sub-workflows internos
+mencionados como "no aportados" (`Sub_check_CCLIENIDFISCAL_GS`, invocado solo en la rama `CONS` no alcanzable
+desde este pipeline; `SUB_GET_FOLIO`, invocado desde las ramas `LOCAL`/`GLOBAL` de `BAJA_460_CLI` no
+alcanzables desde este pipeline, que siempre usa `NIVEL=LOCAL` vía `BajaClientela460`) siguen sin aportar,
+pero su contenido no afectaría al camino real de este proceso.

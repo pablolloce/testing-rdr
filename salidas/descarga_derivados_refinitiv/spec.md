@@ -447,10 +447,10 @@ de emisores, así que su estructura sigue sin muestra real.
   simple de lo asumido: **un `orgId` por línea, sin delimitador `|`** — no un fichero de campos múltiples.
   `IssuersService` lo usa solo para localizar una `FT_T_FINS` ya existente (no la crea) y, si existe, crear
   (si no hay ya) su fila `FT_T_ISSR` — ver §5.2 Grupo A.
-* **Lo que sigue sin confirmar:** el mapeo campo→columna exacto de las tablas satélite del Grupo C
-  (`FT_T_OPCH`/`FT_T_SWCH`/etc., ver §5.2) requiere `DerivativesProcessor` (no aportado); y la muestra real de
-  `Emisores*.txt` (contenido, no ya estructura) sigue sin aportar — el lote recibido no tenía altas de
-  emisores.
+* **[RESUELTO] Muestra real de contenido de `Emisores*.txt`:** aportada una muestra no vacía
+  (`Emisores_20220330_162424.txt`, 1 línea: `28311`) — confirma con un valor real que el fichero es,
+  efectivamente, un `orgId`/`FINR_ID` bare por línea sin delimitador `|`, tal y como ya predecía el código de
+  `IssuersService` (ver arriba). Ya no queda ningún resto de evidencia abierto en este punto.
 
 ## 6. Especificación de testing
 
@@ -517,9 +517,8 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **[Resuelto, 2026-10-01] Mapeo campo a campo de Emisores/Subyacentes/Derivados, incluidas las tablas
   satélite del Grupo C:** `UnderlyingService.java`/`ListedDerivativesService.java`/`DerivativesProcessor.java`
   reales confirman que los 3 campos de `Subyacentes*.txt` son exactamente los que `UnderlyingService`
-  necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §5.2). Único resto:
-  una muestra de contenido real de `Emisores*.txt` (su estructura — un `orgId` por línea — ya está confirmada
-  por código).
+  necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §5.2). **Cerrado por
+  completo**, incluida la muestra de contenido real de `Emisores*.txt` (`28311`, ver §5.6).
 * **[Resuelto, 2026-10-01] Las 5 tablas del Grupo E quedan atribuidas al 100%:** `FT_T_FINR` **sí se escribe**
   — no desde el jar, sino desde el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` vía un mensaje JMS
   (`AltaRolEmisor`) que da de alta el rol `ISSUER`; `FT_T_FIRL`/`FT_T_GUNT` se **leen** (resolución de
@@ -547,9 +546,6 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
   (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
-* **Contenido real (no solo estructura) de `Emisores*.txt`** — la estructura (un `orgId` por línea) ya está
-  confirmada por código (`IssuersService.java`); el lote de producción aportado no contenía altas, así que
-  sigue sin una muestra de contenido real.
 * **Algoritmo interno del servicio externo OpenFigi** (de Bloomberg) — servicio de terceros, fuera del
   alcance de este análisis.
 * **Generación del fichero en la plataforma Refinitiv** (proveedor externo).
@@ -685,3 +681,11 @@ de este audit.** Los 2 puntos que quedan fuera de alcance (el consumidor del men
 el algoritmo interno de OpenFigi) lo están por naturaleza — pertenecen a sistemas externos a
 `refinitivDerivativesLoader.jar` y a los workflows GoldenSource de este proceso, no a huecos de material no
 aportado.
+
+**Ronda adicional (2026-10-01, séptima del día) — confirmación final con dato real.** El usuario aportó
+`Load_Refinitiv_Response.md` (resumen en markdown del mismo `.wkf` ya analizado nodo a nodo en la ronda
+anterior — sin contenido nuevo, coincide punto por punto con lo ya documentado en §5.3) y una **muestra no
+vacía** de `Emisores*.txt` (`Emisores_20220330_162424.txt`, 1 línea: `28311`). Esta última cierra el único
+resto que quedaba del §5.6 (la muestra de producción anterior había llegado vacía): confirma con un valor
+real, no solo por lectura de código, que el fichero es efectivamente un `orgId`/`FINR_ID` desnudo por línea,
+sin delimitador. No quedan huecos de evidencia abiertos en este proceso.
