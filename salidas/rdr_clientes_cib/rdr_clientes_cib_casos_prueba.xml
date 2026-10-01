@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="RDR_CLIENTES_CIB_new" fecha="2026-09-23" usuario="pablo.llorente">
+<casosDePrueba proceso="RDR_CLIENTES_CIB_new" fecha="2026-10-01" usuario="pablo.llorente">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Encadenamiento completo de los 7 jobs con fichero de entrada presente</nombre>
     <objetivo>Verificar que los 7 jobs se ejecutan en el orden documentado, incluido el Fan-Out y el Fan-In.</objetivo>
     <precondiciones>
-      <precondicion>Cadena RDR_CLIENTES_CIB_new activa en Control-M, servidor MERCADOS-4, usuario xakytl1p con permisos de ejecución sobre /pr/kytl/online/multipais/multicanal/scrt/.</precondicion>
-      <precondicion>Existe clientes.csv en /fichtemcomp/pr/descargas/kytl/clientes/ con al menos 1 registro válido según el diccionario de 12 campos (fillingRules_clientes.csv).</precondicion>
+      <precondicion>Folder RDR_CLIENTES_CIB_new pedido en el entorno de pruebas (no producción); usuario de pruebas con permiso para consultar estados, eventos y logs; xakytl1p con ejecución sobre /&lt;env&gt;/kytl/online/multipais/multicanal/scrt/.</precondicion>
+      <precondicion>Existe clientes.csv en /fichtemcomp/&lt;env&gt;/descargas/kytl/clientes/ con la cabecera COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO y al menos 2 registros de 12 campos separados por ";", sin vocales acentuadas ni "ñ".</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>
@@ -14,7 +14,7 @@
     <pasos>
       <paso numero="1">Depositar clientes.csv en la ruta origen antes de las 04:00 AM.</paso>
       <paso numero="2">Verificar que KYTL_CLI_GSPROCESS_FW detecta el fichero y genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new.</paso>
-      <paso numero="3">Verificar que KYTL_CLI_GSPROCESS termina con RC=0 y genera Reporte_clientes_dos.csv.</paso>
+      <paso numero="3">Verificar que KYTL_CLI_GSPROCESS termina con RC=0, que execute_clientes_&lt;AAAAMMDD&gt;.log acaba con ESTADO-0- y que existe Reporte_clientes_dos.csv en el directorio activo.</paso>
       <paso numero="4">Verificar que MEKYTL0147 termina con RC=0 y transmite el fichero a MVP00G215.</paso>
       <paso numero="5">Verificar que MEKYTL0148 termina con RC=0 y transmite el fichero a MVP00G219.</paso>
       <paso numero="6">Verificar que MEKYTL0136 dispara solo tras confirmarse MEKYTL0147_OK y MEKYTL0148_OK, e historifica clientes.csv.</paso>
@@ -32,10 +32,10 @@
     <objetivo>Confirmar que un fallo en la carga impide la ejecución de ambos envíos paralelos.</objetivo>
     <precondiciones>
       <precondicion>Cadena activa; clientes.csv presente y detectado por el filewatcher.</precondicion>
-      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo del job KYTL_CLI_GSPROCESS (p. ej. cortando la conectividad a GoldenSource antes de su ejecución).</precondicion>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo del job KYTL_CLI_GSPROCESS (por ejemplo, retirando clientes.properties del entorno de pruebas: GSProcess.sh termina con código 1 si no existe el .properties).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Simulación" valor="Conectividad a GoldenSource cortada durante la ejecución de KYTL_CLI_GSPROCESS"/>
+      <dato campo="Simulación" valor="clientes.properties no disponible en el entorno de pruebas"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Forzar RC≠0 en KYTL_CLI_GSPROCESS.</paso>
@@ -60,9 +60,10 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Mantener clientes.csv ausente durante los 240 minutos de ventana de KYTL_CLI_GSPROCESS_FW.</paso>
-      <paso numero="2">Verificar que el job queda en estado OK al agotarse el timeout (RC=7).</paso>
-      <paso numero="3">Verificar que se genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO en lugar de RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new.</paso>
-      <paso numero="4">Verificar que ningún otro job de la cadena consume el evento _KO ni cambia de estado a raíz de él.</paso>
+      <paso numero="2">Verificar que, a los 240 minutos de arrancar, ctmfw termina con código 7 (tiempo agotado).</paso>
+      <paso numero="3">Verificar que el job queda en estado OK (acción "Marcar como OK" de la regla del código 7).</paso>
+      <paso numero="4">Verificar que se genera el evento RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO en lugar de RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="5">Verificar que ningún otro job de la cadena consume el evento _KO ni cambia de estado a raíz de él.</paso>
     </pasos>
     <resultadoEsperado>El job queda en OK pese al timeout; se publica el evento _KO sin que ningún job de esta cadena reaccione a él — comportamiento confirmado por captura real de Control-M, no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de estado y eventos publicados en Control-M.</tipoValidacion>
