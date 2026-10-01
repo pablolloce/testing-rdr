@@ -147,43 +147,45 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="happy_path">
-    <nombre>Carga real de Emisores en FT_T_FINS/FT_T_ISSR</nombre>
-    <objetivo>Confirmar que IssuersService.loadIssuers() carga correctamente un emisor del fichero Emisores*.txt en FT_T_FINS, y su rol de emisor asociado en FT_T_ISSR con la FK FINS_INST_MNEM correctamente enlazada.</objetivo>
+    <nombre>Carga real de Emisores — IssuersService NO crea FT_T_FINS, solo FT_T_ISSR (corregido con código real)</nombre>
+    <objetivo>Confirmar que IssuersService.loadIssuers() localiza una FT_T_FINS ya existente a partir de un orgId de Emisores*.txt y crea (si no existe ya) su fila de rol de emisor en FT_T_ISSR — y que, si FT_T_FINS NO existe, genera una excepción ISSUER_NOT_EXIST_OR_NOT_CORRECT_INFORMED en vez de crearla.</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Emisores*.txt de prueba con al menos 1 emisor nuevo (no existente previamente en FT_T_FINS).</precondicion>
+      <precondicion>Un fichero Emisores*.txt de prueba — CORREGIDO 2026-10-01: formato real confirmado por código, un orgId por línea, SIN delimitador "|". Debe incluir al menos 1 orgId con FT_T_FINS ya existente en RDR (sin FT_T_ISSR todavía) y 1 orgId sin FT_T_FINS existente.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Emisor de prueba" valor="1 entidad financiera nueva con INST_NME, ORG_ID y datos mínimos poblados"/>
+      <dato campo="Línea válida" valor="1 orgId que SÍ tiene una fila FT_T_FINS existente en RDR, sin FT_T_ISSR asociada todavía"/>
+      <dato campo="Línea inválida" valor="1 orgId que NO tiene ninguna fila FT_T_FINS en RDR"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el paso 5 del pipeline (CargaDerivados) con el fichero Emisores*.txt de prueba.</paso>
-      <paso numero="2">Confirmar la fila nueva en FT_T_FINS con los valores esperados.</paso>
-      <paso numero="3">Confirmar la fila correspondiente en FT_T_ISSR, con FINS_INST_MNEM apuntando a la fila de FT_T_FINS creada.</paso>
+      <paso numero="1">Ejecutar la carga con el fichero de prueba.</paso>
+      <paso numero="2">Para la línea válida: confirmar que se crea una fila nueva en FT_T_ISSR (issrNme=FT_T_FINS.instNme, instMnem/finsInstMnem=FT_T_FINS.instMnem, finsrlTyp='ISSUER') y que FT_T_FINS NO se modifica.</paso>
+      <paso numero="3">Para la línea inválida: confirmar que se genera la excepción ISSUER_NOT_EXIST_OR_NOT_CORRECT_INFORMED y que no se crea ninguna fila en FT_T_FINS ni en FT_T_ISSR.</paso>
     </pasos>
-    <resultadoEsperado>El emisor y su rol de emisor quedan correctamente cargados y enlazados en Oracle.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de FT_T_FINS/FT_T_ISSR tras la carga.</tipoValidacion>
-    <criterioAceptacion>Fila en FT_T_FINS con los datos del fichero; fila en FT_T_ISSR con FK correcta a FT_T_FINS.</criterioAceptacion>
-    <posibilidadFallo>Si la FK FINS_INST_MNEM no enlazara correctamente, o si el servicio fallara silenciosamente para un emisor concreto sin afectar al resto del fichero, sería un hallazgo a documentar.</posibilidadFallo>
+    <resultadoEsperado>El rol de emisor queda correctamente creado en FT_T_ISSR enlazado a la FT_T_FINS preexistente; un orgId sin FT_T_FINS genera una alerta, sin crear la entidad financiera.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de FT_T_FINS/FT_T_ISSR tras la carga + FT_T_ALD1/FT_T_ALG1 para la línea inválida.</tipoValidacion>
+    <criterioAceptacion>Fila nueva en FT_T_ISSR para la línea válida, FT_T_FINS sin cambios; alerta confirmada y ninguna fila nueva para la línea inválida.</criterioAceptacion>
+    <posibilidadFallo>Confirmado por código: `Emisores*.txt` nunca da de alta una entidad financiera nueva — si una ficha funcional o un test asumiera lo contrario, daría por buena una carga que en realidad fallaría silenciosamente (alerta generada, sin dato cargado) para cualquier orgId no preexistente en FT_T_FINS.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="happy_path">
-    <nombre>Carga real de Subyacentes en FT_T_ISID/FT_T_ISSU/FT_T_MKIS</nombre>
-    <objetivo>Confirmar que UnderlyingService.loadUnderlyings() carga correctamente un subyacente del fichero Subyacentes*.txt en las 3 tablas: identificadores (FT_T_ISID), emisión (FT_T_ISSU) y cotización en mercado (FT_T_MKIS).</objetivo>
+    <nombre>Carga real de Subyacentes en FT_T_ISSU/FT_T_ISID — FT_T_MKIS es de solo lectura (corregido con código real)</nombre>
+    <objetivo>Confirmar que UnderlyingService.loadUnderlyings() crea, para un subyacente nuevo de Subyacentes*.txt, una fila FT_T_ISSU con 2 FT_T_ISID (identificador de negocio + RDR_ID generado) — y que, para un subyacente RIC ya existente, solo LEE FT_T_MKIS (para la divisa de cotización) sin insertar ni actualizar nada en ella.</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Subyacentes*.txt de prueba con al menos 1 subyacente nuevo con ISIN y datos de mercado poblados.</precondicion>
+      <precondicion>Un fichero Subyacentes*.txt de prueba — CORREGIDO 2026-10-01: formato real confirmado por código, exactamente 3 campos `|`-delimitados (UNDERLYING_ID, UNDERLYING_ID_TYPE, UNDERLYING_TYPOLOGY ∈ {UNDLYRFV, FUTRFV}), sin más campos. Debe incluir 1 identificador nuevo (RIC o ISIN no existente en RDR) y 1 identificador RIC ya existente con fila FT_T_MKIS asociada.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Subyacente de prueba" valor="1 ISIN nuevo con MKT_OID, TRDNG_CURR_CDE y PRC_CURR_CDE poblados"/>
+      <dato campo="Subyacente nuevo de prueba" valor="1 línea con RIC nuevo|RIC|UNDLYRFV, sin fila FT_T_ISSU previa"/>
+      <dato campo="Subyacente existente de prueba" valor="1 línea con RIC ya existente|RIC|UNDLYRFV, con FT_T_ISSU/FT_T_MKIS ya pobladas"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el paso 5 del pipeline con el fichero Subyacentes*.txt de prueba.</paso>
-      <paso numero="2">Confirmar la fila nueva en FT_T_ISID con el ISIN cargado.</paso>
-      <paso numero="3">Confirmar la fila correspondiente en FT_T_ISSU (emisión) y en FT_T_MKIS (cotización en mercado).</paso>
+      <paso numero="1">Ejecutar la carga con el fichero de prueba.</paso>
+      <paso numero="2">Para el subyacente nuevo: confirmar la fila nueva en FT_T_ISSU (prefIssId/prefIssDesc/prefIssNme=RIC, issTyp=UNDLYRFV/FUTRFV) y las 2 filas en FT_T_ISID (una con idCtxtTyp=RIC, otra con idCtxtTyp=RDR_ID).</paso>
+      <paso numero="3">Para el subyacente existente: confirmar que NO se crea ninguna fila nueva en FT_T_ISSU/FT_T_ISID/FT_T_MKIS — solo se consulta FT_T_MKIS para la divisa de cotización.</paso>
     </pasos>
-    <resultadoEsperado>El subyacente queda correctamente cargado en las 3 tablas, consistente entre sí por INSTR_ID/INST_MNEM.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de FT_T_ISID/FT_T_ISSU/FT_T_MKIS tras la carga.</tipoValidacion>
-    <criterioAceptacion>Filas consistentes en las 3 tablas para el mismo subyacente de prueba.</criterioAceptacion>
-    <posibilidadFallo>Si alguna de las 3 tablas quedara sin la fila correspondiente mientras las otras 2 sí la reciben, indicaría un fallo parcial del servicio no reflejado como error de job.</posibilidadFallo>
+    <resultadoEsperado>El subyacente nuevo queda correctamente cargado en FT_T_ISSU/FT_T_ISID; el subyacente existente no genera ninguna escritura, solo una lectura de FT_T_MKIS.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de FT_T_ISSU/FT_T_ISID/FT_T_MKIS tras la carga.</tipoValidacion>
+    <criterioAceptacion>Filas nuevas consistentes en FT_T_ISSU/FT_T_ISID para el subyacente nuevo; ninguna escritura para el existente.</criterioAceptacion>
+    <posibilidadFallo>Confirmado por código: `UnderlyingService` nunca inserta ni actualiza `FT_T_MKIS` — si algún subyacente necesitara una fila de cotización en mercado nueva, tendría que originarse en otro punto no identificado (posiblemente `DerivativesProcessor`, no aportado), no en esta carga de subyacentes.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="happy_path">
@@ -207,44 +209,49 @@
     <posibilidadFallo>Si un derivado de un tipo recibiera filas en la tabla satélite de otro tipo, o ninguna tabla satélite, sería una desviación del mapeo documentado en §5.2.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-011" tipo="conflicto_integridad">
-    <nombre>FT_T_VREQ se marca procesado solo tras completar las 3 cargas</nombre>
-    <objetivo>Confirmar que setVreqStatus() marca FT_T_VREQ.VND_RQST_STAT_TYP como "procesado" únicamente después de que las 3 cargas (Emisores, Subyacentes, Derivados) hayan terminado, no antes ni si alguna de las 3 falla.</objetivo>
+  <casoDePrueba id="TC-011" tipo="error_funcional">
+    <nombre>FT_T_VREQ puede marcarse "procesado" sin que las 3 cargas se hayan ejecutado — defecto confirmado por código</nombre>
+    <objetivo>Confirmar en ejecución controlada el defecto real detectado en LoaderProcess.java: setVreqStatus() marca FT_T_VREQ.VND_RQST_STAT_TYP='PROCESSED' siempre que el estado actual no sea ya 'FAILED', sin comprobar el resultado real de las 3 cargas (la variable loadProcessStatus se calcula pero no se consulta en ese punto).</objetivo>
     <precondiciones>
-      <precondicion>Capacidad de forzar el fallo de una de las 3 cargas (p. ej. Subyacentes) en un entorno de test, dejando las otras 2 completarse.</precondicion>
+      <precondicion>Capacidad de forzar que una de las 3 cargas no se ejecute o falle por I/O (p. ej. borrar/renombrar Emisores*.txt tras la validación de "3 ficheros encontrados" pero antes de leerlo, o apuntar a una carpeta sin exactamente 3 ficheros) en una invocación con vreqOid (args.length==5), en entorno de test.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Escenario" valor="carga de Emisores OK, carga de Subyacentes forzada a fallar, carga de Derivados no alcanzada"/>
+      <dato campo="Hallazgo de código confirmado (LoaderProcess.java, 2026-10-01)" valor="setVreqStatus(): if (!FAILED.equals(vreq.getVndRqstStatTyp())) { vreq.setVndRqstStatTyp(PROCESSED); ... } — no referencia loadProcessStatus en ningún punto"/>
+      <dato campo="Escenario 1 (ya documentado)" valor="carga de Emisores OK, carga de Subyacentes forzada a fallar por registro inválido, carga de Derivados no alcanzada (loadProcessStatus=false, pero esto no se consulta)"/>
+      <dato campo="Escenario 2 (nuevo, defecto)" valor="carpeta con 0, 1, 2 o más de 3 ficheros coincidentes con el filtro (filesToProcess.length != 3): el log registra el error pero issuerFile/underlyingFile/derivativesFile quedan null, ninguna de las 3 cargas se ejecuta, y setVreqStatus() igualmente marca PROCESSED si vreqOid viene informado y el estado previo no era FAILED"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar el fallo de la carga de Subyacentes en un entorno de test.</paso>
-      <paso numero="2">Confirmar que FT_T_VREQ.VND_RQST_STAT_TYP NO se marca como "procesado" tras ese fallo.</paso>
-      <paso numero="3">Repetir sin forzar ningún fallo y confirmar que sí se marca como "procesado" tras completar las 3 cargas.</paso>
+      <paso numero="1">Forzar el escenario 2 (carpeta sin exactamente 3 ficheros) con vreqOid informado, en un estado previo de FT_T_VREQ distinto de FAILED.</paso>
+      <paso numero="2">Confirmar que FT_T_VREQ.VND_RQST_STAT_TYP queda en PROCESSED pese a que ninguna de las 3 cargas se ejecutó (log muestra "Execution needs 3 files. X was found").</paso>
+      <paso numero="3">Repetir con un estado previo FAILED y confirmar que en ese caso sí se preserva FAILED (único freno real que existe hoy).</paso>
     </pasos>
-    <resultadoEsperado>FT_T_VREQ solo refleja "procesado" cuando las 3 cargas completan correctamente; un fallo intermedio deja la solicitud sin marcar como completada.</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada en entorno de test + inspección de FT_T_VREQ antes/después de cada escenario.</tipoValidacion>
-    <criterioAceptacion>FT_T_VREQ sin marcar en el escenario de fallo; marcado "procesado" en el escenario sin fallos.</criterioAceptacion>
-    <posibilidadFallo>Si FT_T_VREQ se marcara como procesado pese a un fallo intermedio, una solicitud a Refinitiv incompleta podría darse por cerrada incorrectamente.</posibilidadFallo>
+    <resultadoEsperado>Se confirma el defecto: FT_T_VREQ se marca PROCESSED en el escenario 2 pese a no haberse cargado nada, salvo que el estado previo ya fuera FAILED por otra vía (p. ej. el propio workflow invocador).</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + inspección de FT_T_VREQ antes/después + logs de LoaderProcess.</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ queda PROCESSED en el escenario 2 (defecto confirmado); queda FAILED solo si el estado previo ya lo era.</criterioAceptacion>
+    <posibilidadFallo>Confirmado por código, no es ya una hipótesis: una solicitud a Refinitiv sin ninguna carga real (fichero ausente, carpeta con el número equivocado de ficheros, o un fallo de I/O en el primer servicio) puede darse por cerrada con éxito sin que nadie se entere, salvo que otro mecanismo externo (el propio workflow invocador) marque FAILED antes por su cuenta.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-012" tipo="error_funcional">
-    <nombre>Un fallo de carga genera alerta en FT_T_ALD1/FT_T_ALG1</nombre>
-    <objetivo>Confirmar que, ante un fallo durante alguna de las 3 cargas, ExceptionService escribe en FT_T_ALD1 (definición de alerta)/FT_T_ALG1 (log de alerta generada), y que el job de reporte/alertas final (job 7) refleja esa alerta en su salida.</objetivo>
+    <nombre>Un registro inválido de Derivados_Enriquecido.txt se descarta línea a línea vía una excepción específica, sin detener el lote</nombre>
+    <objetivo>Confirmar, con los 6 validadores reales de ListedDerivativesService.java, que un registro con un dato de negocio inválido (divisa, estilo de ejercicio de opción, método de entrega, subyacente duplicado, tipo de emisión Refinitiv o mercado/MIC desconocidos) genera una excepción específica de ExceptionService, descarta solo esa línea, y no detiene el procesado del resto del fichero.</objetivo>
     <precondiciones>
-      <precondicion>Capacidad de forzar un fallo de carga (p. ej. un registro con dato inválido que rompa la inserción) en un entorno de test.</precondicion>
+      <precondicion>Capacidad de preparar un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 línea inválida (p. ej. CURRENCY con una divisa no dada de alta en RDR) y el resto de líneas válidas, en un entorno de test.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Registro inválido" valor="1 fila del fichero de carga con un valor que viole una restricción de la tabla destino"/>
+      <dato campo="Cadena de validadores real (ListedDerivativesService.java, 2026-10-01)" valor="checkCurrency → checkOptionsExerciseStyle (solo OPT) → checkMethodOfDelivery → checkIfUnderlyingIsDuplicated → checkIfExistsIssueTypTranslation → checkMarketOid (MIC o código de bolsa contra FT_T_GUNT) — cada uno corta el procesado de ESA línea y genera una excepción específica (p. ej. CURRENCY_DOES_NOT_EXIST_IN_RDR, con sufijo _ONLINE_VREQ si la ejecución lleva vreqOid) si falla, sin relanzar ninguna excepción no controlada"/>
+      <dato campo="Registro inválido de prueba" valor="1 línea con CURRENCY fuera de StaticData.getCurrencyList() (p. ej. una divisa inexistente)"/>
+      <dato campo="Registros de control" valor="2-3 líneas válidas antes y después de la inválida, para confirmar que sí se cargan"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar el fallo de carga con el registro inválido en un entorno de test.</paso>
-      <paso numero="2">Confirmar la fila nueva en FT_T_ALG1 (FK a FT_T_ALD1) generada por ExceptionService.</paso>
-      <paso numero="3">Ejecutar el job 7 (reporte/alertas) y confirmar que refleja la alerta generada.</paso>
+      <paso numero="1">Ejecutar la carga con el fichero de prueba (línea inválida intercalada entre líneas válidas).</paso>
+      <paso numero="2">Confirmar que la línea inválida genera CURRENCY_DOES_NOT_EXIST_IN_RDR (o la variante _ONLINE_VREQ si aplica) vía ExceptionService, sin excepción no controlada que aborte el hilo.</paso>
+      <paso numero="3">Confirmar que las líneas válidas antes y después de la inválida sí quedan cargadas en FT_T_ISSU/FT_T_ISID (y su tabla satélite, vía DerivativesProcessor).</paso>
+      <paso numero="4">Ejecutar el job 7 (reporte/alertas) y confirmar que refleja la alerta generada por el registro inválido.</paso>
     </pasos>
-    <resultadoEsperado>El fallo de carga queda registrado como alerta real, visible en el reporte final del ciclo.</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada + inspección de FT_T_ALD1/FT_T_ALG1 + salida del job 7.</tipoValidacion>
-    <criterioAceptacion>Alerta confirmada en FT_T_ALG1; reporte del job 7 la refleja.</criterioAceptacion>
-    <posibilidadFallo>Si el job 7 no reflejara la alerta (p. ej. por leer de una fuente distinta a FT_T_ALD1/FT_T_ALG1), invalidaría la hipótesis documentada en §5.5 del documento fuente — hallazgo a elevar, dado que esa lectura no está confirmada (ver TC-014).</posibilidadFallo>
+    <resultadoEsperado>El registro inválido queda registrado como alerta real (FT_T_ALD1/FT_T_ALG1) y descartado individualmente; el resto del lote se carga con normalidad; el reporte del job 7 refleja la alerta.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada + inspección de FT_T_ALD1/FT_T_ALG1 + FT_T_ISSU/FT_T_ISID de las líneas de control + salida del job 7.</tipoValidacion>
+    <criterioAceptacion>Alerta específica confirmada en FT_T_ALG1 para la línea inválida; líneas de control cargadas; reporte del job 7 la refleja.</criterioAceptacion>
+    <posibilidadFallo>Confirmado por código que el fallo es por línea, no por lote — un hallazgo que asumiera "un registro inválido detiene toda la carga" sería incorrecto. Si el job 7 no reflejara la alerta, sería una discrepancia real con el mecanismo de GestionAlertas ya confirmado en §5.4 (no con §5.5, que no existe en este documento).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="error_funcional">
@@ -268,71 +275,73 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-014" tipo="conflicto_integridad">
-    <nombre>Contenido nodo a nodo del workflow Refinitiv_Request_Response — confirmado: los jobs 5/6 disparan una nueva solicitud y el job 6 reejecuta el pipeline de carga del job 4</nombre>
-    <objetivo>Confirmar, con el workflow real Refinitiv_Request_Response.wkf aportado por el usuario, qué solicita realmente a Refinitiv y cómo procesa la respuesta en las ramas issueRequest/UNDLY_ISSUES_ENRICHMENT (job 5) y optionsfuturesRequest/OPTIONS_FUTURES_ENRICHMENT (job 6) — confirmando la hipótesis de §5.3 de que estos 2 jobs disparan una nueva solicitud, no un enriquecimiento puramente interno.</objetivo>
+    <nombre>Contenido nodo a nodo de la cadena de workflows de los jobs 5/6 — CERRADO al 100% salvo un sub-workflow de bajo impacto</nombre>
+    <objetivo>Confirmar, con los workflows reales Refinitiv_Request_Response.wkf y Load_Refinitiv_Response.wkf aportados por el usuario, qué solicita realmente a Refinitiv y cómo procesa la respuesta en las ramas issueRequest/UNDLY_ISSUES_ENRICHMENT (job 5) y optionsfuturesRequest/OPTIONS_FUTURES_ENRICHMENT (job 6).</objetivo>
     <precondiciones>
-      <precondicion>Fichero real Refinitiv_Request_Response.wkf, aportado por el usuario (idéntico, salvo versión/ruta JDK, al ya usado por RDR_BATCH_EMISORES_REFINITIV en este mismo audit para otras ramas).</precondicion>
+      <precondicion>Fichero real Refinitiv_Request_Response.wkf — APORTADO (idéntico, salvo versión/ruta JDK, al ya usado por RDR_BATCH_EMISORES_REFINITIV para otras ramas).</precondicion>
+      <precondicion>Fichero real Load_Refinitiv_Response.wkf (sub-workflow de la rama issueRequest) — APORTADO 2026-10-01, cierra el único resto que quedaba de esta cadena.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Rama issueRequest (job 5)" valor="pathOut=.../Enrichment/issues/; construye y lanza RDR_Refinitiv_Request.jar (clase rdr_refinitiv_request.com.bbva.kytl.main.Request, args REFINITIV UNDLY_ISSUES_ENRICHMENT issueRequest); espera hasta 300s la respuesta (Wait for Files); invoca el sub-workflow Load_Refinitiv_Response (no aportado) y PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Rama issueRequest (job 5) — Refinitiv_Request_Response.wkf" valor="pathOut=.../Enrichment/issues/; lanza RDR_Refinitiv_Request.jar (REFINITIV UNDLY_ISSUES_ENRICHMENT issueRequest); espera hasta 300s la respuesta; invoca Load_Refinitiv_Response y PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Load_Refinitiv_Response.wkf (confirmado 2026-10-01)" valor="comprueba si FT_T_VREQ ya está FAILED; busca el layout de la respuesta en FT_T_PAR1 (REFINITIV_PARAMS/&lt;requestType&gt;Output); carga el fichero vía el motor GENÉRICO GoldenSource 'Standard File Load' (BusinessFeed=Refinitiv_Issue_Response o Refinitiv_Identifiers_Response), NO el jar Java; invoca el sub-workflow Refinitiv_Bloomberg_AltaRolEmisor (no aportado); comprueba FT_T_NTEL (severidad&gt;20) tras la carga — si hay errores, inserta en TABLEALERTGENER y marca FT_T_VREQ FAILED; si no, cruza FT_T_RLT1 (LISTED_MIC) con el mapa MIC extraído de la respuesta y carga un 2º fichero (CargaListedMIC_&lt;timestamp&gt;.xml) vía otro sub-workflow genérico; marca FT_T_VREQ PROCESSED salvo que el flag IS_EXTF (salida de Refinitiv_Bloomberg_AltaRolEmisor) sea 'Y'"/>
       <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §5.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
-      <dato campo="Gestión de error" valor="Wait for Files sin respuesta → errorMessage=&quot;Unable to load response, file not found&quot;, insert en TABLEALERTGENER (proceso PETICION_REFINITIV_EMISIONES); cualquier fallo → Update KO Request sobre FT_T_VREQ.VND_RQST_STAT_TYP/VND_RQST_STAT_TXT por vreqOid"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Inspeccionar el contenido real del workflow (hecho).</paso>
-      <paso numero="2">Confirmar que construye y envía una solicitud real a Refinitiv (confirmado: cliente RDR_Refinitiv_Request.jar + Wait for Files con timeout real de 300s), no una operación puramente interna sobre datos ya cargados.</paso>
-      <paso numero="3">Confirmar qué hace con cada uno de los 3 parámetros (idType, requestType, vreqOid): requestType selecciona la rama por switch; vreqOid fija pathOut/fileOut y se usa como clave de FT_T_VREQ en el marcado de error; idType no se usa dentro del propio workflow en las 2 ramas inspeccionadas.</paso>
+      <paso numero="1">Inspeccionar el contenido real de ambos workflows (hecho).</paso>
+      <paso numero="2">Confirmar que construyen y envían una solicitud real a Refinitiv, no una operación puramente interna (confirmado en ambas ramas).</paso>
+      <paso numero="3">Confirmar el mecanismo de carga de cada rama: job 5 vía el motor genérico "Standard File Load" de GoldenSource; job 6 vía el mismo jar Java que el job 4.</paso>
     </pasos>
-    <resultadoEsperado>Contenido real del workflow documentado con evidencia para ambas ramas (job 5 y job 6), cerrando el gap de §8.2 salvo el sub-workflow Load_Refinitiv_Response.</resultadoEsperado>
-    <tipoValidacion>Inspección directa del workflow real + contraste con el análisis nodo a nodo ya hecho del mismo fichero en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
-    <criterioAceptacion>Lógica nodo a nodo documentada; hipótesis de §5.3 confirmada al 100% (ya no "muy probable"): ambos jobs disparan una solicitud real, y el job 6 reutiliza el pipeline completo de 3 jars del job 4.</criterioAceptacion>
-    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2: una ejecución del job 6 (OPTIONS_FUTURES_ENRICHMENT) escribe también vía refinitivDerivativesLoader.jar. Si una futura revisión de esta especificación asume "solo el job 4 escribe en Oracle" (como decía R4 literalmente), subestimará el impacto de una incidencia o un cambio en el job 6. El contenido exacto del sub-workflow Load_Refinitiv_Response (rama del job 5) sigue sin confirmar.</posibilidadFallo>
+    <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia para ambas ramas (job 5 y job 6), cerrando el gap de §8.2 salvo el sub-workflow Refinitiv_Bloomberg_AltaRolEmisor.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de ambos workflows reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
+    <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga distintos (motor genérico GoldenSource para job 5, jar Java para job 6).</criterioAceptacion>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2 (job 6 también escribe vía refinitivDerivativesLoader.jar). Además, la rama issueRequest/job 5 puede dejar una solicitud sin estado terminal explícito si IS_EXTF='Y' (ver §5.3/§8.1) — matiz de bajo impacto para TC-017. El contenido exacto de Refinitiv_Bloomberg_AltaRolEmisor sigue sin confirmar (bajo impacto, ya se conoce su rol).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
-    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — prácticamente resuelto: muy probablemente de solo lectura para este jar</nombre>
-    <objetivo>Confirmar, con una decompilación más profunda del bytecode o con observación de una ejecución real instrumentada, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
+    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — CERRADO: ninguno de los 4 componentes del jar las escribe</nombre>
+    <objetivo>Confirmar, con el 100% del código Java del jar (LoaderProcess, IssuersService, UnderlyingService, ListedDerivativesService) más las entidades JPA relevantes, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a una decompilación más detallada del jar, o a trazas/logs de una ejecución real que muestren INSERT/UPDATE sobre estas 5 tablas — CUMPLIDA al nivel de anotaciones JPA: las 5 entidades (FINR/FIRL/FRID/GUNT/REP1) más FT_T_FINS y FT_T_ISGU (posibles "padres") aportadas 2026-10-01 confirman con código real que no hay ninguna relación de escritura declarada hacia estas 5 tablas.</precondicion>
-      <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService/LoaderProcess, para descartar al 100% una escritura explícita que no pase por una relación JPA (p. ej. entityManager.persist(new FT_T_FINR()) directo) — NO APORTADO, único resto para el cierre total.</precondicion>
+      <precondicion>Código fuente de los 4 componentes que forman el 100% de refinitivDerivativesLoader.jar — APORTADO 2026-10-01 (LoaderProcess.java, IssuersService.java, UnderlyingService.java, ListedDerivativesService.java).</precondicion>
+      <precondicion>Entidades JPA de las 5 tablas del Grupo E + FT_T_FINS/FT_T_ISGU (posibles "padres") — APORTADAS en rondas previas, confirman además que no hay relación de escritura declarada hacia estas 5 tablas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="FT_T_FINS (confirmado 2026-10-01) — hallazgo clave" valor="declara @OneToMany(fetch=LAZY) hacia finrList (FT_T_FINR), firlList (FT_T_FIRL) y fridList (FT_T_FRID), con @JoinColumn(insertable=false, updatable=false) y SIN atributo cascade — relación JPA de solo lectura: Hibernate nunca gestiona ni escribe la FK de estas 3 colecciones al persistir FT_T_FINS"/>
-      <dato campo="FT_T_ISGU (confirmado 2026-10-01) — contraste" valor="no declara ninguna relación JPA hacia FT_T_GUNT pese a tener la columna guntOid (misma referencia-por-columna-simple que en FT_T_FRID); SÍ tiene un constructor dedicado FT_T_ISGU(EntityManager) que genera un OID nuevo vía UtilsMethods.createOid() — patrón de creación de fila nueva, propio de una tabla ya confirmada como escrita (Grupo C), y AUSENTE en las 5 entidades del Grupo E"/>
-      <dato campo="FT_T_GUNT / FT_T_REP1" valor="ninguna entidad inspeccionada en todo el proceso (incluidas FINS e ISGU) declara una relación JPA entrante hacia estas 2 tablas"/>
+      <dato campo="Resultado de la búsqueda en los 4 componentes (confirmado 2026-10-01)" valor="ninguna de las 4 clases (LoaderProcess/IssuersService/UnderlyingService/ListedDerivativesService) importa, referencia o persiste FT_T_FINR/FT_T_FIRL/FT_T_FRID/FT_T_GUNT/FT_T_REP1; FT_T_GUNT sí se LEE (ListedDerivativesService.checkMarketOid, vía StaticData.getMarketGuntMapMic()/...ExchangeCode()), pero nunca se escribe"/>
+      <dato campo="FT_T_FINS — relación de solo lectura (confirmado ronda anterior)" valor="@OneToMany(fetch=LAZY) hacia finrList/firlList/fridList con @JoinColumn(insertable=false, updatable=false) y sin cascade"/>
+      <dato campo="Único resto" valor="DerivativesProcessor (invocado por ListedDerivativesService para las tablas satélite del Grupo C) no aportado — bajo impacto, grupo de tablas distinto al E"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>
-      <paso numero="2">Si recibe filas, identificar qué servicio/relación (@OneToMany/cascada) las origina — descartado a nivel JPA para las 3 tablas con relación conocida (FINR/FIRL/FRID, relación de solo lectura desde FINS); sin relación conocida para GUNT/REP1.</paso>
-      <paso numero="3">Si no recibe ninguna fila en ningún escenario real, documentar como código de solo lectura/entidad no escrita por este jar.</paso>
+      <paso numero="2">Confirmado por inspección exhaustiva del código: ninguno de los 4 componentes del jar las escribe ni las referencia (salvo lectura de FT_T_GUNT).</paso>
+      <paso numero="3">Documentar las 5 tablas como de solo lectura/no escritas por este jar, con el resto (DerivativesProcessor) como único punto no verificado.</paso>
     </pasos>
-    <resultadoEsperado>Atribución real confirmada (servicio concreto, o solo lectura/código muerto) para las 5 tablas del Grupo E.</resultadoEsperado>
-    <tipoValidacion>Decompilación adicional (IssuersService/UnderlyingService/ListedDerivativesService/LoaderProcess) + observación de ejecución real con trazas de BD.</tipoValidacion>
-    <criterioAceptacion>Cada una de las 5 tablas queda clasificada como "escrita por X" o "de solo lectura para este jar, sin escritura confirmada en ningún escenario observado".</criterioAceptacion>
-    <posibilidadFallo>La relación @OneToMany de solo lectura en FT_T_FINS confirma, con la propia anotación, que FT_T_FINR/FT_T_FIRL/FT_T_FRID no se escriben por esa vía — pero no descarta al 100% una escritura explícita vía entityManager.persist() directo en un Service no aportado. Si una futura revisión asumiera "Grupo E = código muerto" sin esa confirmación final, podría pasar por alto una vía de escritura real fuera del grafo de relaciones JPA inspeccionado.</posibilidadFallo>
+    <resultadoEsperado>Atribución real confirmada: las 5 tablas del Grupo E no se escriben desde ningún código confirmado del jar.</resultadoEsperado>
+    <tipoValidacion>Inspección exhaustiva del código fuente real de los 4 componentes del jar + las entidades JPA relevantes.</tipoValidacion>
+    <criterioAceptacion>Las 5 tablas quedan clasificadas como "sin escritura confirmada en ningún código del jar inspeccionado (100% de LoaderProcess/IssuersService/UnderlyingService/ListedDerivativesService)".</criterioAceptacion>
+    <posibilidadFallo>Si DerivativesProcessor (no aportado) resultara escribir alguna de estas 5 tablas al construir una tabla satélite del Grupo C, esta conclusión debería revisarse — bajo impacto dado que las tablas satélite documentadas pertenecen a un catálogo distinto (Grupo C) sin relación por nombre con el Grupo E.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-016" tipo="negativo">
-    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — estructura real confirmada para 2 de 3 ficheros, mapeo a columna aún bloqueado</nombre>
-    <objetivo>Confirmar, con una muestra real (no comprimida) de un fichero Emisores/Subyacentes/Derivados de Refinitiv, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
+    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — RESUELTO para Emisores/Subyacentes/Derivados, solo faltan las tablas satélite del Grupo C</nombre>
+    <objetivo>Confirmar, con el código fuente real de los 3 servicios de carga y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
     <precondiciones>
-      <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo (Emisores/Subyacentes/Derivados_Enriquecido) — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
-      <precondicion>Código fuente (o decompilado) de IssuersService/UnderlyingService/ListedDerivativesService — NO APORTADO, sigue bloqueando el mapeo exacto a columna.</precondicion>
+      <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
+      <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService — APORTADO 2026-10-01, resuelve el mapeo campo→columna para Emisores/Subyacentes/Derivados a nivel de tablas maestras (FT_T_FINS lectura/FT_T_ISSR escritura; FT_T_ISSU/FT_T_ISID escritura/FT_T_MKIS lectura).</precondicion>
+      <precondicion>DerivativesProcessor (mapeo campo→columna de las tablas satélite del Grupo C según tipo de derivado) — NO APORTADO, único resto.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Subyacentes*.txt" valor="3 campos |-delimitados sin cabecera: &lt;RIC&gt;|RIC|&lt;TIPO&gt;; TIPO∈{UNDLYRFV (1.022), FUTRFV (69)}; campo 2 literal constante 'RIC' en las 1.091 filas"/>
-      <dato campo="Derivados_Enriquecido.txt" valor="45 campos |-delimitados sin cabecera, ancho constante; tipo (campo 6)∈{OPT (1.703), FUT (128), BONDFUT (6)} — ningún SWAP en la muestra; campo 28=ISIN subyacente; campo 31=RIC subyacente; campo 42=tipo subyacente (UNDLYRFV/FUTRFV)"/>
-      <dato campo="Correlación cruzada verificada" valor="82/83 valores distintos del campo 31 de Derivados_Enriquecido.txt aparecen como campo 1 de Subyacentes*.txt; dominio de campo 42 idéntico al de campo 3 de Subyacentes*.txt — confirma que ambos ficheros proceden del mismo lote real"/>
-      <dato campo="Emisores*.txt" valor="fichero vacío (0 bytes) — sin muestra de estructura real"/>
+      <dato campo="Emisores*.txt (confirmado 2026-10-01)" valor="un orgId por línea, SIN delimitador |; usado solo para localizar FT_T_FINS (lectura) y crear FT_T_ISSR (escritura) — no es un fichero de campos múltiples como se asumía"/>
+      <dato campo="Subyacentes*.txt (confirmado 2026-10-01)" valor="3 campos |-delimitados = exactamente UnderlyingPositionsTemplate.UNDERLYING_ID/UNDERLYING_ID_TYPE/UNDERLYING_TYPOLOGY; alimentan FT_T_ISSU (prefIssId/prefIdCtxtTyp/issTyp) y 2 FT_T_ISID (idCtxtTyp=RIC|ISIN y RDR_ID) — no hay más campos que mapear"/>
+      <dato campo="Derivados_Enriquecido.txt (confirmado 2026-10-01)" valor="45 campos resueltos por nombre real vía PositionsTemplate: RIC, QUOTE_PERM_ID, UNDERLYING_RIC/ISIN/CHEAPEST_ISIN/ISIN_ESMA, ASSET_STATUS, ACTION, CURRENCY, EXERCISE_STYLE, REFINITIV_CLASSIFICATION_SCHEME, METHOD_OF_DELIVERY, MIC, EXCHANGE_CODE — índices numéricos exactos no decompilados (PositionsTemplate no aportada), pero el significado de negocio de cada campo usado por el servicio sí"/>
+      <dato campo="Correlación cruzada verificada (ronda anterior)" valor="82/83 valores distintos del RIC de subyacente de Derivados_Enriquecido.txt aparecen en Subyacentes*.txt; dominio UNDLYRFV/FUTRFV idéntico entre ambos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente (lote sin altas).</paso>
-      <paso numero="2">Correlacionar cada columna/posición del fichero con la columna Oracle que alimenta, usando el código fuente de los 3 servicios de carga — bloqueado: código fuente no aportado.</paso>
+      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente de contenido (lote sin altas).</paso>
+      <paso numero="2">Correlacionar cada campo del fichero con la columna Oracle que alimenta, usando el código fuente real de los 3 servicios — hecho para FT_T_FINS/FT_T_ISSR/FT_T_ISSU/FT_T_ISID/FT_T_MKIS; pendiente para las tablas satélite del Grupo C (DerivativesProcessor, no aportado).</paso>
     </pasos>
-    <resultadoEsperado>Mapeo campo a campo documentado para los 3 ficheros de carga, cerrando el gap de §8.2.</resultadoEsperado>
-    <tipoValidacion>Inspección de fichero real + código fuente de IssuersService/UnderlyingService/ListedDerivativesService.</tipoValidacion>
-    <criterioAceptacion>Tabla de mapeo campo→columna completa para los 3 ficheros.</criterioAceptacion>
-    <posibilidadFallo>Subyacentes*.txt tiene solo 3 campos, muy por debajo de lo esperable para alimentar directamente FT_T_ISID/FT_T_ISSU/FT_T_MKIS (Grupo B, §5.2) — 2 hipótesis abiertas sin confirmar: (a) es una lista de claves de solicitud, no el fichero final de carga; o (b) UnderlyingService solo necesita estos 3 campos como clave. Si la hipótesis (a) fuera cierta, el verdadero fichero de carga de subyacentes seguiría sin muestra pese a tener uno con este nombre. Caso parcialmente bloqueado: falta el código fuente de los 3 servicios de carga (no la muestra) para Subyacentes/Derivados, y falta además la muestra para Emisores.</posibilidadFallo>
+    <resultadoEsperado>Mapeo campo a campo documentado para los 3 ficheros de carga a nivel de tablas maestras (Grupos A/B); pendiente a nivel de tablas satélite de derivados (Grupo C).</resultadoEsperado>
+    <tipoValidacion>Inspección de fichero real + código fuente real de IssuersService/UnderlyingService/ListedDerivativesService (ya aportado); DerivativesProcessor pendiente para el resto.</tipoValidacion>
+    <criterioAceptacion>Tabla de mapeo campo→columna completa para Emisores/Subyacentes/Derivados a nivel de tablas maestras; pendiente solo para las tablas satélite del Grupo C.</criterioAceptacion>
+    <posibilidadFallo>La hipótesis (a) de la ronda anterior (Subyacentes*.txt como lista de claves distinta del fichero final) queda descartada por código: es literalmente el único fichero que UnderlyingService necesita. Si DerivativesProcessor resultara usar campos de Derivados_Enriquecido.txt de forma distinta a lo documentado aquí por PositionsTemplate, debería revisarse el detalle de las tablas satélite del Grupo C.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-017" tipo="conflicto_integridad">

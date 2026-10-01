@@ -19,15 +19,15 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-005 | Fichero DAILY con instrumentos distribuidos en al menos 2 segmentos reales |
 | TC-006 | Fichero WEEKLY de tamaño grande, sin segmentación |
 | TC-007 | Acceso a las rutas/checksums reales del script y el jar en producción, para ambas cadenas |
-| TC-008 | 1 emisor nuevo en `Emisores*.txt` |
-| TC-009 | 1 subyacente nuevo (ISIN) en `Subyacentes*.txt` |
+| TC-008 | 1 emisor nuevo en `Emisores*.txt` — **CORREGIDO (2026-10-01):** `IssuersService` no crea `FT_T_FINS`, solo `FT_T_ISSR`; hace falta 1 `orgId` con `FT_T_FINS` ya existente (sin `FT_T_ISSR`) y 1 `orgId` sin `FT_T_FINS`, cada uno en una línea sin delimitador |
+| TC-009 | 1 subyacente nuevo (ISIN) en `Subyacentes*.txt` — **CORREGIDO (2026-10-01):** `UnderlyingService` no escribe `FT_T_MKIS` (solo lectura); hace falta 1 identificador nuevo y 1 RIC ya existente con `FT_T_MKIS` asociada |
 | TC-010 | 1 derivado de tipo opción y 1 de tipo swap en `Derivados_Enriquecido*.txt` — **PARCIAL:** la muestra real aportada (1.837 derivados) cubre opción/futuro/bondfut, ningún swap; falta un ejemplo de swap |
-| TC-011 | Capacidad de forzar el fallo de una de las 3 cargas en entorno de test |
-| TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test |
+| TC-011 | Capacidad de forzar que una carga no se ejecute (fichero ausente, carpeta sin exactamente 3 ficheros) con `vreqOid` informado — **DEFECTO CONFIRMADO (2026-10-01):** `setVreqStatus()` marca `PROCESSED` sin comprobar si las 3 cargas tuvieron éxito |
+| TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test — **RESUELTO (2026-10-01):** cadena de 6 validadores reales confirmada (divisa/estilo de ejercicio/método de entrega/subyacente duplicado/tipo de emisión/mercado-MIC), cada uno descarta solo la línea afectada |
 | TC-013 | Capacidad de simular la indisponibilidad del servicio externo OpenFigi en entorno de test |
-| TC-014 | Fichero real `Refinitiv_Request_Response.wkf` — **APORTADO (2026-10-01).** Resta solo el sub-workflow `Load_Refinitiv_Response` (rama job 5) |
-| TC-015 | Decompilación adicional del jar o trazas de BD de una ejecución real — **PRÁCTICAMENTE RESUELTO (2026-10-01):** `FT_T_FINS.java` real confirma que su `@OneToMany` hacia FT_T_FINR/FT_T_FIRL/FT_T_FRID es de solo lectura (`insertable=false`/`updatable=false`, sin `cascade`); `FT_T_ISGU.java` no referencia FT_T_GUNT por relación JPA. Muy probablemente el Grupo E es de solo lectura para este jar; solo falta el código de los 3 servicios de carga para descartar al 100% una escritura explícita fuera de esa relación |
-| TC-016 | Muestra real de los 3 ficheros de carga de Refinitiv — **PARCIAL (2026-10-01):** `Subyacentes*.txt`/`Derivados_Enriquecido.txt` aportados (estructura confirmada, ver `spec.md` §5.6); `Emisores*.txt` aportado pero vacío (sin altas en el lote); mapeo exacto a columna Oracle sigue bloqueado por falta del código fuente de `IssuersService`/`UnderlyingService`/`ListedDerivativesService` |
+| TC-014 | Ficheros reales `Refinitiv_Request_Response.wkf` + `Load_Refinitiv_Response.wkf` — **AMBOS APORTADOS (2026-10-01).** Resta solo el sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor` (bajo impacto) |
+| TC-015 | Código fuente del 100% del jar (`LoaderProcess`/`IssuersService`/`UnderlyingService`/`ListedDerivativesService`) — **CERRADO (2026-10-01):** ninguno de los 4 componentes referencia ni escribe las 5 tablas del Grupo E. Único resto de bajo impacto: `DerivativesProcessor` (tablas satélite de un grupo distinto) |
+| TC-016 | Muestra real + código fuente de los 3 servicios de carga — **RESUELTO para Emisores/Subyacentes/Derivados (2026-10-01):** `IssuersService`/`UnderlyingService`/`ListedDerivativesService` reales confirman estructura y mapeo a tablas maestras. Resta solo `DerivativesProcessor` para las tablas satélite del Grupo C |
 | TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o al `.properties` temporal de una ejecución real de los jobs 5/6, antes de que se borre |
 | TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
 
@@ -62,11 +62,18 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
   `idType`/`requestType`/`vreqOid`) y `GestionAlertas_DERIVADOS_REFINITIV` (instancia la plantilla genérica
   `GestionAlertas.properties`, ya confirmada en otro proceso de este audit, filtrada por
   `DERIVADOS_REFINITIV`) — ver `spec.md` §5.3/§5.4.
-- **`Refinitiv_Request_Response.wkf` real aportado (2026-10-01):** confirma con código, ya no como hipótesis,
-  que los jobs 5/6 lanzan una solicitud real a Refinitiv (mismo cliente `RDR_Refinitiv_Request.jar` que el
-  proceso hermano `RDR_BATCH_EMISORES_REFINITIV`) y que el job 6 reutiliza el pipeline completo de 3 jars del
-  job 4 sobre la respuesta — ver `spec.md` §5.3. Único resto sin material propio: el sub-workflow
-  `Load_Refinitiv_Response` de la rama del job 5.
+- **`Refinitiv_Request_Response.wkf` + `Load_Refinitiv_Response.wkf` reales aportados (2026-10-01):** confirman
+  con código, ya no como hipótesis, que los jobs 5/6 lanzan una solicitud real a Refinitiv (mismo cliente
+  `RDR_Refinitiv_Request.jar` que el proceso hermano `RDR_BATCH_EMISORES_REFINITIV`); el job 6 reutiliza el
+  pipeline completo de 3 jars del job 4, y el job 5 carga la respuesta vía el motor genérico "Standard File
+  Load" de GoldenSource (no el jar Java) — ver `spec.md` §5.3. Único resto sin material propio: el sub-workflow
+  `Refinitiv_Bloomberg_AltaRolEmisor`.
+- **4 ficheros Java reales del jar aportados (2026-10-01):** `LoaderProcess.java`, `IssuersService.java`,
+  `UnderlyingService.java`, `ListedDerivativesService.java` — el 100% del código del jar
+  `refinitivDerivativesLoader.jar`. Cierran TC-015 (Grupo E no escrito) y resuelven TC-016 para
+  Emisores/Subyacentes/Derivados a nivel de tablas maestras; revelan un defecto confirmado en
+  `setVreqStatus()` (TC-011) y la cadena real de validación de negocio de `ListedDerivativesService` (TC-012)
+  — ver `spec.md` §5.2.
 - **Muestra real de ficheros de carga (2026-10-01):** `Subyacentes_20261001_081453.txt` y
   `Derivados_Enriquecido.txt` aportados (estructura y correlación cruzada confirmadas, `spec.md` §5.6);
   `Emisores_20261001_081453.txt` aportado pero vacío.
@@ -84,9 +91,11 @@ La cadena es estrictamente secuencial por eventos en ambos casos (D y P): job 1 
 (transmisión a pasarela) → job 3 (limpieza) → job 4 (carga real, pipeline de 5 pasos) → job 5
 (enriquecimiento emisiones simples) → job 6 (enriquecimiento derivados/futuros) → job 7 (reporte/alertas,
 fin de cadena). Job 4 es el único job de la cadena que **Control-M** lanza con escritura directa en Oracle,
-pero no el único punto que escribe en las 20 tablas Oracle de §5.2: el job 6, vía el workflow
-`Refinitiv_Request_Response`, reejecuta `refinitivDerivativesLoader.jar` sobre una nueva respuesta de
-Refinitiv (confirmado con el `.wkf` real, `spec.md` §5.3) — ver `spec.md` §4/§5 para el detalle completo.
+pero no el único punto que escribe: el job 6, vía el workflow `Refinitiv_Request_Response`, reejecuta
+`refinitivDerivativesLoader.jar` sobre una nueva respuesta de Refinitiv; el job 5, vía el sub-workflow
+`Load_Refinitiv_Response`, carga su respuesta por el motor genérico "Standard File Load" de GoldenSource, un
+mecanismo de carga distinto al jar Java (confirmado con ambos `.wkf` reales, `spec.md` §5.3) — ver `spec.md`
+§4/§5 para el detalle completo.
 
 - **Jobs 5/6 (confirmado con `.properties` + workflow real):** invocan el workflow compartido
   `Refinitiv_Request_Response` — necesario para TC-017 poder observar el `.properties` temporal generado
