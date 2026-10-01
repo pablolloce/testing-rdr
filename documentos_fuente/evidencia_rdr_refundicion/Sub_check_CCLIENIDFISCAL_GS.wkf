@@ -1,0 +1,587 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">RDR_MGC_8.4.8.8_v0</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">Insert</name>
+<nodeHandler>com.j2fe.general.activities.database.DBStatement</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.general.activities.database.DBStatement</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">database</name>
+<stringValue id="14">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="15" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="16">indexedParameters[0]</name>
+<stringValue id="17">ERROR</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="18" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="19">querySQL</name>
+<stringValue id="20">INSERT INTO "KYTL_GC"."UI_TEMPORAL_DATA" (UTD_OID, UTD_EXT_ID, UTD_USAGE_TYP, REG_NUM, UTD_ID_PURP_TYP, UTD_ID, LAST_CHG_TMS, LAST_CHG_USR_ID, DATA_SRC_ID, DATA_STAT_TYP, START_TMS) 
+VALUES (new_oid, new_oid, 'Clientela ', '1', 'CClien',?, sysdate, 'GIMPORT', 'CLIENTELA', 'ACTIVE', sysdate)</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="21" type="java.util.HashSet">
+<item id="22" type="com.j2fe.workflow.definition.Transition">
+<name id="23">goto-next</name>
+<source id="24">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="25">Inactive ID FISCAL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="26">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="27" type="java.util.HashSet">
+<item id="28" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="29">statements</name>
+<stringValue id="30">String cparty = partyCCLIENactive[0].get("CPARTY2");
+String ERROR = "Local counterparty: " + cparty + " already exists in GS."</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="31" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="32">["ERROR"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="33">variables["ERROR"]</name>
+<stringValue id="34">ERROR</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="35" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="36">variables["partyCCLIENactive"]</name>
+<stringValue id="37">partyCCLIENactive</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="38" type="java.util.HashSet">
+<item id="39" type="com.j2fe.workflow.definition.Transition">
+<name id="40">rows-found</name>
+<source id="41">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="42">Check CCLIEN ACTIVE</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="43">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="44" type="java.util.HashSet">
+<item id="45" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="46">database</name>
+<stringValue id="47">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="48" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="49">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="50">mappedParameters["01"]</name>
+<stringValue id="51">CCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="52" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="53">mappedResult</name>
+<stringValue id="54">partyCCLIENactive</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="55" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="56">querySQL</name>
+<stringValue id="57"><![CDATA[select fins.inst_nme cparty2
+from ft_t_fiid fiid, ft_t_firl firl, ft_t_fins fins 
+where fiid.inst_mnem = firl.inst_mnem 
+and fins.inst_mnem = firl.inst_mnem 
+and firl.rel_typ='LOCAL' 
+and fiid.fins_id_ctxt_typ='CLIENTELAID'
+and fiid.fins_id= :finsid
+and fins.data_stat_typ = 'ACTIVE'
+and fiid.data_stat_typ = 'ACTIVE'
+and rownum < 2]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="58" type="java.util.HashSet">
+<item id="59" type="com.j2fe.workflow.definition.Transition">
+<name id="60">rows-found</name>
+<source id="61">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="62">Check CCLIEN</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="63">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="64" type="java.util.HashSet">
+<item id="65" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="66">database</name>
+<stringValue id="67">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="68" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="69">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="70">mappedParameters["01"]</name>
+<stringValue id="71">CCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="72" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="73">mappedResult</name>
+<stringValue id="74">partyCCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="75" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="76">querySQL</name>
+<stringValue id="77"><![CDATA[select fins.inst_nme cparty1
+from ft_t_fiid fiid, ft_t_firl firl, ft_t_fins fins 
+where fiid.inst_mnem = firl.inst_mnem
+and fins.inst_mnem = firl.inst_mnem 
+and firl.rel_typ='LOCAL' 
+and fiid.fins_id_ctxt_typ='CLIENTELAID'
+and fiid.fins_id= :finsid
+and fiid.data_stat_typ = 'ACTIVE'
+and rownum < 2
+]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="78" type="java.util.HashSet">
+<item id="79" type="com.j2fe.workflow.definition.Transition">
+<name id="80">goto-next</name>
+<source id="81">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="82">Format CCLIEN</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="83">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="84" type="java.util.HashSet">
+<item id="85" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="86">statements</name>
+<stringValue id="87">if (CCLIEN!=null)
+{
+	CCLIEN = ("000000000" + CCLIEN).substring(CCLIEN.length());
+}</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="88" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="89">variables["CCLIEN"]</name>
+<stringValue id="90">CCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="91" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="92">variables["CCLIEN"]</name>
+<stringValue id="93">CCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="94" type="java.util.HashSet">
+<item id="95" type="com.j2fe.workflow.definition.Transition">
+<name id="96">goto-next</name>
+<source id="97">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="98">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="99">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="100" type="java.util.HashSet">
+</sources>
+<targets id="101" type="java.util.HashSet">
+<item idref="95"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="81"/>
+</item>
+</sources>
+<targets id="102" type="java.util.HashSet">
+<item idref="79"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="61"/>
+</item>
+</sources>
+<targets id="103" type="java.util.HashSet">
+<item id="104" type="com.j2fe.workflow.definition.Transition">
+<name id="105">nothing-found</name>
+<source idref="61"/>
+<target id="106">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="107">Check IDFISCAL</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="108">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="109" type="java.util.HashSet">
+<item id="110" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="111">database</name>
+<stringValue id="112">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="113" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="114">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="115">mappedParameters["01"]</name>
+<stringValue id="116">IDFISCAL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="117" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="118">mappedResult</name>
+<stringValue id="119">partyIDFISCAL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="120" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="121">querySQL</name>
+<stringValue id="122"><![CDATA[select fins.inst_nme CPARTY4
+from ft_t_fiid fiid, ft_t_firl firl, ft_t_fins fins 
+where fiid.inst_mnem = firl.inst_mnem 
+and fins.inst_mnem = firl.inst_mnem
+and firl.rel_typ='LOCAL' 
+and fiid.fins_id_ctxt_typ in ('N.I.F.','C.I.F.','Not_Def')
+and fiid.fins_id= :finsid
+and fiid.data_stat_typ = 'ACTIVE'
+and rownum < 2]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="123" type="java.util.HashSet">
+<item idref="104"/>
+</sources>
+<targets id="124" type="java.util.HashSet">
+<item id="125" type="com.j2fe.workflow.definition.Transition">
+<name id="126">nothing-found</name>
+<source idref="106"/>
+<target idref="2"/>
+</item>
+<item id="127" type="com.j2fe.workflow.definition.Transition">
+<name id="128">rows-found</name>
+<source idref="106"/>
+<target id="129">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="130">Check IDFISCAL ACTIVE</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="131">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="132" type="java.util.HashSet">
+<item id="133" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="134">database</name>
+<stringValue id="135">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="136" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="137">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="138">mappedParameters["01"]</name>
+<stringValue id="139">IDFISCAL</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="140" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="141">mappedResult</name>
+<stringValue id="142">partyIDFISCALactive</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="143" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="144">querySQL</name>
+<stringValue id="145"><![CDATA[select fins.inst_nme CPARTY3
+from ft_t_fiid fiid, ft_t_firl firl, ft_t_fins fins 
+where fiid.inst_mnem = firl.inst_mnem 
+and fins.inst_mnem = firl.inst_mnem 
+and firl.rel_typ='LOCAL' 
+and fiid.fins_id_ctxt_typ in ('N.I.F.','C.I.F.','Not_Def')
+and fiid.fins_id= :finsid
+and fins.data_stat_typ = 'ACTIVE'
+and fiid.data_stat_typ = 'ACTIVE'
+and rownum < 2
+]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="146" type="java.util.HashSet">
+<item idref="127"/>
+</sources>
+<targets id="147" type="java.util.HashSet">
+<item id="148" type="com.j2fe.workflow.definition.Transition">
+<name id="149">nothing-found</name>
+<source idref="129"/>
+<target id="150">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="151">Inactive ID FISCAL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="152">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="153" type="java.util.HashSet">
+<item id="154" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="155">statements</name>
+<stringValue id="156">String cparty = partyIDFISCAL[0].get("CPARTY4");
+String ERROR = "Local counterparty: " + cparty + " already exists with status INACTIVE in GS. Please activate counterparty.";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="157" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="158">variables["ERROR"]</name>
+<stringValue id="159">ERROR</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="160" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="161">variables["partyIDFISCAL"]</name>
+<stringValue id="162">partyIDFISCAL</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="163" type="java.util.HashSet">
+<item idref="148"/>
+</sources>
+<targets id="164" type="java.util.HashSet">
+<item id="165" type="com.j2fe.workflow.definition.Transition">
+<name id="166">goto-next</name>
+<source idref="150"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="167" type="com.j2fe.workflow.definition.Transition">
+<name id="168">rows-found</name>
+<source idref="129"/>
+<target id="169">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="170">Inactive ID FISCAL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="171">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="172" type="java.util.HashSet">
+<item id="173" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="174">statements</name>
+<stringValue id="175">String cparty = partyIDFISCALactive[0].get("CPARTY3");
+String ERROR = "Local counterparty: " + cparty + " already exists in GS."</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="176" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="177">variables["ERROR"]</name>
+<stringValue id="178">ERROR</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="179" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="180">variables["partyIDFISCALactive"]</name>
+<stringValue id="181">partyIDFISCALactive</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="182" type="java.util.HashSet">
+<item idref="167"/>
+</sources>
+<targets id="183" type="java.util.HashSet">
+<item id="184" type="com.j2fe.workflow.definition.Transition">
+<name id="185">goto-next</name>
+<source idref="169"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</target>
+</item>
+<item idref="59"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="41"/>
+</item>
+</sources>
+<targets id="186" type="java.util.HashSet">
+<item id="187" type="com.j2fe.workflow.definition.Transition">
+<name id="188">nothing-found</name>
+<source idref="41"/>
+<target id="189">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="190">Inactive ID FISCAL</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="191">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="192" type="java.util.HashSet">
+<item id="193" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="194">statements</name>
+<stringValue id="195">String cparty = partyCCLIEN[0].get("CPARTY1");
+String ERROR = "Local counterparty: " + cparty + " already exists in GS with status INACTIVE. Please activate counterparty.";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="196" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="197">variables["ERROR"]</name>
+<stringValue id="198">ERROR</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="199" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="200">variables["partyCCLIEN"]</name>
+<stringValue id="201">partyCCLIEN</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="202" type="java.util.HashSet">
+<item idref="187"/>
+</sources>
+<targets id="203" type="java.util.HashSet">
+<item id="204" type="com.j2fe.workflow.definition.Transition">
+<name id="205">goto-next</name>
+<source idref="189"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="39"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="24"/>
+</item>
+</sources>
+<targets id="206" type="java.util.HashSet">
+<item idref="22"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="8"/>
+</item>
+<item idref="165"/>
+<item idref="204"/>
+<item idref="184"/>
+</sources>
+<targets id="207" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+<item idref="125"/>
+</sources>
+<targets id="208" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="209">Custom/RDR/Integracion_MGC-GS/GlobalImport</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="210">KYTL_GC</lastChangeUser>
+<lastUpdate id="211">2022-11-05T07:49:56.000+0100</lastUpdate>
+<name id="212">Sub_check_CCLIENIDFISCAL_GS</name>
+<optimize>true</optimize>
+<parameter id="213" type="java.util.HashMap">
+<entry>
+<key id="214" type="java.lang.String">CCLIEN</key>
+<value id="215" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="216">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="217" type="java.lang.String">ERROR</key>
+<value id="218" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="219">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>false</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="220" type="java.lang.String">IDFISCAL</key>
+<value id="221" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="222">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="223" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="97"/>
+<status>RELEASED</status>
+<variables id="224" type="java.util.HashMap">
+<entry>
+<key id="225" type="java.lang.String">CCLIEN</key>
+<value id="226" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="227">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="228" type="java.lang.String">ERROR</key>
+<value id="229" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="230">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+<value id="231" type="java.lang.String">OK</value>
+</value>
+</entry>
+<entry>
+<key id="232" type="java.lang.String">IDFISCAL</key>
+<value id="233" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="234">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>4</version>
+</com.j2fe.workflow.definition.Workflow>

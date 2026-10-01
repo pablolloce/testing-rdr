@@ -212,7 +212,7 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
       suponer.
     - **`SendClientelaRequest`** (versión 8, `haltOnError=true` — a diferencia de `BajaClientela460`) admite
       `ACCION` en `A460`/`B460`/consulta (`CONS`/`CONS1`, verificación de existencia de cliente en
-      GoldenSource vía `Sub_check_CCLIENIDFISCAL_GS`, no aportado). Para `A460`/`B460` construye un mensaje
+      GoldenSource vía `Sub_check_CCLIENIDFISCAL_GS`, detalle completo más abajo). Para `A460`/`B460` construye un mensaje
       de ancho fijo (p. ej. `CCLIEN`(9)+`CODBAN`(4)+`CODOFI`(4)+`CODPAIS`(4, por defecto `"0011"`) para
       `A460`) y lo audita — **no en `FT_T_RLT1`, sino en `FT_T_UTD1`** (`UTD_USAGE_TYP='A460_Cli'`/
       `'B460_Cli'`, `DATA_SRC_ID='CLIENTELA'`) con 2 filas adicionales de estado "esperando respuesta" tras
@@ -226,8 +226,24 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
       campo ya visto en `ConContrato460.java` (dato compartido entre 2 mecanismos independientes, aunque
       `ConContrato460.java` en sí no forma parte de esta cadena) — y aplica una **deduplicación real**: si
       2 oficinas hermanas comparten ya un folio activo para el mismo `BRANCH`/cliente local, no reenvía la
-      baja duplicada. `LOCAL`/`GLOBAL` delegan en un sub-workflow `SUB_GET_FOLIO` (no aportado) que
-      finalmente also invoca `SendClientelaRequest` con `ACCION=B460`.
+      baja duplicada. La rama `LOCAL` (la que **sí** se ejecuta siempre desde este pipeline) delega
+      directamente en `SUB_GET_FOLIO(MNEM)`.
+    - **`SUB_GET_FOLIO` aportado (2026-10-01) — confirma un mecanismo de fan-out real en la rama que sí se
+      ejecuta siempre (`LOCAL`), corrige una afirmación de la ronda anterior:** `SUB_GET_FOLIO` busca en
+      `FT_T_FAB1` **todos** los folios `ACTIVE` (`STAT_DEF_ID='NUMFOLIO'`) del `MNEM` recibido (no asume uno
+      solo) y, por cada folio encontrado, en un **`For Each Split` paralelo real** (`ANDSPLIT`/`ANDJOIN`, no
+      secuencial), resuelve dinámicamente `BRANCH`/`CODBAN`/`CODOFI`/`FOLIO` para ese folio concreto
+      (`BRANCH`=`FT_T_FAB1.ORG_ID`; `CODBAN`=`FT_T_EERL.PRNT_ORG_ID` del `BRANCH`; `CODOFI`=
+      `FT_T_SUST.SUBDIV_ID` con `STAT_DEF_ID='MAINOFFI'` del `BRANCH`; `FOLIO`=`FT_T_FAB1.FLD_VAL`) e invoca su
+      propio `SendClientelaRequest(ACCION="B460", BRANCH, CODBAN, CODOFI, FOLIO)` de forma independiente — sin
+      comprobar su resultado, igual que el resto de la familia. **Hallazgo de negocio confirmado: una
+      contrapartida Local con varios folios 460 activos genera, en una sola baja, un mensaje `B460`
+      independiente a Clientela por cada folio** (fan-out 1→N), no uno solo. **Hallazgo adicional: 2 mecanismos
+      distintos de resolución de `BRANCH`/`CODBAN`/`CODOFI` conviven en la misma cadena** — `SUB_GET_FOLIO`
+      (rama `LOCAL`, real) los resuelve dinámicamente por folio contra `FT_T_EERL`/`FT_T_SUST`, mientras que el
+      bloque `B460C` de `BajaClientela460` (ver arriba) los deja **hardcodeados** (`BRANCH="A1"`,
+      `CODBAN="0182"`, `CODOFI="0997"`) para todas las bajas compensadas, sin resolución dinámica alguna — dos
+      formas distintas de llegar al mismo tipo de mensaje (`B460`), con distinto grado de parametrización.
     - **Confirma el riesgo de reintento sin alerta (§9), ahora con más precisión:** `SendClientelaRequest`
       tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
       `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
@@ -240,6 +256,21 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
       los 2 llamantes conocidos de esta cadena (`BajaClientela460`/`BAJA_460_CLI`) usa la rama de consulta, así
       que esta asimetría no afecta al pipeline de R2, pero queda documentada para quien audite otros llamantes
       de `SendClientelaRequest`.
+    - **`Sub_check_CCLIENIDFISCAL_GS` aportado (2026-10-01) — desglose completo, aunque sigue sin ser
+      alcanzable desde este pipeline (solo lo invoca la rama `CONS`, no usada por `BajaClientela460`/
+      `BAJA_460_CLI`):** recibe `CCLIEN`/`IDFISCAL`, devuelve `ERROR` (valor por defecto literal `"OK"`).
+      Normaliza `CCLIEN` a 9 dígitos con ceros a la izquierda y busca una contrapartida `LOCAL` existente en
+      GS primero por `CCLIEN` (`FT_T_FIID.FINS_ID_CTXT_TYP='CLIENTELAID'`) y, **solo si no encuentra nada por
+      CCLIEN**, por `IDFISCAL` (`FINS_ID_CTXT_TYP in ('N.I.F.','C.I.F.','Not_Def')`) — en ambos casos con una
+      primera query laxa (solo exige el identificador activo) seguida de una segunda más estricta (exige
+      también la `FT_T_FINS` activa) para distinguir "existe y está activa" de "existe pero inactiva". Si
+      encuentra algo por cualquiera de las 2 vías, fija un mensaje `ERROR` distinto según el caso (activa vs.
+      inactiva, 4 variantes de texto) y lo audita en `FT_T_UTD1` (`UTD_ID_PURP_TYP='CClien'`,
+      `DATA_SRC_ID='CLIENTELA'`, `LAST_CHG_USR_ID='GIMPORT'`) — **el propio texto del error se persiste como
+      valor de ese atributo**. Si no encuentra nada por ninguna vía, `ERROR` se queda en su valor por defecto
+      `"OK"` y **no se escribe ningún rastro en `FT_T_UTD1`** (solo el caso "ya existe" deja auditoría). Nota de
+      calidad de código: los 4 nodos que componen cada una de las 4 variantes de mensaje de error se llaman
+      todos igual (`Inactive ID FISCAL`), aunque solo 2 de los 4 son realmente por estado `INACTIVE`.
     - **[Hallazgo de calidad de código, `BajaClientela460.wkf`] Copy-paste confirmado en el bloque `ALTA`:**
       el `UPDATE FT_T_RLT1` que cierra cada alta (`RLT_DIF_ACC='A460'`) fija `LAST_CHG_USR_ID='BAJA_CLIENTELA'`
       — el mismo literal que los bloques de baja, en vez de algo como `'ALTA_CLIENTELA'` — indicio de que el
@@ -338,6 +369,7 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 | `happy_path` | `BajaClientela460` se invoca siempre con `Tipologia=TOTAL` (confirmado en `Refundicion.properties`), procesando `B460`→`B460C`→`A460` en un único paso — descarta el riesgo de no-op. | TC-014 |
 | `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
 | `error_funcional` | Un fallo en cualquier paso de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)` o `Workflow(RDR_Clientela460)`) no detiene los pasos siguientes, al no existir ninguna clave `Stop=Ok`/`StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en `Refundicion.properties` — el job solo reporta `RC=1` al final. | TC-016 |
+| `borde` | Una baja (`BAJA_460_CLI`, `NIVEL=LOCAL`) de una contrapartida Local con más de un folio 460 `ACTIVE` en `FT_T_FAB1` genera, vía `SUB_GET_FOLIO`, un mensaje `B460` independiente a Clientela por cada folio (fan-out 1→N), cada uno con `BRANCH`/`CODBAN`/`CODOFI` resueltos dinámicamente para ese folio concreto. | TC-017 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -503,8 +535,24 @@ información nueva de estructura). El repaso añade 4 matices menores, ya incorp
 a enviar nada a Clientela), un copy-paste confirmado (`LAST_CHG_USR_ID='BAJA_CLIENTELA'` también en el
 `UPDATE` del bloque `ALTA`), la duplicación de nodos entre `TOTAL` y las ramas `BAJA`/`ALTA` independientes, y
 la confirmación de que `CODBAN='0182'`/`CODOFI='0997'` están hardcodeados también en el bloque `B460C`, no
-solo en `ALTA`. Ninguno cambia el balance de 0 gaps bloqueantes ya alcanzado. Los 2 sub-workflows internos
-mencionados como "no aportados" (`Sub_check_CCLIENIDFISCAL_GS`, invocado solo en la rama `CONS` no alcanzable
-desde este pipeline; `SUB_GET_FOLIO`, invocado desde las ramas `LOCAL`/`GLOBAL` de `BAJA_460_CLI` no
-alcanzables desde este pipeline, que siempre usa `NIVEL=LOCAL` vía `BajaClientela460`) siguen sin aportar,
-pero su contenido no afectaría al camino real de este proceso.
+solo en `ALTA`. Ninguno cambia el balance de 0 gaps bloqueantes ya alcanzado.
+
+**Ronda adicional (2026-10-01, segunda) — cierre total de los 2 sub-workflows internos restantes.** El
+usuario aportó `Sub_check_CCLIENIDFISCAL_GS.wkf` y `SUB_GET_FOLIO.wkf` reales, completando el 100% del
+código de toda la familia `SendClientelaRequest`/`BAJA_460_CLI`/`BajaClientela460`/`Sub_check_CCLIENIDFISCAL_GS`/
+`SUB_GET_FOLIO`. **Corrige una afirmación de la ronda anterior**: `SUB_GET_FOLIO` **sí es alcanzable** desde
+el camino real de este pipeline — se invoca desde la rama `LOCAL` de `BAJA_460_CLI`, que es precisamente la
+única que `BajaClientela460` ejecuta siempre (no desde `GLOBAL`, que sí es inalcanzable). Con el código real,
+`SUB_GET_FOLIO` revela un **mecanismo de fan-out no documentado hasta ahora**: busca todos los folios
+`ACTIVE` del mnemónico recibido en `FT_T_FAB1` (no asume uno solo) y envía, en paralelo real, un mensaje
+`B460` independiente a Clientela por cada folio, resolviendo `BRANCH`/`CODBAN`/`CODOFI` dinámicamente contra
+`FT_T_EERL`/`FT_T_SUST` para cada uno — mecanismo distinto y más fino que el usado en el bloque `B460C` de
+`BajaClientela460`, que en cambio usa los mismos 3 valores hardcodeados para toda baja compensada (ver
+detalle en §6.1). `Sub_check_CCLIENIDFISCAL_GS` sí se confirma como genuinamente inalcanzable desde este
+pipeline (solo la rama `CONS` de `SendClientelaRequest` lo invoca, y ningún llamante conocido de esta cadena
+usa esa rama) — su lógica queda documentada en §6.1 por si resulta útil para otra cadena que sí la use.
+
+**Con esta ronda, `RDR_REFUNDICION_new` no tiene ya ningún sub-workflow interno sin aportar en el camino real
+del proceso** — el único que queda genuinamente no aportado es un motor de transporte genérico transversal
+(`Sub_SendMessageToMQQueue`), ya tratado como tal (mecanismo confirmado, lógica interna fuera de alcance
+específico de este proceso) en otros procesos de este mismo audit.
