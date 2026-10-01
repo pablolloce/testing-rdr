@@ -340,8 +340,8 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       aportado, pero el nombre literal de la cola sí queda confirmado) — no HTTP/webservice como se podía
       suponer.
     - **`SendClientelaRequest`** (versión 8, `haltOnError=true` — a diferencia de `BajaClientela460`) admite
-      `ACCION` en `A460`/`B460`/consulta (`CONS`/`CONS1`, verificación de existencia de cliente en
-      GoldenSource vía `Sub_check_CCLIENIDFISCAL_GS`, no aportado). Para `A460`/`B460` construye un mensaje
+      `ACCION` en `A460`/`B460`/consulta (`CONS`/`CONS1`; `CONS` pasa antes por `Sub_check_CCLIENIDFISCAL_GS`, que comprueba si el cliente ya
+      existe en GoldenSource — ver más abajo —, y `CONS1` salta esa comprobación). Para `A460`/`B460` construye un mensaje
       de ancho fijo (p. ej. `CCLIEN`(9)+`CODBAN`(4)+`CODOFI`(4)+`CODPAIS`(4, por defecto `"0011"`) para
       `A460`) y lo audita — **no en `FT_T_RLT1`, sino en `FT_T_UTD1`** (`UTD_USAGE_TYP='A460_Cli'`/
       `'B460_Cli'`, `DATA_SRC_ID='CLIENTELA'`) con 2 filas adicionales de estado "esperando respuesta" tras
@@ -355,8 +355,30 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       campo ya visto en `ConContrato460.java` (dato compartido entre 2 mecanismos independientes, aunque
       `ConContrato460.java` en sí no forma parte de esta cadena) — y aplica una **deduplicación real**: si
       2 oficinas hermanas comparten ya un folio activo para el mismo `BRANCH`/cliente local, no reenvía la
-      baja duplicada. `LOCAL`/`GLOBAL` delegan en un sub-workflow `SUB_GET_FOLIO` (no aportado) que
-      finalmente also invoca `SendClientelaRequest` con `ACCION=B460`.
+      baja duplicada. `LOCAL`/`GLOBAL` delegan en el sub-workflow `SUB_GET_FOLIO` (ya aportado, ver más abajo) que
+      finalmente invoca `SendClientelaRequest` con `ACCION=B460`. En `BAJA_460_CLI`, `NIVEL=GLOBAL` recorre los
+      clientes locales hijos (`FT_T_FIRL`, `REL_TYP='LOCAL'`, `FINSRL_TYP='CUSTOMER'`) y llama a `SUB_GET_FOLIO` por cada
+      uno; `NIVEL=LOCAL` lo llama directamente con el mnemónico recibido.
+    - **`SUB_GET_FOLIO`** (grupo `Custom/RDR/Integracion_MGC-GS/GlobalImport`, versión 6, `RELEASED`, `haltOnError=false`;
+      parámetro `MNEM`): busca en `FT_T_FAB1` todos los folios activos del mnemónico (`STAT_DEF_ID='NUMFOLIO'`,
+      `DATA_STAT_TYP='ACTIVE'`); si no hay ninguno, termina sin hacer nada. Por cada folio obtiene `BRANCH`
+      (el `ORG_ID` del propio folio), `CODBAN` (el banco, `PRNT_ORG_ID` de `FT_T_EERL` con `RL_TYP='BRANCH'`),
+      `CODOFI` (oficina principal, `SUBDIV_ID` de `FT_T_SUST` con `STAT_DEF_ID='MAINOFFI'`) y `FOLIO` (`FLD_VAL`), y
+      llama a `SendClientelaRequest` con `ACCION=B460`: **un mensaje de baja por cada folio activo**, sin la
+      deduplicación de hermanos operativos que sí hace la rama `OPERATIVO` de `BAJA_460_CLI`. Las subconsultas de
+      `CODBAN` y `CODOFI` no filtran por estado ni limitan filas: si hubiera más de una fila, la consulta fallaría
+      y no se enviaría la baja de ese folio.
+    - **`Sub_check_CCLIENIDFISCAL_GS`** (mismo grupo, versión 4, `RELEASED`, `haltOnError=false`; parámetros `CCLIEN`,
+      `IDFISCAL`, salida `ERROR`, que vale `OK` por defecto): comprobación previa de la consulta (`CONS`) a
+      Clientela. Rellena `CCLIEN` con ceros hasta 9 dígitos y busca una contraparte local (`FT_T_FIRL`
+      `REL_TYP='LOCAL'`) con ese identificador `CLIENTELAID`; si no la hay, busca por identificador fiscal
+      (`N.I.F.`, `C.I.F.` o `Not_Def`). Si encuentra la entidad, devuelve en `ERROR` un texto distinto según esté activa
+      (`Local counterparty: <nombre> already exists in GS.`) o inactiva (`... already exists in GS with status INACTIVE.
+      Please activate counterparty.`) y lo guarda además en la tabla de datos temporales de la interfaz de usuario
+      (`KYTL_GC.UI_TEMPORAL_DATA`, uso `Clientela`, propósito `CClien`, con el esquema escrito en el workflow).
+      `SendClientelaRequest` solo sigue con la consulta a Clientela si `ERROR` vale `OK` (entidad no existente); si no,
+      devuelve a la interfaz el XML de error "The requested entity already exists in GS." sin consultar. No lo usan
+      las acciones `A460`/`B460`.
     - **Confirma el riesgo de reintento sin alerta (§9), ahora con más precisión:** `SendClientelaRequest`
       tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
       `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
@@ -510,6 +532,7 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 | `happy_path` | `BajaClientela460` se invoca siempre con `Tipologia=TOTAL` (confirmado en `Refundicion.properties`), procesando `B460`→`B460C`→`A460` en un único paso — descarta el riesgo de no-op. | TC-014 |
 | `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
 | `error_funcional` | Un fallo en cualquier paso de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)` o `Workflow(RDR_Clientela460)`) no detiene los pasos siguientes, al no existir ninguna clave `Stop=Ok`/`StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en `Refundicion.properties` — el job solo reporta `RC=1` al final. | TC-016 |
+| `happy_path` | `BAJA_460_CLI` (`NIVEL=LOCAL`) envía una baja B460 por cada folio activo del cliente vía `SUB_GET_FOLIO`, y nada si no tiene folios. | TC-017 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 

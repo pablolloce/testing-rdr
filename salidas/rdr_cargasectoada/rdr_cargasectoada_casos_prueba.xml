@@ -183,4 +183,25 @@
     <posibilidadFallo>Si no se puede confirmar la intención y la discrepancia persiste sin justificación, debe elevarse como riesgo de calidad de datos (RISK-ADA-002) en la carga semanal de T3.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>La Carga Core de T2 arranca con el JDK correcto y encuentra el CSV de T1</nombre>
+    <objetivo>Verificar que GS_CARGASECTO_T2 (CargaSectorizacionT2) se ejecuta sin error de versión de Java y que lee tanto el CSV de T2 como el de T1, y entender el efecto de la Historificación del Tramo 1 sobre esa lectura.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con los CSV de trabajo de T1 y T2 ya copiados por los pasos de ingesta.</precondicion>
+      <precondicion>Acceso al .properties CargaSectorizacionT2 del entorno (para ver si fija JDKV=17) y a los logs de GSProcess.sh y de log4jCargaSectorizacion.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros" valor="T1_CatalogValuesTaxonomy.csv y T2_RelValuesTaxonomy.csv en sus carpetas de trabajo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh CargaSectorizacionT2 con ambos ficheros presentes y comprobar en el log que arranca sin UnsupportedClassVersionError y que la clase T2_Sect_Bloom_Refinit_POST procesa los dos ficheros.</paso>
+      <paso numero="2">Repetir sin el CSV de T1 (retirado a mano) y anotar el resultado de la carga de T2.</paso>
+      <paso numero="3">Ejecutar la cadena completa y comprobar que el backup de T1 (MEKYTL1287) no se ejecuta hasta que acaba GS_CARGASECTO_T2, y qué ocurre con el CSV de T1 después del backup (se mueve o se copia, P-ADA-03).</paso>
+    </pasos>
+    <resultadoEsperado>T2 arranca con el JDK adecuado y falla de forma visible si falta el CSV de T1; el backup de T1 no se adelanta a T2.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs y del sistema de ficheros.</tipoValidacion>
+    <criterioAceptacion>Sin error de versión de Java y comportamiento ante la ausencia del CSV de T1 conocido y anotado.</criterioAceptacion>
+    <posibilidadFallo>Que el .properties de T2 no fije JDKV=17 y la carga falle al arrancar; que T2 lea el CSV de T1 mientras la Carga Core de T1 aún lo está usando.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

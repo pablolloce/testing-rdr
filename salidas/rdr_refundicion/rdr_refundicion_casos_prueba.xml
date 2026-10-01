@@ -332,4 +332,25 @@
     <posibilidadFallo>Si un fallo en un paso temprano (p. ej. la carga de datos) no detiene los pasos posteriores, estos podrían ejecutarse sobre datos parciales o inconsistentes sin ninguna señal de alerta intermedia.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-017" tipo="happy_path">
+    <nombre>Baja 460 de un cliente local con varios folios: un mensaje B460 por folio activo</nombre>
+    <objetivo>Verificar que BAJA_460_CLI con NIVEL=LOCAL envía una baja a Clientela por cada folio activo del cliente (SUB_GET_FOLIO) y que no envía nada si no hay folios.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con cola MQ CLIENTELA de pruebas o interceptada.</precondicion>
+      <precondicion>Cliente local con una fila FT_T_RLT1 PENDING/B460 y dos folios activos en FT_T_FAB1 (STAT_DEF_ID NUMFOLIO) en oficinas distintas; un segundo cliente local PENDING/B460 sin ningún folio activo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="TOTAL (valor real de producción)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar Workflow(RDR_Clientela460) con Tipologia=TOTAL.</paso>
+      <paso numero="2">Comprobar en FT_T_UTD1 (UTD_USAGE_TYP B460_Cli) que hay un mensaje por cada folio del primer cliente, con su BRANCH, banco, oficina y FOLIO.</paso>
+      <paso numero="3">Comprobar que para el segundo cliente no se genera ningún mensaje y que, aun así, su fila de FT_T_RLT1 queda en OK.</paso>
+    </pasos>
+    <resultadoEsperado>Un mensaje B460 por folio activo; sin folios no se envía nada y la señal se da por atendida.</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_UTD1 y FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Número de mensajes igual al número de folios activos.</criterioAceptacion>
+    <posibilidadFallo>Que las subconsultas de banco u oficina devuelvan más de una fila y se pierda la baja de ese folio sin aviso; que un cliente sin folios deje la baja de Clientela sin enviar y la señal marcada como hecha.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

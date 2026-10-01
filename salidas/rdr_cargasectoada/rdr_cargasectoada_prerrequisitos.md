@@ -46,6 +46,9 @@
   sí ocurre confirmadamente en T1/T2), debe verificarse (TC-009) si el offset de 2 días adicionales es
   intencional o un defecto de configuración.
 - **GAP-ADA-004 (deducción pendiente de confirmar, no bloqueante):** las dos cadenas son calendarios complementarios (lunes / martes a viernes) sobre la misma fuente DataX; confirmar con el equipo funcional (P-ADA-06) antes de diseñar pruebas que asuman otra cosa.
+- **Carga Core de T2 (§6.4, TC-010):** el `.properties` de `CargaSectorizacionT2` lee los CSV de T1 y de T2 y no
+  fija `JDKV=17` (T1 y T3 sí); comprobar el JDK por defecto del entorno y que los dos ficheros están en sus
+  carpetas de trabajo antes de lanzar el paso.
 - **Menor:** la ficha real de `MEKYTL1274` contiene el placeholder sin rellenar `DDMMYYYY` en el campo
   "MÁQUINA DE EJECUCIÓN" (el resto de fichas muestra correctamente `datax-live`) — defecto documental a
   corregir en origen, no afecta al comportamiento funcional.

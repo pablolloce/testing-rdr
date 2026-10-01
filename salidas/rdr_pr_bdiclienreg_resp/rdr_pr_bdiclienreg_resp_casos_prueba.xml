@@ -128,4 +128,70 @@
     <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro del ciclo.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-007" tipo="happy_path">
+    <nombre>Cuadre de carga de un fondo ya dado de alta: pasa a FUND_LOADED</nombre>
+    <objetivo>Verificar que AltaFondos_CuadreCarga encuentra el fondo por su LEI y deja las peticiones en los estados que espera el enriquecimiento.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción. Petición padre FILE_DATE en estado ALTA_FONDOS_PEND con una hija FundLEI en GENERATED_CSV_LINE.</precondicion>
+      <precondicion>El fondo ya existe en GoldenSource con su LEI activo (FT_T_FIID LEIID) y jerarquía Global, Local y Operativa activa en FT_T_FIRL.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Atributos de la hija (FT_T_UTD1)" valor="LEI_CODE e IDPETICION informados; MA_ROL distinto de Y"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso AltaFondos_CuadreCarga de GS_INVESTORS_ALTAFONDOS (o la cadena completa hasta ese punto).</paso>
+      <paso numero="2">Consultar FT_T_VREQ: la hija debe estar en FUND_LOADED y el padre en FONDOS_CUADRE_OK, con LAST_CHG_USR_ID ALTAFONDOS_CUADRE.</paso>
+      <paso numero="3">Consultar FT_T_UTD1 de la hija: deben existir MNEM_GLO, FINSID_GLO, MNEM_LOC, FINSID_LOC, MNEM_OPE y FINSID_OPE (DATA_SRC_ID ALTAFONDOS_CUADRE).</paso>
+      <paso numero="4">Comprobar que RDR_AltaFondos_Enriquecimientos recoge el fondo y lo deja en GENERATED_FUND.</paso>
+    </pasos>
+    <resultadoEsperado>Hija en FUND_LOADED, padre en FONDOS_CUADRE_OK, seis atributos nuevos, y el fondo llega a GENERATED_FUND tras el enriquecimiento.</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_VREQ y FT_T_UTD1.</tipoValidacion>
+    <criterioAceptacion>Los seis atributos existen una sola vez por fondo y los estados finales son los indicados.</criterioAceptacion>
+    <posibilidadFallo>Que nadie deje el padre en ALTA_FONDOS_PEND (P-BCR-09): en ese caso el cuadre no encuentra nada y el fondo no avanza.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Cuadre de carga de un LEI sin contrapartida: fondo en FUND_GENERATE_KO sin alerta</nombre>
+    <objetivo>Confirmar el tratamiento de un fondo cuyo LEI no existe en GoldenSource tras el alta masiva.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción. Padre en ALTA_FONDOS_PEND con una única hija FundLEI en GENERATED_CSV_LINE cuyo LEI no está dado de alta.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="LEI_CODE" valor="LEI inexistente en FT_T_FIID"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso AltaFondos_CuadreCarga.</paso>
+      <paso numero="2">Consultar FT_T_VREQ: hija en FUND_GENERATE_KO con el texto "No se ha encontrado contrapartida con el LEI" y padre en FONDOS_CUADRE_KO.</paso>
+      <paso numero="3">Comprobar que no se ha creado ningún atributo MNEM_* y que no se ha generado ninguna alerta en FT_T_TPG1 para esa petición.</paso>
+      <paso numero="4">Comprobar que el código de salida de GSProcess.sh y el color del job de Control-M no reflejan el problema.</paso>
+    </pasos>
+    <resultadoEsperado>El fondo queda marcado como erróneo en FT_T_VREQ y el resto de la cadena continúa sin aviso; es el comportamiento actual, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_VREQ, FT_T_UTD1 y FT_T_TPG1.</tipoValidacion>
+    <criterioAceptacion>Estados KO informados, sin atributos nuevos y sin alerta.</criterioAceptacion>
+    <posibilidadFallo>Que un error SQL de la query de cuadre se confunda con un fondo ausente (el código no distingue ambos casos).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Una alerta de R8 llega por correo y sus tablas quedan cerradas</nombre>
+    <objetivo>Verificar la cadena Barrido, Cocinado y Envío con el código de proceso RDR_ALTA_FONDOS (o ALERT_IP_SSI para R9) y detectar los defectos conocidos.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción. Una fila pendiente en FT_T_TPG1 (END_TMS nulo) con PROCESO RDR_ALTA_FONDOS y un ID_DEF_ALERT existente en FT_T_ALD1.</precondicion>
+      <precondicion>FT_T_REP1 activo para ese proceso con RUTA existente, FT_T_ALR1/FT_T_ALM1 con un destinatario EMAIL propio y ServerMailConfig.xml del entorno informado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Proceso" valor="RDR_ALTA_FONDOS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la acción Property(GestionAlertas) con el proceso indicado.</paso>
+      <paso numero="2">Comprobar que FT_T_TPG1.END_TMS queda informado (si no lo está, se confirma el defecto de marcaUsadosTPG1).</paso>
+      <paso numero="3">Comprobar mensajes en FT_T_ALG1 con PROCESADO S, el SEND_PEND de FT_T_REP1 y el LAST_SEND_TMS de FT_T_ALR1, y las filas de traza de FT_T_RLT1.</paso>
+      <paso numero="4">Comprobar que existen en RUTA el adjunto y BODY_(SHORT_PROCESS).txt y que el destinatario recibe el correo con asunto "[RDR Reportes] - RDR_ALTA_FONDOS".</paso>
+      <paso numero="5">Repetir sin BODY_(SHORT_PROCESS).txt y comprobar que no sale correo pese a que SEND_PEND se limpia.</paso>
+    </pasos>
+    <resultadoEsperado>Incidencia cerrada, mensajes procesados, SEND_PEND vuelve a N y llega un correo; sin el fichero de cuerpo no llega ninguno.</resultadoEsperado>
+    <tipoValidacion>Consulta de base de datos y buzón de prueba.</tipoValidacion>
+    <criterioAceptacion>Todas las tablas coinciden con lo descrito y el correo llega una sola vez.</criterioAceptacion>
+    <posibilidadFallo>Que el Barrido no cierre las incidencias (se duplicarían mensajes en la siguiente ejecución) o que Mail falle sin dejar rastro.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

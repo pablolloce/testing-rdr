@@ -97,7 +97,7 @@ ANS RDR.
 | P-DDR-05 | Código fuente completo de `Refinitiv_Derivados_Batch.sh` (la fuente solo trae su descripción): carpeta donde deja `Emisores*`/`Subyacentes*`/`Derivados_Enriquecido*`, qué hace con los `.zip` ya procesados, retención/purga de `old/` y de `lake/` | Permite saber qué queda en disco y si crece sin límite |
 | P-DDR-06 | El `.properties` de alertas aportado tiene rutas de integración (`/fichtemcomp/ei/...`). ¿Cómo llega el entorno correcto (`pr`) en producción (`$ENV` / sustitución)? | Si no se sustituye, el job 7 podría apuntar a rutas de otro entorno (relacionado con P-GSP-01 de `comun_gsprocess`) |
 | P-DDR-07 | Decisión: ¿se corrige el defecto de `setVreqStatus()` (marca `PROCESSED` sin comprobar las cargas)? ¿Hay un control manual hoy? | Es un falso positivo funcional confirmado por código |
-| P-DDR-08 | Contenido real de `Emisores*.txt` (muestra con altas) y del servicio consumidor del mensaje JMS `AltaRolEmisor` | Cierra el único punto no verificado de la carga de emisores y del alta de rol `ISSUER` |
+| P-DDR-08 | **Resuelta en parte.** Ya hay una muestra real de `Emisores*.txt` con altas (`Emisores_20220330_162424.txt`, de un lote de marzo de 2022): contiene una única línea, `28311` + salto de línea, sin cabecera, sin `\|` y sin espacios, es decir un `orgId` numérico por línea, tal como lo lee `IssuersService` (§6.6). **Sigue abierto** el servicio consumidor del mensaje JMS `AltaRolEmisor` | Cierra el punto no verificado del alta de rol `ISSUER` |
 
 ## 5. Especificación funcional
 
@@ -468,9 +468,15 @@ como incidencia. Las alertas que escriben directamente los workflows de los jobs
 `PROCESO='PETICION_REFINITIV_EMISIONES'`, `PROCESADO='N'`) llevan otro código de proceso distinto del que
 barre este job (ver pregunta P-DDR-03 en §4).
 
-No se ha decompilado en esta ronda el contenido exacto de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
-(motor genérico, ya tratado como tal en otros procesos de este audit), pero la estructura y el parámetro de
-filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real — ya no es una hipótesis.
+**Actualización con el código de `main.Ppal` de los dos jars y el workflow `Mail`** (detalle en la spec común de
+alertas): `ArgJava1=2` es el nivel de log (INFO); el tercer argumento filtra por proceso (`PROCESOS` = todos);
+Barrido y Cocinado **terminan siempre con código 0** aunque no puedan conectar a la base de datos; el
+Envío (workflow `RDR_AlertasEnvio`) comprueba primero la periodicidad de cada destinatario, exige además del
+adjunto el fichero `BODY_<SHORT_PROCESS>.txt` y pone `SEND_PEND='N'` antes de enviar; el subworkflow `Mail` no
+propaga errores (un SMTP caído no se ve). Además, con el código recibido, el cierre de las incidencias de
+`FT_T_TPG1` por el Barrido podría no llegar a ejecutarse, de modo que las incidencias de `DERIVADOS_REFINITIV`
+se repetirían en cada ejecución del job 7: comprobar `FT_T_TPG1.END_TMS` tras una ejecución. Siguen sin verse las
+clases `ProcesoCLS` (redacción de los mensajes) y `ReportesRDR` (generación del fichero).
 
 ### 6.5 Comparativa D vs P
 
@@ -492,8 +498,8 @@ exactamente el mismo.
 
 El usuario aportó una muestra real (no comprimida) de 2 de los 3 ficheros de carga que el pipeline genera
 (§5, paso 4.d): `Subyacentes_<timestamp>.txt` (1.091 líneas) y `Derivados_Enriquecido.txt` (1.837 líneas).
-`Emisores_<timestamp>.txt` fue aportado pero **vacío (0 bytes)** — este lote de producción no contenía altas
-de emisores, así que su estructura sigue sin muestra real.
+`Emisores_<timestamp>.txt` llegó **vacío (0 bytes)** — ese lote no contenía altas de emisores. Se ha
+aportado después una muestra con altas de un lote anterior (ver más abajo).
 
 * **`Subyacentes*.txt` — 3 campos separados por `|`, sin cabecera:** `<RIC>|RIC|<TIPO>`, donde `<TIPO>` toma
   solo 2 valores en la muestra (`UNDLYRFV`: 1.022 filas; `FUTRFV`: 69 filas). El campo 2 es el literal
@@ -528,8 +534,14 @@ de emisores, así que su estructura sigue sin muestra real.
   simple de lo asumido: **un `orgId` por línea, sin delimitador `|`** — no un fichero de campos múltiples.
   `IssuersService` lo usa solo para localizar una `FT_T_FINS` ya existente (no la crea) y, si existe, crear
   (si no hay ya) su fila `FT_T_ISSR` — ver §6.2 Grupo A.
-* **Lo que sigue sin confirmar:** solo la muestra real de `Emisores*.txt` (contenido; el lote recibido
-  estaba vacío, 0 bytes, sin altas de emisores). El mapeo campo→columna de las tablas satélite del Grupo C
+* **Muestra real de `Emisores*.txt` con altas (resuelve la parte de contenido de P-DDR-08):** el fichero
+  `Emisores_20220330_162424.txt` (nombre `Emisores_<AAAAMMDD>_<HHMMSS>.txt`, es decir generado el 2022-03-30 a
+  las 16:24:24) tiene 6 bytes: la línea `28311` terminada en un único `\n`. Confirma lo que ya decía el código de
+  `IssuersService`: un `orgId` por línea, numérico (5 dígitos en la muestra), sin cabecera, sin delimitador y sin
+  espacios ni retorno de carro; el servicio ignora las líneas vacías, no recorta espacios (un `orgId` con espacio
+  o `\r\n` no casaría con `FT_T_FINS`) y trata un fichero vacío como lote sin altas, sin error. La muestra no
+  prueba por sí sola que `28311` exista en `FT_T_FINS` (ver TC-008).
+* **Lo que sigue sin confirmar:** el servicio consumidor del mensaje JMS `AltaRolEmisor`. El mapeo campo→columna de las tablas satélite del Grupo C
   quedó resuelto con `DerivativesProcessor` (ver §6.2). La línea sintética de swap aportada para TC-010 tiene
   43 campos y debe ampliarse a 45 (ver §10).
 
@@ -600,7 +612,7 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   reales confirman que los 3 campos de `Subyacentes*.txt` son exactamente los que `UnderlyingService`
   necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §6.2). Único resto:
   una muestra de contenido real de `Emisores*.txt` (su estructura — un `orgId` por línea — ya está confirmada
-  por código).
+  por código y por una muestra real con una línea, §6.6).
 * **[Resuelto, 2026-10-01] Las 5 tablas del Grupo E quedan atribuidas al 100%:** `FT_T_FINR` **sí se escribe**
   — no desde el jar, sino desde el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` vía un mensaje JMS
   (`AltaRolEmisor`) que da de alta el rol `ISSUER`; `FT_T_FIRL`/`FT_T_GUNT` se **leen** (resolución de
@@ -628,9 +640,8 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
   (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
-* **Contenido real (no solo estructura) de `Emisores*.txt`** — la estructura (un `orgId` por línea) ya está
-  confirmada por código (`IssuersService.java`); el lote de producción aportado no contenía altas, así que
-  sigue sin una muestra de contenido real.
+* **Contenido real de `Emisores*.txt`** — cerrado: la estructura (un `orgId` por línea) está confirmada por código
+  (`IssuersService.java`) y por una muestra real con una línea (`28311`, §6.6).
 * **Algoritmo interno del servicio externo OpenFigi** (de Bloomberg) — servicio de terceros, fuera del
   alcance de este análisis.
 * **Generación del fichero en la plataforma Refinitiv** (proveedor externo).

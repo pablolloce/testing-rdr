@@ -79,9 +79,10 @@ anterior, saltando el fin de semana), pero para T1/T2 el lunes se pide ODATE-1 (
   (martes a viernes, y lunes) sobre la misma fuente de datos.
 * **Ámbito técnico:** los 2 folders Control-M completos, `KYTL0000-RDR_CARGASECTOADA` (18 pasos) y
   `KYTL0000-RDR_CARGASECTOADA_2` (18 pasos) — 36 pasos en total.
-* **Fuera de alcance:** el contenido real de los `.properties`/lógica interna de `GSProcess.sh` para los
-  parámetros `CargaSectorizacionT1/T2/T3` (no aportados — la carga real en GoldenSource es una caja negra
-  más allá de "ejecuta GSProcess.sh con este parámetro"; ver P-ADA-01); la confirmación funcional de por qué existen 2 cadenas con calendarios
+* **Fuera de alcance:** el contenido de los `.properties` de `GSProcess.sh` de los pasos Delta
+  (`T<N>_<Fichero>`) y Reporte (`ReporteSectorizacionT<N>`) y el detalle interno del jar
+  `RDR_SectorizacionEmisores.jar` (mapeo de campos, tablas que escribe); los `.properties` de la Carga Core
+  `CargaSectorizacionT1/T2/T3` sí se conocen (§6.4); ver P-ADA-01; la confirmación funcional de por qué existen 2 cadenas con calendarios
   complementarios sobre la misma fuente DataX (§4 GAP-ADA-004).
 
 ## 3. Requisitos detectados
@@ -106,7 +107,7 @@ anterior, saltando el fin de semana), pero para T1/T2 el lunes se pide ODATE-1 (
 |----|-----|------------|
 | GAP-ADA-001 | Los 6 jobs de "Transferencia DataX" (arranque real de cada tramo) no tenían ficha propia en el documento original — solo se citaban como predecesores de otros jobs. | **Resuelto (6/6)** con fichas EX-005-03 reales: `MEKYTL1273`/`1274`/`1275` (Cadena 1, T1/T2/T3) y `MEKYTL1281`/`1282`/`1283` (Cadena 2, T1/T2/T3). Confirman que son jobs `datax-agent` reales (máquina `datax-live`), mismo patrón que el job DataX ya confirmado en `kytl001d_ratings_ada`. |
 | GAP-ADA-002 | ¿Es real que la Historificación del Tramo 1 depende de la Carga Core del Tramo 2, rompiendo la independencia de tramos que el propio documento declara? | **Confirmado como hallazgo real, no error de lectura ni de redacción, ahora con las fichas EX-005-03 originales de `MEKYTL1287` y `MEKYTL1293`** (no solo su transcripción en el documento funcional). Ambas fichas repiten de forma idéntica (campo predecesor + descripción textual del cambio) el mismo hallazgo, mismo día (13/12/2025), en 2 cadenas independientes — descarta un error puntual de transcripción. La verificación en ejecución real (TC-004) sigue siendo útil para confirmar el comportamiento en vivo, pero el diseño documentado ya no admite duda razonable. Ver R9, RISK-ADA-001 (§9). |
-| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource) no aportado. | **No bloqueante.** Mismo patrón que otros procesos de esta sesión antes de conseguir el `.properties` real — la topología y el punto de entrada/salida están confirmados, falta el detalle interno de mapeo de campos. |
+| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource). | **Resuelto en parte.** Los tres `.properties` de la Carga Core están ya analizados (§6.4): cada tramo ejecuta una clase distinta de `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo. **No bloqueante:** sigue sin verse el código del jar (qué tablas escribe y con qué mapeo). |
 | GAP-ADA-004 | ¿Por qué existen 2 cadenas tirando del mismo `transferId` de DataX? | **Resuelto por deducción de los calendarios (pendiente de confirmación funcional, P-ADA-06):** `RDR_CARGASECTOADA` corre martes a viernes (`2,3,4,5`) y `RDR_CARGASECTOADA_2` solo lunes (`1`); ambos cambios se fecharon el 10/02/2026. No se solapan nunca, comparten carpetas de trabajo y parámetros de `GSProcess.sh`, por lo que funcionan como un único proceso de lunes a viernes partido en dos folders. (Una interpretación anterior, "cadena de respaldo semanal / en desactivación", queda descartada por esta evidencia.) |
 | GAP-ADA-005 | ¿Piden ambas cadenas el mismo corte de datos (`CUTOFF_DATE`) para el mismo `transferId`? | **Confirmado como hallazgo (no gap de evidencia):** T1/T2 piden `ODATE-1` en las dos cadenas (4 fichas). T3: `MEKYTL1275` (martes-viernes) pide `ODATE-1` y `MEKYTL1283` (lunes) pide `ODATE-3`. Dado que la cadena 2 solo corre los lunes, `ODATE-3` equivale al viernes anterior, lo que encaja con saltar el fin de semana (deducción, P-ADA-02); en T1/T2 el lunes se pide el domingo (`ODATE-1`). Ver RISK-ADA-002 (§9). |
 
@@ -115,7 +116,7 @@ Preguntas abiertas (no hay respuesta en ninguna fuente disponible):**
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-ADA-01 | Contenido de los `.properties` de `GSProcess.sh` para las 9 claves (`T1_CatalogValuesTaxonomy`/`T2_RelValuesTaxonomy`/`T3_IssuersIssuesCustomer`, `CargaSectorizacionT1/T2/T3`, `ReporteSectorizacionT1/T2/T3`): qué delta calcula, qué tablas de GoldenSource carga, qué informe genera, dónde lo deja y a quién lo envía | Es el resultado de negocio del proceso; sin ello no se pueden definir datos de prueba ni resultados esperados de carga/reporte |
+| P-ADA-01 | **Resuelta en parte.** De las 9 claves de `GSProcess.sh` ya se conocen las tres de la Carga Core (`CargaSectorizacionT1/T2/T3`, §6.4): cada una ejecuta una clase del jar `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo del tramo, y la de T2 lee además el CSV de T1. **Sigue abierto:** el contenido de las 3 claves Delta (`T1_CatalogValuesTaxonomy`/`T2_RelValuesTaxonomy`/`T3_IssuersIssuesCustomer`) y de las 3 de Reporte (`ReporteSectorizacionT1/T2/T3`), qué tablas de GoldenSource escribe cada clase de la carga, qué informe se genera, dónde queda y a quién se envía | Es el resultado de negocio del proceso; sin ello no se pueden definir datos de prueba ni resultados esperados de carga/reporte |
 | P-ADA-02 | ¿Qué fecha lleva en su nombre el fichero que DataX deja en `/unload/kytl/datent/datax/`? El `cp` de ingesta busca `<Fichero>_%%$ODATE.csv` (fecha de ejecución), pero `MEKYTL1273/1274/1275` piden `CUTOFF_DATE=ODATE-1` (y `MEKYTL1283` `ODATE-3`) con `--dstParam gf_cutoff_date:YYYYMMDD` | Si el nombre lleva la fecha de corte, el `cp` no lo encontraría y la ingesta fallaría (KO) |
 | P-ADA-03 | Líneas completas del `INFORMACION_HISTORIFICACIONES.IDX` de las claves `MEKYTL1287/1288/1289` y `MEKYTL1293/1294/1295` (operación, si exige fichero, fecha en el nombre de backup) | Define el comportamiento real si falta el fichero y si el original se mueve o se copia |
 | P-ADA-04 | Significado del parámetro `--srcParam "ENTIFIC_ID:HO"` presente en T1/T2 y ausente en T3 | Posible filtro de entidad; afecta a qué datos se reciben |
@@ -251,6 +252,36 @@ menor:** la ficha real de `MEKYTL1274` muestra literalmente el placeholder `DDMM
 campo "Máquina de Ejecución" (las otras 5 fichas sí muestran correctamente `datax-live`) — plantilla sin
 completar, no un dato técnico real.
 
+### 6.4 La Carga Core: `CargaSectorizacionT1/T2/T3.properties` (entorno de integración)
+
+Los tres `.properties` tienen la misma forma: `Accion=VariablesGlobales` + una única acción `Java` (sin
+acciones `Stop`), que ejecuta una clase del paquete `main.java.sectorizacionemisores` del jar
+`RDR_SectorizacionEmisores.jar` con `ConexionBD.jar` y las librerías `log4j.jar` y `ojdbc8.jar`. Los valores
+son los del entorno de integración (rutas con `ei` escrito a mano; `GSProcess.sh` las adapta, ver la spec común
+`comun_gsprocess`).
+
+| Tramo | Clase Java | `ArgJava3` | `ArgJava4` | `ArgJava5` | JDK |
+|---|---|---|---|---|---|
+| T1 | `T1_Values_Desc_Catalog` | `---` (sin uso) | `/fichtemcomp/<env>/descargas/kytl/T1_CatalogValuesTaxonomy/T1_CatalogValuesTaxonomy.csv` | `T1` | 17 |
+| T2 | `T2_Sect_Bloom_Refinit_POST` | `.../T1_CatalogValuesTaxonomy/T1_CatalogValuesTaxonomy.csv` | `.../T2_RelValuesTaxonomy/T2_RelValuesTaxonomy.csv` | `T2` | **no fijado** |
+| T3 | `T3_SectorizacionADA` | `---` (sin uso) | `.../T3_IssuersIssuesCustomer/T3_IssuersIssuesCustomer.csv` | `T3` | 17 |
+
+Argumentos comunes: `ArgJava1=2` es el nivel de log (INFO) y `ArgJava2` el fichero
+`log4jCargaSectorizacion.properties` de `.../dat/properties`. Lo que se deduce:
+- **Cada tramo lee el CSV de trabajo que dejó el paso de ingesta** (la misma ruta `.../T<N>_<Fichero>/T<N>_<Fichero>.csv`
+  a la que copia `MEKYTL1284…1286`), y es la carga real: el paso Delta (`GSProcess.sh T<N>_<Fichero>`) se
+  ejecuta antes y no se ha visto qué hace con ese fichero.
+- **El tramo T2 recibe también el CSV del T1** (el catálogo de valores de taxonomía). Esto encaja con el hallazgo
+  GAP-ADA-002: la Historificación del Tramo 1 espera a la Carga Core del Tramo 2 porque T2 todavía necesita el
+  fichero de T1 (si el backup lo mueve, P-ADA-03). Es una explicación coherente con el código, no una
+  confirmación escrita del equipo.
+- Los nombres de clase sugieren el contenido: catálogo de valores con descripciones (T1), sectorización
+  Bloomberg/Refinitiv "POST" (T2) y sectorización ADA de emisores/clientes (T3). No se ha visto el jar.
+- **Defecto probable en T2:** `JDKV=17` está en T1 y T3 pero no en T2. Sin `JDKV=17`, `GSProcess.sh` usa el JDK por
+  defecto (no el 17); si las clases del jar están compiladas para 17 (el hecho de que T1 y T3 lo exijan lo
+  sugiere), T2 fallaría al arrancar con `UnsupportedClassVersionError` en un entorno cuyo JDK por defecto sea
+  anterior. Hay que comprobar el `.properties` de producción y el JDK por defecto.
+
 ## 7. Especificación de testing
 
 **Estrategia:** con la topología completa confirmada (36 pasos, 2 cadenas), los casos cubren el ciclo
@@ -266,6 +297,7 @@ Referencia de casos por tipo:
 - `borde`: TC-006 (ejecución de `RDR_CARGASECTOADA_2` en un lunes festivo o fuera de calendario).
 - `regresion`: TC-008 (criticidad y protocolo de rearranque uniformes en los 36 jobs).
 - `conflicto_integridad`: TC-009 (**verificación de GAP-ADA-005** — el corte de datos de T3 difiere 2 días entre cadenas pese a compartir `transferId`).
+- `conflicto_integridad`: TC-010 (**Carga Core de T2**: lee el CSV de T1 además del suyo y exige el JDK 17 que no fija su `.properties`).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -278,6 +310,7 @@ Referencia de casos por tipo:
 | R9 (dependencia T1→T2) | TC-004 | Confirma o descarta en ejecución real el hallazgo GAP-ADA-002 |
 | R10 (criticidad/rearranque uniforme) | TC-008 | Confirma que no ha cambiado en revisiones futuras |
 | Topología completa (36 pasos) | TC-007 | Confirma en revisiones futuras que no cambia el número de jobs ni las dependencias |
+| §6.4 (Carga Core T2: CSV de T1 y JDK) | TC-010 | Confirma que T2 arranca con el JDK correcto y que encuentra el CSV de T1 cuando se ejecuta |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
@@ -286,9 +319,12 @@ Referencia de casos por tipo:
   diseño del 13/12/2025, confirmado en las 2 fichas originales de forma idéntica). Esto rompe la
   independencia de tramos que el propio documento declara en su resumen ejecutivo: si el Tramo 2 se retrasa
   o falla, el cierre del Tramo 1 (backup + reporte) queda bloqueado también, aunque el Tramo 1 en sí haya
-  cargado correctamente. No hay justificación de negocio documentada para este acoplamiento — se recomienda
-  confirmarlo con una captura de Control-M en vivo (TC-004) antes de asumirlo como comportamiento deseado o
-  corregirlo.
+  cargado correctamente. **Corrección con los `.properties` de la Carga Core (§6.4):** hay una justificación técnica
+  probable: el `.properties` de T2 pasa a la clase el CSV de T1 además del de T2, así que el backup de T1 (que
+  puede mover el fichero, P-ADA-03) debe esperar a que T2 haya terminado de leerlo. El acoplamiento es, por tanto,
+  probablemente deliberado. Sigue siendo recomendable confirmarlo con una captura de Control-M en vivo (TC-004)
+  y con el equipo; el riesgo que permanece es el inverso: T2 depende del CSV de T1, pero en Control-M no
+  depende de la Carga Core de T1, y esta puede estar leyendo el fichero a la vez.
 * **RISK-ADA-002 [GAP-ADA-005, confirmado con ficha EX-005-03 oficial, prioridad media-baja]:** el job DataX de
   arranque del Tramo 3 en `RDR_CARGASECTOADA_2` (`MEKYTL1283`) pide `CUTOFF_DATE=ODATE-3`, mientras que su
   gemelo en `RDR_CARGASECTOADA` (`MEKYTL1275`) pide `ODATE-1`. Como la cadena 2 solo corre los lunes, `ODATE-3`
@@ -300,7 +336,9 @@ Referencia de casos por tipo:
   fallo interno (P-ADA-01).
 * **Un lunes festivo no se carga nada** hasta el martes (la cadena 1 no corre lunes), y entonces la cadena 1 pide
   `ODATE-1` (el lunes festivo) en T1/T2/T3.
-* **No bloqueante (GAP-ADA-003):** lógica interna de `GSProcess.sh CargaSectorizacionT1/T2/T3` no aportada.
+* **Defecto probable (§6.4):** `CargaSectorizacionT2.properties` no fija `JDKV=17` (sí lo hacen T1 y T3). Verificar con
+  el `.properties` de producción; de ser así, la carga de T2 falla en un entorno cuyo JDK por defecto sea anterior.
+* **No bloqueante (GAP-ADA-003):** falta el código del jar `RDR_SectorizacionEmisores.jar` (tablas escritas y mapeo).
 * **Resuelto por deducción (GAP-ADA-004):** las 2 cadenas son calendarios complementarios (lunes / martes a
   viernes) sobre la misma fuente DataX y las mismas carpetas; pendiente de confirmación funcional (P-ADA-06).
 * **Defecto documental menor, no técnico:** placeholder `DDMMYYYY` sin rellenar en la ficha real de

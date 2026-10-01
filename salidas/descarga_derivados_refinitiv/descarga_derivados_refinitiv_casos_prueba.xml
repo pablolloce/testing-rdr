@@ -150,7 +150,7 @@
     <nombre>Carga real de Emisores — IssuersService NO crea FT_T_FINS, solo FT_T_ISSR (corregido con código real)</nombre>
     <objetivo>Confirmar que IssuersService.loadIssuers() localiza una FT_T_FINS ya existente a partir de un orgId de Emisores*.txt y crea (si no existe ya) su fila de rol de emisor en FT_T_ISSR — y que, si FT_T_FINS NO existe, genera una excepción ISSUER_NOT_EXIST_OR_NOT_CORRECT_INFORMED en vez de crearla.</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Emisores*.txt de prueba — CORREGIDO 2026-10-01: formato real confirmado por código, un orgId por línea, SIN delimitador "|". Debe incluir al menos 1 orgId con FT_T_FINS ya existente en RDR (sin FT_T_ISSR todavía) y 1 orgId sin FT_T_FINS existente.</precondicion>
+      <precondicion>Un fichero Emisores*.txt de prueba — CORREGIDO 2026-10-01: formato real confirmado por código y por una muestra real (Emisores_20220330_162424.txt: una línea "28311" terminada en LF), un orgId por línea, SIN delimitador "|", sin espacios ni retorno de carro. Debe incluir al menos 1 orgId con FT_T_FINS ya existente en RDR (sin FT_T_ISSR todavía) y 1 orgId sin FT_T_FINS existente.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Línea válida" valor="1 orgId que SÍ tiene una fila FT_T_FINS existente en RDR, sin FT_T_ISSR asociada todavía"/>
@@ -326,7 +326,7 @@
     <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — CERRADO AL 100% para Emisores/Subyacentes/Derivados, incluidas las tablas satélite del Grupo C</nombre>
     <objetivo>Confirmar, con el código fuente real de los 5 componentes del jar y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §6.2.</objetivo>
     <precondiciones>
-      <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
+      <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote); Emisores_20220330_162424.txt aportado con una línea (28311).</precondicion>
       <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService/DerivativesProcessor — TODOS APORTADOS (DerivativesProcessor.java, 2026-10-01), resuelven el mapeo campo→columna para los 3 ficheros a nivel de tablas maestras y de las 11 tablas satélite del Grupo C.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -336,7 +336,7 @@
       <dato campo="Correlación cruzada verificada" valor="82/83 valores distintos del RIC de subyacente de Derivados_Enriquecido.txt aparecen en Subyacentes*.txt; dominio UNDLYRFV/FUTRFV idéntico entre ambos ficheros"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente solo de contenido (lote sin altas), no de estructura.</paso>
+      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores: hecho con una muestra de una línea (un orgId por línea).</paso>
       <paso numero="2">Correlacionar cada campo del fichero con la columna Oracle que alimenta, usando el código fuente real de los 5 componentes — hecho para todas las tablas de los Grupos A/B/C.</paso>
     </pasos>
     <resultadoEsperado>Mapeo campo a campo documentado al 100% para los 3 ficheros de carga, en todas las tablas de los Grupos A/B/C.</resultadoEsperado>

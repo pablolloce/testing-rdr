@@ -77,7 +77,7 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
   (TC-010) — ver `descarga_derivados_refinitiv_spec.md` §6.2.
 - **Muestra real de ficheros de carga (2026-10-01):** `Subyacentes_20261001_081453.txt` y
   `Derivados_Enriquecido.txt` aportados (estructura y correlación cruzada confirmadas, `descarga_derivados_refinitiv_spec.md` §6.6);
-  `Emisores_20261001_081453.txt` aportado pero vacío; `SWAP_TC-010_LINEA_SINTETICA.txt` cubre el hueco de
+  `Emisores_20261001_081453.txt` aportado pero vacío, y `Emisores_20220330_162424.txt` con una línea (`28311`, un `orgId` por línea, terminada en `\n`, sin espacios ni `\r`) como muestra de formato con altas; `SWAP_TC-010_LINEA_SINTETICA.txt` cubre el hueco de
   swap en la muestra real (ajustar a 45 campos antes de usar).
 
 ## Sistema de ficheros
