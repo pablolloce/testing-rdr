@@ -9,7 +9,7 @@ El proceso se nutre del fichero `RatingsInternos.csv` recibido vía transferenci
 | Caso | Dato mínimo necesario |
 | :---- | :---- |
 | TC-001 | 1 fila válida (≥27 columnas, ALID, ratings≠XXXX, audit_date reciente) |
-| TC-002 | Ausencia confirmada del fichero origen durante toda la ventana de comprobación |
+| TC-002 | Ausencia confirmada del fichero origen durante toda la ventana de comprobación (200 minutos del `ctmfw`; en pruebas, usar un entorno donde se pueda reducir ese tiempo) |
 | TC-003 | Capacidad de forzar el fallo de la transferencia DataX en entorno de test |
 | TC-004 | Fichero de 0 bytes en receive/ |
 | TC-005 | 2 filas con mismo g_customer_id (8 últimos caracteres) y misma contraparte |

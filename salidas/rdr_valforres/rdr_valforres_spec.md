@@ -4,7 +4,7 @@
 
 ## 1. Resumen ejecutivo
 
-`RDR_VALFORRES` es una cadena Control-M de **1 solo job** (`GS_RDR_VALFORRES`), que corre a diario (L-D), lanzada después de las 22:30, en el folder `KYTL0000-RDR_VALFORRES`. Sincroniza desde el servicio externo **SHIVA** el estado de adhesión de contrapartidas a los protocolos ISDA **"Bail-In"** y **"Stay"** (cláusulas contractuales de resolución bancaria exigidas por normativa EMIR/MiFIR/BRRD), actualiza `FT_T_FIST` (estado activo/inactivo por entidad), y encola los cambios para publicación en `FT_T_RLT1` con un mecanismo de tope diario compartido entre registros frescos y pendientes de ejecuciones anteriores.
+`RDR_VALFORRES` es una cadena Control-M de **1 solo job** (`GS_RDR_VALFORRES`), que corre a diario (L-D), lanzada a partir de las 22:30, en el folder `KYTL0000-RDR_VALFORRES`. Sincroniza desde el servicio externo **SHIVA** el estado de adhesión de contrapartidas a los protocolos ISDA **"Bail-In"** y **"Stay"** (cláusulas contractuales de resolución bancaria exigidas por normativa EMIR/MiFIR/BRRD), actualiza `FT_T_FIST` (estado activo/inactivo por entidad), y encola los cambios para publicación en `FT_T_RLT1` con un mecanismo de tope diario compartido entre registros frescos y pendientes de ejecuciones anteriores.
 
 ## 2. Alcance del proceso
 
@@ -26,7 +26,7 @@ Excluye (fuera de alcance): el servicio SHIVA en sí (origen y mantenimiento de 
 
 ## 4. Gaps identificados y preguntas pendientes
 
-Todos los gaps detectados durante el análisis quedaron resueltos con evidencia (captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario):
+Gaps resueltos durante el análisis, con evidencia (captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario):
 
 | Pregunta | Respuesta | Evidencia |
 | :---- | :---- | :---- |
@@ -37,9 +37,25 @@ Todos los gaps detectados durante el análisis quedaron resueltos con evidencia 
 | ¿Recursos Cuantitativos? | Consume `MAX-LPRDR501` (cantidad 1 de 100), mismo recurso de concurrencia que otros procesos RDR sobre `LPRDR501`. | Captura de Control-M (pestaña Prerrequisitos). |
 | ¿Lógica exacta de `PUBLISH`/`VFR_PUBLISH_ESB`? | `PUBLISH` es un interruptor on/off de la publicación completa. `VFR_PUBLISH_ESB` es un **tope diario compartido** (no un reparto porcentual): de las entidades tratadas, solo las primeras `N_PUBLISH` (por orden de procesamiento) entran como `PENDING_ESB`; el resto quedan `PENDING_VFR`. Una segunda función (`marcarPublicarPendientes`), ejecutada en la misma pasada, promueve registros `PENDING_VFR` de ejecuciones anteriores hasta completar el mismo tope, si quedó cupo libre. Ver detalle en §6 y hallazgo de off-by-one en §9. | Código fuente real de `marcarPublicar`/`marcarPublicarPendientes` (`Querys.java`), aportado por el usuario. |
 
-No queda pendiente ninguna otra pregunta de la lista obligatoria de gaps. El propio documento fuente señalaba 4 huecos no bloqueantes adicionales, todos aceptados como tales sin necesidad de más evidencia: la discrepancia de nombre entre el jar `XMASToken-0.0.1.jar` y su clase real `SHIVAToken` (documental, sin impacto funcional); el contenido de `log4jValuationForResolution.properties` (configuración de logging genérica, no crítica para el negocio); y el detalle campo a campo de `protocoloBailIn`/`protocoloStay` (confirmado a nivel de diseño: parseo de fechas de aceptación/revocación y LEIs).
+Huecos no bloqueantes aceptados: la discrepancia de nombre entre el jar `XMASToken-0.0.1.jar` y su clase real `SHIVAToken` (documental, sin impacto funcional) y el contenido de `log4jValuationForResolution.properties` (configuración de logging genérica).
+
+Preguntas pendientes (no hay respuesta en ninguna fuente disponible):
+
+| Id | Pregunta | Por qué importa |
+| :---- | :---- | :---- |
+| P-VFR-01 | Contenido completo de `ValuationForResolution.properties` (argumentos `ArgJava3` y siguientes, acciones, si declara `Stop*=Ok`) | Define qué argumentos recibe el Java y qué hace `GSProcess.sh` ante un fallo |
+| P-VFR-02 | Código de salida de `Ppal` en los caminos de error distintos del token (HTTP ≠ 200/201 "aborta"; excepción de BD), y si los cambios en `FT_T_FIST` se confirman por lotes o al final (qué queda si aborta a mitad) | Determina si Control-M ve el fallo (KO) y qué estado parcial queda en las tablas |
+| P-VFR-03 | Estructura JSON de las respuestas de SHIVA (campos por entidad: identificador, fechas de aceptación/revocación, LEI de organización y de fondo) y valores escritos en `FT_T_FIST` (`BAILINRT`/`STAYRT` motivo) y `FT_T_RLT1` (columnas) | Sin ello no se pueden construir respuestas simuladas ni resultados esperados campo a campo |
+| P-VFR-04 | Valores reales de `PUBLISH` y `VFR_PUBLISH_ESB` en producción, hora exacta de arranque ("después de las 22:30") y qué proceso consume `FT_T_RLT1` en estado `PENDING_ESB` | Define el volumen diario real y el destino final de los datos |
+| P-VFR-05 | Significado oficial de los sufijos `28` (BailIn) y `47` (Stay) de la URL, y de SHIVA | Vocabulario de negocio; no cambia el comportamiento descrito |
 
 ## 5. Especificación funcional
+
+**Glosario.** ISDA = International Swaps and Derivatives Association; sus protocolos son adhesiones contractuales multilaterales. *Bail-In* = protocolo de reconocimiento de la facultad de amortización/conversión de pasivos en una resolución bancaria; *Stay* = protocolo de suspensión temporal de derechos de cancelación anticipada de contratos en una resolución. SHIVA = servicio corporativo externo de datos que expone las adhesiones (y emite el token de acceso). LEI = identificador de entidad jurídica. `FT_T_FIST` = tabla de RDR con el estado de cada institución (columnas `BAILINYN`/`BAILINDT`/`BAILINRT` y `STAYYN`/`STAYDT`/`STAYRT` = indicador S/N, fecha y motivo). `FT_T_PAR1` = tabla de parámetros. `FT_T_RLT1` = tabla de cola de cambios pendientes de publicar. ESB = bus corporativo de publicación hacia otros sistemas.
+
+**Estado inicial.** SHIVA accesible; `credentials.xml` con el `apiKey`; `FT_T_PAR1` con la URL de SHIVA y los parámetros `PUBLISH` y `VFR_PUBLISH_ESB`.
+
+**Quién y cuándo.** Control-M lanza `GS_RDR_VALFORRES` todos los días (también fines de semana) a partir de las 22:30; no hay predecesor ni sucesor.
 
 1. Cada día, tras las 22:30, Control-M dispara `GS_RDR_VALFORRES`, que ejecuta `GSProcess.sh ValuationForResolution` con el usuario `xakytl1p`.
 2. El proceso obtiene credenciales de BD y solicita un token al servicio SHIVA. Si falla, marca error técnico en BD y aborta sin procesar nada.
@@ -48,6 +64,28 @@ No queda pendiente ninguna otra pregunta de la lista obligatoria de gaps. El pro
 5. Las entidades que ya no aparecen en la respuesta se marcan inactivas en `FT_T_FIST`.
 6. Si `PUBLISH='1'`, las entidades tratadas se encolan en `FT_T_RLT1`: hasta el tope diario configurado como `PENDING_ESB`, el resto como `PENDING_VFR`.
 7. A continuación, si quedó cupo del tope diario, se promueven registros `PENDING_VFR` pendientes de ejecuciones anteriores a `PENDING_ESB`.
+
+**Resultado.** No genera ficheros ni envíos de correo. Efectos únicamente en base de datos:
+
+| Tabla | Qué cambia |
+| :---- | :---- |
+| `FT_T_FIST` | Por entidad: indicadores `BAILINYN`/`STAYYN` con su fecha (`BAILINDT`/`STAYDT`) y motivo (`BAILINRT`/`STAYRT`); las entidades que ya no vienen en la respuesta pasan a `N` |
+| `FT_T_RLT1` | Solo si `PUBLISH='1'`: una fila por entidad tratada con `DATA_SRC_APP='CARGA_VFR'` y estado `PENDING_ESB` (hasta el tope diario `VFR_PUBLISH_ESB`) o `PENDING_VFR` (el resto); más promoción de `PENDING_VFR` antiguos a `PENDING_ESB` mientras quede cupo |
+
+**Cómo saber si fue bien.** Job `GS_RDR_VALFORRES` en verde y log de `GSProcess.sh` con `ESTADO-0-`; en el log de la aplicación consta el token obtenido y la paginación completa de ambos protocolos sin "Fallo conexion XMAS" ni "Fallo conexion ISDA"; `FT_T_FIST` con fechas del día para las entidades cambiadas; si `PUBLISH='1'`, filas nuevas en `FT_T_RLT1` (nº de `PENDING_ESB` ≤ `VFR_PUBLISH_ESB`).
+
+**Qué pasa si falla cada cosa.**
+
+| Fallo | Efecto |
+| :---- | :---- |
+| No se obtiene el token (apiKey inválido, SHIVA caído) | Se registra el error técnico "Fallo conexion XMAS" en BD y el proceso sale con código 1 (`System.exit(1)`); `GSProcess.sh` sale con 1 y el job queda en KO; no se toca ninguna tabla |
+| Falta `credentials.xml` | `GSProcess.sh` sale con 0 sin ejecutar nada: el job queda en verde sin hacer nada |
+| HTTP distinto de 200/201 en una página | Se registra "Fallo conexion ISDA" y se aborta; el código de salida y el estado parcial de las tablas no constan (P-VFR-02) |
+| Falta la URL de SHIVA en `FT_T_PAR1` | La llamada HTTP falla (mismo camino que el caso anterior) |
+| `PUBLISH` distinto de `'1'` | `FT_T_FIST` se actualiza pero no se encola nada en `FT_T_RLT1` |
+| Job no se ejecuta o falla | No hay rearranque definido ni grupo de soporte; el siguiente intento es el del día siguiente (la sincronización es completa, no incremental) |
+
+**Qué queda después.** `FT_T_FIST` al día respecto a SHIVA; backlog en `FT_T_RLT1` (`PENDING_ESB` a la espera del ESB, `PENDING_VFR` a la espera de cupo); log de `GSProcess.sh` y de la aplicación; ningún fichero.
 
 ## 6. Especificación técnica
 
@@ -59,12 +97,13 @@ No queda pendiente ninguna otra pregunta de la lista obligatoria de gaps. El pro
     - Con `ArgJava4=ISDA` (modo real de esta cadena): consulta `FT_T_PAR1` para la URL SHIVA y ejecuta 2 procesos paralelos (BailIn sufijo `28?page=N`, Stay sufijo `47?page=N`), `HttpURLConnection` GET con `Authorization: Bearer <token>`, paginando hasta respuesta vacía/corta. Cualquier código HTTP ≠ 200/201 → error ("Fallo conexion ISDA") + aborto.
     - Modo alternativo (`ArgJava4≠ISDA`, no usado en esta cadena): lee `/tmp/LEI/archivoBailIn.json` y `/tmp/LEI/archivoStay.json` en vez de llamar al servicio.
     - `procesarNoAparecen`: marca inactivos en `FT_T_FIST` (`BAILINYN`/`BAILINDT`/`BAILINRT`, `STAYYN`/`STAYDT`/`STAYRT`) los registros ausentes de la respuesta.
-    - `marcarPublicar`/`marcarPublicarPendientes` (ver código fuente completo, aportado por el usuario): unen y deduplican los tratados de BailIn+Stay (`tratados` = Stay ∪ BailIn, con precedencia de Stay), y de esa lista solo las primeras `N_PUBLISH` (`VFR_PUBLISH_ESB` de `FT_T_PAR1`, contexto `CARGA_VFR`) entran como `PENDING_ESB` en `FT_T_RLT1`, el resto como `PENDING_VFR`. Solo se ejecuta si `PUBLISH='1'`. `marcarPublicarPendientes`, ejecutado justo después con el mismo contador de tope (`contadorPublicaESB`) heredado, promueve registros `PENDING_VFR` de ejecuciones anteriores a `PENDING_ESB` mientras quede cupo.
+    - `marcarPublicar`/`marcarPublicarPendientes` (`Querys.java`): unen y deduplican los tratados de BailIn+Stay (`tratados` = Stay ∪ BailIn, con precedencia de Stay), y de esa lista solo las primeras `N_PUBLISH` (`VFR_PUBLISH_ESB` de `FT_T_PAR1`, contexto `CARGA_VFR`) entran como `PENDING_ESB` en `FT_T_RLT1`, el resto como `PENDING_VFR`. Solo se ejecuta si `PUBLISH='1'`. `marcarPublicarPendientes`, ejecutado justo después con el mismo contador de tope (`contadorPublicaESB`) heredado, promueve registros `PENDING_VFR` de ejecuciones anteriores a `PENDING_ESB` mientras quede cupo (incrementa el contador y promueve si es menor que `N_PUBLISH`, de ahí el off-by-one de §9). Parámetros leídos de `FT_T_PAR1` con `PARAMETER_CTXT_TYP='CARGA_VFR'` (`PUBLISH`, `VFR_PUBLISH_ESB`).
   - **`XMASToken-0.0.1.jar` (paquete `com.bbva.kytl`, clase real `SHIVAToken`):** obtiene la URL SHIVA desde BD (`QueryService.getUrlShiva`), calcula el `apiKey` leyendo `/<entorno>/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` (nodo `<shiva><apiKey>`), y solicita el token real vía `POST <urlShiva>token/get` con cabecera `Authorization: apiKey <apiKey>` y cuerpo `{"userCode":"KYTL"}`. El nombre del jar ("XMAS") es un vestigio de un renombrado de servicio anterior; la clase real ya se llama `SHIVAToken`.
   - **`ConexionBD.jar` (clase `ConDB`):** gestiona la conexión JDBC a Oracle, reutilizada por `Ppal`/`Querys`.
 - **Tablas:** `FT_T_PAR1` (URL SHIVA y flags `PUBLISH`/`VFR_PUBLISH_ESB`), `FT_T_FIST` (estados de instituciones), `FT_T_RLT1` (cola de publicación, `DATA_SRC_APP='CARGA_VFR'`).
 - **Ficheros:** ninguno en disco en el modo normal (ISDA) — integración 100% vía API REST + BD. Modo de contingencia (no usado): `/tmp/LEI/archivoBailIn.json`, `/tmp/LEI/archivoStay.json`.
 - **Normas de Rearranque:** no definidas.
+- **Códigos de salida:** `GSProcess.sh` sale con 0 si todas sus acciones devuelven 0 y con 1 si alguna falla (ver `salidas/comun_gsprocess/comun_gsprocess_spec.md` §7-§8); `Ppal` sale con 1 si no obtiene el token. Un código mayor de 255 se truncaría módulo 256 en Control-M.
 
 ## 7. Especificación de testing
 
@@ -106,4 +145,4 @@ La estrategia combina 8 casos troceados por sub-flujo/condición (`rdr_valforres
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se considera completa según el criterio de cierre del agente. Todos los gaps detectados, incluido el mecanismo completo de `PUBLISH`/`VFR_PUBLISH_ESB` (verificado con código fuente real) y su hallazgo de off-by-one asociado, quedan resueltos con evidencia de captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario.
+La especificación es autosuficiente salvo las preguntas pendientes P-VFR-01 a P-VFR-05 de §4. Los gaps resueltos, incluido el mecanismo completo de `PUBLISH`/`VFR_PUBLISH_ESB` (verificado con código fuente real) y su hallazgo de off-by-one asociado, quedan cerrados con evidencia de captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario.

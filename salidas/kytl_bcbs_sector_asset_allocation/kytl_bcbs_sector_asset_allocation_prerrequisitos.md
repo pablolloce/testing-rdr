@@ -14,7 +14,7 @@ contrapartes de prueba.
 | Caso | Dato mínimo necesario |
 | :---- | :---- |
 | TC-001 | 1 línea válida, contraparte existente en FT_T_FINS sin sectorización previa ni ADA |
-| TC-002 | Ausencia confirmada del fichero origen durante toda la ventana de comprobación |
+| TC-002 | Ausencia confirmada del fichero origen durante toda la ventana de comprobación (195 minutos del `ctmfw`; en pruebas, reducir ese tiempo o solo observar la espera) |
 | TC-003 | 1 línea con número de campos incorrecto + 1 línea válida en el mismo lote |
 | TC-004 | 1 línea con código de cliente inexistente en FT_T_FINS, geografía soportada |
 | TC-005 | 2 líneas, mismo cliente/geografía/tipo de clasificación, valores distintos, mismo lote (<50 líneas) |

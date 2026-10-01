@@ -39,7 +39,7 @@
       <paso numero="2">Comprobar que el job no finaliza en error mientras el fichero siga ausente.</paso>
       <paso numero="3">Comprobar que MEKYTL1119 no se dispara mientras el filewatcher no detecte el fichero.</paso>
     </pasos>
-    <resultadoEsperado>BCBS_SECTOR_ASSET_ALLOCATION_FW permanece en espera/reintento sin marcar error, y ningún job sucesor de la cadena se ejecuta.</resultadoEsperado>
+    <resultadoEsperado>BCBS_SECTOR_ASSET_ALLOCATION_FW permanece en espera (ctmfw CREATE 0 60 10 5 195: busca el fichero cada 60 s durante hasta 195 minutos) sin marcar error mientras dura la ventana, y ningún job sucesor de la cadena se ejecuta. Al agotarse la ventana ctmfw sale con código 7; si el job queda entonces en verde (regla 7 → OK) o en rojo no está confirmado (P-SAA-01): anotar el estado observado.</resultadoEsperado>
     <tipoValidacion>Observación de estado en Control-M</tipoValidacion>
     <criterioAceptacion>Ningún job de la cadena distinto del filewatcher pasa a estado ejecutado mientras el fichero esté ausente, y el filewatcher no queda en NOTOK por esa causa.</criterioAceptacion>
     <posibilidadFallo>Caso de solo observación, sin efecto destructivo — no requiere entorno aislado, pero debe evitarse forzar la ausencia en producción fuera de una ventana ya vacía de forma natural.</posibilidadFallo>
@@ -164,7 +164,7 @@
       <precondicion>Nunca ejecutar este caso contra producción: requiere forzar un fallo deliberado de un componente interno.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="condición forzada" valor="fichero de comparación (old/MOD_EJECUCION.csv) con permisos o formato que provoquen que es.bbva.kytl.scripts.Compare termine con código de retorno distinto de 0"/>
+      <dato campo="condición forzada" valor="fallo de la propia JVM al lanzar es.bbva.kytl.scripts.Compare (p. ej. compare.jar no accesible o memoria insuficiente), que es el único caso en que Delta.sh escribe 'finalizado de manera incorrecta'; un fichero de comparación ilegible hace que Compare imprima la traza y salga con 0 sin que Delta.sh lo detecte"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">En entorno de test, invocar Delta.sh Si con la condición forzada de fallo del Compare.</paso>

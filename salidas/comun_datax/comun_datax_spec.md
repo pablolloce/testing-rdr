@@ -121,6 +121,7 @@ P-DTX-01).
 |---|---|---|
 | P-DTX-01 | ¿Qué DataObject y qué sistema destino recogen `Calendarios.csv` de `/unload/kytl/datsal/datax`? ¿Hay más ficheros que se dejan en ese directorio y no figuran en la wiki? | Sin ello no se sabe quién se ve afectado si el fichero falta o cambia |
 | P-DTX-02 | ¿Hay acceso a los esquemas y transformaciones archivados en Drive para los ficheros de los procesos analizados? | Es lo único que permite saber el formato que recibe realmente el destino |
+| P-DTX-03 | El inventario recoge el DataObject `x_ratingsinternosdatio_2` para `AAAAMMDD_RatingsInternos.csv`, pero la ficha del job `MEKYTL1223` (proceso `kytl001d_ratings_ada`) usa `kytl_ratingsinternosdatio_3`. ¿Cuál está vigente? | Si el job pide un DataObject que no existe en DataX, la transferencia no se hace |
 
 ## 8. Procesos que lo usan
 

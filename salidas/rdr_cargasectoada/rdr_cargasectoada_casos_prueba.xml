@@ -101,7 +101,7 @@
     <resultadoEsperado>Los transferId se mantienen coincidentes entre cadenas para los 3 tramos.</resultadoEsperado>
     <tipoValidacion>Comparación directa de las fichas/definiciones reales.</tipoValidacion>
     <criterioAceptacion>Sin discrepancias respecto a lo documentado, o discrepancia documentada explícitamente.</criterioAceptacion>
-    <posibilidadFallo>Si los transferId dejan de coincidir, indica que las cadenas ya no son redundantes y debe revisarse GAP-ADA-004.</posibilidadFallo>
+    <posibilidadFallo>Si los transferId dejan de coincidir, las cadenas ya no comparten fuente y debe revisarse GAP-ADA-004 (calendarios complementarios lunes / martes a viernes).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="borde">
@@ -114,7 +114,7 @@
       <dato campo="Día de ejecución" valor="lunes festivo"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Observar si la cadena se salta ese lunes (con el consiguiente retraso de una semana en la ingesta) o se reprograma al siguiente día hábil.</paso>
+      <paso numero="1">Observar si la cadena se salta ese lunes (no hay carga ese día; la cadena 1 solo corre de martes a viernes, así que el martes siguiente cargará el corte ODATE-1, el lunes festivo) o se reprograma al siguiente día hábil.</paso>
       <paso numero="2">Documentar el comportamiento real observado.</paso>
     </pasos>
     <resultadoEsperado>Comportamiento documentado con evidencia real, sea cual sea el resultado.</resultadoEsperado>
@@ -175,7 +175,7 @@
     <pasos>
       <paso numero="1">Confirmar en la ficha real y/o en la configuración en vivo que el offset de MEKYTL1283 sigue siendo ODATE-3.</paso>
       <paso numero="2">Comparar el fichero recibido por MEKYTL1283 en una ejecución real con el recibido por MEKYTL1275 en la misma semana, verificando si corresponden a fechas de corte distintas.</paso>
-      <paso numero="3">Preguntar al equipo funcional si el offset ODATE-3 en Cadena 2/T3 es intencional (p. ej. margen de reconciliación semanal) o un error de configuración heredado de una copia del job de Cadena 1.</paso>
+      <paso numero="3">Preguntar al equipo funcional si el offset ODATE-3 en Cadena 2/T3 es intencional (cadena 2 solo corre los lunes: ODATE-3 es el viernes anterior) o un error de configuración heredado de una copia del job de Cadena 1, y qué fecha lleva en su nombre el fichero que busca el cp de MEKYTL1292 (usa %%$ODATE, P-ADA-02).</paso>
     </pasos>
     <resultadoEsperado>Se confirma si la discrepancia de corte de datos es intencional o un defecto de configuración, y se documenta el impacto real en los datos cargados por RDR_CARGASECTOADA_2/T3.</resultadoEsperado>
     <tipoValidacion>Comparación de ficheros reales recibidos + confirmación funcional con el equipo propietario del proceso.</tipoValidacion>

@@ -44,7 +44,7 @@
     <resultadoEsperado>FW_CONCIL_RATINGMEX termina sin marcarse como fallo pese a no encontrar el fichero; el resto de la cadena no se ejecuta en este ciclo.</resultadoEsperado>
     <tipoValidacion>Estado de ejecución en Control-M</tipoValidacion>
     <criterioAceptacion>FW_CONCIL_RATINGMEX no queda en estado de fallo; MEKYTL1225 sin ejecución.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada según el comportamiento documentado del filewatcher.</posibilidadFallo>
+    <posibilidadFallo>El file watcher (ctmfw CREATE 0 60 10 3 200) espera 200 minutos y sale con código 7. Que el job quede en verde depende de una regla "código 7 → OK" cuya existencia no está confirmada (P-RAT-02); si no existe, el job quedará en NOTOK y la cadena detenida. Anotar el estado real observado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
