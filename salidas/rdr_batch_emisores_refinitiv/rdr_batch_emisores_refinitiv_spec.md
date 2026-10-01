@@ -1,7 +1,7 @@
 # Especificación — RDR_BATCH_EMISORES_REFINITIV
 
 > Usuario: pablo.llorente. Alta: 2026-09-22; workflows reales: 2026-09-24; revisión de autosuficiencia: 2026-10-01.
-> Procedencia de los datos: documento "Carga y enriquecimiento de emisores Refinitiv" (fichas EX-005-02-RDR_BATCH_EMISORES_REFI y EX-005-03 de los 3 jobs, 14/08/2026), el `.properties` real `RDR_Refinitiv_REQ_RES.properties`, los workflows reales de GoldenSource `Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf` y `BBG_Refinitiv_Batch.wkf` (versión 4), y las respuestas del usuario en tres rondas de preguntas (22-24/09/2026). Todo lo necesario para entender el proceso está aquí; las únicas remisiones son a specs de componente común (`salidas/comun_gsprocess/comun_gsprocess_spec.md` y `salidas/comun_executebbvaevent/comun_executebbvaevent_spec.md`).
+> Procedencia de los datos: documento "Carga y enriquecimiento de emisores Refinitiv" (fichas EX-005-02-RDR_BATCH_EMISORES_REFI y EX-005-03 de los 3 jobs, 14/08/2026), el `.properties` real `RDR_Refinitiv_REQ_RES.properties`, los workflows reales de GoldenSource `Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf` y `BBG_Refinitiv_Batch.wkf` (versión 4), los workflows reales `RDR_UPDATE_REU.wkf` y `Sub_CalculateREU.wkf` y las capturas de Control-M de los 3 jobs (documentos originales del proceso, rama de Carlos; pasada de cierre del 01/10/2026), y las respuestas del usuario en tres rondas de preguntas (22-24/09/2026). Todo lo necesario para entender el proceso está aquí; las únicas remisiones son a specs de componente común (`salidas/comun_gsprocess/comun_gsprocess_spec.md` y `salidas/comun_executebbvaevent/comun_executebbvaevent_spec.md`).
 
 ## 1. Resumen ejecutivo
 
@@ -11,15 +11,15 @@
 |---|---|---|
 | 21:00 | `RDR_REFINITIV_BATCH_REQUEST` | Pide a Refinitiv los datos de emisores (`issuerRequest`, `vreqOid=BATCH_ISSUER`) y **carga la respuesta** en GoldenSource (feed `Refinitiv_Issuer_Batch_Response`) |
 | 22:00 | `GS_REFINITIV_REQ_RES` | Pide a Refinitiv los ratings (`ratingsRequest`, `vreqOid=BATCH_RATINGS`) y los carga con el programa `Refinitv_Ratings.jar` |
-| 23:00 | `GS_BBG_REFINITIV_BATCH` | Workflow `BBG_Refinitiv_Batch`: envía por correo los informes de errores de carga de ratings, actualiza en `FT_T_FIRT` los ratings oficiales (S&P, Moody's, Fitch, DBRS, Scope) a partir de los de Bloomberg y Refinitiv, registra la difusión al ESB y marca para recálculo REU |
+| 23:00 | `GS_BBG_REFINITIV_BATCH` | Workflow `BBG_Refinitiv_Batch`: envía por correo los informes de errores de carga de ratings, actualiza en `FT_T_FIRT` los ratings oficiales (S&P, Moody's, Fitch, DBRS, Scope) a partir de los de Bloomberg y Refinitiv, registra la difusión al ESB, marca para recálculo REU y **ejecuta el recálculo REU** (`RDR_UPDATE_REU`, §6.8) |
 
 No genera ficheros de salida para otros sistemas ni eventos externos: el resultado son cambios en la base de datos de GoldenSource (`jdbc/GSDM-1`) y correos de errores. Si un día no se ejecuta, los ratings de ese día no se actualizan ni se difunden.
 
 ## 2. Alcance del proceso
 
-**Incluye:** los 3 jobs, los `.properties` con que se invocan, el workflow `Refinitiv_Request_Response` en sus ramas `BATCH_ISSUER` y `BATCH_RATINGS`, el sub-workflow `Refinitiv_Load_Ratings` y el workflow `BBG_Refinitiv_Batch`.
+**Incluye:** los 3 jobs, los `.properties` con que se invocan, el workflow `Refinitiv_Request_Response` en sus ramas `BATCH_ISSUER` y `BATCH_RATINGS`, el sub-workflow `Refinitiv_Load_Ratings`, el workflow `BBG_Refinitiv_Batch` y, desde la pasada de cierre, el recálculo del Rating Externo Unificado (REU): workflow `RDR_UPDATE_REU` y su sub-workflow `Sub_CalculateREU` (§6.8 y §6.9).
 
-**Excluye:** el código de los clientes Java `RDR_Refinitiv_Request.jar` (petición a Refinitiv) y `Refinitv_Ratings.jar` (carga de los ratings), el sub-workflow `RDR_UPDATE_REU` (recálculo), el sub-workflow `BBG_Send_Error_Mail`, el motor estándar `Standard File Load` y el feed `Refinitiv_Issuer_Batch_Response` (ninguno recibido); la plataforma Refinitiv; y la cadena `RDR_CARGA_REFINITIV_Multi`, que es independiente (peticiones a demanda vía fichero).
+**Excluye:** el código de los clientes Java `RDR_Refinitiv_Request.jar` (petición a Refinitiv) y `Refinitv_Ratings.jar` (carga de los ratings), el sub-workflow `BBG_Send_Error_Mail`, el motor estándar `Standard File Load` y el feed `Refinitiv_Issuer_Batch_Response` (ninguno recibido); la plataforma Refinitiv; y la cadena `RDR_CARGA_REFINITIV_Multi`, que es independiente (peticiones a demanda vía fichero).
 
 ## 3. Requisitos detectados
 
@@ -51,11 +51,13 @@ No genera ficheros de salida para otros sistemas ni eventos externos: el resulta
 | P-BER-01 | ¿Se pueden incorporar `RefinitivIssuerBatchRequest.properties` y `RDR_BBG_Refinitiv_Batch.properties`? Hoy su contenido (§6.2) es declaración del usuario, no fichero. | Son la configuración que decide qué workflow y con qué parámetros se ejecuta en los jobs 1 y 3. |
 | P-BER-02 | ¿Qué columnas tiene el layout `issuerRequestOutput` de `FT_T_PAR1` y en qué tablas escribe el feed `Refinitiv_Issuer_Batch_Response`? | Es lo que carga el job 1. |
 | P-BER-03 | ¿Qué hace `Refinitv_Ratings.jar` (clase `Ppal`): en qué tablas carga los ratings, qué escribe en `FT_T_RLT1.RLT_DIF_STAT` si falla y quién genera `Refinitiv_loadRating_failures_toANS_<MM_dd_yyyy>.csv`? | El sub-workflow solo da por fallida la carga si el Java cambia `RLT_DIF_STAT`; la fila nace ya con `'OK '` (§6.5, riesgo R-03). |
-| P-BER-04 | ¿Se pueden obtener `RDR_UPDATE_REU` y `BBG_Send_Error_Mail`? | El primero hace el recálculo REU; el segundo decide qué errores se envían y a quién. |
-| P-BER-05 | En `BBG_Refinitiv_Batch`, la consulta `Solo Automathic` devuelve su resultado en la misma variable (`ratingsToUpdate`) que recorre el bucle. ¿El bucle `ForEach` de GoldenSource relee esa variable en cada vuelta? | Si la relee, solo se procesaría el primer rating de la lista (o ninguno más) cada noche (riesgo R-04). |
+| P-BER-04 | ¿Se pueden obtener `RDR_UPDATE_REU` y `BBG_Send_Error_Mail`? | **Parcial.** `RDR_UPDATE_REU` y su sub-workflow `Sub_CalculateREU` están recibidos y analizados (§6.8 y §6.9; documentos originales del proceso, rama de Carlos). **Sigue pendiente `BBG_Send_Error_Mail`**: decide qué errores se envían y a quién. |
+| P-BER-05 | En `BBG_Refinitiv_Batch`, la consulta `Solo Automathic` devuelve su resultado en la misma variable (`ratingsToUpdate`) que recorre el bucle. ¿El bucle `ForEach` de GoldenSource relee esa variable en cada vuelta? | **Parcial.** El workflow hermano `RDR_UPDATE_REU` (§6.8) usa el mismo `ForEach` con un contador de entrada y salida (`counterInst`) cuyo valor final emplea como "número de procesados"; lo que sugiere que el contador es la posición dentro de la colección y que el nodo la vuelve a leer en cada vuelta. Además, `RDR_UPDATE_REU` guarda el resultado de sus consultas internas en una variable distinta de la que recorre el bucle; `BBG_Refinitiv_Batch` no. Esto hace creíble el riesgo R-04, pero no está confirmado con la documentación de GoldenSource ni con una ejecución. **Sigue pendiente** la comprobación (TC-009 con dos entidades). |
 | P-BER-06 | Cuando el workflow marca la petición como `FAILED`, ¿el evento termina con error para `executeBbvaEvent.sh` (job en NOTOK) o termina bien? | Las ramas de error del workflow acaban en el nodo final sin lanzar error. Si GoldenSource lo da por correcto, el job queda en OK y la cadena sigue (pregunta P-EBE-01 de la spec común). |
 | P-BER-07 | ¿Quién crea y devuelve a `PENDING` las filas `BATCH_ISSUER` y `BATCH_RATINGS` de `FT_T_VREQ`? En estas ramas el workflow nunca las marca `PROCESSED`. | Sin ello no se puede usar `FT_T_VREQ` para verificar una ejecución correcta. |
 | P-BER-08 | ¿Qué emisores pide `RDR_Refinitiv_Request.jar` con `BATCH_ISSUER` y qué ratings con `BATCH_RATINGS` (universo, consulta)? | Determina el volumen y el alcance de la carga. |
+| P-BER-09 | `Sub_CalculateREU` se ha recibido con estado `DEVELOPMENT` (versión 20, último cambio `user1` el 18/03/2026, comentario `ANS_PRUEBAS5`), mientras que `RDR_UPDATE_REU` está `RELEASED`. ¿Es esa la versión que se ejecuta en producción? | Si producción ejecuta otra versión, las reglas de §6.9 podrían no coincidir (en especial la regla del segundo mejor rating, que en la versión actual sustituye a una media anterior, ticket SDATOOL-48154). |
+| P-BER-10 | ¿Qué proceso inserta en `FT_T_RLT1` las marcas `CALCULATE_REU` con origen `REFINITIV` y mensaje `Updated counterparty FINS ID: …` que `BBG_Refinitiv_Batch` retira cuando la entidad no es "Automatic"? ¿Lo hace `Refinitv_Ratings.jar`? | Si lo hace, el recálculo REU del job 3 también procesa las novedades de Refinitiv cargadas en el job 2; si no, solo las de Bloomberg y Refinitiv del propio workflow. |
 
 ## 5. Especificación funcional
 
@@ -80,7 +82,7 @@ No genera ficheros de salida para otros sistemas ni eventos externos: el resulta
    a. envía por correo los informes de errores de carga de ratings (a ANS y a usuarios);
    b. busca los ratings oficiales que deben cambiar a la vista de los de Bloomberg y Refinitiv (§6.6);
    c. por cada uno: actualiza `FT_T_FIRT`, registra la difusión al ESB (`PENDING_ESB`) en `FT_T_RLT1` y, si la entidad tiene clasificación REU "Automatic", la marca para recálculo (`CALCULATE_REU`); si no, retira la marca de recálculo que hubiera dejado otro proceso;
-   d. llama a `RDR_UPDATE_REU`.
+   d. llama a `RDR_UPDATE_REU` (§6.8), que recalcula el Rating Externo Unificado (REU) de todas las entidades marcadas `CALCULATE_REU` y deja un resumen en `FT_T_RLT1`.
 
 ### 5.3 Resultado final
 
@@ -90,7 +92,8 @@ No genera ficheros de salida para otros sistemas ni eventos externos: el resulta
 | Ratings de Refinitiv | Cargados por `Refinitv_Ratings.jar` (tablas: P-BER-03) |
 | Ratings oficiales actualizados | `FT_T_FIRT` (`RTNG_VALUE_OID`, `RTNG_CDE`, `DATA_STAT_TYP`, `LAST_CHG_USR_ID='BBVA:CUSTOMER'`, `DATA_SRC_ID='BB'`) |
 | Difusión pendiente al ESB | `FT_T_RLT1` con `RLT_DIF_STAT='PENDING_ESB'` |
-| Marcas de recálculo REU | `FT_T_RLT1` con `RLT_DIF_STAT='CALCULATE_REU'` |
+| Marcas de recálculo REU | `FT_T_RLT1` con `RLT_DIF_STAT='CALCULATE_REU'`; al terminar el recálculo cada marca pasa a `CALCULATE_REU_OK` y se añade una fila `CALCULATE_REU_REP` (`Se han procesado <n>`) |
+| Rating Externo Unificado (REU) recalculado | `FT_T_FIRT` (conjuntos "External Unified Rating", "… Foreign" y "… Local"), `FT_T_FRRL` (relación `REUINHER`) y las entidades que heredan su REU (§6.9) |
 | Seguimiento de la carga de ratings | `FT_T_RLT1` con `RLT_PURP_TYP='Refinitiv_Ratings'` |
 | Errores de petición | `FT_T_VREQ` en `FAILED` (filas `BATCH_ISSUER` o `BATCH_RATINGS`) |
 | Correos | Fallos de carga de ratings Refinitiv (job 2) y de Bloomberg/Refinitiv (job 3) |
@@ -118,6 +121,8 @@ No genera ficheros de salida para otros sistemas ni eventos externos: el resulta
 | `RDR_REFINITIV_BATCH_REQUEST` | A partir de 21:00 | `GSProcess.sh RefinitivIssuerBatchRequest` | — | `RDR_BATCH_EMISORES_REFINITIV_RDR_REFINITIV_BATCH_REQUEST_OK` |
 | `GS_REFINITIV_REQ_RES` | A partir de 22:00 | `GSProcess.sh RDR_Refinitiv_REQ_RES` | Evento anterior (borrado "No") | `RDR_BATCH_EMISORES_REFINITIV_GS_REFINITIV_REQ_RES_OK` |
 | `GS_BBG_REFINITIV_BATCH` | A partir de 23:00 | `GSProcess.sh RDR_BBG_Refinitiv_Batch` | Evento anterior (borrado "No") | `RDR_BATCH_EMISORES_REFINITIV_GS_BBG_REFINITIV_BATCH_OK` |
+
+Las capturas de Control-M de los tres jobs (documentos originales del proceso, rama de Carlos) confirman la tabla: tipo `OS`, `Script` `GSProcess.sh` en `/pr/kytl/online/multipais/multicanal/scrt`, variable local `PARM1` con el módulo (`RefinitivIssuerBatchRequest`, `RDR_Refinitiv_REQ_RES`, `RDR_BBG_Refinitiv_Batch`), programación `Cada día`, "lanzado después de las 09:00 PM / 10:00 PM / 11:00 PM o después del siguiente nuevo día", sin relanzamiento cíclico (máximo 0), retención 3 días, prioridad `Very Low`, creados por `xe30690`, 1 unidad de `MAX-LPRDR501` (de 100). El job 1 no espera ningún evento; los jobs 2 y 3 esperan el evento del anterior (con fecha de ejecución). En la pestaña "Acciones" de los tres solo hay la acción de **agregar el evento de éxito**: no hay "Acciones Si", ni notificaciones antes o después de finalizar, ni captura de la salida (gestión de la salida: ninguna). Un fallo, por tanto, solo se ve como job en NOTOK (aviso por criticidad `W`) y no genera evento ni correo propios. El folder es de tipo Normal, `User Daily específico` `PLAN_1200`, site standard `KYTL0000_SS_PR_HR`, UUAA `KYTL0000`.
 
 Las fichas indican que los jobs "permiten la ejecución pasando el nuevo día contable": si se retrasan más allá de medianoche, siguen perteneciendo a la fecha de orden del día anterior.
 
@@ -197,6 +202,8 @@ No se conoce purga de los directorios `old/`.
    ```
 4. Lee `select RLT_DIF_STAT from ft_t_rlt1 where rlt_oid=<oid>`. Si, sin espacios, vale `OK`, termina. Si no (o no hay fila), lee el contacto `select par1_value from ft_t_par1 where par1_nme='CONTACT_ANS_'||<env> and parameter_ctxt_typ='REFINITIV_CONTACT' and data_stat_typ='ACTIVE'` y envía el correo con el sub-workflow `Mail` adjuntando el informe de fallos.
 
+El sub-workflow `Mail` (genérico, grupo `Custom/RDR/Common`, versión 6) envía el correo por SMTP al puerto 25 sin contraseña, con servidor y remitente leídos de `ServerMailConfig.xml` del directorio de propiedades según el entorno (si falta, usa los valores de desarrollo), separa los destinatarios por `;`, adjunta el fichero solo si existe y **captura cualquier excepción sin propagarla**: un fallo del servidor de correo o un contacto vacío no se ven en el job ni en el workflow que lo llama.
+
 **Corrección:** la versión anterior decía que la fila inicial nace con `RLT_DIF_STAT='Iniciado'`. Según el código, `Iniciado ` es `MESSAGE_RLT`; `RLT_DIF_STAT` nace con `'OK '`. Por tanto, si `Refinitv_Ratings.jar` termina sin actualizar la fila (por ejemplo, si lo mata el tiempo límite de 150 s), el sub-workflow lo da por correcto y no avisa (riesgo R-03, P-BER-03).
 
 ### 6.6 Workflow `BBG_Refinitiv_Batch` (job 3; grupo `Custom/RDR/Riesgo_Emisor`, versión 4; análisis del `.wkf` real)
@@ -225,7 +232,7 @@ No se conoce purga de los directorios `old/`.
    - `Solo Automathic`: `select FINS_RTNG_OID from FT_T_FIRT FIRT, FT_T_FRRL FRRL, FT_T_INCL INCL where (las tres ACTIVE) and FIRT.INST_MNEM=<INST_MNEM> and FRRL.rel_typ = INCL.CLSF_OID and INCL.INDUS_CL_SET_ID like 'REUORG%' and INCL.CL_NME ='Automatic' and FRRL.PARTICIPANT_ID = FIRT.fins_RTNG_OID and FIRT.FINS_RTNG_OID = <FINS_RTNG_OID_OFI>`.
      - Con resultado: `INSERT INTO FT_T_RLT1 (...) VALUES (new_oid, null, '', 1, 1, 'CALCULATE_REU', 'M', 'Updated counterparty rating', <INST_MNEM>, 'REPORTES', 'BB', 'Marcado por:', 'Workflow', sysdate, sysdate, 'BBVA:CUSTOMER')`.
      - Sin resultado: `update FT_T_RLT1 set RLT_PURP_TYP = ' - ', LAST_CHG_TMS = sysdate where RLT_PURP_TYP ='REPORTES' and MESSAGE_RLT like 'Updated counterparty FINS ID: %' and RLT_DIF_STAT = 'CALCULATE_REU' and RLT_FIELD = <INST_MNEM> and DATA_SRC_APP ='REFINITIV' and RLT_DIF_ACC ='M'` (retira una marca de recálculo que había dejado otro proceso con origen Refinitiv).
-5. Al terminar (o si no hay ratings que actualizar), llama a `RDR_UPDATE_REU` (no recibido).
+5. Al terminar (o si no hay ratings que actualizar), llama a `RDR_UPDATE_REU` (§6.8).
 
 **Corrección:** la versión anterior decía que el `UPDATE` de `FT_T_FIRT` y la difusión `PENDING_ESB` solo se hacían si la entidad era "Automatic". Según el código, **se hacen para todos los ratings a actualizar**; la clasificación "Automatic" solo decide si se añade la marca `CALCULATE_REU` o se retira la previa. También decía que el workflow "genera" los 2 CSV de fallos: lo que hace es invocar `BBG_Send_Error_Mail` con esos nombres (P-BER-04).
 
@@ -242,13 +249,63 @@ No se conoce purga de los directorios `old/`.
 | `Standard File Load` y feed `Refinitiv_Issuer_Batch_Response` | Workflow (job 1) | **No** | P-BER-02 |
 | `Refinitiv_Load_Ratings.wkf` | Workflow (job 2) | Sí | §6.5 |
 | `Refinitv_Ratings.jar` (`Ppal`) | `Refinitiv_Load_Ratings` | **No** | P-BER-03 |
-| Sub-workflow `Mail` | `Refinitiv_Load_Ratings` | No | Envío de correo |
+| Sub-workflow `Mail` | `Refinitiv_Load_Ratings` | Sí (workflow genérico real, grupo `Custom/RDR/Common`) | Envío SMTP; ver nota en §6.5 |
 | `BBG_Refinitiv_Batch.wkf` | Job 3 | Sí | §6.6 |
-| `BBG_Send_Error_Mail`, `RDR_UPDATE_REU` | `BBG_Refinitiv_Batch` | **No** | P-BER-04 |
+| `RDR_UPDATE_REU.wkf` | `BBG_Refinitiv_Batch` | Sí | §6.8 |
+| `Sub_CalculateREU.wkf` | `RDR_UPDATE_REU` | Sí (estado `DEVELOPMENT`, P-BER-09) | §6.9 |
+| `BBG_Send_Error_Mail` | `BBG_Refinitiv_Batch` | **No** | P-BER-04 |
+
+### 6.8 Workflow `RDR_UPDATE_REU` (último paso del job 3; análisis del `.wkf` real)
+
+Workflow de GoldenSource, grupo `Custom/RDR/Riesgo_Emisor`, versión 5, estado `RELEASED`, comentario `RDR_NFQ_06032025_1150`, último cambio `KYTL_GC` el 29/03/2025, `haltOnError=false`, sin reintentos. No tiene parámetros de entrada. Recupera las entidades marcadas para recálculo y llama una a una al sub-workflow `Sub_CalculateREU`.
+
+1. Crea un job de GoldenSource (nodo `Create Job`, queda en `FT_T_JBLG`) e inicializa un contador a 0.
+2. Lee las marcas pendientes: `select RLT_FIELD as INST_MNEM, RLT_OID from FT_T_RLT1 where RLT_DIF_STAT='CALCULATE_REU' and RLT_DIF_ACC='M' and RLT_PURP_TYP='REPORTES'`. Recoge **todas** las marcas pendientes, sea cual sea su origen o su fecha, no solo las de la noche.
+3. Si hay filas, las recorre en secuencia (`ForEach`, contador sumando 1). Para cada una llama a `Sub_CalculateREU` con `inst_mnem` = `INST_MNEM` y `user` = `RDR_UPDATE_REU`, y cuando el sub-workflow vuelve ejecuta `update FT_T_RLT1 set RLT_DIF_STAT='CALCULATE_REU_OK' where RLT_OID=<RLT_OID>`. La marca se da por buena aunque el sub-workflow no haya recalculado nada (por ejemplo, porque el REU es manual).
+4. Al terminar el bucle, o si no había filas, inserta una fila de resumen en `FT_T_RLT1` (`RLT_DIF_STAT='CALCULATE_REU_REP'`, `RLT_DIF_ACC='M'`, `MESSAGE_RLT='Se han procesado '||<contador>`, `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='BB'`, `MAIN_ENTITY_NME='Marcado por:'`, `MAIN_ENTITY_ID='Workflow'`, con el `JOB_ID` del job creado) y cierra el job.
+
+La fila `CALCULATE_REU_REP` es el único rastro del recálculo de la noche: si el contador es 0 hoy no se recalculó nada. El workflow no avisa por correo ni distingue entre entidades recalculadas y entidades que `Sub_CalculateREU` dejó sin tocar.
+
+### 6.9 Sub-workflow `Sub_CalculateREU` (cálculo del Rating Externo Unificado; análisis del `.wkf` real)
+
+Workflow de GoldenSource "Calculo Rating Externo Unificado", grupo `Custom/RDR/Publishing/Online`, versión 20, **estado `DEVELOPMENT`** (P-BER-09), comentario `ANS_PRUEBAS5`, último cambio `user1` el 18/03/2026, `haltOnError=false`, 171 nodos. Entradas: `inst_mnem` (la entidad) y `user` (si llega vacío, `BBVA:CUSTOMER`; `RDR_UPDATE_REU` pasa `RDR_UPDATE_REU`). Todas las consultas van contra `jdbc/GSDM-1`. Los tres cálculos (Bloomberg, Refinitiv "Foreign" y Refinitiv "Local") son copias del mismo código con variables distintas; cualquier cambio de regla hay que hacerlo tres veces.
+
+**Qué es el REU.** Un único rating por entidad que unifica los de S&P, Moody's y Fitch con la regla del *segundo mejor* (paso 5). Se guarda como una fila de `FT_T_FIRT` en el conjunto de ratings "External Unified Rating" (para Bloomberg), "External Unified Rating Foreign" y "External Unified Rating Local" (para Refinitiv, según el conjunto del que proceda el cálculo), y cada fila tiene una relación `REUINHER` en `FT_T_FRRL` con una clasificación `REUORG` (`REUORGL` para el local): `Automatic` (el REU se calcula solo) o `Manual` (lo fija una persona).
+
+**Recorrido.**
+1. Espera 2 segundos.
+2. **Origen del emisor.** Busca en `FT_T_ISSR`/`FT_T_IRST` (estadística `SOURCE`, estado activo) si el emisor de la entidad tiene como fuente `Refinitiv`; si no, si tiene `Bloomberg`. Si no tiene ninguna, termina sin hacer nada. La ruta Refinitiv trabaja con los conjuntos de ratings oficiales en versión "Foreign" (`SPRLOTRT`, `MODLOTRT`, `FTCHLTRT`) y "Local" (`SPRLTRTL`, `MODLTRTL`, `FTCLTRTL`); la ruta Bloomberg, con los conjuntos "S&P Long Term", "Moody's Long Term" y "Fitch Long Term". Para pasar cada rating de agencia a la escala REU usa los conjuntos "REU S&P Long Term", "REU Moody's Long Term" y "REU Fitch Long Term" (mnemónicos `REUSP`, `REUMOD`, `REUFTCH`). Los identificadores de los conjuntos se leen por nombre o mnemónico en `FT_T_RTNG` (activos y sin fecha de fin).
+3. **No recalcular si se conserva.** Si la entidad tiene en `FT_T_FIST` la característica `KEEPREUF` (extranjero; también la consulta la ruta Bloomberg) o `KEEPREUL` (local) con valor `Y`, activa y sin fecha de fin, no se toca su REU en esa rama.
+4. **Emisor identificado.** Exige que la entidad esté activa con rol de contraparte (`OPE_BRANCH`/`CPARTY`) y emisor (`ISSUER`) con identificador `ORG_ID` (Refinitiv) o `BBGCID` (Bloomberg) activo (`FT_T_FIID`, `FT_T_ENFR`, `FT_T_FINR`, `FT_T_FRID`).
+   - Si el emisor o su identificador están **inactivos**: marca como inactivos los ratings externos de las agencias de la entidad y pone el REU a `NR` inactivo (en el local, salvo que algún rating de la entidad tenga clasificación `Manual`).
+   - Si algún rating de agencia de la entidad tiene el código **`PENDING`**: el REU pasa a `PENDING`, inactivo (inserta o actualiza la fila de `FT_T_FIRT` con `DATA_SRC_ID='RDR'` y crea, si falta, su relación `REUINHER` `Automatic`).
+5. **Cálculo.** Para cada agencia (en paralelo) lee el rating activo de la entidad y lo traduce a la escala REU de esa agencia por código de rating, obteniendo su nombre y su `rank_num` (1 es el mejor). Una agencia sin rating cuenta como "No disp." con grado 99. Lee también el `rank_num` de `NR` de la escala REU.
+   - **¿Se calcula?** Si la entidad ya tiene fila REU, mira el valor (`CL_VALUE`) de la clasificación `REUORG` (`REUORGL` en el local) de su relación: `A` (Automatic) calcula. Con `M` (Manual), la ruta Bloomberg **no hace nada** y la ruta Refinitiv no calcula, pero sí propaga el valor actual a las entidades que heredan y publica (paso 7). Con cualquier otro valor no hace nada. Si no hay clasificación (la consulta no devuelve fila), calcula.
+   - **Regla del segundo mejor.** Sea *n* el número de agencias con rating (0 a 3) y *g1 ≤ g2 ≤ g3* sus grados ordenados de menor (mejor) a mayor (peor):
+
+     | *n* | Grado REU |
+     |---|---|
+     | 0 | El grado de `NR` en la escala REU |
+     | 1 | El único grado |
+     | 2 | Si son iguales, ese; si no, el **peor** (*g2*) |
+     | 3, todos distintos | El **intermedio** (*g2*). Antes del cambio SDATOOL-48154 era la media redondeada |
+     | 3, dos iguales o tres iguales | Si los dos mejores son iguales (o los tres), el mejor (*g1*); si solo los dos peores son iguales, el peor (*g3*) |
+
+     Con el grado, busca en "External Unified Rating" (o su versión Foreign/Local) el valor activo y sin fecha de fin con ese `rank_num` y lo toma como valor REU (el workflow lo llama "segundo mejor rating"; si solo hay uno usa el "mejor").
+6. **Escritura.** Si la entidad no tenía fila REU, inserta en `FT_T_FIRT` el rating (`ACTIVE`, `DATA_SRC_ID='REFINITIV'` también en la ruta Bloomberg, usuario `user`, esquema `KYTL_GC` escrito literalmente) y su relación `REUINHER` en `FT_T_FRRL` con la clasificación `REUORG`/`Automatic`. Si ya la tenía, actualiza valor, código, usuario y fecha de revisión, la deja `ACTIVE` y, si la relación existía, la cambia a `Automatic`. Además, en las filas de `FT_T_FRRL` que heredaban de otra entidad (`PRNT_INST_MNEM` no nulo) pone `PRNT_INST_MNEM` a nulo: el cálculo automático rompe la herencia (en la ruta Bloomberg solo si la fila se tocó hace menos de 4,8 horas).
+7. **Herencia.** Busca en `FT_T_FRRL` las entidades hijas con `PRNT_INST_MNEM` = la entidad, `PRNT_FINSRL_TYP='REUINHER'` y clasificación `REUORG` (`REUORGL` en la local), copia a su `FT_T_FIRT` el valor y el código REU de la entidad y lanza el evento de GoldenSource **`RDR_CalculateREU_Inherit`** con `inst_mnem` y `user` (la publicación del cambio hacia aguas abajo; qué consume ese evento no se conoce).
+
+**Qué cambia en la base de datos:** `FT_T_FIRT` (filas REU, y la inactivación de los ratings externos), `FT_T_FRRL` (relaciones `REUINHER`) y el evento `RDR_CalculateREU_Inherit`. No escribe en `FT_T_RLT1` (eso lo hace `RDR_UPDATE_REU`).
+
+**Particularidades que hay que conocer.**
+- Un fallo en el medio (excepción de BeanShell, por ejemplo un grado no numérico en `Integer.parseInt`) no se avisa: el workflow tiene `haltOnError=false` y no escribe nada en `FT_T_RLT1`.
+- Los mensajes de traza se escriben a nivel `error` (decenas por entidad) con texto de depuración.
+- Las inserciones en `FT_T_FIRT` llevan el esquema `KYTL_GC` fijo: en un entorno con otro propietario del esquema fallarían.
+- La ruta Bloomberg no distingue "Foreign" y "Local"; solo la de Refinitiv lo hace.
 
 ## 7. Especificación de testing
 
-Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquestación de Control-M (TC-001 encadenamiento, TC-002 fallo que bloquea, TC-004 cruce de medianoche, TC-005 relanzamiento concurrente, TC-006 cambio de `.properties`) con el comportamiento de los workflows (TC-003 respuesta inválida con RC=0, TC-007 doble ejecución del mismo `vreqOid`, TC-008 ciclo completo con verificación en base de datos, TC-009 actualización de `FT_T_FIRT` sin clasificación "Automatic"). Los casos que dependen de los programas no recibidos (`Refinitv_Ratings.jar`, `RDR_UPDATE_REU`) solo pueden comprobar lo que escriben los workflows. La cadena es lineal: la suma de TC-001, TC-002 y TC-008 cubre todas las transiciones; TC-003, TC-007 y TC-009 cubren las ramas de datos.
+Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquestación de Control-M (TC-001 encadenamiento, TC-002 fallo que bloquea, TC-004 cruce de medianoche, TC-005 relanzamiento concurrente, TC-006 cambio de `.properties`) con el comportamiento de los workflows (TC-003 respuesta inválida con RC=0, TC-007 doble ejecución del mismo `vreqOid`, TC-008 ciclo completo con verificación en base de datos, TC-009 actualización de `FT_T_FIRT` sin clasificación "Automatic", TC-010 regla del segundo mejor rating del recálculo REU). Los casos que dependen de los programas no recibidos (`Refinitv_Ratings.jar`, `RDR_Refinitiv_Request.jar`) solo pueden comprobar lo que escriben los workflows. La cadena es lineal: la suma de TC-001, TC-002 y TC-008 cubre todas las transiciones; TC-003, TC-007, TC-009 y TC-010 cubren las ramas de datos.
 
 ## 8. Validaciones de casos de prueba
 
@@ -263,6 +320,7 @@ Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquest
 | `datos_sinteticos` | Doble ejecución del mismo `vreqOid` el mismo día | TC-007 |
 | `e2e` | Ciclo completo con impacto en base de datos | TC-008 |
 | `happy_path` | `FT_T_FIRT` y `PENDING_ESB` se actualizan también sin clasificación "Automatic" | TC-009 |
+| `datos_sinteticos` | Regla del segundo mejor rating del REU con 1, 2 y 3 agencias | TC-010 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -277,7 +335,10 @@ Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquest
 | R-07 | Dos `.properties` de la cadena solo declarados (P-BER-01) | Medio (trazabilidad) |
 | R-08 | El `UPDATE` de `FT_T_FIRT` se hace siempre que haya cambio de mapeo, aunque la entidad no sea "Automatic" | Medio: cambia ratings oficiales sin recálculo REU |
 | R-09 | La deducción de entorno de los sub-workflows (directorio escribible) es distinta de la de `GSProcess.sh` (nombre de máquina) | Bajo |
+| R-10 | `RDR_UPDATE_REU` pasa a `CALCULATE_REU_OK` cada marca al volver `Sub_CalculateREU`, aunque no recalculara (REU manual, emisor sin fuente, etc.), y no avisa de las que no pudo calcular | Medio |
+| R-11 | `Sub_CalculateREU` recibido en estado `DEVELOPMENT` (P-BER-09); tres copias del mismo cálculo (Bloomberg, Foreign, Local) que pueden divergir; esquema `KYTL_GC` escrito en las inserciones | Medio |
+| R-12 | El sub-workflow `Mail` ignora cualquier fallo de envío: los correos de errores de carga (jobs 2 y 3) pueden no llegar sin que nadie se entere | Medio |
 
 ## 10. Conclusión y requisitos de cierre
 
-La orquestación y los tres workflows quedan descritos con el código real. **La spec no puede darse por cerrada** mientras sigan abiertas P-BER-01 a P-BER-08; las más importantes son P-BER-03 (falso OK de la carga de ratings), P-BER-05 (bucle de `BBG_Refinitiv_Batch`) y P-BER-06 (si un fallo del workflow llega a Control-M).
+La orquestación y los workflows (incluido el recálculo REU, `RDR_UPDATE_REU` y `Sub_CalculateREU`) quedan descritos con el código real. **La spec no puede darse por cerrada** mientras sigan abiertas P-BER-01 a P-BER-03, P-BER-05 a P-BER-10 y la parte de P-BER-04 correspondiente a `BBG_Send_Error_Mail`; las más importantes son P-BER-03 (falso OK de la carga de ratings), P-BER-05 (bucle de `BBG_Refinitiv_Batch`) y P-BER-06 (si un fallo del workflow llega a Control-M).

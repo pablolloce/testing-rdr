@@ -9,6 +9,10 @@
 >   - `c8181f48-Cesion_de_diccionarios_de_mercados_e_indices_cadena_viva.docx` (análisis Fase 1)
 >   - `cf814fd3-Analisis_Planificador_Generico_RDR.docx` (motor upstream)
 >   - `684efc40-RDR_FIC_DAT_DICT_WEEKLY_SEND_new.zip` (fichas cadena semanal)
+>   - Pasada de cierre (01/10/2026): el contenido de `684efc40-RDR_FIC_DAT_DICT_WEEKLY_SEND_new.zip` se
+>     ha leído entero (ficha del filewatcher semanal `FIC_DAT_DICT_WEEKLY_SEND_FW`, definición de la
+>     cadena, formulario de transmisión `MEKYTL0876` con sus campos rellenados y esquema de la cadena);
+>     está incorporado en §5.6 y §6.
 > - Cuestiones abiertas: protocolo de fallo de `RDRKYTL001` (sin confirmar por ANS RDR) y las preguntas P-DICT-01 a P-DICT-07 — ver §4 y §10
 
 ---
@@ -28,7 +32,7 @@ El proceso se articula en dos capas:
    columnas relevantes para producir `DictionaryIndex.csv`, lo envía a Calypso e historifica ambos.
 
 Existe además una **cadena semanal** (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`, 2 jobs) que está
-**dormida** porque la extracción upstream en el Planificador está INACTIVA: el fichero
+**dormida** porque no se genera el fichero (la hipótesis del usuario es que la extracción upstream del Planificador está INACTIVA, §5.6): el fichero
 `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` no se está generando, por lo que el filewatcher
 nunca lo detecta y la cadena para sin error.
 
@@ -44,8 +48,9 @@ nunca lo detecta y la cadena para sin error.
 
 **Fuera de alcance:**
 - `RDR_FICHERO_DICCIONARIO_SEM`: obsoleta. Confirmado por el usuario. No se documenta.
-- El sistema receptor de la cadena semanal (`lpops302` / `/gl/in/staging/rdr/kytl`):
-  sin información disponible; no afecta al testing de la cadena diaria.
+- El sistema receptor de la cadena semanal (`lpops302` / `/gl/in/staging/rdr/kytl`): la definición de la
+  cadena lo identifica como Datio (soporte de DataHub CIB); su funcionamiento interno no afecta al
+  testing de la cadena diaria.
 
 ---
 
@@ -63,7 +68,7 @@ nunca lo detecta y la cadena para sin error.
 | R-08 | Si el filewatcher no detecta el fichero antes de las 17:00 (`ctmfw` termina con código 7 = tiempo agotado), la cadena debe fallar y detenerse (respuesta del usuario; que no exista regla «7 → OK» está por confirmar, P-DICT-01). | FW + respuesta usuario | TC-03 |
 | R-09 | `MEKYTL0860` no puede fallar desde el lado del envío; cualquier problema de recepción es responsabilidad del sistema destino. | Respuesta usuario | TC-07 |
 | R-10 | Si `MEKYTL0861` falla y los ficheros quedan en origen, la siguiente ejecución del FW los detectará, causando una ejecución con datos obsoletos. Este escenario debe detectarse y resolverse manualmente antes del siguiente ciclo. | Respuesta usuario | TC-08 |
-| R-11 | La cadena semanal `RDR_FIC_DAT_DICT_WEEKLY_SEND_new` debe permanecer en estado dormido (FW para sin error si no hay fichero) mientras la extracción en el Planificador esté INACTIVA. | Respuesta usuario | TC-12 |
+| R-11 | La cadena semanal `RDR_FIC_DAT_DICT_WEEKLY_SEND_new` debe permanecer en estado dormido (FW para sin error si no hay fichero) mientras no se genere `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`. La ficha del filewatcher semanal lo establece como diseño: "en caso de no encontrar nada, no debe dar fallo en ninguna de las ejecuciones … la cadena debería pararse y no continuar". **Matiz:** el usuario atribuyó la ausencia del fichero a una extracción INACTIVA del Planificador, con la salvedad de "seguramente" (suposición); el material posterior no la confirma ni la desmiente (ver §5.6). | Respuesta usuario + ficha del FW semanal | TC-12 |
 | R-12 | El Planificador no debe ejecutar una extracción INACTIVA en `FT_T_ATE1` o `FT_T_QPF1`. | Planificador | TC-11 |
 
 ---
@@ -77,18 +82,18 @@ nunca lo detecta y la cadena para sin error.
 | Cadena `RDR_FICHERO_DICCIONARIO_SEM` | ¿Forma parte del alcance? | Obsoleta (confirmado) | Excluida (§2) |
 | Fallo de la cadena diaria | ¿Qué ocurre si falla un job? | «La cadena falla y se para» | R-08, TC-03 |
 | Envío a destino (`MEKYTL0860`) | ¿Puede fallar? | «El envío no puede fallar; en todo caso fallará su recepción» | R-09, TC-07 |
-| Cadena semanal | ¿Por qué no hace nada? | «Seguramente lo haga el planificador genérico, lo que pasa que estará inactivo y no se esté generando» | R-11, §5.6 |
+| Cadena semanal | ¿Por qué no hace nada? | «Seguramente lo haga el planificador genérico, lo que pasa que estará inactivo y no se esté generando» | R-11, §5.6 (suposición del usuario; ver el matiz de §5.6) |
 
 **Preguntas pendientes (no están en ninguna fuente disponible; no se inventa la respuesta):**
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-DICT-01 | Línea de comando completa de los filewatchers `RDR_DICTIONARY_INDEX_FW` (ventana 14:00-17:00) y `FIC_DAT_DICT_WEEKLY_SEND_FW` (06:00-06:30): `ctmfw '<fichero>' CREATE <min_size> <sleep_int> <mon_int> <min_detect> <wait_time en minutos>` y si tienen alguna regla «código 7 (tiempo agotado) → OK». | Si no hay regla 7→OK, el diario termina NOTOK al agotar la espera (lo que dice el usuario y R-08); con esa regla quedaría en verde sin procesar nada. Para el semanal, «para sin error» solo se explica si existe esa regla o si el job no llega a arrancar. |
+| P-DICT-01 | Línea de comando completa de los filewatchers `RDR_DICTIONARY_INDEX_FW` (ventana 14:00-17:00) y `FIC_DAT_DICT_WEEKLY_SEND_FW` (06:00-06:30): `ctmfw '<fichero>' CREATE <min_size> <sleep_int> <mon_int> <min_detect> <wait_time en minutos>` y si tienen alguna regla «código 7 (tiempo agotado) → OK». | **Parcial (solo la intención del semanal).** La ficha del filewatcher semanal dice que, si no encuentra el fichero, "no debe dar fallo en ninguna de las ejecuciones" y que la cadena "debería pararse y no continuar": es decir, el diseño exige que el job termine en verde sin disparar `MEKYTL0876`, lo que equivale a una regla «7 → OK» sin evento de salida. Es la intención documentada, no el export. **Sigue pendiente:** el comando literal de ambos y la regla real del diario (si no hay regla 7→OK, el diario termina NOTOK al agotar la espera, R-08). |
 | P-DICT-02 | Contenido literal de `dictionaryIndex.properties` (`/pr/kytl/online/multipais/multicanal/dat/properties/`): ¿una sola acción `Script` `Cortar` o más? ¿lleva `StopScript=Ok`? ¿Usa `@@ENV@@` o `$ENV` (pregunta común P-GSP-01)? | Define qué pasa si `Cortar` falla y si el path `/fichtemcomp/pr/...` se resuelve bien. |
 | P-DICT-03 | Formato exacto de `DictionaryIndex_TOTAL.csv`: ¿lleva cabecera?, ¿separador `;`?, ¿cuántas columnas? La query seleccionada devuelve solo 4 columnas, en cuyo caso `Cortar 1-4` sería una copia idéntica. | Sin ello no se puede afirmar qué recorta `Cortar` ni qué recibe MADRE. |
 | P-DICT-04 | Configuración de `MEKYTL0860` (protocolo, usuario, qué hace si no hay fichero) y de `MEKYTL0861` (clave y línea del `INFORMACION_HISTORIFICACIONES.IDX` si usa `RAMERC0068.sh`; nombre exacto en `old/`, p. ej. `DictionaryIndex_20260917.csv` y `DictionaryIndex_TOTAL_20260917.csv`). | El nombre final en `old/` y el comportamiento sin fichero se infieren hoy de la ficha de forma resumida. |
 | P-DICT-05 | Margen real del Planificador: el motor corre cada 30-60 min y la extracción es a las 15:00:00; ¿qué hora real de creación del fichero se ha observado? (pregunta común P-PLA-03). | Determina si el fichero llega con holgura antes de las 17:00. |
-| P-DICT-06 | Cadena semanal: ¿qué extracción, con qué query y columnas, genera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`? ¿Quién lo recibe en `lpops302:/gl/in/staging/rdr/kytl`? ¿Se reactivará o se dará de baja? | Hoy no se puede describir su contenido; no se puede probar el envío. |
+| P-DICT-06 | Cadena semanal: ¿qué extracción, con qué query y columnas, genera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`? ¿Quién lo recibe en `lpops302:/gl/in/staging/rdr/kytl`? ¿Se reactivará o se dará de baja? | **Parcial.** *Receptor:* la definición de la cadena dice que envía "ficheros semanales de diccionario de RDR a Datio"; el documento funcional de la extracción de contrapartidas lista `MEKYTL0876` como "Soporte DataHub CIB" dentro de los destinos del diccionario de contrapartidas (diario y semanal), con lo que el receptor es Datio / DataHub CIB. *Productor:* ninguna extracción activa del inventario del Planificador (spec común del Planificador, §5) escribe en `FicheroDiccionario/` (una fila inactiva no figuraría en ese inventario); el único productor conocido de ficheros `FicheroDiccionarioRDR_*` en ese directorio es la cadena de contrapartidas (`FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv`), cuyos nombres **no coinciden** con la máscara del filewatcher semanal (`FicheroDiccionarioRDR_semanal_`). **Sigue pendiente:** quién debía producir el fichero `_semanal_` y su contenido, y si la cadena se reactiva o se da de baja. |
 | P-DICT-07 | Protocolo de actuación ante fallo de `RDRKYTL001` (`Cortar`/`GSProcess.sh dictionaryIndex`) — sin confirmar por ANS RDR (BZG03906). | Sin él no se sabe cómo recuperar `DictionaryIndex.csv` (ver §9). |
 
 ---
@@ -201,12 +206,31 @@ ciclo a continuación y MADRE recibiría un fichero con filas duplicadas y obsol
 
 ### 5.6 Cadena semanal (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`) — estado dormido
 
-- `FIC_DAT_DICT_WEEKLY_SEND_FW`: filewatcher sobre `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario`,
-  espera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`, ventana semanal 06:00-06:30.
-  Comportamiento si no encuentra fichero: **para la cadena sin error** (no genera fallo).
-- `MEKYTL0876`: enviaría el fichero semanal a `lpops302:/gl/in/staging/rdr/kytl`. No se ejecuta.
-- La extracción correspondiente en el Planificador Genérico está **INACTIVA** en `FT_T_ATE1`
-  o `FT_T_QPF1`; el fichero no se genera y la cadena permanece dormida de forma indefinida.
+Qué dicen las fichas de la cadena (documentos originales del proceso, rama de Victor):
+
+**La cadena.** La definición de la cadena (alta solicitada el 06/06/2020, aplicación `KYTL`, máquina de ejecución `22.156.148.85`) la describe como la "cadena que se encargará del envío de ficheros semanales de diccionario de RDR a Datio", con dos acciones en este orden: escuchar la ruta `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario` en busca de `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` y enviar los `.csv`. Tiene dos jobs: `FIC_DAT_DICT_WEEKLY_SEND_FW` y `MEKYTL0876`, en serie (el esquema de la cadena es `INICIO` → filewatcher → envío → `FIN`). Horario: 4:30 y 6:00; la nota del 25/04/2020 dice "retraso de la hora del envío a las 06:00".
+
+**`FIC_DAT_DICT_WEEKLY_SEND_FW`** (filewatcher, máquina `22.156.148.85`):
+- Ruta `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario`, extensión `.csv` y nombre que **empiece por** `FicheroDiccionarioRDR_semanal_` seguido de la fecha de ejecución con máscara `yyyyMMdd`. Solo debe recoger los ficheros de ese día.
+- Ventana de escucha: originalmente de 4:30 a 5:00; la nota del 25/04/2020 ("cambio de planificación, retraso de 1,5 hora") la mueve de 6:00 a 6:30. Se ejecuta de forma cíclica "una vez a la semana en las franjas de hora indicadas"; el campo de periodicidad de la ficha lleva `D` (diaria), con lo que la ficha es ambigua entre un filewatcher diario que solo encuentra fichero un día a la semana y uno planificado un solo día. La spec lo trata como semanal, de acuerdo con el nombre y el texto.
+- Si no encuentra el fichero: "no debe dar fallo en ninguna de las ejecuciones" y "la cadena debería pararse y no continuar".
+- Criticidad `W` (aviso al día siguiente); norma de rearranque: avisar a ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`, cola Remedy ANS RDR); sucesor: `MEKYTL0876`.
+
+**`MEKYTL0876`** (formulario de transmisión de ficheros CIB, rellenado el 28/06/2019 para un pase del 06/07/2019; usado con `MEGENV0001.sh`, código de envío `MEKYTL0876`, entorno producción):
+
+| Dato | Valor |
+|---|---|
+| Origen | Servidor `22.156.148.85`, `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario`, patrón `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`, formato de envío `ASCII` |
+| Destino | `lpops302.ops-es-pro-01.ext.es.iaas.igrupobbva`, ruta `/gl/in/staging/rdr/kytl`, sistema remoto UNIX/LINUX, acción en destino `REPLACE` (sobrescribe) |
+| Nombre en destino | `FicheroDiccionarioRDR_dia_yyyyMMdd.csv` en el campo "nombre/patrón" del destino, mientras que la observación del mismo formulario dice que el fichero llega "con el mismo nombre que en la ruta origen" (`_semanal_`). El formulario se contradice; cuál es el nombre real no se sabe (P-DICT-04) |
+| Observaciones | Envío de un fichero en formato DOS a una máquina Linux; solo debe recoger `.csv` que empiecen por `FicheroDiccionarioRDR_semanal_` y cuya fecha coincida con el día de ejecución |
+| Historificación | "¿Necesita historificación?": **No**; sin ruta ni patrón de historificación |
+| ¿Error si no hay ficheros? | **No** |
+| Área / localización | Red externa a BBVA |
+
+Consecuencias: el envío no historifica nada (el fichero semanal se queda en `FicheroDiccionario/` hasta que alguien lo retire), no falla si falta el fichero (coherente con la ficha del filewatcher) y sobrescribe el fichero del destino. Los parámetros del formulario son de la solicitud original de 2019; que la configuración actual de `MEKYTL0876` coincida con ellos no se ha comprobado.
+
+**Estado y matiz sobre por qué está dormida.** La cadena sigue sin hacer nada porque no aparece el fichero `_semanal_`. El usuario lo atribuyó a que "seguramente" lo genera el Planificador Genérico y su extracción estaría inactiva; es una suposición. Las fuentes no la confirman (tampoco la desmienten del todo): (a) ninguna extracción activa del inventario del Planificador escribe en `FicheroDiccionario/` ni produce un fichero con ese nombre (el inventario solo recoge filas activas, así que una fila inactiva no figuraría); (b) el directorio y el prefijo `FicheroDiccionarioRDR_` pertenecen al diccionario de contrapartidas, cuyos ficheros diarios y semanales se llaman `FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv` (no `_semanal_`); (c) el documento funcional de esa cadena cita `MEKYTL0876` ("Soporte DataHub CIB") entre los destinos de ese diccionario. Una hipótesis coherente con todo ello, **no confirmada**, es que la cadena se creó en 2019-2020 para enviar a Datio el diccionario de contrapartidas semanal y que la máscara `_semanal_` nunca coincide con el nombre `_sem_` que genera hoy la cadena de contrapartidas. Hasta confirmarlo, hay que tratar el motivo de que la cadena esté dormida como desconocido (P-DICT-06).
 
 ---
 
@@ -218,15 +242,15 @@ ciclo a continuación y MADRE recibiría un fichero con filas duplicadas y obsol
 | Aplicación | KYTL | KYTL |
 | Host ejecución | `pr-rdr.igrupobbva` (FW, MEKYTL0860, MEKYTL0861) / `lprdr602` (RDRKYTL001) | `pr-rdr.igrupobbva` |
 | Usuario OS | `xakytl1p` (RDRKYTL001) | N/A (FW) |
-| Periodicidad | L-V, FW activo 14:00-17:00, trigger ~15:00 | Semanal, FW 06:00-06:30 (dormida) |
+| Periodicidad | L-V, FW activo 14:00-17:00, trigger ~15:00 | Semanal, FW 06:00-06:30 (dormida); las fichas anotan periodicidad `D` |
 | Criticidad cadena | W (aviso día siguiente) | No determinada (no relevante) |
 | Criticidad destino (MADRE) | Alta | N/A |
-| Fichero trigger | `DictionaryIndex_TOTAL.csv` (generado por Planificador a 15:00) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` (no generado, Planificador INACTIVO) |
-| Fichero enviado a destino | `DictionaryIndex_YYYYMMDD.csv` → `lpemd501` (Calypso) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` → `lpops302` (sistema no identificado) |
+| Fichero trigger | `DictionaryIndex_TOTAL.csv` (generado por Planificador a 15:00) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` (no se genera; productor desconocido, P-DICT-06) |
+| Fichero enviado a destino | `DictionaryIndex_YYYYMMDD.csv` → `lpemd501` (Calypso) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` → `lpops302:/gl/in/staging/rdr/kytl` (Datio / DataHub CIB; nombre en destino `FicheroDiccionarioRDR_dia_yyyyMMdd.csv` según el formulario, `REPLACE`, ASCII) |
 | Ruta directorio trabajo | `/fichtemcomp/pr/descargas/kytl/index/` | `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario/` |
 | Comando de los filewatchers | `ctmfw '/fichtemcomp/pr/descargas/kytl/index/DictionaryIndex_TOTAL.csv' CREATE …` — parámetros y reglas sobre el código 7 no recibidos (P-DICT-01) | `ctmfw` sobre `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario/FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` — parámetros no recibidos (P-DICT-01) |
 | Cómo saber si fue bien | Los 4 jobs en OK en Control-M; `DictionaryIndex_YYYYMMDD.csv` presente en `lpemd501`; `index/` vacío y ficheros del día en `index/old/` | FW terminado sin que se ejecute `MEKYTL0876` (estado normal mientras esté dormida) |
-| Ruta backup/histórico | `/fichtemcomp/pr/descargas/kytl/index/old/` | N/A (no hay job de historificación en esta cadena) |
+| Ruta backup/histórico | `/fichtemcomp/pr/descargas/kytl/index/old/` | N/A: no hay job de historificación y el formulario de `MEKYTL0876` indica expresamente que no historifica |
 
 ---
 
@@ -299,10 +323,20 @@ el envío a `lpops302` hasta que la extracción se reactive en el Planificador.
   TOTAL y CSV pueden quedar en estados inconsistentes. **Se recomienda documentar el protocolo
   antes del paso a producción, confirmándolo con ANS RDR (BZG03906).**
 - **Riesgo medio — Cadena semanal dormida sin visibilidad:** La cadena semanal está activa en
-  Control-M pero no hace nada porque la extracción upstream está INACTIVA. Si alguien activa la
+  Control-M pero no hace nada porque no se genera su fichero (se supone que por una extracción
+  INACTIVA, §5.6). Si alguien activa la
   extracción del Planificador sin revisar la cadena, el fichero se depositará pero `MEKYTL0876`
   usará las rutas/parámetros actuales (que pueden estar desactualizados). **Recomendación:
   documentar la dependencia cadena semanal ↔ extracción Planificador en el runbook operativo.**
+- **Riesgo medio — Máscara del fichero semanal no coincide con la de su posible productor:** el
+  filewatcher semanal exige `FicheroDiccionarioRDR_semanal_` y el diccionario de contrapartidas, que
+  escribe en el mismo directorio, genera `FicheroDiccionarioRDR_sem_` y `FicheroDiccionarioRDR_dia_`. Si
+  esa fuera la intención original de la cadena, no se activaría nunca aunque el productor funcionara
+  (hipótesis, P-DICT-06). Al reactivarla habría que acordar un solo nombre, porque el formulario de
+  `MEKYTL0876` tampoco es coherente (nombre de destino `_dia_`, observación "mismo nombre").
+- **Riesgo bajo — `MEKYTL0876` no historifica, sobrescribe y no falla sin fichero:** el fichero
+  semanal se quedaría en `FicheroDiccionario/` tras el envío, el destino se sobrescribe (`REPLACE`) y
+  la falta del fichero no se detecta en el envío. Hay que supervisar la recepción en el destino.
 - **Riesgo bajo-medio — Validación XSD no bloqueante en el Planificador:** Aplica a ficheros XML
   de otros procesos del mismo Planificador; para CSV como `DictionaryIndex_TOTAL.csv` no aplica
   directamente, pero es relevante si otros procesos del Planificador generan XML.
@@ -327,7 +361,9 @@ Todos los demás requisitos tienen validación asociada, casos de prueba definid
 esperado verificable, y los comportamientos de error/duplicidad/borde están cubiertos. La cadena
 semanal está documentada en su estado real (dormida) y el motor Planificador Genérico se describe
 en su spec común (`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`).
-Las preguntas P-DICT-01 a P-DICT-07 de §4 siguen sin respuesta en ninguna fuente disponible.
+Tras la pasada de cierre (01/10/2026), P-DICT-01 (solo la intención del filewatcher semanal) y
+P-DICT-06 (receptor y posible productor) quedan parciales gracias a las fichas de la cadena semanal
+(§5.6); P-DICT-02 a P-DICT-05 y P-DICT-07 siguen sin respuesta en ninguna fuente disponible.
 
 Los prerrequisitos completos se encuentran en `rdr_dictionary_index_y_weekly_prerrequisitos.md`.
 Los casos de prueba detallados (precondiciones, pasos, datos sintéticos, resultado esperado)

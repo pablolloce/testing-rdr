@@ -29,7 +29,7 @@ El proceso se nutre de 5 tablas Oracle: `FT_T_FINS` (entidades), `FT_T_FIID` (id
 
 - `informeMIFID.properties.pr` debe existir y estar correctamente parametrizado para que `GSProcess.sh` dispare el evento `RDR_Reporte` (TC-001, TC-002, TC-004, TC-009).
 - El nodo `id="636"` de `GenerateReports.gsp` debe apuntar a `arrayStringSelects[16]` (TC-008). El texto literal del SQL aún no está en la spec (P-INF-01): hasta incorporarlo, TC-008 compara contra la copia que tenga el equipo.
-- La configuración de correo saliente (destinatarios `elegible.mifid@bbva.com`, `c014344b@bbva.com`, asunto fijo) debe estar operativa para poder confirmar recepción (TC-001, TC-002, TC-009).
+- La configuración de correo saliente (destinatarios `elegible.mifid@bbva.com`, un buzón individual (dirección personal omitida), asunto fijo) debe estar operativa para poder confirmar recepción (TC-001, TC-002, TC-009).
 
 ## Sistema de ficheros
 

@@ -27,7 +27,7 @@
     <resultadoEsperado>Los 7 jobs terminan en OK en el orden FW, GSPROCESS, UNIX2DOS, MEKYTL0135, MEKYTL0132, MEKYTL0361, MEKYTL0812; los ficheros del paso 4 existen; ConBDI.csv y el Excel Broker quedan en old/ con la fecha del día.</resultadoEsperado>
     <tipoValidacion>Estado de jobs en Control-M, contenido del log de GSProcess y existencia de ficheros.</tipoValidacion>
     <criterioAceptacion>7/7 jobs OK; ficheros presentes en las rutas indicadas. El paso 7 depende de que exista el Excel SWIFT si la línea IDX de MEKYTL0812 lo exige (P-CBD-04/P-CBD-05): si MEKYTL0812 termina con código 6 por falta de ese fichero, se registra y no invalida el resto del caso.</criterioAceptacion>
-    <posibilidadFallo>MEKYTL0812 puede fallar con código 6 si el Excel SWIFT no se genera en pruebas (generador desconocido).</posibilidadFallo>
+    <posibilidadFallo>MEKYTL0812 puede fallar con código 6 si el Excel SWIFT no se genera en pruebas (generador desconocido). En producción se ejecuta cada día laborable en 0 o 1 s, así que su línea del IDX podría tolerar la ausencia del fichero (P-CBD-05).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
@@ -146,7 +146,7 @@
     <objetivo>Validar de punta a punta que un fichero con registros válidos produce el informe CSV, el Excel, el correo y el archivo.</objetivo>
     <precondiciones>
       <precondicion>Precondiciones de TC-001.</precondicion>
-      <precondicion>Destinatario Destination configurado hacia un buzón de pruebas accesible (P-CBD-08).</precondicion>
+      <precondicion>Clave Destination de ConBDI.properties apuntando a un buzón de pruebas accesible (en producción es una única dirección individual) y ServerMailConfig.xml del entorno con la entrada de ese entorno (si falta, el sub-workflow Mail usa el servidor SMTP de desarrollo sin avisar).</precondicion>
       <precondicion>Acceso de lectura a FT_T_JBLG y FT_T_RLT1 en la base de datos de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -158,11 +158,11 @@
       <paso numero="3">Comprobar en FT_T_JBLG que existe un job con JOB_MSG_TYP='BDI' en estado CLOSED con inicio en la hora de la ejecución.</paso>
       <paso numero="4">Comprobar que la primera línea de Reporte_ConBDI.csv es BDI_ID;Mensaje;Valor_BDI;Valor_GS.</paso>
       <paso numero="5">Comprobar que Reporte_ConBDI_dos.csv tiene las mismas líneas que Reporte_ConBDI.csv terminadas en CRLF.</paso>
-      <paso numero="6">Comprobar que el Excel del día tiene las hojas NoBDI, NoRDR, DistintoRDR y DistintoNme.</paso>
+      <paso numero="6">Comprobar que el Excel del día tiene las 5 hojas Resumen, NoBDI, NoRDR, DistintoRDR y DistintoNme, y que cada contador de Resumen (celdas C14 a C17) coincide con el número de filas de datos de su hoja.</paso>
       <paso numero="7">Comprobar la recepción de un correo con asunto "Informe Conciliacion Broker BDI-RDR" y el Excel del día adjunto.</paso>
       <paso numero="8">Comprobar que los 7 jobs terminan OK y que ConBDI.csv queda en old/ como ConBDI_&lt;AAAAMMDD&gt;.csv.</paso>
     </pasos>
-    <resultadoEsperado>3 registros validados y cargados; job BDI cerrado; informe CSV con la cabecera literal y su versión CRLF; Excel con las 4 hojas; 1 correo con el Excel; cadena completa en OK.</resultadoEsperado>
+    <resultadoEsperado>3 registros validados y cargados; job BDI cerrado; informe CSV con la cabecera literal y su versión CRLF; Excel con las 5 hojas y los contadores de Resumen coherentes; 1 correo con el Excel; cadena completa en OK.</resultadoEsperado>
     <tipoValidacion>Logs, base de datos, ficheros y buzón.</tipoValidacion>
     <criterioAceptacion>Todas las comprobaciones de los pasos 2 a 8 se cumplen. El contenido de las filas del informe y del Excel depende de CONBDI2 (P-CBD-01) y no se evalúa en este caso.</criterioAceptacion>
     <posibilidadFallo>MEKYTL0812 puede fallar si el Excel SWIFT no existe (ver TC-001).</posibilidadFallo>
@@ -307,7 +307,7 @@
     <resultadoEsperado>Los pasos 8 y 9 del motor se ejecutan tras el fallo del 7; el resultado final es ESTADO-1- y código 1.</resultadoEsperado>
     <tipoValidacion>Log de GSProcess.</tipoValidacion>
     <criterioAceptacion>Aparecen los dos subprocesos posteriores y ESTADO-1-.</criterioAceptacion>
-    <posibilidadFallo>Si el .properties real tuviera una clave Stop (P-CBD-02), la ejecución pararía en el paso 7: se registraría como corrección de la spec.</posibilidadFallo>
+    <posibilidadFallo>El .properties de producción no tiene ninguna clave Stop; si el de pruebas la tuviera, la ejecución pararía en el paso 7 y habría que registrarlo como diferencia entre entornos.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

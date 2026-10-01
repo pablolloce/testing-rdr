@@ -40,18 +40,20 @@ regla una vez; el `<` en una columna sin `USAR` comprueba que la regla no se apl
 | Usuario del motor y de `KYTL_CONBDI_UNIX2DOS` | Equivalente de `xakytl1p`, con permiso de escritura en `ConBDI/` y en el directorio de logs; en TC-011, permiso para lanzar `GSProcess.sh ConBDI` a mano | `xakytl1p` |
 | Usuario de transmisión e historificación | Equivalente de `xsramer1` | `xsramer1` |
 | Scripts | `GSProcess.sh`, `Generico.sh`, `Delta.sh`, `Unix2Dos.sh` en `/<env>/kytl/online/multipais/multicanal/scrt/`; `MEGENV0001.sh` en `/<env>/pl/envioweb/scrt/` (con sus módulos); `RAMERC0068.sh` en `/<env>/pl/scrt/` | Mismas rutas con `pr` |
-| Jars | `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_PLSQL.jar`, `RDR_Report.jar`, `RDR_InformeBroker.jar` en `…/jar`; `ojdbc8.jar`, `common-lang3.jar`, `log4j.jar`, `dom4j-1.6.jar`, `xmlbeans.jar`, `poi-3.9.jar`, `poi-ooxml-3.9.jar`, `jxl.jar` en `…/lib`; JDK 17 en `<javahome17>` | Ídem |
+| Jars | `ControlCargaDatos.jar`, `javacsv.jar`, `RDR_PLSQL.jar`, `RDR_Report.jar`, `RDR_InformeBroker.jar` en `…/jar`; `ojdbc8.jar`, `common-lang3.jar`, `log4j.jar`, `dom4j-1.6.jar`, `xmlbeans.jar`, `poi-3.9.jar`, `poi-ooxml-3.9.jar`, `poi-ooxml-schemas-3.7.jar`, `jxl.jar` en `…/lib`; el JDK de `<javahome>` de `credentials.xml` (el `.properties` de producción no define `JDKV=17`, P-CBD-13; si se usan los jars de 17 recibidos hace falta un JDK 17 y `JDKV=17` en el `.properties` de pruebas) | Ídem |
 | GoldenSource | Servidor de pruebas con el evento `RDR_informeBroker_BDI`, el workflow `informeBroker_BDI` y el sub-workflow `Mail` desplegados | Ídem |
 
 ## Configuración
 
 | Fichero | Qué hay que conocer | Casos |
 |---|---|---|
-| `ConBDI.properties` | El real no se ha recibido (P-CBD-02); debe confirmarse que tiene los 9 pasos de la spec §6.3 y ninguna clave `Stop` | Todos; TC-013 en particular |
+| `ConBDI.properties` | Debe ser el de producción (9 pasos de la spec §6.3, ninguna clave `Stop`, clave `Destination`, clases `ControlCase` y `CreateReport` y sin `JDKV`) con `@@ENV@@` sustituido por el entorno de pruebas | Todos; TC-013 en particular |
+| `Plantilla_ReportMail.properties` | En `$CONF`; el paso 9 la copia a `Mail_TMP_<AAAAMMDDhhmmss>.properties` y ejecuta `GSProcess.sh` sobre ella (contenido desconocido, P-CBD-03). Si falta, el fallo no se ve | Todos |
+| `ServerMailConfig.xml` | En `$CONF`, con la entrada `server` del entorno de pruebas (`host` y `user` del servidor SMTP); sin ella el sub-workflow `Mail` usa el servidor de desarrollo | TC-003, TC-004, TC-007 |
 | `fillingRules_ConBDI.csv` | Idéntico al de la spec §6.6 (46 columnas) | TC-008, TC-009, TC-012 |
 | `select.properties` | Clave `ConBDI` con las 3 líneas de la spec §6.8 y `ruta` terminada en `/` | TC-007, TC-009, TC-011 |
-| `Reporte_ConciliacionBroker_Plantilla.xlsx` | En `ConBDI/`, con las hojas `NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme` | TC-001, TC-007; se retira en TC-002, TC-003, TC-013 |
-| Destinatario `Destination` del correo | Apuntando a un buzón de pruebas (origen desconocido, P-CBD-08) | TC-003, TC-004, TC-007 |
+| `Reporte_ConciliacionBroker_Plantilla.xlsx` | En `ConBDI/`, con las 5 hojas `Resumen`, `NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme` (estructura en la spec §6.10) | TC-001, TC-007; se retira en TC-002, TC-003, TC-013 |
+| Destinatario `Destination` del correo | Clave `Destination` de `ConBDI.properties`, apuntando a un buzón de pruebas (en producción es una única dirección individual; el sub-workflow `Mail` admite varias separadas por `;`) | TC-003, TC-004, TC-007 |
 | `MEKYTL0135.idx` | En `/<env>/pl/envioweb/idx/` o `idx/bck/` (P-CBD-06) | TC-001, TC-005 |
 | Líneas IDX de `MEKYTL0132`, `MEKYTL0361`, `MEKYTL0812` | En `/<env>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`; comprobar que ninguna tiene operación `BD` y que la máscara de `MEKYTL0361` no incluye la plantilla (P-CBD-05) | TC-001, TC-006 |
 
@@ -76,7 +78,7 @@ TC-001, TC-002, TC-006 y TC-007. Los demás casos pueden ejecutarse lanzando `GS
 
 ## Entorno de pruebas: qué falta definir
 
-- Buzón de pruebas y configuración de `Destination` (P-CBD-08) para TC-003, TC-004 y TC-007.
+- Buzón de pruebas y valor de `Destination` en el `ConBDI.properties` de pruebas para TC-003, TC-004 y TC-007.
 - Acceso de lectura al destino de `MEKYTL0135` o a su equivalente de pruebas (TC-005).
 - Si el Excel SWIFT no se genera en pruebas (P-CBD-04), `MEKYTL0812` puede terminar en error en TC-001,
   TC-006 y TC-007; está recogido en sus criterios de aceptación.

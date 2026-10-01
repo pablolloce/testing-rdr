@@ -6,7 +6,7 @@
     <objetivo>Verificar que los 7 jobs se ejecutan en el orden documentado, incluido el Fan-Out y el Fan-In.</objetivo>
     <precondiciones>
       <precondicion>Folder RDR_CLIENTES_CIB_new pedido en el entorno de pruebas (no producción); usuario de pruebas con permiso para consultar estados, eventos y logs; xakytl1p con ejecución sobre /&lt;env&gt;/kytl/online/multipais/multicanal/scrt/.</precondicion>
-      <precondicion>Existe clientes.csv en /fichtemcomp/&lt;env&gt;/descargas/kytl/clientes/ con la cabecera COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO y al menos 2 registros de 12 campos separados por ";", sin vocales acentuadas ni "ñ".</precondicion>
+      <precondicion>Existe clientes.csv en /fichtemcomp/&lt;env&gt;/descargas/kytl/clientes/ con la cabecera COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO y al menos 2 registros de 12 campos separados por ";" (uno con COD_TIPOCLI=C y otro con E, los dos valores que traduce el mapeo clientes.mdx), sin vocales acentuadas ni "ñ" ni comillas dentro de los valores.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>

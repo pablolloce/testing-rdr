@@ -19,7 +19,10 @@
 > defecto, el que usa el informe Broker), `InformeBroker.java` y `Utilidades.java`; fichero real
 > `fillingRules_ConBDI.csv`; `select.properties` real (copia de integración); script `Unix2Dos.sh` (copia
 > recibida en la evidencia de la conciliación de oficinas); respuestas del usuario de las rondas
-> 2026-09-23 y 2026-09-28. Revisión de autosuficiencia: 01/10/2026.
+> 2026-09-23 y 2026-09-28. Revisión de autosuficiencia: 01/10/2026. Pasada de cierre (01/10/2026):
+> `ConBDI.properties` **real de producción** (rama de Carlos), plantilla y muestra de salida real del Excel
+> Broker del 23/02/2026 (rama de Eduardo), sub-workflow `Mail` real (rama de Eduardo) y capturas de
+> Control-M del job `MEKYTL0812` (rama de Carlos).
 
 ## 1. Resumen ejecutivo
 
@@ -82,7 +85,7 @@ el destinatario del correo con el Excel; el consumo del informe SWIFT (no tiene 
 | ID | Requisito |
 |----|-----------|
 | R1 | `KYTL_CONBDI_GSPROCESS_FW` (usuario `xpctma1`) arranca a las 00:00 de lunes a viernes y ejecuta `ctmfw '/fichtemcomp/pr/descargas/kytl/ConBDI/ConBDI.csv' CREATE 0 60 10 5 240`: espera hasta 240 minutos a que el fichero exista y su tamaño no cambie en 5 mediciones seguidas tomadas cada 10 segundos (§6.2). |
-| R2 | `KYTL_CONBDI_GSPROCESS` (usuario `xakytl1p`) ejecuta `GSProcess.sh ConBDI`: `Delta No` → `QuitarNulos` → `ControlCargaDatos.jar` → `RDR_PLSQL.jar` (clase `ConBDI`) → `RDR_Report.jar` (clave `ConBDI`) → `Unix2Dos` → `RDR_InformeBroker.jar` → evento `Workflow` `RDR_informeBroker_BDI` → `Property` `Plantilla_ReportMail` (§6.3). |
+| R2 | `KYTL_CONBDI_GSPROCESS` (usuario `xakytl1p`) ejecuta `GSProcess.sh ConBDI`: `Delta No` → `QuitarNulos` → `ControlCargaDatos.jar` → `RDR_PLSQL.jar` (clase `ConBDI`) → `RDR_Report.jar` (clave `ConBDI`) → `Unix2Dos` → `RDR_InformeBroker.jar` → evento `Workflow` `RDR_informeBroker_BDI` → `Property` `Plantilla_ReportMail` (§6.3; confirmado con el `.properties` de producción). |
 | R3 | Ficheros que deja el motor en `/fichtemcomp/pr/descargas/kytl/ConBDI/`: `ConBDI_processed.csv`, `ConBDI_noprocessed.csv`, `Reporte_ConBDI.csv`, `Reporte_ConBDI_dos.csv`, `Reporte_ConciliacionBroker_<AAAAMMDD>.xlsx` y, según el documento, `Reporte_ConBDI_SWIFT_<AAAAMMDD>.xlsx` (generador no identificado, G4/P-CBD-04). |
 | R4 | `KYTL_CONBDI_UNIX2DOS` (usuario `xakytl1p`) ejecuta `/pr/kytl/online/multipais/multicanal/scrt/Unix2Dos.sh /fichtemcomp/pr/descargas/kytl/ConBDI/Reporte_ConBDI.csv`, que vuelve a crear `Reporte_ConBDI_dos.csv` con fin de línea CRLF (§6.9). |
 | R5 | `MEKYTL0135` (usuario `xsramer1`) ejecuta `MEGENV0001.sh MEKYTL0135`: transmisión XCOM de `Reporte_ConBDI_dos.csv` a `\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR` como `Reporte_ConBDI_<yyyymmdd>.csv`, configurada **"A DUMMY"** (sin entrega real). |
@@ -101,7 +104,7 @@ el destinatario del correo con el Excel; el consumo del informe SWIFT (no tiene 
 | G1 | ¿El informe SWIFT se distribuye por algún canal no documentado, o solo se archiva? | **Respuesta del usuario (2026-09-23), verificada con `informeBroker_BDI.wkf`:** "Se confirma que el envío por correo electrónico está programado exclusivamente para el fichero `Reporte_ConciliacionBroker_YYYYMMDD.xlsx`… El informe Excel SWIFT… no tiene canal de transmisión automatizado por diseño. Su propósito es quedar disponible en el directorio de descargas para consulta local/manual del área usuaria, tras lo cual el job MEKYTL0812 lo desplaza a la carpeta histórica /old/." |
 | G2 | ¿Qué reglas aplica `fillingRules_ConBDI.csv`? | **Resuelto con el fichero real** (§6.6). **Corrección (01/10/2026):** la spec decía que el fichero tenía 45 campos, que `NULL` era un "valor por defecto", que `POSICION(6)` era una "extracción posicional" y que `USAR` marcaba 22 campos "volcados" a la salida, con una lista desplazada una posición (incluía `CCLIEN`, `DENOMB` y `COD-CTEARGEN` y omitía `CDNITR`, `XTI-TIPOSBIC` y `DES_PROVINCI`). Según el código de `ControlCargaDatos.jar` y el fichero real: tiene **46 columnas** (la última es `FILLER`), `NULL` = campo obligatorio, `POSICION(6)` = longitud exacta 6, `USAR` = solo caracteres permitidos, y la lista correcta de las 22 columnas `USAR` es la de §6.6. `ConBDI_processed.csv` conserva las 46 columnas. |
 | G3 | ¿Qué procedimientos ejecuta `RDR_PLSQL.jar` y sobre qué tablas? | **Resuelto hasta donde llega el código Java** (§6.7): procedimiento `CONBDI2` con 21 parámetros, más inserciones en `FT_T_JBLG` y `FT_T_RLT1`. El cuerpo de `CONBDI2` sigue sin recibirse (P-CBD-01). **Corrección (01/10/2026):** la spec decía que el último parámetro de `CONBDI2` era el identificador de job; según `ConDB.java`, el identificador de job es el **parámetro 20** y el 21 es `COD_CDIPEX`. |
-| G4 | ¿Qué columnas tienen los dos Excel? | **Parcial:** el Excel Broker queda documentado (§6.10). El Excel SWIFT no lo genera ningún artefacto recibido (P-CBD-04). |
+| G4 | ¿Qué columnas tienen los dos Excel? | **Parcial:** el Excel Broker queda documentado al 100 % (§6.10), ahora también con la plantilla real y una muestra de salida real (documentos originales del proceso, rama de Eduardo). El Excel SWIFT no lo genera ningún artefacto recibido, y el `.properties` de producción confirma que ninguno de sus 9 pasos lo crea (P-CBD-04). |
 | — | ¿Por qué `MEKYTL0135` está "A DUMMY"? | **Respuesta del usuario (2026-09-23):** "En ambos casos [MEKYTL0352 y MEKYTL0135] se trata de jobs dummy de control cuya función es solicitar una transmisión XCOM." Sin motivo de negocio adicional. |
 
 ### 4.2 Preguntas pendientes al usuario
@@ -109,17 +112,18 @@ el destinatario del correo con el Excel; el consumo del informe SWIFT (no tiene 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-CBD-01 | ¿Se puede obtener el código PL/SQL del procedimiento `CONBDI2` (export de base de datos)? | Es quien realmente actualiza GoldenSource y, por los textos de las hojas del Excel Broker, quien inserta las incidencias `REPORTES`/`BDI` que salen en `Reporte_ConBDI.csv` y en el Excel. Sin él no se sabe qué columnas de GS cambian, qué incidencias se generan ni con qué textos (salvo las cuatro de Broker y la de formato) |
-| P-CBD-02 | ¿Se puede obtener el `ConBDI.properties` real desplegado en producción (y el de pruebas)? Solo se dispone de la descripción del documento funcional de la copia de desarrollo (`ConBDI.properties.de`) | Es la configuración que se ejecuta: claves exactas, argumentos, si hay alguna clave `Stop`, la clave `Destination` del correo y los argumentos de la acción `Property`. Los comandos de §6.3 están reconstruidos a partir de esa descripción y del patrón confirmado en `ConClientela.properties` |
-| P-CBD-03 | ¿Se puede obtener `Plantilla_ReportMail.properties` y saber qué hace el sub-módulo que lanza la acción `Property` (argumentos `_LOG_-log4jReportMail.properties`, `_NivelLOG_-2`, `_ReportType_-CONNECTIVITY`)? | Se ejecuta en cada ejecución y no se sabe qué hace ni qué produce. Además `GSProcess.sh` nunca detecta su fallo (§6.12) |
-| P-CBD-04 | ¿Qué programa genera `Reporte_ConBDI_SWIFT_<AAAAMMDD>.xlsx`? Ningún paso descrito del `.properties` lo crea | Sin él no se conoce su contenido ni se puede probar; `MEKYTL0812` falla si su línea del IDX exige el fichero y este no existe |
+| P-CBD-02 | ¿Se puede obtener el `ConBDI.properties` real desplegado en producción (y el de pruebas)? | **Resuelta** (`ConBDI.properties` de producción, rama de Carlos). Tiene exactamente los 9 pasos de §6.3, **ninguna clave `Stop*`**, la clave `Destination` con el destinatario del correo (§6.11) y los argumentos reales de la acción `Property` (§6.12). **Corrección:** el paso de validación usa la clase `ControlCase` y el informe CSV la clase `CreateReport` (ambas sin paquete) y el fichero **no define `JDKV`**, así que no usa el JDK 17 que se suponía (nueva pregunta P-CBD-13). El de pruebas no se ha recibido; no es necesario salvo que difiera en el destinatario |
+| P-CBD-03 | ¿Se puede obtener `Plantilla_ReportMail.properties` y saber qué hace el sub-módulo que lanza la acción `Property`? | **Parcial.** Los argumentos reales son `NomProperty=Plantilla_ReportMail`, `ArgProp1=Mail_TMP`, `ArgProp2=NivelLOG-2`, `ArgProp3=LOG-log4jReportMail.properties` y `ArgProp4=ReportType-CONNECTIVITY` (§6.12; corrigen la forma `_LOG_`/`_NivelLOG_`/`_ReportType_` que se había deducido de la descripción). **Sigue pendiente:** el contenido de `Plantilla_ReportMail.properties` (qué pasos ejecuta y qué produce). Lo usa también la cadena de calidad de contactos (`DQ_Contacts`), con lo que no es específico de este proceso. Se ejecuta en cada ejecución y `GSProcess.sh` nunca detecta su fallo (§6.12) |
+| P-CBD-04 | ¿Qué programa genera `Reporte_ConBDI_SWIFT_<AAAAMMDD>.xlsx`? Ningún paso descrito del `.properties` lo crea | **Parcial.** El `.properties` de producción confirma que **ninguno de los 9 pasos lo genera** (el único `.xlsx` es el del paso `InformeBroker`), y `RDR_Report.jar` solo escribe texto plano (el jar recibido no usa Apache POI). Las capturas de Control-M muestran que `MEKYTL0812` se ejecuta todos los días laborables (20 ejecuciones del 03/09 al 30/09/2026) y dura 0 o 1 s: o su línea del IDX tolera la ausencia del fichero o este lo deja otro proceso que no se ha identificado. **Sigue pendiente:** qué programa lo crea (si existe) y su contenido |
 | P-CBD-05 | ¿Cuáles son las líneas del IDX de `RAMERC0068.sh` de `MEKYTL0132`, `MEKYTL0361` y `MEKYTL0812` (campo 5 "falla si no hay fichero", máscara exacta y operación)? | Decide si cada job falla cuando no hay fichero y qué mueve exactamente. Si la máscara de `MEKYTL0361` fuera `Reporte_ConciliacionBroker_*.xlsx`, movería también la plantilla `Reporte_ConciliacionBroker_Plantilla.xlsx` y el informe Broker dejaría de generarse al día siguiente |
 | P-CBD-06 | ¿Cuál es la configuración (`.idx`) de `MEGENV0001.sh` para la clave `MEKYTL0135`, y el job es de tipo `Job` (ejecuta el script contra un destino inerte) o de tipo `Dummy` en Control-M? | Decide si el job puede fallar (y bloquear las historificaciones) y qué hace exactamente "A DUMMY" |
 | P-CBD-07 | ¿Tiene la cadena alguna regla Control-M "código 7 → OK" en `KYTL_CONBDI_GSPROCESS_FW`, o el código 7 (tiempo agotado) deja el job en NOTOK? Las fuentes no describen ninguna | Decide qué pasa un día sin fichero: cadena parada en rojo o terminada en verde sin procesar |
-| P-CBD-08 | ¿De dónde sale el destinatario del correo (parámetro `Destination` del workflow `informeBroker_BDI`)? ¿Es una clave de `ConBDI.properties`? ¿Se puede obtener el sub-workflow `Mail`? | Sin el destinatario no se puede probar el envío ni saber quién recibe el informe |
+| P-CBD-08 | ¿De dónde sale el destinatario del correo (parámetro `Destination` del workflow `informeBroker_BDI`)? ¿Es una clave de `ConBDI.properties`? ¿Se puede obtener el sub-workflow `Mail`? | **Resuelta** (`ConBDI.properties` de producción, rama de Carlos, y workflow `Mail`, rama de Eduardo). `Destination` es una clave del bloque de variables globales de `ConBDI.properties`; en el fichero de producción vale una única dirección individual de buzón corporativo (un buzón individual (dirección personal omitida)), no una lista de distribución. El sub-workflow `Mail` está descrito en §6.11 (acepta varios destinatarios separados por `;`). Queda por confirmar que el destinatario sigue vigente |
 | P-CBD-09 | ¿Qué significa cada una de las 46 columnas de `ConBDI.csv` (descripción funcional) y qué volumen diario es normal? Solo se conocen los nombres técnicos | Para preparar datos de prueba realistas y para que la spec responda "qué trae cada campo" |
 | P-CBD-10 | ¿En qué codificación llega `ConBDI.csv` (ISO-8859-1 o UTF-8)? | Con UTF-8, los registros con `é`, `í`, `ó` o `ñ` en las 22 columnas `USAR` se rechazan (riesgo R6 de `ControlCargaDatos.jar`) |
 | P-CBD-11 | ¿El bloque comentado de `ConBDI.java` que registraría los códigos BDI que existen en GS pero no vienen en el fichero (`noConci`) está desactivado a propósito? ¿El jar desplegado corresponde a este código? | Hoy esa detección se calcula y se descarta sin ningún efecto (§6.7) |
 | P-CBD-12 | ¿Es intencionado que, para una línea con número de campos incorrecto, `ConBDI.java` registre como "código BDI" el **tercer** campo (`DES-NOMCORT2`) en lugar de `COD-CLINTERN`? | El informe muestra en la columna `BDI_ID` el nombre corto 2, no el código (§6.7) |
+| P-CBD-13 | El `.properties` de producción no define `JDKV` y nombra las clases `ControlCase` y `CreateReport` sin paquete, mientras que los jars recibidos (`ControlCargaDatos.jar`, `RDR_Report.jar`, compilados con JDK 17) contienen `controlcargadatos.ControlCase` y `rdr_report.CreateReport` y la cadena hermana `ConClientela` sí usa `JDKV=17` y los nombres con paquete. ¿Qué JDK (`<javahome>` de `credentials.xml`) y qué versión de cada jar ejecuta realmente `ConBDI` en producción? ¿Coincide su comportamiento con el analizado? | Si el jar desplegado es el antiguo (clases sin paquete), las reglas de §6.6 y §6.8 se han deducido del jar nuevo y podrían diferir; con el jar nuevo y estos nombres, el paso fallaría con `ClassNotFoundException` |
 
 ## 5. Especificación funcional
 
@@ -225,6 +229,16 @@ Folder `KYTL0000-RDR_CONCILIACION_BDI_new`, UUAA `KYTL0000`, servidor Control-M 
 | 6 | `MEKYTL0361` | `xsramer1` | `/pr/pl/scrt/RAMERC0068.sh MEKYTL0361` | `..._MEKYTL0132_OK_new` | `RDR_CONCILIACION_BDI_MEKYTL0361_OK_new` |
 | 7 | `MEKYTL0812` | `xsramer1` | `/pr/pl/scrt/RAMERC0068.sh MEKYTL0812` | `..._MEKYTL0361_OK_new` | Fin de cadena |
 
+**Datos reales de Control-M de `MEKYTL0812`** (capturas del job, rama de Carlos): tipo `OS`, no marcado
+como Dummy, servidor `MERCADOS-4`, máquina `pr-rdr.igrupobbva`, usuario `xsramer1`, script
+`/pr/pl/scrt/RAMERC0068.sh`, variable local `PARM1=MEKYTL0812` pasada como argumento, aplicación `KYTL`,
+subaplicación `RDR_CONCILIACION_BDI_new`, prioridad `Very Low` (`AA`), sin ventana horaria de inicio,
+sin relanzamiento cíclico (máximo 0), retención del log 3 días, sin acciones ni notificaciones definidas, un
+solo prerrequisito (la condición `RDR_CONCILIACION_BDI_MEKYTL0361_OK_new`) y 1 unidad de `MAX-LPRDR501`
+(de 100). Estadísticas de septiembre de 2026: 20 ejecuciones, una por cada día laborable del 03/09 al
+30/09, con inicio medio a las 00:48 (entre las 00:40 y la 01:13) y duración de 0 o 1 segundo; es decir, la
+cadena entera termina cada noche poco antes de la 01:00.
+
 Grafo estrictamente lineal: si un job termina en NOTOK, los siguientes no arrancan y, con `MAXRERUN=0`,
 Control-M no lo reintenta; lo relanza soporte a mano.
 
@@ -247,10 +261,11 @@ cadena (P-CBD-07): sin ella, el job queda NOTOK, la cadena se para y se avisa a 
 
 ### 6.3 Motor: `GSProcess.sh ConBDI` (`ConBDI.properties`)
 
-Funcionamiento genérico en `salidas/comun_gsprocess/comun_gsprocess_spec.md`. El `.properties` real no se
-ha recibido (P-CBD-02); lo que sigue es la descripción del documento funcional de su copia de desarrollo
-(`ConBDI.properties.de`), completada con el patrón real confirmado en `ConClientela.properties` (misma
-familia, mismos jars y clases).
+Funcionamiento genérico en `salidas/comun_gsprocess/comun_gsprocess_spec.md`. Lo que sigue está
+contrastado con el `ConBDI.properties` **real de producción** (rama de Carlos; conserva el marcador
+`@@ENV@@` en `Ruta`, `File` y `PreArgJava3`, así que es la versión del repositorio, anterior a la
+sustitución del entorno en el despliegue, P-GSP-01 de la spec común). Confirma que el motor tiene
+exactamente 9 pasos, en el orden de la tabla, y que **no hay ninguna clave `Stop*`**.
 
 **Variables globales** (bloque `Accion=VariablesGlobales`):
 
@@ -259,6 +274,7 @@ familia, mismos jars y clases).
 | `MOD_EJECUCION` | `ConBDI` | Se escribe en el log |
 | `Ruta` | `/fichtemcomp/@@ENV@@/descargas/kytl/` | Se pasa a los workflows. `GSProcess.sh` no sustituye `@@ENV@@` (pregunta abierta P-GSP-01 de la spec común) |
 | `File` | `…/ConBDI/ConBDI_processed.csv` | Se pasa a los workflows |
+| `Destination` | Una dirección de correo individual (un buzón individual (dirección personal omitida)) | Destinatario del informe Broker; lo lee el workflow `informeBroker_BDI` del `.properties` completo (§6.11) |
 | `Servicio` | `ConBDI` | Nombre del servicio |
 | `SuccessAction` | `LEAVE` | Se pasa a los workflows (dejar el fichero en su sitio) |
 | `Delta`, `Preprocesado`, `Workflow` | `No`, `Si`, `Si` | **No son claves de `GSProcess.sh`**: no cambian nada en el motor. Son informativas (y llegan a los workflows, que reciben el `.properties` completo) |
@@ -273,17 +289,23 @@ siguientes se ejecutan igualmente** y el job termina con código 1 al final (spe
 |---|---|---|---|---|
 | 1 | `Script` `Delta` | `$SCRIPT/Delta.sh No` | Copia `ConBDI.csv` a `old/ConBDI.csv` (§6.4) | Código 1 del `cp` si falta `old/` o el fichero; se cuenta como error y se sigue |
 | 2 | `Script` `QuitarNulos` | `Generico.sh QuitarNulos $FILES/ConBDI/ConBDI.csv` | Quita `\x0` de `ConBDI.csv` en sitio (§6.5) | Código 1 si falla `sed` |
-| 3 | `Java` `PreprocessedBDI` | `java … -cp ControlCargaDatos.jar:javacsv.jar:… controlcargadatos.ControlCase $FILES/ConBDI/ConBDI.csv $LOG/ConBDI_preprocess_summary.log $CONF/fillingRules_ConBDI.csv` | `ConBDI_processed.csv`, `ConBDI_noprocessed.csv`, log (§6.6) | Casi siempre sale con 0: los fallos solo se ven en el log |
+| 3 | `Java` `PreprocessedBDI` | `java … -cp ControlCargaDatos.jar:javacsv.jar:… ControlCase $FILES/ConBDI/ConBDI.csv $LOG/ConBDI_preprocess_summary.log $CONF/fillingRules_ConBDI.csv` (en el `.properties` la clase es `ControlCase`, sin paquete; el jar recibido contiene `controlcargadatos.ControlCase`, P-CBD-13) | `ConBDI_processed.csv`, `ConBDI_noprocessed.csv`, log (§6.6) | Casi siempre sale con 0: los fallos solo se ven en el log |
 | 4 | `Java` `ConBDI` | `java … -cp RDR_PLSQL.jar:ojdbc8.jar:… ConBDI $FILES/ConBDI/ConBDI_processed.csv` | Carga en GS, `FT_T_JBLG`, `FT_T_RLT1` (§6.7) | Código ≠0 solo si no hay conexión a BD (excepción no controlada) |
-| 5 | `Java` `ReporteBDI` | `java … -cp RDR_Report.jar:… rdr_report.CreateReport $CONF/select.properties ConBDI` | `Reporte_ConBDI.csv` (§6.8) | Siempre 0 |
+| 5 | `Java` `ReporteBDI` | `java … -cp RDR_Report.jar:… CreateReport $CONF/select.properties ConBDI` (clase `CreateReport` sin paquete en el `.properties`; el jar recibido contiene `rdr_report.CreateReport`, P-CBD-13) | `Reporte_ConBDI.csv` (§6.8) | Siempre 0 |
 | 6 | `Script` `Unix2Dos` | `Generico.sh Unix2Dos $FILES/ConBDI/Reporte_ConBDI.csv` | `Reporte_ConBDI_dos.csv` (§6.9) | Código 4 si no existe `Reporte_ConBDI.csv` |
-| 7 | `Java` `InformeBroker` | `java … -cp RDR_InformeBroker.jar:… InformeBroker $FILES/ConBDI/Reporte_ConciliacionBroker` (librerías `dom4j-1.6.jar`, `xmlbeans.jar`, `poi-3.9.jar`, `poi-ooxml-3.9.jar`, `jxl.jar`) | `Reporte_ConciliacionBroker_<AAAAMMDD>.xlsx` (§6.10) | Código ≠0 si falta la plantilla o no hay conexión |
+| 7 | `Java` `InformeBroker` | `java … -cp RDR_InformeBroker.jar:… InformeBroker $FILES/ConBDI/Reporte_ConciliacionBroker` (librerías `dom4j-1.6.jar`, `xmlbeans.jar`, `poi-3.9.jar`, `poi-ooxml-3.9.jar`, `poi-ooxml-schemas-3.7.jar`, `jxl.jar`) | `Reporte_ConciliacionBroker_<AAAAMMDD>.xlsx` (§6.10) | Código ≠0 si falta la plantilla o no hay conexión |
 | 8 | `Evento` `Workflow` | `./executeBbvaEvent.sh fileloading RDR_informeBroker_BDI $CREDENTIALS ConBDI.properties` | Correo con el Excel (§6.11) | Código 1 de `executeBbvaEvent.sh` (spec común) |
-| 9 | `Property` | `GSProcess.sh <ArgProp1>_<AAAAMMDDhhmmss>` sobre una copia de `Plantilla_ReportMail.properties` con las sustituciones `_LOG_`→`log4jReportMail.properties`, `_NivelLOG_`→`2`, `_ReportType_`→`CONNECTIVITY` (§6.12) | Desconocido (P-CBD-03) | **Nunca se detecta** (riesgo R2 de `GSProcess.sh`) |
+| 9 | `Property` | `GSProcess.sh Mail_TMP_<AAAAMMDDhhmmss>` sobre una copia de `Plantilla_ReportMail.properties` con las sustituciones `NivelLOG`→`2`, `LOG`→`log4jReportMail.properties` y `ReportType`→`CONNECTIVITY` (§6.12) | Desconocido (P-CBD-03) | **Nunca se detecta** (riesgo R2 de `GSProcess.sh`) |
 
-Todos los `java` usan el JDK 17 (`JDKV=17` en el patrón real) con las opciones por defecto de
-`GSProcess.sh` (`-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF`) y las librerías
-`ojdbc8.jar`, `common-lang3.jar` y `log4j.jar`.
+> **Corrección (01/10/2026):** la spec decía que todos los `java` usaban el JDK 17 (`JDKV=17`, copiado del
+> patrón de `ConClientela.properties`). El `.properties` real de `ConBDI` **no define `JDKV` en ninguno de
+> los tres pasos Java**, así que `GSProcess.sh` usa el JDK de la etiqueta `<javahome>` de `credentials.xml`
+> (el de `<javahome17>` solo se elige con `JDKV=17`). Qué versión es y si ejecuta los jars de 17
+> recibidos es la pregunta P-CBD-13.
+
+Todos los `java` usan las opciones por defecto de `GSProcess.sh` (`-Xmx16G -Dfile.encoding=iso-8859-1
+-DENV=<env> -DpropertiesPath=$CONF`) y las librerías `ojdbc8.jar`, `common-lang3.jar` y `log4j.jar`
+(`InformeBroker` añade las de POI, §6.10).
 
 **Resultado del job:** 0 si los 9 pasos devolvieron 0; 1 si alguno devolvió otro código (los demás se
 ejecutan igualmente). Mensajes en `$LOG/execute_ConBDI_<AAAAMMDD>.log`: `SubProceso <nombre> finalizado de
@@ -533,7 +555,26 @@ mismas reglas de conexión y credenciales `<gcuser>`/`<gcpass>`).
 
 **Qué recibe:** `args[0]` = `$FILES/ConBDI/Reporte_ConciliacionBroker`. Abre la plantilla
 `<args[0]>_Plantilla.xlsx` = `/fichtemcomp/<env>/descargas/kytl/ConBDI/Reporte_ConciliacionBroker_Plantilla.xlsx`,
-que debe existir (no se ha recibido, así que su cabecera y su formato no se conocen).
+que debe existir (estructura real en el apartado siguiente).
+
+**Plantilla real y muestra de salida** (ficheros originales del proceso, rama de Eduardo: la plantilla y el
+Excel generado el 23/02/2026). Son libros de Excel de 5 hojas visibles, en este orden: `Resumen`, `NoBDI`,
+`NoRDR`, `DistintoRDR`, `DistintoNme`. Creados en 2015 por `IT BBVA` y modificados por última vez en 2017;
+cada hoja lleva uno o dos logotipos como imagen en la esquina superior izquierda (columna A).
+- `Resumen`: título en `B3` (`Resumen de la Conciliación del Código Broker BDI - RDR`, celdas `B3:C6`
+  combinadas) y una tabla en `B13:C17` con cabecera `Resumen`/`Número` y cuatro contadores con fórmula
+  `COUNTA(<hoja>!B3:B100000)`: `Códigos Broker no existentes en BDI` (`NoBDI`), `Códigos Broker no
+  existentes en RDR` (`NoRDR`), `Códigos Broker diferentes` (`DistintoRDR`) y `Nombres Broker diferentes`
+  (`DistintoNme`). Por eso `InformeBroker` recalcula las fórmulas antes de guardar. Límite: las fórmulas
+  cuentan hasta la fila 100000.
+- Hojas de detalle: título en `B1` (`Resumen de Códigos Broker no existentes en BDI`, `…no existentes en
+  RDR`, `…diferentes` y `Resumen de Nombres Broker diferentes`) y cabecera en la fila 2, columnas `B` a `F`
+  o `G`: `LEGAL NAME`, `FINSID`, `MGC ID`, `BDI ID`, y después `RDR BROKER` (`NoBDI`), `BDI BROKER`
+  (`NoRDR`) o `BDI BROKER` y `RDR BROKER` (`DistintoRDR` y `DistintoNme`). La columna A queda vacía (solo
+  el logotipo) y los datos empiezan en la fila 3, lo que confirma las posiciones que escribe el código.
+- La muestra del 23/02/2026 (un lunes) es un día **sin diferencias**: las cuatro hojas de detalle solo tienen
+  título y cabecera y los cuatro contadores de `Resumen` valen 0. La plantilla no trae `Title`; la muestra
+  sí (`Conciliación Broker BDI-RDR`), con lo que se confirma que lo escribe el código.
 
 **Qué produce:** `<args[0]>_<yyyyMMdd>.xlsx` = `Reporte_ConciliacionBroker_<AAAAMMDD>.xlsx` (fecha del
 servidor al ejecutar), con propiedades `Creator="IT BBVA"` y `Title="Conciliación Broker BDI-RDR"` y las
@@ -582,7 +623,8 @@ Lo lanza `executeBbvaEvent.sh` (spec común) con el evento `RDR_informeBroker_BD
 `KYTL_GC` 2022-11-05). Recibe como fichero de entrada el `ConBDI.properties` completo (riesgo R5 de
 `GSProcess.sh`).
 
-Variables: `Destination` (parámetro de entrada: dirección del destinatario, origen desconocido, P-CBD-08),
+Variables: `Destination` (parámetro de entrada: dirección del destinatario; sale de la clave `Destination` de
+`ConBDI.properties`, que en producción es una única dirección individual de buzón corporativo),
 `Servicio="informeBroker_BDI"`, `Subject="Informe Conciliacion Broker BDI-RDR"`.
 
 Nodos:
@@ -593,7 +635,7 @@ Nodos:
    cuerpo `mail="Buenos días,\n\nSe adjunta un informe en el que se muestra el resultado de la conciliación del Broker entre BDI y RDR.\n\nUn saludo."`;
    si `fileMail` existe, `enviar="Y"`; si no, `"N"`.
 3. `Switch Case` (id 8) sobre `enviar`: `Y` → paso 4; `N`, nulo o cualquier otro → `Stop`.
-4. `Call Subworkflow` (id 58) al sub-workflow **`Mail`** (no recibido) con `Destination`,
+4. `Call Subworkflow` (id 58) al sub-workflow **`Mail`** (descrito abajo) con `Destination`,
    `FileMail=fileMail`, `Mail=mail`, `NameFile=nameFile` y `Subject`.
 5. `Stop` (id 2).
 
@@ -601,15 +643,47 @@ Resultado: un correo con asunto `Informe Conciliacion Broker BDI-RDR` y el Excel
 correo si el Excel no existe. Qué devuelve `executeBbvaEvent.sh` si el sub-workflow `Mail` falla depende de
 la pregunta abierta P-EBE-01 de su spec común.
 
+**Sub-workflow `Mail`** (workflow real de GoldenSource, grupo `Custom/RDR/Common`, comentario `ConCorreo_v1`,
+versión 6, último cambio `KYTL_GC` 2022-11-05, estado `RELEASED`, `haltOnError=false`, `retries=0`). Es
+genérico (lo comparten otros procesos). Parámetros de entrada: `Destination` (obligatorio), `Mail`
+(cuerpo, obligatorio), `Subject` (obligatorio), `FileMail` (ruta del adjunto, opcional) y `NameFile`
+(nombre con el que se adjunta, opcional). Dos nodos `Bean Shell Script` en cadena:
+1. `HOST - USER`: deduce el entorno por el primer directorio que exista entre `/pr/…/cfg/entorno/`,
+   `/pp/…`, `/ei/…` y `/de/…`; parte de unos valores por defecto de desarrollo (servidor SMTP de
+   desarrollo y remitente `rdr.es@dev.bbva.com`) y los sustituye por los de la entrada
+   `/root/server[@id='<entorno>']` (etiquetas `host` y `user`) del fichero `ServerMailConfig.xml` del
+   directorio `$CONF` (`/<env>/kytl/online/multipais/multicanal/dat/properties/`). Si el fichero falta o no
+   tiene esa entrada, **se quedan los valores de desarrollo** sin avisar (solo traza).
+2. Envío SMTP puerto 25 sin contraseña (`t.connect(USER, "")`): el cuerpo es el texto `Mail`; añade el
+   adjunto solo si `FileMail` existe; separa `Destination` por `;` (varios destinatarios) y los pone todos
+   en `TO`.
+**Todo el bloque de envío está dentro de un `try/catch` que solo hace `printStackTrace()`**: si el servidor
+SMTP no responde, la dirección es inválida o `Destination` viene vacío, el workflow termina igualmente en
+éxito y no se envía nada. Por eso un fallo de correo no lo detecta ni `executeBbvaEvent.sh` ni
+`GSProcess.sh`.
+
 ### 6.12 Sub-módulo `Plantilla_ReportMail` (acción `Property`)
 
-Funcionamiento genérico de la acción en `salidas/comun_gsprocess/comun_gsprocess_spec.md` §6.6: copia
-`$CONF/Plantilla_ReportMail.properties` a un temporal `<ArgProp1>_<AAAAMMDDhhmmss>.properties`, le aplica
-las sustituciones `_LOG_`→`log4jReportMail.properties`, `_NivelLOG_`→`2` y `_ReportType_`→`CONNECTIVITY`,
-ejecuta `GSProcess.sh` sobre el temporal y lo borra. El valor de `ArgProp1` y el contenido de la plantilla
-no se conocen (P-CBD-02, P-CBD-03). **`GSProcess.sh` nunca detecta el fallo de este sub-módulo**: registra
-`SubProceso Plantilla_ReportMail finalizado de forma correcta` aunque haya fallado. Su log propio sería
-`execute_<ArgProp1>_<AAAAMMDDhhmmss>_<AAAAMMDD>.log`.
+Funcionamiento genérico de la acción en `salidas/comun_gsprocess/comun_gsprocess_spec.md` §6.6. Con los
+argumentos reales de `ConBDI.properties` de producción:
+
+| Clave | Valor | Efecto |
+|---|---|---|
+| `NomProperty` | `Plantilla_ReportMail` | Plantilla `$CONF/Plantilla_ReportMail.properties` |
+| `ArgProp1` | `Mail_TMP` | Temporal `$CONF/Mail_TMP_<AAAAMMDDhhmmss>.properties` |
+| `ArgProp2` | `NivelLOG-2` | `sed s/NivelLOG/2/g` |
+| `ArgProp3` | `LOG-log4jReportMail.properties` | `sed s/LOG/log4jReportMail.properties/g` (cualquier "LOG" que quedara en el temporal) |
+| `ArgProp4` | `ReportType-CONNECTIVITY` | `sed s/ReportType/CONNECTIVITY/g` |
+
+Después de cada sustitución, `GSProcess.sh` también cambia dentro del temporal el texto
+`Plantilla_ReportMail` por `Mail_TMP_<AAAAMMDDhhmmss>`; ejecuta `GSProcess.sh Mail_TMP_<AAAAMMDDhhmmss>` y
+borra el temporal. Los marcadores en la plantilla son, por tanto, las palabras `NivelLOG`, `LOG` y
+`ReportType` (sin guiones bajos, **corrección:** antes se habían deducido como `_LOG_`, `_NivelLOG_` y
+`_ReportType_`), y el orden de las sustituciones importa (`NivelLOG` se sustituye antes que `LOG`). El
+contenido de la plantilla no se conoce (P-CBD-03). **`GSProcess.sh` nunca detecta el fallo de este
+sub-módulo**: registra `SubProceso Plantilla_ReportMail finalizado de forma correcta` aunque haya fallado.
+Su log propio sería `execute_Mail_TMP_<AAAAMMDDhhmmss>_<AAAAMMDD>.log`. La misma plantilla la invoca
+también la cadena de calidad de contactos (`DQ_Contacts`).
 
 ### 6.13 Transmisión simulada `MEKYTL0135` (`MEGENV0001.sh`)
 
@@ -642,7 +716,9 @@ no se han recibido (P-CBD-05); según las fichas de los jobs:
 | `MEKYTL0361` | Ídem | `Reporte_ConciliacionBroker_<yyyymmdd>.xlsx` | Ídem | Mismo nombre |
 | `MEKYTL0812` | Ídem | `Reporte_ConBDI_SWIFT_<YYYYMMDD>.xlsx` | Ídem | Mismo nombre |
 
-Las fichas describen un movimiento (operación `M`) sin compresión. Si el campo 5 del IDX es `0` y no hay
+Las fichas describen un movimiento (operación `M`) sin compresión. `MEKYTL0812` tarda 0 o 1 segundo cada
+noche (§6.1) y se ejecuta todos los días laborables, lo que es coherente con un movimiento de pocos
+ficheros o con que no encuentre nada que mover sin fallar; no permite distinguirlo sin su línea del IDX. Si el campo 5 del IDX es `0` y no hay
 fichero, el job termina con código 6 y para la cadena (los siguientes no se ejecutan). Un relanzamiento el
 mismo día sobrescribe el fichero fechado en `old/`. Log en `/pr/pl/log/<CLAVE>_<HHMMSS>.log`.
 
@@ -652,7 +728,7 @@ mismo día sobrescribe el fichero fechado en `old/`. Log en `/pr/pl/log/<CLAVE>_
 |---|---|---|---|
 | `ctmfw` | `KYTL_CONBDI_GSPROCESS_FW` | Utilidad de Control-M (documentación BMC) | §6.2 y spec común |
 | `GSProcess.sh` | `KYTL_CONBDI_GSPROCESS` | Sí (código íntegro, copia común) | §6.3 y spec común |
-| `ConBDI.properties` | `GSProcess.sh` | **No** (solo descripción de la copia `.de`) | §6.3, P-CBD-02 |
+| `ConBDI.properties` | `GSProcess.sh` | Sí (fichero real de producción) | §6.3 |
 | `Delta.sh` | Paso 1 | Sí | §6.4 y spec común |
 | `Generico.sh` (`QuitarNulos`, `Unix2Dos`) | Pasos 2 y 6 | Sí | §6.5, §6.9 y spec común |
 | `ControlCargaDatos.jar` + `fillingRules_ConBDI.csv` | Paso 3 | Sí (jar desensamblado, reglas reales) | §6.6 y spec común |
@@ -660,11 +736,11 @@ mismo día sobrescribe el fichero fechado en `old/`. Log en `/pr/pl/log/<CLAVE>_
 | Procedimiento `CONBDI2` | `ConDB.executeCONBDI_Hilos` | **No** | P-CBD-01 |
 | `RDR_Report.jar` + `select.properties` | Paso 5 | Sí | §6.8 y spec común |
 | `RDR_InformeBroker.jar` (`InformeBroker`, `ConDB`) | Paso 7 | Sí (código fuente) | §6.10 |
-| Plantilla `Reporte_ConciliacionBroker_Plantilla.xlsx` | `InformeBroker` | **No** | §6.10 |
+| Plantilla `Reporte_ConciliacionBroker_Plantilla.xlsx` | `InformeBroker` | Sí (fichero real y muestra de salida del 23/02/2026) | §6.10 |
 | `executeBbvaEvent.sh` | Paso 8 | Sí | Spec común |
 | `RDR_informeBroker_BDI.gsp` / `informeBroker_BDI` | Paso 8 | Sí (descripción completa en el documento funcional) | §6.11 |
-| Sub-workflow `Mail` | `informeBroker_BDI` | **No** | P-CBD-08 |
-| `Plantilla_ReportMail.properties` | Paso 9 | **No** | P-CBD-03 |
+| Sub-workflow `Mail` | `informeBroker_BDI` | Sí (workflow real) | §6.11 |
+| `Plantilla_ReportMail.properties` | Paso 9 | **No** (sí sus argumentos de llamada) | §6.12, P-CBD-03 |
 | Generador del Excel SWIFT | Desconocido | **No** | P-CBD-04 |
 | `Unix2Dos.sh` | `KYTL_CONBDI_UNIX2DOS` | Sí (copia de otro proceso, misma ruta) | §6.9 |
 | `MEGENV0001.sh` + `MEKYTL0135.idx` | `MEKYTL0135` | Script sí; `.idx` **no** | §6.13, P-CBD-06 |
@@ -702,7 +778,7 @@ reglas del paso de validación y carga; TC-011 la query del informe; TC-002, TC-
 fallo del motor y del workflow; TC-005, TC-006 y TC-004 los pasos posteriores. Ningún job ni transición de
 §6.1 queda sin cubrir. Lo que no se puede cubrir con un resultado esperado cerrado por falta de material
 está fuera de los casos y registrado como pregunta: el efecto de `CONBDI2` en GS (P-CBD-01), el contenido
-del Excel SWIFT (P-CBD-04) y el sub-módulo `Plantilla_ReportMail` (P-CBD-03).
+del Excel SWIFT (P-CBD-04) y el contenido del sub-módulo `Plantilla_ReportMail` (P-CBD-03).
 
 Cada caso es ejecutable tal cual: indica entorno (pruebas, nunca producción), datos, pasos de una sola
 acción o comprobación y un resultado esperado verificable. Los que pueden tener efecto destructivo lo
@@ -745,6 +821,9 @@ dicen en su criterio de aceptación.
 | RS13 | Las líneas con número de campos incorrecto se registran con el campo 3 (nombre corto) como código y un apóstrofo hace perder la fila | Bajo (P-CBD-12) |
 | RS14 | Patrón P-021: sin control de integridad ni de concurrencia; dos ejecuciones simultáneas comparten ficheros y `LOG_DIA` | Medio |
 | RS15 | Un `ConBDI.csv` vacío (tamaño 0) se da por llegado; la cadena termina en verde sin cargar nada | Medio |
+| RS16 | El sub-workflow `Mail` captura cualquier excepción y termina en éxito: un SMTP caído, un `Destination` vacío o inválido, o un `ServerMailConfig.xml` sin la entrada del entorno (se usa el servidor de desarrollo) hacen que el informe Broker no llegue sin ninguna alarma | Medio |
+| RS17 | El informe Broker llega a una única dirección individual (`Destination` de `ConBDI.properties`): si esa persona deja el puesto, nadie lo recibe y nada falla | Medio |
+| RS18 | El `.properties` de producción no usa `JDKV=17` ni los nombres de clase con paquete de los jars recibidos (P-CBD-13): la lógica analizada puede no ser la desplegada | Alto |
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -753,8 +832,10 @@ corregidas de `fillingRules_ConBDI.csv`), la carga hasta la llamada a `CONBDI2`,
 cabecera y nombre literales), las dos conversiones a CRLF, el Excel Broker, el workflow de correo y los
 jobs de transmisión e historificación, con sus códigos de salida y sus fallos.
 
-Para cerrar del todo quedan las preguntas P-CBD-01 a P-CBD-12. Las que más condicionan las pruebas son el
-cuerpo de `CONBDI2` (P-CBD-01), el `.properties` real (P-CBD-02), el sub-módulo `Plantilla_ReportMail`
-(P-CBD-03), el generador del Excel SWIFT (P-CBD-04) y las líneas del IDX de las historificaciones
-(P-CBD-05). Ninguna impide ejecutar los 13 casos definidos, que se limitan a lo que el material permite
-afirmar.
+Tras la pasada de cierre (01/10/2026) quedan resueltas P-CBD-02 (`.properties` real de producción) y
+P-CBD-08 (destinatario y sub-workflow `Mail`), y parciales P-CBD-03 y P-CBD-04. Para cerrar del todo
+quedan abiertas P-CBD-01, P-CBD-03 a P-CBD-07 y P-CBD-09 a P-CBD-13. Las que más condicionan las pruebas son
+el cuerpo de `CONBDI2` (P-CBD-01), el contenido de la plantilla `Plantilla_ReportMail` (P-CBD-03), el
+generador del Excel SWIFT (P-CBD-04), las líneas del IDX de las historificaciones (P-CBD-05) y la versión
+de jars y JDK que ejecuta producción (P-CBD-13). Ninguna impide ejecutar los 13 casos definidos, que se
+limitan a lo que el material permite afirmar.

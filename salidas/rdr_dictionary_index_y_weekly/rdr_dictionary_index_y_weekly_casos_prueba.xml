@@ -261,9 +261,9 @@
 
   <casoDePrueba id="TC-12" tipo="borde">
     <nombre>Cadena semanal dormida: FW para sin error</nombre>
-    <objetivo>Verificar que cuando la extracción semanal en el Planificador está INACTIVA y no se genera el fichero, el FW semanal expira sin error (cadena dormida por diseño).</objetivo>
+    <objetivo>Verificar que cuando no se genera el fichero semanal, el FW semanal expira sin error (cadena dormida por diseño: la ficha del filewatcher exige que no falle y que la cadena se detenga).</objetivo>
     <precondiciones>
-      <precondicion>Extracción semanal en Planificador INACTIVA (estado actual del sistema).</precondicion>
+      <precondicion>No se genera ningún fichero FicheroDiccionarioRDR_semanal_yyyyMMdd.csv (estado actual del sistema; el motivo, posiblemente una extracción inactiva del Planificador, no está confirmado, P-DICT-06).</precondicion>
       <precondicion>Directorio /fichtemcomp/pr/descargas/kytl/FicheroDiccionario/ sin FicheroDiccionarioRDR_semanal_yyyyMMdd.csv.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -279,7 +279,7 @@
     <resultadoEsperado>El FW semanal expira sin error (cadena para limpiamente, sin generar alerta NOTOK); MEKYTL0876 no se ejecuta.</resultadoEsperado>
     <tipoValidacion>Log del job FW semanal; verificación de ausencia de ejecución de MEKYTL0876.</tipoValidacion>
     <criterioAceptacion>Job FW termina OK (no NOTOK) con "fichero no encontrado, cadena detenida"; cero ejecuciones de MEKYTL0876.</criterioAceptacion>
-    <posibilidadFallo>Ninguno (comportamiento esperado para cadena dormida).</posibilidadFallo>
+    <posibilidadFallo>Ninguno (comportamiento esperado para cadena dormida). Variante opcional: dejar en FicheroDiccionario/ un fichero FicheroDiccionarioRDR_sem_yyyyMMdd.csv con la fecha del día y comprobar que el filewatcher NO lo recoge (la máscara exige el prefijo FicheroDiccionarioRDR_semanal_).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-13" tipo="negativo">

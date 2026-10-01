@@ -12,6 +12,8 @@
 > - `select.properties` real (copia de integración, 21 informes).
 > - Invocaciones reales en `Refundicion.properties`, `ConClientela.properties` y `LEI.properties`.
 
+> **Procedencia del jar analizado.** El jar recibido es una compilación Maven del 26/08/2026 (`pom.xml` con `url` `https://github.com/bbva/rdr_report`, JDK 17, clases en el paquete `rdr_report`). Coincide con lo que invocan los `.properties` de **integración** (`rdr_report.CreateReport`, `JDKV=17`). El `ConBDI.properties` de **producción** invoca la clase **sin paquete** (`CreateReport`) y sin `JDKV=17`, es decir, una versión anterior del jar. Lo descrito aquí es el comportamiento de la versión analizada; el de producción podría diferir (pregunta P-REP-01).
+
 ## 1. Qué es y para qué sirve
 
 Genera un **informe en texto separado por `;`** con el resultado de una query SQL. La query, la
@@ -162,6 +164,12 @@ pruebas) y el `credentials.xml` del entorno de pruebas. Casos:
 - clave inexistente: el informe anterior no cambia.
 
 En todos los casos el código de salida será 0.
+
+### 9.1 Preguntas abiertas
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-REP-01 | ¿Qué versión del jar está desplegada en producción y se comporta igual que la analizada (compilación de 2026, clases con paquete)? | Los `.properties` de producción invocan la clase sin paquete: es otra versión, y el comportamiento descrito (códigos de salida, mensajes, ficheros) podría no ser el real |
 
 ## 10. Procesos que lo usan
 

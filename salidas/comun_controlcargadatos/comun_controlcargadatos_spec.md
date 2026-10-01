@@ -17,6 +17,8 @@
 >   los duplicados, los riesgos R1 a R4, los fallos de §7 y la codificación. Todo lo que dice esta spec
 >   sobre formatos, mensajes, recuentos y códigos de salida coincide con lo observado.
 
+> **Procedencia del jar analizado.** El jar recibido es una compilación Maven del 24/08/2026 (`pom.xml` con `url` `https://github.com/bbva/controlcargadatos`, JDK 17, clases en el paquete `controlcargadatos`). Coincide con lo que invocan los `.properties` de **integración** (`controlcargadatos.ControlCase`, `JDKV=17`). El `ConBDI.properties` de **producción** invoca la clase **sin paquete** (`ControlCase`) y sin `JDKV=17`, es decir, una versión anterior del jar. Lo descrito aquí es el comportamiento de la versión analizada; el de producción podría diferir (pregunta P-CCD-04).
+
 ## 1. Qué es y para qué sirve
 
 Es un **filtro de calidad** que se ejecuta antes de cargar un fichero CSV en base de datos. Lee el
@@ -284,6 +286,7 @@ del log, sabiendo que el código de salida será 0.
 | P-CCD-01 | ¿Se pueden obtener los `fillingRules_*.csv` del resto de procesos (`ConClientela`, `clientes`, `oficinas`, `CN460`, `Reubicacion`)? | Sin ellos no se sabe qué valida cada proceso |
 | P-CCD-02 | ¿Algún paso de los procesos borra `<nombre>_processed.csv` antes de ejecutar este programa? | Decide si el riesgo R4 aplica (se responde en cada spec de proceso) |
 | P-CCD-03 | ¿En qué codificación llegan los ficheros de entrada? | Decide si aplica el riesgo R6 |
+| P-CCD-04 | ¿Qué versión del jar está desplegada en producción y se comporta igual que la analizada (compilación de 2026, clases con paquete)? | Los `.properties` de producción invocan la clase sin paquete: es otra versión, y el comportamiento descrito (códigos de salida, mensajes, ficheros) podría no ser el real |
 
 ## 11. Procesos que lo usan
 

@@ -14,7 +14,7 @@ SQL literal se analizaron en sesión y no están en el repositorio** (ver P-INF-
 `RDR_INFORME_MIFID_new` (folder `KYTL0000-RDR_INFORME_MIFID_new`) es una cadena mensual de 3 jobs (tercer lunes
 de cada mes, 02:30). Saca de GoldenSource las **contrapartidas (entidades financieras) cuyos datos económicos
 MiFID caducan el mes siguiente** (fecha `EXPDATE` en `FT_T_FIST`), los vuelca en un CSV, convierte el CSV en un
-Excel con una plantilla fija y lo envía por correo al buzón `elegible.mifid@bbva.com` (y a `c014344b@bbva.com`)
+Excel con una plantilla fija y lo envía por correo al buzón `elegible.mifid@bbva.com` (y a un buzón individual (dirección personal omitida))
 con el asunto "Informe MIFID con datos economicos cerca de expirar". Después historifica el CSV y el Excel.
 
 **Para qué sirve:** que el área responsable de la elegibilidad MiFID (MiFID = Directiva de Mercados de
@@ -45,7 +45,7 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
   `Entity Name;FINSID;Fiscal Identifier type;Identifier;MGC Identifiers;Resources;Annual Turnover;Total Assets;Exercise date;Expiration date`.
 - R4: genera `Reporte_informeMIFID_<yyyyMMdd>.xlsx` escribiendo cada línea del CSV en la hoja `CtpdasExpiran` de
   la plantilla `Reporte_informeMIFID_Plantilla.xlsx`, con estilos alternos por fila.
-- R5: envía el Excel a `elegible.mifid@bbva.com` y `c014344b@bbva.com` con el asunto "Informe MIFID con datos
+- R5: envía el Excel a `elegible.mifid@bbva.com` y un buzón individual (dirección personal omitida) con el asunto "Informe MIFID con datos
   economicos cerca de expirar".
 - R6: `MEKYTL0353` mueve el CSV a `.../informeMIFID/old/` renombrándolo `Reporte_informeMIFID_<yyyymmdd>.csv`.
 - R7: `MEKYTL0362` mueve el Excel a `.../informeMIFID/old/` con el mismo nombre.
@@ -179,7 +179,7 @@ la escritura final se captura sin propagarse (P-INF-05).
 
 ### 6.5 Correo: workflow `InformeMIFID`
 
-Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; c014344b@bbva.com`. Asunto fijo
+Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; un buzón individual (dirección personal omitida)`. Asunto fijo
 "Informe MIFID con datos economicos cerca de expirar". Adjunto: el Excel generado. El workflow
 `envioReporteMail.gsp` no interviene (sus variables `LEI`/`C460` son de otros procesos).
 

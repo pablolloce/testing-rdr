@@ -191,7 +191,7 @@
     <precondiciones>
       <precondicion>Existe al menos una contrapartida que cumple el filtro de expiración del mes siguiente.</precondicion>
       <precondicion>La plantilla Reporte_informeMIFID_Plantilla.xlsx existe en la ruta esperada.</precondicion>
-      <precondicion>Los destinatarios de correo (elegible.mifid@bbva.com, c014344b@bbva.com) están operativos y accesibles para confirmar recepción.</precondicion>
+      <precondicion>Los destinatarios de correo (elegible.mifid@bbva.com, un buzón individual (dirección personal omitida)) están operativos y accesibles para confirmar recepción.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Institución E2E-1" valor="FINSID=TC00005, EXPDATE dentro del mes siguiente, sin relaciones ni fechas en conflicto"/>

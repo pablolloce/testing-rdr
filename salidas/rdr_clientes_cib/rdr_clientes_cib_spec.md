@@ -5,6 +5,8 @@
 > "Acciones" de `KYTL_CLI_GSPROCESS_FW` en Control-M, respuestas del usuario de la ronda 1 (23/09/2026,
 > recogidas en la sección 4) y las specs comunes de los componentes que usa. Lo genérico de cada
 > componente está en su spec común, citada en cada punto; lo propio de este proceso está aquí.
+> Pasada de cierre (01/10/2026): capturas del mapeo MDX `clientes.mdx` de GoldenSource Mapping Designer
+> (documento original del proceso, rama de Carlos).
 
 ## 1. Resumen ejecutivo
 
@@ -54,7 +56,7 @@ del reporte; el detalle interno de los eventos de GoldenSource (`StandardFileLoa
 | R4 | Tras el OK de R3, en paralelo: `MEKYTL0147` envía `Reporte_clientes_dos.csv` a `MVP00G215` como `Reporte_clientes_<yyyymmdd>.csv` y `MEKYTL0148` envía el mismo fichero a `MVP00G219` como `CLIEXCLU_<yyyymmdd>.txt`. Ambos con `MEGENV0001.sh`, Run As `xsramer1`. El cambio a `.txt` es solo de nombre: mismo contenido y separadores. | Fichas + respuesta del usuario (G2) |
 | R5 | `MEKYTL0136` (mueve `clientes.csv` a `old/clientes_<yyyymmdd>.csv`) y `MEKYTL0939` (mueve `Reporte_clientes_dos.csv` a `old/Reporte_clientes_dos_<yyyymmdd>.csv`), ambos con `RAMERC0068.sh`, Run As `xsramer1`, se ejecutan solo cuando existen a la vez `RDR_CLIENTES_CIB_MEKYTL0147_OK_new` **y** `RDR_CLIENTES_CIB_MEKYTL0148_OK_new`. | Fichas |
 | R6 | `RDR_CLIENTES_CIB_OUT` (Dummy, Run As `DUMMYUSR`) cierra la cadena cuando existen a la vez `RDR_CLIENTES_CIB_MEKYTL0136_OK_new` **y** `RDR_CLIENTES_CIB_MEKYTL0939_OK_new`. | Ficha |
-| R7 | **Columnas de `clientes.csv`** (declaradas por el usuario a partir de `fillingRules_clientes.csv`): 12 campos separados por `;`, en este orden: `COD_CCLIEN` (código de cliente), `COD_NIF` (NIF/CIF/identificación fiscal), `COD_BDI` (código BDI), `DES_NOMCLI` (nombre o razón social), `COD_BANCO` (código de banco), `COD_OFICINA` (código de oficina), `COD_CONTRATO` (código de contrato), `COD_CFOLIO` (código de folio), `COD_CNAE5` (CNAE a 5 dígitos), `DES_CNAE5` (descripción CNAE), `COD_TIPOCLI` (tipo de cliente), `DES_RESTO` (información adicional). Qué reglas aplica a cada columna no se conoce (P-CIB-02). | Respuesta del usuario (G3) |
+| R7 | **Columnas de `clientes.csv`** (declaradas por el usuario a partir de `fillingRules_clientes.csv` y **confirmadas con el mapeo MDX `clientes.mdx`**, que define el mismo diseño de entrada): 12 campos separados por `;`, en este orden: `COD_CCLIEN` (código de clientela), `COD_NIF` (código identificador: NIF/CIF/identificación fiscal), `COD_BDI` (código BDI), `DES_NOMCLI` (nombre o razón social), `COD_BANCO` (código de banco), `COD_OFICINA` (código de oficina), `COD_CONTRATO` (código de contrato), `COD_CFOLIO` (código de folio), `COD_CNAE5` (CNAE a 5 dígitos), `DES_CNAE5` (descripción CNAE), `COD_TIPOCLI` (tipo de cliente: `C` compartido o `E` exclusivo, §6.3.1), `DES_RESTO` (información adicional). En el mapeo los 12 campos son de tipo texto (longitud 255) y **ninguno es obligatorio** a nivel de mapeo. Qué reglas aplica `ControlCargaDatos.jar` a cada columna no se conoce (P-CIB-02). | Respuesta del usuario (G3) + capturas de `clientes.mdx` |
 | R8 | Criticidad `W` (aviso al día siguiente). Máximo de relanzamientos 0. Log operativo retenido 3 días. Plan de carga `PLAN_1200`. Site standard `KYTL0000_SS_PR_HR`/`KYTL0000_SS_PR_HI`. Soporte: ANS RDR (`ans_rdr.es@bbva.com`, Remedy `BZG03906`). | Ficha de la cadena |
 | R9 | Cada job consume 1 unidad de `MAX-LPRDR501` (total 100). | Fichas |
 | R10 | **Patrón transversal P-021:** no hay control de concurrencia propio de la cadena; la única validación de datos es la de `ControlCargaDatos.jar`, que no detiene el proceso (§6.3). | Análisis |
@@ -67,13 +69,13 @@ del reporte; el detalle interno de los eventos de GoldenSource (`StandardFileLoa
 |-----|----------|-----------|-------|
 | G1 | ¿Qué pasa si `KYTL_CLI_GSPROCESS_FW` agota los 240 minutos? | Captura real de la pestaña "Acciones" del job: "Cuando código de retorno de OS igual a 0: Agregar evento [RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new, Fecha de ejecución]"; "Cuando código de retorno de OS igual a 7: Agregar evento [RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO, Fecha de ejecución]; Marcar como OK". Gestión de la salida: "Ninguno". → R2. | 23/09/2026 |
 | G2 | ¿`MEKYTL0148` transforma el fichero al cambiar la extensión a `.txt`? | Usuario: "Ambos jobs de transferencia comparten el mismo fichero fuente generado en el paso previo (Reporte_clientes_dos.csv). La inspección del script ejecutor MEGENV0001.sh confirma que este actúa exclusivamente como pasarela de transporte multiprotocolo (XCOM/SFTP/CD). Por tanto, la asignación de la extensión .txt en el envío a MVP00G219 (CLIEXCLU_yyyymmdd.txt) es un mero renombrado de parámetro en destino que no altera la estructura, delimitadores ni el contenido de los datos con respecto al envío .csv de MVP00G215." | 23/09/2026 |
-| G3 | ¿Hay diccionario de `clientes.csv` y de `Reporte_clientes_dos.csv`? | Entrada: el usuario confirma las 12 columnas de R7 "a través del archivo de configuración fillingRules_clientes.csv". Salida: el usuario indica que "no existe una consulta SQL estática (queryclientes) en select.properties" y que el fichero "es compilado y extraído directamente por el motor MDX de GoldenSource", por lo que lo da como "gap de documentación técnica aceptado". **Corrección:** según el código de `GSProcess.sh`, la acción `Reporte` no es la carga MDX: lanza el evento de GoldenSource `RDR_Reporte` (§6.3). El reporte lo genera ese evento, que no se ha recibido; el diccionario sigue abierto como P-CIB-04. Se ha comprobado que las dos copias de `select.properties` del repositorio (21 claves) no tienen clave `clientes`. | 23/09/2026 |
+| G3 | ¿Hay diccionario de `clientes.csv` y de `Reporte_clientes_dos.csv`? | Entrada: el usuario confirma las 12 columnas de R7 "a través del archivo de configuración fillingRules_clientes.csv". Salida: el usuario indica que "no existe una consulta SQL estática (queryclientes) en select.properties" y que el fichero "es compilado y extraído directamente por el motor MDX de GoldenSource", por lo que lo da como "gap de documentación técnica aceptado". **Corrección:** según el código de `GSProcess.sh`, la acción `Reporte` no es la carga MDX: lanza el evento de GoldenSource `RDR_Reporte` (§6.3). El reporte lo genera ese evento, que no se ha recibido; el diccionario sigue abierto como P-CIB-04. (El mapeo `clientes.mdx` recibido después es el de la **entrada** de la carga, §6.3.1, no el del reporte.) Se ha comprobado que las dos copias de `select.properties` del repositorio (21 claves) no tienen clave `clientes`. | 23/09/2026 |
 
 ### 4.2 Preguntas pendientes al usuario
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-CIB-01 | ¿Se puede obtener `clientes.properties` completo (el que ejecuta `GSProcess.sh clientes`)? | Es la receta real del paso de carga: con qué argumento se llama a `Delta.sh` (`Si` o no), qué ficheros pasa a `ControlCargaDatos.jar`, qué fichero carga el evento MDX (el original o `clientes_processed.csv`), qué `BusinessFeed`/`MessageType` usa (la ficha solo dice "clientes / CLX"), qué fichero convierte `Unix2Dos` y si alguna acción lleva `Stop=Ok`. Sin él no se sabe si los registros rechazados por la validación se cargan igualmente. |
+| P-CIB-01 | ¿Se puede obtener `clientes.properties` completo (el que ejecuta `GSProcess.sh clientes`)? | **Parcial.** Se conoce el mapeo MDX que carga el fichero (`clientes.mdx`: diseño de entrada de 12 campos, delimitador `;`, recorte de espacios en ambos extremos y tabla de traducción de `COD_TIPOCLI`, §6.3.1). **Sigue pendiente** lo propio del `.properties`: con qué argumento se llama a `Delta.sh` (`Si` o no), qué ficheros pasa a `ControlCargaDatos.jar`, qué fichero carga el evento MDX (el original o `clientes_processed.csv`), qué `BusinessFeed`/`MessageType` usa (la ficha solo dice "clientes / CLX") y si alguna acción lleva `Stop=Ok`. Sin ello no se sabe si los registros rechazados por la validación se cargan igualmente. |
 | P-CIB-02 | ¿Se puede obtener `fillingRules_clientes.csv` completo (cabecera y filas de reglas)? | Solo se conocen los nombres de las 12 columnas. Las reglas (`NULL`, `USAR`, `POSICION(n)`, `DUPL`…) deciden qué registros se rechazan y si hay control de duplicados. Es también la pregunta P-CCD-01 de la spec común. |
 | P-CIB-03 | ¿Qué sistema deposita `clientes.csv`, a qué hora, con cabecera o sin ella, en qué codificación y con qué volumen normal? | Es la entrada del proceso. `ControlCargaDatos.jar` exige que la primera línea sea la cabecera con los nombres de `fillingRules_clientes.csv` en el mismo orden, y rechaza vocales acentuadas y `ñ` si el fichero viene en UTF-8 (ver su spec, §4.3). |
 | P-CIB-04 | ¿Qué hace el evento `RDR_Reporte` con `clientes.properties` (workflow, query, columnas y nombre del fichero que genera)? ¿Es correcto que genera `Reporte_clientes.csv` y que `Unix2Dos` lo convierte en `Reporte_clientes_dos.csv`? | Es el fichero que se envía a los dos destinos; hoy no hay diccionario de sus columnas. El usuario lo atribuyó al "motor MDX", lo que no cuadra con el código de `GSProcess.sh` (G3). |
@@ -82,6 +84,7 @@ del reporte; el detalle interno de los eventos de GoldenSource (`StandardFileLoa
 | P-CIB-07 | ¿Alguna otra cadena o monitorización consume el evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO`? ¿Se quiere una alerta cuando `clientes.csv` no llega? | Hoy un día sin fichero termina en verde sin aviso (R2). |
 | P-CIB-08 | ¿Qué se hace con `Reporte_clientes.csv` (la versión sin `_dos`, si existe) y con `clientes_processed.csv`/`clientes_noprocessed.csv` (si los genera la validación)? Ningún job de la cadena los historifica ni los borra. | Residuos en el directorio; y, por el riesgo R4 de `ControlCargaDatos.jar`, un `_processed.csv` antiguo puede volver a cargarse. |
 | P-CIB-09 | ¿Qué mecanismo hay en el entorno de pruebas para forzar el fallo de un único job (TC-002, TC-005, TC-006) y qué acceso hay a los destinos XCOM de pruebas (TC-004, TC-008)? | Sin ello esos casos solo se pueden verificar por lectura de configuración. |
+| P-CIB-10 | ¿Cuáles son los campos y las tablas de destino del mensaje de salida de `clientes.mdx` (las capturas solo muestran la raíz `STREET_REF` y un aviso de nodos sin XSD)? ¿Cómo descarta el mapeo la línea de cabecera y qué hace con un `COD_TIPOCLI` distinto de `C` y `E`? | Decide qué datos de GoldenSource cambia realmente la carga y qué ocurre con registros con tipo de cliente inesperado; sin ello solo se conoce la entrada. |
 
 ## 5. Especificación funcional
 
@@ -181,6 +184,40 @@ Consecuencias que hay que conocer:
 Logs: `execute_clientes_<AAAAMMDD>.log` (detalle, `ESTADO-0-`/`ESTADO-1-`), `execute_<AAAAMMDD>.log`
 (resumen diario) y el log de resumen de la validación (ruta según el argumento 2 del Java), todos en el
 directorio `<logs>` de `credentials.xml`.
+
+#### 6.3.1 Mapeo MDX `clientes.mdx` (el que interpreta el fichero en la acción 3)
+
+El evento `StandardFileLoad` de la acción 3 convierte `clientes.csv` con un mapeo de GoldenSource Mapping
+Designer llamado `clientes.mdx` (capturas del mapeo, documento original del proceso, rama de Carlos).
+Versión de mapeo `1.0.0.0`, traductor `8.1.1.1`, Mapping Designer `8.7.1.12`, último cambio
+2020-05-27 06:27 CEST, sin autor ni comentario. Lo que se ve:
+
+| Apartado | Valor |
+|---|---|
+| Diseño de entrada (`Input [Variable]`) | 12 campos, todos de tipo texto, longitud 255, sin decimales, marcados como mapeados y **ninguno obligatorio**, en el orden de R7: `COD_CCLIEN`, `COD_NIF`, `COD_BDI`, `DES_NOMCLI`, `COD_BANCO`, `COD_OFICINA`, `COD_CONTRATO`, `COD_CFOLIO`, `COD_CNAE5`, `DES_CNAE5`, `COD_TIPOCLI`, `DES_RESTO`. `COD_CCLIEN` lleva la descripción "Codigo Clientela" y `COD_NIF` "Codigo Identificador" |
+| Delimitador de entrada | Punto y coma (de un solo carácter) |
+| Recorte de campos | `Both`: GoldenSource quita los espacios al principio y al final de cada campo |
+| Comillas y carácter de escape | **No definidos**: un `;` dentro de un valor entrecomillado parte el campo y desplaza el resto de columnas |
+| Identificadores de nulo | Ninguno; "convertir numéricos vacíos a cero" desactivado |
+| Formatos de fecha de entrada | `%Y%M%D%H%I%S` (fecha y hora) y `%Y%M%D%H%I%S.%f` (marca de tiempo); `clientes.csv` no tiene columnas de fecha |
+| Separador decimal | `.` |
+| Salida | Codificación `UTF-8`; atributo `VENDOR_MNEMONIC` añadido; sin indicadores de zona horaria; fechas de salida `%M-%D-%Y %H:%I:%S %A` |
+| `Keystreaming` | Desactivado |
+| Tabla de traducción `CExclusivos` | `C` → `Shared` y `E` → `Exclusive` |
+| Mensaje de salida | El árbol visible solo muestra la raíz `STREET_REF` bajo `MappingFragments` y un aviso de Mapping Designer ("uno o más nodos de mensaje de referencia no están asociados a su XSD"); el detalle de los campos de salida no aparece en las capturas |
+
+Consecuencias:
+- **`COD_TIPOCLI` solo tiene dos valores traducibles: `C` (compartido, `Shared`) y `E` (exclusivo,
+  `Exclusive`).** Es la regla que da sentido al nombre del proceso ("clientes exclusivos de CIB"): el
+  mapeo distingue los clientes exclusivos de los compartidos. Qué ocurre con cualquier otro valor
+  depende de cómo use el mapeo la tabla (no visible, P-CIB-10).
+- El recorte de espacios lo hace también `ControlCargaDatos.jar`, de modo que el fichero llega recortado
+  dos veces sin efecto adicional.
+- La entrada es la misma de 12 columnas que declara el usuario, con lo que R7 queda confirmado por dos
+  fuentes independientes.
+- Las capturas no muestran ningún filtro que descarte la primera línea. Como `ControlCargaDatos.jar`
+  conserva la cabecera en `clientes_processed.csv`, hay que comprobar cómo trata el mapeo la línea de
+  cabecera (P-CIB-10).
 
 ### 6.4 `MEKYTL0147` y `MEKYTL0148` — envíos con `MEGENV0001.sh`
 
@@ -288,6 +325,9 @@ los nombres de columna de la entrada y corregido en cuanto al origen del reporte
 sino el evento `RDR_Reporte`. La spec describe la orquestación completa, la semántica real del file
 watcher, lo que hace cada componente en este proceso y qué ve (y qué no ve) el job cuando algo falla.
 
-Para cerrarla al 100 % faltan P-CIB-01 a P-CIB-09; las imprescindibles son `clientes.properties`
-(P-CIB-01), `fillingRules_clientes.csv` (P-CIB-02) y el reporte (P-CIB-04), sin las cuales no se puede
-describir campo a campo qué se carga ni qué se envía, ni probar la validación y los duplicados.
+Tras la pasada de cierre (01/10/2026) se conoce el mapeo MDX de entrada (§6.3.1: 12 campos, delimitador,
+recorte y traducción `C`/`E` de `COD_TIPOCLI`), con lo que P-CIB-01 queda parcial. Para cerrarla al 100 %
+faltan P-CIB-01 a P-CIB-10; las imprescindibles son el resto de `clientes.properties` (P-CIB-01),
+`fillingRules_clientes.csv` (P-CIB-02), el reporte (P-CIB-04) y la salida del mapeo (P-CIB-10), sin las
+cuales no se puede describir campo a campo qué se carga ni qué se envía, ni probar la validación y los
+duplicados.

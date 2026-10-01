@@ -88,11 +88,15 @@ automáticamente.
 La cadena `RDR_FIC_DAT_DICT_WEEKLY_SEND_new` no tiene prerrequisitos operativos adicionales
 mientras permanezca en estado dormido. Para activarla en el futuro será necesario:
 
-- Activar en el Planificador la extracción correspondiente al fichero semanal
-  (`FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`) en `FT_T_ATE1` y `FT_T_QPF1`.
+- Identificar qué proceso debe generar el fichero semanal `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`
+  (P-DICT-06): si es una extracción del Planificador, activarla en `FT_T_ATE1` y `FT_T_QPF1`; si es
+  el diccionario de contrapartidas, que escribe `FicheroDiccionarioRDR_sem_yyyyMMdd.csv`, hay que
+  decidir qué nombre vale (la máscara del filewatcher exige `_semanal_`).
 - Verificar que el directorio `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario/` existe y
   es accesible.
 - Verificar las rutas y configuración del job `MEKYTL0876` (destino `lpops302`,
-  `/gl/in/staging/rdr/kytl`), que pueden estar desactualizadas tras el periodo de inactividad.
-- Contactar con el equipo receptor en `lpops302` para confirmar que el sistema destino sigue
-  vigente y espera el fichero.
+  `/gl/in/staging/rdr/kytl`; según su formulario de 2019: formato ASCII, acción `REPLACE`, sin
+  historificación, sin error si falta el fichero, nombre de destino `FicheroDiccionarioRDR_dia_yyyyMMdd.csv`),
+  que pueden estar desactualizadas tras el periodo de inactividad.
+- Contactar con el equipo receptor en `lpops302` (Datio / DataHub CIB según la definición de la cadena)
+  para confirmar que el sistema destino sigue vigente y espera el fichero.

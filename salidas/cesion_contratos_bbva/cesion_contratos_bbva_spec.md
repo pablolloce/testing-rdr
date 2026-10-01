@@ -144,7 +144,7 @@ Preguntas sin respuesta en ninguna fuente disponible:
 | P-CCB-06 | Calendario `MX3_1MART_M` no aparece en el export (`MEKYTL1051` figura de martes a sábado) | Si el envío del CSV es mensual o diario |
 | P-CCB-07 | Cómo se ejecuta `MEKYTL1052` los sábados y los días en que `MEKYTL1051`/`MEKYTL1104` no corren, dado que el export le exige ambos eventos con AND | Si la historificación diaria del CSV ocurre de verdad |
 | P-CCB-08 | Líneas de los `.idx` de `RAMERC0068.sh` para `MEKYTL0953` y `MEKYTL1052`, y de `MEGENV0001.sh` para cada envío | Si mueven o copian, nombres exactos y destinos |
-| P-CCB-09 | Código de `LPFTPEXCA0000/0002.sh` y nombre vigente de los jobs de pasarela (`MEKYTL1104_*` frente a `MEXIRM1104_*`) | Protocolo, códigos de salida y qué borra |
+| P-CCB-09 | Código de `LPFTPEXCA0000/0002.sh` y nombre vigente de los jobs de pasarela (`MEKYTL1104_*` frente a `MEXIRM1104_*`) | **Parcial.** Qué borra `0002` queda acotado por las fichas de los dos jobs de borrado: el fichero concreto `BBVAContracts_${AAAAMMDD}.xml` de la ruta `rdr` de la pasarela, ya enviado (§5.7). **Siguen pendientes** el código de ambos scripts (protocolo, códigos de salida, qué hace `0002` si no encuentra el fichero) y el nombre vigente de los jobs |
 | P-CCB-10 | Qué son y qué hacen XCTT, Ibor, EYMI, GMIP, THOR y PXVA | Alcance de los destinos; las fuentes solo dan rutas |
 | P-CCB-11 | ¿Un job en KO deja arrancar a su sucesor? El export exige eventos `_OK` sin regla alternativa, y el usuario afirma lo contrario | Determina si un fallo aislado (p. ej. Ibor) bloquea S3, EYMI y la historificación final |
 
@@ -450,7 +450,11 @@ de Fase 1 no recogía:
 - **Nombre.** Las fichas (EX-005-03) dicen que ambos fueron renombrados el 12/09/25 a `MEXIRM1104_DEL` y
   `MEXIRM1104_S_DEL`. El export de Control-M del 24/09/2026 los lista como `MEKYTL1104_DEL` y
   `MEKYTL1104_S_DEL` (y los envíos como `MEKYTL1104_SND` / `MEKYTL1104_S_SND`); esta especificación usa los
-  nombres del export. Si en el entorno aparecen con prefijo `MEXIRM`, son los mismos jobs (P-CCB-09).
+  nombres del export. Si en el entorno aparecen con prefijo `MEXIRM`, son los mismos jobs (P-CCB-09). El
+  análisis de Fase 1 usa ya `MEXIRM1104_SND` / `MEXIRM1104_S_SND` para los envíos y deja los borrados "sin
+  documentar"; es decir, tres documentos (las dos fichas y la Fase 1) usan el prefijo `MEXIRM` y solo el
+  export usa `MEKYTL`, lo que sugiere que el nombre vigente en Control-M es el del export y la
+  documentación va por delante o por detrás (sigue sin confirmarse).
 - Se ejecutan en la máquina `LPFTP501/502`, no en `pr-rdr.igrupobbva` como el resto de la
   cadena.
 - **Script.** La ficha dice "A determinar por Service Support", pero el export identifica el script:

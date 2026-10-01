@@ -10,7 +10,7 @@
 | Origen | Qué alimenta | Casos que lo necesitan |
 |---|---|---|
 | `clientes.csv` en `/fichtemcomp/<env>/descargas/kytl/clientes/` (productor no documentado, P-CIB-03) | `KYTL_CLI_GSPROCESS_FW` y `KYTL_CLI_GSPROCESS` | TC-001, TC-002, TC-003 (por su ausencia), TC-005, TC-006, TC-007, TC-008 |
-| GoldenSource del entorno de pruebas (carga MDX y eventos `RDR_ErroresCSV`, `RDR_Reporte`) | Carga de clientes y generación del reporte | TC-001, TC-002, TC-004, TC-007, TC-008 |
+| GoldenSource del entorno de pruebas (carga MDX con el mapeo `clientes.mdx` de la spec §6.3.1 y eventos `RDR_ErroresCSV`, `RDR_Reporte`) | Carga de clientes y generación del reporte | TC-001, TC-002, TC-004, TC-007, TC-008 |
 | `fillingRules_clientes.csv` en `/<env>/kytl/online/multipais/multicanal/dat/properties/` (no recibido, P-CIB-02) | Validación de `ControlCargaDatos.jar` | TC-001, TC-008 (preparación de datos) |
 | Si `Delta.sh` trabaja en modo `Si` (P-CIB-01): `old/clientes.csv` de la carga anterior | Comparación del delta | TC-007 (segundo día) |
 
@@ -18,7 +18,7 @@
 
 | Caso(s) | Qué hace falta |
 |---|---|
-| TC-001, TC-008 | `clientes.csv` con una primera línea de cabecera `COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO` y al menos 2 registros de 12 campos separados por `;`, sin vocales acentuadas ni `ñ` (hasta conocer la codificación y las reglas, P-CIB-02/P-CIB-03). La cabecera es necesaria porque `ControlCargaDatos.jar` compara la primera línea con la del fichero de reglas. |
+| TC-001, TC-008 | `clientes.csv` con una primera línea de cabecera `COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO` y al menos 2 registros de 12 campos separados por `;` (uno con `COD_TIPOCLI=C` y otro con `E`, los dos valores que traduce el mapeo), sin vocales acentuadas ni `ñ`, sin comillas ni `;` dentro de los valores (el mapeo no define comillas) (hasta conocer la codificación y las reglas, P-CIB-02/P-CIB-03). La cabecera es necesaria porque `ControlCargaDatos.jar` compara la primera línea con la del fichero de reglas. |
 | TC-002 | Igual que TC-001 más un modo de hacer fallar `KYTL_CLI_GSPROCESS` (por ejemplo, retirar en pruebas `clientes.properties` o el permiso de lectura sobre él: `GSProcess.sh` termina con 1 si no existe el `.properties`). |
 | TC-003 | Ningún `clientes.csv` en el directorio durante los 240 minutos de espera. |
 | TC-004 | Una ejecución completa con acceso a los dos ficheros de destino del mismo día. |

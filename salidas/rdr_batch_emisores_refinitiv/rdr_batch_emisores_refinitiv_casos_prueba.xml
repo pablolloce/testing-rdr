@@ -179,12 +179,34 @@
       <paso numero="1">Ejecutar GS_BBG_REFINITIV_BATCH (GSProcess.sh RDR_BBG_Refinitiv_Batch).</paso>
       <paso numero="2">Consultar FT_T_FIRT del rating SPRLOTRT de E1 y de E2.</paso>
       <paso numero="3">Consultar FT_T_RLT1 con RLT_DIF_STAT='PENDING_ESB' y MAIN_ENTITY_ID igual a E1 y a E2.</paso>
-      <paso numero="4">Consultar FT_T_RLT1 con RLT_DIF_STAT='CALCULATE_REU' y RLT_FIELD igual a E1 y a E2.</paso>
+      <paso numero="4">Consultar FT_T_RLT1 con RLT_DIF_STAT en ('CALCULATE_REU','CALCULATE_REU_OK') y RLT_FIELD igual a E1 y a E2 (el workflow termina llamando a RDR_UPDATE_REU, que cambia la marca a CALCULATE_REU_OK al recalcular).</paso>
     </pasos>
-    <resultadoEsperado>En E1 y en E2, el rating SPRLOTRT pasa al valor equivalente, con DATA_STAT_TYP='ACTIVE', LAST_CHG_USR_ID='BBVA:CUSTOMER' y DATA_SRC_ID='BB', y existe una fila PENDING_ESB nueva. Solo E2 tiene fila CALCULATE_REU nueva.</resultadoEsperado>
+    <resultadoEsperado>En E1 y en E2, el rating SPRLOTRT pasa al valor equivalente, con DATA_STAT_TYP='ACTIVE', LAST_CHG_USR_ID='BBVA:CUSTOMER' y DATA_SRC_ID='BB', y existe una fila PENDING_ESB nueva. Solo E2 tiene fila de marca nueva, que al terminar el job está en CALCULATE_REU_OK (queda en CALCULATE_REU solo si el recálculo REU falló).</resultadoEsperado>
     <tipoValidacion>Consulta SQL</tipoValidacion>
     <criterioAceptacion>Las cuatro comprobaciones coinciden con lo esperado. Caso con escritura en base de datos: no ejecutar en producción.</criterioAceptacion>
     <posibilidadFallo>Si solo se procesa una de las dos entidades, puede ser el efecto de la variable del bucle (P-BER-05): repetir con una sola entidad cada vez para distinguirlo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="datos_sinteticos">
+    <nombre>Recálculo REU: regla del segundo mejor rating con 1, 2 y 3 agencias</nombre>
+    <objetivo>Verificar que RDR_UPDATE_REU / Sub_CalculateREU calculan el Rating Externo Unificado con la regla del segundo mejor y que dejan trazada la ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con escritura en GSDM-1 (no producción).</precondicion>
+      <precondicion>Cinco entidades sintéticas E1 a E5, con emisor de fuente Bloomberg (FT_T_IRST SOURCE='Bloomberg'), identificador BBGCID de emisor activo y rol de contraparte activo, sin la característica KEEPREUF='Y', y con una marca pendiente en FT_T_RLT1 (RLT_DIF_STAT='CALCULATE_REU', RLT_DIF_ACC='M', RLT_PURP_TYP='REPORTES', RLT_FIELD = su INST_MNEM).</precondicion>
+      <precondicion>Ratings oficiales activos en los conjuntos "S&amp;P Long Term", "Moody's Long Term" y "Fitch Long Term" elegidos para que su rank_num en las escalas "REU S&amp;P/Moody's/Fitch Long Term" sea: E1 solo S&amp;P=5; E2 S&amp;P=4 y Moody's=7; E3 S&amp;P=3, Moody's=6 y Fitch=9; E4 S&amp;P=4, Moody's=4 y Fitch=8; E5 igual que E3 pero con un REU previo de clasificación Manual (REUORG / Manual) y valor distinto del que daría el cálculo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Grados esperados del REU" valor="E1=5; E2=7 (el peor de dos distintos); E3=6 (el intermedio de tres distintos); E4=4 (dos mejores iguales); E5=sin cambio"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el workflow RDR_UPDATE_REU (o GS_BBG_REFINITIV_BATCH completo).</paso>
+      <paso numero="2">Consultar para E1 a E5 la fila de FT_T_FIRT del conjunto "External Unified Rating" y el rank_num de su valor en FT_T_RTVL.</paso>
+      <paso numero="3">Consultar FT_T_RLT1: las cinco marcas de las entidades y la fila CALCULATE_REU_REP del job.</paso>
+    </pasos>
+    <resultadoEsperado>El REU de E1 a E4 tiene el rank_num esperado, DATA_STAT_TYP='ACTIVE' y LAST_CHG_USR_ID='RDR_UPDATE_REU'; el de E5 no cambia. Las cinco marcas pasan a CALCULATE_REU_OK y existe una fila CALCULATE_REU_REP con MESSAGE_RLT='Se han procesado 5'.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL</tipoValidacion>
+    <criterioAceptacion>Los cinco grados y los dos estados de FT_T_RLT1 coinciden. Caso con escritura en base de datos: no ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Que E5 también quede en CALCULATE_REU_OK aunque no se recalculara es el comportamiento documentado (la marca se da por atendida); si Sub_CalculateREU en producción es otra versión que la recibida (estado DEVELOPMENT), los grados de E2 y E3 podrían diferir.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
