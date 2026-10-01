@@ -32,7 +32,9 @@ Incluye: selección de peticiones pendientes en `FT_T_VREQ`/`FT_T_UTD1`, generac
 conversión a formato Unix, envío al mainframe e historificación.
 
 Excluye: el proceso que crea las peticiones (`PENDING`) y sus peticiones previas (`PETI_SDI_SOLICITADA`/
-`GENERATED_FUND`); lo que hace Clientela con el fichero (JCL `EMFDJL43`, arrancador `EMFDXL43`); el
+`GENERATED_FUND`) (las peticiones `LEI_REGISTER`/`PENDING` las crea `Investors_Client_Reg_resp.jar`, clase `AltaRegisterLEIRequest`, del
+proceso `rdr_pr_bdiclienreg_resp`, con usuario `INVESTORS_CLIENTREG_RESP`; los estados `GENERATED_FUND` y `PETI_SDI_SOLICITADA` los fijan
+los workflows de alta de fondos, ver `salidas/rdr_pr_bdiclienreg_resp/rdr_pr_bdiclienreg_resp_spec.md`); lo que hace Clientela con el fichero (JCL `EMFDJL43`, arrancador `EMFDXL43`); el
 tratamiento de la respuesta (cadena `RDR_PR_REGISTER_LEIS_RESP_new`).
 
 ## 3. Requisitos detectados
@@ -78,7 +80,7 @@ tratamiento de la respuesta (cadena `RDR_PR_REGISTER_LEIS_RESP_new`).
 |----|----------|-----------------|
 | P-LEIS-01 | ¿Se puede incorporar el contenido literal de `LEI_Register_request.properties` (valores de `ArgJava*`, `PreArgScri1`/`ArgScri1` del `Script`, y si hay `Stop`)? | Sin `Stop`, `ConvertirUNIXValidaFichero` se ejecuta aunque el Java falle; con `Stop=Ok`, no. Decide el estado final de la cadena ante fallos |
 | P-LEIS-02 | ¿Con qué código termina `main.Main` si falla la conexión a base de datos o la escritura del fichero? ¿Escribe el fichero con finales de línea CRLF? | Si siempre termina con 0, un fallo del Java no se ve en Control-M; y decide si `dos2unix` cambia algo |
-| P-LEIS-03 | ¿Formato exacto de `INICVIG` y `FINVIG` (fechas) y significado de `PERSCTPN` y `FILLER` en `FT_T_UTD1`? ¿Qué SQL literal tienen `selectClientesAltaPending()` y `selectAtributos()`? | Para poder construir datos de prueba y verificar la línea campo a campo |
+| P-LEIS-03 | **Resuelta en parte.** Resuelto: formato de `INICVIG`/`FINVIG` (`yyyy-MM-dd`), significado de `PERSCTPN` (código `CCLIENT` del cliente en Clientela) y de `FILLER` (un espacio) y origen de cada atributo (§6.3), según el código de `AltaRegisterLEIRequest`, la clase que crea las peticiones y sus atributos (proceso `rdr_pr_bdiclienreg_resp`). **Sigue pendiente:** el SQL literal de `selectClientesAltaPending()` y `selectAtributos()` (código del jar `LEI_Register_request.jar`, que no se tiene) | Para poder construir datos de prueba y verificar la línea campo a campo |
 | P-LEIS-04 | ¿Cuál es el `.idx` de la clave `MEKYTL0927` (sentido, protocolo, `FICHERO_ORIGEN`, `FALLA_NO_FICHERO`, `RUTA_HISTORIFICACION`)? | R9 (no fallar sin fichero) depende de `FALLA_NO_FICHERO`; y si la máscara es `LEIsReg_*.req`, un `.req` antiguo que se quedara en `send/` se enviaría otra vez |
 | P-LEIS-05 | ¿Cuál es la línea de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL1014`? En concreto el campo 5 (falla si no hay fichero) | Si vale `0` o está vacío, los días sin fichero `MEKYTL1014` termina con código 6 (NOTOK), en contra de R6 |
 
@@ -158,16 +160,21 @@ Ruta: `/fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/`. Una 
 
 | Posiciones | Campo (`FT_T_UTD1`) | Longitud | Contenido |
 |------------|---------------------|----------|-----------|
-| 1-2 | `PAIS` | 2 | País |
-| 3-6 | `ENTIDAD` | 4 | Entidad |
-| 7-15 | `PERSCTPN` | 9 | Código de persona/contrapartida en Clientela (significado exacto: P-LEIS-03) |
-| 16-40 | `DOCUMPS` | 25 | Código LEI (20 caracteres + 5 espacios) |
-| 41-50 | `INICVIG` | 10 | Inicio de vigencia (formato: P-LEIS-03) |
-| 51-60 | `FINVIG` | 10 | Fin de vigencia |
-| 61-160 | `FILLER` | 100 | Relleno |
+| 1-2 | `PAIS` | 2 | País: siempre `ES` (valor fijo en el código que crea la petición, para todo lo que se envía a Clientela) |
+| 3-6 | `ENTIDAD` | 4 | Entidad: atributo `ENTR_OWN` del fondo |
+| 7-15 | `PERSCTPN` | 9 | Código de cliente en Clientela: atributo `CCLIENT` del fondo |
+| 16-40 | `DOCUMPS` | 25 | Código LEI (atributo `LEI_CODE`; 20 caracteres + 5 espacios) |
+| 41-50 | `INICVIG` | 10 | Inicio de vigencia del LEI: `FT_T_LEI1.REGISTRATION_DATE` (fila `ACTIVE`) en formato `yyyy-MM-dd` (10 caracteres exactos) |
+| 51-60 | `FINVIG` | 10 | Fin de vigencia del LEI: `FT_T_LEI1.NEXT_RENEWAL_DATE` (fila `ACTIVE`) en formato `yyyy-MM-dd` |
+| 61-160 | `FILLER` | 100 | Relleno: el valor guardado es un único espacio, que se rellena con espacios hasta 100 |
 
-Las posiciones se deducen de las longitudes `2+4+9+25+10+10+100` en ese orden. Valor más largo → se trunca
+Los orígenes de cada atributo salen del código que crea la petición `LEI_REGISTER` y sus atributos en `FT_T_UTD1` (`DATA_SRC_ID='INVESTORSPLAN_FUNDS'`),
+del proceso `rdr_pr_bdiclienreg_resp`; las fechas las toma de `FT_T_LEI1` por el propio LEI y, si no hay fila `ACTIVE` para ese LEI, la petición no se
+crea correctamente (queda en `ERROR` en ese proceso). Las posiciones se deducen de las longitudes `2+4+9+25+10+10+100` en ese orden. Valor más largo → se trunca
 (por ejemplo `PERSCTPN="CLIENTELA01"` → `CLIENTELA`); más corto → se rellena con espacios.
+
+> **Corrección:** los datos de prueba de TC-001 usaban las fechas en formato `yyyymmdd` (`20261001`, `99991231`); el formato real de
+> `INICVIG` y `FINVIG` es `yyyy-MM-dd` (10 caracteres, con guiones). TC-001 queda actualizado.
 
 ### 6.4 `ConvertirUNIXValidaFichero` (código real de `Generico.sh`)
 

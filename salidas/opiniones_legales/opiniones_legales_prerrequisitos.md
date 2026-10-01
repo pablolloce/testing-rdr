@@ -64,6 +64,8 @@
   `RESPONSE_LEGAL_OPINION_FW → KYTL_RESPONSE_LEGAL_OPINION → MEKYTL0978 → RESPONSE_LEGAL_OPINION_IN`
   (el Dummy de cierre es el **último** job, no el primero).
 - Recurso cuantitativo `MAX-LPRDR501` consumido en ambas cadenas.
+- Filewatchers (`ctmfw`, usuario `xpctma1`): cadena 1 `... BBVAContracts_UpdtLO.csv CREATE 0 60 10 5 150`; cadena 2 `... agreements/loadLegalOpinionLog.csv CREATE 0 60 10 3 240`.
+- Destino remoto del envío (`MEKYTL0924`): `pr-mentor.igrupobbva:/fichtemcomp/pr/descargas/eezt/`; el directorio local `.../LAGR/MENTOR/old/` debe existir.
 - Criticidad `W` en ambas cadenas; `RESPONSE_LEGAL_OPINION_FW` sin tolerancia Force-OK (ventana estricta
   18:00-23:00), a diferencia del patrón mayoritario visto en otras cadenas de esta sesión (TC-007, TC-014).
 - Normas de Rearranque: escalado real a "ANS RDR (BZG03906)", `ans_rdr.es@bbva.com`, en los jobs

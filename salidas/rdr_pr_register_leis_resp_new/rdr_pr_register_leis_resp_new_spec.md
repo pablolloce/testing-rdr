@@ -84,7 +84,7 @@ configuración de conexión a base de datos.
 | P-LEIR-01 | ¿Qué días exactos corre la cadena? La ficha dice "L-V-S-D". | Si son todos los días o no decide cuándo se procesa la respuesta a las peticiones enviadas a las 00:30 de cada día |
 | P-LEIR-02 | ¿Cómo está definida la ciclicidad (cada 10 minutos desde el inicio o desde el fin) y qué regla tienen los dos filewatchers ante el código 7 (tiempo agotado)? ¿Hay regla "7 → OK"? | Con una espera máxima de 60 minutos por ejecución, la ventana 04:30-05:30 cabe en una sola espera; y sin regla "7 → OK" el filewatcher quedaría NOTOK los días sin fichero, en contra de R2 |
 | P-LEIR-03 | ¿Cuáles son las posiciones de cada campo en la línea de 259 caracteres (`RespuestaClientela.segmentaMensaje`)? | Sin ellas no se puede construir un fichero de prueba campo a campo |
-| P-LEIR-04 | ¿Cuál es el literal de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` (argumentos, `Stop`)? | Para documentar rutas exactas y comportamiento ante fallos |
+| P-LEIR-04 | ¿Cuál es el literal de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` (argumentos, `Stop`) y el patrón exacto del comando `ctmfw` de `REG_LEIS_RESP_FILE_FW` (`LEIsReg_*` o `LEIsReg_*.txt`, §6.1)? | Para documentar rutas exactas y comportamiento ante fallos |
 | P-LEIR-05 | ¿Con qué código termina `main.Main` si falla la conexión, si no existen las rutas `receive`/`old`/`Alertas` o si hay una excepción en un fichero? | Decide si `GSPROC_REG_LEIS_RESP` queda NOTOK en esos casos |
 | P-LEIR-06 | ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes |
 | P-LEIR-07 | Si dos peticiones `LEI_REG_LINE_SENT` tienen el mismo LEI, ¿cuál devuelve `identificaCliente`? | Decide qué petición recibe la respuesta |
@@ -137,6 +137,12 @@ directos, pero la regla de planificación de `GSPROC_REG_LEIS_ALERTAS` condicion
 búsqueda cada 60 s, medición cada 10 s, 5 mediciones estables, espera máxima 60 minutos. Código 7 = tiempo
 agotado; la regla de Control-M ante el 7 no se ha visto (P-LEIR-02). Con tamaño mínimo 0 bastaría un fichero
 vacío para disparar el tratamiento.
+
+Discrepancia menor de patrón: el documento original describe el primer filewatcher con el patrón `LEIsReg_*` (sin
+extensión) en su descripción técnica y como `LEIsReg_*.txt` en la ficha del fichero de entrada; aquí se documenta `LEIsReg_*.txt`.
+El Java, en cualquier caso, trata cualquier fichero de `receive/` cuyo nombre contenga `LEIsReg_` (cualquier extensión). Si el patrón
+real del `ctmfw` no llevara `.txt`, el filewatcher se dispararía también con ficheros de otra extensión que cumplieran el prefijo
+(se confirma en P-LEIR-04).
 
 ### 6.2 `GSPROC_REG_LEIS_RESP` — `LEI_Register_response.properties` y Java
 

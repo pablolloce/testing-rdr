@@ -20,8 +20,8 @@ otras cadenas RDR que se ejecutan en la misma máquina.
 
 No hay un fichero de entrada externo a esta cadena: el proceso lee directamente de las tablas
 Oracle `FT_T_SSIS` (instrucciones de liquidación), `FT_T_SSIA` (asignaciones: producto, branch,
-divisa), `FT_T_SSIR` (participantes), `FT_T_SSAC` (cuentas de custodia), `FT_T_SAP1`/`FT_T_SAT1`
-(atributos y clasificadores), `FT_T_FIID`/`FT_T_FRID` (identificadores y nombres de contraparte),
+divisa), `FT_T_SSIR` (participantes), `FT_T_SSAC` (cuentas de custodia), `FT_T_SAP1`/`FT_T_SAT1`/`FT_T_STDF`/`FT_T_INCS`
+(atributos, definiciones de estadística y clasificadores), `FT_T_ACCT` (cuenta de valores), `FT_T_FIID`/`FT_T_FRID` (identificadores y nombres de contraparte),
 `FT_T_ISTY`/`FT_T_ISSU` (tipos de emisión y divisa de denominación), `FT_T_ENTR`/`FT_T_EERL`
 (entidades y sucursales), `FT_T_SUBD` (subdivisiones/oficinas) y `FT_T_SAI1` (identificadores
 externos alternos). Estas tablas deben estar accesibles y con datos consistentes antes de la

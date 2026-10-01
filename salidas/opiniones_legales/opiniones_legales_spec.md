@@ -108,11 +108,11 @@ de `Legal_Opinion_Cargador.jar` queda documentado como contexto técnico en §6.
 |---|---|---|
 | P-OPLEG-01 | `LegalOpinion.sql` usa `sysdate-1` (y `sysdate-2` si hoy es lunes), pero la fila 17 del Planificador solo corre de martes a sábado. ¿Qué ocurre con lo modificado en sábado y domingo? Con esta planificación el martes solo recoge el lunes y el lunes nunca se ejecuta | Los cambios de fin de semana podrían no llegar nunca a Mentor |
 | P-OPLEG-02 | La cadena 1 empieza a las 14:00, la misma hora a la que el Planificador (que revisa cada 30-60 min) escribe el CSV, y no hay `ctmfw` antes de `MEKYTL0930`. ¿Qué hace `MEKYTL0930` si el CSV aún no existe o es el del día anterior? | El pipeline de formateo podría trabajar sobre un fichero ausente o antiguo y el filewatcher posterior no lo distinguiría |
-| P-OPLEG-03 | De las alertas de la cadena 2: ¿códigos de proceso que usan los `GestionAlertas_Legal_Opinion_Response`/`...1`?, ¿qué query y qué plantilla Excel hay en `FT_T_REP1` para el informe?, ¿quién recibe el correo (`FT_T_ALR1`/`FT_T_ALU1`)?, ¿quién escribe las incidencias en `FT_T_TPG1`, si el jar solo escribe en `FT_T_RLT1`? | Sin ello no se sabe a quién llega el informe ni de dónde salen sus datos (§6.5) |
-| P-OPLEG-04 | Contenido literal de `LegalOpinion.properties` y `LegalOpinionResponse.properties` (rutas, columnas, si hay `Stop`), de `CabeceraLegalOpinion.csv` (nombres de las 12 columnas, separador) y el texto completo de `LegalOpinion.sql` | Este documento solo describe los pasos; sin los ficheros no se pueden fijar los nombres exactos de columnas ni las rutas intermedias |
+| P-OPLEG-03 | De las alertas de la cadena 2: ¿códigos de proceso que usan los `GestionAlertas_Legal_Opinion_Response`/`...1`?, ¿qué query y qué plantilla Excel hay en `FT_T_REP1` para el informe?, ¿quién recibe el correo (`FT_T_ALR1`/`FT_T_ALU1`)?, ¿quién escribe las incidencias en `FT_T_TPG1`, si el jar solo escribe en `FT_T_RLT1`? Dato conocido: el `.properties` tiene dos pasos `Property` consecutivos, `GestionAlertas_Legal_Opinion_Response` («alerta de proceso») y `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»), pero no se sabe qué hace cada uno | Sin ello no se sabe a quién llega el informe ni de dónde salen sus datos (§6.5) |
+| P-OPLEG-04 | **Resuelta en parte.** Resuelto: nombres y origen de las 12 columnas que devuelve `LegalOpinion.sql` (§6.1), nombres de los ficheros intermedios del pipeline de la cadena 1 (§6.2) y secuencia de 5 pasos de `LegalOpinionResponse.properties` (§6.3), según el documento original del proceso (rama de Miguel). **Sigue pendiente:** contenido literal de ambos `.properties` (rutas completas, si hay `Stop`), contenido de `CabeceraLegalOpinion.csv` (nombres de columna de la cabecera fija y separador; no se sabe si coinciden con los alias del SQL) y el texto completo de `LegalOpinion.sql` | Sin los ficheros no se pueden fijar los nombres exactos de la cabecera ni las rutas intermedias |
 | P-OPLEG-05 | El paso 8 del pipeline de la cadena 1 es `ConvertirUNIX` tras `Unix2Dos`: ¿deja el fichero final en formato Unix aunque se dice que Mentor lo exige en formato DOS? | Formato de salida real del fichero que recibe Mentor |
-| P-OPLEG-06 | El pipeline de la cadena 2 "borra el log original" (`loadLegalOpinionLog.csv`) y `MEKYTL0978` lo historifica a `.../old/loadLegalOpinionLog_YYYYMMDD.rar`. ¿Cuál de los dos actúa sobre el fichero real, o el borrado es de una copia? | Si el pipeline lo borra antes, `MEKYTL0978` no encuentra nada que historificar |
-| P-OPLEG-07 | Comando exacto de `RESPONSE_LEGAL_OPINION_FW` (¿`ctmfw` con qué parámetros? ¿la ventana 18:00-23:00 la impone solo Control-M?) | Define cuándo se considera completo el log y qué ocurre si llega incompleto |
+| P-OPLEG-06 | **Resuelta en parte.** La descripción del pipeline en el documento original del proceso (rama de Miguel) dice que el paso `Borrar` elimina únicamente `Legal_Opinion_Response.xlsx`, y que el paso Java «mueve los ficheros procesados a `old/`»; no menciona que se borre `loadLegalOpinionLog.csv`. Queda por confirmar si el jar mueve el log a `old/` (con qué nombre) antes de que `MEKYTL0978` lo historifique a `.../old/loadLegalOpinionLog_YYYYMMDD.rar` y qué hace `MEKYTL0978` si ya no está. | Si algo lo retira antes, `MEKYTL0978` no encuentra nada que historificar |
+| P-OPLEG-07 | **Resuelta en parte.** Comando (fichas del documento original del proceso, rama de Miguel): `ctmfw '/fichtemcomp/pr/descargas/kytl/agreements/loadLegalOpinionLog.csv' CREATE 0 60 10 3 240`, host `pr-rdr.igrupobbva`, usuario `xpctma1` (ver §5.2). Sigue pendiente confirmar cómo se fija el límite de las 23:00 en Control-M (el documento solo indica «activo 18:00-23:00») y a qué hora arranca realmente el job | Define cuándo se considera completo el log y a qué hora vence el job si no llega |
 
 ## 5. Especificación funcional
 
@@ -132,21 +132,27 @@ Diaria M-S (no lunes), 14:00, criticidad W.
    10 s y lo da por completo tras 5 mediciones iguales; si en 150 minutos no lo detecta completo termina con el
    código 7 (tiempo agotado). No consta ninguna regla "7 → OK" en el job: el timeout deja el job en error y la
    cadena se detiene (TC-006). Ver `salidas/comun_ctmfw/comun_ctmfw_spec.md`.
-4. **`MEKYTL0924`** (usuario `xsramer1`, `MEGENV0001.sh`): envía el fichero a Mentor (host
-   `pr-mentor.igrupobbva`, `BBVAContracts_UpdtLO_yyyymmdd.csv`) e historifica localmente (retiene 10).
+4. **`MEKYTL0924`** (usuario `xsramer1`, `MEGENV0001.sh`, origen `/fichtemcomp/pr/descargas/kytl/LAGR/MENTOR/BBVAContracts_UpdtLO.csv`): envía el fichero a Mentor (host
+   `pr-mentor.igrupobbva`, ruta `/fichtemcomp/pr/descargas/eezt/`, nombre `BBVAContracts_UpdtLO_yyyymmdd.csv`) e historifica
+   localmente en `/fichtemcomp/pr/descargas/kytl/LAGR/MENTOR/old/` con el mismo nombre (retiene los 10 últimos).
 5. **`MEKYTL0938`** (usuario `xakytl1p`, `RAMERC0068.sh`): historificación adicional/comprimida a
    `lpops302...:/.../old/BBVAContracts_UpdtLO_YYYYMMDD.gz`, tolerante a ausencia de fichero, retiene 10.
 
 ### 5.2 Cadena 2 — `RESPONSE_LEGAL_OPINION` (validación y auditoría de la carga)
 
-1. **`RESPONSE_LEGAL_OPINION_FW`**: filewatcher sobre `.../agreements/loadLegalOpinionLog.csv`, activo
-   **18:00-23:00**. Si no llega a las 23:00 (`ctmfw` devolvería el código 7, tiempo agotado; el comando exacto no se ha recibido, P-OPLEG-07), **termina en KO sin tolerancia** (no hay regla "7 → OK") (a diferencia de los
-   filewatchers con Force-OK vistos en otras cadenas de esta sesión). Aviso a "ANS RDR" (BZG03906).
+1. **`RESPONSE_LEGAL_OPINION_FW`** (host `pr-rdr.igrupobbva`, usuario `xpctma1`): filewatcher
+   `ctmfw '/fichtemcomp/pr/descargas/kytl/agreements/loadLegalOpinionLog.csv' CREATE 0 60 10 3 240`, activo
+   **18:00-23:00**: busca el fichero cada 60 s, sin tamaño mínimo; una vez encontrado mide su tamaño cada 10 s y lo da por
+   completo tras 3 mediciones iguales; si en **240 minutos** no lo detecta completo, `ctmfw` termina con el código 7 (tiempo
+   agotado). Si el log no llega, **termina en KO sin tolerancia** (no hay regla "7 → OK") (a diferencia de los
+   filewatchers con Force-OK vistos en otras cadenas de esta sesión). Como 240 minutos desde las 18:00 son las 22:00, si el job
+   arranca a las 18:00 vence por tiempo antes del límite de las 23:00; la hora real de arranque y cómo se impone el límite de
+   las 23:00 no están documentadas (P-OPLEG-07). Aviso a "ANS RDR" (BZG03906).
 2. **`KYTL_RESPONSE_LEGAL_OPINION`** (usuario `xakytl1p`): ejecuta `GSProcess.sh LegalOpinionResponse`
    (`PARM1=LegalOpinionResponse`, confirmado real en Control-M — un único parámetro, sin encadenar otra
    clave de `GSProcess.sh`). Pipeline de 5 pasos (ver §6.3 y §6.5): valida/audita el log con
    `LegalOpinionResponse.jar`, ejecuta la **gestión de alertas** (Barrido → Cocinado → envío del informe por correo
-   con el `.xlsx` adjunto) y borra el `.xlsx` de alerta y el log original tras procesar.
+   con el `.xlsx` adjunto) y borra el `.xlsx` de alerta tras procesar (el paso Java, además, «mueve los ficheros procesados a `old/`»; qué ocurre exactamente con `loadLegalOpinionLog.csv`, P-OPLEG-06).
 3. **`MEKYTL0978`** (usuario `xsramer1`, `RAMERC0068.sh`): historifica
    `loadLegalOpinionLog.csv` → `.../old/loadLegalOpinionLog_YYYYMMDD.rar`.
 4. **`RESPONSE_LEGAL_OPINION_IN`** (Dummy): marca el **fin** de la cadena (no el inicio).
@@ -164,7 +170,7 @@ Diaria M-S (no lunes), 14:00, criticidad W.
   **Mal:** log ausente a las 23:00 → el filewatcher termina en KO y la cadena no avanza; fallos del jar → no
   se escriben acuses; fallos de las alertas → **no se ven** en Control-M (§6.5).
 - **Qué queda después:** acuses en `FT_T_RLT1` (se acumulan, sin control de duplicados, RISK-OPLEG-001); el
-  `.xlsx` de alerta y el log original ya no están en `.../agreements/` (P-OPLEG-06); en Mentor, el CSV del día.
+  `.xlsx` de alerta ya no está en `.../agreements/` y el log queda historificado en `old/` (P-OPLEG-06); en Mentor, el CSV del día.
 
 ## 6. Especificación técnica
 
@@ -176,8 +182,25 @@ Filtra `FT_T_LAGR` (tipo ISDA, organización `0182`) modificados el día anterio
 `FT_T_LAID`, `FT_T_LAAN`, `FT_T_LAAP`, `FT_T_LAT1`, `FT_T_LAL1`, `FT_T_LLD1`, `FT_T_LARS`, `FT_T_FLAR`,
 `FT_T_FIRL`, `FT_T_FIGU`, `FT_T_FRID`, `FT_T_FND1`, `FT_T_INCL`, `FT_T_ISTY`, `FT_T_ISCD`, `FT_T_EIST`).
 Genera 12 columnas por fila (ID del acuerdo en RDR y en Mentor, indicadores de Legal Opinion a 3 niveles
-—acuerdo, colateral, fondo—, productos cubiertos en ambas nomenclaturas, ID STAR de la contraparte). La
-consulta es de solo lectura (no escribe en Oracle). El texto completo de las 843 líneas no se ha incluido en
+—acuerdo, colateral, fondo—, productos cubiertos en ambas nomenclaturas, ID STAR de la contraparte), con estos alias y
+orígenes:
+
+| Columna | Origen | Significado |
+|---|---|---|
+| `ID_LAGR_RDR` | `FT_T_LAID.LEGAL_AGRMNT_ID` (contexto RDR) | ID del Legal Agreement en RDR |
+| `ID_LAGR_MNTR` | `FT_T_LAID.LEGAL_AGRMNT_ID` (contexto MENTOR) | ID del mismo acuerdo en Mentor |
+| `LO_LAGR` | `FT_T_LAGR.LEGAL_OPINION_IND` / derivado de `FT_T_LLD1.CL_VALUE3` | Indicador de Legal Opinion del acuerdo |
+| `PROD_RDR_LAGR` | `FT_T_ISTY.ISS_TYP_NME` (agregado) | Productos cubiertos, nombre RDR |
+| `PROD_MENTOR_LAGR` | `FT_T_EIST.EXT_ISS_TYP_TXT` (agregado) | Productos cubiertos, nombre Mentor |
+| `ID_COLL_RDR` | `FT_T_LAAN.LAAN_OID` | ID del anexo de colateral (CSA) |
+| `LO_COLLATERAL` | `FT_T_LAAN.LEGAL_OPINION_IND` / derivado | Indicador de Legal Opinion del colateral |
+| `PROD_RDR_COLL` | `FT_T_ISTY.ISS_TYP_NME` (contexto anexo) | Productos del anexo, nombre RDR |
+| `PROD_MENTOR_COLL` | `FT_T_EIST.EXT_ISS_TYP_TXT` (contexto anexo) | Productos del anexo, nombre Mentor |
+| `STAR_ID` | `FT_T_FRID.FINR_ID` (contexto STARID) | ID STAR de la contraparte |
+| `LO_AGR_FUND` | `FT_T_FND1.LEGAL_OPINION_IND` / derivado | Indicador de Legal Opinion a nivel de fondo |
+| `LO_COLL_FUND` | `FT_T_FND1.COLL_LEGAL_OPINION_IND` / derivado | Indicador de Legal Opinion del colateral a nivel de fondo |
+
+La consulta es de solo lectura (no escribe en Oracle). El texto completo de las 843 líneas no se ha incluido en
 este documento (P-OPLEG-04). Detalle del filtro de fecha: `sysdate-1` de martes a sábado y `sysdate-2` los lunes,
 pero el Planificador no corre los lunes (P-OPLEG-01).
 
@@ -191,15 +214,22 @@ columnas indicadas (separador `;`), las añade al fichero de salida y borra el d
 concatena dos ficheros en un tercero; `Unix2Dos` = crea `<nombre>_dos.<ext>` con finales de línea CRLF y deja
 el original; `MoverFichero` = `mv -f` más `chmod 664`.
 
-Los 8 pasos reales son: `ConvertirUNIX` → `CortarEliminarCabecera` (separa datos de cabecera) → `CatFicheros`
-(concatena la cabecera fija `CabeceraLegalOpinion.csv`, estática, con los datos) → borra el intermedio →
-`Unix2Dos` (formato requerido por Mentor) → borra el intermedio → `MoverFichero` (renombra al nombre
-final `BBVAContracts_UpdtLO.csv`) → `ConvertirUNIX` final.
+Los 8 pasos reales son: `ConvertirUNIX` sobre `BBVAContracts_UpdtLO.csv` → `CortarEliminarCabecera` (quita la cabecera del SQL y deja
+solo las filas de datos en `BBVAContracts_UpdtLO_tratado1.csv`) → `CatFicheros` (concatena la cabecera fija
+`CabeceraLegalOpinion.csv`, fichero estático del directorio `.../kytl/online/multipais/multicanal/dat/properties/` que
+no genera el SQL, con los datos, en `BBVAContracts_UpdtLO_tratado2.csv`) → borra `_tratado1.csv` → `Unix2Dos` sobre
+`_tratado2.csv` (formato requerido por Mentor; deja `_tratado2_dos.csv`) → borra `_tratado2.csv` → `MoverFichero` (renombra
+`_tratado2_dos.csv` al nombre final `BBVAContracts_UpdtLO.csv`) → `ConvertirUNIX` final.
 
 ### 6.3 `LegalOpinionResponse.jar` — validación y auditoría (decompilado con `cfr`, Cadena 2)
 
 Nombre interno real en los logs: `Legal_Opinion_Difusion` (no coincide literalmente con el nombre del
-jar). Flujo (`main.main` → `LectorFicheros.leerFichero` → `ProcesadorLEOP.procesarLegalAgreement`):
+jar). Pasos de `LegalOpinionResponse.properties` (5): (1) `VariablesGlobales`, con la ruta base
+`/fichtemcomp/<entorno>/descargas/kytl/agreements`; (2) `Java`: `LegalOpinionResponse.jar` (clase `main.main`, servicio
+`MENTOR_Difusion_Service`) con `ConexionBD.jar`, `ojdbc8.jar` y `log4j.jar`, paso que según el documento original «mueve los
+ficheros procesados a `old/`» (P-OPLEG-06); (3) `Property` `GestionAlertas_Legal_Opinion_Response` («alerta de proceso»);
+(4) `Property` `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»); (5) `Script` `Borrar`, que borra
+`Legal_Opinion_Response.xlsx` de `agreements/`. Flujo (`main.main` → `LectorFicheros.leerFichero` → `ProcesadorLEOP.procesarLegalAgreement`):
 
 1. Lee `.../agreements/loadLegalOpinionLog.csv`, formato `MENTOR_ID|RDR_ID|LOG` (separador `|`), omite la
    cabecera literal `MENTOR_ID|RDR_ID|LOG`.
@@ -323,7 +353,7 @@ Cobertura por cadena:
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso cerrado para las 2 cadenas documentadas, con 7 preguntas abiertas no bloqueantes (P-OPLEG-01 a 07, §4).** El CSV de la cadena 1 lo genera el Planificador Genérico (fila 17), no la cadena. Los 2 gaps técnicos sobre los jars Java quedan
+**Proceso cerrado para las 2 cadenas documentadas, con preguntas abiertas no bloqueantes: P-OPLEG-01, 02, 03 y 05 sin respuesta, y P-OPLEG-04, 06 y 07 resueltas solo en parte (§4).** El CSV de la cadena 1 lo genera el Planificador Genérico (fila 17), no la cadena. Los 2 gaps técnicos sobre los jars Java quedan
 resueltos con evidencia real (decompilación con `cfr` de `LegalOpinionResponse.jar`, análisis de una
 muestra real del `.xlsx`), corrigiendo 2 premisas erróneas del documento fuente original (qué genera el
 `.xlsx` y qué tabla escribe cada jar). El gap sobre la localización del job de `Legal_Opinion_Cargador` se

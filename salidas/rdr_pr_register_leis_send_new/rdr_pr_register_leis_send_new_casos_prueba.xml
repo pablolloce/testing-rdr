@@ -10,7 +10,7 @@
       <precondicion>El fichero idx/{CLAVE}.idx de MEKYTL0927 está correctamente configurado hacia el mainframe.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Petición TESTLEI001" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=TESTCLI01, DOCUMPS=549300TESTLEI0001, INICVIG=20261001, FINVIG=99991231"/>
+      <dato campo="Petición TESTLEI001" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=TESTCLI01, DOCUMPS=549300TESTLEI0001, INICVIG=2026-10-01, FINVIG=2027-10-01 (formato yyyy-MM-dd, 10 caracteres)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Esperar al disparo automático de RDR_PR_REGISTER_LEIS_SEND_new_IN a las 00:30.</paso>

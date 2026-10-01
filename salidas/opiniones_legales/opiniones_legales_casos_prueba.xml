@@ -124,7 +124,7 @@
 
   <casoDePrueba id="TC-007" tipo="negativo">
     <nombre>Cadena 2, log no llega dentro de la ventana 18:00-23:00</nombre>
-    <objetivo>Confirmar que, si loadLegalOpinionLog.csv no llega antes de las 23:00, RESPONSE_LEGAL_OPINION_FW termina en KO real, sin tolerancia Force-OK.</objetivo>
+    <objetivo>Confirmar que, si loadLegalOpinionLog.csv no llega antes de las 23:00 (el filewatcher es ctmfw ... CREATE 0 60 10 3 240, es decir, vence con código 7 a los 240 minutos de espera), RESPONSE_LEGAL_OPINION_FW termina en KO real, sin tolerancia Force-OK.</objetivo>
     <precondiciones>
       <precondicion>loadLegalOpinionLog.csv no existe en /fichtemcomp/pr/descargas/kytl/agreements/ a las 23:00.</precondicion>
     </precondiciones>
@@ -133,7 +133,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Confirmar que RESPONSE_LEGAL_OPINION_FW no detecta el fichero antes de las 23:00.</paso>
-      <paso numero="2">Verificar el estado final del job a las 23:00.</paso>
+      <paso numero="2">Verificar el estado final del job: KO por tiempo agotado (código 7) a los 240 minutos de espera o a las 23:00, lo que ocurra primero (si el job arranca a las 18:00, a las 22:00).</paso>
     </pasos>
     <resultadoEsperado>El job termina en estado KO real y visible (no se marca OK automáticamente), con aviso a ANS RDR (BZG03906).</resultadoEsperado>
     <tipoValidacion>Monitorización de estado en Control-M</tipoValidacion>

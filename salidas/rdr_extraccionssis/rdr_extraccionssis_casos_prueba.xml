@@ -20,7 +20,7 @@
       <paso numero="3">Verificar en el log del jar "Cantidad de SSIS a tratar: 3" y que el fichero publicado en extracciongenerica/SSIS/ (antes de que MEKYTL1024 lo mueva) contiene 3 bloques SettInstruction, uno por cada SSI_OID, entre las etiquetas raíz; no debe quedar ningún .tmp.</paso>
       <paso numero="4">Confirmar que EXTRACCION_SSIS_XML_INACT y EXTRACCION_SSIS_XML finalizan en OK sin ejecutar comando de sistema operativo.</paso>
       <paso numero="5">Confirmar que MEKYTL1024 mueve el fichero a backup/ExtraccionContingenciaSSIS_20260927.xml.</paso>
-      <paso numero="6">Abrir el XML resultante y validar que cada SettInstruction contiene los campos ActualDate, StartDate, Status, PartyId, SettMethod y al menos un bloque Participants con PartyId, Role y SecondRole poblados.</paso>
+      <paso numero="6">Abrir el XML resultante y validar que cada SettInstruction contiene los campos ActualDate (fecha de generación, formato DD/MM/YYYY), StartDate, LastChangeDate, Status, SettID, PartyId, PartyShort, SettMethod y los 8 bloques (Statistics, Classification, Products, Branches, Offices, Currencies, Participants, ExtIdentifiers), con al menos un bloque Parties dentro de Participants con PartyId, Role y SecondRole poblados. Products y Currencies contienen ALL cuando la SSI no tiene asignación específica en FT_T_SSIA.</paso>
     </pasos>
     <resultadoEsperado>El fichero backup/ExtraccionContingenciaSSIS_20260927.xml existe, contiene exactamente 3 bloques SettInstruction bien formados, y la cadena completa finaliza en OK.</resultadoEsperado>
     <tipoValidacion>Validación funcional de extremo a extremo sobre fichero de salida y estados de job en Control-M.</tipoValidacion>

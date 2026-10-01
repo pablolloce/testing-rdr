@@ -93,10 +93,10 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-SSI-01 | Lista completa de los ~40 campos planos de `SettInstruction` y de los 8 bloques, con tabla/columna de origen | Para validar el contenido del XML campo a campo; hoy solo se conocen los citados en §6 |
+| P-SSI-01 | **Resuelta.** Lista completa de campos planos de `SettInstruction` y de los 8 bloques, con tabla/columna de origen | Resuelta con el diccionario de campos del documento original del proceso (rama de Miguel; el mismo texto figura en la rama de Víctor). Está en §6 (24 campos planos, no ~40, y 8 bloques; Participants con 13 subcampos). |
 | P-SSI-02 | Contenido de `ExtraccionGenericaSSIs.properties` (argumentos 1-7 del jar: nivel de log, fichero log4j, número de hilos, ubicación de credenciales; claves `Stop*`) | Dónde está el log del jar, que es la única señal de fallo |
 | P-SSI-03 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` para la clave `MEKYTL1024` (máscara de origen, ruta, operación mover, renombrado, `FALLASINOFICH`) | Qué hace si no hay fichero y cómo se forma exactamente el nombre del backup |
-| P-SSI-04 | Export de Control-M de la cadena: nombres exactos de los eventos intermedios, condiciones de entrada, reglas `ON` (si las hay), criticidad de `GS_EXTRACCION_CONT` y `MEKYTL1024` | Poder afirmar qué ocurre cuando un job falla en mitad de la cadena |
+| P-SSI-04 | **Resuelta en parte.** Nombres de eventos, condiciones de entrada y criticidad: resueltos (ver §5, tabla de orden y eventos; `GS_EXTRACCION_CONT` y `MEKYTL1024` = criticidad S, «Aviso día siguiente incluso si es festivo»; todas las condiciones de entrada con «Eliminar en No»; `MANT_RDR_EXTRACCION_SSIS` espera `…_MEKYTL1025_OK` Y `…_MEKYTL1047_OK`), según las fichas del documento original del proceso (rama de Miguel). **Sigue pendiente:** reglas `ON` (si las hay) y, con ello, qué ocurre exactamente cuando un job falla a mitad de la cadena (las fichas no las describen) | Poder afirmar qué ocurre cuando un job falla en mitad de la cadena |
 | P-SSI-05 | Valores de `ROOT_TAG` y `URL_OUTPUT_FILE` de `ExtraccionContingenciaSSIs.sql` en `FT_T_PAR1`/`FT_T_ATE1` | Forma exacta del XML y nombre del fichero publicado |
 
 ## 5. Especificación funcional
@@ -146,17 +146,19 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
    No genera evento de salida: es el cierre de la cadena.
 
 **Orden y eventos de la cadena** (los nombres de evento son los citados en la documentación; el export de
-Control-M de esta cadena no se ha recibido, P-SSI-04):
+Control-M de esta cadena no se ha recibido; los nombres proceden de las fichas de job del documento original del proceso; quedan pendientes solo las reglas `ON`, P-SSI-04):
 
 | Orden | Job | Tipo | Usuario | Espera | Emite |
 |-------|-----|------|---------|--------|-------|
 | 1 | `GS_EXTRACCION_CONT` | OS (`GSProcess.sh ExtraccionGenericaSSIs`) | `xakytl1p` | hora (desde 04:00) | `RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK` |
-| 2 | `EXTRACCION_SSIS_XML_INACT` | Dummy | `xakytl1p` | evento de 1 | evento propio |
-| 3 | `EXTRACCION_SSIS_XML` | Dummy | `xakytl1p` | evento de 2 | evento propio |
-| 4 | `MEKYTL1024` | OS (`RAMERC0068.sh` clave `MEKYTL1024`) | `root` | evento de 3 | evento propio |
-| 5 | `KYTL003D_MEKYTL1025` | Dummy | `root` | evento de 4 | `…_MEKYTL1025_OK` |
-| 6 | `KYTL003D_MEKYTL1047` | Dummy | `root` | evento de 5 | `…_MEKYTL1047_OK` |
-| 7 | `MANT_RDR_EXTRACCION_SSIS` | OS (`find`) | `root` | eventos `…_MEKYTL1025_OK` Y `…_MEKYTL1047_OK` | — (cierre) |
+| 2 | `EXTRACCION_SSIS_XML_INACT` | Dummy (`PARM1=HistSSIsINACT`) | `xakytl1p` | `RDR_EXTRACCIONSSIS_GS_EXTRACCION_CONT_OK` | `RDR_EXTRACCIONSSIS_EXTRACCION_SSIS_XML_INACT_OK` |
+| 3 | `EXTRACCION_SSIS_XML` | Dummy (`PARM1=HistSSIs`) | `xakytl1p` | `RDR_EXTRACCIONSSIS_EXTRACCION_SSIS_XML_INACT_OK` | `RDR_EXTRACCIONSSIS_EXTRACCION_SSIS_XML_OK` |
+| 4 | `MEKYTL1024` | OS (`RAMERC0068.sh` clave `MEKYTL1024`) | `root` | `RDR_EXTRACCIONSSIS_EXTRACCION_SSIS_XML_OK` | `RDR_EXTRACCIONSSIS_MEKYTL1024_OK` |
+| 5 | `KYTL003D_MEKYTL1025` | Dummy (`PARM1=MEKYTL1025`) | `root` | `RDR_EXTRACCIONSSIS_MEKYTL1024_OK` | `RDR_EXTRACCIONSSIS_MEKYTL1025_OK` |
+| 6 | `KYTL003D_MEKYTL1047` | Dummy (`PARM1=MEKYTL1047`) | `root` | `RDR_EXTRACCIONSSIS_MEKYTL1025_OK` | `RDR_EXTRACCIONSSIS_MEKYTL1047_OK` |
+| 7 | `MANT_RDR_EXTRACCION_SSIS` | OS (`find`) | `root` | `RDR_EXTRACCIONSSIS_MEKYTL1025_OK` Y `RDR_EXTRACCIONSSIS_MEKYTL1047_OK` | — (cierre) |
+
+Todos los eventos de entrada se definen con «Eliminar en No» (el evento no se borra al consumirse) y fecha de ejecución (*odate*). Criticidad: `GS_EXTRACCION_CONT` y `MEKYTL1024` = S (aviso día siguiente incluso si es festivo); `MANT_RDR_EXTRACCION_SSIS` = W (aviso día siguiente).
 
 **Cómo saber si fue bien o mal.** Control-M no basta: el éxito real se comprueba (a) en el log del jar
 (`Cantidad de SSIS a tratar: <n>` debe coincidir con el recuento de `SettInstruction` del XML;
@@ -164,7 +166,7 @@ Control-M de esta cadena no se ha recibido, P-SSI-04):
 `Error: No se ha podido renombrar el fichero.` indica que el fichero no se publicó) y (b) en la existencia y
 tamaño de `backup/ExtraccionContingenciaSSIS_<fecha>.xml`. Si falla `MEKYTL1024` (por ejemplo, no hay fichero
 que mover o falta la clave en el `.idx`), el fichero queda sin historificar en `SSIS/` y la ejecución siguiente
-lo sustituye al publicar; los dummies y la purga siguen su curso o no según su definición (P-SSI-04).
+lo sustituye al publicar; los dummies y la purga siguen su curso o no según su definición (reglas `ON` no documentadas, P-SSI-04).
 Al terminar la cadena queda: el XML del día en `backup/`, los de los 7 días previos y nada más (el resto se purga).
 
 ## 6. Especificación técnica
@@ -182,19 +184,48 @@ Al terminar la cadena queda: el XML del día en `backup/`, los de los 7 días pr
   confirmado en `rdr_sendbbg_asset` y `rdr_mifidmic_new`; para esta clave el propio documento
   fuente confirma explícitamente comportamiento de traslado ("Traslada los ficheros... 
   renombrándolos"), no de copia.
-- **Estructura del XML `SettInstruction`** (generado por `ExtraccionContingenciaSSIs.sql`): cada SSI es un
-  elemento `<SettInstruction>` con unos 40 campos planos (entre ellos `ActualDate`, `StartDate`, `Status`,
-  `PartyId`, `SettMethod`, `SettPriority`, `SettID` —identificador alterno RDR—) más 8 bloques repetibles:
-  `Statistics`, `Classification`, `Products`, `Branches`, `Offices`, `Currencies`, `Participants` y
-  `ExtIdentifiers`. El bloque `Participants` contiene un `<Parties>` por cada fila `ACTIVE` de `FT_T_SSIR`, con
-  los subcampos `PartyId`, `PartyShort`, `Role`, `SecondRole`, `Account`, `GLAccount`, `Identifier`,
-  `OtherCode`, `MessageTo`, `BicCode`, `ABACode`, `AccountValid` y `SetOffice` (13). Tablas de origen: `FT_T_SSIS`
-  (SSI), `FT_T_SSIA` (asignaciones: producto, branch, divisa), `FT_T_SSIR` (participantes), `FT_T_SSAC`
-  (cuentas de custodia), `FT_T_SAP1`/`FT_T_SAT1` (atributos y clasificadores), `FT_T_FIID`/`FT_T_FRID`
-  (identificadores y nombres de contraparte), `FT_T_ISTY`/`FT_T_ISSU` (tipo y divisa de emisión),
-  `FT_T_ENTR`/`FT_T_EERL` (entidades y sucursales), `FT_T_SUBD` (subdivisiones/oficinas) y `FT_T_SAI1`
-  (identificadores externos). La lista campo a campo con su tabla/columna de origen no figura en la información
-  disponible (P-SSI-01).
+- **Estructura del XML `SettInstruction`** (generado por `ExtraccionContingenciaSSIs.sql`, que se ejecuta una vez por
+  `SSI_OID` con el OID como último parámetro posicional; filtro de la query de detalle: `SSIS.END_TMS IS NULL AND
+  SSIS.SSI_OID = <parámetro>`). Cada SSI es un `<SettInstruction>` con **24 campos planos** y **8 bloques repetibles**.
+  Diccionario completo (campo XML → origen):
+
+  | Campo XML | Descripción y origen |
+  |-----------|----------------------|
+  | `ActualDate` | Fecha de generación del XML (`sysdate`), formato `DD/MM/YYYY` |
+  | `StartDate` | Fecha de alta de la SSI (`SSIS.START_TMS`) |
+  | `LastChangeDate` | Fecha de última modificación (`SSIS.LAST_CHG_TMS`) |
+  | `Status` | Estado del dato (`SSIS.DATA_STAT_TYP`: ACTIVE/INACTIVE) |
+  | `SettID` | Identificador alterno de la SSI en el contexto RDR (`FT_T_SAI1`, `DATA_SRC_ID='RDR'`) |
+  | `PartyId` | Identificador FINS de la contraparte propietaria (`FT_T_FIID`, contexto `FINSID`, por `FINR_INST_MNEM`) |
+  | `PartyShort` | Nombre corto de la contraparte (`FT_T_FRID`, contexto `SHTNMEID`) |
+  | `CounterpartyRol` | Rol de la contraparte (`SSIS.FINSRL_TYP`) |
+  | `SettMethodTyp` | Método de liquidación, código interno (`SSIS.CLRNG_METH_TYP`) |
+  | `SettMethod` | Descripción del método de liquidación (`FT_T_SAT1`, clasificador `CAL_METH`) |
+  | `SettType` | Tipo de instrucción de procesamiento (`SSIS.TRN_PROC_INSTRUC_TYP`) |
+  | `Side` | Dirección de la transacción (`SSIS.TRANS_DIR_TYP`) |
+  | `SettPriority` | Prioridad de liquidación (`SSIS.SETTLE_INSTRUC_PRTY_TYP`) |
+  | `SettPriorityNum` | Nº de secuencia de prioridad (`SSIS.SETTLE_INSTRUC_PRTY_SEQ`) |
+  | `TargetType` | Tipo de objetivo (`FT_T_SAT1`, clasificador `TRGTTYP`) |
+  | `SettStartDT` / `SettEndDT` | Inicio / fin de vigencia (`FT_T_SAT1`, `STAT_DEF_ID='DATEFROM'` / `'DATETO'`) |
+  | `DateOfApplication` | Fecha de aplicación (`FT_T_SAT1`, clasificador `DTEAPPL`) |
+  | `SubBalance` | Sub-saldo asociado (`FT_T_SAT1`, clasificador `SUBSALDO`) |
+  | `IsSTP` | Indicador Straight-Through-Processing (`FT_T_SAT1`, `STAT_DEF_ID='STPSSI'`) |
+  | `MT210` | Indicador de generación de MT210 (`FT_T_SAT1`, `STAT_DEF_ID='MT210'`) |
+  | `DoNotIssuePayment` | Indicador de no emitir pago (`FT_T_SAT1`, `STAT_DEF_ID='NIPY'`) |
+  | `eMarkets` | Indicador de mercado electrónico (`FT_T_SAT1`, `STAT_DEF_ID='PSESSI'`) |
+  | `SecurityAccount` | Cuenta de custodia de valores (`FT_T_ACCT`, `ACCT_PURP_TYP='SECURITY ACCOUNT'`) |
+  | `Statistics` (bloque `Stat` = `Type`+`Value`) | Atributos estadísticos de la SSI (`FT_T_SAT1` unida a `FT_T_STDF`, `DATA_SRC_ID='SSISATT'`); `Type` = `STAT_DEF_ID`, `Value` con saltos de línea y `;` normalizados a espacio/coma. El SQL agrupa los históricamente llamados `CAMPO_70`, `CAMPO_71`, `CAMPO_72` y `DAP_CCY` |
+  | `Classification` (bloque `Class` = `Name`+`Type`+`Value`) | Clasificaciones (`FT_T_SAT1` unida a `FT_T_INCS`, `DATA_SRC_ID='SSISATT'`); `Name` = descripción del set, `Type` = `INDUS_CL_SET_ID`. Agrupa los clasificadores `ISDVP`, `FILTER`, `FININTER`, `TRADETYP`, `TRADECLS`, `COLUNDER`, `COLLMARG`, `THRDPTY` y `CLIENT` |
+  | `Products` (bloque `Product`) | Productos a los que aplica (`FT_T_SSIA`, `SSI_ASSIGN_PURP_TYP='PRODUCT'`); `ALL` si no hay producto específico; si lo hay, nombre del tipo de emisión vía `FT_T_ISTY` |
+  | `Branches` (bloque `Branch` = `BranchCod`+`BranchNme`) | Sucursales (`FT_T_SSIA`, `SSI_ASSIGN_PURP_TYP='BRANCH'`): `ORG_ID` y `FT_T_ENTR.ENT_LEG_NME`, verificada como sucursal activa vía `FT_T_EERL` con `RL_TYP='BRANCH'` |
+  | `Offices` (bloque `Office` = `OfficeCod`+`OfficeNme`) | Oficinas CIB (`FT_T_SAT1`, `STAT_DEF_ID='OFFICE'`, resuelta contra `FT_T_SUBD` con `SUBDIV_TYP='CIBOFFI'`) |
+  | `Currencies` (bloque `Currency`) | Divisas (`FT_T_SSIA`, `SSI_ASSIGN_PURP_TYP='CURRENCY'`); `ALL` si no hay divisa específica; si la hay, `FT_T_ISSU.DENOM_CURR_CDE` |
+  | `Participants` (bloque `Parties`, uno por fila de `FT_T_SSIR`) | `PartyId` (`FT_T_FIID`, `FINSID`, por `INST_MNEM`), `PartyShort` (`FT_T_FRID`, `SHTNMEID`), `Role` (`SSIR.FINSRL_TYP`), `SecondRole` (`SSIR.SETTLE_RL_TYP`), `Account` / `GLAccount` / `Identifier` / `OtherCode` (`FT_T_SSAC`, `SAFEKEEP_ACCT_TYP` = `ACCOUNT` / `GL_ACCOUNT` / `IDENTIFIER` / `OTHER_ACCOUNT`), `MessageTo` (`FT_T_SAP1`, `MSGTO`), `BicCode` (`FT_T_FRID`, por `FRID_OID`), `ABACode` (`FT_T_SAP1`, `ABA_COD`), `AccountValid` (`FT_T_SAP1`, `CC_VALID`), `SetOffice` (`FT_T_SAP1`, `STT_OFFC`) |
+  | `ExtIdentifiers` (bloque `ExtIdentifier` = `Type`+`AltId`+`Source`) | Identificadores externos alternos (`FT_T_SAI1`): `ID_CTXT_TYP`, `ALT_ID`, `DATA_SRC_ID` |
+
+  Tablas de origen: `FT_T_SSIS`, `FT_T_SSIA`, `FT_T_SSIR`, `FT_T_SSAC`, `FT_T_SAP1`, `FT_T_SAT1`, `FT_T_STDF`, `FT_T_INCS`,
+  `FT_T_ACCT`, `FT_T_FIID`, `FT_T_FRID`, `FT_T_ISTY`, `FT_T_ISSU`, `FT_T_ENTR`, `FT_T_EERL`, `FT_T_SUBD` y `FT_T_SAI1`.
+  Corrección: la versión anterior hablaba de «unos 40 campos planos»; son 24 campos planos más los 8 bloques.
 - **Hallazgo técnico confirmado (Gap 7):** la subquery que construye `Participants` no tiene
   `DISTINCT`/`GROUP BY` — solo filtra por `SSIR.SSI_OID = SSIS.SSI_OID AND SSIR.DATA_STAT_TYP =
   'ACTIVE'`. Si `FT_T_SSIR` contuviera más de una fila `ACTIVE` para el mismo participante en la
