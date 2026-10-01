@@ -1,147 +1,313 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<casosDePrueba proceso="RDR_CONCILIACION_BDI_new" fecha="2026-09-23" usuario="pablo.llorente">
+<casosDePrueba proceso="rdr_conciliacion_bdi" fecha="2026-10-01" usuario="pablo.llorente">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
-    <nombre>Encadenamiento completo de los 7 jobs con ConBDI.csv presente</nombre>
-    <objetivo>Verificar que los 7 jobs se ejecutan en el orden documentado y se generan los 4 ficheros de salida.</objetivo>
+    <nombre>Encadenamiento completo de los 7 jobs con ConBDI.csv válido</nombre>
+    <objetivo>Verificar que los 7 jobs se ejecutan en el orden de la spec (§6.1) y que cada uno deja su resultado.</objetivo>
     <precondiciones>
-      <precondicion>Cadena RDR_CONCILIACION_BDI_new activa, servidor MERCADOS-4, entorno de prueba (no producción).</precondicion>
-      <precondicion>Existe ConBDI.csv en /fichtemcomp/pr/descargas/kytl/ConBDI/ con al menos 1 registro válido.</precondicion>
+      <precondicion>Entorno de pruebas (no producción) con la cadena RDR_CONCILIACION_BDI_new cargada y acceso de lectura a Control-M, al directorio /fichtemcomp/&lt;env&gt;/descargas/kytl/ConBDI/ y a su old/ (usuario con permisos de lectura sobre ficheros de xakytl1p y xsramer1).</precondicion>
+      <precondicion>Existen en ConBDI/ el subdirectorio old/ y la plantilla Reporte_ConciliacionBroker_Plantilla.xlsx.</precondicion>
+      <precondicion>Existe ConBDI.csv con la cabecera de 46 columnas de la spec §6.6 y al menos 2 registros que cumplen las reglas (COD-CLINTERN de 6 caracteres, sin caracteres no permitidos), en ISO-8859-1.</precondicion>
+      <precondicion>Conexión a la base de datos GoldenSource de pruebas operativa.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ODATE" valor="fecha de planificación actual (Lunes a Viernes)"/>
+      <dato campo="ODATE" valor="día laborable de lunes a viernes"/>
+      <dato campo="COD-CLINTERN" valor="900001 y 900002"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Verificar que KYTL_CONBDI_GSPROCESS_FW detecta ConBDI.csv y genera su evento OK.</paso>
-      <paso numero="2">Verificar que KYTL_CONBDI_GSPROCESS termina RC=0 y genera los 4 ficheros (Reporte_ConBDI.csv, Reporte_ConBDI_dos.csv, Reporte_ConciliacionBroker_yyyymmdd.xlsx, Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx).</paso>
-      <paso numero="3">Verificar que KYTL_CONBDI_UNIX2DOS convierte Reporte_ConBDI.csv a formato CRLF.</paso>
-      <paso numero="4">Verificar que MEKYTL0135 termina RC=0 sin envío real de red.</paso>
-      <paso numero="5">Verificar que MEKYTL0132, MEKYTL0361 y MEKYTL0812 historifican en cascada los 3 ficheros correspondientes.</paso>
+      <paso numero="1">Depositar ConBDI.csv en ConBDI/ después de las 00:00.</paso>
+      <paso numero="2">Comprobar que KYTL_CONBDI_GSPROCESS_FW termina OK y publica RDR_CONCILIACION_BDI_KYTL_CONBDI_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="3">Comprobar que KYTL_CONBDI_GSPROCESS termina OK y que el log execute_ConBDI_&lt;AAAAMMDD&gt;.log termina con ESTADO-0-.</paso>
+      <paso numero="4">Comprobar que existen en ConBDI/ los ficheros ConBDI_processed.csv, Reporte_ConBDI.csv, Reporte_ConBDI_dos.csv y Reporte_ConciliacionBroker_&lt;AAAAMMDD&gt;.xlsx.</paso>
+      <paso numero="5">Comprobar que KYTL_CONBDI_UNIX2DOS termina OK.</paso>
+      <paso numero="6">Comprobar que MEKYTL0135 termina OK.</paso>
+      <paso numero="7">Comprobar que MEKYTL0132, MEKYTL0361 y MEKYTL0812 terminan OK en ese orden.</paso>
+      <paso numero="8">Comprobar que en old/ están ConBDI_&lt;AAAAMMDD&gt;.csv y Reporte_ConciliacionBroker_&lt;AAAAMMDD&gt;.xlsx y que ya no están en ConBDI/.</paso>
     </pasos>
-    <resultadoEsperado>Los 7 jobs terminan en OK; los 4 ficheros de salida existen; los 3 ficheros historificables quedan en old/ con máscara de fecha.</resultadoEsperado>
-    <tipoValidacion>Verificación de estado en Control-M + existencia de ficheros.</tipoValidacion>
-    <criterioAceptacion>7/7 jobs OK; 3 ficheros en old/ con la fecha correcta.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+    <resultadoEsperado>Los 7 jobs terminan en OK en el orden FW, GSPROCESS, UNIX2DOS, MEKYTL0135, MEKYTL0132, MEKYTL0361, MEKYTL0812; los ficheros del paso 4 existen; ConBDI.csv y el Excel Broker quedan en old/ con la fecha del día.</resultadoEsperado>
+    <tipoValidacion>Estado de jobs en Control-M, contenido del log de GSProcess y existencia de ficheros.</tipoValidacion>
+    <criterioAceptacion>7/7 jobs OK; ficheros presentes en las rutas indicadas. El paso 7 depende de que exista el Excel SWIFT si la línea IDX de MEKYTL0812 lo exige (P-CBD-04/P-CBD-05): si MEKYTL0812 termina con código 6 por falta de ese fichero, se registra y no invalida el resto del caso.</criterioAceptacion>
+    <posibilidadFallo>MEKYTL0812 puede fallar con código 6 si el Excel SWIFT no se genera en pruebas (generador desconocido).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Fallo de KYTL_CONBDI_GSPROCESS bloquea el resto de la cadena</nombre>
-    <objetivo>Confirmar que un fallo en la carga impide la ejecución de los jobs sucesores.</objetivo>
+    <nombre>Un NOTOK de KYTL_CONBDI_GSPROCESS impide los jobs siguientes</nombre>
+    <objetivo>Confirmar que si el motor termina con código 1 la cadena se detiene y no se ejecuta ningún job posterior.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de KYTL_CONBDI_GSPROCESS (p. ej. cortando la conectividad a GoldenSource).</precondicion>
+      <precondicion>Entorno de pruebas (no producción), mismos accesos que TC-001 más permiso para renombrar ficheros en ConBDI/.</precondicion>
+      <precondicion>ConBDI.csv válido presente en ConBDI/ y la plantilla Reporte_ConciliacionBroker_Plantilla.xlsx renombrada temporalmente a Reporte_ConciliacionBroker_Plantilla.xlsx.bak.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Simulación" valor="Conexión a GoldenSource inaccesible"/>
+      <dato campo="Plantilla" valor="ausente (renombrada a .bak)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar RC≠0 en KYTL_CONBDI_GSPROCESS.</paso>
-      <paso numero="2">Verificar que KYTL_CONBDI_UNIX2DOS no arranca.</paso>
+      <paso numero="1">Dejar que la cadena arranque y que KYTL_CONBDI_GSPROCESS termine.</paso>
+      <paso numero="2">Comprobar en execute_ConBDI_&lt;AAAAMMDD&gt;.log la línea "SubProceso InformeBroker finalizado de forma incorrecta".</paso>
+      <paso numero="3">Comprobar que KYTL_CONBDI_GSPROCESS queda NOTOK con código 1 y ESTADO-1- en el log.</paso>
+      <paso numero="4">Comprobar que KYTL_CONBDI_UNIX2DOS, MEKYTL0135, MEKYTL0132, MEKYTL0361 y MEKYTL0812 no se ejecutan.</paso>
+      <paso numero="5">Restaurar el nombre de la plantilla.</paso>
     </pasos>
-    <resultadoEsperado>KYTL_CONBDI_UNIX2DOS y el resto de jobs posteriores permanecen sin ejecutarse.</resultadoEsperado>
-    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
-    <criterioAceptacion>0 jobs posteriores ejecutados tras el fallo.</criterioAceptacion>
-    <posibilidadFallo>Que Control-M dispare igualmente el sucesor por mala configuración de dependencia.</posibilidadFallo>
+    <resultadoEsperado>InformeBroker termina con código distinto de 0 por no encontrar la plantilla, GSProcess.sh termina con 1, el job queda NOTOK y ningún job posterior se ejecuta; ConBDI.csv sigue en ConBDI/.</resultadoEsperado>
+    <tipoValidacion>Estado de jobs en Control-M y log de GSProcess.</tipoValidacion>
+    <criterioAceptacion>0 jobs posteriores ejecutados y job de motor NOTOK con código 1.</criterioAceptacion>
+    <posibilidadFallo>Si la configuración Control-M del job tuviera una regla que convierta el código 1 en OK, la cadena seguiría: sería un defecto de configuración.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
-    <nombre>El workflow de email no envía si el informe Broker no existe</nombre>
-    <objetivo>Confirmar el comportamiento condicional documentado en informeBroker_BDI.gsp: sin envío si el fichero no está en disco.</objetivo>
+    <nombre>Sin Excel Broker el workflow informeBroker_BDI no envía correo</nombre>
+    <objetivo>Confirmar la rama "N" del workflow: si Reporte_ConciliacionBroker_&lt;AAAAMMDD&gt;.xlsx no existe, no se invoca el sub-workflow Mail.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba, no producción, con capacidad de eliminar Reporte_ConciliacionBroker_yyyymmdd.xlsx tras su generación y antes de la evaluación del workflow.</precondicion>
+      <precondicion>Mismas condiciones que TC-002 (plantilla ausente, por lo que el Excel del día no se genera).</precondicion>
+      <precondicion>No existe en ConBDI/ ningún Reporte_ConciliacionBroker_&lt;AAAAMMDD de hoy&gt;.xlsx de una ejecución anterior.</precondicion>
+      <precondicion>Acceso al monitor de workflows de GoldenSource de pruebas y al buzón destinatario de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Fichero" valor="Reporte_ConciliacionBroker_yyyymmdd.xlsx ausente en el momento de la evaluación"/>
+      <dato campo="fileMail" valor="/fichtemcomp/&lt;env&gt;/descargas/kytl/ConBDI/Reporte_ConciliacionBroker_&lt;AAAAMMDD&gt;.xlsx (inexistente)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Eliminar Reporte_ConciliacionBroker_yyyymmdd.xlsx antes de que el workflow informeBroker_BDI lo evalúe.</paso>
-      <paso numero="2">Verificar que la variable interna "enviar" queda en "N".</paso>
-      <paso numero="3">Verificar que no se invoca el sub-workflow Mail ni se envía ningún correo.</paso>
+      <paso numero="1">Ejecutar la cadena hasta que termine KYTL_CONBDI_GSPROCESS.</paso>
+      <paso numero="2">Comprobar en el monitor de GoldenSource que el workflow informeBroker_BDI pasa por el Switch Case con enviar="N".</paso>
+      <paso numero="3">Comprobar que no hay ninguna ejecución del sub-workflow Mail asociada.</paso>
+      <paso numero="4">Comprobar que el buzón de pruebas no recibe ningún correo con asunto "Informe Conciliacion Broker BDI-RDR".</paso>
     </pasos>
-    <resultadoEsperado>No se envía ningún email; el workflow finaliza sin invocar el sub-workflow Mail — comportamiento confirmado por el propio documento fuente, no un fallo de la prueba.</resultadoEsperado>
-    <tipoValidacion>Verificación de logs del workflow GoldenSource + ausencia de email recibido.</tipoValidacion>
-    <criterioAceptacion>0 emails enviados cuando el fichero está ausente.</criterioAceptacion>
-    <posibilidadFallo>Que el workflow envíe un email vacío o con adjunto inexistente (contradiría el diseño documentado).</posibilidadFallo>
+    <resultadoEsperado>El workflow termina en Stop sin invocar Mail y no se envía ningún correo.</resultadoEsperado>
+    <tipoValidacion>Monitor de workflows y buzón.</tipoValidacion>
+    <criterioAceptacion>0 invocaciones de Mail y 0 correos.</criterioAceptacion>
+    <posibilidadFallo>Que exista un Excel con la fecha de hoy de una ejecución anterior: entonces se enviaría ese.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
-    <nombre>El informe SWIFT no se transmite por ningún canal</nombre>
-    <objetivo>Confirmar que Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx solo se historifica, sin envío por email ni XCOM.</objetivo>
+    <nombre>El informe SWIFT no se distribuye por ningún canal</nombre>
+    <objetivo>Confirmar G1: Reporte_ConBDI_SWIFT_&lt;AAAAMMDD&gt;.xlsx no se envía por correo ni por XCOM; solo se historifica.</objetivo>
     <precondiciones>
-      <precondicion>Ejecución completa de la cadena en entorno de prueba, no producción.</precondicion>
-      <precondicion>Acceso de lectura al buzón de correo de prueba y a los destinos XCOM configurados.</precondicion>
+      <precondicion>Ejecución completa de TC-001 en entorno de pruebas, con acceso al buzón destinatario y al log de MEKYTL0135.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Fichero" valor="Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx generado en la ejecución"/>
+      <dato campo="Fichero" valor="Reporte_ConBDI_SWIFT_&lt;AAAAMMDD&gt;.xlsx"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena completa.</paso>
-      <paso numero="2">Verificar que no se recibe ningún email con el informe SWIFT adjunto.</paso>
-      <paso numero="3">Verificar que no aparece en ningún destino XCOM configurado.</paso>
-      <paso numero="4">Verificar que el fichero queda historificado en old/ tras MEKYTL0812.</paso>
+      <paso numero="1">Comprobar que el correo recibido por el informe Broker (si lo hay) tiene un único adjunto llamado Reporte_ConciliacionBroker_&lt;AAAAMMDD&gt;.xlsx.</paso>
+      <paso numero="2">Comprobar en el log de MEKYTL0135 que el único fichero tratado es Reporte_ConBDI_dos.csv.</paso>
+      <paso numero="3">Comprobar en la definición de la cadena que ningún otro job lee Reporte_ConBDI_SWIFT_*.xlsx salvo MEKYTL0812.</paso>
     </pasos>
-    <resultadoEsperado>El informe SWIFT solo existe en el directorio activo y luego en old/; no se distribuye por ningún canal automatizado — confirmado por diseño, no un gap.</resultadoEsperado>
-    <tipoValidacion>Verificación de ausencia de envío + existencia en old/.</tipoValidacion>
-    <criterioAceptacion>0 envíos del informe SWIFT; fichero presente en old/.</criterioAceptacion>
-    <posibilidadFallo>Riesgo de negocio ya documentado: si el área usuaria espera recibirlo automáticamente, no lo recibirá sin consulta manual.</posibilidadFallo>
+    <resultadoEsperado>El informe SWIFT no aparece en ningún correo ni transmisión; solo MEKYTL0812 lo trata, moviéndolo a old/.</resultadoEsperado>
+    <tipoValidacion>Revisión del correo, del log de transmisión y de la definición de la cadena.</tipoValidacion>
+    <criterioAceptacion>0 distribuciones del informe SWIFT.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio aceptado (G1): el área usuaria debe consultarlo a mano.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="error_funcional">
-    <nombre>La transmisión XCOM en modo A DUMMY no realiza envío real</nombre>
-    <objetivo>Confirmar que MEKYTL0135 valida la interfaz sin transmitir datos reales a MVP00G215.</objetivo>
+    <nombre>MEKYTL0135 en modo A DUMMY no entrega el fichero</nombre>
+    <objetivo>Confirmar que la transmisión a MVP00G215 no deja ningún fichero en el destino.</objetivo>
     <precondiciones>
-      <precondicion>MEKYTL0135 ejecutado con normalidad tras KYTL_CONBDI_UNIX2DOS, en entorno de prueba.</precondicion>
+      <precondicion>Reporte_ConBDI_dos.csv generado por KYTL_CONBDI_UNIX2DOS en entorno de pruebas.</precondicion>
+      <precondicion>Acceso de lectura a \\S00371F2\DATOS\TRANSMI\MVP00G215\RDR (o a su equivalente de pruebas) y a /&lt;env&gt;/pl/envioweb/log/.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Fichero" valor="Reporte_ConBDI_dos.csv"/>
-      <dato campo="Destino nominal" valor="\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR"/>
+      <dato campo="Fichero origen" valor="Reporte_ConBDI_dos.csv"/>
+      <dato campo="Nombre que tendría en destino" valor="Reporte_ConBDI_&lt;yyyymmdd&gt;.csv"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar MEKYTL0135 y verificar RC=0.</paso>
-      <paso numero="2">Verificar que no existe Reporte_ConBDI_yyyymmdd.csv en el destino de red.</paso>
+      <paso numero="1">Ejecutar MEKYTL0135.</paso>
+      <paso numero="2">Comprobar que el job termina OK.</paso>
+      <paso numero="3">Comprobar que en el destino no aparece Reporte_ConBDI_&lt;yyyymmdd&gt;.csv.</paso>
     </pasos>
-    <resultadoEsperado>El job termina OK sin transmisión real — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
-    <tipoValidacion>Verificación de RC + ausencia de fichero en destino de red.</tipoValidacion>
-    <criterioAceptacion>RC=0 y 0 ficheros nuevos en el destino.</criterioAceptacion>
-    <posibilidadFallo>Riesgo de negocio si en algún momento se espera un envío real.</posibilidadFallo>
+    <resultadoEsperado>El job termina OK y en el destino no hay ningún fichero nuevo.</resultadoEsperado>
+    <tipoValidacion>Estado del job y listado del destino.</tipoValidacion>
+    <criterioAceptacion>Job OK y 0 ficheros nuevos en el destino.</criterioAceptacion>
+    <posibilidadFallo>Sin el .idx de la clave (P-CBD-06) no se puede descartar que el job ejecute una transmisión real a otro destino: si aparece un fichero en algún destino, es un hallazgo a elevar.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="regresion">
-    <nombre>Historificación en cascada con máscara de fecha correcta en ejecuciones sucesivas</nombre>
-    <objetivo>Verificar que los 3 ficheros historificados no colisionan entre días de ejecución consecutivos.</objetivo>
+    <nombre>Historificación fechada en dos días laborables consecutivos</nombre>
+    <objetivo>Verificar que los ficheros archivados en old/ llevan la fecha del día y no se sobrescriben entre días.</objetivo>
     <precondiciones>
-      <precondicion>Cadena ejecutada correctamente 2 días laborables consecutivos, en entorno de prueba.</precondicion>
+      <precondicion>Entorno de pruebas donde se puedan ejecutar TC-001 dos días laborables seguidos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Días de prueba" valor="2 días laborables consecutivos"/>
+      <dato campo="Día 1" valor="D"/>
+      <dato campo="Día 2" valor="D+1 laborable"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar la cadena completa el día 1 y verificar los 3 ficheros historificados con la fecha del día 1.</paso>
-      <paso numero="2">Ejecutar la cadena completa el día 2 y verificar que los ficheros del día 1 no se sobrescriben.</paso>
+      <paso numero="1">Ejecutar la cadena completa el día D.</paso>
+      <paso numero="2">Listar old/ y anotar ConBDI_&lt;D&gt;.csv y Reporte_ConciliacionBroker_&lt;D&gt;.xlsx.</paso>
+      <paso numero="3">Ejecutar la cadena completa el día D+1.</paso>
+      <paso numero="4">Comprobar que old/ contiene ConBDI_&lt;D&gt;.csv, ConBDI_&lt;D+1&gt;.csv, Reporte_ConciliacionBroker_&lt;D&gt;.xlsx y Reporte_ConciliacionBroker_&lt;D+1&gt;.xlsx.</paso>
+      <paso numero="5">Comprobar que old/Reporte_ConBDI.zip contiene el Reporte_ConBDI.csv del día D.</paso>
     </pasos>
-    <resultadoEsperado>Cada ejecución genera sus propios ficheros historificados, sin colisión entre días.</resultadoEsperado>
-    <tipoValidacion>Verificación de existencia y nombre de los ficheros en old/.</tipoValidacion>
-    <criterioAceptacion>6 ficheros distintos en old/ (3 por día), ninguno sobrescrito.</criterioAceptacion>
-    <posibilidadFallo>Colisión de nombre si se relanza más de una vez el mismo día.</posibilidadFallo>
+    <resultadoEsperado>Los ficheros de cada día conviven en old/ con su fecha; Reporte_ConBDI.zip contiene solo el informe del día anterior.</resultadoEsperado>
+    <tipoValidacion>Listado y contenido de old/.</tipoValidacion>
+    <criterioAceptacion>4 ficheros fechados distintos y el zip con el informe de D.</criterioAceptacion>
+    <posibilidadFallo>Un relanzamiento el mismo día sobrescribe el fichero fechado de ese día (comportamiento esperado de RAMERC0068.sh).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="e2e">
-    <nombre>Ciclo completo diario incluido el envío condicional por email</nombre>
-    <objetivo>Validar el flujo end-to-end completo, incluida la evaluación del workflow de notificación.</objetivo>
+    <nombre>Ciclo diario completo: carga, informes, correo y archivo</nombre>
+    <objetivo>Validar de punta a punta que un fichero con registros válidos produce el informe CSV, el Excel, el correo y el archivo.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba, no producción, con conectividad a GoldenSource y buzón de correo de prueba accesible.</precondicion>
+      <precondicion>Precondiciones de TC-001.</precondicion>
+      <precondicion>Destinatario Destination configurado hacia un buzón de pruebas accesible (P-CBD-08).</precondicion>
+      <precondicion>Acceso de lectura a FT_T_JBLG y FT_T_RLT1 en la base de datos de pruebas.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="ODATE" valor="día de ejecución de prueba"/>
+      <dato campo="ConBDI.csv" valor="cabecera de 46 columnas y 3 registros válidos (COD-CLINTERN 900011, 900012, 900013)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Depositar ConBDI.csv válido en la ruta origen antes de las 00:00 AM.</paso>
-      <paso numero="2">Ejecutar la cadena completa y verificar el paso por los 7 jobs.</paso>
-      <paso numero="3">Verificar la recepción del email con el informe Broker adjunto.</paso>
+      <paso numero="1">Depositar ConBDI.csv y dejar que la cadena se ejecute completa.</paso>
+      <paso numero="2">Comprobar en ConBDI_preprocess_summary.log: "Registros correctamente cargados en el fichero procesado 3".</paso>
+      <paso numero="3">Comprobar en FT_T_JBLG que existe un job con JOB_MSG_TYP='BDI' en estado CLOSED con inicio en la hora de la ejecución.</paso>
+      <paso numero="4">Comprobar que la primera línea de Reporte_ConBDI.csv es BDI_ID;Mensaje;Valor_BDI;Valor_GS.</paso>
+      <paso numero="5">Comprobar que Reporte_ConBDI_dos.csv tiene las mismas líneas que Reporte_ConBDI.csv terminadas en CRLF.</paso>
+      <paso numero="6">Comprobar que el Excel del día tiene las hojas NoBDI, NoRDR, DistintoRDR y DistintoNme.</paso>
+      <paso numero="7">Comprobar la recepción de un correo con asunto "Informe Conciliacion Broker BDI-RDR" y el Excel del día adjunto.</paso>
+      <paso numero="8">Comprobar que los 7 jobs terminan OK y que ConBDI.csv queda en old/ como ConBDI_&lt;AAAAMMDD&gt;.csv.</paso>
     </pasos>
-    <resultadoEsperado>La cadena completa termina con los 7 jobs en OK y el email del informe Broker recibido.</resultadoEsperado>
-    <tipoValidacion>Verificación de estado Control-M + recepción de email.</tipoValidacion>
-    <criterioAceptacion>7/7 jobs OK; 1 email recibido con el informe Broker adjunto.</criterioAceptacion>
-    <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre o el envío del email.</posibilidadFallo>
+    <resultadoEsperado>3 registros validados y cargados; job BDI cerrado; informe CSV con la cabecera literal y su versión CRLF; Excel con las 4 hojas; 1 correo con el Excel; cadena completa en OK.</resultadoEsperado>
+    <tipoValidacion>Logs, base de datos, ficheros y buzón.</tipoValidacion>
+    <criterioAceptacion>Todas las comprobaciones de los pasos 2 a 8 se cumplen. El contenido de las filas del informe y del Excel depende de CONBDI2 (P-CBD-01) y no se evalúa en este caso.</criterioAceptacion>
+    <posibilidadFallo>MEKYTL0812 puede fallar si el Excel SWIFT no existe (ver TC-001).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="negativo">
+    <nombre>Reglas de fillingRules_ConBDI.csv: NULL, POSICION(6) y USAR</nombre>
+    <objetivo>Confirmar qué registros rechaza ControlCargaDatos.jar y que el job no falla por ello.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con fillingRules_ConBDI.csv idéntico al de la spec §6.6.</precondicion>
+      <precondicion>ConBDI.csv en ISO-8859-1 con la cabecera de 46 columnas y los 5 registros de datosEmpleados.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registro 1" valor="COD-CLINTERN=900021, resto válido (debe aceptarse)"/>
+      <dato campo="Registro 2" valor="COD-CLINTERN vacío"/>
+      <dato campo="Registro 3" valor="COD-CLINTERN=90002 (5 caracteres)"/>
+      <dato campo="Registro 4" valor="COD-CLINTERN=900024 y DES-CALLE con el carácter &lt;"/>
+      <dato campo="Registro 5" valor="COD-CLINTERN=900025 y COD-BROKERWS (col. 29) con el carácter &lt; (columna sin USAR, debe aceptarse)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_CONBDI_GSPROCESS (o GSProcess.sh ConBDI) con ese fichero.</paso>
+      <paso numero="2">Comprobar que ConBDI_processed.csv contiene la cabecera y los registros 1 y 5.</paso>
+      <paso numero="3">Comprobar que ConBDI_noprocessed.csv contiene el registro 2 con "El campo COD-CLINTERN es NULO".</paso>
+      <paso numero="4">Comprobar que ConBDI_noprocessed.csv contiene el registro 3 con "El campo COD-CLINTERN no tiene la longitud correcta".</paso>
+      <paso numero="5">Comprobar que ConBDI_noprocessed.csv contiene "Registro 4 con algún caracter no valido" seguido del registro 4.</paso>
+      <paso numero="6">Comprobar en el log de resumen: 2 cargados, 3 no cargados, 0 duplicados.</paso>
+      <paso numero="7">Comprobar en execute_ConBDI_&lt;AAAAMMDD&gt;.log "SubProceso PreprocessedBDI finalizado de forma correcta".</paso>
+    </pasos>
+    <resultadoEsperado>Se aceptan los registros 1 y 5 y se rechazan 2, 3 y 4 con los mensajes indicados; el paso Java termina con 0.</resultadoEsperado>
+    <tipoValidacion>Contenido de ficheros y logs.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta de registros aceptados, rechazados, mensajes y recuentos.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero de reglas desplegado difiere del recibido, los resultados cambian: se compara antes con la spec.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>Línea con un ";" dentro de un campo entrecomillado: se registra con el campo 3 como código</nombre>
+    <objetivo>Confirmar el comportamiento de ConBDI.java con una línea de ConBDI_processed.csv que no tiene exactamente 45 separadores.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con acceso a FT_T_RLT1.</precondicion>
+      <precondicion>ConBDI.csv con un registro válido cuyo DES-PLAZAINT (col. 10, columna sin regla USAR) vale "ALFA;BETA" entre comillas dobles y cuyo DES-NOMCORT2 (col. 3) vale PRUEBA3.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="COD-CLINTERN" valor="900031"/>
+      <dato campo="DES-NOMCORT2" valor="PRUEBA3"/>
+      <dato campo="DES-PLAZAINT" valor="&quot;ALFA;BETA&quot;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI.</paso>
+      <paso numero="2">Comprobar que el registro está en ConBDI_processed.csv (la validación cuenta 46 campos al respetar las comillas y la columna 10 no tiene regla USAR).</paso>
+      <paso numero="3">Comprobar en la salida del job el mensaje "Fallo en PRUEBA3 debido a longitud".</paso>
+      <paso numero="4">Comprobar en FT_T_RLT1 una fila del job de hoy con MESSAGE_RLT='Codigo BDI en RDR que no es valido', MAIN_ENTITY_ID='PRUEBA3', GS_VALUE='PRUEBA3', RLT_PURP_TYP='REPORTES', DATA_SRC_APP='BDI'.</paso>
+      <paso numero="5">Comprobar que Reporte_ConBDI.csv contiene la línea PRUEBA3;Codigo BDI en RDR que no es valido;N/A;PRUEBA3.</paso>
+    </pasos>
+    <resultadoEsperado>El registro no se carga en CONBDI2; queda una incidencia con el campo 3 (PRUEBA3) como código, que sale en el informe.</resultadoEsperado>
+    <tipoValidacion>Salida del job, base de datos e informe.</tipoValidacion>
+    <criterioAceptacion>Fila en FT_T_RLT1 y línea en el informe exactamente como en los pasos 4 y 5.</criterioAceptacion>
+    <posibilidadFallo>P-CBD-12: si negocio esperaba ver COD-CLINTERN, es un defecto a elevar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="duplicidad">
+    <nombre>Dos registros con el mismo COD-CLINTERN no se eliminan</nombre>
+    <objetivo>Confirmar que ni la validación ni la carga eliminan duplicados del código de cliente interno.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas; ConBDI.csv con cabecera y 2 registros válidos con COD-CLINTERN=900041 y DES-NOMCORT1 distinto (UNO y DOS).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="COD-CLINTERN repetido" valor="900041 (2 veces)"/>
+      <dato campo="DES-NOMCORT1" valor="UNO / DOS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI.</paso>
+      <paso numero="2">Comprobar que ConBDI_processed.csv contiene los 2 registros.</paso>
+      <paso numero="3">Comprobar en el log de resumen "Registros DUPLICADOS eliminados: 0".</paso>
+      <paso numero="4">Comprobar que la salida del job no contiene ningún "Fallo en" para esos registros.</paso>
+    </pasos>
+    <resultadoEsperado>Los 2 registros pasan la validación y se envían a CONBDI2; no hay eliminación ni aviso de duplicado.</resultadoEsperado>
+    <tipoValidacion>Ficheros y logs.</tipoValidacion>
+    <criterioAceptacion>2 registros en ConBDI_processed.csv y 0 duplicados eliminados. El valor final en GoldenSource depende de CONBDI2 y del orden de los hilos (P-CBD-01) y no se evalúa.</criterioAceptacion>
+    <posibilidadFallo>Riesgo RS6: el valor que queda en GS no es determinista.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="regresion">
+    <nombre>Ventana del informe en un relanzamiento el mismo día</nombre>
+    <objetivo>Confirmar que Reporte_ConBDI.csv solo contiene las incidencias posteriores al inicio del último job BDI cerrado.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con acceso a FT_T_RLT1 y FT_T_JBLG; usuario con permiso para lanzar GSProcess.sh ConBDI a mano como xakytl1p.</precondicion>
+      <precondicion>ConBDI.csv con un registro como el de TC-009 (genera una incidencia de formato con código PRUEBA3).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ejecución 1" valor="ConBDI.csv con el registro PRUEBA3"/>
+      <dato campo="Ejecución 2" valor="mismo día, ConBDI.csv con un registro equivalente con DES-NOMCORT2=PRUEBA4"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI con el fichero de la ejecución 1.</paso>
+      <paso numero="2">Comprobar que Reporte_ConBDI.csv contiene la línea de PRUEBA3.</paso>
+      <paso numero="3">Sustituir ConBDI.csv por el de la ejecución 2 y ejecutar de nuevo GSProcess.sh ConBDI.</paso>
+      <paso numero="4">Comprobar que Reporte_ConBDI.csv contiene la línea de PRUEBA4 y no la de PRUEBA3.</paso>
+      <paso numero="5">Comprobar que old/Reporte_ConBDI.zip contiene el informe de la ejecución 1.</paso>
+    </pasos>
+    <resultadoEsperado>Cada informe contiene solo las incidencias de su ejecución; el de la primera queda comprimido en old/.</resultadoEsperado>
+    <tipoValidacion>Contenido de ficheros.</tipoValidacion>
+    <criterioAceptacion>Paso 4 sin PRUEBA3 y con PRUEBA4; zip con el informe anterior.</criterioAceptacion>
+    <posibilidadFallo>Si CONBDI2 insertara filas con START_TMS anterior al inicio del job, no saldrían en el informe (P-CBD-01).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="datos_sinteticos">
+    <nombre>Codificación del fichero: ISO-8859-1 aceptado, UTF-8 rechazado en columnas USAR</nombre>
+    <objetivo>Confirmar con datos sintéticos repetidos en dos codificaciones el efecto de la regla USAR sobre vocales acentuadas y ñ.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas; dos versiones de ConBDI.csv con el mismo contenido: una en ISO-8859-1 y otra en UTF-8.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registro sintético (se repite en ambas codificaciones)" valor="COD-CLINTERN=900051, DES-NOMCLINT=PEÑA GARCÍA JOSÉ"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI con la versión ISO-8859-1.</paso>
+      <paso numero="2">Comprobar que el registro está en ConBDI_processed.csv.</paso>
+      <paso numero="3">Ejecutar GSProcess.sh ConBDI con la versión UTF-8.</paso>
+      <paso numero="4">Comprobar que ConBDI_noprocessed.csv contiene "Registro 1 con algún caracter no valido" seguido del registro.</paso>
+    </pasos>
+    <resultadoEsperado>En ISO-8859-1 el registro se acepta; en UTF-8 se rechaza por caracteres no permitidos.</resultadoEsperado>
+    <tipoValidacion>Contenido de ficheros.</tipoValidacion>
+    <criterioAceptacion>Aceptación en la ejecución 1 y rechazo en la 2.</criterioAceptacion>
+    <posibilidadFallo>Si BDI envía en UTF-8 (P-CBD-10), en producción se pierden registros con tildes o ñ.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="error_funcional">
+    <nombre>Sin claves Stop, el motor ejecuta los pasos siguientes tras un fallo</nombre>
+    <objetivo>Confirmar que un fallo del paso InformeBroker no impide que se ejecuten el workflow y el sub-módulo Property.</objetivo>
+    <precondiciones>
+      <precondicion>Mismas condiciones que TC-002 (plantilla ausente).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Paso que falla" valor="Java InformeBroker"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI.</paso>
+      <paso numero="2">Comprobar en execute_ConBDI_&lt;AAAAMMDD&gt;.log que después de "SubProceso InformeBroker finalizado de forma incorrecta" aparece el resultado del evento Workflow.</paso>
+      <paso numero="3">Comprobar que después aparece "SubProceso Plantilla_ReportMail finalizado de forma correcta".</paso>
+      <paso numero="4">Comprobar que el log termina con ESTADO-1-.</paso>
+    </pasos>
+    <resultadoEsperado>Los pasos 8 y 9 del motor se ejecutan tras el fallo del 7; el resultado final es ESTADO-1- y código 1.</resultadoEsperado>
+    <tipoValidacion>Log de GSProcess.</tipoValidacion>
+    <criterioAceptacion>Aparecen los dos subprocesos posteriores y ESTADO-1-.</criterioAceptacion>
+    <posibilidadFallo>Si el .properties real tuviera una clave Stop (P-CBD-02), la ejecución pararía en el paso 7: se registraría como corrección de la spec.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

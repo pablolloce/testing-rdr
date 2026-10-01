@@ -1,70 +1,82 @@
-# Prerrequisitos — Carga y Conciliación de Oficinas (RDR_CONC_OFICINAS_new)
+# Prerrequisitos — Carga y conciliación de oficinas (`RDR_CONC_OFICINAS_new`)
 
-## Datos y ficheros previos
+Derivados de `rdr_conc_oficinas_new_casos_prueba.xml`. Todo lo que se cita de la instalación real es
+referencia (entorno de producción, `pr`); lo que hace falta para probar se indica para el **entorno de
+pruebas** (`<env>` = `ei`, `pp` o `de`, por definir). Ningún caso debe ejecutarse en producción salvo TC-007,
+TC-008 y TC-010, que solo leen.
 
-- Fichero `oficinas.csv` disponible en `/fichtemcomp/pr/descargas/kytl/oficinas/` dentro de la ventana de
-  monitoreo (madrugada, martes a sábado, calendario `RDR_FEST_HOST`).
-- **Diccionario de campos confirmado con fichero real** (134 campos delimitados por `;` — ver `rdr_conc_oficinas_new_spec.md` §4).
-  No confirmado el significado funcional exacto de `CBAMUT`/`COFMUT` vs. `CBACOM`/`COFCOM` — no diseñar
-  pruebas que asuman cuál de los 2 pares identifica el destino de una reubicación sin confirmarlo con
-  negocio.
-- Fichero histórico `old/$MOD_EJECUCION.csv` (`old/oficinas.csv`) debe existir para que `Delta.sh` calcule un
-  delta real; si no existe, la primera ejecución trata el fichero completo como delta (comportamiento
-  confirmado, no un error).
+## 1. Orígenes de datos
 
-## Configuración e infraestructura
+| Origen | Qué alimenta | Casos |
+|--------|--------------|-------|
+| `oficinas.csv` (134 columnas separadas por `;`, cabecera, banco en la 1.ª columna `CODCSB`) | Todo el proceso | TC-001, TC-003, TC-009, TC-011, TC-012, TC-013 |
+| `old/oficinas.csv` (referencia del día anterior, filtrada) | `Delta.sh` | TC-001, TC-009, TC-013 |
+| `FT_T_RLT1`, `FT_T_FIID`, `FT_T_JBLG` (GoldenSource, `jdbc/GSDM-1`) | Informe `Reporte_oficinas.csv` y comprobación de la carga | TC-001, TC-002, TC-010 |
+| Tablas de la entidad `Oficina` (sin identificar, P-CONOFI-03) | Carga MDX | TC-001, TC-012 |
 
-- Cadena Control-M `KYTL0000-RDR_CONC_OFICINAS_new` dada de alta y activa, servidor `MERCADOS-4`, host
-  `pr-rdr.igrupobbva`.
-- Motor `GSProcess.sh` operativo para `PARM1=oficinas` (invoca `LimpiarOficinas` — no aportado —,
-  `Delta.sh`/`Unix2Dos.sh` — código real aportado y analizado, ver `rdr_conc_oficinas_new_spec.md` R3b/R3c —,
-  `ControlCargaDatos.jar`/`javacsv.jar` — existencia y estructura de paquete confirmadas,
-  `com.bbva.kytl:ControlCargaDatos` con clases `ControlCase`/`ControlCase_ant` —, carga MDX en la entidad
-  `Oficina`/`OFC`, `RDR_Report.jar` — confirmado como el mismo motor genérico ya usado en `rdr_cargalei_new`,
-  paquete `rdr_report`, parametrizado por `select_1.properties` — **confirmado esta ronda**, ver `rdr_conc_oficinas_new_spec.md`
-  R3e). El jar `compare.jar` (`es.bbva.kytl.scripts.Compare`, invocado por `Delta.sh`) **confirmado esta
-  ronda** — clase exacta verificada por manifiesto/estructura, algoritmo interno (bytecode) no decompilado.
-- `RAMERC0068.sh` operativo para `MEKYTL0242` (historificación) — **código real confirmado esta ronda**:
-  motor genérico compartido con otros procesos del audit, cuya tolerancia real a fichero ausente depende del
-  campo `FALLASINOFICHS` de la fila de configuración de la clave invocada en
-  `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (`0` = fallo real `exit 6`; cualquier otro valor = tolera).
-  **El valor concreto configurado para `MEKYTL0242` queda fuera de alcance definitivo** — no se puede
-  obtener una copia del `.IDX` de producción (confirmado por el usuario); solo el entorno `ei` fue aportado,
-  sin fila para esta clave — ver `rdr_conc_oficinas_new_spec.md` R4b.
-- `MEGENV0001.sh` operativo para `MEKYTL0243` (transmisión a destino inerte) — **código real completo
-  confirmado esta ronda** (mismo fichero, idéntico byte a byte, ya aportado el 2026-09-24 para
-  `rdr_envio_cliex`): su tolerancia real en sentido PUT depende de `FALLA_NO_FICHERO` de la fila de
-  configuración de la clave en su propio `.idx` (`"SI"` = fallo real `exit 60`/`exit 45`; cualquier otro
-  valor = tolera). **El valor concreto configurado para `MEKYTL0243` queda fuera de alcance definitivo** —
-  mismo motivo (`.idx` de producción no obtenible) — ver `rdr_conc_oficinas_new_spec.md` R5b.
-- Función `LimpiarOficinas` operativa — **código real confirmado esta ronda**: filtra `oficinas.csv` por
-  código de banco `0182` (BBVA España) vía `grep`, con backup del fichero original en
-  `old/oficinas_prelimpieza.csv`. Sin tolerancia a fallo (aborta con `error_exit` si el filtro no encuentra
-  ninguna fila `0182`). Ver `rdr_conc_oficinas_new_spec.md` R3a, RISK-CONOFI-003.
-- Motores genéricos `RAMERC0068.sh` (historificación) y `MEGENV0001.sh` (transmisión XCOM) operativos para
-  `MEKYTL0242`/`MEKYTL0243`.
-- Recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100) disponible — compartido con
-  `RDR_REUBICACION_new`.
+## 2. Datos mínimos por caso
 
-## Roles y permisos
+| Caso | Datos que hacen falta para que la comprobación pueda fallar |
+|------|-------------------------------------------------------------|
+| TC-001 | `oficinas.csv` con 3 oficinas `0182` idénticas a la referencia, 1 modificada, 1 nueva y 1 del banco `0049`; referencia con las 4 primeras en su versión anterior |
+| TC-002 | Ningún `oficinas.csv` en el directorio |
+| TC-003 | `oficinas.csv` de 0 bytes |
+| TC-004 | `oficinas.csv` válido y el directorio `old/` renombrado temporalmente |
+| TC-005 | `oficinas.csv` retirado antes de `MEKYTL0242` |
+| TC-006 | `Reporte_oficinas_dos.csv` retirado antes de `MEKYTL0243` |
+| TC-009 | Primera ejecución con delta de 2 registros y copia de seguridad del directorio `oficinas/` |
+| TC-010 | Al menos 2 filas en `FT_T_RLT1` con `DATA_SRC_APP='OFICINAS'`, `RLT_STATUS='3'` y una institución con `FINSID` en `FT_T_FIID`, creadas tras el inicio del último job `OFC` cerrado |
+| TC-011 | Cabecera + 3 filas `0182;`, 2 filas `0049;` y 1 fila `01820;` |
+| TC-012 | Cabecera + 2 filas `0049;` y copia de seguridad de las tablas de oficinas |
+| TC-013 | Referencia con la oficina `0182;0001`; fichero con 2 copias de esa línea y 2 copias de una oficina nueva `0182;0999` |
 
-- Usuario `xpctma1`: ejecución del filewatcher (paso 1).
-- Usuario `xakytl1p`: ejecución de `KYTL_CONOFI_GSPROCESS` (paso 2).
-- Usuario `xsramer1`: ejecución de `MEKYTL0242`/`MEKYTL0243` (pasos 3-4).
-- Grupo de soporte: ANS RDR (`ans_rdr.es@bbva.com`, Remedy `BZG03906`) para toda la cadena.
-- Máximo de relanzamientos configurado a **0** — cualquier fallo real requiere intervención manual completa,
-  sin reintento automático de Control-M.
+## 3. Entorno de ejecución
 
-## Flujos previos que deben haberse completado
+| Elemento | Referencia en producción | Usuario | Casos |
+|----------|--------------------------|---------|-------|
+| Agente de Control-M con `ctmfw` | `pr-rdr.igrupobbva` | `xpctma1` | TC-001 a TC-003 |
+| `GSProcess.sh`, `Generico.sh`, `Delta.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | TC-001, TC-003, TC-004, TC-009, TC-011 a TC-013 |
+| `ControlCargaDatos.jar`, `javacsv.jar`, `compare.jar`, `RDRCommon.jar`, `RDR_Report.jar` | `/pr/kytl/online/multipais/multicanal/jar/` (JDK 17 de `<javahome17>`) | `xakytl1p` | TC-001, TC-010, TC-013 |
+| `executeBbvaEvent.sh` y servidor GoldenSource | `/usr/local/pr/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts/` | `xakytl1p` | TC-001, TC-012 |
+| `RAMERC0068.sh` | `/pr/pl/scrt/` | `xsramer1` | TC-001, TC-005 |
+| `MEGENV0001.sh` y sus módulos `SF_MEGENV0001_*.mod` | `/pr/pl/envioweb/scrt/` | `xsramer1` | TC-001, TC-006, TC-007 |
 
-- **Importante:** el mecanismo de salto por código de retorno 7 del filewatcher (ver `rdr_conc_oficinas_new_spec.md` R2,
-  RISK-CONOFI-001) está **confirmado literalmente en el export real de Control-M** — no es una hipótesis.
-  **La causa también está confirmada:** `ctmfw` es la utilidad nativa de BMC Control-M Agent (no un script
-  propio de BBVA), y el código 7 es su timeout nativo — el fichero no llegó o no se estabilizó dentro de las
-  4h configuradas. Cualquier prueba sobre este escenario debe incluir la comprobación de si algún proceso
-  downstream confía en el evento de cierre de esta cadena sin saber que, ese día, no hubo carga real.
-- **Importante:** el paso 4 (`MEKYTL0243`) es un job real (`TASKTYPE="Job"`, confirmado en Control-M)
-  configurado contra un destino inerte en producción — no asumir que existe una transferencia real de datos
-  hacia `XCOMWPMER` al diseñar pruebas de integración con sistemas consumidores.
-- **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado (`salidas/rdr_carga_plazas_trad_new/`),
-  como especificación independiente, no como extensión de esta.
+El entorno de pruebas necesita lo mismo, en `/<env>/...`, con una máquina cuyo nombre empiece por `li`/`lw`/`ld`
+(`GSProcess.sh`) y cuyo 2.º carácter sea `i`/`w`/`d` (`RAMERC0068.sh`, `MEGENV0001.sh`); con otro nombre,
+`RAMERC0068.sh` y `MEGENV0001.sh` trabajan contra producción.
+
+## 4. Configuración
+
+| Fichero | Qué hay que conocer | Casos |
+|---------|---------------------|-------|
+| `oficinas.properties` (`/<env>/kytl/online/multipais/multicanal/dat/properties/`) | Argumento de `Delta`, `Stop`, directorio de `LimpiarOficinas`, fichero de la carga MDX y de `Unix2Dos` (no recibido, P-CONOFI-01) | TC-001, TC-003, TC-004, TC-009, TC-012, TC-013 |
+| `fillingRules_oficinas.csv` | Reglas de validación (no recibido, P-CONOFI-02) | TC-001 |
+| `select.properties` | Clave `oficinas` (literal en la spec §6.4.6) y `ruta` del entorno | TC-001, TC-010 |
+| `credentials.xml` | `<logs>`, `<javahome17>`, conexión a base de datos y a GoldenSource, `<timeout>` | TC-001, TC-010 |
+| Línea `MEKYTL0242` de `/<env>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` | Campo 5 (tolerancia) y operación; debe ser igual a la de producción (no obtenible, P-CONOFI-07) | TC-001, TC-005 |
+| `/<env>/pl/envioweb/idx/MEKYTL0243.idx` | `PROTOCOLO`, `FALLA_NO_FICHERO`, destino (no obtenible, P-CONOFI-07) | TC-001, TC-006, TC-007 |
+| Calendario `RDR_FEST_HOST` | Que el día de la prueba sea laborable (P-CONOFI-06) | Todos los que ejecutan la cadena |
+
+## 5. Sistema de ficheros
+
+- Directorio `/fichtemcomp/<env>/descargas/kytl/oficinas/` con escritura para `xakytl1p` y `xsramer1`, y
+  subdirectorio `old/` existente (lo exigen `LimpiarOficinas`, `Delta.sh` y `MEKYTL0242`).
+- Directorio de logs de `credentials.xml` legible para quien ejecute las pruebas
+  (`execute_oficinas_<AAAAMMDD>.log`, `execute_<AAAAMMDD>.log`).
+- Logs de `RAMERC0068.sh` (`/<env>/pl/log/`) y de `MEGENV0001.sh` (`/<env>/pl/envioweb/log/`) legibles.
+- No hay retención automática: limpiar `old/` entre pruebas si se reutiliza el entorno.
+
+## 6. Orquestación
+
+- Folder `KYTL0000-RDR_CONC_OFICINAS_new` desplegado con los atributos de la spec §6.1 (verificado en TC-008).
+- Recurso `MAX-LPRDR501` con unidades libres (lo comparten `RDR_REUBICACION_new` y `RDR_CARGA_PLAZAS_TRAD_new`).
+- Para TC-002, una variante del filewatcher con espera reducida evita esperar 240 minutos.
+- Permiso para relanzar jobs manualmente (TC-009) y para leer el histórico de ejecuciones.
+
+## 7. Entorno de pruebas: qué queda por definir
+
+- Qué entorno se usa y con qué nombre de máquina.
+- Copias de `oficinas.properties`, `fillingRules_oficinas.csv`, la línea `MEKYTL0242` del IDX y
+  `MEKYTL0243.idx` iguales a las de producción (preguntas P-CONOFI-01, 02 y 07).
+- Acceso de lectura a las tablas de GoldenSource del entorno y permiso para restaurar las de oficinas tras
+  TC-012.
