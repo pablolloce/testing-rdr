@@ -1,0 +1,318 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="recepcion_altamira_colombia" fecha="2026-10-01" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Cliente esperado reconciliado correctamente</nombre>
+    <objetivo>Confirmar que un NUMCLIEN presente tanto en el universo de GoldenSource como en el fichero descifrado se delega al procedimiento PL/SQL PCK_CON_ALT_COL.PR_MAIN y no genera entrada de "no localizado".</objetivo>
+    <precondiciones>
+      <precondicion>Existe un cliente activo en GoldenSource (FT_T_FIID/FT_T_FINS, FINS_ID_CTXT_TYP='ID_ALTAMIRA_COL', ORG_ID='9020') con ID de 8 dígitos conocido.</precondicion>
+      <precondicion>El fichero CONCILIA*.TXT descifrado contiene una línea de 360 caracteres con ese mismo NUMCLIEN en los primeros 8 caracteres.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="NUMCLIEN" valor="10203040"/>
+      <dato campo="linea" valor="registro de 360 caracteres con NUMCLIEN=10203040 y resto de campos válidos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero descifrado de prueba.</paso>
+      <paso numero="2">Verificar en el log que PCK_CON_ALT_COL.PR_MAIN se invoca con los 19 campos de esa línea.</paso>
+      <paso numero="3">Consultar FT_T_RLT1 filtrando MAIN_ENTITY_ID=10203040 y mensaje "Cliente no localizado en Altamira Colombia".</paso>
+    </pasos>
+    <resultadoEsperado>El procedimiento PCK_CON_ALT_COL.PR_MAIN se invoca para ese registro y no se inserta ninguna fila de "no localizado" para ese NUMCLIEN, al haberlo encontrado en el fichero.</resultadoEsperado>
+    <tipoValidacion>Verificación de log de ejecución + consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>Llamada a PCK_CON_ALT_COL.PR_MAIN confirmada y ausencia de fila "no localizado" para ese cliente.</criterioAceptacion>
+    <posibilidadFallo>Si el NUMCLIEN de prueba no cumple los filtros de obtenerIDs (org 9020, contexto ID_ALTAMIRA_COL), el caso no es representativo y debe repetirse con otro cliente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Cadena completa sin incidencias, tramo de extracción y tránsito</nombre>
+    <objetivo>Confirmar que los 4 primeros jobs (MEKYTL1091_RECEPCION, MEKYTL1091, MEKYTL1091_BORRADO, FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE) se encadenan correctamente cuando el fichero llega a tiempo desde Colombia.</objetivo>
+    <precondiciones>
+      <precondicion>CONCILIAYYYYMMDD.TXT existe en el host de Colombia (82.255.60.120) antes de las 23:00h.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="CONCILIA20261001.TXT"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL1091_RECEPCION trae el fichero a receive/ y emite su evento OK.</paso>
+      <paso numero="2">Verificar que MEKYTL1091 transita el fichero y emite su evento OK.</paso>
+      <paso numero="3">Verificar que MEKYTL1091_BORRADO purga la pasarela y emite su evento OK.</paso>
+      <paso numero="4">Verificar que FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE detecta el fichero en receive/ y emite su evento OK.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs finalizan OK en cascada y KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE queda habilitado para ejecutarse.</resultadoEsperado>
+    <tipoValidacion>Monitorización de eventos en Control-M</tipoValidacion>
+    <criterioAceptacion>Los 4 eventos OK se emiten en el orden esperado, sin reintentos.</criterioAceptacion>
+    <posibilidadFallo>Ninguna si el fichero llega a tiempo; si llega tarde o no llega, ver TC-005.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Fichero descifrado sin líneas de datos</nombre>
+    <objetivo>Confirmar que, si el fichero descifrado llega vacío (0 líneas), todo el universo de clientes activos de GoldenSource se marca "no localizado".</objetivo>
+    <precondiciones>
+      <precondicion>El fichero descifrado no contiene ninguna línea (br.readLine() devuelve null en la primera lectura).</precondicion>
+      <precondicion>Existe al menos 1 cliente en el universo de obtenerIDs.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="0 líneas de datos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero vacío.</paso>
+      <paso numero="2">Confirmar que la lista IDs no pierde ningún elemento (ninguna línea la recorre).</paso>
+      <paso numero="3">Consultar FT_T_RLT1 filtrando mensaje "Cliente no localizado en Altamira Colombia" tras la ejecución.</paso>
+    </pasos>
+    <resultadoEsperado>Todos los clientes del universo de GoldenSource se insertan en FT_T_RLT1 como "no localizado". El job no falla, pero refleja una incidencia masiva que debe interpretarse como posible fallo de entrega/descifrado, no como incidencia real de datos.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1, comparando el recuento con el tamaño del universo de referencia</tipoValidacion>
+    <criterioAceptacion>El número de filas "no localizado" coincide exactamente con el tamaño del universo en el momento de la ejecución.</criterioAceptacion>
+    <posibilidadFallo>No ejecutar sobre el entorno real de producción con datos genuinos — simular en entorno de prueba con un universo acotado y conocido.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Línea con longitud distinta de 360 caracteres</nombre>
+    <objetivo>Confirmar que una línea de longitud incorrecta (que provoca una excepción al extraer alguno de los 19 campos por substring) se descarta con log, sin detener la lectura del resto del fichero.</objetivo>
+    <precondiciones>
+      <precondicion>El fichero descifrado contiene al menos una línea con menos de 360 caracteres.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea_invalida" valor="línea truncada de 120 caracteres"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero con la línea truncada incluida.</paso>
+      <paso numero="2">Revisar el log buscando el mensaje de excepción capturada para esa línea.</paso>
+      <paso numero="3">Confirmar que el resto de líneas válidas del fichero se procesan con normalidad.</paso>
+    </pasos>
+    <resultadoEsperado>La línea inválida se omite (excepción capturada y logueada, sin detener el job) y el resto de líneas válidas se concilian correctamente.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + verificación de que las líneas válidas restantes sí generan actividad en BBDD</tipoValidacion>
+    <criterioAceptacion>El job termina OK, con el mensaje de excepción presente en el log para la línea inválida y sin impacto en las demás líneas.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — comportamiento confirmado por código (try/catch por línea).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="negativo">
+    <nombre>Fichero no llega desde Colombia dentro de ventana</nombre>
+    <objetivo>Confirmar que, si el host de Colombia no entrega el fichero, el Force-OK de MEKYTL1091_RECEPCION y la tolerancia de MEKYTL1091 enmascaran el fallo hasta que el filewatcher vence por timeout a los 105 minutos.</objetivo>
+    <precondiciones>
+      <precondicion>El fichero CONCILIAYYYYMMDD.TXT no existe en el host de Colombia (82.255.60.120) o la conexión falla.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que MEKYTL1091_RECEPCION termina marcado como OK pese a fallar la extracción remota (regla Force-OK).</paso>
+      <paso numero="2">Confirmar que MEKYTL1091 no falla al no encontrar el fichero en receive/.</paso>
+      <paso numero="3">Confirmar que FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE espera hasta 105 minutos y después vence por timeout.</paso>
+      <paso numero="4">Confirmar que KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE no se lanza.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena no falla visiblemente hasta el timeout del filewatcher (105 min), momento en el que la ingesta Java no se ejecuta, protegiendo la BBDD de una carga vacía.</resultadoEsperado>
+    <tipoValidacion>Monitorización de estado y tiempos en Control-M</tipoValidacion>
+    <criterioAceptacion>Ningún job posterior al filewatcher se ejecuta y el timeout se produce en el minuto 105, no antes ni después.</criterioAceptacion>
+    <posibilidadFallo>Verificar por lectura del estado del job en Control-M, no requiere ejecución destructiva sobre datos reales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="negativo">
+    <nombre>Fallo de descifrado termina el job con éxito aparente</nombre>
+    <objetivo>Confirmar el hallazgo RISK-REC-001: si el descifrado falla o no se obtiene alguna de las 2 llaves, el job termina con código de salida 0 sin procesar ningún dato.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda forzar que Utils.decrypt() devuelva false, o que la llamada SHIVA/BBDD de alguna llave falle.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="llave1" valor="forzada a null (fallo de token SHIVA)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo en la obtención de llave1 (p. ej. simulando una respuesta HTTP no 200/201 de SHIVA).</paso>
+      <paso numero="2">Ejecutar KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE en el entorno de prueba.</paso>
+      <paso numero="3">Verificar el código de salida del proceso Java.</paso>
+      <paso numero="4">Verificar que no se procesó ninguna línea ni se invocó PCK_CON_ALT_COL.PR_MAIN.</paso>
+    </pasos>
+    <resultadoEsperado>El proceso termina con código de salida 0 (éxito) pese a no haber procesado ningún dato — el log contiene el mensaje "FALLO: alguna de las llaves no ha podido ser obtenida" o "FALLO: Descifrado no correcto", pero Control-M vería esta ejecución como correcta.</resultadoEsperado>
+    <tipoValidacion>Verificación de código de salida del proceso + ausencia de actividad en BBDD + presencia del mensaje de fallo en log</tipoValidacion>
+    <criterioAceptacion>Código de salida 0 confirmado junto con el mensaje de fallo en log y cero actividad de conciliación.</criterioAceptacion>
+    <posibilidadFallo>No ejecutar sobre el entorno real de producción — requiere entorno de prueba donde se pueda simular el fallo del servicio SHIVA sin afectar producción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="error_funcional">
+    <nombre>Cliente esperado de GoldenSource ausente del fichero recibido</nombre>
+    <objetivo>Confirmar que un cliente del universo de referencia que no aparece en el fichero descifrado se marca "no localizado" en FT_T_RLT1.</objetivo>
+    <precondiciones>
+      <precondicion>Existe un NUMCLIEN en el universo de obtenerIDs.</precondicion>
+      <precondicion>El fichero descifrado no contiene ninguna línea con ese NUMCLIEN.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="NUMCLIEN_ausente" valor="50607080"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero sin la línea de ese cliente.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 filtrando MAIN_ENTITY_ID=50607080.</paso>
+    </pasos>
+    <resultadoEsperado>Se inserta una fila en FT_T_RLT1 con MAIN_ENTITY_NME='ID_ALTAMIRA_COL', MAIN_ENTITY_ID=50607080, mensaje "Cliente no localizado en Altamira Colombia", RLT_DIF_ACC='B', RLT_DIF_STAT='PENDING'.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>Fila presente con los campos exactos esperados.</criterioAceptacion>
+    <posibilidadFallo>Si el cliente de prueba no cumple los filtros exactos de obtenerIDs, no aparecerá — repetir con un cliente que sí los cumpla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Cliente presente en el fichero no genera entrada de no localizado</nombre>
+    <objetivo>Confirmar que un NUMCLIEN presente en el fichero recibido se elimina correctamente de la lista de pendientes y no genera ninguna fila de "no localizado".</objetivo>
+    <precondiciones>
+      <precondicion>Existe un NUMCLIEN en el universo de obtenerIDs.</precondicion>
+      <precondicion>El fichero descifrado contiene exactamente una línea con ese NUMCLIEN.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="NUMCLIEN" valor="60708090"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero con la línea de ese cliente.</paso>
+      <paso numero="2">Consultar FT_T_RLT1 filtrando MAIN_ENTITY_ID=60708090 y mensaje "Cliente no localizado en Altamira Colombia".</paso>
+    </pasos>
+    <resultadoEsperado>No existe ninguna fila en FT_T_RLT1 para ese cliente con ese mensaje — fue correctamente eliminado de la lista de pendientes al encontrarse en el fichero.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada de la fila de "no localizado" para ese cliente.</criterioAceptacion>
+    <posibilidadFallo>Ninguna conocida — comportamiento confirmado por código (IDs.remove(NUMCLIEN)).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="duplicidad">
+    <nombre>NUMCLIEN repetido en 2 líneas del fichero</nombre>
+    <objetivo>Documentar el comportamiento real (sin control de duplicados confirmado) cuando el fichero recibido contiene el mismo NUMCLIEN en 2 líneas distintas.</objetivo>
+    <precondiciones>
+      <precondicion>El fichero descifrado contiene 2 líneas de 360 caracteres con el mismo NUMCLIEN en los primeros 8 caracteres, con datos distintos en el resto de campos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="linea_1" valor="NUMCLIEN=70809010, FIRNAME=JUAN..."/>
+      <dato campo="linea_2" valor="NUMCLIEN=70809010, FIRNAME=PEDRO..."/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ColombiaConciliacion sobre el fichero con las 2 líneas duplicadas.</paso>
+      <paso numero="2">Verificar en el log cuántas veces se invoca PCK_CON_ALT_COL.PR_MAIN para NUMCLIEN=70809010.</paso>
+    </pasos>
+    <resultadoEsperado>Ambas líneas se procesan de forma independiente: PCK_CON_ALT_COL.PR_MAIN se invoca 2 veces para el mismo NUMCLIEN, una por cada línea, sin que el código Java aplique ningún control de duplicados antes de la llamada.</resultadoEsperado>
+    <tipoValidacion>Revisión de log de ejecución, contando invocaciones por NUMCLIEN</tipoValidacion>
+    <criterioAceptacion>2 invocaciones confirmadas para el mismo NUMCLIEN, una por línea.</criterioAceptacion>
+    <posibilidadFallo>El resultado final en BBDD depende de qué haga el procedimiento PL/SQL con la segunda llamada (fuera de alcance) — este caso solo valida el comportamiento del lado Java.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>El universo de clientes coincide entre envío y recepción</nombre>
+    <objetivo>Confirmar que el universo de clientes que usa este proceso (obtenerIDs) es exactamente el mismo que usa envio_altamira_colombia (obtenerIDs de ColombiaEnvio), validando el ciclo bidireccional.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de lectura a FT_T_FIID/FT_T_FINS/FT_T_FIRL/FT_T_ENFR en el mismo entorno para ambos procesos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="filtro_comun" valor="FINS_ID_CTXT_TYP=ID_ALTAMIRA_COL, ORG_ID=9020, longitud=8, activo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la query obtenerIDs de ColombiaConciliacion (este proceso) y capturar el conjunto resultante.</paso>
+      <paso numero="2">Ejecutar la query obtenerIDs de ColombiaEnvio (envio_altamira_colombia) sobre el mismo entorno y capturar su conjunto resultante.</paso>
+      <paso numero="3">Comparar ambos conjuntos.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos conjuntos de ClientelaID/FINS_ID son idénticos en el mismo instante de ejecución (mismas tablas, mismos filtros), confirmando que ambos procesos operan sobre el mismo universo de clientes del ciclo de conciliación con Altamira Colombia.</resultadoEsperado>
+    <tipoValidacion>Comparación de 2 consultas SQL sobre el mismo entorno</tipoValidacion>
+    <criterioAceptacion>Los 2 conjuntos de IDs son exactamente iguales (salvo cambios de estado entre una consulta y la otra, inevitables si no se ejecutan en la misma transacción).</criterioAceptacion>
+    <posibilidadFallo>Diferencias solo esperables por cambios de estado entre la ejecución de ambas queries, no por diferencia real de filtros — si los filtros SQL difieren, es un hallazgo real a reportar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>3 filas sintéticas cubriendo las 3 combinaciones de reconciliación</nombre>
+    <objetivo>Confirmar que 3 registros sintéticos generados deliberadamente (esperado-presente, esperado-ausente, presente-no-esperado) siguen cada uno su rama de procesamiento esperada.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con capacidad de insertar filas sintéticas en el fichero descifrado y datos de referencia controlados en GoldenSource.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_sintetica_1_esperado_presente" valor="NUMCLIEN=11111111, presente en universo y en fichero"/>
+      <dato campo="fila_sintetica_2_esperado_ausente" valor="NUMCLIEN=22222222, presente en universo, ausente del fichero"/>
+      <dato campo="fila_sintetica_3_presente_no_esperado" valor="NUMCLIEN=99999999, presente en fichero, fuera del universo (no cumple filtros de obtenerIDs)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar las 3 filas sintéticas en el entorno de prueba (universo GoldenSource + fichero descifrado).</paso>
+      <paso numero="2">Ejecutar ColombiaConciliacion.</paso>
+      <paso numero="3">Verificar que la fila 1 invoca PCK_CON_ALT_COL.PR_MAIN y no genera "no localizado".</paso>
+      <paso numero="4">Verificar que la fila 2 genera la entrada "no localizado" en FT_T_RLT1.</paso>
+      <paso numero="5">Verificar que la fila 3 invoca igualmente PCK_CON_ALT_COL.PR_MAIN (el código procesa toda línea leída, esté o no en el universo de IDs esperados) pero no afecta la lista de pendientes.</paso>
+    </pasos>
+    <resultadoEsperado>Cada fila sintética produce el efecto esperado según su rama: fila 1 sin discrepancia, fila 2 marcada "no localizado", fila 3 procesada por el procedimiento PL/SQL sin figurar en el universo de referencia (su tratamiento final depende de ese procedimiento, fuera de alcance).</resultadoEsperado>
+    <tipoValidacion>Consulta SQL sobre FT_T_RLT1 para los 3 NUMCLIEN sintéticos + revisión de log de invocaciones a PCK_CON_ALT_COL.PR_MAIN</tipoValidacion>
+    <criterioAceptacion>Las ramas 1 y 2 confirmadas con evidencia directa de código; la rama 3 confirmada solo a nivel de invocación correcta del procedimiento.</criterioAceptacion>
+    <posibilidadFallo>El resultado final en BBDD de la fila 3 depende de la lógica interna de PCK_CON_ALT_COL.PR_MAIN, fuera de alcance — este caso solo valida que se invoca.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="regresion">
+    <nombre>Calendario de los 6 jobs sigue siendo M-X-J-V uniforme</nombre>
+    <objetivo>Detectar si en el futuro se reintroduce el desfase de calendario que originalmente describía el documento fuente (MEKYTL1091_RECEPCION con sábado adicional), ya descartado con evidencia real de Control-M.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso de solo lectura a la Planificación de Control-M del folder KYTL0000-RDR_ALTAMIRA_COLOMBIA_RECEIVE.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="job_a_verificar" valor="los 6 jobs de la cadena"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Abrir la Planificación (definición base) de cada uno de los 6 jobs.</paso>
+      <paso numero="2">Verificar que todos comparten el mismo calendario (días 2, 3, 4, 5 — martes a viernes).</paso>
+    </pasos>
+    <resultadoEsperado>Los 6 jobs mantienen el mismo calendario M-X-J-V, sin desfase — si alguno cambia (por ejemplo, se reintroduce el sábado en MEKYTL1091_RECEPCION sin ajustar el resto), esta especificación debe revisarse.</resultadoEsperado>
+    <tipoValidacion>Inspección visual de la Planificación de Control-M</tipoValidacion>
+    <criterioAceptacion>Calendario idéntico al confirmado en este análisis (2026-10-01).</criterioAceptacion>
+    <posibilidadFallo>Si el calendario cambió, este caso debe fallar explícitamente y disparar la revisión de la especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="e2e">
+    <nombre>Flujo end-to-end completo sin incidencias</nombre>
+    <objetivo>Validar el flujo completo desde la extracción remota del fichero hasta el cierre de la cadena, pasando por el descifrado, la conciliación y la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>CONCILIAYYYYMMDD.TXT existe y es válido en el host de Colombia.</precondicion>
+      <precondicion>El fichero contiene al menos un registro reconciliable correctamente cifrado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fichero" valor="CONCILIA20261001.TXT con 1 registro válido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">MEKYTL1091_RECEPCION extrae el fichero desde Colombia y emite su evento OK.</paso>
+      <paso numero="2">MEKYTL1091 transita el fichero y emite su evento OK.</paso>
+      <paso numero="3">MEKYTL1091_BORRADO purga la pasarela y emite su evento OK.</paso>
+      <paso numero="4">FW_RDR_ALTAMIRA_COLOMBIA_RECEIVE detecta el fichero en receive/ y emite su evento OK.</paso>
+      <paso numero="5">KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE descifra el fichero, concilia el registro, invoca PCK_CON_ALT_COL.PR_MAIN, consolida trazas y dispara el workflow de alertas, y emite su evento OK.</paso>
+      <paso numero="6">MEKYTL1046 historifica el fichero a backup/ y emite el evento de cierre de cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 6 jobs finalizan OK en el orden exacto documentado, el registro de prueba queda conciliado en BBDD vía PCK_CON_ALT_COL.PR_MAIN, y el fichero original queda resguardado en backup/.</resultadoEsperado>
+    <tipoValidacion>Monitorización completa de la cadena en Control-M + verificación de ficheros/BBDD resultantes</tipoValidacion>
+    <criterioAceptacion>Cadena completa en estado OK, sin reintentos ni intervención manual, con el fichero historificado y la conciliación aplicada.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo en un tramo intermedio (ausencia de fichero, fallo de descifrado) detiene el flujo end-to-end en ese punto — ver TC-005/TC-006.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="negativo">
+    <nombre>Purga fallida en la pasarela</nombre>
+    <objetivo>Confirmar que, si MEKYTL1091_BORRADO no puede purgar los ficheros temporales (falta de espacio/permisos en LPFTP503), el job falla visiblemente y existe contingencia manual documentada.</objetivo>
+    <precondiciones>
+      <precondicion>El usuario xsramer1 pierde permisos sobre /unload/transmisiones/KYTL/, o la pasarela está saturada.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="condicion" valor="sin permisos de escritura/borrado en la ruta de pasarela"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular la pérdida de permisos o saturación en /unload/transmisiones/KYTL/ en entorno de prueba.</paso>
+      <paso numero="2">Ejecutar MEKYTL1091_BORRADO.</paso>
+      <paso numero="3">Verificar que el job falla (a diferencia de los pasos 1-2, que tienen tolerancia explícita).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1091_BORRADO falla visiblemente en Control-M (criticidad W, aviso día siguiente) y requiere la contingencia documentada: liberar espacio manualmente antes de reiniciar.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado del job en Control-M tras simular la condición de fallo</tipoValidacion>
+    <criterioAceptacion>El job queda en estado de fallo, no se enmascara como OK.</criterioAceptacion>
+    <posibilidadFallo>No ejecutar sobre la pasarela real de producción — simular en entorno de prueba aislado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="borde">
+    <nombre>Carpeta de backup sin espacio durante la historificación</nombre>
+    <objetivo>Confirmar que, si /receive/backup/ no tiene espacio disponible, los ficheros originales permanecen en /receive/, con riesgo de reproceso en el siguiente ciclo del filewatcher.</objetivo>
+    <precondiciones>
+      <precondicion>La carpeta /fichtemcomp/pr/descargas/kytl/AltamiraColombia/receive/backup/ está sin espacio disponible en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="condicion" valor="backup/ sin espacio"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Simular la condición de backup/ sin espacio en entorno de prueba.</paso>
+      <paso numero="2">Ejecutar MEKYTL1046.</paso>
+      <paso numero="3">Verificar si el fichero CONCILIA*.TXT permanece en receive/ tras la ejecución.</paso>
+      <paso numero="4">Verificar si el siguiente ciclo del filewatcher detecta de nuevo ese mismo fichero.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL1046 no logra mover el fichero a backup/, este permanece en receive/, y el filewatcher del siguiente ciclo lo detecta de nuevo — riesgo de reprocesamiento duplicado, según lo documentado en el fuente. Contingencia: mover manualmente los ficheros y notificar a soporte.</resultadoEsperado>
+    <tipoValidacion>Verificación del sistema de ficheros antes/después de la ejecución simulada</tipoValidacion>
+    <criterioAceptacion>Comportamiento de permanencia del fichero confirmado en entorno de prueba, sin ejecutar contra producción.</criterioAceptacion>
+    <posibilidadFallo>No ejecutar sobre el entorno real de producción — simular en entorno de prueba aislado con cuota de disco controlada.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
