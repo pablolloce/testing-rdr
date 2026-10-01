@@ -16,7 +16,7 @@ P-062 es el sistema de 2 cadenas Control-M (aplicación KYTL, UUAA `KYTL0000`, s
 **Nota de alcance explícita:** este proceso se analiza **de forma independiente** de
 `salidas/extraccion_sait_contratos/`, por instrucción directa del usuario, aunque comparte la cadena
 `RDR_DAILY_LA_PRO_new` con aquel (que la documentó como contexto, sin testear su generación — ver
-`legal_agreements_p062_spec.md` de ese proceso, §1.1). Este documento sí cubre el testing completo de esa cadena. La
+`salidas/extraccion_sait_contratos/extraccion_sait_contratos_spec.md`, §1.1). Este documento sí cubre el testing completo de esa cadena. La
 transmisión externa vía `TRANSMISIONES_CIB_RDR_SAIT` (jobs `MEKYTL0357_LISTA`/`_BORRA`) queda fuera de
 alcance aquí — ya tiene su propia especificación.
 
