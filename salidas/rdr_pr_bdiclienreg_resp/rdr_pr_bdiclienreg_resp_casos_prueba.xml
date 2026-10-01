@@ -3,24 +3,24 @@
 
   <casoDePrueba id="TC-001" tipo="happy_path">
     <nombre>Ciclo completo con fichero de respuesta, sin lock y con ACKNACK presente</nombre>
-    <objetivo>Verificar que los 10 jobs se ejecutan en el orden documentado cuando ambas condiciones de control se cumplen.</objetivo>
+    <objetivo>Verificar que los 10 jobs se ejecutan en el orden documentado cuando ambas condiciones de control se cumplen (ACKNACK presente y lock ausente).</objetivo>
     <precondiciones>
       <precondicion>Cadena RDR_PR_BDICLIENREG_RESP_new activa, entorno de prueba (no producción).</precondicion>
       <precondicion>controlSCF.txt ausente en /fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/.</precondicion>
-      <precondicion>Existe un fichero .txt de respuesta y ClientesFondosFX_ACKNACK_*.txt en la ruta de respuesta.</precondicion>
+      <precondicion>Existe el fichero clientesFondosFX_ACKNACK_*.txt (c minúscula) en la ruta de respuesta, completo (tamaño estable al menos 5 mediciones de 10 s).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Ciclo" valor="disparo dentro de la ventana 04:30-23:55"/>
+      <dato campo="Ciclo" valor="disparo dentro de la ventana del folder (_M 04:30-11:30 o _T 12:30-23:55)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Verificar que RDR_PR_BDICLIENREG_RESP_FW detecta el fichero .txt.</paso>
-      <paso numero="2">Verificar que SLEEP_RDR_ALTACPTY_IP espera 6 minutos.</paso>
-      <paso numero="3">Verificar que COMPROBAR_CONTROL_ALTA_IP valida la ausencia de controlSCF.txt y da paso.</paso>
-      <paso numero="4">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 valida la existencia de ACKNACK_*.txt y da paso.</paso>
-      <paso numero="5">Verificar que GS_BDICLIENTREG, GS_INVESTORS_BDICLIENT_RESP, GS_INVESTORS_ALTAFONDOS y FX_ALERT_ALTA_SDIS terminan RC=0 en orden.</paso>
+      <paso numero="1">Verificar que RDR_PR_BDICLIENREG_RESP_FW (ctmfw ... CREATE 0 60 10 5 60) detecta el fichero ACKNACK y activa RDR_PR_BDICLIENREG_RESP_FW_OK.</paso>
+      <paso numero="2">Verificar que SLEEP_RDR_ALTACPTY_IP (sleep 360) espera 6 minutos.</paso>
+      <paso numero="3">Verificar que COMPROBAR_CONTROL_ALTA_IP espera 5 minutos sin ver controlSCF.txt (código 7, regla 7 -> OK) y activa COMPROBAR_CONTROL_ALTA_IP_OK.</paso>
+      <paso numero="4">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 detecta el ACKNACK (código 0) y activa COMPROBAR_CONTROL_ALTA_IP_2_OK.</paso>
+      <paso numero="5">Verificar que GS_BDICLIENTREG, GS_INVESTORS_BDICLIENT_RESP, GS_INVESTORS_ALTAFONDOS y FX_ALERT_ALTA_SDIS terminan en OK en orden con su condición _OK activada (no basta el color del job: un fallo interno también queda en OK por la regla ON NOTOK; revisar ESTADO-0- en el log de GSProcess.sh).</paso>
       <paso numero="6">Verificar que MEKYTL0985 historifica y comprime el reporte final.</paso>
     </pasos>
-    <resultadoEsperado>Los 10 jobs terminan en OK; el reporte queda historificado en .gz con timestamp.</resultadoEsperado>
+    <resultadoEsperado>Los 10 jobs terminan en OK con sus condiciones de salida activadas; unos 13-14 minutos después de detectar el ACKNACK arranca GS_BDICLIENTREG; el reporte queda historificado en .gz con timestamp y MEKYTL0985 repone IN_OK.</resultadoEsperado>
     <tipoValidacion>Verificación de estado en Control-M + existencia del fichero historificado.</tipoValidacion>
     <criterioAceptacion>10/10 jobs OK; 1 fichero .gz en old/ con timestamp correcto.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
@@ -28,19 +28,19 @@
 
   <casoDePrueba id="TC-002" tipo="negativo">
     <nombre>Ausencia de fichero de respuesta finaliza el ciclo sin error</nombre>
-    <objetivo>Confirmar que la no llegada del fichero .txt de respuesta no marca fallo de job ni bloquea el siguiente ciclo.</objetivo>
+    <objetivo>Confirmar que la no llegada del fichero ACKNACK no marca fallo de job ni bloquea el siguiente ciclo.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de prueba, no producción, sin ningún fichero .txt en la ruta de respuesta.</precondicion>
+      <precondicion>Entorno de prueba, no producción, sin ningún fichero clientesFondosFX_ACKNACK_*.txt en la ruta de respuesta.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Fichero" valor="Ausente durante un ciclo completo de 5 minutos"/>
+      <dato campo="Fichero" valor="Ausente durante los 60 minutos de espera (wait_time) del FileWatcher"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar un ciclo con la ruta de respuesta vacía.</paso>
-      <paso numero="2">Verificar que RDR_PR_BDICLIENREG_RESP_FW no marca error.</paso>
+      <paso numero="1">Ejecutar un ciclo con la ruta de respuesta sin ACKNACK y esperar 60 minutos.</paso>
+      <paso numero="2">Verificar que RDR_PR_BDICLIENREG_RESP_FW termina con código 7 tratado como OK (regla ON 7 -> OK) y no activa RDR_PR_BDICLIENREG_RESP_FW_OK.</paso>
       <paso numero="3">Verificar que ningún job posterior se ejecuta en ese ciclo.</paso>
     </pasos>
-    <resultadoEsperado>El ciclo finaliza limpiamente sin alerta; el siguiente ciclo de 5 min vuelve a intentar la detección — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <resultadoEsperado>El ciclo finaliza limpiamente sin alerta tras 60 minutos de espera; al ser cíclico, el job se relanza y vuelve a intentar la detección — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
     <criterioAceptacion>0 jobs posteriores ejecutados; el filewatcher no queda en estado de error.</criterioAceptacion>
     <posibilidadFallo>Que el job marque error pese a la regla documentada de no fallar.</posibilidadFallo>
@@ -50,7 +50,7 @@
     <nombre>controlSCF.txt presente detiene el ciclo sin error (lock externo activo)</nombre>
     <objetivo>Confirmar que el lock file externo bloquea el procesamiento sin generar error de job.</objetivo>
     <precondiciones>
-      <precondicion>Fichero .txt de respuesta y ACKNACK_*.txt presentes.</precondicion>
+      <precondicion>ACKNACK (clientesFondosFX_ACKNACK_*.txt) presente y fichero de respuesta presente.</precondicion>
       <precondicion>controlSCF.txt depositado manualmente antes de COMPROBAR_CONTROL_ALTA_IP, en entorno de prueba, no producción.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -58,9 +58,9 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Depositar controlSCF.txt en la ruta de control antes de que se ejecute COMPROBAR_CONTROL_ALTA_IP.</paso>
-      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP detiene el ciclo sin marcar error.</paso>
+      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP detecta el lock (código 0), termina en OK sin activar COMPROBAR_CONTROL_ALTA_IP_OK (y borra SLEEP_RDR_ALTACPTY_IP_OK), deteniendo el ciclo sin marcar error.</paso>
       <paso numero="3">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 no se ejecuta.</paso>
-      <paso numero="4">Eliminar controlSCF.txt (simulando la limpieza del proceso externo) y verificar que el siguiente ciclo prospera.</paso>
+      <paso numero="4">Eliminar controlSCF.txt (simulando la limpieza del proceso externo) y verificar que un ciclo posterior prospera. Atención: en el folder _M, según las condiciones, la cadena podría no relanzarse sola tras detectar el lock (P-BCR-03); anotar el comportamiento observado y, si hace falta, ordenar de nuevo el folder.</paso>
     </pasos>
     <resultadoEsperado>El ciclo se detiene sin error mientras el lock esté presente; se reanuda en un ciclo posterior tras su retirada — comportamiento confirmado (G1), no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de estado en Control-M a través de 2 ciclos consecutivos.</tipoValidacion>
@@ -72,15 +72,15 @@
     <nombre>Ausencia de ACKNACK_*.txt detiene el ciclo sin error (sin lock activo)</nombre>
     <objetivo>Confirmar que la segunda validación bloquea el procesamiento de forma independiente al lock.</objetivo>
     <precondiciones>
-      <precondicion>Fichero .txt de respuesta presente, controlSCF.txt ausente.</precondicion>
+      <precondicion>Sin lock: controlSCF.txt ausente; el ACKNACK debió existir al arrancar el FileWatcher y desaparecer antes de COMPROBAR_CONTROL_ALTA_IP_2.</precondicion>
       <precondicion>ClientesFondosFX_ACKNACK_*.txt ausente, en entorno de prueba, no producción.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero" valor="ACKNACK_*.txt ausente"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el ciclo con controlSCF.txt ausente pero sin ACKNACK_*.txt en la ruta de respuesta.</paso>
-      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 detiene el ciclo sin marcar error.</paso>
+      <paso numero="1">Ejecutar el ciclo con controlSCF.txt ausente y retirar el ACKNACK de la ruta de respuesta antes de que llegue COMPROBAR_CONTROL_ALTA_IP_2 (tras los 6 min de sleep y los 5 min de espera del lock).</paso>
+      <paso numero="2">Verificar que COMPROBAR_CONTROL_ALTA_IP_2 espera 5 minutos, termina con código 7 tratado como OK y no activa COMPROBAR_CONTROL_ALTA_IP_2_OK, deteniendo el ciclo sin marcar error.</paso>
       <paso numero="3">Verificar que GS_BDICLIENTREG no se ejecuta.</paso>
     </pasos>
     <resultadoEsperado>El ciclo se detiene sin error por la segunda validación, de forma indistinguible externamente del bloqueo por lock (TC-003) — riesgo documentado en la sección 9 del spec.</resultadoEsperado>
@@ -100,9 +100,9 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Eliminar el reporte antes de la ejecución de MEKYTL0985.</paso>
-      <paso numero="2">Ejecutar MEKYTL0985 y verificar RC=0 pese a la ausencia del fichero.</paso>
+      <paso numero="2">Ejecutar MEKYTL0985 y verificar que el job termina en OK y repone RDR_PR_BDICLIENREG_RESP_new_IN_OK pese a la ausencia del fichero (si el RC fuese distinto de 0, p. ej. 6, el job quedaría igualmente en OK por ON NOTOK, pero sin reponer IN_OK; anotar el RC real del log).</paso>
     </pasos>
-    <resultadoEsperado>MEKYTL0985 termina en OK sin historificar ningún fichero — comportamiento confirmado (Soft Failure), no un fallo de la prueba.</resultadoEsperado>
+    <resultadoEsperado>MEKYTL0985 termina en OK sin historificar ningún fichero — comportamiento documentado (Soft Failure; la línea IDX exacta no está disponible, P-BCR-04), no un fallo de la prueba.</resultadoEsperado>
     <tipoValidacion>Verificación de RC en Control-M.</tipoValidacion>
     <criterioAceptacion>RC=0 pese a la ausencia del fichero de origen.</criterioAceptacion>
     <posibilidadFallo>Que el job falle pese a la tolerancia documentada (contradiría R10).</posibilidadFallo>
@@ -118,7 +118,7 @@
       <dato campo="Ciclo" valor="día de ejecución de prueba"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Depositar el fichero .txt de respuesta y ACKNACK_*.txt válidos, sin controlSCF.txt presente.</paso>
+      <paso numero="1">Depositar el fichero de respuesta y clientesFondosFX_ACKNACK_*.txt válidos, sin controlSCF.txt presente.</paso>
       <paso numero="2">Ejecutar el ciclo completo y verificar el paso por los 10 jobs.</paso>
       <paso numero="3">Verificar el cierre en MEKYTL0985 con el reporte historificado.</paso>
     </pasos>

@@ -2,12 +2,41 @@
 
 ## 1. Resumen ejecutivo
 
-Cadena Control-M cíclica (folder `KYTL0000-RDR_PR_BDICLIENREG_RESP_new`, servidor `MERCADOS-4`, disparo cada
-5 minutos, todos los días, ventana 04:30-23:55) que monitoriza la llegada de ficheros de respuesta de altas
+Cadena Control-M cíclica (folder `KYTL0000-RDR_PR_BDICLIENREG_RESP_new`, servidor `MERCADOS-4`, todos los días;
+la ficha funcional habla de disparo cada 5 minutos en ventana 04:30-23:55, pero el export real de Control-M la
+implementa como dos folders gemelos `_M` 04:30-11:30 y `_T` 12:30-23:55 con jobs cíclicos de intervalo 1 minuto — ver
+§6.0 y P-BCR-01) que monitoriza la llegada de ficheros de respuesta de altas
 de clientela BDI, valida un doble control de exclusión mutua (lock file + fichero de confirmación), procesa
 la respuesta en BDI e Investors Plan, ejecuta el alta de fondos con enriquecimientos XML, despacha alertas
 online SSIS, e historifica/comprime el reporte final. 10 jobs, flujo lineal sin Fan-Out/Fan-In (el término
-"cíclico" se refiere al redisparo cada 5 minutos, no a un ciclo en el grafo de dependencias).
+"cíclico" se refiere al redisparo periódico de los jobs, no a un ciclo en el grafo de dependencias).
+
+**Qué es y para qué sirve.** Es el tramo de "respuesta" del alta de clientes/fondos de la clientela BDI con
+Investors Plan: cuando el sistema origen (SCF/Investors Plan) deposita el fichero de acuse ACK/NACK
+`clientesFondosFX_ACKNACK_*.txt` en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/`, la cadena (1)
+actualiza en GoldenSource el estado de las peticiones de alta enviadas a BDI (R6), (2) procesa el registro de clientes
+(LEI) de Investors Plan (R7), (3) da de alta los fondos pendientes generando un CSV y un XML intermedios y cargándolos
+con los workflows de GoldenSource (R8), (4) lanza las alertas online de SSIs de esos fondos (R9) y (5) archiva el
+reporte `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` (R10).
+
+**Qué hay al inicio y quién lo lanza.** Lo lanza Control-M (`MERCADOS-4`, host `pr-rdr.igrupobbva`; folders ordenados
+a diario con método `PLAN_1200`). No necesita parámetros de usuario. Al inicio debe existir (a) el fichero ACKNACK
+en la ruta de respuesta, (b) ausencia del fichero-semáforo `controlSCF.txt` en
+`/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/` (lo crea y borra un proceso ajeno a esta malla), y (c) en
+GoldenSource, las peticiones pendientes (`FT_T_VREQ` en `BDI_LINE_SENT` para R6; fondos en `ALTA_FONDO_PEND` para R8).
+
+**Resultado exacto.** La cadena no genera ficheros de salida de negocio propios: su resultado son actualizaciones en
+GoldenSource (`FT_T_VREQ`, `FT_T_UTD1`, registros de LEI, altas de fondos y SDIs, filas de alertas `FT_T_ALG1`/
+`FT_T_REP1` y correos de alerta). Deja ficheros temporales de R8 en `$FILES/AltaFondos/csv/`
+(`<AAAAMMDDHHMMSS>@FUND_LOADER.csv` y `altasmasivas.xml`), que se copian con sufijo `_yyyymmdd` y se mueven a
+`AltaFondos/csv/old` (§6.9), y el reporte final comprimido
+`/fichtemcomp/pr/descargas/kytl/investorsPlan/old/Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz` (R10).
+
+**Cómo saber si fue bien o mal.** En Control-M, un ciclo completo y correcto muestra los 10 jobs en OK y
+`MEKYTL0985` como último. Ojo: los jobs `GS_*`, `FX_ALERT_ALTA_SDIS` y `MEKYTL0985` tienen la regla `ON NOTOK →
+OK`, así que un fallo interno **no se ve en rojo**: el job queda en verde pero no activa el siguiente (la cadena se
+detiene). El rastro real está en los logs de `GSProcess.sh` (`execute_<MOD>_<AAAAMMDD>.log`, cuya última línea es
+`ESTADO-0-` o `ESTADO-1-`) y en los estados de `FT_T_VREQ` (§6.1, §6.3). Ver §6.0 y §9.
 
 ## 2. Alcance del proceso
 
@@ -25,17 +54,17 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 
 | ID | Requisito |
 |----|-----------|
-| R1 | `RDR_PR_BDICLIENREG_RESP_new_IN` (Dummy, Run As `DUMMYUSR`) dispara la cadena cíclicamente cada 5 minutos, todos los días, ventana 04:30-23:55. Consume 1 unidad de `MAX-LPRDR501` (asignado: 100). |
-| R2 | `RDR_PR_BDICLIENREG_RESP_FW` (filewatcher, Run As `xpctma1`) espera `*.txt` en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response`. **Regla de negocio:** si no detecta fichero, no falla — finalización limpia sin alertar a guardia, a la espera del siguiente ciclo de 5 min. |
-| R3 | `SLEEP_RDR_ALTACPTY_IP` (Run As `xakytl1p`) introduce un retardo fijo de 6 minutos para garantizar el cierre completo de la escritura en disco antes de procesar. |
-| R4 | `COMPROBAR_CONTROL_ALTA_IP` (Run As implícito de la ejecución de la cadena) valida la **NO existencia** de `controlSCF.txt` en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/controlSCF.txt`. **Confirmado (Q7.1):** este fichero actúa como lock file de exclusión mutua gestionado por un proceso externo (SCF/Investors Plan); si existe (carga concurrente en curso), la validación falla y la cadena se detiene sin error, a la espera del siguiente ciclo. |
-| R5 | `COMPROBAR_CONTROL_ALTA_IP_2` valida la **existencia** de `ClientesFondosFX_ACKNACK_*.txt` en la misma ruta de respuesta. Si no existe (o si `controlSCF.txt` sí existía en R4), la tubería se detiene sin error, a la espera del siguiente ciclo. |
+| R1 | `RDR_PR_BDICLIENREG_RESP_new_IN` (Dummy, Run As `DUMMYUSR`) dispara la cadena (pone la condición `..._IN_OK`; no es cíclico). Según la ficha funcional: cada 5 minutos, todos los días, ventana 04:30-23:55; según el export real de Control-M: folder `_M` 04:30-11:30 y folder `_T` 12:30-23:55, jobs cíclicos con intervalo `00001M` (1 minuto) — conflicto abierto P-BCR-01. Consume 1 unidad de `MAX-LPRDR501` (asignado: 100). |
+| R2 | `RDR_PR_BDICLIENREG_RESP_FW` (filewatcher, Run As `xpctma1`) ejecuta `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/clientesFondosFX_ACKNACK_*.txt' CREATE 0 60 10 5 60`: espera el fichero de acuse (la ficha funcional dice `*.txt`; el comando real vigila el patrón ACKNACK, con `c` minúscula) buscándolo cada 60 s; una vez encontrado mide su tamaño cada 10 s y lo da por completo tras 5 mediciones iguales; si en 60 minutos no lo detecta termina con código 7. Reglas del job: código 0 → activa `FW_OK` y consume `IN_OK`; códigos 1 y 7 → job en OK sin activar nada. **Regla de negocio:** si no detecta fichero, no falla — finalización limpia sin alertar a guardia (el job se relanza por ser cíclico). |
+| R3 | `SLEEP_RDR_ALTACPTY_IP` (según el export de Control-M, Run As `root`, comando `sleep 360`; la ficha funcional indicaba `xakytl1p`) introduce un retardo fijo de 6 minutos para garantizar el cierre completo de la escritura en disco antes de procesar. |
+| R4 | `COMPROBAR_CONTROL_ALTA_IP` (Run As `xpctma1`; comando `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/controlSCF.txt' CREATE 0 60 10 5 5`, espera máxima 5 minutos) valida la **NO existencia** de `controlSCF.txt` en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/controlSCF.txt`. **Lógica invertida:** si el fichero NO aparece en 5 minutos, `ctmfw` termina con código 7 y la regla `7 → OK` activa `COMPROBAR_CONTROL_ALTA_IP_OK` (la cadena sigue); si aparece (código 0), no se activa ninguna condición y la cadena se detiene. Es decir, comprobar la ausencia del lock cuesta siempre 5 minutos de espera. **Confirmado (Q7.1):** este fichero actúa como lock file de exclusión mutua gestionado por un proceso externo (SCF/Investors Plan); si existe (carga concurrente en curso), la validación falla y la cadena se detiene sin error, a la espera del siguiente ciclo. |
+| R5 | `COMPROBAR_CONTROL_ALTA_IP_2` (Run As `xpctma1`, `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/clientesFondosFX_ACKNACK_*.txt' CREATE 0 60 10 5 5`) valida la **existencia** de `clientesFondosFX_ACKNACK_*.txt` (`c` minúscula, como en el comando real; Linux distingue mayúsculas) en la misma ruta de respuesta, esperando como máximo 5 minutos: código 0 → activa `COMPROBAR_CONTROL_ALTA_IP_2_OK`; código 7 → job en OK sin activar nada. Si no existe (o si `controlSCF.txt` sí existía en R4), la tubería se detiene sin error, a la espera del siguiente ciclo. |
 | R6 | `GS_BDICLIENTREG` (Run As `xakytl1p`) ejecuta `GSProcess.sh clientelaBDI_Altas_response` → `Java(ConexionBD.jar, clientelaBDI_Altas_response.jar)`. |
 | R7 | `GS_INVESTORS_BDICLIENT_RESP` (Run As `xakytl1p`) ejecuta `GSProcess.sh Investors_Client_Reg_resp` → `Java(ConexionBD.jar, Investors_Client_Reg_resp.jar)`. |
 | R8 | `GS_INVESTORS_ALTAFONDOS` (Run As `xakytl1p`) ejecuta `GSProcess.sh RDR_AltaFondos`: `Java(AltaFondos_Genera_csv)` → `Java(CSVToXML_Layout)` → `Workflow(RDR_XMLReader)` → `Script(Historificar)` → `Script(MoverFicheros)` → `Java(AltaFondos_CuadreCarga)` → `Workflow(RDR_AltaFondos_Enriquecimientos)` → `Property(GestionAlertas)`. |
 | R9 | `FX_ALERT_ALTA_SDIS` (Run As `xakytl1p`) ejecuta `GSProcess.sh GestionAlertas_ALERT_IP_SSI` → `Workflow(RDR_SSIS_Fx_Alert_Online)` → `Property(GestionAlertas)`. |
-| R10 | `MEKYTL0985` (Run As `xsramer1`, `RAMERC0068.sh`) historifica y comprime `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` a `.gz` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/old/` con timestamp `DDMMYYYYHHMM`. **Soft Failure documentado explícitamente:** no falla si no hay ficheros que historificar. Cierra la cadena. |
-| R11 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado (QT1) como placeholder de cabecera** que agrupa los niveles de severidad posibles del folder, no un valor único. Interpretación funcional confirmada: fallos de filewatcher/historificación ⇒ `W`; abends en motores Java/PL-SQL de ingesta/Investors Plan ⇒ escalado a `S`/`C` (alerta inmediata a ANS RDR). |
+| R10 | `MEKYTL0985` (Run As `xsramer1`, `RAMERC0068.sh`) historifica y comprime `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` a `.gz` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/old/` con timestamp `DDMMYYYYHHMM`. **Soft Failure documentado explícitamente:** no falla si no hay ficheros que historificar. Cierra la cadena. Mecánica: `RAMERC0068.sh MEKYTL0985` busca la clave `MEKYTL0985` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (8 campos separados por `@`: clave, origen, máscaras, destino, falla-si-no-hay-fichero, tipo de selección, días, operación) y aplica su operación; según la ficha funcional, origen `/fichtemcomp/pr/descargas/kytl/investorsPlan/`, máscara `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`, destino `.../investorsPlan/old/`, nombre `Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz`. La línea IDX literal no está disponible (P-BCR-04). Si no hay fichero y la línea tiene "falla si no hay fichero" a `0`, el script sale con 6; si el IDX no tiene la clave, 2; si falla un movimiento, 7 (códigos en `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`). Con cualquier código ≠ 0 el job queda igualmente en OK por la regla `ON NOTOK → OK`; con código 0 repone `IN_OK` y la cadena puede volver a empezar. |
+| R11 | Criticidad de cadena declarada como **"W / S / C"** — **confirmado (QT1) como placeholder de cabecera** que agrupa los niveles de severidad posibles del folder, no un valor único. A nivel de job, el export de Control-M declara `CRITICAL="0"` en los 10 jobs y no define notificaciones (`SHOUT`). Interpretación funcional confirmada: fallos de filewatcher/historificación ⇒ `W`; abends en motores Java/PL-SQL de ingesta/Investors Plan ⇒ escalado a `S`/`C` (alerta inmediata a ANS RDR). |
 | R12 | Máximo de relanzamientos configurado a 0; retención del log operativo en 3 días. |
 | R13 | **Patrón transversal P-021:** sin validación de integridad de negocio ni protección de concurrencia/lock **propia de esta malla** más allá del control externo de `controlSCF.txt` (R4). |
 
@@ -45,23 +74,32 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 |-----|----------|------------|
 | G1 | ¿Qué proceso gestiona el ciclo de vida de `controlSCF.txt` (quién lo crea y cuándo se limpia)? | Confirmado (Q7.1): proceso externo a esta malla, perteneciente a SCF/Investors Plan — R4. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
-| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
-| G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
-| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
-| G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
-| G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
-| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes; quedan solo, como residuales de código no aportado, `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real). |
-| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. Sin cabos sueltos bloqueantes; quedan como residuales de código no aportado los subworkflows internos `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`. |
+| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
+| G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
+| G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
+| G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` aportado en sesión). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
+| G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
+| G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes; quedan solo, como residuales de código no aportado, `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real). |
+| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. Sin cabos sueltos bloqueantes; quedan como residuales de código no aportado los subworkflows internos `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`. |
+| P-BCR-01 | ¿Qué rige para la planificación: la ficha funcional (un folder, 04:30-23:55, redisparo cada 5 min, FileWatcher sobre `*.txt`) o el export de Control-M (folders `_M` 04:30-11:30 y `_T` 12:30-23:55, jobs cíclicos con `INTERVAL=00001M`, FileWatcher sobre `clientesFondosFX_ACKNACK_*.txt`)? | **Abierta.** Esta spec describe el export (es el artefacto real, modificado el 2026-05-18) y cita la ficha donde difiere. Importa porque entre 11:30 y 12:30 ninguna de las dos mitades corre (un ACKNACK llegado en esa hora esperaría a las 12:30) y porque fija la frecuencia con la que hay que esperar resultados en pruebas. |
+| P-BCR-02 | ¿Es `clientesFondosFX_ACKNACK_*.txt` el mismo fichero de 600 caracteres por línea que lee `clientelaBDI_Altas_response.jar`, o hay otro `.txt` en la misma carpeta? ¿Cuáles son las rutas exactas de entrada, histórico y error de R6 y R7 (`Main.java` no aportado)? | **Abierta.** Importa para saber qué fichero (nombre, formato, tamaño) hay que depositar en pruebas y dónde queda después de procesarse; hoy solo se conoce la ruta `.../ClientelaBDI_Altas/response` por los comandos de `ctmfw`. |
+| P-BCR-03 | Tras detectar `controlSCF.txt` en el folder `_M`, ¿quién relanza la cadena? Por las condiciones, `SLEEP` borra `FW_OK`, el FW consumió `IN_OK` y `COMPROBAR_CONTROL_ALTA_IP` con código 0 borra `SLEEP_OK`; en `_T` `FW_OK` no se borra y el ciclo se reintenta. | **Abierta.** Si es así, un lock detectado por la mañana podría dejar la parte `_M` parada hasta la siguiente orden diaria sin ningún aviso. Hay que confirmarlo en una ejecución real. |
+| P-BCR-04 | ¿Cuál es la línea de `MEKYTL0985` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (clave@origen@máscara@destino@falla-si-no-hay-fichero@tipo@días@operación)? | **Abierta.** Solo se conoce por la ficha funcional: origen `/fichtemcomp/pr/descargas/kytl/investorsPlan/`, máscara `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`, destino `.../investorsPlan/old/`, nombre `Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz`, "no falla si no hay fichero". Importa para confirmar la operación exacta (comprimir y mover) y el código si no hay fichero (6 si "falla si no hay fichero" vale 0; en cualquier caso Control-M lo deja en OK por `ON NOTOK → OK`). |
+| P-BCR-05 | ¿Qué job o workflow genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/` y con qué contenido? Probablemente el subworkflow `SSIs_Fx_Reporte` (no aportado), pero no está confirmado. | **Abierta.** Importa porque es lo único que archiva el último job y no se sabe qué columnas ni cuándo se escribe. |
+| P-BCR-06 | ¿Qué destinatarios, ruta (`RUTA`) y plantilla tienen en `FT_T_REP1`/`FT_T_ALR1`/`FT_T_ALM1` los procesos de alerta `RDR_ALTA_FONDOS`, `RDR_ALTA_FONDOS_ERROR` y `ALERT_IP_SSI`? | **Abierta.** Importa para poder comprobar en pruebas que el correo de alertas llega (el envío es global y silencioso ante datos inválidos, §6.15). |
+| P-BCR-07 | El `RDR_AltaFondos.properties` citado en §6.9 (valores `ArgJava3="G"`, `args[3]="NODCS"`, `ArgProp2=...`) no ha podido recontrastarse con la evidencia disponible al completar esta spec; los `.properties` de R6/R7 no se han aportado y los de alertas aportados llevan rutas literales `/ei/...` (entorno de integración). ¿Los `.properties` desplegados en `pr` son idénticos y quién sustituye `ei` por `pr` (cf. P-GSP-01 en `comun_gsprocess`)? | **Abierta.** Importa porque de ellos dependen el orden de los pasos, si algún paso tiene `Stop=Ok` y las rutas reales de trabajo. |
 
 ## 5. Especificación funcional
 
-1. La cadena se dispara cíclicamente cada 5 minutos, todos los días, entre las 04:30 y las 23:55.
-2. `RDR_PR_BDICLIENREG_RESP_FW` espera un fichero `.txt` de respuesta; si no llega, el ciclo finaliza limpiamente
-   sin alerta.
+1. La cadena se dispara cíclicamente todos los días (ficha funcional: cada 5 minutos entre 04:30 y 23:55; export real:
+   dos folders, 04:30-11:30 y 12:30-23:55, intervalo de 1 minuto — P-BCR-01).
+2. `RDR_PR_BDICLIENREG_RESP_FW` espera hasta 60 minutos el fichero de acuse `clientesFondosFX_ACKNACK_*.txt`; si no
+   llega, termina con código 7 que se trata como OK: el ciclo finaliza limpiamente sin alerta y sin seguir.
 3. Tras detectar el fichero, `SLEEP_RDR_ALTACPTY_IP` espera 6 minutos para garantizar el cierre de escritura.
-4. `COMPROBAR_CONTROL_ALTA_IP` valida que no exista `controlSCF.txt` (lock externo); si existe, el ciclo se
-   detiene sin error.
-5. `COMPROBAR_CONTROL_ALTA_IP_2` valida que exista `ACKNACK_*.txt`; si no, el ciclo se detiene sin error.
+4. `COMPROBAR_CONTROL_ALTA_IP` espera 5 minutos a que aparezca `controlSCF.txt` (lock externo); si no aparece
+   (código 7) la cadena sigue; si aparece (código 0), el ciclo se detiene sin error.
+5. `COMPROBAR_CONTROL_ALTA_IP_2` valida que exista `clientesFondosFX_ACKNACK_*.txt` (espera máx. 5 min); si no,
+   el ciclo se detiene sin error.
 6. `GS_BDICLIENTREG` procesa la respuesta de altas BDI.
 7. `GS_INVESTORS_BDICLIENT_RESP` procesa el registro de clientes en Investors Plan.
 8. `GS_INVESTORS_ALTAFONDOS` ejecuta el alta de fondos con enriquecimientos XML y cuadre de carga.
@@ -70,8 +108,9 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 
 ## 6. Especificación técnica
 
-* **Folder Control-M:** `KYTL0000-RDR_PR_BDICLIENREG_RESP_new`, servidor `MERCADOS-4`, disparo cada 5 min,
-  ventana 04:30-23:55, todos los días.
+* **Folder Control-M:** `KYTL0000-RDR_PR_BDICLIENREG_RESP_new` (ficha funcional); en el export real, los folders
+  `KYTL0000-RDR_PR_BDICLIENREG_RESP_new_M` (04:30-11:30) y `..._new_T` (12:30-23:55), servidor `MERCADOS-4`,
+  todos los días, jobs cíclicos con intervalo 1 minuto (detalle en §6.0).
 * **Grafo:** lineal estricto, 10 pasos, sin Fan-Out/Fan-In (a diferencia de `RDR_CLIENTES_CIB_new` y
   `RDR_ENVIO_CLIEX_new`).
 * **Doble control de concurrencia:** `COMPROBAR_CONTROL_ALTA_IP` (lock externo `controlSCF.txt`) +
@@ -81,10 +120,55 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
   `AltaFondos_Genera_csv.jar`, `CSVToXML_Layout.jar`, `AltaFondos_CuadreCarga.jar`.
 * **Recursos cuantitativos:** cada job consume 1 unidad de `MAX-LPRDR501` (total 100).
 
+### 6.0 Definición real de los jobs en Control-M (export de los folders `_M` y `_T`)
+
+Procedencia: export XML de Control-M (versión 9.21, datacenter `MERCADOS-4`, plataforma UNIX, última modificación
+2026-05-18) de dos folders gemelos. Ambos: orden diario `PLAN_1200`, site standard `KYTL0000_SS_PR_HR`, días `ALL`, 12
+meses. El folder `_M` corre de 04:30 a 11:30 y el `_T` de 12:30 a 23:55 (entre 11:30 y 12:30 no hay ninguno, P-BCR-01);
+sus condiciones llevan prefijo `RDR_PR_BDICLIENREG_RESP_new_` (`_M`) o `RDR_PR_BDICLIENREG_RESP_new_T_` (`_T`), de modo
+que son independientes. Comunes a los 10 jobs: `CRITICAL=0`, `MAXRERUN=0`, `MAXWAIT=0`, recurso cuantitativo
+`MAX-LPRDR501` x1 (se libera al terminar bien o mal), sin `SHOUT`; todos son cíclicos (`INTERVAL=00001M`,
+`IND_CYCLIC=S`) salvo el Dummy. Un job cíclico vuelve a lanzarse 1 minuto después si su condición de entrada
+(`INCOND`) sigue activa; solo las reglas `ON COMPSTAT EQ 0` la consumen.
+
+| # | Job (Run As) | Comando | Espera (INCOND) | Reglas ON / OUTCOND (nombres sin prefijo, `+` activa, `-` borra) |
+|---|---|---|---|---|
+| 1 | `RDR_PR_BDICLIENREG_RESP_new_IN` (`DUMMYUSR`) | Dummy, no cíclico | — | OUTCOND `+IN_OK` |
+| 2 | `RDR_PR_BDICLIENREG_RESP_FW` (`xpctma1`) | `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/clientesFondosFX_ACKNACK_*.txt' CREATE 0 60 10 5 60` | `IN_OK` | código 0: `+RDR_PR_BDICLIENREG_RESP_FW_OK`, `-IN_OK`; código 1: OK; código 7: OK |
+| 3 | `SLEEP_RDR_ALTACPTY_IP` (`root`) | `sleep 360` | `..._FW_OK` | `+SLEEP_RDR_ALTACPTY_IP_OK` (en `_M` además `-..._FW_OK`) |
+| 4 | `COMPROBAR_CONTROL_ALTA_IP` (`xpctma1`) | `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/controlSCF.txt' CREATE 0 60 10 5 5` | `SLEEP_..._OK` | código 7: `+COMPROBAR_CONTROL_ALTA_IP_OK` y OK; código 0: `-SLEEP_..._OK` |
+| 5 | `COMPROBAR_CONTROL_ALTA_IP_2` (`xpctma1`) | `ctmfw '/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/clientesFondosFX_ACKNACK_*.txt' CREATE 0 60 10 5 5` | `COMPROBAR_CONTROL_ALTA_IP_OK` | código 0: `+COMPROBAR_CONTROL_ALTA_IP_2_OK`, `-COMPROBAR_CONTROL_ALTA_IP_OK`; código 7: OK (en `_M` además `-COMPROBAR_CONTROL_ALTA_IP_OK` incondicional) |
+| 6 | `GS_BDICLIENTREG` (`xakytl1p`) | `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh` con `%%PARM1=clientelaBDI_Altas_response` | `COMPROBAR_CONTROL_ALTA_IP_2_OK` | código 0: `+GS_BDICLIENTREG_OK`, `-..._2_OK`; NOTOK: OK |
+| 7 | `GS_INVESTORS_BDICLIENT_RESP` (`xakytl1p`) | `GSProcess.sh` con `%%PARM1=Investors_Client_Reg_resp` | `GS_BDICLIENTREG_OK` | código 0: `+GS_INVESTORS_BDICLIENT_RESP_OK`, `-GS_BDICLIENTREG_OK`; NOTOK: OK |
+| 8 | `GS_INVESTORS_ALTAFONDOS` (`xakytl1p`) | `GSProcess.sh` con `%%PARM1=RDR_AltaFondos` | `GS_INVESTORS_BDICLIENT_RESP_OK` | código 0: `+GS_INVESTORS_ALTAFONDOS_OK`, `-GS_INVESTORS_BDICLIENT_RESP_OK`; NOTOK: OK |
+| 9 | `FX_ALERT_ALTA_SDIS` (`xakytl1p`) | `GSProcess.sh` con `%%PARM1=GestionAlertas_ALERT_IP_SSI` | `GS_INVESTORS_ALTAFONDOS_OK` | código 0: `+FX_ALERT_ALTA_SDIS_OK`, `-GS_INVESTORS_ALTAFONDOS_OK`; NOTOK: OK |
+| 10 | `MEKYTL0985` (`xsramer1`) | `/pr/pl/scrt/RAMERC0068.sh` con `%%PARM1=MEKYTL0985` | `FX_ALERT_ALTA_SDIS_OK` | código 0: `+IN_OK` (rearma el FileWatcher), `-FX_ALERT_ALTA_SDIS_OK`; NOTOK: OK |
+
+Parámetros de `ctmfw` (`<fichero> CREATE <min_size> <sleep_int> <mon_int> <min_detect> <wait_time>`; detalle en
+`salidas/comun_ctmfw/comun_ctmfw_spec.md`): `CREATE 0 60 10 5 60` = acepta cualquier tamaño (0 bytes), busca el
+fichero cada 60 s, ya encontrado mide su tamaño cada 10 s, lo da por completo tras 5 mediciones iguales y termina con
+error (código 7) si en 60 minutos no lo detecta. Los `COMPROBAR_*` usan lo mismo con `wait_time` de 5 minutos.
+
+Consecuencias operativas (lectura de las condiciones; no observadas en ejecución real):
+
+- **Tiempo de un ciclo feliz hasta que arranca R6:** detección y estabilización del ACKNACK (1-2 min) + 6 min de
+  `sleep` + 5 min de espera del lock (que no existe) + ~1 min de comprobación del ACKNACK = unos 13-14 minutos.
+- **Dos "paradas silenciosas" con el mismo aspecto externo:** lock presente (job 4 con código 0, no activa nada) o
+  ACKNACK ausente tras 5 min (job 5 con código 7, OK sin activar nada). En ambos casos los jobs quedan en OK.
+- **Un código distinto de 0/7 en los jobs 4 y 5** (p. ej. error del propio `ctmfw`) no tiene regla `ON` y deja el
+  job en fallo visible; en el job 2 el código 1 sí se trata como OK.
+- **Fallo de un `GSProcess.sh`** (salida 1): la regla `NOTOK → OK` lo deja en verde sin activar la condición de salida;
+  la cadena se detiene ahí y, como su condición de entrada no se ha consumido, el mismo job se relanza en el
+  siguiente ciclo (reintento implícito cada minuto mientras dure la ventana).
+- **Rearme tras una parada:** `IN_OK` solo se repone cuando `MEKYTL0985` termina en 0. Tras detectar el lock en `_M`
+  (job 4 con código 0, que borra `SLEEP_OK`; `SLEEP` ya había borrado `FW_OK` y el FW consumió `IN_OK`) no queda
+  ninguna condición que relance la cadena hasta la siguiente orden diaria; en `_T`, `FW_OK` no se borra y
+  `SLEEP` se relanza solo. Ver P-BCR-03.
+
 ### 6.1 `clientelaBDI_Altas_response.jar` (R6) — confirmado con código fuente real
 
 Clases analizadas: `jdbc.QuerysStr`, `jdbc.QueryExec`, `ficheros.RespuestaCliente`, `ficheros.ProcesaFichero`
-(`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Los mensajes de log del jar llevan el prefijo
+(código fuente aportado en sesión). Los mensajes de log del jar llevan el prefijo
 `AltaFondos_RDR::...` (nombre heredado/compartido con el motor de alta de fondos, R8 — no indica que compartan
 código, solo el mismo paquete de utilidades de log).
 
@@ -137,7 +221,7 @@ código, solo el mismo paquete de utilidades de log).
 
 Clases analizadas: `jdbc.QuerysStr`, `jdbc.QueryExec` (versión propia de este jar, con queries distintas de
 las de §6.1 aunque con el mismo nombre de clase) y `leirequest.AltaRegisterLEIRequest`
-(`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Todos los registros que
+(código fuente aportado en sesión). Todos los registros que
 escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es el código fuente real del job.
 
 - **Modelo de datos confirmado (por las queries disponibles, sin la clase orquestadora):** el jar trabaja
@@ -181,8 +265,8 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
 
 Clases analizadas: `peticiones.Peticiones` (orquestador), `peticiones.Fondo`, `csv.CSVLine`, `jdbc.QuerysStr`,
 `jdbc.QueryExec` (versión propia de este jar, con queries distintas de §6.1/§6.2 aunque con el mismo nombre
-de clase), `tools.DateUtil`, `tools.FicherosCLS` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`.
+de clase), `tools.DateUtil`, `tools.FicherosCLS`
+(código fuente aportado en sesión).
 
 - **Flujo completo confirmado (`Peticiones.procesaPeticiones(String DCS)` + `generaCSVAltaFondos()`):**
   1. Según el parámetro `DCS` recibido (`"DCS"` o cualquier otro valor), ejecuta `selectFondosPosiblesDCS()`
@@ -278,8 +362,8 @@ de clase), `tools.DateUtil`, `tools.FicherosCLS` —
 
 ### 6.4 `CSVToXML_Layout.jar` (segundo paso de R8) — parcialmente confirmado con código fuente real
 
-Clases analizadas: `PpalAltas` (punto de entrada real, `main(String[] args)`), `Ficheros`, `Ficheros2` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`.
+Clases analizadas: `PpalAltas` (punto de entrada real, `main(String[] args)`), `Ficheros`, `Ficheros2`
+(código fuente aportado en sesión).
 
 - **Argumentos confirmados por el punto de entrada real:** `args[0]`=directorio de entrada (el mismo
   `carpetaSalida` de §6.3), `args[1]`=ruta/nombre del fichero XML de salida, `args[2]` opcional
@@ -338,7 +422,7 @@ Clases analizadas: `PpalAltas` (punto de entrada real, `main(String[] args)`), `
 ### 6.5 `GenerarXML_version1`/`GenerarXML_version2` — el "Layout" real, confirmado con código fuente real
 
 Clases analizadas: `GenerarXML_version1.obtenerXML_version1()` (1847 líneas), `GenerarXML_version2.obtenerXML_version2()`
-(1253 líneas) — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/csvtoxml_layout/`. Ambas reciben el
+(1253 líneas) — código fuente aportado en sesión. Ambas reciben el
 `HashMap<String,String>` de una fila del CSV (clave = nombre de columna de la cabecera, `GL.XX`/`LO.XX`/`OP.XX`)
 y devuelven el fragmento XML de esa fila como `String`, construido por concatenación directa (sin librería
 XML) con comprobación previa de "campo no vacío" antes de cada etiqueta.
@@ -405,7 +489,7 @@ XML) con comprobación previa de "campo no vacío" antes de cada etiqueta.
 ### 6.6 `Workflow(RDR_XMLReader)` (tercer paso de R8) — parcialmente confirmado con `.wkf` real
 
 Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, exportado 2025-07-12 —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/XMLReader.wkf`).
+export `XMLReader.wkf` aportado en sesión).
 
 - **Qué hace en este proceso (flujo confirmado):**
   1. `Create Job` (`configInfo="Carga de contrapartidas"`) inicia el job de Streetlamp; `Inicializar
@@ -475,8 +559,7 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
 ### 6.7 Subworkflows de la rama `OTHER` de `RDR_XMLReader` — confirmado con `.wkf` real
 
 Tres subworkflows aportados y verificados:
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/DuplicateXMLReader.wkf`,
-`.../OTHER.wkf`, `.../ValidacionOficinas.wkf`.
+`DuplicateXMLReader.wkf`, `OTHER.wkf` y `ValidacionOficinas.wkf`.
 
 **a) `Duplicate XMLReader`** (detección de duplicados del paso 5 de §6.6)
 
@@ -542,7 +625,7 @@ de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa 
 
 Workflow analizado: `Basic Message Processing(copy)` (grupo **`Custom/Moca`** — no `Custom/RDR/Layout_Setup`
 como el resto de la cadena — exportado en formato `.gsp`, versión 8.7.1.106 del producto GoldenSource —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/Basic_Message_Processing.gsp`).
+export `Basic_Message_Processing.gsp` aportado en sesión).
 
 - **Qué hace:** es el motor genérico de traducción y aplicación de mensajes del propio producto GoldenSource,
   no un desarrollo específico de RDR. Recibe el mensaje `alta` (parámetro `Message`, o `messageArray` si son
@@ -589,11 +672,11 @@ como el resto de la cadena — exportado en formato `.gsp`, versión 8.7.1.106 d
 ### 6.9 `GSProcess.sh`/`Generico.sh`/`RDR_AltaFondos.properties` — motor genérico y receta real de R8 (confirmado con material real)
 
 Ficheros analizados: `GSProcess.sh`, `Generico.sh` (librería de funciones), `RDR_AltaFondos.properties` (la
-receta real y completa de R8) — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`. `GSProcess.sh` es el
+receta real y completa de R8) — material aportado en sesión. `GSProcess.sh` es el
 mismo script que Control-M invoca para **R6, R7, R8 y R9 por igual** (`GSProcess.sh
 clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProcess.sh RDR_AltaFondos`,
-`GSProcess.sh GestionAlertas_ALERT_IP_SSI`) — confirmado también por 2 exports reales de Control-M
-(`Workspace_589_folder_T.xml`/`Workspace_274_folder_M.xml`, variantes de tarde/mañana de la misma malla).
+`GSProcess.sh GestionAlertas_ALERT_IP_SSI`) — confirmado también por los 2 exports reales de Control-M
+(folders `_T` y `_M`, variantes de tarde/mañana de la misma malla, §6.0).
 
 - **Qué hace `GSProcess.sh`:** es un **motor genérico**, sin lógica de negocio propia: recibe un único
   parámetro (`MOD_EJECUCION`), calcula el entorno de ejecución a partir del hostname (`pr`/`pp`/`ei`/`de`), y
@@ -633,12 +716,27 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
        `Generico.sh` corta esa llamada a `Generico.sh` sin más matices; es ya en `GSProcess.sh`, al recibir
        ese código de salida no-cero, donde se decide si continuar o no según `Stop=Ok` (ver más abajo).
   3. **`Evento`**: mecanismo real detrás de todos los `Workflow(...)`, confirmado en R8 para `RDR_XMLReader` y
-     `RDR_AltaFondos_Enriquecimientos` (ambos como `Accion=Evento`/`NomEvento=Workflow`).
+     `RDR_AltaFondos_Enriquecimientos` (ambos como `Accion=Evento`/`NomEvento=Workflow`) y en R9 para
+     `RDR_SSIS_Fx_Alert_Online`. Ejecuta, desde el directorio `$RAISEEVENT`
+     (`/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts`),
+     `./executeBbvaEvent.sh fileloading <NomWorkflow> $CREDENTIALS <MOD_EJECUCION>.properties` (se le pasa el
+     `.properties` completo del módulo, no el temporal que el script crea y luego borra).
+     **Hallazgo: un fallo del workflow no se detecta.** El código de resultado que `GSProcess.sh` evalúa tras el
+     evento (`RESULT=$?`) es el del último comando del bloque, que en la rama `Workflow` es el `rm -f` del
+     temporal (casi siempre 0), no el de `executeBbvaEvent.sh`. Un workflow que falle (`RDR_XMLReader`,
+     `RDR_AltaFondos_Enriquecimientos`, `RDR_SSIS_Fx_Alert_Online`) cuenta como paso correcto salvo que el borrado
+     falle.
   4. **`Property`**: copia una plantilla `<NomProperty>.properties`, sustituye placeholders y se
      **auto-invoca recursivamente**. En R8, `Property(GestionAlertas)` se dispara **2 veces siempre, en
      secuencia** (variante `GestionAlertas_RDR_ALTA_FONDOS_ERROR` y variante `GestionAlertas_RDR_ALTA_FONDOS`)
      — el `.properties` no condiciona esas 2 llamadas al contador de errores acumulado (`$Errores`) del propio
-     `RDR_AltaFondos.properties`; si la plantilla `GestionAlertas.properties` (no aportada) decide
+     `RDR_AltaFondos.properties`. Mecánica exacta: copia `<NomProperty>.properties` a un temporal
+     `<ArgProp1>_<AAAAMMDDHHMMSS>.properties`; por cada `ArgProp2..N` con forma `viejo-nuevo` hace
+     `sed s/viejo/nuevo/g` sobre el temporal (así `PROCESOS-ALERT_IP_SSI` cambia `PROCESOS` por `ALERT_IP_SSI`); se
+     llama a sí mismo (`GSProcess.sh <temporal>`) y después borra el temporal. **Hallazgo: el fallo de la
+     sub-ejecución nunca se detecta**, porque el código evaluado (`RESULT=$?`) es el del `rm` posterior, no el de la
+     llamada recursiva; `Property` no suma nunca a `$Errores` por un fallo interno (salvo que falle el `rm`).
+     Además: si la plantilla `GestionAlertas.properties` (no aportada) decide
      internamente cuándo alertar de verdad, o si ambas siempre generan alguna alerta, queda como pregunta
      abierta para cuando se analice ese artefacto.
 - **Qué recibe/produce:** `GSProcess.sh` recibe `MOD_EJECUCION`; produce logs y el código de salida del job de
@@ -654,15 +752,22 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
   `RDR_XMLReader`, `Historificar`, `MoverFicheros`, `AltaFondos_CuadreCarga`,
   `RDR_AltaFondos_Enriquecimientos`, `GestionAlertas` x2) se ejecutan igual, contra los ficheros que hubiera
   (o no hubiera) en ese momento. Solo al final, si `$Errores>0`, el job completo de Control-M queda marcado
-  como fallido — después de haber ejecutado todo. Mismo mecanismo (motor compartido) en R6, R7 y R9, aunque
-  sus `.properties` respectivos no se han aportado y podrían tener `Stop=Ok` en alguna línea.
+  como fallido — después de haber ejecutado todo — y `GSProcess.sh` termina con `exit 1` (con `exit 0` y la línea
+  `ESTADO-0-` en el log si `$Errores=0`). **Pero Control-M convierte ese `exit 1` en OK** (regla `ON NOTOK →
+  ACTION OK` del job `GS_INVESTORS_ALTAFONDOS`, §6.0): el job queda verde, no activa `GS_INVESTORS_ALTAFONDOS_OK` y
+  la cadena no avanza a R9. Los fallos de `Evento`/`Workflow` y de `Property` ni siquiera llegan a `$Errores` (ver
+  los hallazgos de los puntos 3 y 4). Claves de parada: `StopJav`, `StopScr`, `StopEve`, `StopProp` en la línea del
+  paso o `Stop` en la línea `Accion=Variables` global; solo el valor `Ok` detiene todo el proceso con `exit 1`.
+  Mismo mecanismo (motor compartido) en R6, R7 y R9; de sus `.properties`, solo se ha aportado el de R9
+  (`GestionAlertas_ALERT_IP_SSI.properties`, §6.17: sin ninguna clave `Stop`), así que R6 y R7 podrían tener
+  `Stop=Ok` en alguna línea (P-BCR-07).
 - **Gap abierto, no bloqueante:** sigue sin aportar el código de `main.Main` de `AltaFondos_CuadreCarga.jar`
   (§6.10 solo cubre la clase de `AltaFondos_Genera_csv`, aunque ambas comparten nombre y patrón de invocación
   idénticos, así que el mecanismo de fallo silencioso descrito ahí es extrapolable con alta confianza).
 
 ### 6.10 `main.Main` (orquestador real de `AltaFondos_Genera_csv.jar`) — confirmado con código real
 
-Clase analizada: `main.Main` — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/Main.java`.
+Clase analizada: `main.Main` (`Main.java` aportado en sesión).
 
 - **Qué hace:** configura el nivel de log4j (`args[0]`: `1`=DEBUG, `2`=INFO, `3`=ERROR, `4`=FATAL) y el propio
   log4j (`PropertyConfigurator.configure(args[1])`), abre la conexión a BBDD (`ConDB`), y después instancia
@@ -691,7 +796,7 @@ Clase analizada: `main.Main` — `documentos_fuente/evidencia_rdr_pr_bdiclienreg
 ### 6.11 `Workflow(RDR_AltaFondos_Enriquecimientos)` — confirmado con `.wkf` real
 
 Workflow analizado: `RDR_AltaFondos_Enriquecimientos` (grupo `Custom/RDR/AltaFondos`, versión 4 —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_AltaFondos_Enriquecimientos.wkf`).
+export `RDR_AltaFondos_Enriquecimientos.wkf` aportado en sesión).
 
 - **Qué hace:** consulta `FT_T_VREQ` (auto-join) + `FT_T_UTD1` para localizar todas las peticiones de alta de
   fondo cuya petición hija de tipo `FundLEI` está en estado `FUND_LOADED` **y** cuya petición padre de tipo
@@ -716,7 +821,7 @@ Workflow analizado: `RDR_AltaFondos_Enriquecimientos` (grupo `Custom/RDR/AltaFon
 
 Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondos`, versión 18, **estado
 `RELEASED`** — a diferencia de `RDR_XMLReader`/`RDR_AltaFondos_Enriquecimientos`, en `DEVELOPMENT` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_AltaFondos_Autocalc_PARTY.wkf`).
+export `RDR_AltaFondos_Autocalc_PARTY.wkf` aportado en sesión).
 
 - **Qué hace:** marca la petición como `PROCESSING_AUTOCALC` en `FT_T_VREQ`; recorre la jerarquía de la
   contraparte (Operativo→Local→Global) vía `FT_T_FIRL` para obtener sus 3 mnemónicos; invoca 3 subworkflows de
@@ -743,8 +848,7 @@ Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondo
 
 ### 6.14 `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` — confirmado a nivel de queries (sin `main.Ppal`)
 
-Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars (paquete `jdbc`, distintos entre sí —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`). No se ha aportado la clase orquestadora
+Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars (paquete `jdbc`, distintos entre sí — código aportado en sesión). No se ha aportado la clase orquestadora
 `main.Ppal` de ninguno de los 2 — el análisis siguiente se apoya en las queries reales, no en el flujo de
 control completo.
 
@@ -783,7 +887,7 @@ control completo.
 ### 6.15 `Workflow(AlertasEnvio)` — confirmado con `.wkf` real
 
 Workflow analizado: `AlertasEnvio` (grupo `Custom/RDR/Common`, versión 10, estado `RELEASED` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/AlertasEnvio.wkf`). **Hallazgo de nomenclatura:**
+export `AlertasEnvio.wkf` aportado en sesión). **Hallazgo de nomenclatura:**
 `GestionAlertas.properties` lo invoca como `NomWorkflow=RDR_AlertasEnvio`, pero el propio `.wkf` declara
 `<name>AlertasEnvio</name>` (sin el prefijo `RDR_`) — no se puede confirmar con este material si es una
 discrepancia real o si el motor de GoldenSource lo registra bajo un alias distinto de su nombre interno.
@@ -817,8 +921,7 @@ discrepancia real o si el motor de GoldenSource lo registra bajo un alias distin
 
 ### 6.12 `GestionAlertas.properties` — plantilla genérica de alertas (confirmado con `.properties` real)
 
-Fichero analizado: `GestionAlertas.properties` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GestionAlertas.properties`.
+Fichero analizado: `GestionAlertas.properties` (aportado en sesión).
 
 - **Qué hace:** es una **plantilla genérica reutilizable de 3 pasos**, no específica de ningún proceso
   concreto: `Accion=Java` invoca `RDR_AlertasBarrido.jar` (clase `main.Ppal`) para "barrer"/detectar alertas
@@ -838,12 +941,16 @@ Fichero analizado: `GestionAlertas.properties` —
   `GSProcess.sh`); produce sus propios logs (`log4jAlertasBarrido.properties`/`log4jAlertasCocinado.properties`)
   y, en última instancia, el envío de correo gestionado por `AlertasEnvio` (§6.15).
 - **Campos de salida afectados:** ver §6.14 (Barrido/Cocinado) y §6.15 (Envío).
-- **Qué pasa si falla:** ver §6.14/§6.15.
+- **Qué pasa si falla:** ver §6.14/§6.15. Resumen: los fallos de Barrido, Cocinado y Envío **no llegan al job de
+  Control-M**: los jars capturan sus excepciones SQL y solo las registran en log (§6.14), el workflow de envío
+  salta en silencio los procesos/destinatarios con datos inválidos (§6.15) y, además, `GSProcess.sh` no detecta el
+  fallo ni de la acción `Property` ni de la acción `Evento`/`Workflow` (§6.9). Por eso una alerta que no llega no
+  deja marca de error en la cadena.
 
 ### 6.16 `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9) — confirmado con `.wkf` real, aportado como `SSIs_Fx_Peticion`
 
 Workflow analizado: `SSIs_Fx_Peticion` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 7, estado `RELEASED` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/SSIs_Fx_Peticion.wkf`). **Nomenclatura
+export `SSIs_Fx_Peticion.wkf` aportado en sesión). **Nomenclatura
 confirmada, mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio` (§6.15):** el `.wkf` declara
 `<name>SSIs_Fx_Peticion</name>`, distinto de `RDR_SSIS_Fx_Alert_Online` (nombre usado en la tabla de R9, §3) —
 pero `GestionAlertas_ALERT_IP_SSI.properties` real (§6.17) confirma literalmente `NomWorkflow=
@@ -886,8 +993,7 @@ nombre de evento distinto de su metadato `<name>` interno — patrón que se rep
 
 ### 6.17 `GestionAlertas_ALERT_IP_SSI.properties` — `.properties` real de R9 (confirmado)
 
-Fichero analizado: `GestionAlertas_ALERT_IP_SSI.properties` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`. A diferencia del `GestionAlertas.properties`
+Fichero analizado: `GestionAlertas_ALERT_IP_SSI.properties` (aportado en sesión). A diferencia del `GestionAlertas.properties`
 genérico (§6.12), este es el `.properties` concreto que Control-M ejecuta para el job `FX_ALERT_ALTA_SDIS` de
 R9. Contiene solo 3 pasos: `Accion=Evento`/`NomWorkflow=RDR_SSIS_Fx_Alert_Online` (dispara `SSIs_Fx_Peticion`,
 §6.16 — **confirma la nomenclatura real de invocación**), y `Accion=Property`/`NomProperty=GestionAlertas`
@@ -902,7 +1008,7 @@ limita a orquestar el workflow y el paso final de alertas, sin invocar jars dire
 Workflow analizado: `RecepcionAlertApiRest` (grupo **`Custom/RDR/Online_Setup/Alert`** — no específico de
 Investors Plan, confirma que es un **componente compartido** reutilizado por otros procesos "Alert API REST",
 no exclusivo de R9 — versión 7, estado `RELEASED` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/RecepcionAlertApiRest.wkf`).
+export `RecepcionAlertApiRest.wkf` aportado en sesión).
 
 - **Qué hace:** recibe el `vnd_rqst_oid` de la petición ya marcada `ACK` por `SSIs_Fx_Peticion` (§6.16) y relee
   su `FT_T_VREQ.VND_RQST_STAT_TXT` (el XML de respuesta real de Alert Mirror). Si viene vacío, marca
@@ -941,7 +1047,7 @@ no exclusivo de R9 — versión 7, estado `RELEASED` —
 ### 6.19 `Workflow(SSIs_Fx_Alta)` — confirmado con `.wkf` real
 
 Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 2, estado `RELEASED` —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/SSIs_Fx_Alta.wkf`).
+export `SSIs_Fx_Alta.wkf` aportado en sesión).
 
 - **Qué hace:** recibe `Modo` (`"Online"` o `"Conciliacion"`), `RES` y `VREQ_OID`. En modo `Online`, recupera
   todas las respuestas hijas de `FT_T_VREQ` (`DATA_SRC_ID='ALERT_IP_SSI'`, `PRNT_VND_RQST_OID=VREQ_OID`) y las
@@ -977,12 +1083,21 @@ La estrategia cubre las 10 transiciones lineales, el doble control de concurrenc
 detención silenciosa) y el Soft Failure de la historificación final. El conjunto TC-001 a TC-006 cubre el
 100% de las transiciones documentadas.
 
+Cómo se prueba y cuánto tarda (esperas reales de §6.0): hace falta un entorno de prueba (nunca producción) donde se
+puedan depositar y retirar ficheros en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/` y `.../response/`. Un
+ciclo feliz (TC-001/TC-006) tarda unos 13-14 minutos hasta que arranca `GS_BDICLIENTREG` (6 min de `sleep` + 5 min de
+espera del lock ausente + detecciones), más lo que duren R6-R9 y R10. La ausencia total de ACKNACK (TC-002) tarda hasta
+60 minutos en cerrar el ciclo (`wait_time` del FileWatcher). La comprobación de resultado en cada caso es: estado
+de cada job en Control-M, condiciones `..._OK` presentes/ausentes (que es lo que realmente distingue una parada
+silenciosa), logs `execute_<MOD>_<AAAAMMDD>.log` de `GSProcess.sh` (`ESTADO-0-`/`ESTADO-1-`) y estados en
+`FT_T_VREQ`. Recuerda que un fallo interno de R6-R10 no aparece en rojo (`ON NOTOK → OK`).
+
 ## 8. Validaciones de casos de prueba
 
 | Tipo | Qué garantiza | Caso(s) |
 |------|----------------|---------|
 | `happy_path` | Encadenamiento completo de los 10 jobs con fichero de respuesta, sin lock y con ACKNACK presente. | TC-001 |
-| `negativo` | Ausencia de fichero `.txt` de respuesta finaliza el ciclo sin error. | TC-002 |
+| `negativo` | Ausencia de fichero ACKNACK (`clientesFondosFX_ACKNACK_*.txt`) durante 60 min finaliza el ciclo sin error y sin seguir (código 7 → OK). | TC-002 |
 | `conflicto_integridad` | `controlSCF.txt` presente detiene el ciclo sin error (lock externo activo). | TC-003 |
 | `conflicto_integridad` | Ausencia de `ACKNACK_*.txt` (sin lock activo) detiene el ciclo sin error. | TC-004 |
 | `error_funcional` | `MEKYTL0985` no falla si no hay ficheros que historificar (Soft Failure). | TC-005 |
@@ -1111,8 +1226,9 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   properties` real, ninguna línea lo trae. Es decir, un fallo temprano (p. ej. `AltaFondos_Genera_csv` sin
   CSV por 0 fondos válidos, §6.3) **nunca frena** el resto de la cadena — `CSVToXML_Layout`, `RDR_XMLReader`,
   `Historificar`, `MoverFicheros`, `AltaFondos_CuadreCarga`, `RDR_AltaFondos_Enriquecimientos` y
-  `GestionAlertas` (x2) se ejecutan igual, contra los ficheros que hubiera en ese momento — solo al final el
-  job de Control-M queda marcado como fallido si `$Errores>0`, tras haberlo ejecutado todo.
+  `GestionAlertas` (x2) se ejecutan igual, contra los ficheros que hubiera en ese momento — solo al final
+  `GSProcess.sh` sale con 1 si `$Errores>0`, tras haberlo ejecutado todo, y Control-M lo convierte en OK (`ON NOTOK →
+  OK`, §6.0).
 * **`Property(GestionAlertas)` se dispara siempre 2 veces en R8, mecanismo confirmado de principio a fin
   (§6.9/§6.12/§6.14/§6.15):** variante `_ERROR` y variante normal, ambas en toda ejecución de
   `RDR_AltaFondos.properties` — `Barrido` (contra `FT_T_TPG1`) y `Cocinado` sí están acotados al identificador
@@ -1162,6 +1278,22 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   `FT_T_RLT1` — mismo patrón de nodo/variable con nombre que no corresponde a su código ya visto en
   `ValidacionOficinas` (§6.7).
 
+* **Fallos invisibles en Control-M por la regla `ON NOTOK → OK` (confirmado con el export, §6.0):** `GS_BDICLIENTREG`,
+  `GS_INVESTORS_BDICLIENT_RESP`, `GS_INVESTORS_ALTAFONDOS`, `FX_ALERT_ALTA_SDIS` y `MEKYTL0985` quedan en verde aunque
+  su comando falle; el único síntoma es que no se activa la condición de salida y la cadena no avanza (y el mismo job
+  se reintenta en el ciclo siguiente). Además, los `Workflow(...)` y los `Property(...)` de `GSProcess.sh` no detectan
+  su propio fallo (§6.9), por lo que R9 (`RDR_SSIS_Fx_Alert_Online` + `GestionAlertas`) apenas puede terminar en
+  error. Para saber si un ciclo fue bien hay que mirar las condiciones y el log, no el color del job.
+* **Nombre y patrón del fichero vigilado (confirmado con el export):** el FileWatcher y `COMPROBAR_CONTROL_ALTA_IP_2`
+  vigilan el mismo patrón `clientesFondosFX_ACKNACK_*.txt` (con `c` minúscula, a diferencia de la ficha funcional,
+  que habla de `*.txt` y de `ClientesFondosFX_...`); un fichero con el nombre en otra capitalización no se detectaría.
+* **Hueco horario y asimetría `_M`/`_T` (confirmado con el export):** ninguna mitad corre entre 11:30 y 12:30, y las
+  condiciones de re-arme difieren entre `_M` y `_T` (§6.0, P-BCR-01, P-BCR-03).
+* **El semáforo de ausencia del lock cuesta 5 minutos en cada ciclo (confirmado con el export):** `COMPROBAR_CONTROL_
+  ALTA_IP` espera 5 minutos para dar por ausente `controlSCF.txt`; si el lock aparece durante esa espera, se detecta
+  (código 0) y la cadena se detiene, pero un lock que aparezca después de esa comprobación (p. ej. durante R6-R8) no
+  se vuelve a mirar: no hay protección propia más allá de ese único chequeo.
+
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
@@ -1206,8 +1338,8 @@ negocio propia, y que `Script(Historificar)`/`Script(MoverFicheros)` son funcion
 (con código confirmado); `RDR_AltaFondos.properties` confirma además el orden y argumentos reales de los 8
 pasos completos de R8. Descubre un **hallazgo transversal, ya no hipotético**: ninguna línea de
 `RDR_AltaFondos.properties` trae `Stop=Ok`, así que un fallo en cualquiera de sus 8 pasos nunca frena la
-cadena — todos los pasos posteriores se ejecutan igual, y solo al final el job de Control-M queda marcado
-como fallido si hubo algún error. También descubre un límite de 1 fichero por invocación en `Historificar`
+cadena — todos los pasos posteriores se ejecutan igual, y solo al final `GSProcess.sh` sale con 1 si hubo algún
+error (que Control-M convierte en OK, §6.0). También descubre un límite de 1 fichero por invocación en `Historificar`
 cuando el patrón con comodín coincide con más de uno (mismo patrón que el ya visto en `CSVToXML_Layout.jar`,
 §6.4). `main.Main` (§6.10) cierra la clase orquestadora real de `AltaFondos_Genera_csv` con el hallazgo de
 fallo silencioso ya descrito. `Workflow(RDR_AltaFondos_Enriquecimientos)` (§6.11) queda **resuelto**: enriquece
@@ -1241,3 +1373,9 @@ variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_V
 bloqueantes; quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`.
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
+
+**Cierre sobre la planificación real (Control-M).** El export de los folders `_M`/`_T` (§6.0) matiza varias
+afirmaciones de la ficha funcional: ventana partida en dos con un hueco 11:30-12:30, FileWatcher sobre el patrón
+ACKNACK con espera de 60 minutos, comprobaciones con espera de 5 minutos y lógica invertida para el lock, Run As
+`root` y `sleep 360` para el retardo, y regla `ON NOTOK → OK` que oculta los fallos internos de R6-R10. Quedan
+abiertas como preguntas (no como riesgos nuevos) P-BCR-01 a P-BCR-07 (§4).

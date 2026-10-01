@@ -292,6 +292,13 @@ como fichero de entrada del evento. Después el temporal se borra. Resultado: **
 recibe el `.properties` original del módulo completo**, no el temporal. El mensaje que se
 escribe en pantalla sí muestra el nombre del temporal, lo que despista al leer el log.
 
+**Un workflow fallido nunca se detecta** (riesgo R14). Tras el `case` de tipos de evento, el script
+evalúa `RESULT=$?`, que es el código del **último comando de la rama**. En la rama `Workflow` ese
+último comando es el `rm -f` del fichero temporal, no `executeBbvaEvent.sh`: el resultado es casi
+siempre 0, el workflow no suma a `$Errores` y `StopEve=Ok` no lo detiene. En las ramas `MDX`,
+`Reporte`, `Errores` y la genérica, el último comando sí es `executeBbvaEvent.sh` y su código se
+evalúa correctamente.
+
 ### 6.6 Acción `Property` (`Accion=Prop…`)
 
 Ejecuta otro módulo a partir de una plantilla, llamándose a sí mismo. Claves:
@@ -393,6 +400,7 @@ Todos verificados leyendo el código. Ninguno se ha corregido.
 | R11 | Dos ejecuciones simultáneas del mismo módulo comparten `LOG_DIA` | Bajo: el resumen de una pisa el de la otra |
 | R12 | Las claves de `Variables`, `Script` y `Java` se evalúan con `eval` | Bajo: los `.properties` son ficheros controlados, pero se ejecuta su contenido |
 | R13 | Directivas Java (`DirJavaN`) eliminan por completo las opciones por defecto, incluida la codificación ISO-8859-1 | Medio: un `.properties` con directivas que no repita `-Dfile.encoding` cambia la codificación de los ficheros que genere |
+| R14 | En `Evento` con `NomEvento=Workflow` se evalúa el código del `rm -f` posterior, no el del workflow | Alto: un workflow fallido deja el job en verde aunque haya `StopEve=Ok` |
 
 ## 11. Preguntas abiertas
 

@@ -6,18 +6,18 @@
 
 | Origen | Qué alimenta | Casos que lo necesitan |
 |---|---|---|
-| Fichero `.txt` de respuesta (sistema origen no documentado) | `RDR_PR_BDICLIENREG_RESP_FW` | TC-001, TC-003, TC-004, TC-006 |
-| `ClientesFondosFX_ACKNACK_*.txt` | `COMPROBAR_CONTROL_ALTA_IP_2` | TC-001, TC-003, TC-006 |
+| Fichero de respuesta `.txt` (sistema origen no documentado; posible relación con el ACKNACK, P-BCR-02) | `GS_BDICLIENTREG` | TC-001, TC-003, TC-004, TC-006 |
+| `clientesFondosFX_ACKNACK_*.txt` (c minúscula) | `RDR_PR_BDICLIENREG_RESP_FW` (espera 60 min) y `COMPROBAR_CONTROL_ALTA_IP_2` (espera 5 min) | TC-001, TC-003, TC-004, TC-006 |
 | `controlSCF.txt` (gestionado externamente por SCF/Investors Plan, ver G1) | `COMPROBAR_CONTROL_ALTA_IP` | TC-003 (simulado en pruebas) |
 
 ## Datos mínimos
 
 | Caso(s) | Qué hace falta |
 |---|---|
-| TC-001, TC-006 | Fichero `.txt` de respuesta y `ACKNACK_*.txt` presentes; `controlSCF.txt` ausente. |
-| TC-002 | Ausencia total de fichero `.txt` de respuesta durante un ciclo completo de 5 minutos. |
+| TC-001, TC-006 | Fichero de respuesta y `clientesFondosFX_ACKNACK_*.txt` presentes y completos; `controlSCF.txt` ausente. Ciclo de unos 13-14 min hasta R6. |
+| TC-002 | Ausencia total de `clientesFondosFX_ACKNACK_*.txt` durante los 60 minutos de espera del FileWatcher. |
 | TC-003 | Capacidad de depositar y luego eliminar manualmente `controlSCF.txt` en el entorno de prueba (simulando el proceso externo, ya que su gestión real es ajena a esta malla — ver G1). |
-| TC-004 | `ACKNACK_*.txt` ausente con `controlSCF.txt` también ausente. |
+| TC-004 | `controlSCF.txt` ausente y `ACKNACK` retirado antes de `COMPROBAR_CONTROL_ALTA_IP_2` (tras ~11 min de `sleep` y espera del lock). |
 | TC-005 | `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` eliminable justo antes de `MEKYTL0985`. |
 
 ## Entorno de ejecución
@@ -25,26 +25,29 @@
 | Elemento | Detalle |
 |---|---|
 | Servidor Control-M | `MERCADOS-4`, host `pr-rdr.igrupobbva` |
-| Ventana | 04:30-23:55, todos los días, disparo cada 5 min |
+| Ventana | Export Control-M: folder `_M` 04:30-11:30 y folder `_T` 12:30-23:55 (hueco 11:30-12:30), todos los días, jobs cíclicos cada 1 min; ficha funcional: 04:30-23:55 cada 5 min (P-BCR-01) |
 | Run As `DUMMYUSR` | `RDR_PR_BDICLIENREG_RESP_new_IN` |
-| Run As `xpctma1` | `RDR_PR_BDICLIENREG_RESP_FW` |
-| Run As `xakytl1p` | `SLEEP_RDR_ALTACPTY_IP`, `GS_BDICLIENTREG`, `GS_INVESTORS_BDICLIENT_RESP`, `GS_INVESTORS_ALTAFONDOS`, `FX_ALERT_ALTA_SDIS` |
+| Run As `xpctma1` | `RDR_PR_BDICLIENREG_RESP_FW`, `COMPROBAR_CONTROL_ALTA_IP`, `COMPROBAR_CONTROL_ALTA_IP_2` |
+| Run As `root` | `SLEEP_RDR_ALTACPTY_IP` (`sleep 360`) |
+| Run As `xakytl1p` | `GS_BDICLIENTREG`, `GS_INVESTORS_BDICLIENT_RESP`, `GS_INVESTORS_ALTAFONDOS`, `FX_ALERT_ALTA_SDIS` |
 | Run As `xsramer1` | `MEKYTL0985` |
 
 ## Sistema de ficheros
 
 | Ruta | Uso |
 |---|---|
-| `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/` | Ficheros de respuesta `.txt` y `ACKNACK_*.txt` |
+| `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/response/` | Ficheros de respuesta `.txt` y `clientesFondosFX_ACKNACK_*.txt` |
 | `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/controlSCF.txt` | Lock file externo (gestión ajena a esta malla) |
 | `/fichtemcomp/pr/descargas/kytl/investorsPlan/` | Directorio activo del reporte final |
-| `/fichtemcomp/pr/descargas/kytl/investorsPlan/old/` | Histórico comprimido `.gz` |
+| `/fichtemcomp/pr/descargas/kytl/investorsPlan/old/` | Histórico comprimido `Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz` |
+| `$FILES/AltaFondos/csv/` y `.../csv/old` | Temporales de R8 (`<AAAAMMDDHHMMSS>@FUND_LOADER.csv`, `altasmasivas.xml`) e histórico |
 
 ## Orquestación
 
 - **Sin Fan-Out/Fan-In:** flujo lineal estricto de 10 pasos.
-- **Doble control de concurrencia:** `COMPROBAR_CONTROL_ALTA_IP` (lock externo) + `COMPROBAR_CONTROL_ALTA_IP_2`
-  (fichero de confirmación) — ambos necesarios para TC-003/TC-004.
+- **Doble control de concurrencia:** `COMPROBAR_CONTROL_ALTA_IP` (lock externo; espera 5 min a que NO aparezca) +
+  `COMPROBAR_CONTROL_ALTA_IP_2` (fichero de confirmación; espera 5 min a que aparezca) — ambos necesarios para TC-003/TC-004.
+- **Lectura de resultados:** los fallos internos de R6-R10 no se ven en rojo (`ON NOTOK → OK`); comprobar condiciones `..._OK` y el log `execute_<MOD>_<AAAAMMDD>.log` (`ESTADO-0-`/`ESTADO-1-`).
 - **Recurso cuantitativo compartido:** `MAX-LPRDR501` (total 100, 1 unidad por job) — sin impacto esperado en
   los casos de prueba a la escala documentada.
 
