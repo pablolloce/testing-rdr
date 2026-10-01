@@ -258,6 +258,10 @@ P-PLA-01): unas 70 filas en `FT_T_ATE1`, de las que 21 combinaciones extracción
 activas, correspondientes a 17 scripts distintos. Las rutas de salida empiezan por
 `/fichtemcomp/pr/descargas/kytl/`.
 
+En la columna «Días», `L-V` = lunes a viernes (`12345`), `M-S` = **martes a sábado** (`23456`) y
+`todos` = `0123456`. Las extracciones `M-S` **no se ejecutan nunca en lunes**: un proceso que las
+consuma un lunes recibe el fichero del sábado (o ninguno, si lo borró tras usarlo).
+
 | # | `ACT1_OID` | Script (`ACTION_NME`) | Fichero de salida | Días | Hora |
 |---|---|---|---|---|---|
 | 1 | `00E4FB880` | `RDR_ExtraccionSW.sql` | `salesWarehouse/FICHERO_RDR.csv` | L-V | 21:50:00 |
