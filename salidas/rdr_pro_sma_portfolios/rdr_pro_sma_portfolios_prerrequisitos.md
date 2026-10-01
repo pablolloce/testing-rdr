@@ -1,101 +1,71 @@
 # Prerrequisitos — Cadena RDR_PRO_SMA_PORTFOLIOS_new
 
-**Proceso:** Cesion de Portfolios a SMA
-**Fecha:** 2026-09-17
+**Proceso:** Cesión de Portfolios a SMA
+**Fecha:** 2026-09-17. **Revisión:** 2026-10-01 (derivado de `rdr_pro_sma_portfolios_casos_prueba.xml`).
+
+Rutas con `<env>`: en producción `pr` (referencia); para probar, el entorno de pruebas que se acuerde (sin definir, §8). TC-PORT-006 a 010, 012 y 013 **no se ejecutan en producción**.
 
 ---
 
-## 1. Fichero fuente generado previamente
+## 1. Orígenes de datos
 
-El fichero `portfolios.xml` debe existir en la ruta `/fichtemcomp/pr/descargas/kytl/portfolios/` antes de las 23:00 del dia de ejecucion. Este fichero lo genera el Planificador Generico RDR (motor Java ProjectMain/ProjectSQL) mediante una consulta SQL registrada como accion activa en la tabla FT_T_ATE1 del esquema KYTL_GC. La query extrae el universo completo de carteras activas (FT_T_ACCT con filtro `actp_acct_typ = 'PORTFLIO'` y `data_stat_typ = 'ACTIVE'`) cruzando informacion de 12 tablas. Si este fichero no se genera a tiempo, el FileWatcher agotara su timeout de 120 minutos y la cadena fallara.
+| Origen | Qué aporta | Casos |
+|---|---|---|
+| Planificador Genérico, extracción `portfolios.sql` (`ACT1_OID 016D9D9BC`, L-V 21:15:00, raíz `<Portfolios>` vía `FT_T_PAR1` `016D9D9BE`) | `portfolios.xml` | TC-PORT-001 (o fichero preparado a mano) |
+| `FT_T_ACCT`, `FT_T_ACID` y 11 tablas más (`KYTL_GC`) | Contenido del fichero | Solo si se genera con el Planificador |
 
-## 2. Infraestructura y servidores
+## 2. Datos mínimos por caso
 
-### 2.1 Servidor de ejecucion
-Todos los jobs de la cadena se ejecutan en el servidor `MERCADOS-4` sobre el Host `pr-rdr.igrupobbva` (IP de servicio 22.156.148.85). Los scripts deben estar desplegados y accesibles en las maquinas LPRDR501 y LPRDR602.
+| Caso | Datos |
+|---|---|
+| TC-PORT-001, 003 | `portfolios.xml` bien formado, raíz `<Portfolios>`, 5 carteras |
+| TC-PORT-002 | Fichero de unos 50 KB preparado fuera de la carpeta |
+| TC-PORT-004, 005, 007, 008, 009, 013 | `portfolios_17092026.xml` en `portfolios/` |
+| TC-PORT-006 | `portfolios/` sin `portfolios.xml` |
+| TC-PORT-010 | `portfolios.xml` de 0 bytes |
+| TC-PORT-012 | Ejecución previa del 17/09/2026 completa y un `portfolios.xml` nuevo con contenido distinto |
+| TC-PORT-014 | 10 carteras, 3 con `PortfolioID = PORTFOLIO_TEST_001` y `EntityCode`/`TradingBook` distintos |
 
-### 2.2 Directorios locales
-- `/fichtemcomp/pr/descargas/kytl/portfolios/` — Directorio de trabajo donde reside el fichero fuente y se realizan las operaciones.
-- `/fichtemcomp/pr/descargas/kytl/portfolios/Backup/` — Directorio de historificacion donde se mueve el fichero tras la distribucion.
+## 3. Entorno de ejecución
 
-Ambos directorios deben existir y tener permisos de lectura/escritura para los usuarios de ejecucion.
+| Elemento | Ruta (en `pr`) | Usuario | Casos |
+|---|---|---|---|
+| `ctmfw` | Agente de Control-M | `xpctma1` | 001, 002, 006, 010 |
+| `RAMERC0068.sh` | `/pr/pl/scrt/` | `xsramer1` | 001, 003, 005, 008, 012 |
+| `MEGENV0001.sh` + módulos `SF_MEGENV0001_*.mod` | `/pr/pl/envioweb/scrt/` | `xsramer1` | 001, 004, 007, 009, 010, 012, 013 |
+| Cliente Connect:Direct for UNIX (6.3.0.3 en producción) en `lprdr501` y `lprdr602` | — | `xsramer1` y usuarios de transmisión `xtcibt1`, `xtcibt1p`, `xcomunix`, `transmidaas` | Envíos |
 
-### 2.3 Servidores destino (confirmados por ficheros .idx)
-Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` mediante protocolo Connect:Direct (CD):
+Accesos de quien ejecuta: operar la carpeta `KYTL0000-RDR_PRO_SMA_PORTFOLIOS_new`; leer y escribir en `portfolios/` y `Backup/`; renombrar ficheros de `/<env>/pl/envioweb/idx/bck/` (TC-PORT-009); leer los destinos de pruebas; leer `/<env>/pl/log/` y `/<env>/pl/envioweb/log/`.
 
-| Job | Servidor destino | Ruta destino | Usuario transmision | Nodo local |
-|-----|-----------------|-------------|---------------------|------------|
-| MEKYTL0511 | INFORMACIONAL_CIB_XCOM_PROD | /infa_shared/srcfiles/enso/stag/ | xtcibt1 | lprdr501 |
-| MEKYTL0512 | pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario/ | xtcibt1p | lprdr501 |
-| MEKYTL0513 | hpstrha01_europa | /appl/ftpbbva/ | xcomunix | lprdr602 |
-| MEKYTL0514 | hpstrha02_latam | /applbc/ftpbbva/ | xcomunix | lprdr602 |
-| MEKYTL0515 | lpend501 | /fichtemcomp/pr/descargas/emar/piva/ | (vacio) | lprdr501 |
-| MEKYTL0826 | filex-cloud-cib.live.es.nextgen.igrupobbva | s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | transmidas | lprdr602 |
-| MEKYTL0891 | lpapp501 | /fichtemcomp/pr/descargas/kyrj/pr/in/kyrjp012/procesamiento/21_PORTOLIO/ | xrcibtip | lprdr501 |
+## 4. Configuración
 
-## 3. Scripts y configuraciones
+| Fichero | Contenido necesario | Casos | Estado |
+|---|---|---|---|
+| `/<env>/pl/envioweb/idx/bck/` con `MEKYTL0511.idx`, `MEKYTL0512.idx`, `MEKYTL0513.idx`, `MEKYTL0514.idx`, `MEKYTL0515.idx`, `MEKYTL0826_CLOUD.idx`, `MEKYTL0891.idx` | Valores efectivos de la tabla del paso 4 de la spec, con destinos de pruebas | 001, 004, 007, 009, 012, 013 | Valores impresos conocidos; resto desconocido (P-PORT-02) |
+| Líneas `MEKYTL0517` y `MEKYTL0518` de `/<env>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` | Renombrado con fecha y movimiento a `Backup/`; nunca `BD` | 001, 003, 005, 008, 012 | **Desconocidas (P-PORT-01)** |
+| Variables de `MEKYTL0826`: `PARM1=MEKYTL0826_CLOUD`, `ODATE=%%ODAY.%%OMONTH.%%$OYEAR.`, `ODATE_DES=%%$ODATE` | Igual que en producción | 001 | Conocidas |
 
-### 3.1 Scripts desplegados
-- `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/` — Script universal de transferencias. Debe estar desplegado y con permisos de ejecucion.
-- `RAMERC0068.sh` en `/pr/pl/scrt/` — Script de archivado/historificacion. Debe estar desplegado y con permisos de ejecucion.
+## 5. Sistema de ficheros
 
-### 3.2 Modulos .mod de MEGENV0001.sh
-Los cuatro modulos deben existir en `/pr/pl/envioweb/scrt/`:
-- `SF_MEGENV0001_XCOM.mod`
-- `SF_MEGENV0001_CD.mod`
-- `SF_MEGENV0001_SFTP.mod`
-- `SF_MEGENV0001_PARAMS.mod`
+| Directorio (en `pr`) | Ficheros | Permisos | Retención |
+|---|---|---|---|
+| `/fichtemcomp/pr/descargas/kytl/portfolios/` | `portfolios.xml` (llega), `portfolios_<DDMMAAAA>.xml` (transitorio) | Escritura del Planificador; lectura `xpctma1`; lectura y movimiento `xsramer1` | Vacío al final |
+| `/fichtemcomp/pr/descargas/kytl/portfolios/Backup/` | `portfolios_<DDMMAAAA>.xml` | Escritura `xsramer1` | Sin purga documentada |
+| Destinos | Ver tabla del paso 4 de la spec | Usuario de transmisión de cada clave | Fuera de RDR |
 
-### 3.3 Ficheros .idx de configuracion de envios
-Para cada job de envio, debe existir el fichero .idx correspondiente en `/pr/pl/envioweb/idx/bck/` (dado que la generacion Java esta desactivada y siempre se usa el backup):
-- `MEKYTL0511.idx`
-- `MEKYTL0512.idx`
-- `MEKYTL0513.idx`
-- `MEKYTL0514.idx`
-- `MEKYTL0515.idx`
-- `MEKYTL0826_CLOUD.idx` (atencion al sufijo _CLOUD)
-- `MEKYTL0891.idx`
+## 6. Orquestación
 
-### 3.4 Fichero IDX de RAMERC0068.sh
-El fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` debe contener entradas para las claves:
-- `MEKYTL0517` (operacion de renombrado)
-- `MEKYTL0518` (operacion de mover a Backup)
+- Carpeta en `MERCADOS-4`, días 1-5, desde las 23:00, con los eventos de §6.4 de la spec.
+- `MAX-LPRDR501` con capacidad (1 por job salvo `MEKYTL0517`).
+- "Marcar como OK" en los 7 envíos y en ningún otro job (TC-PORT-006 a 009).
+- `MEKYTL0518` con los 8 prerrequisitos (TC-PORT-005, 015).
 
-## 4. Usuarios y permisos
+## 7. Conectividad
 
-| Usuario | Jobs que lo usan | Rol |
-|---------|-----------------|-----|
-| `DUMMYUSR` | RDR_PRO_SMA_PORTFOLIOS_IN | Usuario estandar para tareas nulas (Dummy) |
-| `xpctma1` | MEKYTL0516_FW | Usuario de ejecucion del FileWatcher |
-| `xsramer1` | MEKYTL0517, MEKYTL0511-0515, MEKYTL0826, MEKYTL0891, MEKYTL0518 | Usuario de ejecucion de envios y archivado |
+Connect:Direct desde `lprdr501` hacia los destinos de 0511, 0512, 0515 y 0891, y desde `lprdr602` hacia los de 0513, 0514 y 0826 (en pruebas, sus equivalentes). Posibilidad de cortar cada destino por separado (TC-PORT-007).
 
-Todos estos usuarios deben tener permisos suficientes sobre los directorios de trabajo, los scripts y los ficheros temporales.
+## 8. Entorno de pruebas: qué falta definir
 
-## 5. Configuracion de Control-M
-
-### 5.1 Folder y sub-aplicacion
-El folder `KYTL0000-RDR_PRO_SMA_PORTFOLIOS_new` y la sub-aplicacion `RDR_PRO_SMA_PORTFOLIOS_new` deben estar definidos en el servidor Control-M MERCADOS-4.
-
-### 5.2 Recurso cuantitativo
-El recurso `MAX-LPRDR501` debe estar configurado con un total de 100. Cada job consume 1 unidad.
-
-### 5.3 Eventos
-Todos los eventos de la cadena (listados en la seccion 6.4 de rdr_pro_sma_portfolios_spec.md) deben estar registrados en la configuracion de Control-M. El evento de entrada del Dummy IN no tiene prerrequisitos externos; se basa unicamente en la condicion horaria (23:00).
-
-### 5.4 Tolerancia a fallos (Soft Failure)
-Los 7 jobs de envio (MEKYTL0511-0515, MEKYTL0826, MEKYTL0891) tienen configurada la accion On-Do: "Cuando Job completado No OK -> Marcar como OK". Un fallo en un envio individual no detiene la cadena.
-
-## 6. Conectividad de red
-
-La maquina `pr-rdr.igrupobbva` (nodos lprdr501 y lprdr602) debe tener conectividad de red via protocolo Connect:Direct (CD) con todos los servidores destino:
-- INFORMACIONAL_CIB_XCOM_PROD (desde lprdr501)
-- pr-bigdata-cib.igrupobbva (desde lprdr501)
-- hpstrha01_europa (desde lprdr602)
-- hpstrha02_latam (desde lprdr602)
-- lpend501 (desde lprdr501)
-- filex-cloud-cib.live.es.nextgen.igrupobbva (desde lprdr602) — debe poder depositar ficheros en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`.
-- lpapp501 (desde lprdr501)
-
-## 7. Flujos previos
-
-No hay cadenas Control-M externas que deban completarse antes de la ejecucion de esta cadena. El unico requisito previo es que el Planificador Generico RDR haya generado y depositado el fichero `portfolios.xml` en el directorio de trabajo antes de las 23:00.
+- Entorno que replica la cadena y destinos de pruebas para las 7 claves.
+- Líneas del IDX de `MEKYTL0517`/`MEKYTL0518` y configuración completa de las claves de envío (P-PORT-01, P-PORT-02).
+- Casos bloqueados hasta tener esas respuestas: TC-PORT-012 y TC-PORT-013 (y el detalle de compresión de TC-PORT-005).

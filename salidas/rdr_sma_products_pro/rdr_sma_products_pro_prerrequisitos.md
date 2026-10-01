@@ -1,143 +1,81 @@
 # Prerrequisitos — Cadena RDR_SMA_PRODUCTS_PRO_new
 
-**Proceso:** Cesion de Productos a SMA
-**Fecha:** 2026-09-17
+**Proceso:** Cesión de Productos a SMA
+**Fecha:** 2026-09-17. **Revisión:** 2026-10-01 (derivado de `rdr_sma_products_pro_casos_prueba.xml`).
+
+Las rutas se dan con `<env>`: en producción `<env>` = `pr` (referencia de cómo está instalado); para probar se usa el entorno de pruebas que se acuerde (sin definir, ver §8). Los casos que cortan red, llenan disco o cambian permisos (TC-PROD-006 a 010) **no se ejecutan en producción**.
 
 ---
 
-## 1. Fichero fuente generado previamente
+## 1. Orígenes de datos
 
-El fichero `productossinfiltrar.xml` debe existir en la ruta `/fichtemcomp/pr/descargas/kytl/productos/` antes de las 23:00 del dia de ejecucion. Este fichero lo genera el Planificador Generico RDR (motor Java ProjectMain/ProjectSQL) mediante una consulta SQL registrada como accion activa en la tabla FT_T_ATE1 del esquema KYTL_GC. La query extrae el catalogo maestro de tipos de instrumento canonicos activos (FT_T_ISTY, filtro `data_stat_typ = 'ACTIVE'` AND `iss_typ_nme LIKE 'CANONICO:%'`) con sus equivalencias por sistema origen (FT_T_ISCD / FT_T_EIST). Extraccion mas simple que la de Portfolios: 3 tablas, sin patron EAV. Si este fichero no se genera a tiempo, el FileWatcher agotara su timeout de 30 minutos y la cadena fallara.
+| Origen | Qué aporta | Casos que lo necesitan |
+|---|---|---|
+| Planificador Genérico, extracción `productos.sql` (`ACT1_OID 0152F5B19`, L-V 22:15:00, raíz `<Productos>` vía `FT_T_PAR1` `0152F5B1B`) | `productossinfiltrar.xml` en `/fichtemcomp/<env>/descargas/kytl/productos/` | TC-PROD-001, 015 (en 015 se desactiva para el día de la prueba) |
+| Tablas `FT_T_ISTY`, `FT_T_ISCD`, `FT_T_EIST` (esquema `KYTL_GC`) | Contenido del fichero (productos `CANONICO:%` activos y sus equivalencias) | TC-PROD-001 (solo si se genera con el Planificador en vez de copiar un fichero preparado) |
 
-## 2. Infraestructura y servidores
+Alternativa para pruebas: copiar a mano un `productossinfiltrar.xml` preparado (es lo que asumen TC-PROD-002 a 005 y 011).
 
-### 2.1 Servidor de ejecucion
-Todos los jobs de la cadena se ejecutan en el servidor `MERCADOS-4` sobre el Host (VIPA) `pr-rdr.igrupobbva` (IP de servicio 22.156.148.85). La ejecucion debe realizarse obligatoriamente sobre la VIPA para garantizar Alta Disponibilidad, segun requisito critico del documento funcional.
+## 2. Datos mínimos por caso
 
-### 2.2 Nodos fisicos de Alta Disponibilidad
+| Caso | Datos |
+|---|---|
+| TC-PROD-001, 003 | `productossinfiltrar.xml` bien formado, raíz `<Productos>`, 3 productos canónicos con 2 sistemas origen cada uno |
+| TC-PROD-002 | El mismo fichero, unos 10 KB, preparado fuera de la carpeta para copiarlo de una vez |
+| TC-PROD-004 a 010 | `productos_17092026.xml` en `productos/` (salida de TC-PROD-003 o copia preparada) |
+| TC-PROD-011 | `productossinfiltrar.xml` de 0 bytes |
+| TC-PROD-012 | Carpeta `productos/` **sin** `productossinfiltrar.xml` (hay que borrarlo: en la operación normal siempre queda el del día anterior) |
+| TC-PROD-013 | Una ejecución previa completa del 17/09/2026 (histórico y ficheros en destino) |
+| TC-PROD-015 | `productossinfiltrar.xml` con fecha de ayer y un producto con `Canonico_Description = PRUEBA_DIA_ANTERIOR` |
 
-| Funcion | Nodos fisicos |
-|---------|---------------|
-| FileWatcher (FW_RDR_SMA_PRODUCTS_PRO) | LPRDR503, LPRDR504 |
-| Envios y Cloud (MEKYTL0404, MEKYTL0405, MEKYTL1030) | LPRDR501, LPRDR602 |
+## 3. Entorno de ejecución
 
-La VIPA `pr-rdr.igrupobbva` balancea entre estos nodos. Los scripts deben estar desplegados y accesibles en todas las maquinas fisicas.
+| Elemento | Ruta (en `pr`) | Usuario que lo ejecuta | Casos |
+|---|---|---|---|
+| `ctmfw` (agente de Control-M) | — | `xpctma1` | 002, 011, 012, 015 |
+| `RDR_Transformacion_PRODUCTOS.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` (en otros entornos `xakytl1d`/`xakytl1i`/`xakytl1w`) | 001, 003, 011, 015 |
+| `RDR_Transformacion_PRODUCTOS.jar`, `RDRCommon.jar` | `/pr/kytl/online/multipais/multicanal/jar/` | `xakytl1p` | 001, 003 |
+| `ojdbc8.jar`, `xalan-2.7.1.jar`, `serializer-2.7.2.jar`, `ucp.jar` | `/pr/kytl/online/multipais/multicanal/lib/` | `xakytl1p` | 001, 003 |
+| Hoja(s) XSL (nombre desconocido, P-PROD-04) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | `xakytl1p` | 001, 003 |
+| Java cuyo `bin/` esté primero en el `PATH` de `xakytl1p`, que acepte las opciones `-XX` del script | — | `xakytl1p` | 003 |
+| `MEGENV0001.sh` y sus módulos `SF_MEGENV0001_*.mod` | `/pr/pl/envioweb/scrt/` | `xsramer1` | 001, 004, 006-009, 013 |
+| `RAMERC0068.sh` | `/pr/pl/scrt/` | `xsramer1` | 001, 005, 010, 013 |
 
-### 2.3 Directorios locales
-- `/fichtemcomp/pr/descargas/kytl/productos/` — Directorio de trabajo donde reside el fichero fuente, el fichero transformado y se realizan las operaciones.
-- `/fichtemcomp/pr/descargas/kytl/productos/Backup/` — Directorio de historificacion donde se mueve y comprime el fichero tras la distribucion.
+Condición del script de transformación: en la máquina de pruebas debe existir **solo** el `/fichtemcomp/<env>` de ese entorno (el script elige el primero que encuentra en el orden `de`, `ei`, `pp`, `pr`) y el usuario debe ser el de aplicación de ese entorno.
 
-Ambos directorios deben existir y tener permisos de lectura/escritura para los usuarios de ejecucion.
+Accesos de quien ejecuta los casos: operación de la carpeta `KYTL0000-RDR_SMA_PRODUCTS_PRO_new` en Control-M (lanzar, forzar, ver salida); lectura/escritura en `productos/` y `productos/Backup/`; lectura en los destinos de pruebas; lectura de `/<env>/pl/log/` y `/<env>/pl/envioweb/log/`.
 
-### 2.4 Servidores destino
-Los siguientes servidores deben estar accesibles desde `pr-rdr.igrupobbva` mediante el protocolo correspondiente:
+## 4. Configuración
 
-| Servidor destino | Ruta destino | Protocolo esperado |
-|-----------------|-------------|-------------------|
-| pr-bigdata-cib.igrupobbva | /usr/local/pr/cloudera/staging/01/rdr/sta_gsr/diario | Configurado en .idx |
-| INFORMACIONAL_CIB_XCOM_PROD | /infa_shared/srcfiles/enso/stag/ | XCOM |
-| filex-cloud-cib.live.es.nextgen.igrupobbva | s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/ | Configurado en .idx (Datio/S3) |
+| Fichero | Qué debe contener | Casos | Estado |
+|---|---|---|---|
+| `/<env>/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` | `<environment>` con `<javahome>` y `<logs>` válidos (el script también lee `<database>`, pero no usa esos valores) | 001, 003 | Conocida la estructura |
+| `/<env>/pl/envioweb/idx/bck/MEKYTL0404.idx`, `MEKYTL0405.idx`, `MEKYTL1030_CLOUD.idx` | Configuración de envío apuntando a destinos de pruebas | 001, 004, 006-009, 013 | **Contenido desconocido (P-PROD-01)** |
+| Línea `MEKYTL0406` de `/<env>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` | Una sola línea; operación que mueva a `Backup/` y comprima (`MG` o `GM`), nunca `BD` | 001, 005, 010, 013 | **Contenido desconocido (P-PROD-03)** |
+| Extracción `productos.sql` en `FT_T_ATE1`/`FT_T_QPF1`/`FT_T_PAR1` | Activa con salida a `productos/productossinfiltrar.xml` | 001, 015 | Query no recibida (P-PROD-05) |
 
-Rutas confirmadas por las fichas funcionales EX-005-03 de cada job. La ruta de MEKYTL1030 lleva prefijo `s3://` explicito en su ficha.
+## 5. Sistema de ficheros
 
-## 3. Scripts y configuraciones
+| Directorio (en `pr`) | Máscaras | Permisos | Retención |
+|---|---|---|---|
+| `/fichtemcomp/pr/descargas/kytl/productos/` | `productossinfiltrar.xml` (permanente, se sobrescribe), `productos_<DDMMAAAA>.xml` (transitorio) | Escritura para el Planificador y `xakytl1p`; lectura para `xpctma1`; lectura/movimiento para `xsramer1` | Sin borrado |
+| `/fichtemcomp/pr/descargas/kytl/productos/Backup/` | `productos_<DDMMAAAA>.xml.gz` | Escritura para `xsramer1` | Sin purga documentada |
+| Destinos | Ver tabla de REQ-PROD-005 en la spec | Los del usuario de transmisión de cada clave (desconocido) | Fuera de RDR |
 
-### 3.1 Scripts desplegados
+## 6. Orquestación
 
-| Script | Ruta | Proposito | Notas |
-|--------|------|-----------|-------|
-| `RDR_Transformacion_PRODUCTOS.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | Wrapper bash: invoca Java XSLT + Oracle | Requiere credenciales XML, JARs, librerias y hojas XSLT |
-| `MEGENV0001.sh` | `/pr/pl/envioweb/scrt/` | Transferencia universal | Debe estar desplegado con permisos de ejecucion |
-| `RAMERC0068.sh` | `/pr/pl/scrt/` | Historificacion con compresion | Debe estar desplegado con permisos de ejecucion |
+- Carpeta `KYTL0000-RDR_SMA_PRODUCTS_PRO_new` en `MERCADOS-4`, L-V desde las 23:00, con los 8 jobs y eventos de §6.6 de la spec.
+- Recurso `MAX-LPRDR501` con capacidad libre (1 unidad por job, total 100).
+- Acción "Cuando Job completado No OK → Marcar como OK" en `MEKYTL0404`, `MEKYTL0405` y `MEKYTL1030`, y ausente en el resto (TC-PROD-006 a 010 y 012).
+- Evento de `MEKYTL1030` con el patrón `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK`, igual en `MEKYTL0406` (TC-PROD-008).
 
-Todos los scripts deben tener permisos de ejecucion para los usuarios correspondientes.
+## 7. Conectividad
 
-### 3.2 Dependencias Java del script de transformacion
+Desde la VIPA del entorno de pruebas hacia los tres destinos configurados en las claves de pruebas, con el protocolo que diga su configuración (desconocido, P-PROD-01). Para TC-PROD-006 a 009 hay que poder cortar cada destino por separado.
 
-**JARs** (en `/pr/kytl/online/multipais/multicanal/jar/`):
-- `RDR_Transformacion_PRODUCTOS.jar` — JAR principal con clase `BatchProductos.Transformaciones_PRODUCTOS`
-- `RDRCommon.jar` — Libreria comun RDR
+## 8. Entorno de pruebas: qué falta definir
 
-**Librerias externas** (en `/pr/kytl/online/multipais/multicanal/lib/`):
-- `ojdbc8.jar` — Oracle JDBC driver (conexion a BD)
-- `xalan-2.7.1.jar` — Apache Xalan (motor XSLT)
-- `serializer-2.7.2.jar` — Apache Serializer (dependencia de Xalan)
-- `ucp.jar` — Oracle Universal Connection Pool
-
-**Hojas de estilo XSLT** (en `/pr/kytl/online/multipais/multicanal/dat/properties/`):
-- Ficheros XSLT utilizados por la transformacion Java. Deben existir y ser accesibles por el usuario `xakytl1p`.
-
-**JVM requerida:** Java 64-bit, ruta definida en credentials.xml (`<javahome>`). Parametros JVM: -Xms128M -Xmx8G.
-
-### 3.3 Fichero de credenciales y conectividad Oracle
-El fichero `/pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` debe existir y contener credenciales validas. Estructura confirmada:
-- Bloque `<environment>`: `<javahome>` (ruta JVM), `<logs>` (directorio de logs)
-- Bloque `<database>`: `<gcuser>` (usuario Oracle KYTL_GC), `<gcpassapp>` (password), `<port>`, `<alias>`, `<host>`
-
-No debe ser accesible a usuarios no autorizados. Solo el usuario `xakytl1p` debe tener acceso de lectura. El servidor `pr-rdr.igrupobbva` debe tener conectividad de red al host/puerto Oracle definidos en este fichero.
-
-### 3.4 Modulos .mod de MEGENV0001.sh
-Los cuatro modulos deben existir en `/pr/pl/envioweb/scrt/`:
-- `SF_MEGENV0001_XCOM.mod`
-- `SF_MEGENV0001_CD.mod`
-- `SF_MEGENV0001_SFTP.mod`
-- `SF_MEGENV0001_PARAMS.mod`
-
-### 3.5 Ficheros .idx de configuracion de envios
-Para cada job de envio, debe existir el fichero .idx correspondiente en `/pr/pl/envioweb/idx/bck/` (dado que la generacion Java esta desactivada y siempre se usa el backup):
-- `MEKYTL0404.idx` (envio a Big Data/Cloudera)
-- `MEKYTL0405.idx` (envio a Informacional CIB via XCOM)
-- `MEKYTL1030_CLOUD.idx` (envio a Cloud/Datio S3 — atencion al sufijo _CLOUD)
-
-### 3.6 Fichero IDX de RAMERC0068.sh
-El fichero `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` debe contener la entrada para la clave `MEKYTL0406` con la configuracion de mover a `/Backup/` y comprimir a `.gz` (gzip nativo; RAMERC0068.sh no dispone de rutinas tar).
-
-## 4. Usuarios y permisos
-
-| Usuario | Jobs que lo usan | Rol |
-|---------|-----------------|-----|
-| `xsramer1` | RDR_SMA_PRODUCTS_PRO_IN (Dummy), MEKYTL0404, MEKYTL0405, MEKYTL1030, MEKYTL0406, RDR_SMA_PRODUCTS_PRO_OUT | Usuario de ejecucion general (envios, historificacion, dummies) |
-| `xpctma1` | FW_RDR_SMA_PRODUCTS_PRO | Usuario de ejecucion del FileWatcher |
-| `xakytl1p` | RDR_Transformacion_PRODUCTOS | Usuario de ejecucion de la transformacion (requiere acceso a credentials.xml) |
-
-Todos estos usuarios deben tener permisos suficientes sobre los directorios de trabajo, los scripts y los ficheros temporales. El usuario `xakytl1p` debe tener ademas acceso de lectura al fichero `credentials.xml`.
-
-## 5. Configuracion de Control-M
-
-### 5.1 Folder y sub-aplicacion
-El folder `KYTL0000-RDR_SMA_PRODUCTS_PRO_new` y la sub-aplicacion `RDR_SMA_PRODUCTS_PRO_new` deben estar definidos en el servidor Control-M MERCADOS-4.
-
-### 5.2 Recurso cuantitativo
-El recurso `MAX-LPRDR501` debe estar configurado con un total de 100. Cada job consume 1 unidad.
-
-### 5.3 Eventos
-Todos los eventos de la cadena (listados en la seccion 6.3 de rdr_sma_products_pro_spec.md) deben estar registrados en la configuracion de Control-M. El evento de entrada del Dummy IN no tiene prerrequisitos externos; se basa unicamente en la condicion horaria (23:00).
-
-### 5.4 Tolerancia a fallos (Soft Failure)
-Los tres jobs de envio (MEKYTL0404, MEKYTL0405, MEKYTL1030) deben tener configurada la accion On-Do: "Cuando Job completado No OK -> Marcar como OK" — **confirmado por capturas de Control-M** (documento GAP-PROD-002). El job de historificacion (MEKYTL0406) NO debe tener esta configuracion.
-
-### 5.5 Dependencias secuenciales confirmadas
-Pipeline secuencial confirmado por capturas de Control-M:
-- MEKYTL0404 depende de `RDR_SMA_PRODUCTS_PRO_RDR_Transformacion_PRODUCTOS_OK_new`
-- MEKYTL0405 depende de `RDR_SMA_PRODUCTS_PRO_MEKYTL0404_OK_new`
-- MEKYTL1030 depende de `RDR_SMA_PRODUCTS_PRO_MEKYTL0405_OK_new`
-
-### 5.6 Site Standards
-- Site Standard Principal: `KYTL0000_SS_PR_HR`
-- Directiva 1: `KYTL0000_DIRECTIVA_RE...` vinculada a `KYTL0000_SS_PR_HR`
-- Directiva 2: `KYTL0000_DIRECTIVA_IN...` vinculada a `KYTL0000_SS_PR_HI`
-
-## 6. Conectividad de red
-
-La maquina `pr-rdr.igrupobbva` debe tener conectividad de red con todos los servidores destino. En particular:
-- Protocolo configurado en .idx habilitado hacia `pr-bigdata-cib.igrupobbva` (Big Data/Cloudera).
-- Protocolo XCOM habilitado hacia `INFORMACIONAL_CIB_XCOM_PROD`.
-- La pasarela Cloud (`filex-cloud-cib.live.es.nextgen.igrupobbva`) debe poder depositar ficheros en el bucket S3 `ada-eu-south-2-data-live-ho-staging-in`.
-
-## 7. Flujos previos
-
-No hay cadenas Control-M externas que deban completarse antes de la ejecucion de esta cadena. El unico requisito previo es que el Planificador Generico RDR haya generado y depositado el fichero `productossinfiltrar.xml` en el directorio de trabajo antes de las 23:00.
-
-## 8. Nota sobre el decomiso de MEKYTL0403
-
-El job MEKYTL0403 fue decomisado el 27/05/2023. Las dependencias fueron recosidas para que MEKYTL0404 enganche directamente tras RDR_Transformacion_PRODUCTOS. No debe existir ningun artefacto de configuracion residual del MEKYTL0403 que pueda interferir con la cadena actual.
+- Qué entorno (`de`, `ei` o `pp`) replica la cadena y con qué destinos de pruebas.
+- Las configuraciones de las tres claves de envío y la línea de `MEKYTL0406` en ese entorno (P-PROD-01, P-PROD-03).
+- Cómo desactivar la extracción `productos.sql` del Planificador un día concreto (TC-PROD-015).
+- Prerrequisito sin caso: ninguno. Caso sin prerrequisito completo: TC-PROD-003 (comparación de contenido) y TC-PROD-011 quedan bloqueados por P-PROD-04; TC-PROD-013 por P-PROD-01 y P-PROD-03.
