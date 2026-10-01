@@ -242,7 +242,8 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
   solicitud downstream** de tipo `LEI_REGISTER` en `FT_T_VREQ` (`insertVREQ_LEIReg_Req`), con 7 atributos en
   `FT_T_UTD1` (`UTD_USAGE_TYP='FIELD'`, `DATA_SRC_ID='INVESTORSPLAN_FUNDS'`): `PAIS`, `ENTIDAD` (de
   `ENTR_OWN`), `PERSCTPN` (de `CCLIENT`), `DOCUMPS` (de `LEI_CODE`), `INICVIG`/`FINVIG` (fecha de inicio/fin
-  de vigencia del LEI, consultadas en `FT_T_LEI1` por el propio LEI) y `FILLER` (vacío).
+  de vigencia del LEI: `FT_T_LEI1.REGISTRATION_DATE` y `NEXT_RENEWAL_DATE` de la fila `ACTIVE`, en formato
+  `yyyy-MM-dd`, 10 caracteres con guiones) y `FILLER` (un espacio).
 - **Hallazgo no buscado — `PAIS` hardcodeado a `'ES'`:** el código conserva, comentada, la línea original
   `PAIS = this.atributos.get("COUNTRY")` y la sustituye por `PAIS = "ES";` con el comentario explícito "Se
   deja pais por defecto ES para todo lo enviado a Clientela." Es una decisión de negocio deliberada (no un
