@@ -215,12 +215,13 @@ análisis.
 Si no puedes responder a esas cuatro cosas, es un gap: pregunta al usuario antes de cerrar, igual
 que harías con una regla de negocio sin confirmar.
 
-**Antes de pedir nada, agota el documento fuente.** Si la documentación del proceso ya explica un
-artefacto al nivel que exigen las cuatro preguntas anteriores, el análisis técnico de ese
-artefacto está hecho: no pidas el fichero ni preguntes por él. Solo se pide material adicional
-cuando el documento **lo nombra sin explicarlo**, lo explica de forma incompleta, o se contradice.
-Esta regla no convierte cada proceso en una recogida de ficheros: es un remedio para los huecos,
-no un trámite.
+**Antes de pedir nada, agota el material disponible.** Si un fichero ya está en
+`documentos_fuente/` o su análisis ya consta en la memoria compartida, léelo: no lo pidas. Para lo
+que no se ejecuta —configuración de referencia, tablas, reglas descritas en el documento— basta
+con que la documentación del proceso lo explique al nivel que exigen las cuatro preguntas
+anteriores; solo se pide material cuando el documento **lo nombra sin explicarlo**, lo explica de
+forma incompleta, o se contradice. **Los ficheros que se ejecutan son la excepción: se piden
+siempre** (ver "Todo lo que se ejecuta en el proceso se pide", más abajo).
 
 **Cuando falte, analiza tú los artefactos; al usuario pídele el fichero, no la explicación.** Cuando tengas un
 script, un `.properties`, una query o una hoja de transformación, tu trabajo es leerlos y deducir
@@ -232,6 +233,27 @@ fichero que él puede facilitarte entero.
 un fichero de configuración de log, una query referencia tablas. Recorre esa cadena hasta donde
 llegue el material disponible y **documenta el mapa resultante**: qué fichero llama a cuál y con
 qué. Cuando la cadena se corte porque falta un fichero, pídelo por su nombre.
+
+**Todo lo que se ejecuta en el proceso se pide, aunque el documento lo describa.** El documento
+cuenta lo que un componente debería hacer; el fichero, lo que hace. Por cada cosa que la cadena
+ejecute, si no tienes el fichero, pídelo por su nombre. Sigue la cadena hasta el final: un
+`.properties` lleva a un workflow, un workflow a sus sub-workflows, un script a otro script o a un
+jar.
+
+| Qué se ejecuta | Cómo se reconoce en el material | Qué se pide |
+|---|---|---|
+| Script | Comando del job en Control-M, `NomScript`, `LanzaScriptBash`, llamadas a `./<script>.sh` | El `.sh` / `.ksh` |
+| Configuración de `GSProcess.sh` | `GSProcess.sh <clave>` | `<clave>.properties` |
+| Workflow de GoldenSource | `NomEvento=Workflow`, `NomWorkflow=<X>`, `executeBbvaEvent.sh … <X>`, `Workflow(<X>)` | El `.wkf` de `<X>` |
+| Sub-workflow | `CallSubWorkflow`, nodos `Sub_*` dentro de un `.wkf` | El `.wkf` de cada sub-workflow |
+| Jar o clase Java | `Accion=Java`, `NomPaquete`, `java -cp … <clase>` | El `.jar` (o el código de la clase) y su fichero de configuración |
+| SQL o PL/SQL | `ACTION_NME`, `sqlplus`, procedimientos o paquetes invocados | La query, el `.sql` o el cuerpo del paquete |
+| Transformación o validación | `xsltproc`, `XSLT_TO_XML`, `.xsl`, `.xsd` | La hoja o el esquema |
+
+Si el usuario no puede conseguir uno de estos ficheros, **no lo sustituyas por la descripción del
+documento**: regístralo como gap en `spec.md` con su nombre, quién lo invoca y qué parte del
+análisis y de las pruebas queda sin confirmar. Un ejecutable que no se ha podido analizar se dice;
+nunca queda en silencio para que lo descubra después otra revisión.
 
 **Deducir del fichero es analizar; deducir del nombre, no.** Trazar un argumento leyendo el script
 que lo consume es análisis válido y debe recogerse indicando de dónde sale. Suponer su significado
@@ -265,6 +287,8 @@ Respóndelas tú mismo siempre que el material disponible lo permita. Pregunta a
 **los ficheros que te falten para poder responderlas**, y aplica el mismo bloqueo que en la parte
 funcional: sin respuesta, no se cierra la especificación.
 
+- ¿Qué ficheros se ejecutan en la cadena —scripts, `.properties`, workflows y sub-workflows de
+  GoldenSource, jars, SQL y hojas de transformación— y los tienes todos?
 - ¿Qué hace exactamente cada script, clase o jar que ejecuta la cadena, y sobre qué datos actúa?
 - ¿Qué significa cada argumento o parámetro que recibe?
 - ¿Dónde vive la lógica que construye la salida: en el código desplegado, en base de datos, en un
@@ -287,7 +311,9 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 5. Especificación funcional
 6. Especificación técnica — no un inventario de componentes, sino un análisis de qué hace cada
    uno, qué campos de la salida impacta y qué ocurre si falla. Ver "Reglas obligatorias" 7 para el
-   nivel de detalle exigido y el criterio de profundidad
+   nivel de detalle exigido y el criterio de profundidad. Incluye un **inventario de
+   ejecutables**: una tabla con cada fichero que se ejecuta en el proceso, quién lo invoca, si se
+   ha aportado y dónde está analizado o, si no se ha podido conseguir, el gap correspondiente
 7. Especificación de testing: explica la estrategia de pruebas y los casos definidos en
    `casos_prueba.xml` (referenciando su ID), y confirma explícitamente que:
    - cada caso es ejecutable tal cual está definido — pasos concretos, datos concretos, resultado
@@ -373,6 +399,9 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
 - toda la documentación fuente ha sido revisada; no hay lagunas relevantes en documentación
 - has hecho las preguntas necesarias y no queda ninguna sin responder
 - has detectado y resuelto los gaps relevantes; no hay supuestos sin confirmar
+- el inventario de ejecutables está completo: cada fichero que se ejecuta en el proceso está
+  aportado y analizado, o figura como gap con su nombre y la confirmación del usuario de que no se
+  puede conseguir
 - el resultado esperado está definido explícitamente
 - cada requisito tiene una validación y un caso de prueba asociado, con resultado esperado claro
 - hay cobertura de error, borde y duplicidad; los datos sintéticos y condiciones de fallo están
