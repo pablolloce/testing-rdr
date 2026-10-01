@@ -361,7 +361,7 @@ fichero del inventario (comprobado por nombre de fichero):
 
 | Fichero (fila) | Specs que lo mencionan |
 |---|---|
-| `FICHERO_RDR*.csv` (1-4, 10-13) | `rdr_carga_bbg_multi_m_new`, `rdr_carga_bbg_multi_t_new`, `rdr_carga_refinitiv_multi` |
+| `FICHERO_RDR*.csv` (1-4, 10-13) | Ninguna spec del repositorio. **Corrección:** `rdr_carga_bbg_multi_m_new`, `rdr_carga_bbg_multi_t_new` y `rdr_carga_refinitiv_multi` tienen jobs llamados `FICHERO_RDR_FW` / `FICHERO_RDR_REFINITIV_FW`, pero vigilan otros ficheros (`ADR_FILE.csv` y el de `Multi_Request/`); el parecido de nombre es casual |
 | `Calendarios.csv` (5) | `envio_calendarios_modelity` |
 | `FRMIC.csv` (6) | `rdr_mifidmic_new` |
 | `CLIEXCLU.csv` (7) | `rdr_clientes_cib`, `rdr_envio_cliex` |
