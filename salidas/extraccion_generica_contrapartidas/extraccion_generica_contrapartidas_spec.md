@@ -4,11 +4,11 @@
 > Fuentes: `Extraccion_generica_de_contrapartidas.md` — documento maestro de **Fase 1 (linaje de datos)** que
 > consolida el análisis de las 3 cadenas Control-M —, **506 capturas reales de Control-M** (GAP-CTPY-001,
 > `GAP-CTPY-001_capturas_RDR_DAILY_EXGEN_CPARTYS_new.docx`) que cubren la totalidad de los 101 pasos declarados
-> de la cadena `_new` (transcritas en `documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`), **250 capturas
+> de la cadena `_new` (resumidas en la sección 6.3), **250 capturas
 > reales de Control-M** (GAP-CTPY-002/006, `GAP-CTPY-002_capturas_RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new.docx`)
-> que cubren 50 jobs de `_FINSEM_D_new` (transcritas en `documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`), y
+> que cubren 50 jobs de `_FINSEM_D_new` (resumidas en la sección 6.5), y
 > el **listado real de navegación del folder** `KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` en Control-M
-> (`documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png`) que enumera de forma exhaustiva los 50
+> (imagen de la pantalla de navegación del folder) que enumera de forma exhaustiva los 50
 > jobs reales de la cadena.
 >
 > **Decisión explícita del usuario sobre cómo proceder ante evidencia incompleta:** en la ronda inicial, la
@@ -75,11 +75,11 @@ EXTRACCION_THIRDPARTYS/EXTRACCION_CPTDAS de RDR_EXTRACCION_CTPDAS_D/_W, confirma
                     │
    ┌────────────────┼──────────────────────────────────────┐
    ▼ (_new)          ▼ (_FINSEM_S_new)                       ▼ (_FINSEM_D_new)
-21:45 MEKYTL0334   V 22:00 MONITOR_BKYTL001_505-606          S 22:00 MONITOR_BKYTL001_505-606
-(control interno)  (monitor BBDD BKYTL003, LPORA605)         (mismo monitor, compartido con FINSEM_S)
+21:45 MEKYTL0334   V 22:00 MONITOR_BKYTL001_505-606          S 22:00 MEKYTL0335 → monitor 505-606
+(control interno)  (monitor BBDD BKYTL003, LPORA605)         (el monitor espera a MEKYTL0335)
    │                   │                                          │
    ▼                   ▼                                          ▼
-MEKYTL0336_505/606  MEKYTL0340 → MEKYTL0341_505/606           MEKYTL0335 → MEKYTL0337_505/606
+MEKYTL0336_505/606  MEKYTL0340 → MEKYTL0341_505/606           MEKYTL0337_505/606 (tras el monitor)
 (update_fecha_actual.sql)  (ACTUALIZAR_FECHA_PAR1.sh)         (actualización fecha en paralelo)
    │                   │                                          │
    └───────────────────┴──────────────────┬───────────────────────┘
@@ -110,6 +110,48 @@ MEKYTL0336_505/606  MEKYTL0340 → MEKYTL0341_505/606           MEKYTL0335 → M
                     - KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml         (CON ratings — solo Mentor + backup)
 ```
 
+#### 1.1.1 Cómo se generan y se esperan los dos ficheros de origen
+
+Los generan dos jobs de Control-M, `EXTRACCION_THIRDPARTYS` y `EXTRACCION_CPTDAS` (proceso hermano
+`extracciones_adhoc_ctpdas_fircosoft_sire`), que ejecutan `GSProcess.sh <módulo>` con el usuario `xakytl1p`.
+Cada módulo es un `.properties` con una acción `Java` (valores del `.properties` de integración; en
+producción las rutas `/ei/` son `/pr/`, y ese fichero no se ha recibido):
+
+| Clave | `ExtraccionGenericaCPTY` (Contrapartidas) | `ExtraccionGenericaTHIRDPARTIES` (Third Parties) |
+|---|---|---|
+| Jar / clase | `ExtraccionGenericaCPTY.jar` / `extracciongenericacpty.Ppal` | `ExtraccionGenericaOtherEntities.jar` / `extracciongenericaotherentities.Ppal` |
+| `JDKV` | 17 | 17 |
+| `ArgJava1` nivel de log / `ArgJava3` hilos | 2 (INFO) / 20 | 2 (INFO) / 20 |
+| `ArgJava2` configuración de log | `…/multicanal/dat/properties/log4jExtraccionGenericaCPTY.properties` | `…/log4jExtraccionGenericaTHIRDPARTIES.properties` |
+| `ArgJava4` directorio | `/fichtemcomp/<env>/descargas/kytl/extracciongenerica` | igual |
+| `ArgJava5` fichero temporal | `ExtraccionContingencia.xml.tmp` | `Thirdparties.xml.tmp` (con "p" minúscula) |
+| `ArgJava6` tipo | `CPARTY` | `THIRDPARTIES` |
+| `ArgJava7` credenciales de BBDD | `/<env>/kytl/online/multipais/multicanal/cfg/entorno` | igual |
+| Librerías | `ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`, `commons-pool-1.5.4` | igual |
+
+Funcionamiento (jar `OtherEntities`, cuyo código se conoce; el de `CPTY` no se ha recibido y se presume
+igual): lee de la tabla `FT_T_ATE1` la query de lista (`ExtraccionTHIRDPARTIES.sql`, identifica cada entidad por
+`INST_MNEM`) y la de detalle (`ExtraccionContingenciaTHIRDPARTIES.sql`, devuelve el XML de la entidad en
+`XMLRESULT`), lee la etiqueta raíz de `FT_T_PAR1`, escribe la apertura en el `.tmp`, ejecuta la query de
+detalle de cada entidad con 20 hilos (el orden en el fichero no es determinista), añade la etiqueta de cierre y
+publica el fichero con el nombre que indique `URL_OUTPUT_FILE` en `FT_T_ATE1` (nombre final no recibido,
+P-EGC-03). Ante casi cualquier error SQL registra el error en el log, termina con código 0 y deja un fichero
+incompleto (detalle en `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md`).
+
+Los filewatchers `DAILY_EXTRACCION_CONTINGENCIA_FW` y `DAILY_THIRDPARTIES_FW` ejecutan
+`ctmfw '/fichtemcomp/pr/descargas/kytl/extracciongenerica/<fichero>.xml' CREATE 0 60 10 5 195`: buscan el
+fichero cada 60 s; una vez encontrado miden su tamaño cada 10 s y lo dan por completo tras 5 mediciones iguales
+(tamaño mínimo 0 bytes); si en 195 minutos (3 h 15 min) no lo han detectado completo terminan con código 7
+(tiempo agotado). Como los filewatchers empiezan tras la medianoche (`_new`) o a las 03:00 (semanales), la
+ventana cubre la generación (01:00-01:05 diaria, 03:00-03:05 fin de semana). Ver `salidas/comun_ctmfw/comun_ctmfw_spec.md`.
+
+> En `_FINSEM_D_new` las capturas reales muestran que el monitor `MONITOR_BKYTL001_505-606` **espera a
+> `MEKYTL0335`** (que crea `control_inicio.txt`) y que `MEKYTL0337_505/606` esperan al monitor; el diagrama de
+> arriba, tomado del documento funcional, los pinta al revés. El monitor ejecuta
+> `/pr/pl/scrt/monitor_BBDD.sh BKYTL003` en `lpora605` y publica `MONITOR_BKYTL001_505_OK` si su código de
+> retorno es 0 o `MONITOR_BKYTL001_606_OK` (marcándose OK) si es 1; la rama 505 usa el recurso `MAX-LPORA605` y
+> la 606 `MAX-LPORA606` (qué comprueba el monitor, P-EGC-15).
+
 **Diferencia clave respecto a Contactos (otro proceso RDR ya analizado según el documento fuente):** aquí no
 hay mecanismo de contingencia "maestra + detalle" del mismo jar — cada fichero (ThirdParties, Contrapartidas)
 lo genera un jar Java distinto y específico, aunque ambos siguen el mismo patrón de fondo (query maestra de
@@ -119,9 +161,9 @@ universo + query de detalle parametrizada, ambas registradas en `FT_T_ATE1`, ant
 
 **GAP-CTPY-001 resuelto:** los 101 pasos declarados de esta cadena están documentados con datos reales de
 Control-M (servidor, host, usuario de ejecución, comando/script exacto, prerrequisitos, recurso cuantitativo,
-evento de salida, programación). Tabla completa, fila por fila, en
-`documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`. Esta sección resume la topología real y destaca los
-hallazgos relevantes para testing; para el atributo exacto de un job concreto, consultar la tabla completa.
+evento de salida, programación). Tabla completa, fila por fila, en la
+sección 6.3. Esta sección resume la topología real y destaca los
+hallazgos relevantes para testing; para el atributo exacto de un job concreto, consultar la sección 6.3.
 
 **Arranque y núcleo propio de `_new`:**
 ```
@@ -214,15 +256,15 @@ aquí no hay cesión** a MGCyG, Mentor emisores, SIRE, BOT, SAIT, AMIGA, diccion
 La cadena semanal con mayor fan-out de las 3: Mentor, PRIIPS, FAED/FAET/FAMM/MSC, NOVA, y el **fan-out más
 grande de todo el proceso**: el diccionario semanal a 15 destinos.
 
-**GAP-CTPY-002/006 resuelto:** 250 capturas reales de Control-M (aportadas por el usuario, ver
-`documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`) cubren **50 jobs distintos** de esta cadena — núcleo propio,
+**GAP-CTPY-002/006 resuelto:** 250 capturas reales de Control-M (aportadas por el usuario; catálogo en la
+sección 6.5) cubren **50 jobs distintos** de esta cadena — núcleo propio,
 familia de envío web (`MEGENV0001.sh`, 18 jobs), familia `RAMERC0068.sh`, familia de transformaciones
 `GSProcess.sh`, los 2 jobs de la pasarela `lpftp501` (`MEKYTL1094_SND`/`_DEL`) y los 3 jobs Dummy de la cadena
 (`MEKYTL0285`, `MEKYTL0292`, `VALIDACION_EXTRACCION`) — con servidor, host, usuario de ejecución, comando/script,
 prerrequisitos, recurso cuantitativo y evento de salida reales para cada uno; sin huecos ni duplicados en el
 patrón de 5 capturas por job. El usuario aportó después el **listado real de navegación del folder**
 `KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` en Control-M
-(`documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png`), que enumera de forma exhaustiva y
+(imagen de la pantalla de navegación del folder), que enumera de forma exhaustiva y
 definitiva **exactamente los mismos 50 jobs** — confirmando que la cadena real tiene 50 jobs, no los 48
 declarados por el documento fuente (el recuento original no incluía algunos jobs de infraestructura ya
 cubiertos aparte: filewatchers, monitor, pasarela).
@@ -242,7 +284,7 @@ De los 2 jobs que motivaron el gap:
   confirmada:** `MEKYTL0289` no existe como job en `_FINSEM_D_new`.
 
 ```
-S 22:00 MONITOR_BKYTL001_505-606 → MEKYTL0335 → MEKYTL0337_505/606
+S 22:00 MEKYTL0335 → MONITOR_BKYTL001_505-606 → MEKYTL0337_505/606
    │
 D 03:00 filewatchers → DAILY_UNION_FICHEROS → MEKYTL0339 (rename) → MEKYTL0339_BORRA
    │
@@ -256,7 +298,7 @@ RDR_Transformacion_XSLT_CPARTY
                  │       → RDR_TRANSFORMACION_FAMM → MEKYTL0803 (envío Ábaco oficinas internas)
                  │                                        → MEKYTL0272 *(predecesor obligatorio siempre)*
                  └──► RDR_TRANSFORMACION_FAED
-                        ├──► MEKYTL0285 (envío MSC diario) → MEKYTL0433
+                        ├──► MEKYTL0285 (Dummy en Control-M, P-EGC-11) → MEKYTL0433
                         └──► RDR_TRANSFORMACION_MENTOR
                                ├──► ELIMINATEDUPLICATES_MENTOR → MEKYTL0280 (historifica) →
                                │       RDR_DELTA_EMISORES → MEKYTL0450 (PRIIPS, delta emisores)
@@ -267,8 +309,8 @@ RDR_Transformacion_XSLT_CPARTY
 
 **Los 15 jobs reales de envío del diccionario semanal:** MEKYTL0288 (Ábaco), MEKYTL0291 (Star/HPSTRHA01),
 MEKYTL0292 (**Dummy real, sin comando ni evento de salida, sin destino "Proactive" visible — ver GAP-CTPY-006**),
-MEKYTL0832 (Ábaco), MEKYTL0837 (Mentor), MEKYTL0889 (Ibor), MEKYTL1060 (HOST mainframe), MEKYTL1069→`_SND`
-(MMK/prmx_apx_batch), MEKYTL1094→`_SND`→`_DEL` (DUCO, confirmado en pasarela `lpftp501`, usuario `xtprox1p`),
+MEKYTL0832 (Ábaco), MEKYTL0837 (Mentor), MEKYTL0889 (Ibor), MEKYTL1060 (HOST mainframe), MEKYTL1069 (MMK/prmx_apx_batch;
+su `_SND` no existe en este folder, P-EGC-02), MEKYTL1094→`_SND`→`_DEL` (DUCO, confirmado en pasarela `lpftp501`, usuario `xtprox1p`),
 MEKYTL1118 (Ábaco md/rdr), MEKYTL1152→MEKYTL1160 (NOVA EYSE/ganbaru, MEKYTL1160 con "Acciones Si": No OK →
 Marcar como OK), MEKYTL1212 (NOVA MXIF), MEKYTL1243 (Webfocus), MEKYTL1297 (NOVA MLCI, añadido 13/12/2025).
 
@@ -288,7 +330,7 @@ diccionario semanal real reparte a 15 destinos, no 16.
   `RATINGS`, `TaxCertificates`), operativo (`OPERATIVES`, `BRANCHES`, `SUBDIVISIONS`), roles y alias
   (`ROLE_IDENTIFIERS`, `ALIAS_IDS`, `OTHER_ROLES` — brókers, CCPs, agente prestamista), fondos y
   co-prestatarios (`RELATED_FUNDS`, `COBORROWERS_GROUP_MASTER/PARTICIP`), bloqueos (`LOCKS_INFO`). Diccionario
-  campo a campo completo en `documentos_fuente/Extraccion_generica_de_contrapartidas.md`.
+  campo a campo completo en la sección 5.2.
 - **`ThirdParties.xml`** — ~140 elementos XML, estructura de **un solo nivel** (`OPERATIVE`, sin el
   desdoblamiento `GLOBAL`/`LOCAL` de Contrapartidas). Comparte la mayoría de bloques de detalle con
   Contrapartidas (identificadores, direcciones, ratings, certificados fiscales, atributos de emisor,
@@ -298,7 +340,7 @@ diccionario semanal real reparte a 15 destinos, no 16.
   accedida" que aparecía en el documento fuente quedó obsoleta de una versión preliminar y no se eliminó al
   incorporar el diccionario real; no es una copia/derivado de Contrapartidas, es la ejecución real de
   ThirdParties. Diccionario completo campo a campo en
-  `documentos_fuente/Extraccion_generica_de_contrapartidas.md`.
+  la sección 5.3.
 - **Universo de Third Parties = complementario al de Contrapartidas:** entidades con relación operativa activa
   con RDR que **no** están marcadas con rol `CPARTY`.
 
@@ -342,17 +384,17 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
 ## 4. Gaps identificados
 
 - **GAP-CTPY-001 (53 pasos sin ficha de `_new`) — RESUELTO con evidencia real.** 506 capturas de Control-M
-  (aportadas por el usuario) cubren la totalidad de los 101 pasos declarados de `_new`. Tabla completa en
-  `documentos_fuente/GAP-CTPY-001_jobs_extraidos.md`; resumen de topología en la sección 1.2. Quedan 5
-  ambigüedades menores documentadas ahí mismo (2 eventos de `RDR_TRANSFORMACION_DCD` truncados de forma
+  (aportadas por el usuario) cubren la totalidad de los 101 pasos declarados de `_new`. Tabla completa en la
+  sección 6.3; resumen de topología en la sección 1.2. Quedan 5
+  ambigüedades menores (ver P-EGC-08 y P-EGC-09) (2 eventos de `RDR_TRANSFORMACION_DCD` truncados de forma
   idéntica; 4 jobs — `MEKYTL0282_SND`, `MEKYTL0836`, `MEKYTL1093_DEL`, `MEKYTL1277` — sin captura de su pestaña
   Acciones, evento de salida no confirmable) que no bloquean el cierre del gap principal.
 - **GAP-CTPY-002 (2 pasos sin ficha de `_FINSEM_D_new`) — RESUELTO por ausencia confirmada.** 250 capturas de
-  Control-M (aportadas por el usuario, `documentos_fuente/GAP-CTPY-002_jobs_extraidos.md`) cubren 50 jobs de
+  Control-M (aportadas por el usuario; catálogo en la sección 6.5) cubren 50 jobs de
   `_FINSEM_D_new`, incluyendo `MEKYTL0292` (ficha real obtenida — ver GAP-CTPY-006). `MEKYTL0289` no aparecía
   en ninguna de las 250 capturas; el usuario aportó después el **listado real de navegación del folder**
   `KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new`
-  (`documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png`), que enumera de forma exhaustiva y
+  (imagen de la pantalla de navegación del folder), que enumera de forma exhaustiva y
   definitiva los 50 jobs reales de la cadena — los mismos 50 ya identificados en las capturas, sin
   `MEKYTL0289`. A diferencia de la ronda anterior (donde la ausencia en capturas no tenía una declaración de
   cobertura al 100%), un listado de navegación de folder es por construcción exhaustivo, por lo que la
@@ -385,19 +427,134 @@ completo de `_new` (101/101 pasos, con evidencia real de Control-M); y el fan-ou
 - **GAP-CTPY-007 (posible desuso de `RDR_TRANSFORMACION_RGA`) — RESUELTO por ausencia confirmada.** No
   aparece en ninguna de las 506 capturas — se confirma que no forma parte de la cadena real vigente.
 
+### 4.1 Preguntas pendientes
+
+Dudas que ninguna fuente recibida resuelve; el equipo de RDR o el acceso al servidor podrían contestarlas.
+
+| ID | Pregunta | Por qué importa |
+|---|---|---|
+| P-EGC-01 | ¿Qué línea IDX tiene cada clave de `MEGENV0001.sh` y `RAMERC0068.sh` (`MEKYTL0279`, `0276`, `0338`, `0781`, etc.): fichero origen, carpeta de destino, sistema receptor, nombre del fichero entregado? | Sin ella no se sabe qué fichero concreto recibe cada uno de los ~55 destinos, con qué nombre ni dónde; solo se conoce el fichero lógico del documento funcional |
+| P-EGC-02 | `MEKYTL1069_SND` (transmisión a MMK/`prmx_apx_batch`) figura en el documento funcional, pero no existe entre los 50 jobs de `_FINSEM_D_new`. ¿Dónde se transmite ese fichero (¿cadena `TRANSMISIONES_CIB_KYTL`?) | Si no hay `_SND`, el diccionario semanal podría no llegar a MMK |
+| P-EGC-03 | ¿Quién convierte `ExtraccionContingencia.xml.tmp`/`Thirdparties.xml.tmp` en el fichero final y con qué nombre exacto (`URL_OUTPUT_FILE` en `FT_T_ATE1`)? Los filewatchers esperan `ThirdParties.xml` con "P" mayúscula | En Linux, una diferencia de mayúsculas haría que el filewatcher no lo encontrara nunca y la cadena se parara a los 195 min |
+| P-EGC-04 | ¿Qué ruta y nombre tiene la salida de `unionFicheros.sh` (sus parámetros PARM1/PARM2 salen truncados) y cómo une los dos XML (raíz `GLOBALS`)? | Es el fichero que renombra `MEKYTL0338/0342/0339` y de él depende todo el resto |
+| P-EGC-05 | `VALIDACION_EXTRACCION` en `_new` tiene marcado "Ejecutar como Dummy" en la pestaña General. ¿Ejecuta de verdad `RDR_Validacion_Extraccion.sh`/`RDR_Extraction_CPARTYS.jar`? ¿Qué job genera entonces `KYTL_RDR_RTNG_EXTRACTION` (con ratings) en cada cadena? ¿Qué hacen `RDR_Transformacion_XSLT.sh` y `RDR_Validacion_XSD.sh` (hojas, esquemas, códigos de salida)? | Define quién produce los 2 ficheros finales y qué es un fallo de validación |
+| P-EGC-06 | Contenido de `TransformacionesExtraccionCTPDA.sh` y de los `.properties` de las transformaciones (solo se conoce el de Fircosoft): hojas XSL, ficheros de salida, formatos | Sin ellos los ficheros de la sección 6.6 solo se conocen por nombre |
+| P-EGC-07 | ¿`MONITOR_BKYTL001_505-606` es un único job compartido por `_S` y `_D` o hay una instancia en cada folder? En `_D` espera a `MEKYTL0335`; ¿en `_S` espera a `MEKYTL0340` o es predecesor de él? | Determina el orden de arranque y si una cadena puede disparar la otra |
+| P-EGC-08 | Evento de salida (pestaña Acciones sin captura) de `MEKYTL0836`, `MEKYTL1093_DEL`, `MEKYTL1277`, `MEKYTL0282_SND`; ¿publican algo y quién los espera? | No se puede verificar su fin por evento |
+| P-EGC-09 | Nombres completos de los 2 eventos de salida de `RDR_TRANSFORMACION_DCD` (ambos truncados como `RDR_TRANSFORMACION_DC…`) | Se desconoce si es uno duplicado o hay un segundo consumidor |
+| P-EGC-10 | ¿Qué destino o función tienen `MEKYTL1062`, `MEKYTL1148`, `MEKYTL1156`, `MEKYTL1164`, `MEKYTL1204` y `MEKYTL1242`? No aparecen en la tabla de cesiones del documento funcional | No se sabe qué se entrega ni a quién |
+| P-EGC-11 | En `_FINSEM_D_new`, `MEKYTL0285` (MSC diario) y `MEKYTL0292` (Proactive) son Dummy en Control-M aunque el documento funcional los describe como envíos. ¿El envío MSC diario del domingo se hace de otra forma? | Hoy ese día no se envía nada a MSC diario ni a Proactive desde Control-M |
+| P-EGC-12 | Programación real de `_FINSEM_S_new` (21 jobs sin capturas): días, horas, usuarios, recursos y eventos exactos | Solo se conoce por el documento funcional |
+| P-EGC-13 | ¿Qué imprime `GSProcess.sh`/el script de transformación para que la regla "salida con `* Código: *` → marcar OK" de las transformaciones se active, y se activa también cuando el Java falla? | Si siempre se activa, un fallo de transformación nunca se ve en Control-M |
+| P-EGC-14 | Destinos activos en el documento funcional sin job en las fichas reales: `MEKYTL0268` (FENERGO), `MEKYTL0876` (Soporte DataHub CIB, diccionario), `MEKYTL0888` (sucesor de `USA_CLIENT`) | Pueden ser envíos desactivados no documentados |
+| P-EGC-15 | ¿Qué comprueba `monitor_BBDD.sh BKYTL003` y qué significan sus códigos 0 (rama 505) y 1 (rama 606)? | Decide en qué base de datos se actualiza la fecha y con qué recurso |
+
 ## 5. Especificación funcional
 
-Ver sección 1.5 (diccionarios de campos) para el detalle de bloques de `ExtraccionContingencia.xml` y
-`ThirdParties.xml`. El diccionario completo campo a campo (305 + ~140 elementos) se conserva íntegro en
-`documentos_fuente/Extraccion_generica_de_contrapartidas.md`, no se duplica aquí por volumen.
+### 5.1 Estructura de los dos ficheros de origen
 
 **Comparativa estructural:** Contrapartidas usa un modelo de 2 niveles (`GLOBAL` + `LOCAL` repetible, con un
 nivel adicional `OPERATIVE` dentro de cada `LOCAL`); ThirdParties usa directamente un único nivel `OPERATIVE`
 por entidad. A pesar de la diferencia estructural, la mayoría de bloques de detalle son prácticamente idénticos
 entre ambas extracciones, reflejando que comparten gran parte de la lógica de negocio subyacente aunque las
-genere un jar Java distinto en cada caso.
+genere un jar Java distinto en cada caso. El XML unificado que consumen las transformaciones tiene raíz
+`GLOBALS` (`/GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`).
+
+Las tablas siguientes recogen, en el orden en que aparecen en el XML, todos los elementos (305 en
+Contrapartidas, unos 140 en ThirdParties). Cada fila es un bloque y sus elementos hijos; los bloques
+anidados (por ejemplo `LEI_INFORMATION` dentro de `GLOBAL`, o `OPERATIVES` dentro de `LOCAL`) figuran como
+filas propias. Los elementos con el mismo nombre en varios bloques (`Status`, `Start_Date_Time`,
+`Last_Changed_Date_Time`, `Last_Changed_User`, `Classification_Value`, `Address`, `Postal_Code`...) tienen el
+mismo significado adaptado a su bloque. Las descripciones proceden de las queries `ExtraccionContingenciaCpty.sql`
+y `ExtraccionContingenciaTHIRDPARTIES.sql`; la fecha de proceso `RDR_Actual_Date` es el día anterior a la
+ejecución (`yyyymmdd`).
+
+### 5.2 Diccionario de `ExtraccionContingencia.xml` (Contrapartidas)
+
+| Bloque (elemento XML) | Qué contiene | Campos hijo (`elemento`: significado) |
+|---|---|---|
+| `GLOBAL` | Elemento raiz del documento, agrupa toda la informacion general de la entidad (nivel GLOBAL) | `RDR_Actual_Date`: Fecha de proceso (dia anterior a la ejecucion), formato yyyymmdd; `RDR_Code_Global`: Identificador global (FINS_ID) de la entidad, contexto FINSID; `RDR_Code_Global_Source`: Fuente de datos del identificador global; `Counterparty_Type`: Tipo de contraparte (clasificacion FT_T_FRCL); `Bank_Indicator`: Indicador de si la entidad es un banco (indicador estadistico BANK); `Investment_Firm`: Indicador de empresa de inversion MiFID (indicador MIFIFIRM); `Investment_Firm_UK`: Indicador de empresa de inversion bajo regimen UK (indicador UKFIRM); `Personality`: Tipo de personalidad juridica: entidad legal o individual; `Personality_SubType`: Subtipo de personalidad juridica; `Enterprise_Owner`: Empresa propietaria de la entidad (organizacion, ORG_ID); `Branch_Owner`: Sucursal propietaria de la entidad; `Country_of_Origin`: Pais de origen de la entidad; `Region_ID`: Codigo de region/provincia de origen; `Region_Description`: Descripcion de la region/provincia de origen; `Legal_Name`: Nombre legal de la entidad; `Legal_Regime`: Forma legal de la entidad matriz; `Legal_Name_Source`: Fuente de datos del nombre legal; `Establishment_date`: Fecha de constitucion de la entidad matriz; `LEI`: Codigo LEI (Legal Entity Identifier) si existe; `LEI_DATA_STAT_TYP`: Estado del dato LEI |
+| `LEI_INFORMATION` | detalle del LEI | `LEI_INFO`: Registro de detalle del LEI; `LEIStatus`: Estado de registro del LEI (REGISTRATION_STATUS); `LEINxtDte`: Fecha de proxima renovacion del LEI |
+| `ENTITY_IDENTIFIERS` | identificadores alternativos de entidad | `ENTITY_IDENTIFIER`: Identificador alternativo de entidad; `Entity_Identifier_Type`: Tipo/contexto del identificador de entidad; `Entity_Identifier`: Valor del identificador de entidad; `Entity_Id_SCR`: Fuente de datos del identificador de entidad; `Entity_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de entidad; `Status`: Estado de la entidad/registro (DATA_STAT_TYP); `Start_Date_Time`: Fecha de alta del registro; `Last_Changed_Date_Time`: Fecha de ultima modificacion del registro; `Last_Changed_User`: Usuario que realizo la ultima modificacion |
+| `REGULATORY_INFORMATION` | informacion regulatoria | `Regulation`: Nombre de la normativa/regulacion aplicable; `Classification`: Nombre del conjunto de clasificacion regulatoria; `Classification_Value`: Valor de clasificacion asignado; `AddSecNme`: Nombre secundario de clasificacion adicional; `BailinProtocol`: Indicador de aceptacion del protocolo de bail-in; `BailinProtocolAcceptDate`: Fecha de aceptacion del protocolo de bail-in; `StayProtocol`: Indicador de aceptacion del protocolo de stay; `StayProtocolAcceptDate`: Fecha de aceptacion del protocolo de stay |
+| `LOCALS` | relaciones locales/roles de la entidad | `LOCAL`: Relacion/rol local de la entidad (repetible, contiene todos los bloques siguientes); `RDR_Code_Local`: Identificador local (FINS_ID) de la entidad; `RDR_Code_Local_Source`: Fuente de datos del identificador local; `Entity_Name`: Nombre de la entidad en el contexto local/operativo; `Entity_role`: Rol de la entidad en la relacion local; `CNAE_CLIENTELA`: Clasificacion CNAE de la clientela; `CNO_CLIENTELA`: Codigo CNO de la clientela; `Client_Name`: Nombre de pila del cliente (persona fisica); `Surname_1`: Primer apellido del cliente; `Surname_2`: Segundo apellido del cliente; `Associated_Stock_Market`: Mercado bursatil asociado; `Folio_Number`: Numero de folio (indicador NUMFOLIO); `Institution_Type`: Tipo de institucion (indicador TIPNSTID); `CTM_OnBoarding`: Indicador de onboarding en CTM; `Risk_Level`: Nivel de riesgo de la entidad |
+| `FISCAL_IDENTIFIERS` | identificadores fiscales | `FISCAL_IDENTIFIER`: Identificador fiscal; `Fiscal_Identifier_Type`: Tipo/contexto del identificador fiscal; `Fiscal_Identifier_Id_SCR`: Fuente de datos del identificador fiscal; `Fiscal_Identifier_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador fiscal; `Fiscal_Identifier`: Valor del identificador fiscal |
+| `FISCAL_ADDRESS` | direccion fiscal | `Province`: Provincia de la direccion fiscal; `City_District`: Colonia/distrito de la direccion; `Postal_Code`: Codigo postal de la direccion; `City_Town`: Ciudad/poblacion de la direccion fiscal; `Address`: Linea principal de direccion; `Num_Ext`: Numero exterior de la direccion fiscal; `Num_Int`: Numero interior de la direccion fiscal; `Colony`: Colonia/barrio de la direccion fiscal; `State`: Estado/comunidad de la direccion fiscal; `Fiscal_Country_of_Residence`: Pais de residencia fiscal; `Country_of_Residence_Code`: Codigo de pais de residencia; `CountryOfGuaranty`: Pais de garantia asociado |
+| `CLIENT_IDENTIFIERS` | identificadores de cliente | `CLIENT_IDENTIFIER`: Identificador de cliente; `Client_Identifier_Type`: Tipo/contexto del identificador de cliente; `Client_Identifier_Id_SCR`: Fuente de datos del identificador de cliente; `Client_Identifier_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de cliente; `Client_Identifier`: Valor del identificador de cliente |
+| `MIFID_INFORMATION` | clasificacion e informacion MiFID | `Classification_Description`: Descripcion de la clasificacion asociada; `Reported`: Indicador de si el dato ha sido reportado; `Classification_id`: Identificador del conjunto de clasificacion industrial; `Sex`: Sexo de la persona fisica; `Marital_Status`: Estado civil de la persona fisica |
+| `Salutation` | tratamiento/salutacion | `Salutation_Int_ID`: Codigo interno de tratamiento |
+| `Salutation_Ext_IDs` | equivalencias externas de tratamiento | `Salutation_Ext_ID`: Codigo externo equivalente de tratamiento; `Ext_System`: Sistema/fuente de datos externo; `FATCA_Country`: Pais a efectos de la normativa FATCA |
+| `CONTACT_INFORMATION` | informacion de contacto telefonico |  |
+| `Phone_Types` | tipos de telefono | `Phone_Type`: Tipo de telefono; `ADDR_ID`: Identificador interno de direccion asociada al telefono |
+| `Phone_Type_Ext_IDs` | equivalencias externas del tipo de telefono | `Phone_Type_Ext_ID`: Codigo externo equivalente del tipo de telefono |
+| `LADA_Codes` | prefijos telefonicos | `LADA_Code`: Prefijo telefonico |
+| `Phone_Numbers` | numeros de telefono | `Phone_Number`: Numero de telefono |
+| `Ext_Phone_Numbers` | numeros de telefono en formato externo | `Ext_Phone_Number`: Numero de telefono en formato externo |
+| `OTHER_ENTITY_IDENTIFIERS` | identificadores adicionales de entidad | `OTHER_ENTITY_IDENTIFIER`: Identificador adicional de entidad; `Other_Entity_Identifier_Type`: Tipo/contexto del identificador adicional; `Other_Entity_Identifier`: Valor del identificador adicional; `Other_Entity_Id_SCR`: Fuente de datos del identificador adicional; `Other_Entity_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador adicional; `Resources`: Importe de recursos propios/patrimonio (indicador RRPP); `Annual_Turnover`: Cifra de negocio anual (indicador CRNEGO); `Total_Assets`: Total de activos (indicador ATOTAL); `Exercise_Date`: Fecha de cierre de ejercicio (indicador EXERDATE); `Expiration_Date`: Fecha de expiracion del dato financiero (indicador EXPDATE) |
+| `RATINGS` | calificaciones crediticias | `RATING`: Calificacion crediticia; `Rating_Set`: Conjunto/agencia de rating; `Rating_Value`: Valor/nota del rating; `Effective_Date`: Fecha efectiva del rating; `Last_Review_Date`: Fecha de ultima revision del rating |
+| `TaxCertificates` | certificados fiscales | `TaxCertificate`: Certificado fiscal; `CertificateType`: Tipo de certificado fiscal; `CertificateSubtype`: Subtipo de certificado fiscal; `StartDate`: Fecha de inicio de vigencia del certificado fiscal; `EndDate`: Fecha de fin de vigencia del certificado fiscal; `SECOBA`: Clasificacion SECOBA de la entidad |
+| `OPERATIVES` | relaciones operativas de la entidad | `OPERATIVE`: Relacion operativa completa (repetible, contiene los bloques siguientes); `RDR_Code_Operative`: Identificador de la entidad en el contexto operativo; `RDR_Code_Operative_Source`: Fuente de datos del identificador operativo; `RDR_Code_Operative_Mnem`: Mnemonico interno (INST_MNEM) de la relacion operativa; `RDR_Operative_Name`: Nombre/descripcion de la relacion operativa; `Counterparty_Description`: Descripcion de la contraparte en la relacion operativa; `Comments`: Comentarios libres asociados a la relacion operativa; `Subsidiary_Indicator`: Indicador de si la entidad es filial; `Legal_guardian`: Tutor legal asociado (indicador REPRLEGA); `Initial_Room`: Sala/mesa inicial asignada (indicador SALAINIC); `Language`: Idioma de la entidad (codigo NLS); `CNAE_BDI`: Clasificacion CNAE asociada a la operativa; `Treasury_Code`: Codigo de tesoreria de la entidad; `Institution_Code`: Codigo de institucion (clasificacion CODINSTI); `Main_Entity_Role`: Rol principal de la entidad (indicador MAINROL); `Register_Number`: Numero de registro (indicador NUMREG); `International_Plaza`: Plaza internacional asociada; `DB_Location`: Ubicacion de base de datos asociada; `Spanish_Bank_Account`: Cuenta bancaria espanola (clasificacion TITCUEBE); `Regulatory_Body`: Organismo regulador asociado |
+| `ADDRESS_OPERATIVE` | direccion asociada a la relacion operativa |  |
+| `ENTERPRISES` | empresas asociadas | `ENTREPRISE`: Empresa asociada; `Classification_Set`: Conjunto de clasificacion de la empresa asociada |
+| `ROLE_IDENTIFIERS` | identificadores de rol | `ROLE_IDENTIFIER`: Identificador de rol; `Role_Identifier_Context`: Contexto del identificador de rol; `Role_Identifier`: Valor del identificador de rol; `Role_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de rol; `Data_Source`: Fuente de datos del identificador de rol; `Role_Source`: Tipo de rol origen del identificador; `Client_Type`: Tipo de cliente asociado al rol; `Client_country`: Pais del cliente asociado al rol |
+| `OTHER_ROLE_IDENTIFIERS` | identificadores de rol adicionales | `OTHER_ROLE_IDENTIFIER`: Identificador de rol adicional; `Other_Role_Identifier_Context`: Contexto del identificador de rol adicional; `Other_Role_Identifier`: Valor del identificador de rol adicional; `Other_Role_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de rol adicional; `Other_Data_Source`: Fuente de datos del identificador de rol adicional; `Other_Role_Source`: Tipo de rol origen del identificador adicional; `Description`: Descripcion textual; `SubTyp`: Subtipo del identificador de rol |
+| `ALIAS_IDS` | alias de la entidad | `ALIAS_ID`: Alias; `Alias_Identifier_Type`: Tipo/contexto del alias; `Alias_Identifier`: Valor del alias; `Alias_Source`: Fuente de datos del alias; `Murex_Principal`: Indicador de principal en sistema Murex; `Star_Principal`: Indicador de principal en sistema Star; `Numero_Cuenta_Eurex`: Numero de cuenta Eurex asociada |
+| `OTHER_ROLES` | roles adicionales | `OTHER_ROL`: Rol adicional; `Role`: Nombre del rol adicional; `PrimeBrokerFinalClient`: Cliente final de prime broker asociado; `Role_Sub_Type`: Subtipo del rol adicional; `Broker_Identifier`: Identificador del broker asociado; `Broker_Name`: Nombre del broker asociado; `MandatedAccountIdentifier`: Identificador de cuenta mandatada; `CBParentCCP`: CCP matriz de compensacion central asociada; `CBParentBroker`: Broker matriz asociado; `QualifiedCCP`: Indicador de CCP cualificada; `ClearingAccountType`: Tipo de cuenta de clearing; `CCPPortability`: Indicador de portabilidad de CCP; `CCPPortabilityLO`: Indicador de portabilidad de CCP a nivel local; `CClDefCtpRskEnt`: Entidad de riesgo por defecto en caso de incumplimiento de CCP; `AgentLenderFinsID`: Identificador del agente prestamista |
+| `ISSUER_Attributes` | atributos de emisor | `Issuer_Datasource`: Fuente de datos del registro de emisor; `Issues_Type`: Tipo de emision del emisor; `Industry_Sector`: Sector de industria del emisor; `Industry_Group`: Grupo de industria del emisor; `Industry_Subgroup_desc`: Descripcion del subgrupo de industria del emisor; `Industry_Subgroup_code`: Codigo del subgrupo de industria del emisor; `Country_of_Risk`: Pais de riesgo del emisor; `GSCC_Treasury_Issuer`: Indicador de emisor de tesoreria; `GSCC_Agency_Issuer`: Indicador de emisor de agencia; `Issued_Debt`: Importe de deuda emitida; `TRBC_Activity_Code`: Codigo de actividad TRBC; `TRBC_Economic_Sector_Desc`: Descripcion del sector economico TRBC; `TRBC_Business_Sector_Desc`: Descripcion del sector de negocio TRBC; `TRBC_Industry_Group_Desc`: Descripcion del grupo de industria TRBC; `TRBC_Industry_Code_Desc`: Descripcion del codigo de industria TRBC; `TRBC_Activity_Code_Desc`: Descripcion del codigo de actividad TRBC; `Legal_Entity_Type`: Tipo de entidad legal (clasificacion TRBC); `Legal_Entity_Type_Desc`: Descripcion del tipo de entidad legal; `Legal_Entity_Subtype`: Subtipo de entidad legal; `Legal_Entity_Subtype_Desc`: Descripcion del subtipo de entidad legal |
+| `Sectorization` | sectorizacion regulatoria (BCBS y otras) | `Sect`: Elemento de sectorizacion; `ID`: Codigo de sectorizacion; `Typ`: Tipo/conjunto de clasificacion de sectorizacion |
+| `OtherSectorization` | sectorizacion adicional | `OtherSect`: Elemento de sectorizacion adicional; `Val`: Valor de la sectorizacion adicional |
+| `SectorAssetAllocation` | sectorizacion de asset allocation | `Sector`: Sector de asset allocation; `Sector_code`: Codigo del sector de asset allocation; `Sector_name`: Nombre del sector de asset allocation; `Subsector`: Subsector de asset allocation; `Subsector_code`: Codigo del subsector de asset allocation; `Subsector_name`: Nombre del subsector de asset allocation; `Activity`: Actividad economica de asset allocation; `Activity_code`: Codigo de la actividad economica; `Activity_name`: Nombre de la actividad economica; `Date`: Fecha de alta/vigencia del dato; `Source`: Fuente de datos del dato de sectorizacion |
+| `ApplicationToBroadcastESB` | aplicacion y difusion hacia el ESB | `Application`: Nombre de la aplicacion de difusion; `Broadcast`: Indicador de difusion activa hacia el ESB |
+| `BRANCHES` | sucursales | `BRANCH`: Sucursal; `ENTERPRISE`: Identificador de empresa dentro del bloque de sucursal; `Branch`: Identificador de la sucursal |
+| `CTM_BRANCHES` | sucursales en contexto CTM | `Sub`: Elemento de subdivision dentro de CTM_BRANCHES |
+| `GEOGRAPHIC_UNITS_RELATED_TO_REGULATIONS` | unidades geograficas relacionadas con regulacion | `Parent_Company_Country_Of_Residence`: Pais de residencia de la matriz a efectos regulatorios |
+| `LOCKS_INFO` | bloqueos activos |  |
+| `LOCK_INFO` | Bloqueo | `Block_Type`: Tipo/proposito del bloqueo; `Block_Date`: Fecha efectiva del bloqueo; `Lock_Status`: Estado del bloqueo; `Origin`: Origen/procedencia del dato de rating (nombre de clasificacion); `InheritedFINSID`: Identificador FINS_ID heredado de otra entidad relacionada; `TaxRoleClassification`: Clasificacion de rol fiscal (exento, beneficiario, etc.); `Fund_Manager_Id`: Identificador del gestor del fondo; `Fund_Manager`: Nombre del gestor del fondo; `REG1940`: Marcador regulatorio REG1940 (Investment Company Act EEUU) |
+| `RELATED_FUNDS` | fondos relacionados con la entidad |  |
+| `FUNDS` | fondos | `FUND`: Fondo relacionado; `Fund_Id`: Identificador del fondo; `Fund`: Descripcion/nombre del fondo |
+| `COBORROWERS_GROUP_MASTER` | grupo de co-prestatarios cuando la entidad es maestra | `Coborrower_Group`: Elemento del grupo de co-prestatarios; `Master_Id`: Identificador de la entidad maestra del grupo; `Name`: Nombre de la entidad dentro del grupo de co-prestatarios; `Relation`: Tipo de relacion dentro del grupo de co-prestatarios (maestra/participante); `Group_Type`: Tipo de grupo (co-prestatarios) |
+| `COBORROWERS_GROUP_PARTICIP` | grupo de co-prestatarios cuando la entidad es participante | `Participant_Id`: Identificador de la entidad participante del grupo; `Entity_Long_Name`: Nombre legal completo de la entidad |
+| `COUNTRY_ORIGIN_OPERATIVE` | pais de origen asociado a la relacion operativa | `Country_of_Origin_Nme`: Nombre completo del pais de origen |
+| `SUBDIVISIONS` | subdivisiones organizativas | `SUBDIVISION`: Subdivision; `Entity`: Identificador de la entidad dentro de la subdivision; `Subdivision`: Identificador de la subdivision; `Subdivision_Last_Chg_Tms`: Fecha de ultimo cambio de la subdivision; `Subdivision_Branch`: Sucursal asociada a la subdivision; `Subdivision_Rel_Typ`: Tipo de relacion de la subdivision; `Eco_Act_Ind`: Indicador de actividad economica de la subdivision; `Subdivision_Code`: Codigo de la subdivision |
+| `CL_VALUES` | valores de clasificacion adicionales | `CL_VALUE`: Valor de clasificacion individual; `INDUS_CL_SET_ID`: Identificador del conjunto de clasificacion industrial asociado |
+| `TV_Informations` | informacion de centro de negociacion (Trading Venue) | `Associate_CCP`: CCP asociada al centro de negociacion; `ESMA`: Marcador de registro ESMA; `OperTyp`: Tipo de operativa con su descripcion (variante de bloque individual); `Desc`: Descripcion textual del tipo/clasificacion de operativa |
+| `ResOpeTyp` | resolucion del tipo de operativa | `OpeTyp`: Tipo de operativa dentro del bloque de resolucion/clasificacion; `ResTyp`: Tipo de resolucion de la operativa; `Code`: Codigo asociado al tipo de resolucion de operativa |
+| `ClassOpeTyp` | clasificacion del tipo de operativa | `ClassTyp`: Tipo de clasificacion de la operativa |
+
+### 5.3 Diccionario de `ThirdParties.xml` (un solo nivel, raíz `OPERATIVE`)
+
+| Bloque (elemento XML) | Qué contiene | Campos hijo (`elemento`: significado) |
+|---|---|---|
+| `OPERATIVE` | Elemento raiz del documento para cada Third Party (estructura de un solo nivel, sin bloques… | `RDR_Actual_Date`: Fecha de proceso (dia anterior a la ejecucion), formato yyyymmdd; `RDR_Code_Operative`: Identificador (FINS_ID) de la entidad en el contexto FINSID; `RDR_Code_Operative_Source`: Fuente de datos del identificador; `RDR_Code_Operative_Mnem`: Mnemonico interno (INST_MNEM) de la entidad; `RDR_Operative_Name`: Nombre/descripcion de la entidad; `Counterparty_Description`: Descripcion de la entidad; `Comments`: Comentarios libres asociados a la entidad; `Entity_Name`: Nombre de la entidad; `Subsidiary_Indicator`: Indicador de si la entidad es filial; `Legal_guardian`: Tutor legal asociado (indicador REPRLEGA); `Initial_Room`: Sala/mesa inicial asignada (indicador SALAINIC); `Language`: Idioma de la entidad; `CNAE_BDI`: Clasificacion CNAE de la entidad; `Treasury_Code`: Codigo de tesoreria de la entidad; `Institution_Code`: Codigo de institucion (clasificacion CODINSTI); `Main_Entity_Role`: Rol principal de la entidad (indicador MAINROL); `Register_Number`: Numero de registro (indicador NUMREG); `International_Plaza`: Plaza internacional asociada; `DB_Location`: Ubicacion de base de datos asociada; `SECOBA`: Clasificacion SECOBA de la entidad; `Spanish_Bank_Account`: Cuenta bancaria espanola (clasificacion TITCUEBE); `Regulatory_Body`: Organismo regulador asociado |
+| `ADDRESS_OPERATIVE` | direccion asociada a la entidad | `Address`: Linea principal de direccion; `Postal_Code`: Codigo postal de la direccion; `Province_Country`: Provincia/pais de la direccion; `City_District`: Colonia/distrito de la direccion; `Country_of_Residence`: Pais de residencia; `Country_of_Residence_Nme`: Nombre completo del pais de residencia; `Country_of_Residence_Code`: Codigo del pais de residencia |
+| `ENTERPRISES` | empresas asociadas | `ENTREPRISE`: Empresa asociada; `Enterprise`: Identificador de la empresa asociada; `Classification_Set`: Conjunto de clasificacion de la empresa asociada; `Classification_Value`: Valor de clasificacion de la empresa asociada |
+| `ENTITY_IDENTIFIERS` | identificadores alternativos de entidad | `ENTITY_IDENTIFIER`: Identificador alternativo de entidad; `Entity_Identifier_Type`: Tipo/contexto del identificador de entidad; `Entity_Identifier`: Valor del identificador de entidad; `Entity_Id_SCR`: Fuente de datos del identificador de entidad; `Entity_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de entidad |
+| `OTHER_ENTITY_IDENTIFIERS` | identificadores adicionales de entidad | `OTHER_ENTITY_IDENTIFIER`: Identificador adicional de entidad; `Other_Entity_Identifier_Type`: Tipo/contexto del identificador adicional; `Other_Entity_Identifier`: Valor del identificador adicional; `Other_Entity_Id_SCR`: Fuente de datos del identificador adicional; `Other_Entity_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador adicional |
+| `ROLE_IDENTIFIERS` | identificadores de rol | `ROLE_IDENTIFIER`: Identificador de rol (repetible; tambien aparece como bloque individual en otro contexto); `Role_Identifier_Context`: Contexto del identificador de rol; `Role_Identifier`: Valor del identificador de rol; `Role_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de rol; `Data_Source`: Fuente de datos del identificador de rol; `Role_Source`: Tipo de rol origen del identificador; `Client_Type`: Tipo de cliente asociado al rol; `Client_country`: Pais del cliente asociado al rol |
+| `OTHER_ROLE_IDENTIFIERS` | identificadores de rol adicionales | `OTHER_ROLE_IDENTIFIER`: Identificador de rol adicional; `Other_Role_Identifier_Context`: Contexto del identificador de rol adicional; `Other_Role_Identifier`: Valor del identificador de rol adicional; `Other_Role_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador de rol adicional; `Other_Data_Source`: Fuente de datos del identificador de rol adicional; `Other_Role_Source`: Tipo de rol origen del identificador adicional; `Description`: Descripcion textual asociada al identificador de rol (variante individual) o al bloqueo…; `SubTyp`: Subtipo del identificador de rol; `Status`: Estado del registro |
+| `ALIAS_IDS` | alias de la entidad | `ALIAS_ID`: Alias; `Alias_Identifier_Type`: Tipo/contexto del alias; `Alias_Identifier`: Valor del alias; `Alias_Source`: Fuente de datos del alias; `Murex_Principal`: Indicador de principal en sistema Murex; `Star_Principal`: Indicador de principal en sistema Star |
+| `OTHER_ROLES` | roles adicionales | `OTHER_ROL`: Rol adicional; `Role`: Nombre del rol adicional; `Role_Sub_Type`: Subtipo del rol adicional; `Broker_Identifier`: Identificador del broker asociado; `Broker_Name`: Nombre del broker asociado |
+| `ISSUER_Attributes` | atributos de emisor | `Issuer_Datasource`: Fuente de datos del registro de emisor; `Issues_Type`: Tipo de emision del emisor; `Industry_Sector`: Sector de industria del emisor; `Industry_Group`: Grupo de industria del emisor; `Country_of_Risk`: Pais de riesgo del emisor; `Issued_Debt`: Importe de deuda emitida; `TRBC_Activity_Code`: Codigo de actividad TRBC; `TRBC_Economic_Sector_Desc`: Descripcion del sector economico TRBC; `TRBC_Business_Sector_Desc`: Descripcion del sector de negocio TRBC; `TRBC_Industry_Group_Desc`: Descripcion del grupo de industria TRBC; `TRBC_Industry_Code_Desc`: Descripcion del codigo de industria TRBC; `TRBC_Activity_Code_Desc`: Descripcion del codigo de actividad TRBC; `Legal_Entity_Type`: Tipo de entidad legal; `Legal_Entity_Type_Desc`: Descripcion del tipo de entidad legal; `Legal_Entity_Subtype`: Subtipo de entidad legal; `Legal_Entity_Subtype_Desc`: Descripcion del subtipo de entidad legal |
+| `BRANCHES` | sucursales | `BRANCH`: Sucursal; `ENTERPRISE`: Identificador de empresa dentro del bloque de sucursal; `Branch`: Identificador de la sucursal |
+| `FISCAL_IDENTIFIERS` | identificadores fiscales | `FISCAL_IDENTIFIER`: Identificador fiscal; `Fiscal_Identifier_Type`: Tipo/contexto del identificador fiscal; `Fiscal_Identifier_Id_SCR`: Fuente de datos del identificador fiscal; `Fiscal_Identifier_Id_Last_Chg_Tms`: Fecha de ultimo cambio del identificador fiscal; `Fiscal_Identifier`: Valor del identificador fiscal |
+| `REGULATORY_INFORMATION` | informacion regulatoria | `Regulation`: Nombre de la normativa aplicable; `Classification`: Nombre del conjunto de clasificacion regulatoria |
+| `GEOGRAPHIC_UNITS_RELATED_TO_REGULATIONS` | unidades geograficas relacionadas con regulacion | `Parent_Company_Country_Of_Residence`: Pais de residencia de la matriz a efectos regulatorios |
+| `LOCKS_INFO` | bloqueos activos |  |
+| `LOCK_INFO` | Bloqueo | `Block_Type`: Tipo/proposito del bloqueo; `Block_Date`: Fecha efectiva del bloqueo; `Lock_Status`: Estado del bloqueo |
+| `Sectorization` | sectorizacion regulatoria | `Sect`: Elemento de sectorizacion; `ID`: Codigo de sectorizacion; `Typ`: Tipo/conjunto de clasificacion de sectorizacion |
+| `OtherSectorization` | sectorizacion adicional | `OtherSect`: Elemento de sectorizacion adicional; `Val`: Valor de la sectorizacion adicional |
+| `RATINGS` | calificaciones crediticias | `RATING`: Calificacion crediticia; `Rating_Set`: Conjunto/agencia de rating; `Rating_Value`: Valor/nota del rating; `Effective_Date`: Fecha efectiva del rating; `Last_Review_Date`: Fecha de ultima revision del rating; `Fund_Manager`: Nombre del gestor de fondos asociado |
+| `RELATED_FUNDS` | fondos relacionados con la entidad |  |
+| `FUNDS` | fondos | `FUND`: Fondo relacionado; `Fund`: Descripcion/nombre del fondo; `Entity_Long_Name`: Nombre legal completo de la entidad |
+| `COUNTRY_ORIGIN_OPERATIVE` | pais de origen asociado a la entidad | `Country_of_Origin`: Pais de origen; `Country_of_Origin_Nme`: Nombre completo del pais de origen |
+| `SUBDIVISIONS` | subdivisiones organizativas | `SUBDIVISION`: Subdivision; `Entity`: Identificador de la entidad dentro de la subdivision; `Subdivision`: Identificador de la subdivision; `Subdivision_Last_Chg_Tms`: Fecha de ultimo cambio de la subdivision; `Subdivision_Branch`: Sucursal asociada a la subdivision; `Subdivision_Rel_Typ`: Tipo de relacion de la subdivision; `Eco_Act_Ind`: Indicador de actividad economica de la subdivision; `Subdivision_Code`: Codigo de la subdivision |
+| `CL_VALUES` | valores de clasificacion adicionales | `CL_VALUE`: Valor de clasificacion individual; `INDUS_CL_SET_ID`: Identificador del conjunto de clasificacion industrial asociado; `Start_Date_Time`: Fecha de alta del registro de la entidad; `Last_Changed_Date_Time`: Fecha de ultima modificacion del registro; `Last_Changed_User`: Usuario que realizo la ultima modificacion |
 
 ## 6. Especificación técnica
+
+Orden de esta sección: tabla consolidada de destinos multi-cadena y jobs compartidos (a continuación),
+seguidos de los subapartados 6.1 a 6.8 (calendario, ficheros, catálogos de jobs de las 3 cadenas,
+transformaciones, destinos y comportamiento ante fallos).
 
 **Tabla consolidada de destinos multi-cadena** (sistemas que reciben datos de más de una de las 3 cadenas):
 
@@ -436,20 +593,386 @@ hasta verificación funcional externa (ver RISK-CTPY-002).
 `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` a ningún sistema externo — lo comprime y lo mueve a
 `/fichtemcomp/pr/descargas/kytl/extracciongenerica/backup`, dentro de la misma VIPA `pr-rdr.igrupobbva` donde se
 genera. Es un backup puramente local/defensivo, coherente en las 3 cadenas (mismo job compartido).
+### 6.1 Calendario efectivo y quién lanza cada cadena
+
+Todo lo lanza el planificador Control-M (servidor `MERCADOS-4`, aplicación `KYTL`); no hay lanzamiento
+manual en el funcionamiento normal. El folder `_new` y las cadenas de extracción se inyectan con el User Daily
+`PLAN_1200` (12:00); con ese día de negocio, las horas de madrugada (01:00, 03:00) corresponden al día natural
+siguiente al ODATE (inferencia, no confirmada). Los días de la semana de Control-M se numeran 0 = domingo …
+6 = sábado.
+
+| Cadena | ODATE (días) | Qué la arranca | Hora real | Fichero de origen generado por |
+|---|---|---|---|---|
+| `RDR_DAILY_EXGEN_CPARTYS_new` | 0,1,2,3,4 (domingo a jueves) | `MEKYTL0334` ("lanzado desde las 21:45") | 21:45; los filewatchers empiezan después de las 23:59 (siguiente día natural) | `RDR_EXTRACCION_CTPDAS_D`, 01:00 (ThirdParties) y 01:05 (Contrapartidas), ODATE 1,2,3,4,0 |
+| `RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new` | viernes (el documento funcional lo describe como "arranque V 22:00, ejecución S 03:00"; sin capturas de Control-M, ver P-EGC-12) | monitor `MONITOR_BKYTL001_505-606` (según el documento funcional) | filewatchers a las 03:00 del sábado | `RDR_EXTRACCION_CTPDAS_W`, 03:00 y 03:05 del sábado (ODATE 5) |
+| `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new` | 6 (sábado) | `MEKYTL0335` ("lanzado después de las 22:00"), luego el monitor | filewatchers a las 03:00 del domingo; los envíos desde las 06:00 | `RDR_EXTRACCION_CTPDAS_W`, 03:00 y 03:05 del domingo (ODATE 6) |
+
+Los jobs de las 3 cadenas los ejecutan los usuarios de servicio `xakytl1p` (transformaciones, deduplicación,
+unión), `xsramer1` (envíos y `RAMERC0068.sh`), `xpctma1` (filewatchers), `xtsftp1`/`xtprox1p` (pasarela) y
+`root` (3 jobs). Soporte: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`); criticidad W (aviso al día
+siguiente). Todos los jobs conservan su ficha activa 3 días en Control-M salvo los marcados con
+retención 0.
+
+### 6.2 Ficheros y rutas que intervienen
+
+Directorio de trabajo en la VIPA `pr-rdr.igrupobbva` (máquinas `lprdr501`/`lprdr602`):
+`/fichtemcomp/pr/descargas/kytl/` (en integración `/fichtemcomp/ei/...`).
+
+| Fichero | Ruta | Lo crea | Lo consume / qué pasa después |
+|---|---|---|---|
+| `ExtraccionContingencia.xml` (se escribe como `.tmp` y se publica al terminar) | `extracciongenerica/` | `EXTRACCION_CPTDAS` (jar `ExtraccionGenericaCPTY.jar`, tipo `CPARTY`) | filewatcher `DAILY_EXTRACCION_CONTINGENCIA_FW`; lo une `DAILY_UNION_FICHEROS` |
+| `ThirdParties.xml` | `extracciongenerica/` | `EXTRACCION_THIRDPARTYS` (jar `ExtraccionGenericaOtherEntities.jar`, tipo `THIRDPARTIES`) | filewatcher `DAILY_THIRDPARTIES_FW`; lo une `DAILY_UNION_FICHEROS` |
+| `control_inicio.txt` (contiene la fecha `yyyymmdd`) | `extracciongenerica/` | `MEKYTL0334` (`_new`), `MEKYTL0340` (`_S`), `MEKYTL0335` (`_D`) | lo borra `MEKYTL0338_BORRA` / `MEKYTL0342_BORRA` / `MEKYTL0339_BORRA` |
+| XML unificado | `extracciongenerica/` | `DAILY_UNION_FICHEROS` (`unionFicheros.sh`; nombre y ruta de salida no confirmados, P-EGC-04) | `MEKYTL0338` / `MEKYTL0342` / `MEKYTL0339` lo renombran a `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` |
+| `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` (sin ratings) | `extracciongenerica/` | renombrado anterior | base del fan-out: Smart Data, DataHub, transformaciones |
+| `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` (con ratings) | `extracciongenerica/` | pipeline XSLT/XSD y/o `VALIDACION_EXTRACCION` (P-EGC-05) | Mentor y el backup `MEKYTL0781` |
+| `KYTL_RDR_EXTRACTION_CPARTYS_<ODATE>.ctl` | `extracciongenerica/` | `MEKYTL1154` (comando previo `touch`) | señal de fin para XVA |
+| copia comprimida del RTNG | `extracciongenerica/backup/` | `MEKYTL0781` (comprime y mueve; no envía a nadie) | queda como backup local |
+| `EmisoresRDR.csv`, `EmisoresRDR_SinRatings.csv` | `mentor/` | `RDR_TRANSFORMACION_MENTOR` / `_MENTOR_SINRATING`, luego los jobs `ELIMINATEDUPLICATES_*` | `MEKYTL0279`, `MEKYTL1147`; `MEKYTL0280` los historifica |
+| `KYTL_SACCR_emisores_EUR_<fecha>.flag.rdr`, `..._MDX_<fecha>.flag.rdr` | `mentor/` | `MEKYTL1005` / `MEKYTL1007` (comando previo `touch`) | señal para SACCR |
+| `ctpda.csv`, `ctpdaDDMMYYYYCC.csv` | `sire_files/` | `RDR_TRANSFORMACION_SIRE` y `ELIMINATEDUPLICATES_SIRE` | `MEKYTL0823/0878/0879/1204/0282/0281` |
+| `FicheroDiccionarioRDR_dia_<fecha>.csv` / `FicheroDiccionarioRDR_sem_<fecha>.csv` | `FicheroDiccionario/` | `RDR_TRANSFORMACION_DCD`/`DCDT`/`DCT` + `ELIMINATE_DUPLICATES_DC*` | jobs de envío del diccionario |
+| `Batch_Fircosoft_${AAAAMMDD}.txt` | `Fircosoft/` | `RDR_TRANSFORMACION_FS` (ver el proceso `extracciones_adhoc_ctpdas_fircosoft_sire`) | `MEKYTL1261` (cadena externa) |
+| ficheros de transmisión en la pasarela | `/unload/transmisiones/KYTL/` (confirmado en `lpftp503`) | `MEGENV0001.sh`/`LPFTPEXCA0000.sh` | los borran los `_DEL` (`LPFTPEXCA0002.sh`) |
+
+### 6.3 Catálogo de los 101 jobs de `RDR_DAILY_EXGEN_CPARTYS_new`
+
+Evidencia: 506 capturas de la ficha de cada job en Control-M (servidor `MERCADOS-4`, folder
+`KYTL0000-RDR_DAILY_EXGEN_CPARTYS_new`, User Daily `PLAN_1200`). Valores comunes que no se repiten en la tabla:
+tipo OS (salvo los Dummy indicados), recurso cuantitativo `MAX-LPRDR501` (1 de 100) salvo donde se indica,
+días 0,1,2,3,4 (domingo a jueves), 0 relanzamientos, retención 3 días, aplicación `KYTL`, sub-aplicación
+`RDR_DAILY_EXGEN_CPARTYS_new`, creado por `emuser` (salvo excepciones de la sección 9). `rdr` = `pr-rdr.igrupobbva`.
+Los eventos se escriben sin el prefijo `RDR_DAILY_EXGEN_CPARTYS_` y tal como aparecen en Control-M: unos acaban
+en `_LWRDR601_OK` (nomenclatura histórica), otros en `_OK` a secas y otros llevan `new_` delante
+(`RDR_DAILY_EXGEN_CPARTYS_new_MEKYTL1062_OK`). "—" = sin
+evento de salida configurado. Un script `MEGENV0001.sh <clave>` o `RAMERC0068.sh <clave>` hace lo que dice la
+línea IDX de esa clave (ver `salidas/comun_megenv0001/` y `salidas/comun_ramerc0068/`); las líneas IDX de
+estas claves no se han recibido (P-EGC-01). "Desde HH:MM" = hora de inicio configurada en el job.
+
+| Job | Función / destino | Host / usuario | Ejecuta | Espera a | Publica | Notas |
+|---|---|---|---|---|---|---|
+| `DAILY_EXTRACCION_CONTINGENCIA_FW` | espera `ExtraccionContingencia.xml` | rdr / xpctma1 | ctmfw `ExtraccionContingencia.xml` CREATE 0 60 10 5 195 (ruta `/fichtemcomp/pr/descargas/kytl/extracciongenerica/`) | MEKYTL0336_505_LWRDR601_OK **O** MEKYTL0336_606_LWRDR601_OK | DAILY_EXTRACCION_CONTINGENCIA_FW_LWRDR601_OK (nombre truncado en pantalla; completado por ser prerrequisito de DAILY_UNION_FICHEROS) | sin regla "código 7 → OK" registrada: si el fichero no llega en 195 min, el job queda NOTOK |
+| `DAILY_THIRDPARTIES_FW` | espera `ThirdParties.xml` | rdr / xpctma1 | ctmfw `ThirdParties.xml` CREATE 0 60 10 5 195 (ruta `/fichtemcomp/pr/descargas/kytl/extracciongenerica/`) | MEKYTL0336_505_LWRDR601_OK **O** MEKYTL0336_606_LWRDR601_OK | DAILY_THIRDPARTIES_FW_LWRDR601_OK (ídem) | ídem (sin regla "7 → OK") |
+| `DAILY_UNION_FICHEROS` | une ambos XML | rdr / xakytl1p | `unionFicheros.sh` PARM1/PARM2 = rutas de `ExtraccionContingencia.xml` y `ThirdParties.xml` en `/fichtemcomp/pr/descargas/kytl/extraccio…` (truncadas en pantalla) | DAILY_EXTRACCION_CONTINGENCIA_FW_LWRDR601_OK Y DAILY_THIRDPARTIES_FW_LWRDR601_OK (AND) | DAILY_UNION_FICHEROS_LWRDR601_OK (ídem, prerrequisito de MEKYTL0338) |  |
+| `MEKYTL0338` | renombra el XML unido a `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0338` | DAILY_UNION_FICHEROS_LWRDR601_OK | MEKYTL0338_LWRDR601_OK |  |
+| `MEKYTL0338_BORRA` | limpieza (borra `control_inicio.txt`) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0338_BORRA` | MEKYTL0338_LWRDR601_OK | MEKYTL0338_BORRA_LWRDR601_OK |  |
+| `RDR_Transformacion_XSLT_CPARTY` | transformación XSLT (desde 18/10/2025) | rdr / xakytl1p | `RDR_Transformacion_XSLT.sh pr CPARTY` | MEKYTL0338_BORRA_LWRDR601_OK | new_RDR_Transformacion_XSLT_CPARTY_OK |  |
+| `VALIDACION_EXTRACCION` | validación/generación de los 2 ficheros finales | rdr / xakytl1p | `RDR_Validacion_Extraccion.sh fileloading <ruta …/cfg/e…>` (ruta truncada; ver P-EGC-05) | new_RDR_Transformacion_XSLT_CPARTY_OK | VALIDACION_EXTRACCION_LWRDR601_OK | "Ejecutar como Dummy" marcado en General (P-EGC-05) |
+| `ELIMINATEDUPLICATES_MENTOR` | dedup `EmisoresRDR.csv` | rdr / xakytl1p | `EliminateDuplicates_mentor.sh` PARM1 = carpeta `/fichtemcomp/pr/descargas/kytl/mentor`, PARM2 = fichero `EmisoresRDR.csv` | RDR_TRANSFORMACION_MENTOR_LWRDR601_OK | ELIMINATEDUPLICATES_MENTOR_LWRDR601_OK | sin recurso cuantitativo |
+| `MEKYTL0279` | envío Mentor, emisores con rating | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0279` | ELIMINATEDUPLICATES_MENTOR_LWRDR601_OK | MEKYTL0279_LWRDR601_OK |  |
+| `MEKYTL1062` | rama XVA/SACCR (destino no documentado, P-EGC-10) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1062` | ELIMINATEDUPLICATES_MENTOR_LWRDR601_OK | new_MEKYTL1062_OK |  |
+| `MEKYTL1112` | Mentor vía XVA (sub-aplicación `RDR_ISSUES_RE_PRO_new`, creado por `algocmd`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1112` | MEKYTL0279_LWRDR601_OK | new_MEKYTL1112_OK | activo desde 06/06/2020 |
+| `MEKYTL1004` | SACCR BBVA SA | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1004` | new_MEKYTL1112_OK | MEKYTL1004_OK |  |
+| `MEKYTL1006` | SACCR México | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1006` | new_MEKYTL1112_OK | MEKYTL1006_OK |  |
+| `MEKYTL1005` | SACCR BBVA SA (crea flag EUR) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1005` ; previo: `touch /fichtemcomp/pr/descargas/kytl/mentor/KYTL_SACCR_emisores_EUR_%%$DATE..flag.rdr` | MEKYTL1004_OK | MEKYTL1005_OK |  |
+| `MEKYTL1007` | SACCR México (crea flag MDX) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1007` ; previo: `touch /fichtemcomp/pr/descargas/kytl/mentor/KYTL_SACCR_emisores_MDX_%%$DATE..flag.rdr` | MEKYTL1006_OK | MEKYTL1007_OK |  |
+| `MEKYTL0280` | historifica `EmisoresRDR.csv` | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0280` | MEKYTL1005_OK Y MEKYTL1007_OK Y new_MEKYTL1062_OK (AND) | new_MEKYTL0280_OK |  |
+| `MEKYTL0781` | backup comprimido local del XML con ratings | rdr / root | `RAMERC0068.sh MEKYTL0781` | new_MEKYTL0267_OK Y new_RDR_Validacion_XSD_CPARTY_OK (AND) | — | **root**; sin evento de salida; ejecuta como root |
+| `MEKYTL0276` | GP FINANZAS | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0276` | VALIDACION_EXTRACCION_LWRDR601_OK | — |  |
+| `MEKYTL0380` | CLIENT CLOUD | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0380` | VALIDACION_EXTRACCION_LWRDR601_OK | MEKYTL0380_LWRDR601_OK |  |
+| `MEKYTL0530` | Smart Data (Cloudera CIB) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0530` | VALIDACION_EXTRACCION_LWRDR601_OK | MEKYTL0530_LWRDR601_OK |  |
+| `MEKYTL0651` | MGCyG (extracción directa) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0651` (+ variable `ODATE`) | VALIDACION_EXTRACCION_LWRDR601_OK | — |  |
+| `ELIMINATEDUPLICATES_SIRE` | dedup `ctpda.csv` | rdr / xakytl1p | `EliminateDuplicates_mentor.sh` PARM1 = carpeta `/fichtemcomp/pr/descargas/kytl/sire_files`, PARM2 = fichero `ctpda.csv` | RDR_TRANSFORMACION_SIRE_LWRDR601_OK | new_ELIMINATEDUPLICATES_SIRE_OK | sin recurso cuantitativo |
+| `MEKYTL0823` | Mentor, fichero SIRE | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0823` | new_ELIMINATEDUPLICATES_SIRE_OK | new_MEKYTL0823_OK |  |
+| `MEKYTL0878` | SAIT | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0878` | new_ELIMINATEDUPLICATES_SIRE_OK | new_MEKYTL0878_OK | desde 06:00 AM |
+| `MEKYTL0879` | BOT (nuevo, 25/01/2025) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0879` | new_ELIMINATEDUPLICATES_SIRE_OK | MEKYTL0879_OK | desde 10:00 AM; retención 0 días; creado por CRQ000101065566 |
+| `MEKYTL1204` | rama SIRE (destino no documentado, P-EGC-10) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL1204` | new_ELIMINATEDUPLICATES_SIRE_OK | new_MEKYTL1204_OK |  |
+| `MEKYTL0282_SND` | transmisión Connect Direct SICOR | lpftp503 / xtsftp1 | `LPFTPEXCA0000.sh MEKYTL0282` | MEKYTL0282_LWRDR601_OK | TRANSMISIONES_CIB_KYTL_MEKYTL0282_SND_LWRDR601_OK | recurso MAX-LPFTP503 |
+| `MEKYTL0282` | SICOR | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0282` | RDR_TRANSFORMACION_SICOR_LWRDR601_OK | MEKYTL0282_LWRDR601_OK | desde 10:00 AM |
+| `MEKYTL0285` | MSC/Calypso, Legal_Entity.txt (diario) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0285` | RDR_TRANSFORMACION_FAED_LWRDR601_OK | MEKYTL0285_LWRDR601_OK | desde 06:00 AM |
+| `MEKYTL0315` | FONETIC / Deal Reconstruction | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0315` | RDR_TRANSFORMACION_DEALRECONSTRUCTION_LWRDR601_OK | MEKYTL0315_LWRDR601_OK |  |
+| `MEKYTL0334` | **arranque de la cadena** (21:45) | rdr / xsramer1 | comando: `cd /fichtemcomp/pr/descargas/kytl/extracciongenerica/ ; touch control_inicio.txt ; echo $(date +%Y%m%d) > control_inicio.txt` | — (ninguno) | MEKYTL0334_LWRDR601_OK | desde 09:45 PM; Acciones Si: salida con "* Código: *" → OK + evento |
+| `MEKYTL1129` | NOVA, Legal Entity diario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1129` | RDR_TRANSFORMACION_FAED_LWRDR601_OK | new_MEKYTL1129_OK | desde 06:00 AM |
+| `MEKYTL0433` | backup local de MSC | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0433` | MEKYTL0285_LWRDR601_OK Y new_MEKYTL1129_OK (AND) | — |  |
+| `MEKYTL0316` | FONETIC / Deal Reconstruction | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0316` | MEKYTL0315_LWRDR601_OK | — |  |
+| `MEKYTL0336_505` | actualiza fecha en BBDD (instancia 505) | rdr / xakytl1p | `ACTUALIZAR_FECHA_PAR1.sh` (sin variables; actualiza la fecha actual en la BBDD, `update_fecha_actual.sql`) | MEKYTL0334_LWRDR601_OK | MEKYTL0336_505_LWRDR601_OK (Acciones Si: completado OK → agrega el evento; código de retorno 1 → marca OK y elimina el evento, es decir no libera a los sucesores) | recurso MAX-LPORA605 |
+| `MEKYTL0336_606` | actualiza fecha en BBDD (instancia 606) | rdr / xakytl1p | `ACTUALIZAR_FECHA_PAR1.sh` (igual; instancia hermana) | MEKYTL0334_LWRDR601_OK | MEKYTL0336_606_LWRDR601_OK (igual que la instancia 505) | recurso MAX-LPORA606 |
+| `MEKYTL0878_SND` | transmisión SAIT por pasarela | lpftp503 / xsramer1 | `MEGENV0001.sh MEKYTL0878` | new_MEKYTL0878_OK | TRANSMISIONES_CIB_KYTL_MEKYTL0878_SND_OK | recurso MAX-LPFTP503; usa `MEGENV0001.sh` en la pasarela |
+| `MEKYTL0879_SND` | transmisión BOT por pasarela | lpftp503 / xsramer1 | `MEGENV0001.sh MEKYTL0879` | MEKYTL0879_OK | MEKYTL0879_SND_OK | recurso MAX-LPFTP503; usa `MEGENV0001.sh` en la pasarela; creado por CRQ000101065566 |
+| `MEKYTL1180` | UTIM México (nuevo 14/03/2026) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1180` (+ variables de fecha `FECHA`, `DIA`, `MES`, `AÑO`, `FECHA1=DD.MM.AAAA.`) | new_MEKYTL1204_OK | new_MEKYTL1180_OK | sin recurso cuantitativo; desde 10:00 AM |
+| `MEKYTL0282_DEL` | limpieza en pasarela (SICOR) | lpftp503 / xtsftp1 | `LPFTPEXCA0002.sh MEKYTL0282` | TRANSMISIONES_CIB_KYTL_MEKYTL0282_SND_LWRDR601_OK | — | recurso MAX-LPFTP503 |
+| `MEKYTL0879_DEL` | limpieza en pasarela (BOT; riesgo RISK-CTPY-001) | lpftp503 / xsramer1 | comando: `cd /unload/transmisiones/KYTL/ ; rm -f *ctpda* ; rm -f *MEKYTL0879*` | MEKYTL0879_SND_OK | MEKYTL0879_DEL_OK | recurso MAX-LPFTP503; retención 0 días |
+| `MEKYTL0281` | SIRE | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0281` | RDR_TRANSFORMACION_SIRE_LWRDR601_OK Y MEKYTL0879_DEL_OK (AND) | new_MEKYTL0281_OK | desde 10:00 AM |
+| `MEKYTL0281_SND` | transmisión SIRE por pasarela | lpftp503 / xsramer1 | `MEGENV0001.sh MEKYTL0281` | new_MEKYTL0281_OK | new_MEKYTL0281_SND_OK | desde 10:00 AM; recurso MAX-LPRDR501 (atípico en un `_SND`) |
+| `MEKYTL0808` | Soporte DataHub CIB/ADA (S3) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0808_CLOUD` (el PARM1 difiere del nombre del job) | VALIDACION_EXTRACCION_LWRDR601_OK | MEKYTL0808_LWRDR601_OK |  |
+| `MEKYTL1020` | AMIWEB / SBS | rdr / root | `MEGENV0001.sh MEKYTL1020` | VALIDACION_EXTRACCION_LWRDR601_OK | — | **root** |
+| `MEKYTL1099` | BO Notas Estructuradas | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1099` | VALIDACION_EXTRACCION_LWRDR601_OK | — |  |
+| `MEKYTL1110` | XVA extracción (sub-aplicación `RDR_ISSUES_RE_PRO_new`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1110` (+ variable `ODATE`) | VALIDACION_EXTRACCION_LWRDR601_OK | new_MEKYTL1110_OK | activo desde 06/06/2020 |
+| `SLEEP_15` | pausa de 15 min | rdr / xsramer1 | `sleep 900` | new_MEKYTL1110_OK | new_SLEEP_15_OK | sin recurso cuantitativo |
+| `MEKYTL1154` | XVA, flag de fin (crea `.ctl`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1154`; comando previo `touch …/extracciongenerica/KYTL_RDR_EXTRACTION_CPARTYS_%%$ODATE.ctl` | new_SLEEP_15_OK | new_MEKYTL1154_OK | Acciones Si: No OK → Marcar como OK (enmascara fallos) |
+| `MEKYTL1164` | rama XVA (destino no documentado, P-EGC-10) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL1164` | new_MEKYTL1154_OK | new_MEKYTL1164_OK |  |
+| `MEKYTL1127` | DataX | rdr / xsramer1 | `RAMERC0068.sh MEKYTL1127` | VALIDACION_EXTRACCION_LWRDR601_OK | new_MEKYTL1127_OK y GC_TESO_DAILY_EXGEN_CPARTYS_new_MEKYTL1127_OK | activo desde 06/06/2020; 2 eventos de salida, uno con prefijo `GC_TESO_` |
+| `MEKYTL1185` | ECLI (lun-jue) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1185` | VALIDACION_EXTRACCION_LWRDR601_OK | — | días 1,2,3,4 (0=domingo); activo desde 23/03/2024 |
+| `MEKYTL1185_L` | ECLI (solo domingo) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1185_L` | VALIDACION_EXTRACCION_LWRDR601_OK | — | días: solo domingo (0); activo desde 23/03/2024 |
+| `MEKYTL1263` | THOR (nuevo 27/07/2025) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1263` | VALIDACION_EXTRACCION_LWRDR601_OK | — | días 1,2,3,4,5 (0=domingo) |
+| `RDR_TRANSFORMACION_EFR_PROPERTIES` | EFR (catálogo) | rdr / xakytl1p | `GSProcess.sh extraccionEFR` | VALIDACION_EXTRACCION_LWRDR601_OK | new_RDR_TRANSFORMACION_EFR_PROPERTIES_OK | desde 12:05 AM |
+| `RDR_TRANSFORMACION_MGCYG` | transformación MGCyG | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_MGC` | new_RDR_TRANSFORMACION_EFR_PROPERTIES_OK | RDR_TRANSFORMACION_MGCYG_LWRDR601_OK (vía Acciones Si) | desde 12:05 AM |
+| `RDR_TRANSFORMACION_MENTOR_SINRATING` | transformación Mentor sin ratings | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_MEN…` (nombre truncado) | VALIDACION_EXTRACCION_LWRDR601_OK | new_RDR_TRANSFORMACION_MENTOR_SINRATING_OK |  |
+| `ELIMINATEDUPLICATES_MENTOR_SINRATING` | dedup `EmisoresRDR_SinRatings.csv` | rdr / xakytl1p | `EliminateDuplicates_mentor.sh` PARM1 = carpeta `/fichtemcomp/pr/descargas/kytl/mentor`, PARM2 = fichero `EmisoresRDR_SinRatings.csv` | new_RDR_TRANSFORMACION_MENTOR_SINRATING_OK | new_ELIMINATEDUPLICATES_MENTOR_SINRATING_OK |  |
+| `MEKYTL1147` | BBVA Seguros, sin rating (nuevo 14/03/2026) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1147` | new_ELIMINATEDUPLICATES_MENTOR_SINRATING_OK | new_MEKYTL1147_OK |  |
+| `MEKYTL1148` | historificación (destino no documentado, P-EGC-10) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL1148` | new_MEKYTL1147_OK | — |  |
+| `SLEEP_5` | pausa de 5 min | rdr / xsramer1 | `sleep 300` | VALIDACION_EXTRACCION_LWRDR601_OK | new_SLEEP_5_OK |  |
+| `MEKYTL1247` | NOVA-GMIP (nuevo 22/03/2025) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1247` | new_SLEEP_5_OK | — | activo desde 22/03/2025 |
+| `RDR_DELTA_EMISORES` | genera delta de emisores | rdr / xakytl1p | `RDR_DeltaEmisores.sh fileloading <ruta …/cfg/e…>` (ruta truncada) | new_MEKYTL0280_OK | RDR_DELTA_EMISORES_LWRDR601_OK |  |
+| `MEKYTL0450` | historifica delta (PRIIPS) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0450` | RDR_DELTA_EMISORES_LWRDR601_OK | — |  |
+| `MEKYTL1181` | punto de convergencia SIRE/BOT/SAIT/UTIM | rdr / root | `RAMERC0068.sh MEKYTL1181` | new_MEKYTL0823_OK Y new_MEKYTL1180_OK Y TRANSMISIONES_CIB_KYTL_MEKYTL0878_SND_OK Y new_MEKYTL0281_SND_OK (AND) | new_MEKYTL1181_OK | **root** |
+| `RDR_TRANSFORMACION_DCD` | diccionario diario | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_DCD` | RDR_TRANSFORMACION_FS_LWRDR601_OK | 2 eventos `RDR_TRANSFORMACION_DC…` (nombres truncados, P-EGC-09) |  |
+| `RDR_TRANSFORMACION_DCDT` | diccionario total | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_DCT` | RDR_TRANSFORMACION_FS_LWRDR601_OK | new_RDR_TRANSFORMACION_DCDT_OK |  |
+| `ELIMINATE_DUPLICATES_DC` | dedup diccionario diario | rdr / xakytl1p | `EliminateDuplicates_DC.sh` PARM1 = carpeta `/fichtemcomp/pr/descargas/kytl/Fichero…` (truncada; ver FicheroDiccionario), PARM2 = `FicheroDiccionarioRDR_dia_%%$DATE..csv` | RDR_TRANSFORMACION_DCD_LWRDR601_OK | ELIMINATE_DUPLICATES_DC_LWRDR601_OK |  |
+| `RDR_TRANSFORMACION_USA_CLIENT` | marcador (sin ejecución) | Dummy / xakytl1p | (Dummy, sin script) | RDR_TRANSFORMACION_DCD_LWRDR601_OK | new_RDR_TRANSFORMACION_USA_CLIENT_OK | job Dummy |
+| `ELIMINATE_DUPLICATES_DCDT` | dedup diccionario total | rdr / xakytl1p | `EliminateDuplicates_DC.sh` PARM1 = carpeta `…/kytl/Fichero…` (truncada), PARM2 = `FicheroDiccionarioRDR_sem_%%$DATE…` (truncado) | new_RDR_TRANSFORMACION_DCDT_OK Y ELIMINATE_DUPLICATES_DC_LWRDR601_OK (AND) | new_ELIMINATE_DUPLICATES_DCDT_OK |  |
+| `MEKYTL0272` | compresión del XML | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0272` | RDR_TRANSFORMACION_DCD_LWRDR601_OK Y new_RDR_TRANSFORMACION_USA_CLIENT_OK Y ELIMINATE_DUPLICATES_DC_LWRDR601_OK (AND) | MEKYTL0272_LWRDR601_OK |  |
+| `MEKYTL1141` | Total diccionario DataHub | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1141_CLOUD` (el PARM1 difiere del nombre del job) | new_ELIMINATE_DUPLICATES_DCDT_OK | new_MEKYTL1141_OK | desde 06:00 AM |
+| `MEKYTL1157` | Algorithmics | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1157` | new_ELIMINATE_DUPLICATES_DCDT_OK | new_MEKYTL1157_OK |  |
+| `MEKYTL0872` | XVA comprimido | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0872` (+ `FECHA_BATCH=%%$ODATE`) | MEKYTL0272_LWRDR601_OK | new_MEKYTL0872_OK |  |
+| `MEKYTL0873` | XVA comprimido | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0873` (+ `FECHA_BATCH=%%$ODATE`) | MEKYTL0272_LWRDR601_OK | new_MEKYTL0873_OK |  |
+| `MEKYTL1037` | JBPM comprimido | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1037` (+ `FECHA_BATCH=%%$ODATE`) | MEKYTL0272_LWRDR601_OK | — |  |
+| `MEKYTL1156` | convergencia (destino no documentado, P-EGC-10) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL1156` | new_MEKYTL1141_OK Y new_MEKYTL1157_OK (AND) | — |  |
+| `MEKYTL0267` | backup comprimido | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0267` | new_MEKYTL0872_OK Y new_MEKYTL0873_OK (AND) | new_MEKYTL0267_OK |  |
+| `MEKYTL0286` | AMIGA, diccionario diario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0286` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | — | desde 06:00 AM |
+| `MEKYTL0294` | Star, diccionario diario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0294` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | — | desde 06:00 AM |
+| `MEKYTL0833` | Smart Data CIB, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0833` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | new_MEKYTL0833_OK |  |
+| `MEKYTL0836` | Mentor, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0836` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | ? (no confirmado, P-EGC-08) |  |
+| `MEKYTL0883` | SPARC/Ibor, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0883` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | new_MEKYTL0883_OK | desde 06:00 AM |
+| `MEKYTL1059` | OOBE mainframe, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1059` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | — | desde 06:00 AM |
+| `MEKYTL1068` | APX México, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1068` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | new_MEKYTL1068_OK | desde 06:00 AM |
+| `MEKYTL1093` | DUCO, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1093` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | new_MEKYTL1093_OK | desde 03:00 AM; activo desde 16/04/2022 |
+| `MEKYTL1093_SND` | transmisión DUCO por pasarela | lpftp501 / xtprox1p | `LPFTPEXCA0000.sh MEKYTL1093` | new_MEKYTL1093_OK | new_MEKYTL1093_SND_OK | recurso MAX-LPFTP501; activo desde 16/04/2022 |
+| `MEKYTL1093_DEL` | limpieza en pasarela (DUCO) | lpftp501 / xtprox1p | `LPFTPEXCA0002.sh MEKYTL1093` | new_MEKYTL1093_SND_OK | ? (no confirmado, P-EGC-08) | recurso MAX-LPFTP501; activo desde 16/04/2022 |
+| `MEKYTL1117` | Calypso KLYO, diccionario | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1117` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | — | desde 06:00 AM |
+| `MEKYTL1242` | envío diccionario (destino no documentado, P-EGC-10) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1242` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | new_MEKYTL1242_OK | desde 06:00 AM; activo desde 16/04/2022 |
+| `MEKYTL1277` | NOVA Colombia MLCI (desde 13/12/2025) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1277` | ELIMINATE_DUPLICATES_DC_LWRDR601_OK | — | desde 03:00 AM; activo desde 13/12/2025 |
+| `MEKYTL0253` | FONETIC / Deal Reconstruction | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0253` | RDR_TRANSFORMACION_DEALRECONSTRUCTION_LWRDR601_OK | — |  |
+| `MEKYTL0382` | CTM / Deal Manager | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0382` | RDR_TRANSFORMACION_CTM_LWRDR601_OK | — |  |
+| `RDR_TRANSFORMACION_CTM` | transformación CTM (`contrapartidas_ctm_altbic.txt`) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_CTM` | RDR_TRANSFORMACION_SALESFORCE_LWRDR601_OK | RDR_TRANSFORMACION_CTM_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_DEALRECONSTRUCTION` | transformación Deal Reconstruction | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_DEA…` (truncado) | RDR_TRANSFORMACION_MGCYG_LWRDR601_OK | RDR_TRANSFORMACION_DEALRECONSTRUCTION_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_FAED` | transformación FAED (Legal Entity) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_FAED` | RDR_TRANSFORMACION_SICOR_LWRDR601_OK | RDR_TRANSFORMACION_FAED_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_FS` | transformación Fircosoft | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_FIRCOSOFT` | RDR_TRANSFORMACION_FAED_LWRDR601_OK | RDR_TRANSFORMACION_FS_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_MENTOR` | transformación Mentor (con ratings) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_MEN…` (truncado) | RDR_TRANSFORMACION_DEALRECONSTRUCTION_LWRDR601_OK | RDR_TRANSFORMACION_MENTOR_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_SALESFORCE` | transformación Salesforce/Fonetic | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_SALE…` (truncado) | RDR_TRANSFORMACION_MENTOR_LWRDR601_OK | RDR_TRANSFORMACION_SALESFORCE_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_SICOR` | transformación SICOR | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_SICOR` | RDR_TRANSFORMACION_SIRE_LWRDR601_OK | RDR_TRANSFORMACION_SICOR_LWRDR601_OK (vía Acciones Si) |  |
+| `RDR_TRANSFORMACION_SIRE` | transformación SIRE (`ctpdaDDMMYYYYCC.csv`) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtraccionCTPDA_SIRE` | RDR_TRANSFORMACION_SALESFORCE_LWRDR601_OK Y RDR_TRANSFORMACION_CTM_LWRDR601_OK (AND) | RDR_TRANSFORMACION_SIRE_LWRDR601_OK (vía Acciones Si) |  |
+
+### 6.4 Catálogo de los 21 jobs de `RDR_DAILY_EXGEN_CPARTYS_FINSEM_S_new`
+
+Esta cadena solo está descrita por el documento funcional (21 pasos, todos con ficha funcional); no se
+dispone de capturas de Control-M, por lo que usuarios, recursos y eventos exactos se suponen iguales a los
+de los mismos jobs de las otras cadenas (sin confirmar, P-EGC-12).
+
+| # | Job | Función | Espera a | Siguiente | Cuándo |
+|---|---|---|---|---|---|
+| 1 | `MONITOR_BKYTL001_505-606` | monitor de BBDD (`/pr/pl/scrt/monitor_BBDD.sh BKYTL003`, host `lpora605`); disparador | (ver P-EGC-07) | `MEKYTL0340` | viernes 22:00 |
+| 2 | `MEKYTL0340` | genera `control_inicio.txt` | monitor | `MEKYTL0341_505`, `MEKYTL0341_606` | V 22:00 |
+| 3-4 | `MEKYTL0341_505` / `_606` | `ACTUALIZAR_FECHA_PAR1.sh` (2 instancias paralelas) | `MEKYTL0340` | filewatchers | V 22:00 |
+| 5 | `DAILY_THIRDPARTIES_FW` | espera `ThirdParties.xml` | `MEKYTL0341_*` | `DAILY_UNION_FICHEROS` | S 03:00 |
+| 6 | `DAILY_EXTRACCION_CONTINGENCIA_FW` | espera `ExtraccionContingencia.xml` | `MEKYTL0341_*` | `DAILY_UNION_FICHEROS` | S 03:00 |
+| 7 | `DAILY_UNION_FICHEROS` | une los 2 XML (`unionFicheros.sh`) | ambos filewatchers | `MEKYTL0342` | |
+| 8 | `MEKYTL0342` | renombra a `KYTL_RDR_EXTRACTION_CPARTYS_yyyymmdd` | union | `MEKYTL0342_BORRA` | |
+| 9 | `MEKYTL0342_BORRA` | borra `control_inicio.txt` | `MEKYTL0342` | `RDR_Transformacion_XSLT_CPARTY` | |
+| 10 | `RDR_Transformacion_XSLT_CPARTY` | XSLT (desde 18/10/2025) | `MEKYTL0342_BORRA` | `VALIDACION_EXTRACCION`, `RDR_Validacion_XSD_CPARTY` | |
+| 11 | `RDR_Validacion_XSD_CPARTY` | validación XSD (desde 18/10/2025) | XSLT | `MEKYTL0781` | |
+| 12 | `VALIDACION_EXTRACCION` | DUMMY desde 18/10/2025 | XSLT | `MEKYTL0808`, `MEKYTL0530`, `RDR_TRANSFORMACION_FS` | |
+| 13 | `MEKYTL0808` | envío del XML a Soporte DataHub CIB/ADA (S3), `EKYTL_D02_AAAAMMDD_sf_rdr_xml.xml` | `VALIDACION_EXTRACCION` | — | |
+| 14 | `MEKYTL0530` | envío del XML a Smart Data (Cloudera CIB), `contrapartidas_${ANT_AAAAMMDD}.xml` | `VALIDACION_EXTRACCION` | — | |
+| 15 | `RDR_TRANSFORMACION_FS` | transformación Fircosoft; si falla, libera sucesores y continúa | `VALIDACION_EXTRACCION` y `MEKYTL1261_S` (cadena externa, predecesor añadido 23/03/2026) | `RDR_TRANSFORMACION_FAED` | S 03:00 |
+| 16 | `RDR_TRANSFORMACION_FAED` | transformación FAED / Legal Entity | `RDR_TRANSFORMACION_FS` | `MEKYTL0272`, `MEKYTL0285` | |
+| 17 | `MEKYTL0272` | compresión del XML | `RDR_TRANSFORMACION_FAED` | `MEKYTL0267` | |
+| 18 | `MEKYTL0267` | backup comprimido | `MEKYTL0272` | `MEKYTL0781` | |
+| 19 | `MEKYTL0781` | backup comprimido local del XML con ratings | `RDR_Validacion_XSD_CPARTY` y `MEKYTL0267` | — | |
+| 20 | `MEKYTL0285` | envío MSC/Calypso, `Legal_Entity.txt` (perdió el predecesor `MEKYTL0284` el 02/12/2025) | `RDR_TRANSFORMACION_FAED` | `MEKYTL0433` | |
+| 21 | `MEKYTL0433` | backup local de MSC | `MEKYTL0285` | — | |
+
+
+### 6.5 Catálogo de los 50 jobs de `RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new`
+
+Evidencia: 250 capturas (5 por job) de la ficha en Control-M y listado de navegación del folder
+`KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new`, que contiene exactamente estos 50 jobs. Valores comunes:
+servidor `MERCADOS-4`, aplicación `KYTL`, programación avanzada con días de la semana = 6 (sábado) y todos los
+meses, 0 relanzamientos, retención 3 días, prioridad Very Low, no crítico, creado por `algocmd` (salvo
+excepciones), recurso `MAX-LPRDR501` (1 de 100) salvo donde se indica. Los eventos se nombran
+`RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_<job>_OK_new` (prefijo y sufijo omitidos en la tabla); casi todos los
+eventos de salida aparecen truncados en pantalla y solo se han completado por referencia cruzada, lo que se
+indica. "Espera a" = job cuyo OK espera. Los jobs de envío del diccionario semanal son 15 (filas con
+"diccionario semanal").
+
+| Job | Función / destino | Host / usuario | Ejecuta | Espera a | Publica | Notas |
+|---|---|---|---|---|---|---|
+| `DAILY_EXTRACCION_CONTINGENCIA_FW` | espera `ExtraccionContingencia.xml` | rdr / xpctma1 | ctmfw `ExtraccionContingencia.xml` CREATE 0 60 10 5 195 | MEKYTL0337_505 **O** MEKYTL0337_606 | DAILY_EXTRACCION_CONTINGENCIA_FW (completado por referencia cruzada) | desde 03:00; sin Acciones Si; creado por algocmd |
+| `DAILY_THIRDPARTIES_FW` | espera `ThirdParties.xml` | rdr / xpctma1 | ctmfw `ThirdParties.xml` CREATE 0 60 10 5 195 | MEKYTL0337_505 **O** MEKYTL0337_606 | DAILY_THIRDPARTIES_FW (completado por referencia cruzada) | desde 03:00 |
+| `DAILY_UNION_FICHEROS` | une ambos XML | rdr / xakytl1p | `unionFicheros.sh` PARM1/PARM2 = rutas `/fichtemcomp/pr/desc…` (truncadas) | DAILY_THIRDPARTIES_FW **Y** DAILY_EXTRACCION_CONTINGENCIA_FW | evento truncado (→ MEKYTL0339) | desde 03:00 |
+| `MEKYTL0339` | renombra el XML unido | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0339` | DAILY_UNION_FICHEROS | MEKYTL0339 (completado por referencia cruzada) | sin hora de inicio |
+| `MEKYTL0339_BORRA` | limpieza (borra `control_inicio.txt`) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0339_BORRA` | MEKYTL0339 | evento truncado (→ XSLT) |  |
+| `RDR_Transformacion_XSLT_CPARTY` | transformación XSLT | rdr / xakytl1p | `RDR_Transformacion_XSLT.sh pr CPARTY` | MEKYTL0339_BORRA | evento truncado (→ XSD y VALIDACION_EXTRACCION; probablemente `new_RDR_Transformacion_XSLT_CPARTY_OK`) | desde 03:00 |
+| `RDR_Validacion_XSD_CPARTY` | validación XSD | rdr / xakytl1p | `RDR_Validacion_XSD.sh pr CPARTY` | evento `new_RDR_Transform…` (XSLT) | `new_RDR_Validacion_XSD_CPARTY_OK` (por referencia cruzada) | desde 03:00 |
+| `VALIDACION_EXTRACCION` | Dummy de compatibilidad | Dummy / xakytl1p | (Dummy) PARM1=`fileloading`, PARM2=`/pr/kytl/online/multipai…` (truncado) | evento `new_RDR_Transform…` (XSLT) | evento truncado (→ MEKYTL0530 y EFR_PROPERTIES) | creado por CRQ000101040258 |
+| `MEKYTL0530` | Smart Data (envío directo del XML) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0530` | VALIDACION_EXTRACCION | — (ninguno) | desde 06:00 |
+| `RDR_TRANSFORMACION_EFR_PROPERTIES` | EFR: excluye `CTM_Onboarding=Y` | rdr / xakytl1p | `GSProcess.sh extraccionEFR` | VALIDACION_EXTRACCION | `RDR_TRANSFORMACION_EFR_PROPERTIES_OK` (sin el prefijo de cadena, atípico) | desde 00:05; creado por xe30690 |
+| `RDR_TRANSFORMACION_FAET` | transformación FAET (Legal Entity total) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtra…` (truncado) | RDR_TRANSFORMACION_EFR_PROPERTIES | evento truncado (→ MEKYTL1134, MEKYTL0976, FAED) |  |
+| `MEKYTL1134` | NOVA KCOR, Legal Entity total | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1134` (+ `FECHA=%%$ODATE`) | RDR_TRANSFORMACION_F… (FAET) | evento truncado | desde 06:00 |
+| `MEKYTL0976` | MSC, Legal Entity total | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0976` | RDR_TRANSFORMACION_F… (FAET) | probablemente `new_MEKYTL0976_OK` (prerrequisito de MEKYTL0435; nombre atípico) | desde 06:00 |
+| `MEKYTL0435` | backup local de MSC total | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0435` | `new_MEKYTL0976_OK` | evento truncado (→ FAMM) | prioridad "Custom" vacía |
+| `RDR_TRANSFORMACION_FAMM` | transformación FAMM (oficinas internas) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtra…` (truncado) | MEKYTL0435 | evento truncado (→ MEKYTL0803) |  |
+| `MEKYTL0803` | Ábaco, oficinas internas (`CtpdaInternas_yyyymmdd.csv`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0803` | RDR_TRANSFORMACION_F… (FAMM) | evento truncado (prerrequisito de MEKYTL0272) | desde 06:00; único envío web con evento de salida |
+| `RDR_TRANSFORMACION_FAED` | transformación FAED (Legal Entity diario) | rdr / xakytl1p | `GSProcess.sh TransformacionesExtra…` (truncado) | RDR_TRANSFORMACION_F… (FAET) | Acciones Si: OK → `RDR_TRANSFORMACION_FAED_OK`; No OK → `RDR_TRANSFORMACION_FAED_NOTOK` |  |
+| `MEKYTL0285` | MSC diario: **Dummy**, no envía nada | Dummy / xsramer1 | (Dummy) PARM1=`MEKYTL0285` | RDR_TRANSFORMACION_F… (FAED) | evento truncado (→ MEKYTL0433) | desde 06:00 |
+| `MEKYTL0433` | backup local de MSC diario | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0433` | MEKYTL0285 | — (ninguno) | prioridad "Custom" vacía |
+| `RDR_TRANSFORMACION_MENTOR` | transformación Mentor | rdr / xakytl1p | `GSProcess.sh TransformacionesExtra…` (truncado) | FAED_OK **O** FAED_NOTOK | Acciones Si: OK → `RDR_TRANSFORMACION_MENTOR_OK`; No OK → `RDR_TRANSFORMACION_MENTOR_NOTOK` | prioridad "Custom" vacía |
+| `ELIMINATEDUPLICATES_MENTOR` | dedup `EmisoresRDR.csv` | rdr / xakytl1p | `EliminateDuplicates_mentor.sh` PARM1 = carpeta `/fichtemcomp/pr/desca…` (truncada), PARM2 = `EmisoresRDR.csv` | RDR_TRANSFORMACION_MENTOR_OK **O** RDR_TRANSFORMACION_MENTOR_NOTOK | evento truncado (→ MEKYTL0280) | prioridad "Custom" vacía |
+| `MEKYTL0280` | historifica `EmisoresRDR.csv` | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0280` | evento `ELIMINATEDUPLICATES_M…` | evento truncado (→ RDR_DELTA_EMISORES) | prioridad "Custom" vacía |
+| `RDR_DELTA_EMISORES` | genera el delta de emisores | rdr / xakytl1p | `RDR_DeltaEmisores.sh fileloading <ruta …/multipai…>` (truncada) | MEKYTL0280 | evento truncado (→ MEKYTL0450) | prioridad "Custom" vacía |
+| `MEKYTL0450` | PRIIPS, delta de emisores (`EmisoresRDR_delta_yyyymmdd.csv`) | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0450` | RDR_DELTA_EMISORES | evento truncado | prioridad "Custom" vacía |
+| `RDR_TRANSFORMACION_DCT` | transformación diccionario semanal | rdr / xakytl1p | `GSProcess.sh TransformacionesExtra…` (truncado) | RDR_TRANSFORMACI… (MENTOR) | evento truncado (→ ELIMINATE_DUPLICATES_DC) |  |
+| `ELIMINATE_DUPLICATES_DC` | dedup; genera `FicheroDiccionarioRDR_sem` | rdr / xakytl1p | `EliminateDuplicates_DC.sh` PARM1 = carpeta `/fichtemcomp/pr/desca…` (truncada), PARM2 = `FicheroDiccionarioRDR…` (truncado) | RDR_TRANSFORMACI… (DCT) | 2 eventos, truncados (uno = `ELIMINATE_DUPLICATES_DC_OK_new`; el otro, probablemente `new_ELIMINATE_DUPLICA…`, es prerrequisito de MEKYTL1094/1118/1243/1297) | sin hora de inicio; es el punto de fan-out de la cadena |
+| `MEKYTL0288` | diccionario semanal, AMIGA/Ábaco | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0288` | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL0291` | diccionario semanal, Star (HPSTRHA01) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0291` | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL0292` | "Proactive": **Dummy**, no ejecuta nada | Dummy / xsramer1 | (Dummy) PARM1=`MEKYTL0292` | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL0832` | diccionario semanal, Ábaco | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0832` | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL0837` | diccionario semanal, Mentor | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0837` | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL0889` | diccionario semanal, Ibor | rdr / xsramer1 | `MEGENV0001.sh MEKYTL0889` (+ `FECHACTM=%%$DATE.`) | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL1060` | diccionario semanal, HOST mainframe (`OO.BETRE100.OOBEJMCS.MAESCONT.SEM`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1060` (+ `FECHACTM=%%$DATE.`) | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL1069` | diccionario semanal, MMK / prmx_apx_batch | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1069` | ELIMINATE_DUPLICATES_DC | evento truncado (no hay `MEKYTL1069_SND` en este folder, P-EGC-02) | desde 04:30 |
+| `MEKYTL1094` | diccionario semanal, DUCO | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1094` | `new_ELIMINATE_DUPLICA…` (truncado) | probablemente `new_MEKYTL1094_OK` | desde 06:00; activo desde 16/04/2022 |
+| `MEKYTL1094_SND` | transmisión DUCO por pasarela | lpftp501 / xtprox1p | `LPFTPEXCA0000.sh MEKYTL1094` | `new_MEKYTL1094_OK` | probablemente `new_MEKYTL1094_SND_OK` | recurso MAX-LPFTP501; descripción "Transmisión de envío desde la pasarela Middleware CIB a máquina externa por Connect Direct"; sub-aplicación `RDR_DAILY_EXGEN_CPARTYS_new`; creado por emuser |
+| `MEKYTL1094_DEL` | limpieza en pasarela (DUCO) | lpftp501 / xtprox1p | `LPFTPEXCA0002.sh MEKYTL1094` | `new_MEKYTL1094_SND_OK` | — (ninguno) | recurso MAX-LPFTP501; descripción "Limpieza en pasarela de ficheros temporales y ficheros de datos una vez realizada la transmisión"; sub-aplicación `_new`; creado por emuser |
+| `MEKYTL1118` | diccionario semanal, Ábaco md/rdr | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1118` | `new_ELIMINATE_DUPLICA…` (truncado) | — (ninguno) | desde 06:00 |
+| `MEKYTL1152` | diccionario semanal, NOVA EYSE/ganbaru | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1152` | ELIMINATE_DUPLICATES_DC | probablemente `new_MEKYTL1152_OK` | desde 06:00 |
+| `MEKYTL1160` | NOVA EYSE/ganbaru: fichero flag | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1160` (+ `FECHA=%%$DATE`); comando previo `touch /fichtemcomp/pr/descargas/kytl/FicheroDiccionario/FicheroDiccionarioRDR_sem_%%$DATE…flg` (tramo central truncado) | `new_MEKYTL1152_OK` | — (ninguno) | Acciones Si: No OK → Marcar como OK (único job con esta regla en la cadena); desde 06:00 |
+| `MEKYTL1212` | diccionario semanal, NOVA MXIF/oplatmx | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1212` (+ `FECHACTM=%%$DATE.`) | ELIMINATE_DUPLICATES_DC | — (ninguno) | desde 06:00 |
+| `MEKYTL1243` | diccionario semanal, Webfocus (TEBD) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1243` | `new_ELIMINATE_DUPLICA…` (truncado) | evento truncado | desde 06:00; creado por CRQ000101175680; activo desde 24/02/2025 (según doc. funcional) |
+| `MEKYTL1297` | diccionario semanal, NOVA MLCI (`RDR_CptyIssuer_sem_YYYYMMDD.csv`) | rdr / xsramer1 | `MEGENV0001.sh MEKYTL1297` | `new_ELIMINATE_DUPLICA…` (truncado) | evento truncado | desde 06:00; activo desde 13/12/2025 |
+| `MEKYTL0272` | compresión del XML | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0272` | ELIMINATE_DUPLICATES_DC **Y** MEKYTL0803 | `MEKYTL0272_OK` (por referencia cruzada) | desde 08:00; convergencia de la rama principal y FAMM/Ábaco |
+| `MEKYTL0267` | backup comprimido | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0267` | MEKYTL0272 | evento truncado (→ MEKYTL0781) |  |
+| `MEKYTL0781` | backup comprimido local del XML con ratings | rdr / xsramer1 | `RAMERC0068.sh MEKYTL0781` | MEKYTL0267 **Y** `new_RDR_Validacion_XSD_CPARTY_OK` | evento truncado |  |
+| `MEKYTL0335` | **arranque de la cadena**: crea `control_inicio.txt` | rdr / xsramer1 | `cd /fichtemcomp/pr/descargas/kytl/extracciongenerica/ ; touch control_inicio.txt ; echo $(date +%Y%m%d) > control_inicio.txt` | — (ninguno) | evento truncado (→ MONITOR_BKYTL001_505-606) | desde 22:00 |
+| `MONITOR_BKYTL001_505-606` | decide rama 505 o 606 según una comprobación de BBDD | lpora605 / xsramer1 | `/pr/pl/scrt/monitor_BBDD.sh BKYTL003` | MEKYTL0335 | Acciones Si: RC=0 → evento `MONITOR_BKYTL001_505_OK`; RC=1 → evento `MONITOR_BKYTL001_606_OK` y marca OK | sin recurso cuantitativo; prioridad "Custom" vacía |
+| `MEKYTL0337_505` | actualiza fecha en BBDD (instancia 505) | rdr / xakytl1p | `ACTUALIZAR_FECHA_PAR1.sh` | `MONITOR_BKYTL001_505_…` | probablemente `MEKYTL0337_505_OK_new` (prerrequisito de los filewatchers) | recurso MAX-LPORA605 (total 190) |
+| `MEKYTL0337_606` | actualiza fecha en BBDD (instancia 606) | rdr / xakytl1p | `ACTUALIZAR_FECHA_PAR1.sh` | `MONITOR_BKYTL001_606_…` | probablemente `MEKYTL0337_606_OK_new` | recurso MAX-LPORA606 |
+
+### 6.6 Transformaciones de la cadena `_new` y fichero que genera cada una
+
+Desde julio 2024 las transformaciones `RDR_TRANSFORMACION_*` las lanza `GSProcess.sh` con un `.properties`
+propio que llama al script único `TransformacionesExtraccionCTPDA.sh` (parámetro `TransformacionesExtraccionCTPDA_<sufijo>`).
+Solo se conoce el `.properties` de Fircosoft (ver el proceso `extracciones_adhoc_ctpdas_fircosoft_sire`); el de
+las demás no se ha recibido (P-EGC-06).
+
+| Job de transformación | Fichero que genera | Predecesor funcional | Sucesores principales |
+|---|---|---|---|
+| `RDR_TRANSFORMACION_MGCYG` | `KYTL_KXMC_RDR_MGCyG_YYYYMMDD.xml` | `EFR_PROPERTIES` | `DEALRECONSTRUCTION` (el envío `MEKYTL0274` está eliminado) |
+| `RDR_TRANSFORMACION_DEALRECONSTRUCTION` | `sf_rdr_counterparties_YYYYMMDD.csv` | `MGCYG` | `MEKYTL0253`, `MEKYTL0315`, `MEKYTL0316`, `MENTOR` |
+| `RDR_TRANSFORMACION_MENTOR` | `EmisoresRDR.csv` (con ratings) | `DEALRECONSTRUCTION` | `SALESFORCE`, `ELIMINATEDUPLICATES_MENTOR` |
+| `RDR_TRANSFORMACION_SALESFORCE` | `.sf_rdr_counterparties_YYYYMMDD.csv` | `MENTOR` | `CTM` |
+| `RDR_TRANSFORMACION_CTM` | `contrapartidas_ctm_altbic.txt` | `SALESFORCE` | `SIRE`, `MEKYTL0382` |
+| `RDR_TRANSFORMACION_SIRE` | `ctpdaDDMMYYYYCC.csv` | `SALESFORCE` y `CTM` | `ELIMINATEDUPLICATES_SIRE`, `SICOR`, `MEKYTL0281` |
+| `RDR_TRANSFORMACION_SICOR` | `Batch_RDR_PU.txt` | `SIRE` | `FAED`, `MEKYTL0282` |
+| `RDR_TRANSFORMACION_FAED` | `Legal_Entity.txt`, `Legal_Entity_dia_*_dos.txt` | `SICOR` | `FS`, `MEKYTL0285`, `MEKYTL1129` |
+| `RDR_TRANSFORMACION_FS` | `Batch_Fircosoft_${AAAAMMDD}.txt` (8 campos, solo sucursal `MEX`) | `FAED` | `DCD`, `DCDT` |
+| `RDR_TRANSFORMACION_DCD` | `FicheroDiccionarioRDR_dia_YYYYMMDD*.csv` | `FS` | `ELIMINATE_DUPLICATES_DC`, `USA_CLIENT`, `MEKYTL0272` |
+| `RDR_TRANSFORMACION_DCDT` | diccionario total (variante DCT) | `FS` | `ELIMINATE_DUPLICATES_DCDT` |
+| `RDR_TRANSFORMACION_USA_CLIENT` | ninguno (Dummy) | `DCD` | `MEKYTL0272` |
+| `RDR_TRANSFORMACION_EFR_PROPERTIES` | ninguno (catálogo EFR) | `VALIDACION_EXTRACCION` | `MGCYG` |
+| `RDR_TRANSFORMACION_MENTOR_SINRATING` | `EmisoresRDR_SinRatings.csv` | `VALIDACION_EXTRACCION` | `ELIMINATEDUPLICATES_MENTOR_SINRATING` |
+| `RDR_TRANSFORMACION_FAET` (solo `_D`) | Fichero de Actividad Económica total | `EFR_PROPERTIES` | `MEKYTL1134`, `MEKYTL0976`, `FAED` |
+| `RDR_TRANSFORMACION_FAMM` (solo `_D`) | `CtpdaInternas_yyyymmdd.csv` | `MEKYTL0435` | `MEKYTL0803` |
+
+En el orden de ejecución real de `_new` (por prerrequisitos de Control-M) las transformaciones forman una
+cadena secuencial: `EFR_PROPERTIES → MGCYG → DEALRECONSTRUCTION → MENTOR → SALESFORCE → CTM → SIRE → SICOR →
+FAED → FS → DCD/DCDT`; solo `MENTOR_SINRATING` y `USA_CLIENT` quedan fuera de esa cadena.
+
+### 6.7 Destinos, ficheros y estado (resumen del documento funcional)
+
+Estado: activo = vigente en Control-M; baja = eliminado o desplanificado (no probar). El fichero exacto
+y la ruta de cada destino los fija la línea IDX de `MEGENV0001.sh`, no recibida (P-EGC-01).
+
+**`_new` (diaria)**
+
+| Destino | Job(s) | Estado |
+|---|---|---|
+| FENERGO | `MEKYTL0268` | activo según documento funcional, pero **no existe** en las 101 fichas reales |
+| GP FINANZAS / CLIENT CLOUD / Smart Data | `MEKYTL0276` / `MEKYTL0380` / `MEKYTL0530` | activos |
+| MGCyG (extracción directa) | `MEKYTL0651` | activo |
+| Market Operator Tool | `MEKYTL0785` | baja (decomisado) |
+| BO Notas Estructuradas / AMIWEB-SBS / THOR / ECLI | `MEKYTL1099` / `MEKYTL1020` / `MEKYTL1263` / `MEKYTL1185`, `_L` | activos |
+| Soporte DataHub CIB/ADA | `MEKYTL0808` (envía `MEKYTL0808_CLOUD`; réplica DEV `MEKYTL809`) | activo |
+| XVA (extracción, flag fin, comprimidos, Mentor vía XVA) | `MEKYTL1110`, `MEKYTL1154`, `MEKYTL0872/0873`, `MEKYTL1037`, `MEKYTL1112` | activos |
+| SACCR BBVA SA / SACCR México | `MEKYTL1004`,`1005` / `MEKYTL1006`,`1007` | activos |
+| DataX | `MEKYTL1127` | activo |
+| NOVA-GMIP / NOVA Legal Entity diario | `MEKYTL1247` / `MEKYTL1129` | activos |
+| FONETIC / Deal Reconstruction (3 destinos) | `MEKYTL0253`, `0315`, `0316` | activos |
+| Mentor emisores con rating / BBVA Seguros sin rating | `MEKYTL0279` / `MEKYTL1147` | activos |
+| PRIIPS (delta emisores) | `MEKYTL0450` (vía `RDR_DELTA_EMISORES`); `MEKYTL0449` no existe | activo |
+| SIRE / Mentor fichero SIRE / BOT / SAIT / SICOR / UTIM México | `MEKYTL0281` / `0823` / `0879` / `0878` / `0282` / `1180` | activos |
+| MSC/Calypso Legal Entity diario | `MEKYTL0285` | activo |
+| Fircosoft | `MEKYTL1261` (cadena externa `RDR_FIRCOSOFT_CPARTYS_*_PRO_new`) | activo |
+| Diccionario diario: AMIGA, Star, Smart Data CIB, Mentor, SPARC/Ibor, OOBE, APX México, Calypso KLYO, DUCO, DataHub total, Algorithmics, NOVA Colombia | `MEKYTL0286`, `0294`, `0833`, `0836`, `0883`, `1059`, `1068`, `1117`, `1093`(+`_SND`,`_DEL`), `1141`, `1157`, `1277` | activos (`MEKYTL1242` también cuelga del diccionario, destino no documentado; `MEKYTL0876`, Soporte DataHub CIB, figura como activo en el documento funcional pero no existe en las fichas) |
+| Rating (backup) | `MEKYTL0781` | solo backup local |
+| Bajas | Informacional `0275`, Onboarding `0332`, Mentor ruta antigua `0474`, ANS RIMS `0529`, MIFID `0606`, Market Abuse `1012`,`0831`, BOT antiguo `0877`, AMIGA FAED/FAET `0284`,`0283`, MGCyG `0274`, Fircosoft `0320`, ERF check `0865`-`0868`, Ábaco `0798` | no existen |
+
+**`_FINSEM_S_new`**: Fircosoft (`Batch_Fircosoft_${AAAAMMDD}.txt`, `MEKYTL1261_S` externo), MSC/Calypso
+(`Legal_Entity.txt`, `MEKYTL0285`), Smart Data (`contrapartidas_${ANT_AAAAMMDD}.xml`, `MEKYTL0530`; `ANT` = día
+anterior), Soporte DataHub CIB/ADA S3 (`EKYTL_D02_AAAAMMDD_sf_rdr_xml.xml`, `MEKYTL0808`) y backup Rating
+(`MEKYTL0781`). Eliminados: `MEKYTL0785`, `MEKYTL0529`, `MEKYTL0809`, `MEKYTL0831`.
+
+**`_FINSEM_D_new`**
+
+| Destino | Fichero | Job(s) |
+|---|---|---|
+| Smart Data (Cloudera CIB) | `contrapartidas_YYYYMMDD.xml` | `MEKYTL0530` |
+| MSC, Legal Entity diario | `Legal_Entity.txt` | `MEKYTL0285` (Dummy en Control-M, ver P-EGC-11) |
+| MSC, Legal Entity total | `Legal_Entity.txt` | `MEKYTL0976` |
+| NOVA KCOR, Legal Entity | `Legal_Entity_YYYYMMDD_HHMM.txt` | `MEKYTL1134` |
+| Ábaco, oficinas internas | `CtpdaInternas_yyyymmdd.csv` | `MEKYTL0803` |
+| PRIIPS, delta emisores | `EmisoresRDR_delta_yyyymmdd.csv` | `MEKYTL0450` |
+| Ábaco, diccionario | `FicheroDiccionarioRDR_sem_YYYYMMDD.csv` | `MEKYTL0832` (y `MEKYTL0288` / `MEKYTL1118`, ver notas del catálogo) |
+| Mentor / Ibor / DUCO | `FicheroDiccionarioRDR_sem_YYYYMMDD.csv` | `MEKYTL0837` / `MEKYTL0889` / `MEKYTL1094`(+`_SND`,`_DEL`) |
+| HOST (mainframe) | `OO.BETRE100.OOBEJMCS.MAESCONT.SEM` | `MEKYTL1060` |
+| MMK / prmx_apx_batch | `FicheroDiccionarioRDR_sem` → `MTM76_D02_...` | `MEKYTL1069` |
+| NOVA EYSE/ganbaru | `FicheroDiccionarioRDR_sem` + flag | `MEKYTL1152` → `MEKYTL1160` |
+| Webfocus (TEBD) | `ficherodiccionariordr_sem_yyyymmdd.csv` | `MEKYTL1243` |
+| NOVA MXIF/oplatmx | `FicheroDiccionarioRDR_yyyyMMdd.csv` | `MEKYTL1212` |
+| NOVA MLCI (CptyIssuer) | `RDR_CptyIssuer_sem_YYYYMMDD.csv` | `MEKYTL1297` |
+| Star (HPSTRHA01) | diccionario semanal | `MEKYTL0291` |
+| Proactive | `FicheroDiccionarioRDR_sem_YYYYMMDD.csv` (presumible) | `MEKYTL0292` (Dummy; no verificado) |
+| Rating (backup) | `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` | `MEKYTL0781` (solo local) |
+
+Eliminados o desplanificados en `_D`: `MEKYTL0290` (Webfocus, 26/03/2025), `MEKYTL0831`, `MEKYTL0449` (sustituido
+por `RDR_DELTA_EMISORES` el 25/05/2024), la rama EFR antigua (`RDR_TRANSFORMACION_EFR_SCRIPT_D`,
+`ELIMINATE_DC_EFR_D`, `MEKYTL0867`, `MEKYTL0868`, borrados 23/09/2023) y `MEKYTL0529`.
+
+### 6.8 Comportamiento ante fallos y cómo saber si fue bien
+
+Una cadena ha ido bien cuando todos sus jobs están en OK en Control-M y existen los ficheros de la sección
+6.2 del día; los envíos son correctos cuando el job `MEGENV0001.sh` (o el `_SND`) termina en OK. No hay
+validación automática del contenido de los ficheros más allá del pipeline XSLT/XSD.
+
+| Situación | Qué ocurre | Evidencia |
+|---|---|---|
+| Un jar de origen falla o se retrasa | `GSProcess.sh` solo falla si el Java devuelve ≠ 0, y los jars de extracción casi siempre terminan con 0 dejando un XML incompleto (ver `salidas/comun_extraccion_generica/`). Si no se publica el fichero final, el filewatcher espera | comunes |
+| Filewatcher sin fichero en 195 min | `ctmfw` devuelve 7; no hay regla "7 → OK": el job queda NOTOK y la cadena se detiene sin enviar nada (`DAILY_UNION_FICHEROS` no arranca) | fichas `_new`/`_D` |
+| Falla `unionFicheros.sh`, `RAMERC0068.sh` (rename/borrado) o `MEGENV0001.sh` | El job queda NOTOK y sus sucesores esperan su evento; el resto de ramas paralelas continúa. Códigos de `MEGENV0001.sh` en `salidas/comun_megenv0001/` (p. ej. 110 sin configuración, 43 error de envío) | prerrequisitos de Control-M |
+| Falla un `RDR_TRANSFORMACION_*` | `GSProcess.sh` ejecuta todas las acciones aunque una falle (salvo `Stop*=Ok`) y devuelve 1 al final. En `_new` las transformaciones tienen Acciones Si "salida con `* Código: *` → marcar OK y publicar evento", que enmascara el fallo si la salida contiene esa cadena (P-EGC-13). En `_D`, `FAED` y `MENTOR` publican `_OK` o `_NOTOK` y el siguiente job espera cualquiera de los dos (la cadena continúa aunque fallen) | fichas |
+| Falla un `ELIMINATE*DUPLICATES*` o `RDR_TRANSFORMACION_FS` | Requisito documentado: "liberar sucesores y continuar". No hay Acciones Si que lo implemente en las capturas; en `_D`, `ELIMINATEDUPLICATES_MENTOR` espera `MENTOR_OK` **O** `MENTOR_NOTOK` | ficha EX-005-03 / capturas |
+| `MEKYTL1154` o `MEKYTL1160` fallan | Acciones Si "No OK → marcar OK": el fallo no se ve en Control-M | fichas |
+| `MEKYTL0336_505/606`/`MEKYTL0337_505/606` con código de retorno 1 | Se marcan OK pero se elimina su evento; el filewatcher espera cualquiera de las dos instancias (**O**), así que basta con que una dé OK | fichas |
+| Falla un `_SND` (transmisión) | El `_DEL` correspondiente no arranca (espera `_SND_OK`) y el fichero queda en la pasarela hasta la siguiente limpieza | prerrequisitos |
+| `MEKYTL0879_DEL` | Borra `*ctpda*` y `*MEKYTL0879*` en `/unload/transmisiones/KYTL/`: puede llevarse ficheros de otras ramas (RISK-CTPY-001) | comando real |
+| No hay regla de relanzamiento | 0 relanzamientos en todos los jobs: cualquier reintento es manual por ANS RDR | fichas |
+
+Estado final esperado: los ficheros de trabajo del día quedan en sus carpetas (se sobrescriben al día
+siguiente), `control_inicio.txt` borrado, copia comprimida en `backup/`, ficheros de pasarela limpiados por
+los `_DEL` y fichas de job conservadas 3 días en Control-M.
 
 ## 7. Especificación de testing
 
-**Estrategia:** dado el volumen del proceso (3 cadenas, ~150 jobs, 45+ destinos) y que más de la mitad de los
-pasos de `_new` no tienen ficha, los casos de prueba se concentran en: (1) el núcleo común, compartido y
-100% documentado por las 3 cadenas; (2) el ciclo completo de `_FINSEM_S_new`, la única cadena 100%
-documentada; (3) los tramos documentados de `_new` y `_FINSEM_D_new` (núcleo + primeras ramas de
+**Estrategia:** dado el volumen del proceso (3 cadenas, ~170 jobs, 45+ destinos), los casos de prueba se concentran en: (1) el núcleo común, compartido y
+100% documentado por las 3 cadenas; (2) el ciclo completo de `_FINSEM_S_new`, la cadena más pequeña (solo con
+documentación funcional); (3) los tramos documentados de `_new` y `_FINSEM_D_new` (núcleo + primeras ramas de
 transformación); (4) casos que documentan explícitamente las limitaciones de GAP-CTPY-001 a 007 en vez de
 forzar cobertura inventada. Los casos completos están en `extraccion_generica_contrapartidas_casos_prueba.xml`.
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001, TC-002, TC-003.
 - `borde`: TC-004, TC-006.
-- `error_funcional`: TC-005, TC-010.
+- `error_funcional`: TC-005, TC-010, TC-014.
 - `conflicto_integridad`: TC-008, TC-012.
 - `regresion`: TC-007, TC-009, TC-011, TC-013.
 
@@ -459,6 +982,7 @@ Referencia de casos por tipo:
 |-----------|--------------------|----------------|
 | R1, R2 (generación + filewatchers) | TC-001 | Ambos ficheros de origen detectados en las 3 cadenas |
 | R3 (unión) | TC-001 | Unión correcta de ambos XML |
+| R2 (filewatcher, 195 min sin fichero) | TC-014 | La cadena se detiene sin enviar nada cuando el fichero de origen no llega |
 | R4 (pipeline XSLT/XSD) | TC-002 | Validación + comportamiento real vs. dummy de `VALIDACION_EXTRACCION` |
 | R5 (2 ficheros finales) | TC-001, TC-002 | Generación correcta de la variante con y sin ratings |
 | R7 (`_FINSEM_S_new` completo) | TC-003 | Ciclo end-to-end de la única cadena 100% documentada |
@@ -536,7 +1060,9 @@ aún sin motivo confirmado
 documentado sin implementación real en Control-M para `MEKYTL0292`), registrados en la sección 9.
 
 **Estado: COMPLETA Y CERRADA (2026-09-24).** El usuario confirmó el cierre de esta salida dentro de su alcance
-declarado en la sección 2 — las 3 cadenas están documentadas al 100% de sus jobs reales, sin gaps abiertos.
+declarado en la sección 2 — las 3 cadenas están documentadas al 100% de sus jobs reales, sin gaps abiertos. Quedan
+abiertas las preguntas de detalle P-EGC-01 a P-EGC-15 de la sección 4.1, que no son gaps de evidencia sobre la
+topología sino datos de configuración no recibidos (líneas IDX, scripts, nombres de evento truncados).
 Quedan 3 exclusiones de alcance explícitas y conscientes (no gaps): rutas/nombres de fichero exactos de cada
 uno de los ~55 destinos de `_new` (el documento fuente remite a "7 subtablas completas" no aportadas), la
 lógica interna de los jars Java más allá de su función observable, y el detalle profundo de las cadenas

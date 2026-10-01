@@ -8,6 +8,11 @@
   respectivamente, confirmado en GAP-ADHOC-001 — ver `salidas/extracciones_adhoc_ctpdas_fircosoft_sire/`) —
   cadenas propias, fuera del árbol de jobs de estas 3, pero dentro de Control-M. Cualquier prueba de la cadena
   debe confirmar primero que ambos ficheros existen y tienen contenido antes de evaluar el resto del flujo.
+  Los filewatchers (`ctmfw ... CREATE 0 60 10 5 195`) buscan el fichero cada 60 s, lo dan por completo tras 5
+  mediciones de tamaño iguales (cada 10 s) y fallan con código 7 si en 195 minutos no lo han detectado: los
+  ficheros deben estar publicados (sin sufijo `.tmp`, con el nombre exacto `ThirdParties.xml` /
+  `ExtraccionContingencia.xml`) dentro de esa ventana, que empieza tras la medianoche en `_new` y a las 03:00 en
+  las semanales.
 - El origen de ambos ficheros es la base GoldenSource RDR (tabla `FT_T_ATE1`, antigua `ACTIONS_TO_EXECUTE`, en
   el esquema `KYTL_GC`); no se documenta en esta ronda cómo verificar la disponibilidad de esa base antes de
   que arranque la generación.
@@ -36,6 +41,11 @@
   disponible y con permisos de escritura para `MEKYTL0781` (compartido por las 3 cadenas) — GAP-CTPY-005
   resuelto: es un backup puramente local del fichero `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml`, sin envío a
   ningún sistema externo.
+
+- Recursos cuantitativos de Control-M disponibles: `MAX-LPRDR501` (1 de 100, casi todos los jobs), `MAX-LPORA605` (1 de
+  190) y `MAX-LPORA606` (1 de 100) para las actualizaciones de fecha, `MAX-LPFTP501`/`MAX-LPFTP503` en la pasarela.
+- Ficheros de configuración IDX de `MEGENV0001.sh`/`RAMERC0068.sh` para cada clave `MEKYTL…` del catálogo de la
+  sección 6.3 de la spec (no se han recibido; ver P-EGC-01).
 
 ## Roles y permisos
 

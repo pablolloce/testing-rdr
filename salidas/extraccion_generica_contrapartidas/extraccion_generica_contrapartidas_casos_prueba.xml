@@ -5,14 +5,14 @@
     <nombre>Núcleo común: generación, filewatchers y unión de ficheros (las 3 cadenas)</nombre>
     <objetivo>Verificar que las 3 cadenas detectan correctamente ThirdParties.xml y ExtraccionContingencia.xml y los unen en un único XML.</objetivo>
     <precondiciones>
-      <precondicion>ThirdParties.xml y ExtraccionContingencia.xml generados correctamente a las 00:05 por los jars correspondientes.</precondicion>
+      <precondicion>ThirdParties.xml y ExtraccionContingencia.xml generados correctamente por los jars correspondientes (jobs EXTRACCION_THIRDPARTYS 01:00 / EXTRACCION_CPTDAS 01:05 en días laborables, 03:00 / 03:05 en fin de semana).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="ThirdParties.xml" valor="válido, generado por ExtraccionGenericaOtherEntities.jar"/>
       <dato campo="ExtraccionContingencia.xml" valor="válido, generado por ExtraccionGenericaCPTY.jar"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar la generación de ambos ficheros a las 00:05.</paso>
+      <paso numero="1">Confirmar la generación de ambos ficheros (01:00-01:05 diaria; 03:00-03:05 fin de semana) en /fichtemcomp/pr/descargas/kytl/extracciongenerica/.</paso>
       <paso numero="2">Para cada una de las 3 cadenas, esperar su disparador propio (MEKYTL0334 en _new; MONITOR_BKYTL001_505-606 en las 2 semanales) en su ventana correspondiente.</paso>
       <paso numero="3">Verificar que DAILY_THIRDPARTIES_FW y DAILY_EXTRACCION_CONTINGENCIA_FW detectan ambos ficheros.</paso>
       <paso numero="4">Verificar que DAILY_UNION_FICHEROS genera el XML unificado.</paso>
@@ -171,7 +171,7 @@
       <precondicion>Acceso a la definición real de Control-M (o al listado de navegación del folder) de la cadena _FINSEM_D_new.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="MEKYTL0289" valor="verificar ausencia en la definición real; confirmado ausente en documentos_fuente/GAP-CTPY-002_jobs_extraidos.md (250 capturas) y en documentos_fuente/GAP-CTPY-002_listado_folder_FINSEM_D_new.png (listado exhaustivo de los 50 jobs del folder)"/>
+      <dato campo="MEKYTL0289" valor="verificar ausencia en la definición real; confirmado ausente en las 250 capturas de la cadena y en el listado de navegación del folder (50 jobs, catálogo en la sección 6.5 de la spec)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Buscar MEKYTL0289 en el listado de navegación del folder KYTL0000-RDR_DAILY_EXGEN_CPARTYS_FINSEM_D_new en Control-M.</paso>
@@ -187,7 +187,7 @@
     <nombre>MEKYTL0292: discrepancia entre destino documentado (Proactive) y comportamiento real (Dummy sin envío) — GAP-CTPY-006</nombre>
     <objetivo>Confirmar si el envío a Proactive documentado para MEKYTL0292 existe realmente fuera de Control-M, o si la ficha funcional del documento fuente está desactualizada, dado que la evidencia real (250 capturas, GAP-CTPY-002) muestra un job Dummy sin comando ni evento de salida.</objetivo>
     <precondiciones>
-      <precondicion>Evidencia real de Control-M de MEKYTL0292 ya obtenida (documentos_fuente/GAP-CTPY-002_jobs_extraidos.md, fila 12).</precondicion>
+      <precondicion>Evidencia real de Control-M de MEKYTL0292 ya obtenida (catálogo de la sección 6.5 de la spec, fila MEKYTL0292: job Dummy sin comando ni evento de salida).</precondicion>
       <precondicion>Acceso al equipo funcional o dueño de la integración con Proactive.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -261,6 +261,28 @@
     <tipoValidacion>Inspección del sistema de ficheros de pr-rdr.igrupobbva + definición real de Control-M de MEKYTL0781.</tipoValidacion>
     <criterioAceptacion>Comportamiento de backup local confirmado; si apareciera un envío externo, actualizar extraccion_generica_contrapartidas_spec.md con el nuevo estado.</criterioAceptacion>
     <posibilidadFallo>Si en el futuro se detectara un envío externo real, indicaría un cambio de comportamiento a documentar, no un fallo de la prueba en sí.</posibilidadFallo>
+  </casoDePrueba>
+
+
+  <casoDePrueba id="TC-014" tipo="error_funcional">
+    <nombre>Filewatcher sin fichero de origen: espera de 195 minutos y parada de la cadena</nombre>
+    <objetivo>Verificar que, si ExtraccionContingencia.xml o ThirdParties.xml no aparecen, el filewatcher agota su espera de 195 minutos, termina con código 7 (NOTOK, sin regla "7 → OK") y la cadena no envía nada.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con la cadena (p. ej. _FINSEM_S_new o _new) configurada y ficheros de origen ausentes (no ejecutar la generación o renombrar el fichero).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="comando" valor="ctmfw '/fichtemcomp/pr/descargas/kytl/extracciongenerica/ThirdParties.xml' CREATE 0 60 10 5 195"/>
+      <dato campo="espera máxima" valor="195 minutos (busca cada 60 s; 5 mediciones de tamaño iguales cada 10 s para darlo por completo)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar la cadena con uno de los dos ficheros ausente (en pruebas, reducir el wait_time a un valor corto en una copia del job).</paso>
+      <paso numero="2">Esperar a que se agote el tiempo del filewatcher.</paso>
+      <paso numero="3">Comprobar el estado de DAILY_THIRDPARTIES_FW / DAILY_EXTRACCION_CONTINGENCIA_FW y de DAILY_UNION_FICHEROS.</paso>
+    </pasos>
+    <resultadoEsperado>El filewatcher termina con código 7 y queda en NOTOK; DAILY_UNION_FICHEROS y todo lo posterior no se ejecutan; no se genera ningún envío ni se publica el evento DAILY_*_FW_..._OK. Si el fichero llega antes de agotarse la espera, el filewatcher termina OK y la cadena sigue con normalidad.</resultadoEsperado>
+    <tipoValidacion>Estado de los jobs en Control-M y ausencia de ficheros nuevos en las carpetas de destino.</tipoValidacion>
+    <criterioAceptacion>La cadena se detiene en el filewatcher sin enviar datos parciales.</criterioAceptacion>
+    <posibilidadFallo>Si existiese una regla Acciones Si "código de retorno = 7 → marcar OK" no registrada en las capturas, la cadena terminaría en verde sin procesar nada.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

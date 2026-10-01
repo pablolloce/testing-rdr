@@ -34,6 +34,14 @@
   para la generación de `emisi.csv` (bloque SIRE).
 - User Daily `PLAN_1200` (bloque SW) y `PLAN_1300` (bloque SIRE) dados de alta y activos en el orquestador.
 
+- Credenciales de base de datos en `/<env>/kytl/online/multipais/multicanal/cfg/entorno` (argumento 7 de los jars de
+  extracción) y `credentials.xml` operativo en `/pr/kytl/online/multipais/multicanal/cfg/entorno/` (lo usan
+  `GSProcess.sh` y `executeBbvaEvent.sh`; si falta, ambos terminan con código 0 sin hacer nada).
+- Carpeta de salida `extracciongenerica/` y carpetas `Fircosoft/`, `sire_files/` y `sire_files/old/` con permisos de
+  escritura para `xakytl1p`/`xsramer1`; carpeta `/unload/transmisiones/RDR/` en `lpftp503` accesible para
+  `xsramer1`/`xtsftp1`.
+- Fichero `EventSireEmisi.properties` presente en el directorio de properties que indique `credentials.xml`.
+
 ## Roles y permisos
 
 - Grupo de soporte único para las 5 cadenas: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`), remedy ANS RDR.
@@ -47,8 +55,7 @@
 - **Nota (GAP-ADHOC-001, resuelto):** `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` son la generación real
   confirmada de `ExtraccionContingencia.xml`/`ThirdParties.xml` — confirmado con el contenido real de
   `ExtraccionGenericaCPTY.properties`/`ExtraccionGenericaTHIRDPARTIES.properties`
-  (`documentos_fuente/GAP-ADHOC-001_ExtraccionGenericaCPTY.properties` y
-  `.../GAP-ADHOC-001_ExtraccionGenericaTHIRDPARTIES.properties`): mismos jars, misma carpeta de salida, mismos
+  (contenido literal en la spec §1.1): mismos jars, misma carpeta de salida, mismos
   tipos que ya documentaba "Extracción Genérica de Contrapartidas". Cualquier prueba conjunta con ese proceso
   debe usar el horario real confirmado (01:00-01:05h diaria, 03:00-03:05h fin de semana), no el "00:05h"
   aproximado que aparecía en el documento fuente original de ese proceso.
@@ -60,6 +67,6 @@
   Control-M, `ctpda.csv` real, `executeBbvaEvent.sh` real, 5 fichas oficiales EX-005-03) que es hoy un canal de
   Emisiones, desacoplado técnicamente de las cadenas de Contrapartidas. El cierre se basa en evidencia
   estructural/técnica, no en inspección directa del contenido de `emisi.csv` (no disponible) — si en el futuro
-  se obtiene, comparar contra `documentos_fuente/GAP-ADHOC-004_ctpda.csv` para una confirmación de contenido.
+  se obtiene, comparar contra el `ctpda.csv` real (estructura de 29 columnas descrita en la spec §1.3) para una confirmación de contenido.
 - **Importante:** los jobs `MEKYTL0320`/`MEKYTL1216` están decomisados (Fircosoft) y `FICHERO_CPTDA`/`MEKYTL0071`
   también (SIRE) — ningún caso de prueba debe asumir su existencia en el entorno real.
