@@ -6,8 +6,8 @@
   `Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX`) deben existir en
   `/fichtemcomp/pr/descargas/kytl/issues/Baskets/Sponsors/{sponsor}/` antes de que Cadena 1 (05:45 AM) los
   procese. 7 de los 8 confirman como origen una extracción Mentor genérica ya transformada (ver `carga_sponsors_baskets_spec.md`
-  §8.2) — origen técnico exacto no identificado, fuera de alcance. `NASDAQ` es un 9º sponsor nominal pero
-  confirmado como deliberadamente inerte (ver `carga_sponsors_baskets_spec.md` §1/§4): cualquier fichero que se depositara en su
+  §9.2) — origen técnico exacto no identificado, fuera de alcance. `NASDAQ` es un 9º sponsor nominal pero
+  confirmado como deliberadamente inerte (ver `carga_sponsors_baskets_spec.md` §1/§5): cualquier fichero que se depositara en su
   ruta nunca se cargaría ni se historificaría.
 - Filas activas (`DATA_STAT_TYP='ACTIVE'`, `LAST_CHG_TMS < TRUNC(SYSDATE)`) en `FT_T_PAR1` con
   `PARAMETER_CTXT_TYP` = `BSKT_PREPROCESS`/`BSKT_SPLIT`/`BSKT_LOAD` según la fase a probar, y una fila
@@ -16,7 +16,7 @@
   `/fichtemcomp/pr/descargas/kytl/issues/Baskets/Sponsors/MANUAL/` — no hay proceso automático de generación
   documentado para esta vía.
 - Scripts reales `RDR_CargaBasketSponsor.sh`, `RDR_Sponsor_PreProcess.sh` y `RDR_SponsorSplit.sh` operativos
-  en `/{env}/kytl/online/multipais/multicanal/scrt/` — los 3 aportados y analizados (ver `carga_sponsors_baskets_spec.md` §5.2).
+  en `/{env}/kytl/online/multipais/multicanal/scrt/` — los 3 aportados y analizados (ver `carga_sponsors_baskets_spec.md` §6.2).
   **Importante:** `RDR_Sponsor_PreProcess.sh`, pese a su nombre genérico, está construido específicamente en
   torno al formato de fichero real de `MSCI` (ficheros `INDEX_FILE`/`COUNTRY_FILE`/`COMPONENTS_FILE`/
   `MIC_FILE` con posiciones de campo fijas, y cabecera literal `"MSCIHeader"` insertada en la salida) — no
@@ -31,8 +31,7 @@
   (05:00 AM) — todas L-M-X-J-V, servidor `pr-rdr.igrupobbva`.
 - Workflow GoldenSource `Auto_Load_Basket_Sponsors` (grupo `Custom/RDR/Fileloading/Issues/Baskets`) desplegado
   y en estado `RELEASED`. Segundo workflow real `Load_Baskets_Sponsors` (invocado por el script bajo el
-  nombre `RDR_CargaBasketSponsor`, vía un `.properties` no aportado — mismo patrón de nomenclatura ya visto
-  en otros procesos de esta sesión) también debe estar desplegado — confirmado con alta confianza por
+  nombre `RDR_CargaBasketSponsor`, con un `.properties` de entrada que el propio script crea y borra en cada ejecución) también debe estar desplegado — confirmado con alta confianza por
   evidencia cruzada.
 - Conectividad Connect:Direct/XCOM operativa entre `pr-rdr.igrupobbva` y `XCOMWPMER`, con acceso de escritura
   a `\\S00371F2\DATOS\TRANSFTP\MVP00G207\Mx3FRTB\SponsorETFsRDR\` (Cadena 3).
@@ -45,7 +44,7 @@
 
 - Usuario `xakytl1p`: ejecución de `RDR_AUTO_LOAD_BASKETS` (Cadena 1).
 - Usuario `root`: ejecución de los 9 jobs reales de Cadena 2 y del Dummy `MEKYTL0995` (confirmado con
-  `Workspace_584.xml`, `RUN_AS="root"`) — mismo patrón que otros usos de `RAMERC0068.sh` en esta sesión.
+  `Workspace_584.xml`, `RUN_AS="root"`)
 - Usuario de ejecución de `MEKYTL1176` (Cadena 3): no confirmado explícitamente en su ficha.
 - Grupo de soporte: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`) para las 3 cadenas.
 - Job/jar externo `AlertasBarrido.jar` (referenciado como `LAST_CHG_USR_ID` en el `INSERT` a

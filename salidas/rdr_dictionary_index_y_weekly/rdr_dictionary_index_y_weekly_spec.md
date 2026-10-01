@@ -9,7 +9,7 @@
 >   - `c8181f48-Cesion_de_diccionarios_de_mercados_e_indices_cadena_viva.docx` (análisis Fase 1)
 >   - `cf814fd3-Analisis_Planificador_Generico_RDR.docx` (motor upstream)
 >   - `684efc40-RDR_FIC_DAT_DICT_WEEKLY_SEND_new.zip` (fichas cadena semanal)
-> - Única cuestión abierta: protocolo de fallo de `RDRKYTL001` (sin confirmar por ANS RDR — ver §9)
+> - Cuestiones abiertas: protocolo de fallo de `RDRKYTL001` (sin confirmar por ANS RDR) y las preguntas P-DICT-01 a P-DICT-07 — ver §4 y §10
 
 ---
 
@@ -60,7 +60,7 @@ nunca lo detecta y la cadena para sin error.
 | R-05 | La query `DictionaryIndex.sql` debe seleccionar únicamente instrumentos con `iss_usage_typ='INDEX'` y `data_stat_typ='ACTIVE'` en ambas tablas (`FT_T_ISID` y `FT_T_ISSU`). | DictionaryIndex.sql | TC-01, TC-06 |
 | R-06 | `MEKYTL0860` debe enviar `DictionaryIndex.csv` (origen: `pr-rdr.igrupobbva`) a `lpemd501:/fichtemcomp/pr/descargas/emar/calypso/DictionaryIndex_YYYYMMDD.csv`. | MEKYTL0860, ficha cesión | TC-01, TC-07 |
 | R-07 | `MEKYTL0861` debe historificar ambos ficheros (`DictionaryIndex*.csv`) moviéndolos a `/fichtemcomp/pr/descargas/kytl/index/old/` con sufijo `_YYYYMMDD`, dejando el directorio origen vacío. | MEKYTL0861 | TC-01, TC-08 |
-| R-08 | Si el filewatcher no detecta el fichero antes de las 17:00, la cadena debe fallar y detenerse. | FW + respuesta usuario | TC-03 |
+| R-08 | Si el filewatcher no detecta el fichero antes de las 17:00 (`ctmfw` termina con código 7 = tiempo agotado), la cadena debe fallar y detenerse (respuesta del usuario; que no exista regla «7 → OK» está por confirmar, P-DICT-01). | FW + respuesta usuario | TC-03 |
 | R-09 | `MEKYTL0860` no puede fallar desde el lado del envío; cualquier problema de recepción es responsabilidad del sistema destino. | Respuesta usuario | TC-07 |
 | R-10 | Si `MEKYTL0861` falla y los ficheros quedan en origen, la siguiente ejecución del FW los detectará, causando una ejecución con datos obsoletos. Este escenario debe detectarse y resolverse manualmente antes del siguiente ciclo. | Respuesta usuario | TC-08 |
 | R-11 | La cadena semanal `RDR_FIC_DAT_DICT_WEEKLY_SEND_new` debe permanecer en estado dormido (FW para sin error si no hay fichero) mientras la extracción en el Planificador esté INACTIVA. | Respuesta usuario | TC-12 |
@@ -68,9 +68,34 @@ nunca lo detecta y la cadena para sin error.
 
 ---
 
-## 4. Especificación funcional
+## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
-### 4.1 Arquitectura del proceso (dos capas)
+**Respuestas obtenidas del usuario (pablo.llorente, 2026-09-17):**
+
+| Tema | Pregunta | Respuesta literal | Efecto en la spec |
+|---|---|---|---|
+| Cadena `RDR_FICHERO_DICCIONARIO_SEM` | ¿Forma parte del alcance? | Obsoleta (confirmado) | Excluida (§2) |
+| Fallo de la cadena diaria | ¿Qué ocurre si falla un job? | «La cadena falla y se para» | R-08, TC-03 |
+| Envío a destino (`MEKYTL0860`) | ¿Puede fallar? | «El envío no puede fallar; en todo caso fallará su recepción» | R-09, TC-07 |
+| Cadena semanal | ¿Por qué no hace nada? | «Seguramente lo haga el planificador genérico, lo que pasa que estará inactivo y no se esté generando» | R-11, §5.6 |
+
+**Preguntas pendientes (no están en ninguna fuente disponible; no se inventa la respuesta):**
+
+| Id | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-DICT-01 | Línea de comando completa de los filewatchers `RDR_DICTIONARY_INDEX_FW` (ventana 14:00-17:00) y `FIC_DAT_DICT_WEEKLY_SEND_FW` (06:00-06:30): `ctmfw '<fichero>' CREATE <min_size> <sleep_int> <mon_int> <min_detect> <wait_time en minutos>` y si tienen alguna regla «código 7 (tiempo agotado) → OK». | Si no hay regla 7→OK, el diario termina NOTOK al agotar la espera (lo que dice el usuario y R-08); con esa regla quedaría en verde sin procesar nada. Para el semanal, «para sin error» solo se explica si existe esa regla o si el job no llega a arrancar. |
+| P-DICT-02 | Contenido literal de `dictionaryIndex.properties` (`/pr/kytl/online/multipais/multicanal/dat/properties/`): ¿una sola acción `Script` `Cortar` o más? ¿lleva `StopScript=Ok`? ¿Usa `@@ENV@@` o `$ENV` (pregunta común P-GSP-01)? | Define qué pasa si `Cortar` falla y si el path `/fichtemcomp/pr/...` se resuelve bien. |
+| P-DICT-03 | Formato exacto de `DictionaryIndex_TOTAL.csv`: ¿lleva cabecera?, ¿separador `;`?, ¿cuántas columnas? La query seleccionada devuelve solo 4 columnas, en cuyo caso `Cortar 1-4` sería una copia idéntica. | Sin ello no se puede afirmar qué recorta `Cortar` ni qué recibe MADRE. |
+| P-DICT-04 | Configuración de `MEKYTL0860` (protocolo, usuario, qué hace si no hay fichero) y de `MEKYTL0861` (clave y línea del `INFORMACION_HISTORIFICACIONES.IDX` si usa `RAMERC0068.sh`; nombre exacto en `old/`, p. ej. `DictionaryIndex_20260917.csv` y `DictionaryIndex_TOTAL_20260917.csv`). | El nombre final en `old/` y el comportamiento sin fichero se infieren hoy de la ficha de forma resumida. |
+| P-DICT-05 | Margen real del Planificador: el motor corre cada 30-60 min y la extracción es a las 15:00:00; ¿qué hora real de creación del fichero se ha observado? (pregunta común P-PLA-03). | Determina si el fichero llega con holgura antes de las 17:00. |
+| P-DICT-06 | Cadena semanal: ¿qué extracción, con qué query y columnas, genera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`? ¿Quién lo recibe en `lpops302:/gl/in/staging/rdr/kytl`? ¿Se reactivará o se dará de baja? | Hoy no se puede describir su contenido; no se puede probar el envío. |
+| P-DICT-07 | Protocolo de actuación ante fallo de `RDRKYTL001` (`Cortar`/`GSProcess.sh dictionaryIndex`) — sin confirmar por ANS RDR (BZG03906). | Sin él no se sabe cómo recuperar `DictionaryIndex.csv` (ver §9). |
+
+---
+
+## 5. Especificación funcional
+
+### 5.1 Arquitectura del proceso (dos capas)
 
 ```
 [Planificador Genérico — RDR_SW_PLANIFICADOR_new]
@@ -90,9 +115,14 @@ nunca lo detecta y la cadena para sin error.
   Job 4: MEKYTL0861 → historifica DictionaryIndex*.csv → /old/_YYYYMMDD
 ```
 
-### 4.2 Generación por el Planificador (`DictionaryIndex_TOTAL.csv`)
+### 5.2 Generación por el Planificador (`DictionaryIndex_TOTAL.csv`)
 
-`DictionaryIndex.sql` ejecuta:
+Es la fila 16 del inventario de extracciones activas del Planificador Genérico (ver
+`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`, §5): `ACT1_OID`
+`0322050B4`, script `DictionaryIndex.sql`, fichero de salida
+`/fichtemcomp/pr/descargas/kytl/index/DictionaryIndex_TOTAL.csv`, días L-V, hora 15:00:00. El
+motor Java lo ejecuta contra la base de datos de GoldenSource (esquema `KYTL_GC`) y escribe el
+CSV. Según el análisis de la Fase 1, `DictionaryIndex.sql` ejecuta:
 ```sql
 SELECT DISTINCT
     trim(isid.id_ctxt_typ)   AS IDENTIFIER_TYPE,
@@ -114,13 +144,24 @@ Un resultado vacío (0 filas) no está previsto en condiciones normales dado que
 siempre contiene datos de diccionario; si se produjera indicaría un error en la query o en
 los filtros, no un resultado válido (ver TC-11 para el caso de extracción INACTIVE).
 
-### 4.3 Recorte y generación de `DictionaryIndex.csv`
+### 5.3 Recorte y generación de `DictionaryIndex.csv`
 
 `RDRKYTL001` en la cadena ejecuta `GSProcess.sh dictionaryIndex`, cuyo properties define
 una acción `Script` con el script `Cortar`:
 - Entrada: `DictionaryIndex_TOTAL.csv`
 - Salida: `DictionaryIndex.csv`
 - Parámetro `ArgScri3=1-4` — extrae las columnas/sección 1-4 del TOTAL
+
+Cómo funciona exactamente (según los componentes comunes `GSProcess.sh` y `Generico.sh`): el job
+ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh dictionaryIndex`, que lee
+`/pr/kytl/online/multipais/multicanal/dat/properties/dictionaryIndex.properties` y para la acción
+`Script` llama a `Generico.sh Cortar <ruta>/DictionaryIndex_TOTAL.csv <ruta>/DictionaryIndex.csv 1-4`.
+`Cortar` hace un `cut` de las columnas 1-4 (separador `;`) y **añade** (`>>`) el resultado al
+fichero de salida: si `DictionaryIndex.csv` ya existía (por ejemplo, porque la historificación
+del día anterior falló), el fichero acaba con las filas de los dos días. Su código de salida es el
+de `cut`. `GSProcess.sh` sale con 1 si alguna acción falló y con 0 si todas terminaron con 0;
+si falta `credentials.xml` sale con 0 sin hacer nada (defecto conocido del componente común). El
+contenido literal del `.properties` no se ha recibido (P-DICT-02).
 
 `DictionaryIndex.csv` es el fichero enviado a Calypso. `DictionaryIndex_TOTAL.csv` permanece
 en el directorio origen hasta que `MEKYTL0861` lo historifica.
@@ -131,20 +172,21 @@ en el directorio origen hasta que `MEKYTL0861` lo historifica.
 > inconsistentes. Recomendación: confirmar con ANS RDR (BZG03906) el circuito de actuación
 > antes del paso a producción (ver §9 — Riesgos).
 
-### 4.4 Envío a Calypso (`MEKYTL0860`)
+### 5.4 Envío a Calypso (`MEKYTL0860`)
 
 Transferencia nativa (no script): envía `DictionaryIndex.csv` desde
 `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/index/` hacia
 `lpemd501:/fichtemcomp/pr/descargas/emar/calypso/DictionaryIndex_YYYYMMDD.csv`.
 Calypso usa este fichero como diccionario de traducción de códigos de índice para el cierre
-diario. Contacto destino: `madre-soporte@bbva.com`.
+diario: cada fila indica que el identificador `SYSVAL` del tipo `IDENTIFIER_TYPE` en el sistema
+`SYSNAME` corresponde al identificador canónico RDR `CANVAL`. Contacto destino: `madre-soporte@bbva.com`.
 
 El envío en sí no puede fallar desde el lado de RDR; cualquier problema de recepción o
 procesamiento es responsabilidad del sistema destino (MADRE/Calypso). Si el job termina
 NOTOK, la causa estará en la conectividad o permisos en `lpemd501`, no en la integridad
 del fichero enviado (ver TC-07).
 
-### 4.5 Historificación (`MEKYTL0861`)
+### 5.5 Historificación (`MEKYTL0861`)
 
 Mueve (no copia) ambos ficheros (`DictionaryIndex*.csv`) desde el directorio origen hacia
 `/fichtemcomp/pr/descargas/kytl/index/old/`, renombrando con sufijo `_YYYYMMDD` (ODATE).
@@ -153,9 +195,11 @@ Tras este job, el directorio origen queda vacío para el siguiente ciclo.
 Si este job falla y los ficheros quedan en `/index/`, el FW del día siguiente los detectará
 nada más abrirse la ventana y lanzará la cadena con datos del día anterior — antes de que el
 Planificador genere el fichero actualizado. Este escenario requiere intervención manual
-antes del siguiente ciclo (ver TC-08 y §9 — Riesgos).
+antes del siguiente ciclo (ver TC-08 y §9 — Riesgos). Además, como `Cortar` añade al fichero de
+salida (§5.3), el `DictionaryIndex.csv` residual del día anterior recibiría las filas del nuevo
+ciclo a continuación y MADRE recibiría un fichero con filas duplicadas y obsoletas.
 
-### 4.6 Cadena semanal (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`) — estado dormido
+### 5.6 Cadena semanal (`RDR_FIC_DAT_DICT_WEEKLY_SEND_new`) — estado dormido
 
 - `FIC_DAT_DICT_WEEKLY_SEND_FW`: filewatcher sobre `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario`,
   espera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`, ventana semanal 06:00-06:30.
@@ -166,7 +210,7 @@ antes del siguiente ciclo (ver TC-08 y §9 — Riesgos).
 
 ---
 
-## 5. Especificación técnica
+## 6. Especificación técnica
 
 | Elemento | Cadena diaria | Cadena semanal |
 |---|---|---|
@@ -180,11 +224,13 @@ antes del siguiente ciclo (ver TC-08 y §9 — Riesgos).
 | Fichero trigger | `DictionaryIndex_TOTAL.csv` (generado por Planificador a 15:00) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` (no generado, Planificador INACTIVO) |
 | Fichero enviado a destino | `DictionaryIndex_YYYYMMDD.csv` → `lpemd501` (Calypso) | `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` → `lpops302` (sistema no identificado) |
 | Ruta directorio trabajo | `/fichtemcomp/pr/descargas/kytl/index/` | `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario/` |
+| Comando de los filewatchers | `ctmfw '/fichtemcomp/pr/descargas/kytl/index/DictionaryIndex_TOTAL.csv' CREATE …` — parámetros y reglas sobre el código 7 no recibidos (P-DICT-01) | `ctmfw` sobre `/fichtemcomp/pr/descargas/kytl/FicheroDiccionario/FicheroDiccionarioRDR_semanal_yyyyMMdd.csv` — parámetros no recibidos (P-DICT-01) |
+| Cómo saber si fue bien | Los 4 jobs en OK en Control-M; `DictionaryIndex_YYYYMMDD.csv` presente en `lpemd501`; `index/` vacío y ficheros del día en `index/old/` | FW terminado sin que se ejecute `MEKYTL0876` (estado normal mientras esté dormida) |
 | Ruta backup/histórico | `/fichtemcomp/pr/descargas/kytl/index/old/` | N/A (no hay job de historificación en esta cadena) |
 
 ---
 
-## 6. Especificación de testing
+## 7. Especificación de testing
 
 Las pruebas se ejecutarán en los entornos previos existentes (DE/PP) con réplica de las tablas
 `FT_T_ISID`, `FT_T_ISSU` y las tablas de configuración del Planificador (`FT_T_ATE1`,
@@ -223,7 +269,7 @@ el envío a `lpops302` hasta que la extracción se reactive en el Planificador.
 
 ---
 
-## 7. Trazabilidad requisito ↔ caso de prueba
+## 8. Validaciones de casos de prueba (trazabilidad requisito ↔ caso de prueba)
 
 | Requisito | Qué garantiza el caso | Casos de prueba |
 |---|---|---|
@@ -242,7 +288,7 @@ el envío a `lpops302` hasta que la extracción se reactive en el Planificador.
 
 ---
 
-## 8. Riesgos, duplicidades y escenarios de fallo
+## 9. Riesgos, duplicidades y escenarios de fallo
 
 - **Riesgo alto — Fallo de `MEKYTL0861` con efecto en D+1:** Si la historificación falla y los
   ficheros quedan en `/index/`, el FW del día siguiente los detecta inmediatamente al abrirse la
@@ -262,26 +308,26 @@ el envío a `lpops302` hasta que la extracción se reactive en el Planificador.
   directamente, pero es relevante si otros procesos del Planificador generan XML.
 - **Riesgo bajo — Inyección SQL en el Planificador:** La sustitución de parámetros usa
   `String.replace()` sin PreparedStatement. `DictionaryIndex.sql` no tiene parámetros
-  (`FT_T_PAR1`) por lo que no está afectado, pero otros procesos del Planificador sí. Ver
-  `memoria/memoria_planificador_generico_RDR.md §5`.
+  (`FT_T_PAR1`) por lo que no está afectado, pero otros procesos del Planificador sí (detalle
+  del motor en `salidas/comun_planificador_generico/comun_planificador_generico_spec.md`).
 
 ---
 
-## 9. Conclusión y requisitos de cierre
+## 10. Conclusión y requisitos de cierre
 
-Esta especificación **puede considerarse cerrada** salvo el único punto pendiente de confirmación:
+Esta especificación **puede considerarse cerrada** salvo el punto pendiente de confirmación con ANS RDR y las preguntas de §4:
 
 > **Protocolo de fallo de `RDRKYTL001` (script Cortar / dictionaryIndex) — pendiente de confirmar:**
 > No está documentado qué hacer si este job falla. La recomendación es adoptar el mismo
 > circuito que los jobs bien documentados de la cadena (notificar ANS RDR BZG03906 +
 > `ans_rdr.es@bbva.com` + ticket Remedy ANS RDR), pero debe confirmarse explícitamente
-> con el grupo de soporte antes de usarse como referencia operativa (ver §4.3 y §8).
+> con el grupo de soporte antes de usarse como referencia operativa (ver §5.3 y §9).
 
 Todos los demás requisitos tienen validación asociada, casos de prueba definidos con resultado
 esperado verificable, y los comportamientos de error/duplicidad/borde están cubiertos. La cadena
-semanal está documentada en su estado real (dormida) y el Planificador Genérico queda registrado
-en memoria compartida (`memoria/memoria_planificador_generico_RDR.md`) para reutilización en
-futuros análisis de procesos dependientes.
+semanal está documentada en su estado real (dormida) y el motor Planificador Genérico se describe
+en su spec común (`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`).
+Las preguntas P-DICT-01 a P-DICT-07 de §4 siguen sin respuesta en ninguna fuente disponible.
 
 Los prerrequisitos completos se encuentran en `rdr_dictionary_index_y_weekly_prerrequisitos.md`.
 Los casos de prueba detallados (precondiciones, pasos, datos sintéticos, resultado esperado)

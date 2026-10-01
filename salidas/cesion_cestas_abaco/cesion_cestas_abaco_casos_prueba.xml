@@ -58,11 +58,11 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">No depositar ningún fichero nocturno.</paso>
-      <paso numero="2">Esperar hasta las 02:30 (fin de ventana, último ciclo del FW).</paso>
+      <paso numero="2">Esperar a un ciclo del FW (cada ejecución de ctmfw CREATE 0 60 10 5 1 espera 1 minuto como máximo; Control-M lo relanza cada 10 minutos hasta las 02:30).</paso>
       <paso numero="3">Verificar el código de retorno OS y el estado final de RDR_BASKETS_ABACO_NOC_FW.</paso>
       <paso numero="4">Verificar si RDR_ABACO_GSPROCESS se ejecuta a continuación.</paso>
     </pasos>
-    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW retorna código OS 7 (fichero no encontrado); Control-M lo marca como OK (soft-failure); RDR_ABACO_GSPROCESS se ejecuta igualmente; se emite alerta W a ans_rdr.es@bbva.com.</resultadoEsperado>
+    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW retorna código OS 7 (tiempo agotado tras 1 minuto sin fichero); Control-M lo marca como OK (soft-failure); RDR_ABACO_GSPROCESS se ejecuta igualmente y, al no existir el fichero, es previsible que Cortar falle y el job termine en KO real con alerta W a ans_rdr.es@bbva.com (deducción del código de Generico.sh/GSProcess.sh, pendiente de confirmar en producción: P-ABACO-03).</resultadoEsperado>
     <tipoValidacion>Código de retorno del job + estado final en Control-M (Planning/Monitoring) + verificación de correo de alerta + estado de RDR_ABACO_GSPROCESS.</tipoValidacion>
     <criterioAceptacion>Job marcado OK pese al código 7, cadena continúa (DEF-BASK-001 documentado), alerta recibida.</criterioAceptacion>
     <posibilidadFallo>Resultado esperado y correcto según el comportamiento real observado; si la cadena se detuviera realmente, el caso indicaría un cambio de configuración respecto a la evidencia capturada (habría que re-verificar DEF-BASK-001).</posibilidadFallo>

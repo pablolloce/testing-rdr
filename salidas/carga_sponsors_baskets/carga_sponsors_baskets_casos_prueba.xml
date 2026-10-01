@@ -171,7 +171,7 @@
     <resultadoEsperado>Control-M muestra OK pese al fallo real subyacente — el enmascaramiento es por diseño, no un error de configuración.</resultadoEsperado>
     <tipoValidacion>Contraste entre el estado de Control-M y el log real del script.</tipoValidacion>
     <criterioAceptacion>Estado OK en Control-M confirmado pese al fallo real forzado.</criterioAceptacion>
-    <posibilidadFallo>Si el job muestra KO pese a la configuración, revisar si el "Forzar OK" está realmente activo en el entorno probado.</posibilidadFallo>
+    <posibilidadFallo>Si el job muestra KO pese a la configuración, revisar si el "Forzar OK" está realmente activo en el entorno probado: la ficha lo indica, pero el export de Control-M de la cadena no contiene ninguna regla ON/DO (P-SPBK-04), así que este resultado sería un hallazgo y no un error de la prueba.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="conflicto_integridad">
@@ -203,7 +203,7 @@
       <dato campo="Jobs esperados" valor="2 (Cadena 1) + 11 (Cadena 2) + 1 (Cadena 3) = 14 pasos"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Confirmar que cada folder contiene exactamente los jobs documentados en carga_sponsors_baskets_spec.md §6.</paso>
+      <paso numero="1">Confirmar que cada folder contiene exactamente los jobs documentados en carga_sponsors_baskets_spec.md §6 (Especificación técnica).</paso>
       <paso numero="2">Confirmar que ningún job nuevo se ha añadido a ninguna de las 3 cadenas.</paso>
       <paso numero="3">Confirmar que criticidad (W) y periodicidad (L-M-X-J-V) se mantienen sin cambios.</paso>
     </pasos>
@@ -248,7 +248,7 @@
       <paso numero="2">Consultar TABLEALERTGENER para el ALD1_OID de tipo EXCELROW.</paso>
       <paso numero="3">Verificar el formato exacto del campo MENSAJE (pipe-delimited: fileType, sponsor, indexId, tipoError, mensajeError, basketIdentifier, published).</paso>
     </pasos>
-    <resultadoEsperado>Registro presente en TABLEALERTGENER con el formato exacto documentado en el workflow real.</resultadoEsperado>
+    <resultadoEsperado>Registro presente en TABLEALERTGENER con el formato exacto documentado en el workflow real: PROCESO='CARGA_BASKETS_SPONSORS', TIPO='CELDAEXCEL', PROCESADO='N', DATA_STAT_TYP='ACTIVE', LAST_CHG_USR_ID='AlertasBarrido.jar' y MENSAJE del tipo '|OPEN|(sponsor)|(índice)|ERROR PLATAFORMA|No ha sido recibido el fichero (X) para cargar el índice (Y)|(índice)|0' (o ERROR TÉCNICO RDR según la fase). La fila queda sin procesar hasta que un proceso de alertas la recoja (P-SPBK-05); no se espera correo en esta prueba.</resultadoEsperado>
     <tipoValidacion>Consulta SQL directa a TABLEALERTGENER tras la ejecución.</tipoValidacion>
     <criterioAceptacion>Registro presente, con formato y campos coherentes con la query real del workflow.</criterioAceptacion>
     <posibilidadFallo>Ausencia de registro, o formato distinto al documentado, indicaría un cambio no reflejado en esta especificación.</posibilidadFallo>

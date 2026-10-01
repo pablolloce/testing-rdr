@@ -16,7 +16,7 @@ Las secciones 1.1 a 1.6 siguientes explican la ejecución completa del proceso, 
 ### 1.1 Ciclo de vida del dato (de Murex3 a ABACO)
 
 ```
- MUREX3 (fuera de alcance)
+ PLANIFICADOR GENÉRICO (fuera de esta cadena; fila 15, BASKETS_TO_ABACO.sql, martes-sábado 00:00)
       │  deja el fichero antes de las 00:10
       ▼
  Baskets_to_ABACO_Extr_Generica_Nocturna.csv   (crudo, ≥11 columnas)
@@ -57,7 +57,7 @@ Los ficheros originales `Baskets_to_ABACO_*.txt` consumidos por `UNIFICACION_FIC
 
 **Tramo A — Cadena nocturna (`KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new`), ventana 00:10-02:30, L-V**
 
-**Paso A0 (fuera de alcance).** Antes de las 00:10, Murex3 deposita `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` (servidor `pr-rdr.igrupobbva`). El mecanismo exacto de esa extracción no está documentado (ver riesgo 5, sección 9).
+**Paso A0 (fuera de la cadena: lo hace el Planificador Genérico).** Esta cadena **no ejecuta ninguna query ni genera el fichero**: lo crea el *Planificador Genérico* (motor Java que ejecuta las queries registradas en `FT_T_ATE1`/`FT_T_QPF1`; ver `salidas/comun_planificador_generico/comun_planificador_generico_spec.md`). Es la fila 15 de su inventario de extracciones activas: `ACT1_OID` `02F1D8B62`, script `BASKETS_TO_ABACO.sql`, fichero de salida `issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv` (bajo `/fichtemcomp/pr/descargas/kytl/`, servidor `pr-rdr.igrupobbva`), días **martes a sábado**, hora **00:00:00**. Los datos de las cestas proceden de Murex3 (donde se dan de alta), pero el CSV lo produce esa query sobre la base de datos de RDR; el texto de la query no se ha aportado (P-ABACO-01). Como el Planificador corre martes-sábado y la cadena nocturna lunes-viernes, el fichero generado el sábado a las 00:00 lo recoge la cadena el lunes a las 00:10 (el sábado no corre la cadena); el lunes a las 00:00 no se genera ninguno (deducción de los calendarios; ver P-ABACO-02).
 
 **Paso A1 — `RDR_BASKETS_ABACO_NOCTURNA_IN`.**
 - Control-M: job Dummy, sin script, disparador inicial del día.
@@ -66,8 +66,9 @@ Los ficheros originales `Baskets_to_ABACO_*.txt` consumidos por `UNIFICACION_FIC
 **Paso A2 — `RDR_BASKETS_ABACO_NOC_FW`.**
 - Control-M: `ctmfw`, usuario `xpctlma1`, ventana "Lanzado entre 12:10 AM y 02:30 AM", relanzamiento cíclico cada 10 min "desde Fin del job". Prerrequisito: `RDR_BASKETS_ABACO_NOCTURNA_IN_OK_new` **O** `RDR_BASKETS_ABACO_NOCTURNA_RDR_MV_FICH_ABACO_OK_new` (este segundo evento lo emite el propio Paso A3 al terminar, permitiendo un nuevo barrido dentro de la ventana). Recurso: `MAX-LPRDR501` (1/100).
 - Comando exacto: `ctmfw '/fichtemcomp/pr/descargas/kytl/issues/Baskets/Baskets_to_ABACO_Extr_Generica_Nocturna.csv' CREATE 0 60 10 5 1`.
+- Parámetros de `ctmfw`: `CREATE 0 60 10 5 1` = tamaño mínimo 0 bytes; busca el fichero cada 60 s; una vez encontrado, mide su tamaño cada 10 s y lo da por completo tras 5 mediciones iguales; `wait_time` = **1 minuto**, es decir, en la práctica **una sola comprobación**: si el fichero no está ya, termina con código 7 (tiempo agotado) al cabo de 1 minuto. La «ventana» 00:10-02:30 no la da `ctmfw` sino el relanzamiento cíclico de Control-M cada 10 minutos.
 - **Si detecta el fichero (código de retorno OS = 0):** agrega el evento `..._NOC_FW_OK_new`; elimina `..._NOCTURNA_IN_OK_new` y `..._RDR_MV_FICH_ABACO_OK_new`. Continúa al Paso A3.
-- **Si no lo detecta dentro del timeout (código de retorno OS = 7):** Control-M lo **marca como OK igualmente** (soft-failure específico de este código) y la cadena **continúa** hacia el Paso A3, aunque no haya fichero nuevo que procesar — comportamiento As-Is que contradice el requisito funcional de "parar la cadena" (ver DEF-BASK-001, sección 9).
+- **Si no lo detecta en ese minuto (código de retorno OS = 7):** hay una regla «7 → OK»: Control-M lo **marca como OK igualmente** (soft-failure específico de este código) y la cadena **continúa** hacia el Paso A3, aunque no haya fichero que procesar — comportamiento As-Is que contradice el requisito funcional de "parar la cadena si a las 02:30 no ha llegado" (ver DEF-BASK-001, sección 9). Consecuencia deducida del código (no observada en producción, P-ABACO-03): en ese caso el Paso A3 ejecuta `Cortar` sobre un fichero que no existe, `cut` devuelve error, `GSProcess.sh` suma un error y el job termina con `exit 1` (KO real con alerta W).
 
 **Paso A3 — `RDR_ABACO_GSPROCESS`.**
 - Control-M: `GSProcess.sh cortarFicheroCestasAbaco` (PARM1), usuario `xakytl1p`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`. Prerrequisito: `..._NOC_FW_OK_new`. Recurso: `MAX-LPRDR501` (1/100). Sin acción On-Do (un fallo real produce un KO real del job).
@@ -89,7 +90,8 @@ Los ficheros originales `Baskets_to_ABACO_*.txt` consumidos por `UNIFICACION_FIC
 - Control-M: `ctmfw`, usuario `xpctlma1`, ventana hasta las 11:40 AM, relanzamiento cíclico cada 10 min "desde Iniciar del job". Prerrequisito: `RDR_BASKETS_ABACO_IN_OK_new`. Recurso: `MAX-LPRDR501` (1/100).
 - Comando exacto: `ctmfw '/fichtemcomp/pr/descargas/kytl/issues/Baskets/Baskets_to_ABACO_*.txt' CREATE 0 60 10 5 1`.
 - **Con fichero(s) pendientes (código 0):** agrega `..._RDR_BASKETS_ABACO_FW_OK_new`; elimina `IN_OK_new`. Continúa al Paso B3.
-- **Sin ficheros pendientes (código 7):** Control-M lo marca como OK (soft-failure); no se dispara `UNIFICACION_FICHEROS_ABACO` en este ciclo; se repite 10 minutos después.
+- Parámetros de `ctmfw`: `CREATE 0 60 10 5 1` — igual que el nocturno, `wait_time` de **1 minuto** (una sola comprobación; se muestra con comodín, así que basta con que algún `Baskets_to_ABACO_*.txt` esté completo).
+- **Sin ficheros pendientes (código 7, tiempo agotado tras 1 minuto):** Control-M lo marca como OK (regla «7 → OK»); no se dispara `UNIFICACION_FICHEROS_ABACO` en este ciclo (según las capturas de Control-M; contrasta con el comportamiento del nocturno, P-ABACO-03); se repite 10 minutos después.
 
 **Paso B3 — `UNIFICACION_FICHEROS_ABACO`.**
 - Control-M: `UnificacionFicherosAbaco.sh`, usuario `xakytl1p`. Prerrequisito: `..._FW_OK_new`. Recurso: `MAX-LPRDR501` (1/100). Sin On-Do (fallo real detiene la cadena).
@@ -162,7 +164,7 @@ Patrón de nomenclatura: `RDR_<CADENA>_<JOB>_OK_new`. Un ciclo completo emite y 
 
 | Paso | Escenario | Comportamiento real | Efecto en la cadena |
 |------|-----------|----------------------|----------------------|
-| A2 (`NOC_FW`) | Fichero nocturno no llega a las 02:30 | Código OS 7 → **Marcar como OK** (soft-failure) | La cadena **continúa** hacia `RDR_ABACO_GSPROCESS` (DEF-BASK-001) pese al requisito de "parar la cadena" |
+| A2 (`NOC_FW`) | Fichero nocturno no está en la comprobación (`wait_time` 1 min, cada 10 min hasta las 02:30) | Código OS 7 → **Marcar como OK** (soft-failure) | La cadena **continúa** hacia `RDR_ABACO_GSPROCESS` (DEF-BASK-001) pese al requisito de "parar la cadena"; allí `Cortar` fallaría por falta de fichero (deducción, P-ABACO-03) |
 | A3 (`GSPROCESS`) | Fallo real en `Cortar`/`MoverFichero` | Sin On-Do; `.properties` sin `Stop` — los pasos siguientes no se frenan automáticamente, pero el job termina en KO si `$Errores>0` | Cadena nocturna se detiene realmente; no se genera el `.txt` para la cíclica |
 | B2 (`FW` cíclico) | Sin ficheros `Baskets_to_ABACO_*.txt` pendientes | Código OS 7 → Marcar como OK (soft-failure) | Ciclo vacío, normal; no hay unificación ni envío ese ciclo |
 | B3 (`UNIFICACION`) | Fallo real (p. ej. permisos en `Backup/Abaco/`) | Sin On-Do | Cadena se detiene realmente; `MEKYTL0851`/`MEKYTL0855` no se ejecutan |
@@ -192,7 +194,7 @@ Nótese que `MEKYTL0851` es el único job **creado por un usuario distinto** (`x
 ### 1.8 Lógica interna exacta de cada script (comandos literales)
 
 **`RDR_ABACO_GSPROCESS` → `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh cortarFicheroCestasAbaco`**
-Motor `GSProcess.sh`: lee `$CONF/cortarFicheroCestasAbaco.properties` línea a línea, acumula pares clave=valor hasta encontrar `Accion=`, y despacha según los 4 primeros caracteres del valor. Con el contenido real del `.properties` (ver `documentos_fuente/GAP-BASK-003_cortarFicheroCestasAbaco.properties`), el despacho es:
+Motor `GSProcess.sh`: lee `$CONF/cortarFicheroCestasAbaco.properties` línea a línea, acumula pares clave=valor hasta encontrar `Accion=`, y despacha según los 4 primeros caracteres del valor. Con el contenido real del `.properties` (literal en §6.3), el despacho es:
 ```
 Accion=VariablesGlobales  → Vari()   → MOD_EJECUCION=cortarFicheroCestasAbaco ; Servicio=cortarFicheroCestasAbaco
 Accion=Script (Cortar)    → Scripts() → Generico.sh Cortar \
@@ -251,7 +253,7 @@ case OPERACION in
        ;;
 esac
 ```
-Tabla de exit codes reales del script (cabecera + `case` de operaciones, código fuente completo en `documentos_fuente/GAP-BASK-002_RAMERC0068.sh`):
+Tabla de exit codes reales del script (cabecera + `case` de operaciones, código fuente analizado completo):
 
 | Código | Causa |
 |--------|-------|
@@ -283,7 +285,7 @@ La pestaña **Estadísticas** de ese mismo job confirma ejecuciones sucesivas in
 
 * **Ámbito funcional:** distribución del catálogo de cestas (`BASKET`) y sus componentes (`COMPONENT`) desde Murex3 hacia ABACO (Mainframe), tanto en modo alta/modificación (on-line, cíclico) como en modo revisión de bajas (batch, nocturno).
 * **Ámbito técnico:** dos cadenas Control-M — `KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new` (3 jobs) y `KYTL0000-RDR_BASKETS_ABACO_new` (5 jobs) — ejecutadas en `pr-rdr.igrupobbva` (server MERCADOS-4, nodos `lprdr501`/`lprdr602`), con destino final `vdrcdexp-anycast.igrupobbva` vía Connect:Direct.
-* **Fuera de alcance:** la extracción/query real que genera `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` desde Murex3 (no documentada, ver riesgo 6); el consumo/interpretación del fichero en ABACO/Murex3 una vez recibido.
+* **Fuera de alcance:** la query `BASKETS_TO_ABACO.sql` que genera `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` (la ejecuta el Planificador Genérico, no esta cadena; texto no aportado, P-ABACO-01) y quién deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` del ciclo intradía (P-ABACO-04); el consumo/interpretación del fichero en ABACO/Murex3 una vez recibido.
 
 ## 3. Requisitos detectados
 
@@ -302,9 +304,9 @@ La pestaña **Estadísticas** de ese mismo job confirma ejecuciones sucesivas in
 | R11 | La cadena cíclica (`RDR_BASKETS_ABACO_new`) procesa **altas y modificaciones**; la cadena nocturna (`RDR_BASKETS_ABACO_NOCTURNA_new`) revisa el estado de las cestas para procesar **bajas**. |
 | R12 | El fichero de intercambio es un único fichero de texto plano **desnormalizado**, delimitado por `;`: una fila = un componente, con los campos de la cesta contenedora repetidos en cada fila. |
 
-## 4. Gaps identificados y resolución
+## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
-Resumen de las decisiones y evidencias que reemplazan supuestos iniciales (respuestas literales y evidencia conservadas en `memoria/memoria_spec_intake_formatter.md`):
+Resumen de las decisiones y evidencias que reemplazan supuestos iniciales (las respuestas del usuario se transcriben en cada punto):
 
 - **GAP-BASK-001 (cadena cíclica) — resuelto con 35 capturas reales de Control-M.** La cadena cíclica tiene 5 jobs, no los documentados originalmente: `RDR_BASKETS_ABACO_IN` → `RDR_BASKETS_ABACO_FW` → `UNIFICACION_FICHEROS_ABACO` → `MEKYTL0851` → `MEKYTL0855`, con `MEKYTL0855` re-añadiendo el evento `RDR_BASKETS_ABACO_IN_OK_new` al finalizar, cerrando el bucle cada 10 minutos. `UNIFICACION_FICHEROS_ABACO`, `MEKYTL0851` y `MEKYTL0855` pertenecen **exclusivamente** a la cadena cíclica, no a la nocturna. El enlace entre ambas cadenas es un **fichero** (no un evento de Control-M): `GSProcess.sh` deja el fichero nocturno recortado con el patrón `Baskets_to_ABACO_*.txt`.
 - **GAP-BASK-002 (operación de MEKYTL0855) — resuelto por deducción lógica del código real de `RAMERC0068.sh`.** `UnificacionFicherosAbaco.sh` anexa (`>>`) a `FicheroUnificado.txt` sin truncarlo al inicio; la única forma de que el pipeline no duplique datos cada 10 minutos es que `MEKYTL0855` use la operación **M (mover)**, no C (copiar) como especulaba el análisis técnico original.
@@ -318,6 +320,21 @@ Resumen de las decisiones y evidencias que reemplazan supuestos iniciales (respu
 - **GAP-BASK-011 (posible doble historificación en MEKYTL0851) — resuelto con captura real de la pestaña Salida.** `RUTA_HISTORIFICACION` está vacía en el `.idx` real de `MEKYTL0851`: `MEGENV0001.sh` no archiva el fichero por su cuenta, evitando colisión con `MEKYTL0855`. Protocolo real confirmado: `CD` (Connect:Direct), no XCOM.
 - **Decisión crítica — `RDR_BASKETS_ABACO_NOC_FW`.** La ficha funcional pide "parar la cadena y reportar" si el fichero nocturno no llega a las 02:30, pero Control-M real aplica soft-failure (código 7 → OK) y la cadena continúa. **Se documenta el comportamiento As-Is como el válido** (ver R1 y sección 6), y se registra **DEF-BASK-001** (sección 9) para que ANS RDR evalúe si debe eliminarse esa acción On-Do.
 - **GAP-BASK-003 (contenido real del `.properties cortarFicheroCestasAbaco`) — resuelto con el fichero `.properties` real.** `GSProcess.sh` ejecuta 3 pasos `Accion=Script` sobre `/fichtemcomp/<env>/descargas/kytl/issues/Baskets/`: (1) `NomScript=Cortar` sobre `Baskets_to_ABACO_Extr_Generica_Nocturna.csv`, con `ArgScri3=1-11` (recorte a las columnas 1-11), generando `Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv`; (2) `NomScript=MoverFichero` que sobrescribe el `.csv` original con la versión recortada (`_2.csv` → `.csv`); (3) `NomScript=MoverFichero` que renombra el `.csv` recortado a `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`. El resultado neto — `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`, con solo los 11 campos del diccionario (sección 5) — cumple exactamente el patrón `Baskets_to_ABACO_*.txt` que vigila `RDR_BASKETS_ABACO_FW`.
+
+
+**Respuestas del usuario:** GAP-BASK-005, 006, 007 y 009 los confirmó el usuario (clave de negocio, ausencia de validación de `WEIGHT`, enum de `STATUS`, riesgo de duplicación); el resto se resolvió con evidencia (capturas de Control-M, código de los scripts, ficha funcional).
+
+**Preguntas pendientes (no están en ninguna fuente disponible; no se inventa la respuesta):**
+
+| Id | Pregunta | Por qué importa |
+|----|----------|-----------------|
+| P-ABACO-01 | Texto de la query `BASKETS_TO_ABACO.sql` (fila 15 del Planificador Genérico): qué tablas lee, qué filtra, cómo calcula `WEIGHT`, si añade columnas más allá de las 11 (el recorte `1-11` sugiere que el CSV crudo trae más). | Es lo que define el contenido del fichero que ve ABACO; sin ella no se puede probar de extremo a extremo. |
+| P-ABACO-02 | ¿Qué hora real de creación tiene el fichero de cada noche? El Planificador corre cada 30-60 min y su comparación horaria con `00:00:00` no está confirmada (pregunta común P-PLA-03). ¿Se confirma que el lunes a las 00:10 se procesa el fichero del sábado? | Determina si llega dentro de la ventana 00:10-02:30. |
+| P-ABACO-03 | Comportamiento real cuando `NOC_FW` termina con 7: ¿la regla «7 → OK» emite el evento `..._NOC_FW_OK_new` (como indica la spec) y por tanto `RDR_ABACO_GSPROCESS` se ejecuta y falla en `Cortar` por falta de fichero? Para `RDR_BASKETS_ABACO_FW` las capturas dicen que no se dispara la unificación; ¿por qué difiere? | Decide si cada noche sin fichero genera un KO con alerta o un OK silencioso. |
+| P-ABACO-04 | ¿Quién y cuándo deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` durante el día (altas/modificaciones)? ¿Con cabecera `BASKET_CODE;…;FULL_NAME;`? | Es el disparador real de la cadena cíclica. |
+| P-ABACO-05 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL0855` (directorio, máscara, tipo de renombrado `FicheroUnificadoDDMMYYYY_hh:mm:ss.txt`, «falla si no hay fichero», operación). Hoy la operación `M` es una deducción. | Confirma qué ocurre si `FicheroUnificado.txt` no existe y si la historificación mueve o copia. |
+| P-ABACO-06 | `cortarFicheroCestasAbaco.properties` usa `@@ENV@@` en las rutas, pero `GSProcess.sh` solo sustituye `$ENV` (pregunta común P-GSP-01): ¿quién sustituye `@@ENV@@` al desplegar? | Si nadie lo hace, las rutas serían `/fichtemcomp/@@ENV@@/…` y `Cortar` fallaría siempre. |
+| P-ABACO-07 | Qué hace ABACO (Mainframe) con el dataset `TE.BDTRE100.DG0TC2.TEBDJCES` y el JCL `TEBDJCES`: carga en la cola `ABACO.SECURITIES`, validaciones, rechazos y a quién se avisa. | Es el destino final; sin ello no se puede definir «bien recibido». |
 
 ## 5. Especificación funcional
 
@@ -360,7 +377,7 @@ Resumen de las decisiones y evidencias que reemplazan supuestos iniciales (respu
 
 Ventana: lanzado entre las 00:10 y las 02:30, L-V, relanzamiento cíclico cada 10 min "desde Fin del job". Recurso: `MAX-LPRDR501` (1/100). Activo desde 6/6/2020.
 
-**Decisión documentada (As-Is):** ante código de retorno OS = 7 en `RDR_BASKETS_ABACO_NOC_FW` (fichero nocturno no encontrado dentro de la ventana), Control-M marca el job como OK y **la cadena continúa** hacia `RDR_ABACO_GSPROCESS`, en contradicción con el requisito funcional documentado ("que se pare la cadena y se reporte"). Se documenta el comportamiento real como el vigente (ver DEF-BASK-001, sección 9).
+**Decisión documentada (As-Is):** ante código de retorno OS = 7 en `RDR_BASKETS_ABACO_NOC_FW` (fichero nocturno no encontrado en la comprobación de 1 minuto, repetida cada 10 minutos hasta las 02:30), Control-M marca el job como OK y **la cadena continúa** hacia `RDR_ABACO_GSPROCESS`, en contradicción con el requisito funcional documentado ("que se pare la cadena y se reporte"). Se documenta el comportamiento real como el vigente (ver DEF-BASK-001, sección 9).
 
 ### 6.2 Cadena cíclica — `KYTL0000-RDR_BASKETS_ABACO_new`
 
@@ -387,6 +404,31 @@ No existe evento de Control-M entre las dos cadenas: el enlace es puramente por 
 1. **`Cortar`** (`Generico.sh Cortar`): lee `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` y recorta las columnas al rango `1-11` (los 11 campos del diccionario de la sección 5), escribiendo el resultado en `Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv`.
 2. **`MoverFichero` (1/2)** (`Generico.sh MoverFichero`): mueve `Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv` sobre `Baskets_to_ABACO_Extr_Generica_Nocturna.csv`, sustituyendo el crudo por la versión recortada bajo el mismo nombre.
 3. **`MoverFichero` (2/2)**: mueve/renombra `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` a `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`.
+
+Contenido literal de `cortarFicheroCestasAbaco.properties` (finales de línea Windows/CRLF, como exige `GSProcess.sh`; la parte repetida `/fichtemcomp/@@ENV@@/descargas/kytl/issues/Baskets` se abrevia `<D>`):
+
+```
+MOD_EJECUCION=cortarFicheroCestasAbaco
+Servicio=cortarFicheroCestasAbaco
+Accion=VariablesGlobales
+NomScript=Cortar
+PreArgScri1=<D>
+ArgScri1=Baskets_to_ABACO_Extr_Generica_Nocturna.csv
+PreArgScri2=<D>
+ArgScri2=Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv
+ArgScri3=1-11
+Accion=Script
+NomScript=MoverFichero
+PreArgScri1=<D>   ArgScri1=Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv
+PreArgScri2=<D>   ArgScri2=Baskets_to_ABACO_Extr_Generica_Nocturna.csv
+Accion=Script
+NomScript=MoverFichero
+PreArgScri1=<D>   ArgScri1=Baskets_to_ABACO_Extr_Generica_Nocturna.csv
+PreArgScri2=<D>   ArgScri2=Baskets_to_ABACO_Extr_Generica_Nocturna.txt
+Accion=Script
+```
+
+(en el fichero real cada clave va en su línea). Detalles de las funciones usadas (spec común de `Generico.sh`): `Cortar` **añade** (`>>`) el resultado al fichero de salida y devuelve el código de `cut`; `MoverFichero` hace `mv -f` y `chmod 664` y devuelve 1 si falla. Por tanto, si `Baskets_to_ABACO_Extr_Generica_Nocturna_2.csv` ya existía de una ejecución anterior fallida, el nuevo recorte se añade a él. El literal `@@ENV@@` no lo sustituye `GSProcess.sh` (solo sustituye `$ENV`); queda pendiente quién lo hace (P-ABACO-06).
 
 El fichero resultante, `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`, cumple el patrón `Baskets_to_ABACO_*.txt` que vigila `RDR_BASKETS_ABACO_FW`, cerrando el enlace entre la cadena nocturna y la cíclica. El `.properties` no define `Stop`/`StopScr`, por lo que, según la lógica del motor `GSProcess.sh`, un fallo en cualquiera de los 3 pasos no detiene la ejecución de los siguientes (solo incrementa el contador de errores), pero sí hace que el job finalice con `ESTADO-1-`/`exit 1` al terminar — consistente con que `RDR_ABACO_GSPROCESS` no tenga soft-failure a nivel de Control-M (sección 6.1): un fallo real en cualquier paso interno se traduce en un KO real del job.
 
@@ -437,11 +479,11 @@ Referencia de casos por tipo (`tipo` en `cesion_cestas_abaco_casos_prueba.xml`):
 2. **DEF-BASK-001 — soft-failure real en `RDR_BASKETS_ABACO_NOC_FW` contradice el requisito funcional** (TC-003): la ficha pide "parar la cadena y reportar" si no llega el fichero nocturno; Control-M real hace soft-failure (código 7 → OK) y la cadena continúa hacia `RDR_ABACO_GSPROCESS`. Se documenta el comportamiento As-Is como el vigente; se registra para que ANS RDR evalúe eliminar la acción On-Do si la unificación no genera datos.
 3. **Discrepancia documental — ficha "Cesión de Cestas para Abaco".** La última fila de su tabla de formato repite `COMPONENT_TYPE` en vez de `FULL_NAME` (que sí es el campo real, confirmado por la cabecera que purga `UnificacionFicherosAbaco.sh`). Tratado como errata de la ficha, no como cambio de estructura.
 4. **Defecto menor no bloqueante en `MEGENV0001.sh`.** Error de sintaxis observado en ejecución real (`MEGENV0001.sh[879]: [: ']' missing`) que no impide que el job finalice OK. No requiere acción inmediata, pero debe corregirse en el script.
-5. **Origen de datos (Murex3) sin query/ETL documentada.** No se dispone de la consulta o mecanismo real que genera `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` ni el fichero ad-hoc intradía desde Murex3; queda fuera del alcance de esta especificación (ver sección 2).
+5. **Query de origen sin documentar.** El fichero nocturno lo genera el Planificador Genérico con `BASKETS_TO_ABACO.sql` (fila 15, martes-sábado 00:00); el texto de la query no se ha aportado, y tampoco se sabe cómo llegan los ficheros ad-hoc intradía (P-ABACO-01, P-ABACO-04). Si el Planificador falla o se retrasa, esta cadena no se entera: solo verá que el fichero no está.
 6. **Sin validación de `∑WEIGHT=100%` en ningún punto de la cadena** (confirmado como diseño esperado, no como gap — ver R8): una cesta desbalanceada se distribuye igual a ABACO; el rechazo, si existe, depende del sistema consumidor.
 7. **Sin protección de concurrencia explícita documentada** entre el ciclo intradía (cada 10 min) y un eventual relanzamiento manual de cualquiera de sus 5 jobs — no se ha confirmado la existencia de lock/PID/semáforo en `UnificacionFicherosAbaco.sh` más allá del propio mecanismo de relanzamiento de Control-M (`Máximo de relanzamientos: 0`).
 8. **Sin `Stop`/`StopScr` en `cortarFicheroCestasAbaco.properties`**: un fallo en el paso `Cortar` no detiene la ejecución de los 2 pasos `MoverFichero` siguientes (ver sección 6.3); el job termina en KO real al final (`ESTADO-1-`), pero podría haber movido/renombrado ficheros parcialmente antes de fallar. No hay evidencia de que esto haya ocurrido en producción; se documenta como riesgo teórico de diseño del `.properties`, no como incidente confirmado.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia real verificada — código fuente completo de `RAMERC0068.sh`, `MEGENV0001.sh` y `cortarFicheroCestasAbaco.properties`, 35+9 capturas reales de Control-M, fichas EX-005-03, ficha funcional del fichero — para la totalidad de la mecánica técnica de ambas cadenas (incluido el enlace entre ellas, GAP-BASK-003, resuelto con el `.properties` real) y las reglas de negocio de datos (clave, duplicidad, validación de `WEIGHT`, enum de `STATUS`). No queda ningún gap abierto por falta de evidencia. Quedan registrados formalmente **RISK-BASK-001** y **DEF-BASK-001**, que no impiden ejecutar la matriz de pruebas pero sí deben revisarse antes de dar por completamente validado el comportamiento en producción.
+La especificación se cierra con evidencia real verificada — código fuente completo de `RAMERC0068.sh`, `MEGENV0001.sh` y `cortarFicheroCestasAbaco.properties`, 35+9 capturas reales de Control-M, fichas EX-005-03, ficha funcional del fichero — para la totalidad de la mecánica técnica de ambas cadenas (incluido el enlace entre ellas, GAP-BASK-003, resuelto con el `.properties` real) y las reglas de negocio de datos (clave, duplicidad, validación de `WEIGHT`, enum de `STATUS`). Quedan abiertas las preguntas P-ABACO-01 a P-ABACO-07 de la sección 4 (query de origen, hora real del fichero, efecto de la regla «7 → OK», origen de los ad-hoc, IDX de `MEKYTL0855`, sustitución de `@@ENV@@` y comportamiento de ABACO). Quedan registrados formalmente **RISK-BASK-001** y **DEF-BASK-001**, que no impiden ejecutar la matriz de pruebas pero sí deben revisarse antes de dar por completamente validado el comportamiento en producción.

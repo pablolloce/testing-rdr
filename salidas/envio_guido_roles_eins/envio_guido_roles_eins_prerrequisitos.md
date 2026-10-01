@@ -2,7 +2,7 @@
 
 ## Datos y ficheros previos
 
-- `GUIDO_IMPORT.csv` debe existir en `/fichtemcomp/pr/descargas/kytl/users/` (servidor `pr-rdr.igrupobbva`) antes de las 06:00 AM, para que `RDR_GUIDO_FW1` lo detecte dentro de su ventana (01:00–06:00 AM, revisión cada 10 min).
+- `GUIDO_IMPORT.csv` debe existir en `/fichtemcomp/pr/descargas/kytl/users/` (servidor `pr-rdr.igrupobbva`) antes de las 06:00 AM, para que `RDR_GUIDO_FW1` (`ctmfw ... CREATE 0 60 10 3 120`: busca cada 60 s, mide tamaño cada 10 s, 3 mediciones iguales, espera máxima 120 minutos) lo detecte dentro de la franja de madrugada (01:00–06:00 AM).
 - El origen de `GUIDO_IMPORT.csv` (sistema/proceso que lo deposita) no está documentado en esta especificación; se asume externo al alcance de este proceso.
 - `GUIDO_IMPORT.csv` debe contener al menos una fila con la marca de aplicación `,KYTL,`/`,kytl,`, o el fichero quedará vacío tras el filtrado de `guidoLoad.sh` (ver riesgo RISK-GUIDO-002 en `envio_guido_roles_eins_spec.md`).
 

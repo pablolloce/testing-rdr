@@ -2,8 +2,8 @@
 
 ## Datos y ficheros previos
 
-- El fichero `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` debe existir en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` (servidor `pr-rdr.igrupobbva`) antes de las 02:30, para que `RDR_BASKETS_ABACO_NOC_FW` lo detecte dentro de su ventana de vigilancia (00:10–02:30, revisión cada 10 min).
-- La extracción previa desde **Murex3** que genera ese fichero (y los ficheros ad-hoc `Baskets_to_ABACO_*.txt` de la cadena cíclica) debe haberse completado sin fallos. El mecanismo real de esa extracción no está documentado en esta especificación (fuera de alcance, ver `cesion_cestas_abaco_spec.md` sección 2).
+- El fichero `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` debe existir en `/fichtemcomp/pr/descargas/kytl/issues/Baskets/` (servidor `pr-rdr.igrupobbva`) antes de las 02:30, para que `RDR_BASKETS_ABACO_NOC_FW` lo detecte dentro de su ventana de vigilancia (00:10–02:30; Control-M relanza el filewatcher cada 10 min y cada ejecución de `ctmfw CREATE 0 60 10 5 1` espera solo 1 minuto).
+- El fichero nocturno lo genera el Planificador Genérico (fila 15: `ACT1_OID` `02F1D8B62`, query `BASKETS_TO_ABACO.sql`, martes a sábado a las 00:00:00); esa extracción debe estar `ACTIVE` en `FT_T_ATE1`/`FT_T_QPF1` y haberse completado sin fallos. Los ficheros ad-hoc `Baskets_to_ABACO_*.txt` de la cadena cíclica los deposita alguien que no se ha identificado (P-ABACO-04); el texto de la query no se ha aportado (P-ABACO-01).
 - El fichero debe cumplir la estructura real esperada: cabecera técnica `BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME;`, separador `;`, una fila por componente (fichero desnormalizado).
 - Para el ciclo intradía, los ficheros deben depositarse siguiendo el patrón `Baskets_to_ABACO_*.txt` en la misma ruta, para que `RDR_BASKETS_ABACO_FW` los detecte en su ventana (hasta las 11:40 AM, cada 10 min, L-V).
 

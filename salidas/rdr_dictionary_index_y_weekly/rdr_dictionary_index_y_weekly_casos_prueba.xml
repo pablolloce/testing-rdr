@@ -71,7 +71,7 @@
       <paso numero="3">A las 17:00, verificar el estado del job FW en Control-M.</paso>
       <paso numero="4">Comprobar que los jobs RDRKYTL001, MEKYTL0860 y MEKYTL0861 no se han ejecutado.</paso>
     </pasos>
-    <resultadoEsperado>El job RDR_DICTIONARY_INDEX_FW termina NOTOK a las 17:00; los tres jobs sucesores nunca se lanzan; se genera alerta/notificación al circuito ANS RDR.</resultadoEsperado>
+    <resultadoEsperado>El job RDR_DICTIONARY_INDEX_FW termina NOTOK a las 17:00 (ctmfw con código 7 = tiempo agotado, sin regla «7 → OK»; si el job quedara en verde, hay que confirmarlo con P-DICT-01); los tres jobs sucesores nunca se lanzan; se genera alerta/notificación al circuito ANS RDR.</resultadoEsperado>
     <tipoValidacion>Log de Control-M del job FW; verificación de ausencia de ejecución de sucesores; verificación de alerta generada.</tipoValidacion>
     <criterioAceptacion>FW termina NOTOK; ningún job sucesor ejecutado; alerta generada en el circuito ANS RDR.</criterioAceptacion>
     <posibilidadFallo>Sí.</posibilidadFallo>
@@ -82,6 +82,7 @@
     <objetivo>Verificar que RDRKYTL001 (GSProcess.sh dictionaryIndex, script Cortar, ArgScri3=1-4) produce DictionaryIndex.csv con exactamente las columnas 1-4 de DictionaryIndex_TOTAL.csv.</objetivo>
     <precondiciones>
       <precondicion>DictionaryIndex_TOTAL.csv con contenido conocido y controlado presente en /fichtemcomp/pr/descargas/kytl/index/.</precondicion>
+      <precondicion>DictionaryIndex.csv NO existe previamente en el directorio: Cortar añade (>>) al fichero de salida, no lo sobrescribe.</precondicion>
       <precondicion>RDRKYTL001 configurado con parámetro dictionaryIndex.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -186,6 +187,7 @@
       <paso numero="2">Verificar que MEKYTL0861 termina NOTOK y los ficheros permanecen en /index/.</paso>
       <paso numero="3">Al día siguiente (o simulando la apertura de la ventana del FW), verificar que el FW detecta inmediatamente el DictionaryIndex_TOTAL.csv residual.</paso>
       <paso numero="4">Confirmar que la cadena se lanza con datos del día anterior antes de que el Planificador genere el fichero actualizado.</paso>
+      <paso numero="5">Verificar que, como Cortar añade al fichero de salida, el DictionaryIndex.csv enviado a lpemd501 contiene las filas residuales del día anterior más las del nuevo ciclo (filas duplicadas).</paso>
     </pasos>
     <resultadoEsperado>MEKYTL0861 termina NOTOK; ficheros quedan en /index/; el FW del ciclo siguiente detecta el fichero residual y la cadena se lanza con datos obsoletos. Este comportamiento documenta el riesgo: requiere intervención manual antes del siguiente ciclo.</resultadoEsperado>
     <tipoValidacion>Log de MEKYTL0861 con NOTOK; verificación de presencia de ficheros en /index/ tras el fallo; verificación de arranque anticipado del FW en el ciclo siguiente.</tipoValidacion>

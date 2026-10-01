@@ -2,7 +2,7 @@
 
 ## Datos y ficheros previos
 
-- El fichero `Calendarios.csv` debe existir en el servidor origen (`pr-rdr.igrupobbva`, nodos `lprdr501`/`lprdr602`) en la ruta `/fichtemcomp/pr/descargas/kytl/Modelity/`, depositado antes de las 23:00, para que el filewatcher `KYTL_CAL_MODELITY_FW` lo detecte dentro de su ventana de vigilancia (22:00–23:00).
+- El fichero `Calendarios.csv` debe existir en el servidor origen (`pr-rdr.igrupobbva`, nodos `lprdr501`/`lprdr602`) en la ruta `/fichtemcomp/pr/descargas/kytl/Modelity/`, depositado antes de las 23:00 (lo genera el Planificador Genérico, fila 5: query `RDR_Calendarios_Modelity.sql`, lunes a viernes a las 22:00), para que el filewatcher `KYTL_CAL_MODELITY_FW` lo detecte dentro de su ventana de vigilancia (22:00–23:00).
 - La extracción previa desde GoldenSource (tablas `FT_T_CADF`, `FT_T_CADP`, `FT_T_MRKT`) debe haberse completado sin fallos de la query/ETL. El control de duplicados de clave (`CURRENCY + CAL_DAY`) se resuelve en ese punto, no en la cadena Control-M de distribución: si la query de extracción detecta un conflicto de clave, no debe generarse el fichero.
 - El fichero debe cumplir la estructura real esperada: cabecera `CURRENCY;CAL_DAY;HOLIDAY;RNUM;`, separador `;`, fechas en formato `YYYY-MM-DD`, y el campo `HOLIDAY` restringido al enum `{WEEKEND, HOLIDAY}`.
 
@@ -12,6 +12,7 @@
 - Conectividad de red operativa entre el origen (`pr-rdr.igrupobbva`) y todos los destinos: `LPNOV503` (ruta `PXVA`), la landing zone de BONT (`bonotasfs/incoming/`), `pr-mentor.igrupobbva` (ruta `/fichtemcomp/pr/descargas/eezt/`) y los nodos de Nova Transfer (`novatransferbatch.igrupobbva`, rutas de CSCF y `bankholidays_rdr` para TFIT).
 - Script `MEGENV0001.sh` desplegado y operativo en `/pr/pl/envioweb/scrt/` (o su equivalente por entorno), con capacidad de capturar errores de transferencia (códigos `60`/`45` en el lado `PUT`/`MPUT` de estos 5 envíos, según la máscara y el fichero concreto falten) y finalizar sin reintento automático. **Corrección (2026-09-25, confirmado por `MEMNAME` en el export real de Control-M):** el script que ejecutan los 5 jobs de envío (`MEKYTL1090`, `MEKYTL1113`, `MEKYTL1184`, `MEKYTL1266`, `MEKYTL1311`) es `MEGENV0001.sh`, no `RAMERC0068.sh`. El `.idx`/configuración concreta que fija `FALLA_NO_FICHERO` por cada uno de estos 5 jobs no está disponible (gap abierto, ver `envio_calendarios_modelity_spec.md` sección 6).
 - Script `RAMERC0068.sh` desplegado y operativo en `/pr/pl/scrt/`, exclusivamente para el job de historificación `MEKYTL0863` — no interviene en los 5 envíos.
+- Para probar la copia a DataX (solo si se confirma P-CALM-01): línea `MEKYTL1320_EI` (o su equivalente de producción) en `INFORMACION_HISTORIFICACIONES.IDX` y directorio `/unload/kytl/datsal/datax/` existente y escribible; en integración la línea es `MEKYTL1320_EI@/fichtemcomp/ei/descargas/kytl/Modelity/@Calendarios.csv@/unload/kytl/datsal/datax/@0@TIPO@@C` (operación `C` = copia).
 - Carpeta de historificación `/old/` disponible y con permisos de escritura para el job `MEKYTL0863`.
 
 ## Roles y permisos

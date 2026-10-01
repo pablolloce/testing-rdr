@@ -38,9 +38,9 @@
     <pasos>
       <paso numero="1">No depositar GUIDO_IMPORT.csv en la ventana 01:00-06:00 AM.</paso>
       <paso numero="2">Esperar al cierre de la ventana de RDR_GUIDO_FW1.</paso>
-      <paso numero="3">Verificar el código de retorno OS y el estado final del job.</paso>
+      <paso numero="3">Verificar el código de retorno OS (7 tras 120 minutos de espera) y el estado final del job, y que RDR_GUIDO_CHMOD arranca y termina en KO.</paso>
     </pasos>
-    <resultadoEsperado>RDR_GUIDO_FW1 retorna código de retorno de OS distinto de 0; Control-M lo marca como OK igualmente (soft-failure genérico: "código ≠ 0 → Marcar como OK"); la cadena no avanza a RDR_GUIDO_CHMOD por falta de fichero real, pero el job en sí no queda en KO visible.</resultadoEsperado>
+    <resultadoEsperado>RDR_GUIDO_FW1 retorna código de retorno de OS distinto de 0; Control-M lo marca como OK igualmente (soft-failure genérico: "código ≠ 0 → Marcar como OK"); como el job queda en verde (también con el código 7 de tiempo agotado tras 120 min), la cadena SÍ avanza a RDR_GUIDO_CHMOD, que falla de verdad (chown/chmod sobre un fichero inexistente, sin soft-failure) y detiene la cadena con KO real; RDR_GUIDO_FW1 no queda en KO visible. Para RDR_GUIDO_FW3 sin OFP_ROLES_RDR.csv: avanza a MEKYTL1061, que queda en verde sin enviar nada.</resultadoEsperado>
     <tipoValidacion>Código de retorno del job + estado final en Control-M (Planning/Monitoring).</tipoValidacion>
     <criterioAceptacion>Job marcado OK pese a código de retorno distinto de 0, confirmando el soft-failure genérico documentado.</criterioAceptacion>
     <posibilidadFallo>Resultado esperado y correcto según la evidencia real capturada; si el job quedara en KO real, indicaría un cambio de configuración respecto a la evidencia y habría que revisar R7.</posibilidadFallo>
