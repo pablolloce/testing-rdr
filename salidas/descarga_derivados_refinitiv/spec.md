@@ -52,10 +52,11 @@ ANS RDR.
 * **Ámbito técnico:** las 2 cadenas Control-M completas (`KYTL001D...`/`KYTL001P...`, 7 pasos cada una), el
   script `Refinitiv_Derivados_Batch.sh` y el jar `refinitivDerivativesLoader.jar`.
 * **Fuera de alcance** (detalle completo en §8.2): la generación del fichero en la plataforma Refinitiv
-  (proveedor externo); el contenido nodo a nodo del workflow `Refinitiv_Request_Response` (invocado por los
-  jobs 5/6, `.properties` ya confirmados — ver §5.3); la atribución exacta de 5 tablas satélite a su servicio
-  de escritura; el mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle; el algoritmo
-  interno del servicio externo OpenFigi.
+  (proveedor externo); el contenido del sub-workflow `Load_Refinitiv_Response` (único punto interno de
+  `Refinitiv_Request_Response.wkf` sin confirmar tras esta ronda — ver §5.3); la atribución exacta de 5
+  tablas satélite a su servicio de escritura; el mapeo campo a campo del fichero origen `.txt` de Refinitiv a
+  columna Oracle (estructura real de 2 de los 3 ficheros ya confirmada — ver §5.6); el algoritmo interno del
+  servicio externo OpenFigi.
 
 ## 3. Requisitos detectados
 
@@ -138,18 +139,11 @@ ANS RDR.
     fuente especula que podrían escribirse vía relaciones `@OneToMany`/cascada desde `FT_T_FINS`/`FT_T_ISGU`,
     sin confirmarlo — se documenta como hipótesis, no como hecho verificado (ver §8.2).
 
-### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` reales confirmados, corrigen la hipótesis del documento fuente
+### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
 
-Los `.properties` reales de ambos jobs (aportados esta ronda) muestran una estructura mínima, idéntica entre
-ambos salvo 3 valores: un bloque `Accion=VariablesGlobales` seguido de un único `Accion=Evento`
-(`NomEvento=Workflow`, `NomWorkflow=Refinitiv_Request_Response`). **Esto refuta la descripción del documento
-fuente** ("Enriquece los datos de subyacentes... ya cargados por el job 4", como si fuera un paso interno de
-GoldenSource sobre datos ya cargados): el nombre del workflow invocado, **`Refinitiv_Request_Response`**, y el
-campo `vreqOid` (que coincide literalmente con la nomenclatura ya confirmada de `FT_T_VREQ`, *Vendor
-Request*), apuntan en cambio a que estos 2 jobs **disparan una nueva solicitud a Refinitiv** (de ahí
-"Request/Response"), no una pasada de enriquecimiento puramente interna — hipótesis razonable a partir de la
-evidencia, pendiente de confirmar al 100% con el propio workflow `Refinitiv_Request_Response.wkf` (no
-aportado).
+Los `.properties` reales de ambos jobs (aportados en una ronda previa) muestran una estructura mínima,
+idéntica entre ambos salvo 3 valores: un bloque `Accion=VariablesGlobales` seguido de un único `Accion=Evento`
+(`NomEvento=Workflow`, `NomWorkflow=Refinitiv_Request_Response`).
 
 * **`Refinitiv_Undly_Enrichment_issues.properties`:** `MOD_EJECUCION=Refinitiv_Request_Response` (sobrescribe
   el nombre de job original en el bloque `Vari`), `id=MULTI`, `idType=UNDLY`, `requestType=issueRequest`,
@@ -174,6 +168,51 @@ aportado).
   arrays no limpiados, no por un mecanismo explícito del script para campos personalizados**. El campo `id`
   (índice 1) no sobrevive, porque el bloque `Evento` sí sobrescribe ese índice con `NomWorkflow` — posible
   parámetro perdido, no confirmado si tiene efecto real (ver TC-017).
+
+**[CONFIRMADO esta ronda (2026-10-01) con el workflow real `Refinitiv_Request_Response.wkf`, aportado por el
+usuario]** — refuta por completo la descripción del documento fuente ("enriquece datos ya cargados por el
+job 4" como paso interno sobre GoldenSource). El mismo `.wkf` es compartido textualmente con el proceso
+`RDR_BATCH_EMISORES_REFINITIV` de este mismo audit (idéntico salvo versión/entorno Java), que ya lo había
+analizado nodo a nodo para las ramas `BATCH_ISSUER`/`BATCH_RATINGS`; esta ronda confirma el comportamiento
+real de las ramas que usan los jobs 5/6, `issueRequest`/`UNDLY_ISSUES_ENRICHMENT` y
+`optionsfuturesRequest`/`OPTIONS_FUTURES_ENRICHMENT`:
+
+1. **El workflow construye y lanza una solicitud real nueva a Refinitiv**, no una operación interna: según
+   `vreqOid`, calcula `pathOut` (`.../OpcionesFutures/Enrichment/issues/` para `UNDLY_ISSUES_ENRICHMENT`,
+   `.../OpcionesFutures/Enrichment/optionsfutures/` para `OPTIONS_FUTURES_ENRICHMENT`) y `fileOut`
+   (`RFNT_BBVA_<id>_<timestamp>.txt`), y ejecuta por línea de comandos el mismo cliente Java
+   `RDR_Refinitiv_Request.jar` (clase `rdr_refinitiv_request.com.bbva.kytl.main.Request`, argumentos
+   `REFINITIV <vreqOid> <requestType> <env> <pathOut><fileOut> <nivelLog>`) ya confirmado en
+   `RDR_BATCH_EMISORES_REFINITIV` para las peticiones de emisores/ratings — **mismo binario cliente,
+   reutilizado también para subyacentes/derivados**.
+2. **Espera la respuesta con timeout real:** el nodo `Wait for Files` espera hasta 300s a que aparezca en
+   `pathOut` un fichero que case con `fileOut`; si no aparece, el flujo deriva a "Unable to load response,
+   file not found" (alerta `TABLEALERTGENER`, proceso `PETICION_REFINITIV_EMISIONES`).
+3. **Procesa la respuesta de forma distinta según el tipo de solicitud** (switch por `requestType`):
+   - **`issueRequest`/`issueSearch`** (usado por el job 5, `UNDLY_ISSUES_ENRICHMENT`): invoca el sub-workflow
+     `Load_Refinitiv_Response` (no aportado, contenido interno fuera de alcance) y a continuación ejecuta
+     `PRC_ESCOBA_SUBYACENTES()` (procedimiento PL/SQL de limpieza de subyacentes).
+   - **`optionsfuturesRequest`** (usado por el job 6, `OPTIONS_FUTURES_ENRICHMENT`): **re-ejecuta, dentro del
+     propio workflow, el mismo pipeline de filtrado/enriquecimiento/carga del job 4**, sobre la respuesta
+     recién recibida de Refinitiv — no es una pasada de enriquecimiento interna, es un segundo ciclo
+     completo de carga: copia de respaldo del fichero (`cp *.txt old`) → `refinitivFilter.jar`
+     (`com.bbva.kytl.MainProcess`, modo `ONLINE`) → `openFigiEnricher.jar`
+     (`com.bbva.kytl.EnricherProcess`, mismo servicio externo OpenFigi que el job 4) →
+     `refinitivDerivativesLoader.jar` (`com.bbva.kytl.refinitivderivativesloader.LoaderProcess`, modo
+     `ONLINE` — **mismo jar y mismas 20 tablas Oracle de §5.2** que la carga del job 4) → historificación
+     (`mv *.txt old`) → `PRC_ESCOBA_SUBYACENTES()` (mismo punto de convergencia que la rama `issueRequest`).
+4. **Confirma el uso de `FT_T_VREQ`:** ante cualquier error, `Update KO Request` actualiza
+   `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT` por `vreqOid`, igual que ya estaba confirmado para
+   `BATCH_ISSUER`/`BATCH_RATINGS` en el otro proceso de este audit.
+
+**Conclusión de esta ronda:** la hipótesis de §9 (ronda anterior) queda **confirmada al 100%, no solo "muy
+probable"**: los jobs 5/6 disparan una nueva solicitud a Refinitiv (vía el mismo cliente
+`RDR_Refinitiv_Request.jar`), y el job 6 además reutiliza literalmente el pipeline de 3 jars del job 4 sobre
+la respuesta recibida — es decir, el job 4 no es el único punto de la cadena que escribe en las 20 tablas
+Oracle de §5.2 (contradice R4 tal y como estaba redactado: "es el único job de toda la cadena que escribe en
+base de datos" debe entenderse referido solo a la ejecución directa por Control-M, no a la cascada
+Job6→workflow→carga). Único punto que permanece sin evidencia propia: el contenido del sub-workflow
+`Load_Refinitiv_Response` que procesa la rama `issueRequest`/job 5 (no aportado).
 
 ### 5.4 Job 7 (reporte/alertas) — `.properties` real confirmado: es el motor genérico `GestionAlertas`
 
@@ -213,6 +252,48 @@ filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real �
 Ambas cadenas ejecutan la misma lógica de negocio con distinta cadencia; el destino de datos en Oracle es
 exactamente el mismo.
 
+### 5.6 Muestra real de ficheros de carga (ronda 2026-10-01) — estructura confirmada, mapeo a columna Oracle aún no
+
+El usuario aportó una muestra real (no comprimida) de 2 de los 3 ficheros de carga que el pipeline genera
+(§4.d): `Subyacentes_<timestamp>.txt` (1.091 líneas) y `Derivados_Enriquecido.txt` (1.837 líneas).
+`Emisores_<timestamp>.txt` fue aportado pero **vacío (0 bytes)** — este lote de producción no contenía altas
+de emisores, así que su estructura sigue sin muestra real.
+
+* **`Subyacentes*.txt` — 3 campos separados por `|`, sin cabecera:** `<RIC>|RIC|<TIPO>`, donde `<TIPO>` toma
+  solo 2 valores en la muestra (`UNDLYRFV`: 1.022 filas; `FUTRFV`: 69 filas). El campo 2 es el literal
+  constante `"RIC"` en las 1.091 filas de la muestra — se interpreta como una etiqueta del esquema de
+  identificador del campo 1 (Reuters Instrument Code), no como un valor variable; no hay en esta muestra
+  ninguna fila con otro esquema (ISIN/SEDOL) que permita confirmarlo con una segunda variante.
+* **`Derivados_Enriquecido.txt` — 45 campos separados por `|`, sin cabecera, anchura constante en las 1.837
+  filas de la muestra.** Tipos presentes: `OPT` (1.703), `FUT` (128), `BONDFUT` (6) — **no hay ningún `SWAP`
+  en esta muestra**, así que TC-010 solo queda cubierto para opción y futuro, no para swap. Columnas con
+  significado identificable por inspección directa de valores (posición 1-based): 1=RIC del propio derivado;
+  2=identificador numérico interno; 4=símbolo estilo OCC (solo opciones); 5=código de mercado/feed
+  (`OPRA`/`XFNO`); 6=tipo (`OPT`/`FUT`/`BONDFUT`); 9=descripción legible; 12=divisa; 13/14=fechas
+  `YYYYMMDD`; 17=multiplicador/tamaño de contrato; 19=`C`/vacío (call, solo opciones); 20=tipo de
+  liquidación (`PHYSICAL`/`CASH`); 23=precio de ejercicio (solo opciones); 28=ISIN del subyacente (formato
+  `US0382221051`); **31=RIC del subyacente**; 37=segundo identificador numérico interno; 39=símbolo corto
+  del subyacente sin sufijo de vencimiento; **42=tipo de subyacente (`UNDLYRFV`/`FUTRFV`)**.
+* **Correlación cruzada verificada entre ambos ficheros de la muestra:** el campo 31 (RIC del subyacente) de
+  `Derivados_Enriquecido.txt` coincide, en 82 de 83 valores distintos, con el campo 1 de `Subyacentes*.txt`;
+  el dominio de valores del campo 42 (`UNDLYRFV`/`FUTRFV`) es idéntico al del campo 3 de `Subyacentes*.txt`.
+  Confirma que ambos ficheros proceden del mismo lote real y que el subyacente de cada derivado se referencia
+  por RIC, consistente con el modelo `FT_T_ISID`/`FT_T_ISSU` de §5.2.
+* **Hallazgo abierto, no resuelto esta ronda:** la estructura de `Subyacentes*.txt` (solo 3 campos) es mucho
+  más estrecha de lo que cabría esperar para alimentar directamente las 3 tablas Oracle del Grupo B
+  (`FT_T_ISID`/`FT_T_ISSU`/`FT_T_MKIS`, con columnas de fecha, mercado, cotización, etc. — ver §5.2). Dos
+  explicaciones posibles, ninguna confirmada con el material de esta ronda: (a) este fichero concreto es en
+  realidad una lista de claves/solicitud (p. ej. el `id` de una nueva petición `issueRequest` a Refinitiv, ver
+  §5.3), distinta del fichero final que `UnderlyingService` consume para la carga completa; o (b)
+  `UnderlyingService` solo necesita estos 3 campos como clave y obtiene el resto de atributos por otra vía
+  (consulta a Refinitiv, valores por defecto, etc.). **No se puede resolver sin el código fuente de
+  `UnderlyingService`** (no decompilado en este audit) — TC-016 se deja parcialmente abierto por este motivo,
+  no por falta de muestra.
+* **Lo que sigue bloqueado:** el mapeo exacto campo del `.txt` → columna Oracle para los 3 ficheros requiere
+  el código fuente de `IssuersService`/`UnderlyingService`/`ListedDerivativesService` (ninguno decompilado en
+  este audit, a diferencia de `refinitivDerivativesLoader.jar` a nivel de catálogo de tablas en §5.2); y la
+  estructura de `Emisores*.txt` sigue sin ninguna muestra real (fichero vacío en este lote).
+
 ## 6. Especificación de testing
 
 La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5 pasos del script de carga
@@ -238,9 +319,9 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 | `conflicto_integridad` | `FT_T_VREQ.VND_RQST_STAT_TYP` se marca "procesado" únicamente tras completar las 3 cargas (Emisores+Subyacentes+Derivados), no antes. | TC-011 |
 | `error_funcional` | Un fallo durante la carga hace que `ExceptionService` escriba en `FT_T_ALD1`/`FT_T_ALG1`, reflejado después en el reporte del job 7. | TC-012 |
 | `error_funcional` | Un fallo del servicio externo OpenFigi (paso 4 del pipeline) se trata como "cualquier otro error" — log de error + `exit -1`, detiene la carga. | TC-013 |
-| `negativo` | Contenido nodo a nodo del workflow `Refinitiv_Request_Response` (invocado por los jobs 5/6) — pendiente de evidencia, no ejecutable hasta aportarla. | TC-014 |
+| `negativo` | Contenido nodo a nodo del workflow `Refinitiv_Request_Response` (invocado por los jobs 5/6) — **confirmado con el workflow real**; único resto, el sub-workflow `Load_Refinitiv_Response`. | TC-014 |
 | `negativo` | Atribución real del punto de escritura de las 5 tablas del Grupo E (`FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1`) — pendiente de evidencia, no ejecutable hasta aportarla. | TC-015 |
-| `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — pendiente de una muestra real de fichero, no ejecutable hasta aportarla. | TC-016 |
+| `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — estructura real de Subyacentes/Derivados confirmada con muestra; mapeo a columna y estructura de Emisores siguen pendientes. | TC-016 |
 | `conflicto_integridad` | Los parámetros `idType`/`requestType`/`vreqOid` de los jobs 5/6 llegan realmente al workflow `Refinitiv_Request_Response` (confirmar el efecto colateral de arrays deducido en §5.3 con un log/traza real). | TC-017 |
 | `happy_path` | El job 7 ejecuta correctamente el motor genérico `GestionAlertas` filtrado por `DERIVADOS_REFINITIV` (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`). | TC-018 |
 
@@ -252,11 +333,11 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   directa de `FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ`/`FT_T_REP1`:** la hipótesis hedged del documento fuente
   queda sustituida por el mecanismo real confirmado en §5.4 (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`,
   filtrado por `DERIVADOS_REFINITIV`) — ya no es una suposición.
-* **[NUEVO, prioridad media, deducido de código ya confirmado] Jobs 5/6 probablemente disparan una nueva
-  solicitud a Refinitiv, no un enriquecimiento puramente interno:** el workflow real invocado,
-  `Refinitiv_Request_Response`, y el campo `vreqOid` (coincide con la nomenclatura de `FT_T_VREQ`) contradicen
-  la descripción del documento fuente de estos 2 jobs como enriquecimiento de "datos ya cargados" — ver §5.3.
-  Pendiente de confirmar al 100% con `Refinitiv_Request_Response.wkf` (no aportado).
+* **[Resuelto con el workflow real, 2026-10-01] Jobs 5/6 disparan una nueva solicitud a Refinitiv y el job 6
+  reutiliza el pipeline completo de carga del job 4:** confirmado al 100% con `Refinitiv_Request_Response.wkf`
+  real (ver §5.3) — ya no es una hipótesis deducida solo de los nombres. El job 4 **no es el único punto que
+  escribe en las 20 tablas Oracle de §5.2** cuando se considera la cascada completa (job 6 → workflow →
+  `refinitivDerivativesLoader.jar`), lo que matiza R4 tal y como estaba redactado.
 * **[NUEVO, no bloqueante, deducido de código ya confirmado de `GSProcess.sh`] Los parámetros `idType`/
   `requestType`/`vreqOid` de los jobs 5/6 llegarían al workflow por un efecto colateral de los arrays
   `clave[]`/`valor[]` no limpiados entre bloques `Accion`, no por un mecanismo explícito para campos
@@ -265,10 +346,14 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **[No confirmado] Función exacta del job 2:** el documento describe la función de `MEKYTL10{80|81}` como
   "probable control de seguridad/red antes de exponer el fichero" — lenguaje explícitamente hedged, no una
   confirmación del propósito real de la pasarela intermedia.
-* **[Riesgo no bloqueante] Sin mapeo campo a campo confirmado:** al no haber un fichero de ejemplo real del
-  origen Refinitiv (se consumen y borran en producción), no se puede verificar qué campo exacto del `.txt`
-  alimenta cada columna Oracle — el linaje confirmado llega solo a nivel de fichero→tabla (§5.2), no de
-  campo→columna.
+* **[Parcialmente resuelto, 2026-10-01] Mapeo campo a campo aún sin confirmar, pero ya con estructura real de
+  2 de los 3 ficheros:** el usuario aportó una muestra real de `Subyacentes*.txt` y `Derivados_Enriquecido.txt`
+  (estructura y correlación cruzada confirmadas en §5.6); `Emisores*.txt` llegó vacío (sin altas en ese lote).
+  El mapeo exacto campo→columna Oracle sigue sin confirmar porque requiere el código fuente de
+  `IssuersService`/`UnderlyingService`/`ListedDerivativesService` (no decompilado en este audit) — no es ya
+  un problema de falta de muestra, sino de falta de código fuente de los 3 servicios de carga. Hallazgo nuevo
+  no bloqueante: `Subyacentes*.txt` tiene solo 3 campos, muy por debajo de lo esperado para alimentar
+  directamente las 3 tablas del Grupo B — ver §5.6 para las 2 hipótesis abiertas, ninguna confirmada.
 * **[Riesgo no bloqueante] 5 tablas sin punto de escritura confirmado (Grupo E):** `FT_T_FINR`/`FT_T_FIRL`/
   `FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1` están mapeadas como entidades JPA en el jar pero sin que el análisis de
   bytecode haya localizado la línea exacta que las persiste — si alguna de ellas no se escribe nunca en la
@@ -279,16 +364,20 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 
 ### 8.2 Fuera de alcance (sin material propio aportado)
 
-* **Contenido nodo a nodo del workflow `Refinitiv_Request_Response`** (invocado por los jobs 5/6) — los
-  `.properties` que lo invocan ya están confirmados (§5.3), pero no su lógica interna: qué solicita realmente
-  a Refinitiv y cómo procesa la respuesta.
+* **Contenido del sub-workflow `Load_Refinitiv_Response`** (invocado por la rama `issueRequest`/job 5 dentro
+  de `Refinitiv_Request_Response.wkf`, ya confirmado en §5.3) — no aportado; es el único punto interno del
+  workflow que queda sin evidencia tras esta ronda (la rama `optionsfuturesRequest`/job 6 sí queda totalmente
+  confirmada, al reutilizar jars ya documentados en §5.2).
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
   (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
 * **Atribución exacta de las 5 tablas del Grupo E** a un servicio/línea de código concreto — presentes en el
   jar, sin confirmación de bytecode del punto de escritura.
-* **Mapeo campo del fichero origen (`.txt` de Refinitiv) → columna Oracle** — no disponible (ficheros
-  comprimidos en `.zip`, consumidos y borrados tras su uso en producción, sin muestra real).
+* **Mapeo campo del fichero origen (`.txt` de Refinitiv) → columna Oracle** — estructura real de
+  `Subyacentes*.txt`/`Derivados_Enriquecido.txt` ya confirmada con muestra real (§5.6); el mapeo exacto a
+  columna Oracle, y toda la estructura de `Emisores*.txt` (muestra vacía), siguen sin confirmar — requiere el
+  código fuente de los 3 servicios de carga (`IssuersService`/`UnderlyingService`/`ListedDerivativesService`),
+  no decompilado en este audit.
 * **Algoritmo interno del servicio externo OpenFigi** (de Bloomberg) — servicio de terceros, fuera del
   alcance de este análisis.
 * **Generación del fichero en la plataforma Refinitiv** (proveedor externo).
@@ -314,3 +403,19 @@ explícito. Quedan 3 huecos de evidencia genuinos, ya delimitados con precisión
 nodo a nodo del workflow `Refinitiv_Request_Response`, la atribución de 5 tablas satélite (Grupo E), y el
 mapeo campo a campo del fichero origen. Nuevos TC-017/TC-018; TC-014 ya no bloqueado para los jobs 5/6/7 (solo
 para el detalle interno de `Refinitiv_Request_Response.wkf`).
+
+**Ronda adicional (2026-10-01, segunda del día):** el usuario aportó el propio `Refinitiv_Request_Response.wkf`
+real (idéntico, salvo versión y ruta del JDK, al ya analizado nodo a nodo en `RDR_BATCH_EMISORES_REFINITIV`
+para otras ramas) y una muestra real de 2 de los 3 ficheros de carga (`Subyacentes*.txt`,
+`Derivados_Enriquecido.txt`; `Emisores*.txt` llegó vacío). **TC-014 queda cerrado al 100% salvo un único
+resto** (el sub-workflow `Load_Refinitiv_Response`): se confirma con código real, no ya como hipótesis, que
+los jobs 5/6 lanzan una solicitud nueva a Refinitiv con el mismo cliente `RDR_Refinitiv_Request.jar` ya
+confirmado en el proceso hermano, y que el job 6 (`OPTIONS_FUTURES_ENRICHMENT`) reutiliza literalmente el
+pipeline de 3 jars del job 4 (`refinitivFilter.jar`→`openFigiEnricher.jar`→`refinitivDerivativesLoader.jar`)
+sobre la respuesta recién recibida — ver §5.3. **TC-016 avanza parcialmente:** la estructura real de
+`Subyacentes*.txt` (3 campos) y `Derivados_Enriquecido.txt` (45 campos) queda documentada con correlación
+cruzada verificada entre ambos ficheros (§5.6), pero el mapeo exacto a columna Oracle sigue sin confirmar —ya
+no por falta de muestra, sino por falta del código fuente de los 3 servicios de carga— y la estructura de
+`Emisores*.txt` sigue sin ninguna muestra real. Hallazgo nuevo no bloqueante: el formato de 3 campos de
+`Subyacentes*.txt` es más estrecho de lo esperable para alimentar directamente las 3 tablas del Grupo B, con
+2 hipótesis abiertas sin confirmar (ver §5.6).

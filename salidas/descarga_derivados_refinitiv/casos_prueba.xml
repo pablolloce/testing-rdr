@@ -190,11 +190,11 @@
     <nombre>Carga real de Derivados por tipo (opción/swap/futuro) en sus tablas satélite</nombre>
     <objetivo>Confirmar que ListedDerivativesService+DerivativesProcessor cargan un derivado del fichero Derivados_Enriquecido*.txt en FT_T_ISID/FT_T_ISSU (comunes) y en la tabla satélite correspondiente a su tipo (p. ej. FT_T_OPCH para una opción, con CALL_PUT_TYP/STRKE_CPRC poblados).</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap.</precondicion>
+      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap. PARCIALMENTE CUMPLIDA: la muestra real aportada 2026-10-01 (1.837 derivados) solo contiene OPT (1.703), FUT (128) y BONDFUT (6) — ningún SWAP en el lote real; sigue haciendo falta un derivado de tipo swap (real o de prueba) para cubrir esa rama.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Derivado de prueba 1" valor="opción con CALL_PUT_TYP=CALL, STRKE_CPRC poblado"/>
-      <dato campo="Derivado de prueba 2" valor="swap con SWAP_NOTL_CURR_CDE poblado"/>
+      <dato campo="Derivado de prueba 1 (opción, cubierto con muestra real)" valor="p. ej. AMATj162610200.U|...|AMAT261016C01020000|OPRA|OPT|...|C|...|1020|...|US0382221051|...|AMAT.O|...|UNDLYRFV|||  — campo 19=C (call), campo 23=1020 (strike)"/>
+      <dato campo="Derivado de prueba 2 (swap, sin cobertura en la muestra real)" valor="swap con SWAP_NOTL_CURR_CDE poblado — pendiente de un ejemplo real o sintético"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar el paso 5 del pipeline con el fichero de prueba.</paso>
@@ -267,24 +267,26 @@
     <posibilidadFallo>Si el pipeline continuara a la carga (paso 5) pese al fallo de OpenFigi, podrían cargarse derivados sin enriquecer o con datos incompletos, sin ningún error visible.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-014" tipo="negativo">
-    <nombre>Contenido nodo a nodo del workflow Refinitiv_Request_Response</nombre>
-    <objetivo>Confirmar, una vez aportado el workflow real Refinitiv_Request_Response.wkf (invocado por los jobs 5/6 con idType/requestType/vreqOid distintos), qué solicita realmente a Refinitiv y cómo procesa la respuesta — confirmando o refutando la hipótesis de §5.3 de que estos 2 jobs disparan una nueva solicitud, no un enriquecimiento puramente interno.</objetivo>
+  <casoDePrueba id="TC-014" tipo="conflicto_integridad">
+    <nombre>Contenido nodo a nodo del workflow Refinitiv_Request_Response — confirmado: los jobs 5/6 disparan una nueva solicitud y el job 6 reejecuta el pipeline de carga del job 4</nombre>
+    <objetivo>Confirmar, con el workflow real Refinitiv_Request_Response.wkf aportado por el usuario, qué solicita realmente a Refinitiv y cómo procesa la respuesta en las ramas issueRequest/UNDLY_ISSUES_ENRICHMENT (job 5) y optionsfuturesRequest/OPTIONS_FUTURES_ENRICHMENT (job 6) — confirmando la hipótesis de §5.3 de que estos 2 jobs disparan una nueva solicitud, no un enriquecimiento puramente interno.</objetivo>
     <precondiciones>
-      <precondicion>Fichero real Refinitiv_Request_Response.wkf, aportado por el usuario.</precondicion>
+      <precondicion>Fichero real Refinitiv_Request_Response.wkf, aportado por el usuario (idéntico, salvo versión/ruta JDK, al ya usado por RDR_BATCH_EMISORES_REFINITIV en este mismo audit para otras ramas).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Estado actual" valor=".properties de invocación confirmados (idType/requestType/vreqOid); contenido del workflow invocado no disponible"/>
+      <dato campo="Rama issueRequest (job 5)" valor="pathOut=.../Enrichment/issues/; construye y lanza RDR_Refinitiv_Request.jar (clase rdr_refinitiv_request.com.bbva.kytl.main.Request, args REFINITIV UNDLY_ISSUES_ENRICHMENT issueRequest); espera hasta 300s la respuesta (Wait for Files); invoca el sub-workflow Load_Refinitiv_Response (no aportado) y PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §5.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Gestión de error" valor="Wait for Files sin respuesta → errorMessage=&quot;Unable to load response, file not found&quot;, insert en TABLEALERTGENER (proceso PETICION_REFINITIV_EMISIONES); cualquier fallo → Update KO Request sobre FT_T_VREQ.VND_RQST_STAT_TYP/VND_RQST_STAT_TXT por vreqOid"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Inspeccionar el contenido real del workflow una vez aportado.</paso>
-      <paso numero="2">Confirmar si construye y envía una solicitud real a Refinitiv, o si opera solo sobre datos ya cargados en GoldenSource.</paso>
-      <paso numero="3">Confirmar qué hace con cada uno de los 3 parámetros (idType, requestType, vreqOid) y si usa FT_T_VREQ para rastrear la solicitud.</paso>
+      <paso numero="1">Inspeccionar el contenido real del workflow (hecho).</paso>
+      <paso numero="2">Confirmar que construye y envía una solicitud real a Refinitiv (confirmado: cliente RDR_Refinitiv_Request.jar + Wait for Files con timeout real de 300s), no una operación puramente interna sobre datos ya cargados.</paso>
+      <paso numero="3">Confirmar qué hace con cada uno de los 3 parámetros (idType, requestType, vreqOid): requestType selecciona la rama por switch; vreqOid fija pathOut/fileOut y se usa como clave de FT_T_VREQ en el marcado de error; idType no se usa dentro del propio workflow en las 2 ramas inspeccionadas.</paso>
     </pasos>
-    <resultadoEsperado>Contenido real del workflow documentado con evidencia, cerrando el gap de §8.2.</resultadoEsperado>
-    <tipoValidacion>Inspección directa del workflow real.</tipoValidacion>
-    <criterioAceptacion>Lógica nodo a nodo documentada, hipótesis de §5.3 confirmada o refutada.</criterioAceptacion>
-    <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+    <resultadoEsperado>Contenido real del workflow documentado con evidencia para ambas ramas (job 5 y job 6), cerrando el gap de §8.2 salvo el sub-workflow Load_Refinitiv_Response.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del workflow real + contraste con el análisis nodo a nodo ya hecho del mismo fichero en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
+    <criterioAceptacion>Lógica nodo a nodo documentada; hipótesis de §5.3 confirmada al 100% (ya no "muy probable"): ambos jobs disparan una solicitud real, y el job 6 reutiliza el pipeline completo de 3 jars del job 4.</criterioAceptacion>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2: una ejecución del job 6 (OPTIONS_FUTURES_ENRICHMENT) escribe también vía refinitivDerivativesLoader.jar. Si una futura revisión de esta especificación asume "solo el job 4 escribe en Oracle" (como decía R4 literalmente), subestimará el impacto de una incidencia o un cambio en el job 6. El contenido exacto del sub-workflow Load_Refinitiv_Response (rama del job 5) sigue sin confirmar.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
@@ -308,22 +310,26 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-016" tipo="negativo">
-    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle</nombre>
+    <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — estructura real confirmada para 2 de 3 ficheros, mapeo a columna aún bloqueado</nombre>
     <objetivo>Confirmar, con una muestra real (no comprimida) de un fichero Emisores/Subyacentes/Derivados de Refinitiv, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
     <precondiciones>
-      <precondicion>Una copia real (o anonimizada preservando estructura) de al menos 1 fichero .txt de cada tipo (Emisores/Subyacentes/Derivados_Enriquecido), aportada por el usuario.</precondicion>
+      <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo (Emisores/Subyacentes/Derivados_Enriquecido) — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
+      <precondicion>Código fuente (o decompilado) de IssuersService/UnderlyingService/ListedDerivativesService — NO APORTADO, sigue bloqueando el mapeo exacto a columna.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Estado actual" valor="ficheros de producción se consumen y borran tras su uso, sin muestra disponible"/>
+      <dato campo="Subyacentes*.txt" valor="3 campos |-delimitados sin cabecera: &lt;RIC&gt;|RIC|&lt;TIPO&gt;; TIPO∈{UNDLYRFV (1.022), FUTRFV (69)}; campo 2 literal constante 'RIC' en las 1.091 filas"/>
+      <dato campo="Derivados_Enriquecido.txt" valor="45 campos |-delimitados sin cabecera, ancho constante; tipo (campo 6)∈{OPT (1.703), FUT (128), BONDFUT (6)} — ningún SWAP en la muestra; campo 28=ISIN subyacente; campo 31=RIC subyacente; campo 42=tipo subyacente (UNDLYRFV/FUTRFV)"/>
+      <dato campo="Correlación cruzada verificada" valor="82/83 valores distintos del campo 31 de Derivados_Enriquecido.txt aparecen como campo 1 de Subyacentes*.txt; dominio de campo 42 idéntico al de campo 3 de Subyacentes*.txt — confirma que ambos ficheros proceden del mismo lote real"/>
+      <dato campo="Emisores*.txt" valor="fichero vacío (0 bytes) — sin muestra de estructura real"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga.</paso>
-      <paso numero="2">Correlacionar cada columna/posición del fichero con la columna Oracle que alimenta, usando el código fuente de los 3 servicios de carga.</paso>
+      <paso numero="1">Obtener una muestra real de cada uno de los 3 ficheros de carga — hecho para Subyacentes/Derivados_Enriquecido; Emisores pendiente (lote sin altas).</paso>
+      <paso numero="2">Correlacionar cada columna/posición del fichero con la columna Oracle que alimenta, usando el código fuente de los 3 servicios de carga — bloqueado: código fuente no aportado.</paso>
     </pasos>
     <resultadoEsperado>Mapeo campo a campo documentado para los 3 ficheros de carga, cerrando el gap de §8.2.</resultadoEsperado>
     <tipoValidacion>Inspección de fichero real + código fuente de IssuersService/UnderlyingService/ListedDerivativesService.</tipoValidacion>
     <criterioAceptacion>Tabla de mapeo campo→columna completa para los 3 ficheros.</criterioAceptacion>
-    <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+    <posibilidadFallo>Subyacentes*.txt tiene solo 3 campos, muy por debajo de lo esperable para alimentar directamente FT_T_ISID/FT_T_ISSU/FT_T_MKIS (Grupo B, §5.2) — 2 hipótesis abiertas sin confirmar: (a) es una lista de claves de solicitud, no el fichero final de carga; o (b) UnderlyingService solo necesita estos 3 campos como clave. Si la hipótesis (a) fuera cierta, el verdadero fichero de carga de subyacentes seguiría sin muestra pese a tener uno con este nombre. Caso parcialmente bloqueado: falta el código fuente de los 3 servicios de carga (no la muestra) para Subyacentes/Derivados, y falta además la muestra para Emisores.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-017" tipo="conflicto_integridad">

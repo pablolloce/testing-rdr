@@ -21,13 +21,13 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-007 | Acceso a las rutas/checksums reales del script y el jar en producción, para ambas cadenas |
 | TC-008 | 1 emisor nuevo en `Emisores*.txt` |
 | TC-009 | 1 subyacente nuevo (ISIN) en `Subyacentes*.txt` |
-| TC-010 | 1 derivado de tipo opción y 1 de tipo swap en `Derivados_Enriquecido*.txt` |
+| TC-010 | 1 derivado de tipo opción y 1 de tipo swap en `Derivados_Enriquecido*.txt` — **PARCIAL:** la muestra real aportada (1.837 derivados) cubre opción/futuro/bondfut, ningún swap; falta un ejemplo de swap |
 | TC-011 | Capacidad de forzar el fallo de una de las 3 cargas en entorno de test |
 | TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test |
 | TC-013 | Capacidad de simular la indisponibilidad del servicio externo OpenFigi en entorno de test |
-| TC-014 | Fichero real `Refinitiv_Request_Response.wkf` (no aportado aún) |
+| TC-014 | Fichero real `Refinitiv_Request_Response.wkf` — **APORTADO (2026-10-01).** Resta solo el sub-workflow `Load_Refinitiv_Response` (rama job 5) |
 | TC-015 | Decompilación adicional del jar o trazas de BD de una ejecución real (no aportadas aún) |
-| TC-016 | Muestra real (o anonimizada) de los 3 ficheros de carga de Refinitiv (no aportada aún — se consumen/borran en producción) |
+| TC-016 | Muestra real de los 3 ficheros de carga de Refinitiv — **PARCIAL (2026-10-01):** `Subyacentes*.txt`/`Derivados_Enriquecido.txt` aportados (estructura confirmada, ver `spec.md` §5.6); `Emisores*.txt` aportado pero vacío (sin altas en el lote); mapeo exacto a columna Oracle sigue bloqueado por falta del código fuente de `IssuersService`/`UnderlyingService`/`ListedDerivativesService` |
 | TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o al `.properties` temporal de una ejecución real de los jobs 5/6, antes de que se borre |
 | TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
 
@@ -57,12 +57,19 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 - Classpath Java del script debe incluir `ojdbc8.jar` (driver Oracle) y `ConexionBD.jar` (conexión propia
   RDR) para que el paso 5 (`CargaDerivados`) pueda conectar a Oracle.
 - Acceso real al servicio externo **OpenFigi** (Bloomberg) para TC-001, TC-002, TC-013.
-- `.properties` reales de los 3 jobs GSProcess finales confirmados esta ronda:
-  `Refinitiv_Undly_Enrichment_issues`/`_futures` (invocan el workflow GoldenSource `Refinitiv_Request_Response`,
-  parametrizado por `idType`/`requestType`/`vreqOid`) y `GestionAlertas_DERIVADOS_REFINITIV` (instancia la
-  plantilla genérica `GestionAlertas.properties`, ya confirmada en otro proceso de este audit, filtrada por
-  `DERIVADOS_REFINITIV`) — ver `spec.md` §5.3/§5.4. Pendiente solo el contenido interno del propio workflow
-  `Refinitiv_Request_Response.wkf` (TC-014).
+- `.properties` reales de los 3 jobs GSProcess finales confirmados: `Refinitiv_Undly_Enrichment_issues`/`_futures`
+  (invocan el workflow GoldenSource `Refinitiv_Request_Response`, parametrizado por
+  `idType`/`requestType`/`vreqOid`) y `GestionAlertas_DERIVADOS_REFINITIV` (instancia la plantilla genérica
+  `GestionAlertas.properties`, ya confirmada en otro proceso de este audit, filtrada por
+  `DERIVADOS_REFINITIV`) — ver `spec.md` §5.3/§5.4.
+- **`Refinitiv_Request_Response.wkf` real aportado (2026-10-01):** confirma con código, ya no como hipótesis,
+  que los jobs 5/6 lanzan una solicitud real a Refinitiv (mismo cliente `RDR_Refinitiv_Request.jar` que el
+  proceso hermano `RDR_BATCH_EMISORES_REFINITIV`) y que el job 6 reutiliza el pipeline completo de 3 jars del
+  job 4 sobre la respuesta — ver `spec.md` §5.3. Único resto sin material propio: el sub-workflow
+  `Load_Refinitiv_Response` de la rama del job 5.
+- **Muestra real de ficheros de carga (2026-10-01):** `Subyacentes_20261001_081453.txt` y
+  `Derivados_Enriquecido.txt` aportados (estructura y correlación cruzada confirmadas, `spec.md` §5.6);
+  `Emisores_20261001_081453.txt` aportado pero vacío.
 
 ## Sistema de ficheros
 
@@ -76,11 +83,13 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 La cadena es estrictamente secuencial por eventos en ambos casos (D y P): job 1 (recogida SFTP) → job 2
 (transmisión a pasarela) → job 3 (limpieza) → job 4 (carga real, pipeline de 5 pasos) → job 5
 (enriquecimiento emisiones simples) → job 6 (enriquecimiento derivados/futuros) → job 7 (reporte/alertas,
-fin de cadena). Job 4 es el único punto de escritura directa en Oracle de toda la cadena. Ver `spec.md` §4/§5
-para el detalle completo.
+fin de cadena). Job 4 es el único job de la cadena que **Control-M** lanza con escritura directa en Oracle,
+pero no el único punto que escribe en las 20 tablas Oracle de §5.2: el job 6, vía el workflow
+`Refinitiv_Request_Response`, reejecuta `refinitivDerivativesLoader.jar` sobre una nueva respuesta de
+Refinitiv (confirmado con el `.wkf` real, `spec.md` §5.3) — ver `spec.md` §4/§5 para el detalle completo.
 
-- **Jobs 5/6 (confirmado con `.properties` real):** invocan el workflow compartido `Refinitiv_Request_Response`
-  — necesario para TC-014/TC-017 poder observar el `.properties` temporal generado
+- **Jobs 5/6 (confirmado con `.properties` + workflow real):** invocan el workflow compartido
+  `Refinitiv_Request_Response` — necesario para TC-017 poder observar el `.properties` temporal generado
   (`Refinitiv_Request_Response_<timestamp>.properties`) antes de que `GSProcess.sh` lo procese/limpie.
 - **Job 7 (confirmado con `.properties` real):** usa el mecanismo `Accion=Property` de `GSProcess.sh` para
   instanciar la plantilla `GestionAlertas.properties` — necesario para TC-018 poder observar el fichero
