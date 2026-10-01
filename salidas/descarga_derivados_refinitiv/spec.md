@@ -293,8 +293,9 @@ real de las ramas que usan los jobs 5/6, `issueRequest`/`UNDLY_ISSUES_ENRICHMENT
    file not found" (alerta `TABLEALERTGENER`, proceso `PETICION_REFINITIV_EMISIONES`).
 3. **Procesa la respuesta de forma distinta según el tipo de solicitud** (switch por `requestType`):
    - **`issueRequest`/`issueSearch`** (usado por el job 5, `UNDLY_ISSUES_ENRICHMENT`): invoca el sub-workflow
-     `Load_Refinitiv_Response` (no aportado, contenido interno fuera de alcance) y a continuación ejecuta
-     `PRC_ESCOBA_SUBYACENTES()` (procedimiento PL/SQL de limpieza de subyacentes).
+     `Load_Refinitiv_Response` (contenido completo confirmado con `.wkf` real, ver detalle más abajo en esta
+     misma sección) y a continuación ejecuta `PRC_ESCOBA_SUBYACENTES()` (procedimiento PL/SQL de limpieza de
+     subyacentes).
    - **`optionsfuturesRequest`** (usado por el job 6, `OPTIONS_FUTURES_ENRICHMENT`): **re-ejecuta, dentro del
      propio workflow, el mismo pipeline de filtrado/enriquecimiento/carga del job 4**, sobre la respuesta
      recién recibida de Refinitiv — no es una pasada de enriquecimiento interna, es un segundo ciclo
