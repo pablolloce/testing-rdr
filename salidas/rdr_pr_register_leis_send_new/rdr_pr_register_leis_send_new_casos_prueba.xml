@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_pr_register_leis_send_new" fecha="2026-09-29" usuario="miguel.saavedra">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Generación, envío e historificación correctos con peticiones pendientes</nombre>
+    <objetivo>Validar el camino feliz completo: una o más peticiones pendientes válidas generan un fichero .req, se normaliza, se envía al mainframe y se historifica.</objetivo>
+    <precondiciones>
+      <precondicion>Existe al menos una petición en FT_T_VREQ con estado PENDING, contexto LEI_REGISTER, y una petición previa asociada en estado PETI_SDI_SOLICITADA o GENERATED_FUND.</precondicion>
+      <precondicion>FT_T_UTD1 tiene todos los atributos (PAIS, ENTIDAD, PERSCTPN, DOCUMPS, INICVIG, FINVIG) informados para esa petición.</precondicion>
+      <precondicion>El fichero idx/{CLAVE}.idx de MEKYTL0927 está correctamente configurado hacia el mainframe.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Petición TESTLEI001" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=TESTCLI01, DOCUMPS=549300TESTLEI0001, INICVIG=20261001, FINVIG=99991231"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Esperar al disparo automático de RDR_PR_REGISTER_LEIS_SEND_new_IN a las 00:30.</paso>
+      <paso numero="2">Verificar en FT_T_VREQ que la petición TESTLEI001 pasó de PENDING a LEI_REG_LINE_SENT.</paso>
+      <paso numero="3">Verificar que se generó LEIsReg_&lt;fecha&gt;.req con una línea de 160 caracteres para TESTLEI001, con los campos truncados/rellenados correctamente.</paso>
+      <paso numero="4">Verificar que el fichero tiene terminadores de línea UNIX (LF, no CRLF).</paso>
+      <paso numero="5">Verificar en Control-M que MEKYTL0927 terminó OK y que el fichero llegó al patrón EBPEMFD.FTEXD05X.LEIRDR.ALTA en el mainframe.</paso>
+      <paso numero="6">Verificar que MEKYTL1014 movió el fichero a /fichtemcomp/pr/descargas/kytl/Clientela_LEI/LEI_register/old/.</paso>
+    </pasos>
+    <resultadoEsperado>La petición pasa a LEI_REG_LINE_SENT, el fichero se genera con la línea correcta en formato UNIX, se envía correctamente al mainframe y queda historificado en old/.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + inspección de fichero + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>FT_T_VREQ muestra LEI_REG_LINE_SENT; el .req contiene la línea esperada en formato UNIX; los 4 jobs terminan "Ended OK"; el fichero existe en old/.</criterioAceptacion>
+    <posibilidadFallo>Si algún atributo de FT_T_UTD1 estuviera vacío para esta petición concreta, pasaría a ERROR_SEND_REG_LEI en vez de LEI_REG_LINE_SENT, rompiendo este caso — habría que verificar primero los datos de precondición.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="negativo">
+    <nombre>Sin peticiones pendientes no se genera fichero ni error</nombre>
+    <objetivo>Confirmar que, sin ninguna petición pendiente, no se genera fichero y ni el job de generación ni el de envío fallan.</objetivo>
+    <precondiciones>
+      <precondicion>No existe ningún registro en FT_T_VREQ con estado PENDING y contexto LEI_REGISTER que cumpla la condición de selectClientesAltaPending.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FT_T_VREQ" valor="0 registros PENDING con contexto LEI_REGISTER"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar antes de la ejecución que no hay ninguna petición pendiente.</paso>
+      <paso numero="2">Esperar la ejecución de GS_REGISTERLEISEND.</paso>
+      <paso numero="3">Verificar que no existe ningún LEIsReg_&lt;fecha&gt;.req en la ruta send/.</paso>
+      <paso numero="4">Verificar el estado final de GS_REGISTERLEISEND y MEKYTL0927 en Control-M.</paso>
+    </pasos>
+    <resultadoEsperado>No se genera fichero .req; GS_REGISTERLEISEND termina OK; MEKYTL0927 termina OK sin fichero que enviar, sin ningún error.</resultadoEsperado>
+    <tipoValidacion>Inspección de filesystem + estado de ejecución en Control-M</tipoValidacion>
+    <criterioAceptacion>Ausencia confirmada del .req; ambos jobs en "Ended OK".</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según la ficha SSDD, que documenta explícitamente este comportamiento como no error.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Petición con atributo faltante pasa a error sin bloquear el resto</nombre>
+    <objetivo>Validar que una petición pendiente a la que le falta un atributo obligatorio en FT_T_UTD1 pasa a ERROR_SEND_REG_LEI y se excluye del fichero, sin impedir que el resto de peticiones válidas se procesen.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 2 peticiones PENDING válidas: TESTLEI002 (con DOCUMPS ausente en FT_T_UTD1) y TESTLEI003 (con todos los atributos completos).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="TESTLEI002" valor="PAIS, ENTIDAD, PERSCTPN, INICVIG, FINVIG informados; DOCUMPS ausente en FT_T_UTD1"/>
+      <dato campo="TESTLEI003" valor="todos los atributos informados"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en FT_T_UTD1 que TESTLEI002 no tiene el atributo DOCUMPS antes de la ejecución.</paso>
+      <paso numero="2">Esperar la ejecución de GS_REGISTERLEISEND.</paso>
+      <paso numero="3">Verificar en FT_T_VREQ el estado de TESTLEI002 y TESTLEI003.</paso>
+      <paso numero="4">Verificar el contenido del .req generado.</paso>
+    </pasos>
+    <resultadoEsperado>TESTLEI002 pasa a ERROR_SEND_REG_LEI y no aparece en el fichero; TESTLEI003 pasa a LEI_REG_LINE_SENT y sí aparece con su línea correcta.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + inspección del fichero generado</tipoValidacion>
+    <criterioAceptacion>TESTLEI002 en ERROR_SEND_REG_LEI, ausente del fichero; TESTLEI003 en LEI_REG_LINE_SENT, presente con línea completa.</criterioAceptacion>
+    <posibilidadFallo>Si TESTLEI002 apareciera en el fichero con campos vacíos, el control de atributos obligatorios no estaría funcionando como está documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Valor de campo más largo que su longitud fija se trunca</nombre>
+    <objetivo>Validar el caso límite de un valor de negocio que excede la longitud fija de su campo — debe truncarse automáticamente sin generar error.</objetivo>
+    <precondiciones>
+      <precondicion>Existe una petición PENDING válida (TESTLEI004) con PERSCTPN de más de 9 caracteres en FT_T_UTD1 (campo de longitud fija 9).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="TESTLEI004.PERSCTPN" valor="CLIENTELARGOTEST (16 caracteres, excede el límite de 9)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar el valor largo en FT_T_UTD1 antes de la ejecución.</paso>
+      <paso numero="2">Esperar la ejecución de GS_REGISTERLEISEND.</paso>
+      <paso numero="3">Verificar en el .req generado el campo PERSCTPN de la línea correspondiente a TESTLEI004.</paso>
+      <paso numero="4">Verificar el estado final de la petición en FT_T_VREQ.</paso>
+    </pasos>
+    <resultadoEsperado>El campo PERSCTPN de la línea se trunca a los primeros 9 caracteres ("CLIENTELA"), sin ningún error; la petición pasa a LEI_REG_LINE_SENT igual que un caso normal.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero generado (posición y longitud exacta del campo)</tipoValidacion>
+    <criterioAceptacion>El campo PERSCTPN en la línea tiene exactamente 9 caracteres, correspondientes al truncamiento del valor original; la petición está en LEI_REG_LINE_SENT.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada según el código analizado; caso incluido para confirmar que el truncamiento no rompe el ancho fijo de la línea ni desplaza los campos siguientes.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="duplicidad">
+    <nombre>Dos peticiones distintas con los mismos datos de negocio se procesan ambas</nombre>
+    <objetivo>Confirmar que no existe control de duplicidad de contenido entre peticiones: dos peticiones con VND_RQST_OID distintos pero mismo DOCUMPS/PAIS/ENTIDAD/PERSCTPN se procesan de forma independiente. Campo que se repite: la combinación PAIS+ENTIDAD+PERSCTPN+DOCUMPS. Por qué provoca duplicidad: ambas representan, en la práctica, la misma solicitud de alta LEI para el mismo cliente, pero el proceso las distingue solo por VND_RQST_OID, nunca por contenido de negocio.</objetivo>
+    <precondiciones>
+      <precondicion>Existen 2 peticiones PENDING válidas distintas (VND_RQST_OID diferentes) con idénticos PAIS, ENTIDAD, PERSCTPN y DOCUMPS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Petición A (OID-DUP-1)" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=TESTDUP01, DOCUMPS=549300TESTDUPLEI"/>
+      <dato campo="Petición B (OID-DUP-2)" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=TESTDUP01, DOCUMPS=549300TESTDUPLEI (mismos datos de negocio que A, OID distinto)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en FT_T_VREQ que ambas peticiones (OID distintos) están PENDING antes de la ejecución.</paso>
+      <paso numero="2">Esperar la ejecución de GS_REGISTERLEISEND.</paso>
+      <paso numero="3">Contar en el .req generado cuántas líneas tienen ese mismo DOCUMPS.</paso>
+      <paso numero="4">Verificar el estado final de ambas peticiones en FT_T_VREQ.</paso>
+    </pasos>
+    <resultadoEsperado>Ambas peticiones pasan a LEI_REG_LINE_SENT y generan 2 líneas idénticas (salvo diferencias de negocio no visibles en la línea) en el fichero, sin ningún aviso de duplicidad.</resultadoEsperado>
+    <tipoValidacion>Verificación de BBDD + inspección del fichero generado</tipoValidacion>
+    <criterioAceptacion>2 líneas con el mismo DOCUMPS en el .req; ambas peticiones en LEI_REG_LINE_SENT; ningún mensaje de control de duplicidad en el log.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de código actual; fallaría solo si se introdujera lógica de deduplicación no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Estado LEI_REG_LINE_SENT queda inconsistente si el envío falla después</nombre>
+    <objetivo>Confirmar el riesgo documentado: las peticiones se marcan LEI_REG_LINE_SENT en el paso de generación (GS_REGISTERLEISEND), antes de que MEKYTL0927 confirme el envío real. Si el envío fallara, el estado de BBDD seguiría diciendo "enviado" sin que el fichero llegara a Clientela.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se puede simular de forma controlada un fallo de envío en MEKYTL0927 (por ejemplo, .idx mal configurado), sin afectar producción.</precondicion>
+      <precondicion>Existe al menos una petición PENDING válida (TESTLEI006).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="TESTLEI006" valor="petición PENDING válida y completa"/>
+      <dato campo="idx de MEKYTL0927 (entorno de test)" valor="forzado a apuntar a un destino inválido para provocar el fallo de envío"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, forzar la configuración .idx de MEKYTL0927 a un destino inválido.</paso>
+      <paso numero="2">Ejecutar GS_REGISTERLEISEND con TESTLEI006 pendiente; confirmar que pasa a LEI_REG_LINE_SENT y se genera el .req.</paso>
+      <paso numero="3">Ejecutar MEKYTL0927 y confirmar que termina en error (fallo de envío).</paso>
+      <paso numero="4">Verificar el estado de TESTLEI006 en FT_T_VREQ tras el fallo de envío.</paso>
+    </pasos>
+    <resultadoEsperado>TESTLEI006 permanece en LEI_REG_LINE_SENT pese a que el envío falló — no existe ningún mecanismo que revierta el estado ante un fallo posterior de MEKYTL0927, confirmando la inconsistencia documentada.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación de BBDD — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>TESTLEI006 sigue en LEI_REG_LINE_SENT tras el fallo confirmado de envío en Control-M.</criterioAceptacion>
+    <posibilidadFallo>Si el estado se revirtiera automáticamente, el riesgo documentado no sería real y habría que corregir rdr_pr_register_leis_send_new_spec.md §9 y este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="datos_sinteticos">
+    <nombre>Ráfaga de 3 peticiones sintéticas con el mismo cliente/LEI</nombre>
+    <objetivo>Confirmar con datos sintéticos que el proceso no detecta ráfagas de peticiones duplicadas para el mismo cliente. Campo que se repite: DOCUMPS+PERSCTPN. Cuántas veces se repite: 3. Valor que se considera conflicto: mismo DOCUMPS+PERSCTPN en 3 peticiones PENDING simultáneas. Resultado que confirma la ausencia de detección: 3 líneas generadas sin ningún aviso.</objetivo>
+    <precondiciones>
+      <precondicion>El entorno de test está libre de peticiones PENDING previas para este DOCUMPS sintético.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Petición SINT-1" valor="OID-SINT-1, DOCUMPS=549300SINTETICO1, PERSCTPN=SINTCLI01"/>
+      <dato campo="Petición SINT-2" valor="OID-SINT-2, DOCUMPS=549300SINTETICO1, PERSCTPN=SINTCLI01 (idéntico a SINT-1, OID distinto)"/>
+      <dato campo="Petición SINT-3" valor="OID-SINT-3, DOCUMPS=549300SINTETICO1, PERSCTPN=SINTCLI01 (idéntico a SINT-1 y SINT-2, OID distinto)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Insertar las 3 peticiones sintéticas PENDING con datos idénticos y OID distintos.</paso>
+      <paso numero="2">Ejecutar GS_REGISTERLEISEND.</paso>
+      <paso numero="3">Contar en el .req generado cuántas líneas tienen DOCUMPS=549300SINTETICO1.</paso>
+      <paso numero="4">Revisar el log de la aplicación en busca de algún aviso de contenido repetido.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 peticiones pasan a LEI_REG_LINE_SENT y generan 3 líneas idénticas en el fichero, sin ningún aviso de duplicidad en el log.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero generado + revisión del log de aplicación</tipoValidacion>
+    <criterioAceptacion>Exactamente 3 líneas con DOCUMPS=549300SINTETICO1 en el .req; ningún mensaje de control de duplicidad en el log.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada a nivel de código actual.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Estabilidad del riesgo de ConvertirUNIXValidaFichero</nombre>
+    <objetivo>Confirmar que el comportamiento documentado y no corregido (la función no comprueba el código de salida de dos2unix) se mantiene igual tras cualquier cambio futuro del script, para detectar cualquier modificación no documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Se dispone de un entorno de test/preproducción donde se puede simular de forma controlada un fallo de dos2unix (por ejemplo, fichero bloqueado o sin permisos de escritura), sin afectar producción.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="LEIsReg_test.req (entorno de test)" valor="fichero con permisos de solo lectura para forzar el fallo de dos2unix"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, generar un fichero LEIsReg_test.req y quitarle permisos de escritura.</paso>
+      <paso numero="2">Invocar la función ConvertirUNIXValidaFichero sobre ese fichero.</paso>
+      <paso numero="3">Verificar el código de salida de la función/script contenedor y el contenido del log genérico.</paso>
+    </pasos>
+    <resultadoEsperado>La función registra "File found" en el log igualmente (porque `ls` tiene éxito), pese a que `dos2unix` falla internamente por falta de permisos; no se propaga ningún código de error distinto de éxito.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + inspección de log y código de salida</tipoValidacion>
+    <criterioAceptacion>El log no distingue el fallo de dos2unix de una conversión correcta; el script no termina con código de error pese al fallo interno.</criterioAceptacion>
+    <posibilidadFallo>Si en el futuro el resultado difiere (por ejemplo, si se añade una comprobación del código de salida de dos2unix), debe tratarse como una corrección no documentada y actualizarse rdr_pr_register_leis_send_new_spec.md §9 y este caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="e2e">
+    <nombre>Flujo completo de un día típico con peticiones pendientes</nombre>
+    <objetivo>Validar el proceso completo de extremo a extremo: desde la detección de peticiones pendientes hasta la historificación del fichero enviado.</objetivo>
+    <precondiciones>
+      <precondicion>Existe al menos una petición PENDING válida y completa antes de las 00:30.</precondicion>
+      <precondicion>El .idx de MEKYTL0927 está correctamente configurado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Petición E2E-1" valor="PAIS=ES, ENTIDAD=0182, PERSCTPN=E2ECLI01, DOCUMPS=549300E2ELEI0001, todos los atributos completos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar la existencia de E2E-1 en estado PENDING antes de las 00:30.</paso>
+      <paso numero="2">Esperar el disparo automático de la cadena a las 00:30.</paso>
+      <paso numero="3">Verificar que E2E-1 pasó a LEI_REG_LINE_SENT y que se generó el .req con su línea.</paso>
+      <paso numero="4">Verificar que MEKYTL0927 envió el fichero correctamente al mainframe.</paso>
+      <paso numero="5">Verificar que MEKYTL1014 historificó el fichero a old/.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs se ejecutan en orden y terminan OK sin intervención manual, desde el disparo automático a las 00:30 hasta la historificación final del fichero.</resultadoEsperado>
+    <tipoValidacion>Verificación end-to-end en Control-M (estado de los 4 jobs) + inspección de BBDD y filesystem</tipoValidacion>
+    <criterioAceptacion>Los 4 jobs terminan "Ended OK"; E2E-1 en LEI_REG_LINE_SENT; el fichero existe historificado en old/.</criterioAceptacion>
+    <posibilidadFallo>Cualquier fallo puntual de red/protocolo en el envío al mainframe haría fallar MEKYTL0927 sin afectar la generación previa, pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

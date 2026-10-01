@@ -34,7 +34,7 @@ java -jar "<ruta>/eqat-selenium-framework.jar" -xml="<caso>.xml" -dataFile="<dat
 | Framework | El `.jar` que ejecuta los XML | EQAT |
 | `atsqa-generator` | Agente de Copilot que **genera** los XML a partir de lo que le pidas | EQAT |
 
-Nuestro agente **no genera XML**: prepara un `brief_atsqa.md` que consume `atsqa-generator`.
+Nuestro agente **no genera XML**: prepara un `<nombre_proceso>_brief_atsqa.md` que consume `atsqa-generator`.
 Nosotros aportamos el qué y el por qué; ellos el cómo técnico. El reparto está escrito en
 `.github/copilot-instructions.md`, §"Modo ejecutable".
 
@@ -104,7 +104,7 @@ Los ficheros de configuración de EQAT contienen una clave de API en claro, cont
 de forma reversible, usuarios reales y un correo personal. **Por eso no están en
 `documentos_fuente/` y por eso esta memoria no reproduce ninguno de esos valores.**
 
-La misma regla aplica a lo que generemos: el `brief_atsqa.md` se versiona, así que nombra las
+La misma regla aplica a lo que generemos: el `<nombre_proceso>_brief_atsqa.md` se versiona, así que nombra las
 credenciales pero nunca sus valores.
 
 ## 9. Hallazgos de la primera ejecución real (2026-09-23/24)
@@ -141,10 +141,10 @@ resultado, y eso fue lo que destapó que nada se estaba ejecutando.
 
 ## 10. Cómo usar esta memoria al preparar pruebas de un proceso
 
-1. El proceso debe tener antes `spec.md` y `casos_prueba.xml` cerrados.
+1. El proceso debe tener antes `<nombre_proceso>_spec.md` y `<nombre_proceso>_casos_prueba.xml` cerrados.
 2. Triar los casos en los cuatro grupos de §4 y confirmar el triaje con el usuario.
 3. Empezar por los de grupo `validacion`: no necesitan accesos.
 4. Recoger los datos de entorno preguntando, sin dar por supuesto ningún acceso.
-5. Escribir el `brief_atsqa.md` y entregarlo a `atsqa-generator`.
+5. Escribir el `<nombre_proceso>_brief_atsqa.md` y entregarlo a `atsqa-generator`.
 
 Procedimiento completo en `.github/copilot-instructions.md`, §"Modo ejecutable".

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="extraccion_sait_contratos" fecha="2026-09-28" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de transmisión, historificación y borrado (happy path)</nombre>
+    <objetivo>Verificar el ciclo end-to-end: dependencia cross-chain satisfecha → MEKYTL0357_LISTA transmite y historifica → MEKYTL0357_BORRA limpia el origen.</objetivo>
+    <precondiciones>
+      <precondicion>Evento RDR_DAILY_LA_PRO_new_MEKYTL0357_OK generado (cadena RDR_DAILY_LA_PRO_new completada con éxito).</precondicion>
+      <precondicion>KYTL_RDR_EXTRACTION_contratos_Diario_AAAAMMDD.xml presente en /fichtemcomp/pr/descargas/kytl/SAIT/ (LPFTP503).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario_AAAAMMDD.xml" valor="fichero XML de contratos válido, presente en origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que MEKYTL0357_LISTA arranca tras el evento cross-chain.</paso>
+      <paso numero="2">Verificar la transmisión Connect:Direct a WVMSAITDB01:\\150.100.230.96\Home\Transmisiones\Recepcion\RDR\.</paso>
+      <paso numero="3">Verificar que se historifican en /fichtemcomp/pr/descargas/kytl/SAIT/Backup/ tanto el fichero fechado como KYTL_RDR_EXTRACTION_contratos_Diario.xml (sin fecha).</paso>
+      <paso numero="4">Verificar que MEKYTL0357_BORRA arranca tras el evento de salida de MEKYTL0357_LISTA y borra el fichero fechado de origen.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos jobs terminan OK; el XML llega a WVMSAITDB01 con el mismo nombre; ambos ficheros quedan historificados en Backup/; el fichero fechado de origen queda borrado; ningún evento de salida se publica tras MEKYTL0357_BORRA.</resultadoEsperado>
+    <tipoValidacion>Estado OK de ambos jobs en Control-M + verificación de presencia del fichero en destino + verificación de historificación y borrado en origen.</tipoValidacion>
+    <criterioAceptacion>Fichero presente en destino, historificación doble confirmada, origen limpio, sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real o fichero ausente en destino invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Dependencia cross-chain no satisfecha</nombre>
+    <objetivo>Confirmar que MEKYTL0357_LISTA queda bloqueado esperando el evento de RDR_DAILY_LA_PRO_new y no arranca con un XML "antiguo" o inexistente.</objetivo>
+    <precondiciones>
+      <precondicion>Evento RDR_DAILY_LA_PRO_new_MEKYTL0357_OK NO generado (cadena RDR_DAILY_LA_PRO_new retrasada o fallida).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RDR_DAILY_LA_PRO_new_MEKYTL0357_OK" valor="evento no disparado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Verificar que MEKYTL0357_LISTA permanece en estado de espera de prerrequisitos.</paso>
+      <paso numero="2">Confirmar que no se produce ningún intento de transmisión mientras el evento no exista.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0357_LISTA no arranca — queda correctamente bloqueado por Control-M esperando el evento cross-chain real.</resultadoEsperado>
+    <tipoValidacion>Estado "Esperando a Evento" en Control-M, sin ejecución del script.</tipoValidacion>
+    <criterioAceptacion>Ningún intento de transmisión sin el evento real disparado.</criterioAceptacion>
+    <posibilidadFallo>Comportamiento esperado, no un fallo — documenta la dependencia real, no simulada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="error_funcional">
+    <nombre>Fallo real de conexión Connect:Direct (sin soft-failure)</nombre>
+    <objetivo>Confirmar que, a diferencia de otros procesos de esta sesión, un fallo real de transmisión detiene visiblemente la cadena en Control-M, al no existir ninguna "Acción Si" configurada.</objetivo>
+    <precondiciones>
+      <precondicion>Evento cross-chain de entrada satisfecho.</precondicion>
+      <precondicion>Nodo Connect:Direct CDWVMSAITBD01 no disponible o conexión fallida (simulado o real).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Conectividad CDWVMSAITBD01" valor="fallida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar o esperar un fallo real de conexión durante la ejecución de MEKYTL0357_LISTA.</paso>
+      <paso numero="2">Verificar el estado final del job en Control-M.</paso>
+      <paso numero="3">Confirmar que MEKYTL0357_BORRA NO arranca (su prerrequisito, el evento de salida de LISTA, no se genera).</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0357_LISTA termina en KO visible (sin enmascaramiento); la cadena se detiene; MEKYTL0357_BORRA no arranca — el fichero origen permanece intacto para reintento.</resultadoEsperado>
+    <tipoValidacion>Estado KO real de MEKYTL0357_LISTA en Control-M, sin marcado automático a OK.</tipoValidacion>
+    <criterioAceptacion>Fallo real visible como KO, sin soft-failure que lo enmascare; fichero origen no borrado.</criterioAceptacion>
+    <posibilidadFallo>Si existiera una "Acción Si" no capturada en esta ronda que enmascare el fallo, este caso quedaría invalidado — revisar la ficha real ante cualquier discrepancia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="regresion">
+    <nombre>Confirmación de topología y ausencia de validación XSD (GAP-SAIT-005/006/007)</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena TRANSMISIONES_CIB_RDR_SAIT sigue teniendo exactamente 2 jobs, sin job de validación XSD añadido, y que criticidad/recursos no han cambiado.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder KYTL0000-TRANSMISIONES_CIB_RDR_SAIT.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados" valor="exactamente MEKYTL0357_LISTA y MEKYTL0357_BORRA, sin jobs adicionales"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo únicamente los 2 jobs documentados.</paso>
+      <paso numero="2">Confirmar que ninguno de los 2 tiene un job de validación XSD como predecesor/sucesor dentro del propio folder.</paso>
+      <paso numero="3">Confirmar criticidad W y recursos cuantitativos vacíos en ambos jobs.</paso>
+    </pasos>
+    <resultadoEsperado>La topología, criticidad y recursos se mantienen sin cambios respecto a lo documentado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias respecto a la ficha documentada en extraccion_sait_contratos_spec.md §6.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un job nuevo (p. ej. de validación XSD), este caso debe fallar y motivar una actualización de la especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Validación del diccionario de campos real del XML de contratos (GAP-SAIT-004 resuelto)</nombre>
+    <objetivo>Verificar que el XML de entrada que consume Batch_Sait (KYTL_RDR_EXTRACTION_contratos_Diario.xml, generado por un proceso aún no identificado — GAP-SAIT-008) mantiene el elemento raíz &lt;Agreement&gt; con la estructura de campos confirmada por BATCH_SAIT.sql, incluyendo el filtro de exclusión de orígenes Sentry/MENTOR. Nota 2026-09-30: no se ha confirmado si Sait_Diario.xsl altera esta estructura al producir el fichero de salida con sufijo _20000101.xml — este caso valida el XML de entrada, no el de salida.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a un XML de contratos real (el de entrada, KYTL_RDR_EXTRACTION_contratos_Diario.xml, sin sufijo de fecha) generado por el proceso aún no identificado que ejecuta BATCH_SAIT.sql.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Entidad raíz" valor="KYTL_GC.FT_T_LAGR (alias lagr), con WHERE data_src_id != 'Sentry' AND data_src_id != 'MENTOR'"/>
+      <dato campo="Elemento raíz XML" valor="&lt;Agreement&gt; por cada registro de FT_T_LAGR"/>
+      <dato campo="Bloques de primer nivel esperados" valor="AgreementID, AgmtMultiBrInd, Pty (externa/interna), FinDetls, PtySecT, Coll, AgmtMarket, AgmtExeCntc, AgmtContacts, AgmtPlazas, AgmtProdLists, AgmtParts, AgmtSub, ExternalIdentifiers"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que cada &lt;Agreement&gt; del XML generado corresponde a un registro de FT_T_LAGR, sin registros de origen Sentry o MENTOR.</paso>
+      <paso numero="2">Verificar la presencia y estructura de cada bloque de primer nivel listado en datosEmpleados dentro de al menos un &lt;Agreement&gt; de ejemplo.</paso>
+      <paso numero="3">Verificar en el bloque FinDetls la presencia de AgmtID, AgmtTyp, AgmtStat, AgrVersion, AgmtCcy y las listas AgmtTrdTyp (inclusión/exclusión de trading).</paso>
+      <paso numero="4">Verificar que AgmtContacts incluye el sub-bloque de dirección completo (Address, ZipCode, City, CountryCde) cuando existan contactos asociados.</paso>
+    </pasos>
+    <resultadoEsperado>El XML generado respeta íntegramente la estructura de campos confirmada en BATCH_SAIT.sql; ningún &lt;Agreement&gt; corresponde a un origen Sentry/MENTOR.</resultadoEsperado>
+    <tipoValidacion>Validación estructural del XML de salida contra el diccionario de campos documentado en GAP-SAIT_jobs_extraidos.md (Addendum 4), campo a campo en los bloques críticos (FinDetls, AgmtContacts).</tipoValidacion>
+    <criterioAceptacion>Estructura completa presente y coherente con BATCH_SAIT.sql; sin registros Sentry/MENTOR; sin campos inesperados no documentados.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un bloque no documentado o un registro de origen Sentry/MENTOR, indicaría un cambio en la query real no reflejado en esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Origen real del fichero sin fecha KYTL_RDR_EXTRACTION_contratos_Diario.xml (GAP-SAIT-008, observación complementaria, no bloqueante)</nombre>
+    <objetivo>Identificar, si es posible, qué proceso genera realmente KYTL_RDR_EXTRACTION_contratos_Diario.xml (el XML de entrada que Batch_Sait transforma vía XSLT). Su naturaleza ya quedó aclarada el 2026-09-30 por decompilación real (es el fichero de entrada de la transformación, no un artefacto sin propósito). No afecta al comportamiento de TRANSMISIONES_CIB_RDR_SAIT (que solo transmite el fichero ya generado) — este caso documenta el límite de alcance, no bloquea el cierre de la especificación.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso al inventario de jobs/jars que se ejecutan de forma autónoma fuera del árbol de RDR_DAILY_LA_PRO_new antes de las 06:00 (patrón ya visto en ExtraccionGenericaOtherEntities.jar/ExtraccionGenericaCPTY.jar para Contrapartidas; candidato plausible localizado sin confirmar: ExtraccionGenericaUnificada.jar, motor genérico parametrizado por tipo).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="fichero sin fecha, consumido por Batch_Sait como entrada; generador real no identificado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Buscar en Control-M jobs/jars programados antes de las 06:00 que escriban en /fichtemcomp/pr/descargas/kytl/SAIT/, o que invoquen ExtraccionGenericaUnificada.jar.</paso>
+      <paso numero="2">Si se identifica, confirmar que ejecuta BATCH_SAIT.sql (o una query equivalente) y que su salida coincide con la estructura documentada en extraccion_sait_contratos_spec.md §1.2.</paso>
+    </pasos>
+    <resultadoEsperado>Se identifica el proceso real que genera el fichero de entrada, si la evidencia lo permite; en caso contrario, se documenta como límite de alcance conocido.</resultadoEsperado>
+    <tipoValidacion>Inspección de Control-M + comparación de la query real ejecutada contra BATCH_SAIT.sql.</tipoValidacion>
+    <criterioAceptacion>Proceso identificado con evidencia real, o límite de alcance confirmado explícitamente sin bloquear el cierre de la especificación.</criterioAceptacion>
+    <posibilidadFallo>Ninguna — este caso no puede "fallar" en el sentido de invalidar la especificación; documenta una observación complementaria.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Fallo silencioso de la transformación XSLT en Batch_Sait (RISK-SAIT-003)</nombre>
+    <objetivo>Confirmar que un fallo real de la transformación XSLT (Sait_Diario.xsl) no impide que el log de Batch_Sait registre "FINALIZADA SAIT Diario", ocultando el fallo real.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción donde se pueda invocar Batch_Diario_Sait.Batch_Sait de forma aislada, nunca en producción.</precondicion>
+      <precondicion>Capacidad de forzar el fallo de la transformación (p. ej. Sait_Diario.xsl inaccesible, o KYTL_RDR_EXTRACTION_contratos_Diario.xml con XML mal formado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="condición forzada" valor="Sait_Diario.xsl movido/renombrado temporalmente, o XML de entrada con sintaxis inválida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">En entorno de test, invocar Batch_Diario_Sait.Batch_Sait con la condición forzada de fallo.</paso>
+      <paso numero="2">Comprobar en el log (log_rdr_contratos_AAAAMMDD.log) la entrada de error de la excepción (TransformerConfigurationException/TransformerException).</paso>
+      <paso numero="3">Comprobar que el mismo log contiene igualmente "Salida específica para SAIT Diario generada" y "FINALIZADA SAIT Diario".</paso>
+      <paso numero="4">Comprobar que el fichero de salida (_20000101.xml) no se generó, o quedó incompleto/vacío.</paso>
+    </pasos>
+    <resultadoEsperado>El log registra el error de la transformación pero también los mensajes de "finalizada correctamente", pese a que el fichero de salida no se generó o quedó incompleto. Confirma que el log no es fiable para detectar este fallo.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + verificación por lectura de código (catch sin distinguir éxito/fallo en los logs finales)</tipoValidacion>
+    <criterioAceptacion>Log con mensaje de "FINALIZADA" pese al fallo real, y fichero de salida ausente o incompleto. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Requiere control total del entorno de test para forzar el fallo sin afectar la generación real del fichero SAIT.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

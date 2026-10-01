@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="carga_sponsors_baskets" fecha="2026-09-29" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Carga de sponsor con cesta ya existente (ciclo completo)</nombre>
+    <objetivo>Verificar que, para un sponsor cuya cesta ya existe en FT_T_RISS/FT_T_RIDF/FT_T_ISID, el workflow actualiza FT_T_ISST antes de lanzar RDR_CargaBasketSponsor.sh.</objetivo>
+    <precondiciones>
+      <precondicion>Fila activa en FT_T_PAR1 (PARAMETER_CTXT_TYP='BSKT_LOAD') para un sponsor con idType conocido (p. ej. FTSE).</precondicion>
+      <precondicion>Ficheros esperados presentes en /fichtemcomp/pr/descargas/kytl/issues/Baskets/Sponsors/FTSE/.</precondicion>
+      <precondicion>La cesta del índice ya existe activa en FT_T_RISS/FT_T_RIDF/FT_T_ISID.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sponsor" valor="FTSE"/>
+      <dato campo="idType" valor="INHOUSE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_AUTO_LOAD_BASKETS y confirmar arranque del workflow Auto_Load_Basket_Sponsors.</paso>
+      <paso numero="2">Confirmar que Check Basket encuentra instridBasket para el índice.</paso>
+      <paso numero="3">Verificar el MERGE INTO FT_T_ISST (STAT_DEF_ID='B_OPNRES') antes de la llamada al script.</paso>
+      <paso numero="4">Confirmar la llamada a RDR_CargaBasketSponsor.sh y que ft_T_par1.LAST_CHG_TMS se actualiza.</paso>
+    </pasos>
+    <resultadoEsperado>FT_T_ISST se actualiza con el sponsor y timestamp correctos antes de lanzar el script de carga; el job termina OK.</resultadoEsperado>
+    <tipoValidacion>Consulta directa a FT_T_ISST y FT_T_PAR1 tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Registro de FT_T_ISST presente y actualizado; sin errores en listaErrores/TABLEALERTGENER.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier ausencia de actualización en FT_T_ISST invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Carga de sponsor con cesta nueva (fire-and-forget)</nombre>
+    <objetivo>Verificar que, cuando la cesta no existe todavía, el workflow lanza RDR_CargaBasketSponsor.sh directamente sin actualizar FT_T_ISST previamente.</objetivo>
+    <precondiciones>
+      <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) para un sponsor con idType conocido.</precondicion>
+      <precondicion>Ficheros esperados presentes en la ruta del sponsor.</precondicion>
+      <precondicion>La cesta del índice NO existe todavía en FT_T_RISS/FT_T_RIDF/FT_T_ISID.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sponsor" valor="Solactive"/>
+      <dato campo="idType" valor="ISIN"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el workflow y confirmar que Check Basket no encuentra instridBasket (nothing-found).</paso>
+      <paso numero="2">Confirmar que se lanza RDR_CargaBasketSponsor.sh (waitForEnd=false) sin paso previo de MERGE.</paso>
+      <paso numero="3">Verificar que ft_T_par1.LAST_CHG_TMS se actualiza igualmente.</paso>
+    </pasos>
+    <resultadoEsperado>El script de carga se lanza en modo asíncrono sin tocar FT_T_ISST; el job termina OK.</resultadoEsperado>
+    <tipoValidacion>Confirmar ausencia de escritura en FT_T_ISST para este índice, y lanzamiento del script.</tipoValidacion>
+    <criterioAceptacion>Sin registro nuevo en FT_T_ISST para este índice; script de carga lanzado.</criterioAceptacion>
+    <posibilidadFallo>Si se detecta una escritura en FT_T_ISST pese a no existir la cesta previamente, revisar la lógica de Check Basket.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Fichero ausente en fase Load</nombre>
+    <objetivo>Confirmar que, si falta un fichero esperado en la fase Load, se registra el error correspondiente sin detener el procesamiento de los demás sponsors/índices.</objetivo>
+    <precondiciones>
+      <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) que referencia un fichero inexistente en la ruta del sponsor.</precondicion>
+      <precondicion>Al menos otra fila activa de BSKT_LOAD con ficheros correctamente presentes.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fileOrigin" valor="DESCARGA"/>
+      <dato campo="fichero" valor="ausente en la ruta del sponsor"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el workflow con la configuración anterior.</paso>
+      <paso numero="2">Verificar que se añade a listaErrores el mensaje "ERROR PLATAFORMA: No ha sido recibido el fichero..." para el índice afectado.</paso>
+      <paso numero="3">Confirmar que la fila con fichero presente sí se procesa normalmente.</paso>
+    </pasos>
+    <resultadoEsperado>Solo el índice con fichero ausente queda marcado en error; el resto del pipeline continúa sin bloquearse.</resultadoEsperado>
+    <tipoValidacion>Revisión de listaErrores / TABLEALERTGENER tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Un único registro de error para el índice afectado; el resto de índices procesados con normalidad.</criterioAceptacion>
+    <posibilidadFallo>Si el error de un sponsor detiene el procesamiento de los demás, revisar el manejo de excepciones del For Loop.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="borde">
+    <nombre>Fichero ausente en fases PreProcess/Split (mensajes diferenciados)</nombre>
+    <objetivo>Confirmar que los mensajes de error de PreProcess y Split son coherentes con el origen documentado, y el caso especial de MSCI en Split.</objetivo>
+    <precondiciones>
+      <precondicion>Fila activa en FT_T_PAR1 (BSKT_PREPROCESS o BSKT_SPLIT) que referencia un fichero inexistente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sponsor_split_MSCI" valor="fichero ausente para MSCI en fase Split"/>
+      <dato campo="sponsor_otro" valor="fichero ausente para un sponsor distinto de MSCI en fase Split"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar ausencia de fichero en PreProcess para un índice y confirmar el mensaje genérico correspondiente por cada AFFECTED_INDEX.</paso>
+      <paso numero="2">Provocar ausencia de fichero en Split para MSCI y confirmar el mensaje "ERROR TÉCNICO RDR".</paso>
+      <paso numero="3">Provocar ausencia de fichero en Split para un sponsor distinto de MSCI y confirmar el mensaje "ERROR PLATAFORMA".</paso>
+    </pasos>
+    <resultadoEsperado>Los mensajes de error registrados coinciden exactamente con la lógica diferenciada por sponsor/fase documentada en el workflow.</resultadoEsperado>
+    <tipoValidacion>Inspección literal del mensaje insertado en TABLEALERTGENER.</tipoValidacion>
+    <criterioAceptacion>Mensaje de error correcto según sponsor y fase, en los 3 sub-casos.</criterioAceptacion>
+    <posibilidadFallo>Un mensaje genérico igual para todos los sponsors en Split indicaría una regresión respecto al código real analizado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>Confirmación de los 3 valores reales de statusCarga en FT_T_ISST</nombre>
+    <objetivo>Confirmar en revisiones futuras que STAT_CHAR_VAL_TXT de FT_T_ISST (STAT_DEF_ID='B_OPNRES') sigue tomando únicamente los 3 valores reales ya confirmados (OK, ERROR, NOT_LOADED), sin valores nulos ni inesperados.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a un extracto real de FT_T_ISST filtrado por STAT_DEF_ID='B_OPNRES'.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Valores reales confirmados" valor="OK, ERROR, NOT_LOADED"/>
+      <dato campo="Correlación esperada" valor="LAST_CHG_USR_ID coincide con el sponsor real de cada carga (STOXX, BME, SOLACTIVE, MSCI, EURONEXT, FTSE, SP_DJ, MANUAL)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Consultar FT_T_ISST filtrando por STAT_DEF_ID='B_OPNRES'.</paso>
+      <paso numero="2">Confirmar que STAT_CHAR_VAL_TXT solo contiene OK/ERROR/NOT_LOADED, sin valores nulos ni distintos.</paso>
+      <paso numero="3">Confirmar que LAST_CHG_USR_ID sigue coincidiendo con sponsors reales conocidos.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 valores se mantienen sin cambios; ningún registro nuevo con valor nulo o inesperado.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa a FT_T_ISST.</tipoValidacion>
+    <criterioAceptacion>100% de las filas con uno de los 3 valores confirmados.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados es en sí un "fallo" — el caso cierra un gap documental mediante observación directa.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="conflicto_integridad">
+    <nombre>Confirmación del no-op deliberado de NASDAQ en las 2 capas</nombre>
+    <objetivo>Confirmar en ejecución real que NASDAQ no realiza ninguna carga ni historificación efectiva, tal como indican las 2 evidencias de código/Control-M ya analizadas (RDR_CargaBasketSponsor.sh hace exit 0 inmediato; MEKYTL0995 es Dummy).</objetivo>
+    <precondiciones>
+      <precondicion>Fila activa en FT_T_PAR1 (BSKT_LOAD) para sponsor NASDAQ, con o sin ficheros presentes en la ruta correspondiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sponsor" valor="NASDAQ"/>
+      <dato campo="Comportamiento esperado (RDR_CargaBasketSponsor.sh)" valor="exit 0 inmediato, sin transformar ni cargar"/>
+      <dato campo="Comportamiento esperado (MEKYTL0995)" valor="Dummy, siempre OK, nunca ejecuta RAMERC0068.sh"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el workflow para un índice NASDAQ y confirmar que Check Basket se ejecuta igualmente (con idType vacío) pero que, se encuentre o no la cesta, RDR_CargaBasketSponsor.sh termina en el "Correcto para NASDAQ" sin invocar calljava/callevent.</paso>
+      <paso numero="2">Confirmar en Control-M que MEKYTL0995 termina siempre OK sin comprimir ni mover ningún fichero, independientemente de si hay ficheros en .../Sponsors/NASDAQ/.</paso>
+      <paso numero="3">Verificar que ningún fichero de NASDAQ, si llegara a depositarse, se acumula sin límite (consecuencia esperada del Dummy permanente).</paso>
+    </pasos>
+    <resultadoEsperado>NASDAQ no produce ninguna carga real ni historificación en ningún escenario — comportamiento por diseño, confirmado, no un defecto a corregir.</resultadoEsperado>
+    <tipoValidacion>Observación directa de logs de RDR_CargaBasketSponsor.sh y del estado de MEKYTL0995 en Control-M.</tipoValidacion>
+    <criterioAceptacion>Ambas capas confirman el no-op en todos los escenarios probados.</criterioAceptacion>
+    <posibilidadFallo>Si en algún escenario NASDAQ sí produce una carga o historificación real, contradice la evidencia de código/Control-M analizada y debe investigarse como regresión.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Tolerancia a directorio vacío en los 8 jobs automáticos reales de Cadena 2 (excluye NASDAQ, Dummy)</nombre>
+    <objetivo>Confirmar que, si no hay ficheros en la ruta origen de cualquiera de los 8 sponsors automáticos reales, el job de historificación termina OK sin fallar (NASDAQ queda fuera de este caso: es Dummy, no ejecuta nada por diseño — ver TC-006).</objetivo>
+    <precondiciones>
+      <precondicion>Directorio .../Sponsors/{sponsor}/ vacío (sin ficheros fuera de /old/) para al menos uno de los 8 sponsors.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="sponsors a verificar (jobs reales, TASKTYPE=Job)" valor="STOXX, BME, FTSE, Solactive, Euronext, MSCI, SP_DJ, STOXX_DAX"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el job de historificación correspondiente con el directorio vacío.</paso>
+      <paso numero="2">Confirmar el estado final OK en Control-M.</paso>
+      <paso numero="3">Repetir para al menos 2-3 sponsors adicionales de la lista como muestra representativa.</paso>
+    </pasos>
+    <resultadoEsperado>Todos los jobs de la muestra terminan OK pese a la ausencia de ficheros.</resultadoEsperado>
+    <tipoValidacion>Estado OK de Control-M sin generar KO ni alerta.</tipoValidacion>
+    <criterioAceptacion>OK en el 100% de la muestra verificada.</criterioAceptacion>
+    <posibilidadFallo>Cualquier KO por directorio vacío contradice la ficha real e invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Forzar OK de MEKYTL1175 ante un error real</nombre>
+    <objetivo>Confirmar que MEKYTL1175 (sponsor MANUAL) queda marcado OK en Control-M incluso ante un fallo real de compresión/movimiento de fichero, por su configuración "Forzar OK en cualquier caso".</objetivo>
+    <precondiciones>
+      <precondicion>Condición que provoque un fallo real del script (p. ej. permisos insuficientes en el directorio destino, simulado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ACCIONES A REALIZAR" valor="Forzar OK en cualquier caso"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real controlado en la ejecución del job MEKYTL1175.</paso>
+      <paso numero="2">Verificar el estado final en Control-M.</paso>
+      <paso numero="3">Confirmar en logs/trazas que el fallo real ocurrió pese al estado OK mostrado.</paso>
+    </pasos>
+    <resultadoEsperado>Control-M muestra OK pese al fallo real subyacente — el enmascaramiento es por diseño, no un error de configuración.</resultadoEsperado>
+    <tipoValidacion>Contraste entre el estado de Control-M y el log real del script.</tipoValidacion>
+    <criterioAceptacion>Estado OK en Control-M confirmado pese al fallo real forzado.</criterioAceptacion>
+    <posibilidadFallo>Si el job muestra KO pese a la configuración, revisar si el "Forzar OK" está realmente activo en el entorno probado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Sobreescritura en destino de Cadena 3 (MEKYTL1176)</nombre>
+    <objetivo>Confirmar que, si ya existe un fichero con el mismo nombre en el destino XCOMWPMER, MEKYTL1176 lo sobreescribe según la regla documentada.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero open_*.csv ya presente en \\S00371F2\DATOS\TRANSFTP\MVP00G207\Mx3FRTB\SponsorETFsRDR\ con el mismo nombre que el que se va a transmitir.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero destino preexistente" valor="open_ejemplo.csv, contenido distinto al de origen"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL1176 con el fichero de destino ya presente.</paso>
+      <paso numero="2">Verificar que el fichero de destino queda sobreescrito con el contenido del origen.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de destino se sobreescribe sin error ni intervención manual.</resultadoEsperado>
+    <tipoValidacion>Comparación de contenido del fichero de destino antes y después de la ejecución.</tipoValidacion>
+    <criterioAceptacion>Contenido de destino idéntico al de origen tras la ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si el job falla por el fichero ya existente, contradice la regla documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Confirmación de topología completa de las 3 cadenas (14 pasos)</nombre>
+    <objetivo>Confirmar en revisiones futuras que las 3 cadenas siguen teniendo exactamente los jobs documentados, sin añadidos ni eliminaciones.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M de los 3 folders (KYTL0000-RDR_AUTO_BASKETS_SPONSORS, KYTL0000-RDR_HIST_BASKETS_SPONSORS, KYTL0000-RDR_LOAD_SPONSOR_MANUAL).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Jobs esperados" valor="2 (Cadena 1) + 11 (Cadena 2) + 1 (Cadena 3) = 14 pasos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que cada folder contiene exactamente los jobs documentados en carga_sponsors_baskets_spec.md §6.</paso>
+      <paso numero="2">Confirmar que ningún job nuevo se ha añadido a ninguna de las 3 cadenas.</paso>
+      <paso numero="3">Confirmar que criticidad (W) y periodicidad (L-M-X-J-V) se mantienen sin cambios.</paso>
+    </pasos>
+    <resultadoEsperado>Topología, criticidad y periodicidad sin discrepancias respecto a lo documentado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias en ninguna de las 3 cadenas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de un job nuevo (p. ej. un evento cross-chain añadido entre Cadena 1 y 2) debe motivar una actualización de esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Independencia temporal entre Cadena 1 y Cadena 2 (RISK-BASKSP-003)</nombre>
+    <objetivo>Documentar el comportamiento real cuando Cadena 1 (carga) se retrasa más allá del horario habitual de Cadena 2 (historificación), dado que no existe evento cross-chain entre ambas.</objetivo>
+    <precondiciones>
+      <precondicion>Simular o esperar un retraso real de Cadena 1 (RDR_AUTO_LOAD_BASKETS) más allá de su horario habitual (05:45 AM).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Escenario" valor="Cadena 1 retrasada; Cadena 2 arranca en su horario habitual sin esperar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que Cadena 2 arranca igualmente, sin bloquearse por el retraso de Cadena 1.</paso>
+      <paso numero="2">Verificar qué ficheros historifica Cadena 2 en ese escenario (¿los de una ejecución anterior, o ninguno?).</paso>
+      <paso numero="3">Documentar el riesgo observado: posible historificación de ficheros desactualizados o ausencia de historificación del día.</paso>
+    </pasos>
+    <resultadoEsperado>Se documenta el comportamiento real observado — no hay bloqueo de Control-M, pero el riesgo de datos desactualizados/ausentes queda confirmado o descartado con evidencia.</resultadoEsperado>
+    <tipoValidacion>Observación directa del comportamiento de ambas cadenas en el escenario de retraso.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, sea cual sea el resultado.</criterioAceptacion>
+    <posibilidadFallo>Ninguno de los resultados es en sí un "fallo" del caso — cierra un riesgo documental con evidencia de ejecución.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="regresion">
+    <nombre>Registro real en TABLEALERTGENER ante un error de fichero ausente</nombre>
+    <objetivo>Confirmar que un error de fichero ausente durante cualquiera de las 3 fases del workflow genera un registro real y correctamente formado en TABLEALERTGENER.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de TC-003 o TC-004 reproducido (fichero ausente en alguna fase).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="PROCESO" valor="CARGA_BASKETS_SPONSORS"/>
+      <dato campo="LAST_CHG_USR_ID" valor="AlertasBarrido.jar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el escenario de fichero ausente.</paso>
+      <paso numero="2">Consultar TABLEALERTGENER para el ALD1_OID de tipo EXCELROW.</paso>
+      <paso numero="3">Verificar el formato exacto del campo MENSAJE (pipe-delimited: fileType, sponsor, indexId, tipoError, mensajeError, basketIdentifier, published).</paso>
+    </pasos>
+    <resultadoEsperado>Registro presente en TABLEALERTGENER con el formato exacto documentado en el workflow real.</resultadoEsperado>
+    <tipoValidacion>Consulta SQL directa a TABLEALERTGENER tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Registro presente, con formato y campos coherentes con la query real del workflow.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de registro, o formato distinto al documentado, indicaría un cambio no reflejado en esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="conflicto_integridad">
+    <nombre>Gate okToLoad en Load_Baskets_Sponsors.wkf</nombre>
+    <objetivo>Confirmar que una cesta cuyo identificador no se encuentra en FT_T_ISID (ID_CTXT_TYP='RDR_ID', activa) no llega a procesarse (ni altas/bajas de componentes ni Carga MDX), sino que salta directamente al alertado final.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero XML de "formato único" válido (pasa la validación XSD) pero referenciando un índice/cesta inexistente en FT_T_ISID.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="okToLoad esperado" valor="false"/>
+      <dato campo="Query real" valor="select iss_id from ft_t_isid where instr_id=:1 and id_ctxt_typ='RDR_ID' and data_stat_typ='ACTIVE' and end_tms is null"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Invocar el workflow con un XML válido pero con un índice inexistente en FT_T_ISID.</paso>
+      <paso numero="2">Confirmar que no se ejecuta ningún paso de ALTA/BAJA de componentes ni Carga MDX.</paso>
+      <paso numero="3">Confirmar que se genera el mensaje de "Fin de carga" (Alert - Load Ended) y que no hay ninguna fila nueva en FT_T_ISST para esa cesta.</paso>
+    </pasos>
+    <resultadoEsperado>El workflow no carga nada; solo se registra el alertado final, sin tocar FT_T_ISST ni GoldenSource.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs del workflow + consulta a FT_T_ISST tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Ausencia total de carga real cuando okToLoad es false.</criterioAceptacion>
+    <posibilidadFallo>Si el workflow llega a Carga MDX pese a okToLoad=false, contradice el diseño confirmado en el código real y debe tratarse como defecto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="borde">
+    <nombre>Carga de cesta grande (&gt;400 componentes) por la ruta de fichero troceado</nombre>
+    <objetivo>Confirmar que una cesta con más de 400 componentes se procesa por la ruta de fichero troceado (fileSplittedPath, SuccessAction=DELETE) en vez de la ruta directa (Ruta, SuccessAction=LEAVE), y que los ficheros temporales se limpian correctamente tras la carga.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero XML de cesta con más de 400 componentes, cesta ya existente y válida en FT_T_ISID (okToLoad=true).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="xmlComponentsSize" valor="&gt;400"/>
+      <dato campo="Umbral real confirmado en código" valor="400"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la carga de una cesta con más de 400 componentes.</paso>
+      <paso numero="2">Confirmar que el nodo "Cesta Grande?" evalúa YES y que se usa fileSplittedPath en vez de Ruta.</paso>
+      <paso numero="3">Confirmar que, tras la carga, los ficheros temporales (splitted/dupli) se eliminan (rm splitted file / rm dupli file).</paso>
+      <paso numero="4">Repetir con una cesta de 400 componentes o menos y confirmar que usa la ruta directa (Ruta, SuccessAction=LEAVE).</paso>
+    </pasos>
+    <resultadoEsperado>La cesta grande se procesa por la ruta troceada sin dejar ficheros temporales residuales; la cesta pequeña usa la ruta directa.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs del workflow + verificación de ficheros temporales en el sistema de ficheros tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Comportamiento coherente con el umbral de 400 componentes confirmado en el código real.</criterioAceptacion>
+    <posibilidadFallo>Ficheros temporales residuales, o uso de la ruta equivocada según el tamaño real de la cesta, indicarían un defecto de limpieza o de enrutamiento.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="regresion">
+    <nombre>Confirmación de que calljavaBig sigue inactivo en RDR_CargaBasketSponsor.sh</nombre>
+    <objetivo>Confirmar en revisiones futuras que la función calljavaBig() (troceo del FICHERO_PRINCIPAL en bloques de 500 líneas) sigue sin invocarse, y que un fichero principal de más de 500 líneas se procesa en una sola pasada por calljava().</objetivo>
+    <precondiciones>
+      <precondicion>Fichero principal real de un sponsor de los que usan calljava() (p. ej. STOXX) con más de 500 líneas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Invocación real en código" valor="comentada: #if [ $(wc -l &lt; $SPONSORDIR/$FICHERO_PRINCIPAL) -gt 500 ]; then #calljavaBig #fi"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la carga de un fichero principal de más de 500 líneas.</paso>
+      <paso numero="2">Confirmar en el log que se invoca calljava() una sola vez, no calljavaBig() ni varias invocaciones de Java.</paso>
+      <paso numero="3">Confirmar que no se generan ficheros troceados (`${FICHERO_PRINCIPAL%.*}_0`, `_1`, ...) en el directorio del sponsor.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero se procesa en una sola pasada de Java, sin trocear, independientemente de su tamaño.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs de ejecución + verificación del directorio del sponsor tras la carga.</tipoValidacion>
+    <criterioAceptacion>Sin ficheros troceados residuales ni invocaciones múltiples de Java para un mismo fichero principal.</criterioAceptacion>
+    <posibilidadFallo>Si aparece un fichero troceado o varias invocaciones de Java para el mismo fichero principal, significa que alguien reactivó calljavaBig() sin actualizar esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
