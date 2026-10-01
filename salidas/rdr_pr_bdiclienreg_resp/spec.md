@@ -1326,10 +1326,20 @@ no exclusivo de R9 — versión 7, estado `RELEASED` —
   carácter genérico/compartido del componente). Solo si `tipo=="InvestorsPlan"` continúa: recupera **todas**
   las respuestas hijas (`FT_T_VREQ` con `DATA_SRC_ID='ALERT_IP_API_REST'` y `PRNT_VND_RQST_OID=<vnd_rqst_oid>`
   — sugiere que `main.Peticion`/`API_REST.jar` puede generar más de una respuesta hija por petición), las
-  concatena en un único XML `<ssis>...</ssis>` y extrae cada nodo `ssiInformations` individual, serializándolo
-  de vuelta a texto — preparando así el array de SDIs que `SSIs_Fx_Alta` (§6.19) procesará una a una. Si
-  `tipo` no es `"InvestorsPlan"`, se limita a persistir el `Estado`/mensaje en la propia `FT_T_VREQ` y termina
-  (comportamiento genérico para otros consumidores del componente, fuera de alcance de este proceso).
+  concatena en un único XML `<ssis>...</ssis>` y extrae cada nodo `ssiInformations` individual. **Lógica de
+  deduplicación trazada en su totalidad (cierra el gap abierto de rondas anteriores):** por cada nodo
+  `ssiInformation` extraído, resuelve su `codOid` por XPath y comprueba en `FT_T_SAI1`
+  (`ID_CTXT_TYP='ALERTID'`, `DATA_STAT_TYP='ACTIVE'`, `ALT_ID=codOid`) si esa SDI **ya fue dada de alta**
+  (`DadaAlta?`, variable `countExiste`): si ya existe (`SI`), la descarta sin más acción (nodo `NOP`, sin log
+  ni contador); si es nueva (`NO`), genera un `new_oid` e inserta una **fila hija nueva en `FT_T_VREQ`**
+  (`DATA_SRC_ID='ALERT_IP_SSI'`, distinto del `DATA_SRC_ID='ALERT_IP_API_REST'` de las respuestas leídas al
+  principio, `PRNT_VND_RQST_OID=vnd_rqst_oid`, `VND_RQST_STAT_TXT`=el XML individual de esa SDI,
+  `VND_RQST_STAT_TYP=Estado`) — **son precisamente estas filas, con este `DATA_SRC_ID`, las que `SSIs_Fx_Alta`
+  (§6.19) relee en modo `Online`** (`DATA_SRC_ID='ALERT_IP_SSI'`, `PRNT_VND_RQST_OID=VREQ_OID`), cerrando así
+  la conexión completa entre ambos workflows. No hay rama de gestión de error visible en el `INSERT`, mismo
+  patrón del resto de la cadena. Si `tipo` no es `"InvestorsPlan"`, se limita a persistir el `Estado`/mensaje
+  en la propia `FT_T_VREQ` y termina (comportamiento genérico para otros consumidores del componente, fuera
+  de alcance de este proceso).
 - **Qué recibe/produce:** recibe `vnd_rqst_oid`; produce la actualización de `FT_T_VREQ.VND_RQST_STAT_TYP`/
   `VND_RQST_STAT_TXT` para esa petición y, en la rama Investors Plan, el array de XMLs de SDI individuales
   consumido por `SSIs_Fx_Alta`.
@@ -1344,10 +1354,11 @@ no exclusivo de R9 — versión 7, estado `RELEASED` —
 - **Qué pasa si falla:** ver arriba — los 2 niveles de fallo (respuesta vacía, error técnico/de negocio
   embebido) se resuelven a `NACK`/`FAILED` sobre la propia `FT_T_VREQ`, sin relanzar ninguna excepción visible
   en este `.wkf`.
-- **Gap abierto, no bloqueante:** el resto de la lógica de deduplicación (`DadaAlta?`, `countExiste`) y el
-  detalle final de cómo se registra cada SDI individual no se ha trazado en su totalidad dado el tamaño del
-  fichero (1979 líneas) — el mecanismo principal (recepción, validación de 2 niveles, extracción de SDIs) sí
-  queda confirmado.
+- **Sin gaps abiertos — trazado completo (ronda adicional, sin necesidad de material nuevo):** la lógica de
+  deduplicación (`DadaAlta?`/`countExiste` contra `FT_T_SAI1`) y el registro de cada SDI individual
+  (`INSERT` en `FT_T_VREQ`, `DATA_SRC_ID='ALERT_IP_SSI'`) quedan descritos arriba — se cierra así el único
+  resto que quedaba pendiente de este `.wkf` (1979 líneas), ya disponible en
+  `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/RecepcionAlertApiRest.wkf`.
 
 ### 6.19 `Workflow(SSIs_Fx_Alta)` — confirmado con `.wkf` real
 
