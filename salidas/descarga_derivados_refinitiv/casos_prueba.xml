@@ -290,23 +290,27 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
-    <nombre>Atribución real de escritura de las 5 tablas del Grupo E</nombre>
+    <nombre>Atribución real de escritura de las 5 tablas del Grupo E — catálogo de columnas confirmado, punto de escritura aún sin atribuir</nombre>
     <objetivo>Confirmar, con una decompilación más profunda del bytecode o con observación de una ejecución real instrumentada, qué servicio/línea de código concreta escribe (si alguna) en FT_T_FINR, FT_T_FIRL, FT_T_FRID, FT_T_GUNT y FT_T_REP1.</objetivo>
     <precondiciones>
-      <precondicion>Acceso a una decompilación más detallada del jar, o a trazas/logs de una ejecución real que muestren INSERT/UPDATE sobre estas 5 tablas.</precondicion>
+      <precondicion>Acceso a una decompilación más detallada del jar, o a trazas/logs de una ejecución real que muestren INSERT/UPDATE sobre estas 5 tablas — PARCIALMENTE CUMPLIDA: las 5 entidades JPA reales (.java) aportadas 2026-10-01 confirman el catálogo de columnas, pero ninguna declara @OneToMany/@ManyToOne propia, así que no muestran ni descartan por sí solas una escritura real.</precondicion>
+      <precondicion>Código fuente de FT_T_FINS/FT_T_ISGU (posible lado padre de una relación @OneToMany hacia estas 5 entidades), o de un Service/Repository/DAO que las persista explícitamente — NO APORTADO, sigue siendo el material que falta.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Estado actual" valor="entidades JPA presentes en el jar, sin punto de escritura confirmado en el bytecode inspeccionado"/>
+      <dato campo="FT_T_FINR (confirmado 2026-10-01)" valor="39 columnas reales, @Id FINR_OID; sin relación JPA declarada hacia FT_T_FIRL/FT_T_FRID pese a que estas sí la referencian por columna FINR_OID"/>
+      <dato campo="FT_T_FIRL / FT_T_FRID (confirmado 2026-10-01)" valor="ambas referencian FINR_OID como columna String simple (no @ManyToOne navegable); FRID añade GUNT_OID/GU_ID/GU_TYP/GU_CNT — relaciona FINR con GUNT y con un MKT_OID"/>
+      <dato campo="FT_T_GUNT (confirmado 2026-10-01)" valor="32 columnas reales, jerarquía propia autorreferenciada (prntGuId/prntGuTyp/prntGuCnt) + catálogo geográfico completo (continente/país/región/ciudad/coordenadas)"/>
+      <dato campo="FT_T_REP1 (confirmado 2026-10-01)" valor="columnas PROCESO/TIPO/QUERY/RUTA/EXCEL_TEMPLATE/EXCEL_SHEET/CABECERA — compatibles con una fila de configuración de informe por proceso (hipótesis razonable por nombre de columna, no confirmada; posible relación con el motor GestionAlertas/RDR_AlertasCocinado del job 7, §5.4)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>
-      <paso numero="2">Si recibe filas, identificar qué servicio/relación (@OneToMany/cascada) las origina.</paso>
+      <paso numero="2">Si recibe filas, identificar qué servicio/relación (@OneToMany/cascada) las origina — descartado que sea una cascada declarada en estas 5 clases; queda por revisar si está en FT_T_FINS/FT_T_ISGU (lado padre) o en un Service explícito.</paso>
       <paso numero="3">Si no recibe ninguna fila en ningún escenario real, documentar como código muerto/entidad no usada.</paso>
     </pasos>
     <resultadoEsperado>Atribución real confirmada (servicio concreto, o código muerto) para las 5 tablas del Grupo E.</resultadoEsperado>
-    <tipoValidacion>Decompilación adicional + observación de ejecución real con trazas de BD.</tipoValidacion>
+    <tipoValidacion>Decompilación adicional (FT_T_FINS/FT_T_ISGU o el Service/Repository real) + observación de ejecución real con trazas de BD.</tipoValidacion>
     <criterioAceptacion>Cada una de las 5 tablas queda clasificada como "escrita por X" o "sin escritura confirmada en ningún escenario observado".</criterioAceptacion>
-    <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+    <posibilidadFallo>Las 5 entidades aportadas esta ronda no declaran @OneToMany/@ManyToOne propia: descarta que el ORM dispare la escritura desde estas clases, pero no confirma ni descarta una cascada declarada del lado padre ni una escritura explícita por servicio — caso sigue bloqueado por falta de ese material concreto, ya no por falta de las propias entidades.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-016" tipo="negativo">

@@ -26,7 +26,7 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test |
 | TC-013 | Capacidad de simular la indisponibilidad del servicio externo OpenFigi en entorno de test |
 | TC-014 | Fichero real `Refinitiv_Request_Response.wkf` — **APORTADO (2026-10-01).** Resta solo el sub-workflow `Load_Refinitiv_Response` (rama job 5) |
-| TC-015 | Decompilación adicional del jar o trazas de BD de una ejecución real (no aportadas aún) |
+| TC-015 | Decompilación adicional del jar o trazas de BD de una ejecución real — **PARCIAL (2026-10-01):** las 5 entidades JPA reales del Grupo E aportadas confirman el catálogo de columnas pero ninguna declara `@OneToMany`; falta aún `FT_T_FINS`/`FT_T_ISGU` (posible lado padre) o un `Service`/`Repository` real |
 | TC-016 | Muestra real de los 3 ficheros de carga de Refinitiv — **PARCIAL (2026-10-01):** `Subyacentes*.txt`/`Derivados_Enriquecido.txt` aportados (estructura confirmada, ver `spec.md` §5.6); `Emisores*.txt` aportado pero vacío (sin altas en el lote); mapeo exacto a columna Oracle sigue bloqueado por falta del código fuente de `IssuersService`/`UnderlyingService`/`ListedDerivativesService` |
 | TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o al `.properties` temporal de una ejecución real de los jobs 5/6, antes de que se borre |
 | TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
