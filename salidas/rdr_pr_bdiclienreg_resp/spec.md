@@ -789,8 +789,9 @@ Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondo
 
 - **Qué hace:** marca la petición como `PROCESSING_AUTOCALC` en `FT_T_VREQ`; recorre la jerarquía de la
   contraparte (Operativo→Local→Global) vía `FT_T_FIRL` para obtener sus 3 mnemónicos; invoca 3 subworkflows de
-  cálculo regulatorio no aportados (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`,
-  `OperativeRegulatoryInformation`) — a la vista de las variables globales que declara el propio workflow
+  cálculo regulatorio (`WKF-Autocalculos-Enriquecimiento` — **confirmado con `.wkf` real, ver §6.13ter**;
+  `Global Regulatory Information`, `OperativeRegulatoryInformation`, estos 2 aún no aportados) — a la vista de
+  las variables globales que declara el propio workflow
   (`counterpartyTypeUnderDFA`, `cpartyTypeUnderEmir`, `euPersonIndicator`, `finalCounterpartyUnderEmir`,
   `mififirm`, `parentCompanyCountry`), su función es derivar automáticamente la clasificación regulatoria
   (DFA/EMIR/MiFID, indicador de persona UE, país de la matriz) del fondo a los 3 niveles de jerarquía; lanza el
@@ -801,19 +802,23 @@ Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondo
   la petición como `GENERATED_FUND`.
 - **Qué recibe/produce:** recibe `mnemOperativo`/`vreqOid` (ambos `String`, obligatorios, únicos parámetros
   declarados); actualiza el estado de la petición en `FT_T_VREQ` (`PROCESSING_AUTOCALC`→`GENERATED_FUND`) y
-  delega el enriquecimiento real en los 6 subworkflows/evento invocados — 1 de los 6 (`RDR_AltaSCF_Marca`) ya
-  aportado, 5 siguen sin aportar.
+  delega el enriquecimiento real en los 6 subworkflows/evento invocados — 2 de los 6 (`RDR_AltaSCF_Marca`,
+  `WKF-Autocalculos-Enriquecimiento`) ya aportados, 4 siguen sin aportar.
 - **Campos de salida afectados:** `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT`; el resto (clasificación
-  regulatoria real, rol asignado, difusión de `PartySetup`, y el alta SCF — ver §6.13bis) vive dentro de los
-  subworkflows invocados.
+  regulatoria real, rol asignado, difusión de `PartySetup`, el alta SCF — ver §6.13bis — y el enriquecimiento
+  de clasificación/atributos — ver §6.13ter) vive dentro de los subworkflows invocados.
 - **Qué pasa si falla:** no hay ninguna rama de gestión de error entre las llamadas a subworkflow — si
   cualquiera de los 6 (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`,
   `OperativeRegulatoryInformation`, evento `RDR_AltaFondos_ROL`, `PartySetupDifusion`, `RDR_AltaSCF_Marca`)
   fallara, no se puede confirmar si el fallo se propaga (dejando la petición congelada en
-  `PROCESSING_AUTOCALC`, sin llegar nunca a `GENERATED_FUND`) o si GoldenSource lo gestiona de otro modo.
-- **Gap abierto, no bloqueante:** 5 de los 6 subworkflows/evento internos siguen sin aportar
-  (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`, `OperativeRegulatoryInformation`,
-  evento `RDR_AltaFondos_ROL`, `PartySetupDifusion`); `RDR_AltaSCF_Marca` ya está cerrado, ver §6.13bis.
+  `PROCESSING_AUTOCALC`, sin llegar nunca a `GENERATED_FUND`) o si GoldenSource lo gestiona de otro modo. Para
+  `WKF-Autocalculos-Enriquecimiento` concretamente, ya se confirma (§6.13ter) que sus propios fallos internos
+  **a nivel de atributo** (valor nulo, clasificación ya cargada) están aislados y no se propagan — el riesgo de
+  no-propagación aquí se refiere solo a un fallo de infraestructura (BBDD caída, excepción no controlada).
+- **Gap abierto, no bloqueante:** 4 de los 6 subworkflows/evento internos siguen sin aportar
+  (`Global Regulatory Information`, `OperativeRegulatoryInformation`, evento `RDR_AltaFondos_ROL`,
+  `PartySetupDifusion`); `RDR_AltaSCF_Marca` y `WKF-Autocalculos-Enriquecimiento` ya están cerrados, ver
+  §6.13bis/§6.13ter.
 
 ### 6.13bis `RDR_AltaSCF_Marca` — confirmado con `.wkf` real
 
@@ -826,8 +831,13 @@ Workflow analizado: `RDR_AltaSCF_Marca` (grupo `Custom/RDR/AltaFondos` —
   `mnemOperativo` (subselect correlado por `UTD_ID_PURP_TYP='MNEM_OPE'`) y después el valor guardado bajo ese
   mismo `UTD_EXT_ID` para otros 8 tipos de propósito: `CNAE`, `INST_CODE`→`codInsti`, `FIID`, `FINS_ID`,
   `VIPCLNT`, `BRANCH`→`branch`, `NUMFOLIO`→`folio`, `MNEM_LOC`→`mnemLocal`, `RISK_LEVEL`→`riskLevel` — es decir,
-  recupera 9 atributos de negocio previamente guardados para esta contraparte (presumiblemente por
-  `RDR_AltaFondos_Autocalc_PARTY`/sus subworkflows de cálculo regulatorio, o por un alta SCF previa). Tras un
+  recupera 9 atributos de negocio previamente guardados para esta contraparte. **Corrección sobre la hipótesis
+  anterior:** no los puebla `WKF-Autocalculos-Enriquecimiento` (§6.13ter, confirmado con `.wkf` real) — ese
+  workflow lee de `FT_T_UTD1` bajo una clave distinta (el `VND_RQST_OID` de la petición `FundLEI`, no el
+  `UTD_EXT_ID` de `mnemOperativo`) y escribe su resultado en `FT_T_FRCL`/`FT_T_FIST`/`FT_T_FAB1`, nunca en
+  `FT_T_UTD1` — son 2 lectores **hermanos** de un mismo almacén `FT_T_UTD1` ya poblado por otro paso anterior
+  (probablemente la ingesta de la petición original, `AltaFondos_CuadreCarga.jar`/`RDR_XMLReader`, no
+  confirmado con precisión en qué nodo exacto). Tras un
   **AND-JOIN** (`Synchronize`) que espera las 8 ramas, ejecuta en cadena una serie de `INSERT` (todos con SQL
   literal, confirmado directamente del `.wkf`, sin necesidad de fuente adicional) contra: `FT_T_RSME` (medida
   de riesgo `RISKLVL`=`riskLevel`, sobre `mnemLocal`), `FT_T_FRCL` (clasificación `VIPCLNT` sobre `mnemLocal`),
@@ -853,8 +863,62 @@ Workflow analizado: `RDR_AltaSCF_Marca` (grupo `Custom/RDR/AltaFondos` —
   recuperación visible; mismo patrón de "sin gestión de error" ya señalado para el workflow invocador.
 - **Dependencia implícita, no confirmada:** los 9 atributos que este workflow espera encontrar ya guardados en
   `FT_T_UTD1` bajo el `UTD_EXT_ID` de `mnemOperativo` deben haberse poblado en algún punto anterior del
-  pipeline (candidatos: `RDR_AltaFondos_Autocalc_PARTY` o sus 5 subworkflows no aportados, §6.13) — sin esos
-  subworkflows, no se puede confirmar en qué paso exacto se escriben.
+  pipeline (candidatos: `RDR_AltaFondos_Autocalc_PARTY` o sus 4 subworkflows/evento aún no aportados, §6.13;
+  **descartado `WKF-Autocalculos-Enriquecimiento` como origen, ver §6.13ter** — ese workflow lee de
+  `FT_T_UTD1`, no escribe en ella) — sin más material, no se puede confirmar en qué paso exacto se escriben.
+
+### 6.13ter `Workflow(WKF-Autocalculos-Enriquecimiento)` — confirmado con `.wkf` real
+
+Workflow analizado: `WKF-Autocalculos-Enriquecimiento` (grupo `Custom/RDR/AltaFondos`, versión 4, estado
+`RELEASED` — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/WKF-Autocalculos-Enriquecimiento.wkf`).
+
+- **Qué hace:** proyecta en las tablas de clasificación/atributo de GoldenSource un conjunto de valores de
+  negocio que ya estaban pre-cargados en `FT_T_UTD1` para la petición de alta del fondo. Recibe
+  `mnemGlobal`/`mnemLocal`/`mnemOperativo` (los 3, `String`, obligatorios). Un único `DBQuery` inicial ("GET
+  FUND DATA") localiza la petición `FT_T_VREQ` de tipo `FundLEI` asociada al LEI de `mnemGlobal` (vía
+  `FT_T_FIID`, contexto `LEIID`) y hace **11 `LEFT JOIN` sobre `FT_T_UTD1`** (misma fila base, un `JOIN` por
+  cada `UTD_ID_PURP_TYP`) para traer en una sola consulta: `CNAE`, `INST_TYP`, `VIP_CL_IND`, `FOLIO_NUM`,
+  `ADDRESS`, `INST_CODE`, `1940_ACT`→`ACT_1940`, `CITY_DISTR`→`PLAZA_FISC`, `PROVINCE`→`PROVI`, `COUNTRY`,
+  `FXRELFUND`, `CTM_FUND` — 12 atributos en total.
+  - **`nothing-found`** (no existe petición `FundLEI` para ese LEI) → **`Stop` directo, sin error** — mismo
+    patrón de fallo silencioso que el resto de esta familia (ver §9).
+  - **`rows-found`** → "SET FUND DATA" (BeanShell) normaliza `VIP_CL_IND` (`"NO"`/`"YES"` → `"N"`/`"Y"`) y
+    rellena `INST_CODE`/`INST_TYP` con ceros a la izquierda hasta 4 caracteres si llegan con longitud 2; a
+    continuación, **para 8 de los 12 atributos** (`FXRELFUND`, `VIP_CL_IND`, `INST_TYP`, `INST_CODE`,
+    `FOLIO_NUM`, `CNAE` ×2 — una fila para `mnemOperativo`/`CPARTY`, otra para `mnemLocal`/`CUSTOMER` —,
+    `ACT_1940`, más un `INSERT` incondicional de `Onshore`/`CPTYONB` y uno condicional de `CTM_FUND`/`CTMONB`)
+    aplica el mismo patrón repetido: **si el valor es nulo**, registra un log de error (`"ERROR, <ATRIBUTO>
+    NULO"`) y **salta ese `INSERT` sin abortar el resto**; **si no es nulo pero la clasificación ya existe**
+    para ese mnemónico (`EXISTS <ATRIBUTO>?` contra `FT_T_FIST`/`FT_T_FRCL`/`FT_T_FAB1` según el caso), registra
+    otro log (`"el fondo ya tiene cargado el atributo <ATRIBUTO>"`) y **tampoco inserta** (evita duplicados);
+    **solo si no es nulo y no existe ya**, ejecuta el `INSERT` real. Destinos reales confirmados: `FT_T_FIST`
+    (`FXRELF` sobre `mnemOperativo`, `TIPNSTID` sobre `mnemLocal`), `FT_T_FRCL` (`VIPCLNT` sobre `mnemLocal`,
+    `CODINSTI` sobre `mnemOperativo`, `CNAE` sobre ambos, `REG1940` sobre `mnemOperativo` mapeando `Y`/`N`→
+    `"Yes"`/`"No"`, `CPTYONB`="ONS" sobre `mnemLocal` sin comprobación previa), `FT_T_FAB1` (`NUMFOLIO` sobre
+    `mnemLocal`, con `ORG_ID` resuelto desde el rol `BRANCH_OWN` de `mnemGlobal` en `FT_T_ENFR`).
+  - **4 atributos fetched pero no usados en este workflow:** `ADDRESS`, `PLAZA_FISC` (`CITY_DISTR`), `PROVI`
+    (`PROVINCE`) y `COUNTRY` se traen en la misma query y se mapean a variables, pero **ningún nodo de este
+    `.wkf` los inserta en ninguna tabla** — igual que la variable global declarada `addressOid`, que nunca se
+    asigna. Dato leído y descartado: o bien pertenecen a un enriquecimiento geográfico que vive en otro
+    subworkflow no aportado (`Global Regulatory Information`/`OperativeRegulatoryInformation`, ver §6.13), o
+    son residuo de una versión anterior de este workflow.
+- **Qué recibe/produce:** recibe `mnemGlobal`/`mnemLocal`/`mnemOperativo`; no produce salida declarada — su
+  efecto es puramente las altas en `FT_T_FIST`/`FT_T_FRCL`/`FT_T_FAB1` descritas arriba.
+- **Campos de salida afectados:** `FT_T_FIST` (`FXRELF`, `TIPNSTID`), `FT_T_FRCL` (`VIPCLNT`, `CODINSTI`,
+  `CNAE` ×2, `REG1940`, `CPTYONB`), `FT_T_FAB1` (`NUMFOLIO`).
+- **Qué pasa si falla:** a nivel de atributo, **aislamiento de fallo confirmado** — un valor nulo o una
+  clasificación ya existente solo salta ese `INSERT` concreto, con log, y continúa con el resto; no hay
+  rama de recuperación visible para un fallo de infraestructura (conexión a BBDD, excepción no controlada
+  de un `INSERT`), que seguiría el mismo patrón de "sin gestión de error" ya señalado para el workflow
+  invocador (§6.13).
+- **[Hallazgo — riesgo de duplicado entre workflows hermanos]** `WKF-Autocalculos-Enriquecimiento` sí
+  comprueba existencia antes de insertar `CNAE`/`VIPCLNT` en `FT_T_FRCL` para `mnemOperativo`/`mnemLocal`,
+  pero `RDR_AltaSCF_Marca` (§6.13bis, invocado desde el mismo `RDR_AltaFondos_Autocalc_PARTY` para los fondos
+  de origen `SCF`) **inserta sus propias filas `CNAE`/`VIPCLNT` en las mismas tablas sin ninguna comprobación
+  `EXISTS` previa**. Si ambos workflows se ejecutan para el mismo fondo (orden de invocación no determinable
+  solo con el `.wkf` de `Autocalc_PARTY`), el segundo en ejecutarse podría insertar una fila de clasificación
+  duplicada que el primero ya había comprobado/evitado — a confirmar con un caso de prueba (ver TC nuevo en
+  §8).
 
 ### 6.14 `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` — confirmado a nivel de queries (sin `main.Ppal`)
 
@@ -1104,6 +1168,9 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 | `e2e` | Ciclo completo desde la detección del fichero hasta la historificación final. | TC-006 |
 | `borde` | Una petición de alta de fondos (R8) con fondos mixtos (algunos casados por LEI, otros no) se marca `FONDOS_CUADRE_OK` a nivel de petición pese a tener fondos en `FUND_GENERATE_KO` — el estado de la petición no implica que todos sus fondos se hayan cargado. | TC-007 |
 | `happy_path` | `RDR_AltaSCF_Marca` registra correctamente la contraparte como entidad SCF (`FT_T_FINR` con `FINSRL_TYP='SCF'`) a partir de los 9 atributos ya guardados en `FT_T_UTD1` para su `mnemOperativo`. | TC-008 |
+| `happy_path` | `WKF-Autocalculos-Enriquecimiento` proyecta en `FT_T_FIST`/`FT_T_FRCL`/`FT_T_FAB1` los 8 atributos de negocio (CNAE, tipo de institución, VIP, código institución, folio, 1940 Act) ya guardados en `FT_T_UTD1` para la petición `FundLEI` del fondo. | TC-009 |
+| `borde` | Un atributo nulo o ya cargado en `WKF-Autocalculos-Enriquecimiento` (`FXRELFUND`/`VIP_CL_IND`/`INST_TYP`/`INST_CODE`/`FOLIO_NUM`/`CNAE`/`ACT_1940`) se salta con un log de error, sin abortar el resto de inserts de ese mismo fondo. | TC-010 |
+| `conflicto_integridad` | Para un fondo de origen SCF, `WKF-Autocalculos-Enriquecimiento` (con comprobación `EXISTS` previa) y `RDR_AltaSCF_Marca` (sin ella) insertan ambos una clasificación `CNAE`/`VIPCLNT` en `FT_T_FRCL` para el mismo mnemónico — confirmar si esto produce una fila duplicada quien se ejecute en segundo lugar. | TC-011 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -1271,6 +1338,18 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   (`FUND_GENERATE_KO`) no dispara ninguna alerta `GestionAlertas` por sí mismo; si llega a alertarse depende
   por completo del barrido por lotes de `FT_T_TPG1` ya documentado en §6.14 (que no se ha confirmado que
   incluya este tipo de fallo en su alcance).
+* **[Confirmado con `.wkf` real, §6.13ter] 4 atributos de negocio (`ADDRESS`/`PLAZA_FISC`/`PROVI`/`COUNTRY`)
+  se leen y descartan en `WKF-Autocalculos-Enriquecimiento`:** la query inicial los trae de `FT_T_UTD1` junto
+  al resto, pero ningún nodo del `.wkf` los inserta en ninguna tabla — ni la variable global `addressOid`
+  llega a asignarse. O pertenecen a un enriquecimiento geográfico que vive en uno de los 2 subworkflows de
+  regulación aún no aportados, o es dato muerto heredado de una versión anterior del workflow.
+* **[Riesgo de duplicado, confirmado con `.wkf` real de ambos workflows, §6.13ter] `WKF-Autocalculos-
+  Enriquecimiento` y `RDR_AltaSCF_Marca` pueden insertar clasificaciones `CNAE`/`VIPCLNT` duplicadas para el
+  mismo fondo SCF:** el primero comprueba `EXISTS` antes de insertar en `FT_T_FRCL`; el segundo
+  (`RDR_AltaSCF_Marca`, §6.13bis) inserta sin ninguna comprobación previa. Ambos se invocan desde el mismo
+  `RDR_AltaFondos_Autocalc_PARTY` para un fondo de origen SCF — si el orden de ejecución no garantiza que
+  `WKF-Autocalculos-Enriquecimiento` sea siempre el último en tocar esas tablas, cabe una fila `FT_T_FRCL`
+  duplicada por fondo (ver TC-011).
 * **[R9] Un timeout del servicio "Alert Mirror" es menos auditable que un rechazo explícito (confirmado por
   `.wkf` real, §6.16):** en `SSIs_Fx_Peticion`, un `NACK` explícito de la petición REST inserta un rechazo en
   `FT_T_RLT1` (mismo patrón de tabla de rechazo del resto de la sesión); un timeout/ausencia de respuesta
@@ -1355,15 +1434,21 @@ punta a punta**: `RDR_AltaFondos_
 Autocalc_PARTY` (§6.13) confirma la derivación de clasificación regulatoria (DFA/EMIR/MiFID) del fondo a 3
 niveles de jerarquía; `RDR_AltaSCF_Marca` (§6.13bis, confirmado con `.wkf` real) confirma el alta SCF completa
 de la contraparte (`FT_T_FINR` con `FINSRL_TYP='SCF'`, más 6 inserts de atributos/clasificación/riesgo/rol/
-check ESB) a partir de 9 atributos releídos de `FT_T_UTD1`; `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
+check ESB) a partir de 9 atributos releídos de `FT_T_UTD1`; `WKF-Autocalculos-Enriquecimiento` (§6.13ter,
+confirmado con `.wkf` real) confirma el enriquecimiento "hermano" para fondos no-SCF: proyecta 8 atributos de
+negocio ya pre-cargados en `FT_T_UTD1` (bajo una clave distinta, el `VND_RQST_OID` de la petición `FundLEI`)
+hacia `FT_T_FIST`/`FT_T_FRCL`/`FT_T_FAB1`, con aislamiento de fallo por atributo (nulo o ya cargado → se
+salta con log, sin abortar el resto) — y revela un **riesgo de duplicado** con `RDR_AltaSCF_Marca` para
+fondos SCF, ya que este último no comprueba existencia antes de insertar sus propias filas `CNAE`/`VIPCLNT`;
+`RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
 (§6.14) confirman la tabla de origen real de las alertas (`FT_T_TPG1`, corrigiendo la hipótesis anterior sobre
 `FT_T_RLT1`) y el mecanismo completo de cola/marcado (`FT_T_ALG1`→`FT_T_REP1.SEND_PEND`); `AlertasEnvio`
 (§6.15) confirma por qué se dispara siempre 2 veces (plantilla acotada por proceso en Barrido/Cocinado) y
 descubre un hallazgo propio: el envío final **no está acotado al proceso que lo disparó**, es un barrido
 global de todo `FT_T_REP1` pendiente en todo el sistema. Con esto, **R8 queda funcionalmente resuelto de
 principio a fin, sin cabos sueltos bloqueantes**: solo quedan, como residuales de código no aportado,
-`main.Ppal` de ambos jars de alertas, y 5 de los 6 subworkflows internos de `RDR_AltaFondos_Autocalc_PARTY`
-(`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`, `OperativeRegulatoryInformation`, evento
+`main.Ppal` de ambos jars de alertas, y 4 de los 6 subworkflows/evento internos de `RDR_AltaFondos_Autocalc_PARTY`
+(`Global Regulatory Information`, `OperativeRegulatoryInformation`, evento
 `RDR_AltaFondos_ROL`, `PartySetupDifusion`) y `Mail`.
 
 El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la

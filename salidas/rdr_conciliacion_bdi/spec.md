@@ -42,7 +42,7 @@ automatizado — ver gap G1).
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
 | G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
 | G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Resuelto (2026-09-28), en el límite de lo alcanzable desde código Java, con la versión completa real de `ConDB.java`.** `executeCONBDI_Hilos` llama al procedimiento almacenado Oracle **`CONBDI2`** (`{call CONBDI2(?,?,...,?)}`, 21 parámetros: los 20 campos extraídos por `ConBDI.java` + `FLD_JOB_ID`) por cada registro válido — confirma el nombre exacto del procedimiento y su firma completa. También confirma, con SQL literal, `obtenerBDIs` (query que lista los códigos BDI activos en GoldenSource, `FT_T_FIID`/`FINS_ID_CTXT_TYP='BDIID'`), `crearJOB`/`cerrarJOB` (INSERT/UPDATE literales sobre `FT_T_JBLG`) e `insertRLT1BDI` (INSERT literal sobre `FT_T_RLT1`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio procedimiento `CONBDI2` (qué hace exactamente dentro de la base de datos con esos 21 parámetros) vive en Oracle, no en este código Java — cerrarlo del todo exigiría un export de PL/SQL de BD, no un fichero de aplicación. Ver §6.4. |
-| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto (2026-09-28) con el código fuente real de `InformeBroker.java`/`ConDB.java`.** El informe Broker queda cerrado por completo: 4 hojas (`NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`), cada una con su query real y columnas exactas — ver §6.5. **Sigue abierto:** el informe SWIFT no aparece en ningún punto de este código — requeriría el jar/clase que lo genera, no identificado en el material disponible. |
+| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto.** El informe Broker queda **cerrado al 100%**: código fuente real de `InformeBroker.java`/`ConDB.java` (4 hojas `NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`, cada una con su query real y columnas exactas) confirmado además con la plantilla real (`Reporte_ConciliacionBroker_Plantilla.xlsx`) y una muestra de salida real — ver §6.5. **Sigue abierto para el SWIFT:** descartados como generadores `InformeBroker`/`ConDB` (no lo mencionan) y `RDR_Report.jar` (confirmado por bytecode real que solo escribe texto plano, nunca `.xlsx` — ver §6.5); el jar/clase real que lo genera sigue sin identificar, candidato pendiente: `RDR_PLSQL.jar`. |
 
 ## 5. Especificación funcional
 
@@ -153,6 +153,11 @@ cabeceraConBDI=BDI_ID;Mensaje;Valor_BDI;Valor_GS
 fileNameConBDI=Reporte_ConBDI.csv
 ```
 
+* **Mecanismo genérico confirmado con el `.jar` real (ver también §6.5):** `CreateReport` no contiene SQL
+  ni lógica de negocio propia — es un motor 100% configurable por `.properties` (`leerProperties`/
+  `createQuery`/`escribirFicheroGeneral`, sin ninguna dependencia de Apache POI) que lee la query, la
+  cabecera y el nombre de fichero de las claves anteriores y escribe el resultado como texto plano. El
+  mismo jar se reutiliza, con otro `.properties`, en `rdr_cargalei_new` (`Reporte_LEI.csv`).
 * **Qué hace en esta cadena:** ejecuta esta query contra `FT_T_RLT1` y vuelca el resultado a
   `$FILES/ConBDI/Reporte_ConBDI.csv` (paso 5 del pipeline, §6.1). Extrae las discrepancias de
   conciliación entre BDI y GoldenSource marcadas para reporting (`RLT_PURP_TYP='REPORTES'`,
@@ -242,10 +247,13 @@ de las cadenas hermanas — ver `salidas/rdr_conciliacion_clientela/spec.md` §6
   general de gestión de credenciales por entorno ya visto en otros puntos del repositorio, implementado
   aquí de forma independiente en Java, no reutilizando `Generico.sh`.
 
-### 6.5 `RDR_InformeBroker.jar` (clase `InformeBroker`) — G4 resuelto para el informe Broker, sigue abierto para el SWIFT
+### 6.5 `RDR_InformeBroker.jar` (clase `InformeBroker`) — G4 resuelto para el informe Broker, acotado con más precisión para el SWIFT
 
 Código fuente real aportado por el usuario (`InformeBroker.java`, reutilizando las 4 queries de
-`ConDB.java`).
+`ConDB.java`); **confirmado además con el `.jar` compilado real** (`RDR_InformeBroker.jar`, paquete
+`rdr_informebroker` — contiene exactamente las mismas 2 clases `ConDB`/`InformeBroker`, sin diferencias de
+método respecto al `.java` ya analizado — no aporta información nueva, solo confirma que el fuente
+disponible es el código realmente desplegado).
 
 * **Qué hace:** carga una plantilla `<fich_salida>_Plantilla.xlsx` (`XSSFWorkbook`), rellena 4 hojas ya
   existentes en la plantilla (`NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme`) con el resultado de 4
@@ -254,8 +262,21 @@ Código fuente real aportado por el usuario (`InformeBroker.java`, reutilizando 
   `Title="Conciliación Broker BDI-RDR"`), y guarda el resultado como
   `<fich_salida>_<yyyyMMdd>.xlsx` — es decir, `Reporte_ConciliacionBroker_yyyymmdd.xlsx` (R6/§6.1).
 * **Qué recibe/produce:** recibe `args[0]` (ruta base del fichero de salida, sin timestamp) y la
-  plantilla `_Plantilla.xlsx` correspondiente (no aportada, pero su existencia como prerrequisito queda
-  confirmada por el propio código); produce el Excel final con fecha en el nombre.
+  plantilla `_Plantilla.xlsx` correspondiente — **aportada esta ronda
+  (`Reporte_ConciliacionBroker_Plantilla.xlsx`) y confirmada contra una muestra real de salida
+  (`Reporte_ConciliacionBroker_20260223.xlsx`, día sin discrepancias — las 4 hojas de detalle llegan
+  vacías, solo cabecera)**; produce el Excel final con fecha en el nombre.
+* **Estructura real de la plantilla, confirmada con el fichero real (cierra el único detalle que
+  quedaba abierto en esta hoja):** 5 hojas — `Resumen`, `NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme`.
+  `Resumen` es un **dashboard con fórmulas vivas** (`=COUNTA(NoBDI!B3:B100000)`, una por hoja de detalle,
+  bajo la etiqueta `"Códigos Broker no existentes en BDI"`/`"...en RDR"`/`"...diferentes"`/`"Nombres Broker
+  diferentes"`) — confirma por qué `InformeBroker.java` evalúa las fórmulas del libro antes de guardar
+  (`evaluateAllFormulaCells`): sin ese paso, el resumen se abriría con los contadores sin calcular. Cada
+  hoja de detalle tiene título en fila 1, cabecera real en fila 2 (`LEGAL NAME`/`FINSID`/`MGC ID`/`BDI ID`
+  + la(s) columna(s) de valor específica de cada hoja — `RDR BROKER` en `NoBDI`, `BDI BROKER` en `NoRDR`,
+  ambas en `DistintoRDR`/`DistintoNme`) y datos desde la fila 3 — **confirma que la columna A (índice 0)
+  reservada ya identificada en el código está, en efecto, vacía en la plantilla real** (las 4 columnas de
+  identificador empiezan en B, no en A).
 * **Campos de salida afectados — las 4 hojas exactas y sus columnas, con el filtro real de cada una:**
   todas contra `FT_T_RLT1` (`rlt_purp_typ='REPORTES'`, `data_src_app='BDI'`, `main_entity_nme='FT_T_DLER'`),
   acotadas siempre al **último `job_id`** de esa combinación (`order by last_chg_tms desc`, `rownum=1`) —
@@ -272,20 +293,34 @@ Código fuente real aportado por el usuario (`InformeBroker.java`, reutilizando 
   - **`DistintoNme`** (`getBrokerName`): `message_rlt='El Broker Name no coincide'`,
     `src_field='BROKER NAME_BDI'`/`gs_field='BROKER NAME_RDR'` — identificador + valor BDI + valor GS
     (mismas columnas que `DistintoRDR`, pero sobre el nombre del broker, no su código).
-  Cada hoja se rellena a partir de la fila 2 (`rownum=2`), con estilo de banda alterna (2 colores) por
-  fila, dejando la columna A (índice 0) sin usar — reservada presumiblemente a un encabezado/etiqueta ya
-  presente en la plantilla, no confirmable sin ella.
+  Cada hoja se rellena a partir de la fila con índice POI `rownum=2` (fila física 3 en el Excel, ya que
+  POI numera desde 0 y la fila 1 es el título y la 2 la cabecera — **confirmado exactamente así en la
+  plantilla real**), con estilo de banda alterna (2 colores) por fila, dejando la columna A (índice 0) sin
+  usar — **confirmado vacía en la plantilla real**.
 * **Qué pasa si falla:** cada uno de los 4 métodos de `ConDB` captura sus propias `SQLException`
   internamente (`printStackTrace()`) y devuelve una lista vacía en caso de error — es decir, un fallo de
   una de las 4 queries **no aborta la generación del informe**: esa hoja quedaría simplemente vacía (solo
   cabecera de plantilla), sin que el resto del proceso se entere. No hay ninguna comprobación posterior
   que detecte "0 filas por fallo de query" frente a "0 filas porque no hay discrepancias" — ambos casos
   son indistinguibles en el Excel resultante.
-* **Informe SWIFT — sigue sin aportar:** `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx` no aparece en ningún punto
-  de `InformeBroker.java` ni de `ConDB.java` — ambos ficheros solo cubren el informe Broker. **G4 queda
-  parcialmente resuelto:** cerrado por completo para el informe Broker (arriba), sigue abierto para el
-  informe SWIFT — requeriría el jar/clase que lo genera (probablemente distinta de `InformeBroker`, no
-  identificada en el material disponible).
+* **Informe SWIFT — se descarta `RDR_Report.jar` como generador, el real sigue sin identificar:**
+  `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx` no aparece en ningún punto de `InformeBroker.java` ni de
+  `ConDB.java` — ambos ficheros solo cubren el informe Broker; y ya se sabía por §6.3
+  (`select.properties`, clave `ConBDI`, real) que `RDR_Report.jar` genera `Reporte_ConBDI.csv`, el otro
+  fichero de la cadena, no un `.xlsx`. Esta ronda se aportó el propio `.jar` (sin `.java` fuente ni
+  decompilador disponibles; análisis vía `javap`, que recupera firmas de método y el pool de constantes
+  completo), que **confirma mecánicamente, no solo por el `.properties`, que `RDR_Report.jar` no puede
+  generar un `.xlsx` en ningún caso**: `rdr_report.CreateReport`/`JDBCAcceso`/`Ficheros`/`Utilidades` son
+  un motor 100% genérico y configurable por `.properties` (lee `query`/`cabecera`/`fileName` como claves
+  vía `Utilidades.leerProperties()`, ejecuta la SQL que venga en la propiedad `query`, y escribe el
+  resultado como texto plano línea a línea) — `Ficheros` no referencia ninguna clase de Apache POI/
+  `XSSFWorkbook` en todo el jar. Confirma también que es el **mismo motor compartido** ya visto en
+  `rdr_cargalei_new` (`Reporte_LEI.csv`) — reutilizado entre procesos sin lógica de negocio propia, con el
+  SQL/cabecera de cada uso en un `.properties` distinto (`ConBDI` aquí, otro en `rdr_cargalei_new`). **G4
+  sigue igual de acotado que antes para el SWIFT** (el informe Broker ya estaba cerrado, el CSV `ConBDI` ya
+  estaba cerrado vía §6.3): se descarta `RDR_Report.jar` como candidato, el jar/clase real que produce el
+  `.xlsx` SWIFT sigue sin identificar — candidato pendiente de revisar: `RDR_PLSQL.jar` (el paso anterior a
+  `RDR_Report.jar` en R2) u otro componente no visto en este material.
 
 ## 7. Especificación de testing
 
@@ -360,3 +395,18 @@ inactiva (comentada) en la versión de `ConBDI.java` aportada (§6.4, §9). Tamb
 riesgo abierto y no como pregunta a cerrar en esta sesión, el hueco de cobertura de testing sobre el
 filtro temporal de `queryConBDI` (§6.3, §9) y la diferencia de ventana temporal frente a `ConClientela`
 (§9).
+
+**Ronda adicional (2026-10-01):** el usuario aportó la plantilla real del informe Broker
+(`Reporte_ConciliacionBroker_Plantilla.xlsx`), una muestra de salida real (`Reporte_ConciliacionBroker_
+20260223.xlsx`, día sin discrepancias), y 2 jars compilados (`RDR_InformeBroker.jar`, idéntico al `.java`
+ya conocido — sin novedad; `RDR_Report.jar`, nuevo). La plantilla cierra el único detalle que quedaba
+abierto del informe Broker: confirma las 5 hojas reales (incluida `Resumen`, un dashboard con fórmulas
+`COUNTA` por hoja de detalle, que explica por qué el código evalúa las fórmulas del libro antes de
+guardar), la cabecera exacta de cada hoja de detalle y que la columna A queda vacía. **El informe Broker
+queda así cerrado al 100%, estructura y contenido real incluidos.** El análisis del `.jar` de
+`RDR_Report.jar` (sin `.java` fuente ni decompilador disponibles, vía `javap`) descarta definitivamente la
+hipótesis de que sea el generador del informe SWIFT: es un motor 100% genérico sin ninguna dependencia de
+Apache POI, que solo puede escribir texto plano — coherente con que, por `select.properties`
+(`documentos_fuente/evidencia_rdr_bancarizacion/select.properties`, ya confirmado en §6.3), genera
+`Reporte_ConBDI.csv`, no el `.xlsx` SWIFT. **El generador real del informe SWIFT sigue sin identificar**;
+el candidato que queda por revisar es `RDR_PLSQL.jar` (el paso anterior a `RDR_Report.jar` en R2).
