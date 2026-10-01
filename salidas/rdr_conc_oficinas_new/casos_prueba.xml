@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_conc_oficinas_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de conciliación y carga de oficinas</nombre>
+    <objetivo>Verificar el ciclo end-to-end: llegada del fichero, conciliación/carga, historificación y transmisión final.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero oficinas.csv válido disponible para depositar dentro de la ventana de monitoreo (madrugada, martes a sábado).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta monitoreada" valor="/fichtemcomp/pr/descargas/kytl/oficinas/oficinas.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv dentro de la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar que KYTL_CONOFI_GSPROCESS_FW detecta el fichero y termina con código 0.</paso>
+      <paso numero="3">Confirmar la ejecución completa de KYTL_CONOFI_GSPROCESS (conciliación/carga).</paso>
+      <paso numero="4">Confirmar la historificación (MEKYTL0242) y el cierre de cadena (MEKYTL0243).</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 pasos terminan OK; el fichero queda cargado en RDR, historificado, y la cadena se cierra.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 4 jobs en Control-M + verificación de ficheros generados.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, con carga real confirmada en GoldenSource (entidad Oficina/OFC).</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando deliberadamente otro escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="conflicto_integridad">
+    <nombre>Filewatcher agota el timeout de 4h (RC=7) — salto directo al cierre de cadena</nombre>
+    <objetivo>Confirmar en ejecución real que, cuando el filewatcher agota el timeout de ctmfw (4h, produciendo RC=7 — confirmado como el timeout nativo de la utilidad BMC Control-M Agent, no un código propio de BBVA), la cadena se marca OK y se salta directamente al evento de cierre sin ejecutar los pasos 2 y 3.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher por timeout (fichero ausente durante toda la ventana de 4h).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno a verificar" valor="7 (timeout nativo de ctmfw, confirmado con documentación oficial de BMC)"/>
+      <dato campo="Evento esperado si RC=7" valor="RDR_CONC_OFICINAS_MEKYTL0243_OK_new (directamente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher agote el timeout de 4h sin recibir oficinas.csv.</paso>
+      <paso numero="2">Confirmar que KYTL_CONOFI_GSPROCESS_FW se marca OK de forma forzada.</paso>
+      <paso numero="3">Confirmar que se publica directamente el evento de cierre de cadena, sin que se ejecuten los pasos 2 (KYTL_CONOFI_GSPROCESS) ni 3 (MEKYTL0242).</paso>
+      <paso numero="4">Confirmar que no hay carga real en GoldenSource ese día para la entidad Oficina/OFC.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se cierra como exitosa sin haber conciliado ni cargado ningún dato, confirmando (o descartando) el mecanismo documentado.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Control-M (histórico de ejecución) + verificación de ausencia de carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución, confirmando o descartando RISK-CONOFI-001.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma el salto y no hay alerta visible aguas abajo de que ese día no hubo carga real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Filewatcher agota el timeout de 4 horas sin recibir el fichero</nombre>
+    <objetivo>Confirmar el comportamiento cuando oficinas.csv no llega dentro de las 240 minutos (4h) de espera configurados.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de prueba donde oficinas.csv no se deposita durante la ventana completa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Timeout configurado" valor="240 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout (KO, alerta, código de retorno).</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real en KYTL_CONOFI_GSPROCESS sin reintentos automáticos</nombre>
+    <objetivo>Confirmar que, ante un fallo real en el paso de conciliación/carga, la cadena queda en KO y requiere intervención manual, dado el máximo de relanzamientos configurado a 0.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en KYTL_CONOFI_GSPROCESS (p. ej. fichero con formato inválido).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Máximo de relanzamientos" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en el paso de conciliación/carga.</paso>
+      <paso numero="2">Confirmar que el job termina en KO sin reintento automático.</paso>
+      <paso numero="3">Confirmar que se genera alerta a ANS RDR.</paso>
+    </pasos>
+    <resultadoEsperado>KO real visible, sin reintento automático, con alerta al grupo de soporte.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M + confirmación de alerta.</tipoValidacion>
+    <criterioAceptacion>Sin reintento automático, alerta generada.</criterioAceptacion>
+    <posibilidadFallo>Si el job reintenta automáticamente pese al máximo de 0, contradice la configuración documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="borde">
+    <nombre>Historificación (MEKYTL0242) sin fichero origen — mecanismo real FALLASINOFICHS confirmado</nombre>
+    <objetivo>Confirmar el comportamiento real de RAMERC0068.sh cuando oficinas.csv no existe en el momento de ejecutar MEKYTL0242. El código real confirma que esto NO es un "continúa siempre sin fallar": depende del valor configurado de FALLASINOFICHS para la clave MEKYTL0242 en /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX (0 = exit 6 real; cualquier otro valor = tolera). Este caso debe determinar cuál de los 2 comportamientos aplica realmente a este job.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario donde oficinas.csv ya no existe cuando se ejecuta MEKYTL0242 (p. ej. borrado previo).</precondicion>
+      <precondicion>Acceso de lectura a la fila de configuración de la clave MEKYTL0242 en INFORMACION_HISTORIFICACIONES.IDX, o capacidad de observar el resultado real en ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo confirmado (código real)" valor="FALLASINOFICHS=0 -&gt; exit 6 (fallo real); distinto de 0 -&gt; tolera sin fallar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la ausencia del fichero origen antes de la ejecución de MEKYTL0242.</paso>
+      <paso numero="2">Confirmar en el log de RAMERC0068.sh si el job termina con exit 6 (fallo real) o continúa sin error.</paso>
+      <paso numero="3">Si es posible, confirmar directamente el valor de FALLASINOFICHS configurado para la clave MEKYTL0242.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento real documentado sin ambigüedad: o bien el job falla realmente (exit 6) ante la ausencia del fichero, o bien continúa — dependiendo del valor real de FALLASINOFICHS, ya no una suposición genérica.</resultadoEsperado>
+    <tipoValidacion>Inspección del log de RAMERC0068.sh + valor real de FALLASINOFICHS si es accesible.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real confirmado con evidencia directa, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Si FALLASINOFICHS=0 para esta clave, un KO real ante fichero ausente es el comportamiento correcto, no un defecto — hay que documentarlo como tal en vez de asumir tolerancia universal.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Transmisión final (MEKYTL0243) sin fichero a transmitir — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar el comportamiento real de MEGENV0001.sh cuando no hay fichero a transmitir en MEKYTL0243. El código real confirma que esto depende del valor configurado de FALLA_NO_FICHERO para la clave MEKYTL0243 en su .idx: "SI" produce un fallo real (exit 60 si no hay ningún fichero que case la máscara, exit 45 si un fichero concreto falta), cualquier otro valor tolera sin fallar. Este caso debe determinar cuál de los 2 comportamientos aplica realmente a este job.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario donde no hay fichero disponible para MEKYTL0243.</precondicion>
+      <precondicion>Acceso de lectura al .idx de MEKYTL0243, o capacidad de observar el resultado real en ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo confirmado (código real)" valor="FALLA_NO_FICHERO=SI -&gt; exit 60/45 (fallo real); distinto de SI -&gt; tolera sin fallar"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar la ausencia del fichero esperado por MEKYTL0243.</paso>
+      <paso numero="2">Confirmar en el log de MEGENV0001.sh si el job termina con exit 60/45 (fallo real) o continúa sin error.</paso>
+      <paso numero="3">Si es posible, confirmar directamente el valor de FALLA_NO_FICHERO configurado para la clave MEKYTL0243.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento real documentado sin ambigüedad, según el valor real de FALLA_NO_FICHERO, ya no una suposición genérica de tolerancia universal.</resultadoEsperado>
+    <tipoValidacion>Inspección del log de MEGENV0001.sh + valor real de FALLA_NO_FICHERO si es accesible.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real confirmado con evidencia directa, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Si FALLA_NO_FICHERO=SI para esta clave, un KO real ante fichero ausente es el comportamiento correcto, no un defecto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación de destino inerte en la transmisión final</nombre>
+    <objetivo>Confirmar que MEKYTL0243 sigue configurado contra un destino inerte y no transmite datos reales a XCOMWPMER.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la configuración real del job o a un log de ejecución reciente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Destino nominal" valor="XCOMWPMER:\\S00371F200G215"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar en la configuración real (o en logs) que no se produce transferencia efectiva de datos.</paso>
+      <paso numero="2">Confirmar si el job es un script real contra un destino nulo o un Dummy de Control-M (TASKTYPE).</paso>
+    </pasos>
+    <resultadoEsperado>Sin transferencia real de datos; tipo de job confirmado con evidencia directa.</resultadoEsperado>
+    <tipoValidacion>Inspección de configuración real de Control-M/logs.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si se detecta una transferencia real de datos, contradice la descripción del documento fuente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Confirmación de topología completa y consumo de recurso compartido</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente 4 pasos y que cada uno consume 1 unidad del recurso MAX-LPRDR501, compartido con RDR_REUBICACION_new.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder completo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso compartido" valor="MAX-LPRDR501 (total asignado: 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 4 jobs.</paso>
+      <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
+      <paso numero="3">Confirmar si existe contención real con RDR_REUBICACION_new cuando ambas cadenas coinciden en ventana.</paso>
+    </pasos>
+    <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de contención real de recursos entre ambas cadenas debe documentarse como riesgo operativo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Mecanismo de seguridad ante relanzamiento inmediato en Delta.sh (marcha_atras)</nombre>
+    <objetivo>Confirmar que, si el paso 2 (KYTL_CONOFI_GSPROCESS) se relanza inmediatamente después de una ejecución previa, Delta.sh detecta la ejecución reciente (menos de 5 segundos entre las marcas de tiempo del fichero de carga y su backup _old) y restaura los ficheros de backup en vez de recalcular el delta contra sí mismo.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución previa reciente (menos de 5 segundos) de KYTL_CONOFI_GSPROCESS, relanzada manualmente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ventana de detección" valor="5 segundos entre marcas de tiempo"/>
+      <dato campo="Función real" valor="marcha_atras() en Delta.sh"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_CONOFI_GSPROCESS con un fichero real.</paso>
+      <paso numero="2">Relanzar inmediatamente (dentro de los 5 segundos) sin recibir un nuevo fichero.</paso>
+      <paso numero="3">Confirmar en el log que Delta.sh detecta el relanzamiento y ejecuta marcha_atras (restauración de backups) en vez de recalcular el delta.</paso>
+    </pasos>
+    <resultadoEsperado>El relanzamiento inmediato no duplica el cálculo del delta ni corrompe el histórico de comparación (old/).</resultadoEsperado>
+    <tipoValidacion>Inspección del log de Delta.sh + verificación del contenido de los ficheros old/ tras el relanzamiento.</tipoValidacion>
+    <criterioAceptacion>Restauración correcta sin duplicar filas ni corromper el fichero de comparación.</criterioAceptacion>
+    <posibilidadFallo>Si el relanzamiento recalcula el delta contra el fichero ya procesado, podría producir un delta vacío o incorrecto, o corromper el histórico de comparación para el día siguiente.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>Contenido real de Reporte_oficinas.csv coincide con la consulta confirmada de select_1.properties</nombre>
+    <objetivo>Confirmar que el reporte generado por RDR_Report.jar en el paso 2 (KYTL_CONOFI_GSPROCESS) contiene exactamente las filas y columnas que define la entrada queryoficinas/cabeceraoficinas de select_1.properties (FINSID;CSB;OFICINA;MENSAJE, filtrando FT_T_RLT1 por RLT_PURP_TYP=REPORTES, DATA_SRC_APP=OFICINAS, RLT_STATUS=3, acotado al último job JOB_MSG_TYP=OFC cerrado).</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución real reciente de KYTL_CONOFI_GSPROCESS con filas conocidas insertadas en FT_T_RLT1 para esa ejecución.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Cabecera esperada" valor="FINSID;CSB;OFICINA;MENSAJE"/>
+      <dato campo="Filtro de origen" valor="FT_T_RLT1: RLT_PURP_TYP=REPORTES, DATA_SRC_APP=OFICINAS, RLT_STATUS=3"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso 2 con datos conocidos y localizar las filas insertadas en FT_T_RLT1 para esa ejecución.</paso>
+      <paso numero="2">Confirmar que Reporte_oficinas.csv contiene exactamente esas filas, con la cabecera FINSID;CSB;OFICINA;MENSAJE.</paso>
+      <paso numero="3">Confirmar que el filtro por el último job JOB_MSG_TYP=OFC cerrado excluye correctamente filas de ejecuciones anteriores.</paso>
+    </pasos>
+    <resultadoEsperado>El contenido del reporte coincide exactamente con la consulta confirmada, sin filas de ejecuciones previas ni columnas inesperadas.</resultadoEsperado>
+    <tipoValidacion>Comparación directa entre el resultado de la consulta SQL y el contenido real de Reporte_oficinas.csv.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si el reporte arrastra filas de una ejecución anterior (fallo del filtro por último job cerrado), sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="happy_path">
+    <nombre>LimpiarOficinas filtra correctamente por código de banco 0182</nombre>
+    <objetivo>Confirmar que la función real LimpiarOficinas conserva la cabecera, filtra oficinas.csv quedándose solo con las filas cuyo primer campo es exactamente "0182", y genera la copia de seguridad old/oficinas_prelimpieza.csv con el fichero original sin filtrar.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv de prueba con una mezcla de filas con código de banco 0182 y con otros códigos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Filtro real confirmado" valor="grep &quot;^0182;&quot; oficinas.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv con filas 0182 y filas de otros códigos de banco.</paso>
+      <paso numero="2">Ejecutar el paso 2 (KYTL_CONOFI_GSPROCESS) y confirmar que oficinas.csv resultante contiene la cabecera y solo las filas 0182.</paso>
+      <paso numero="3">Confirmar que old/oficinas_prelimpieza.csv contiene el fichero original completo (sin filtrar), como backup.</paso>
+    </pasos>
+    <resultadoEsperado>Solo las oficinas con código de banco 0182 llegan a Delta.sh/GoldenSource; el fichero original queda respaldado íntegro.</resultadoEsperado>
+    <tipoValidacion>Comparación directa de oficinas.csv resultante y old/oficinas_prelimpieza.csv contra el fichero de entrada.</tipoValidacion>
+    <criterioAceptacion>Filtro y backup confirmados exactamente como en el código real.</criterioAceptacion>
+    <posibilidadFallo>Si alguna fila de otro código de banco pasa el filtro, o el backup no contiene el fichero completo original, contradice el código confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>LimpiarOficinas aborta si ninguna fila es del banco 0182</nombre>
+    <objetivo>Confirmar que, si oficinas.csv no contiene ninguna fila con código de banco 0182, la función real LimpiarOficinas aborta el job con error_exit (grep devuelve fallo), en vez de continuar con un fichero vacío hacia Delta.sh/GoldenSource.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv de prueba sin ninguna fila cuyo primer campo sea "0182".</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comportamiento esperado del grep" valor="grep sin coincidencias devuelve código de salida distinto de 0 -&gt; error_exit"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv sin ninguna fila de código de banco 0182.</paso>
+      <paso numero="2">Ejecutar el paso 2 y confirmar que el job termina en KO por error_exit, sin llegar a Delta.sh/GoldenSource.</paso>
+    </pasos>
+    <resultadoEsperado>El job falla de forma real y visible, sin procesar un fichero vacío ni marcar éxito falso.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M + log de error_exit señalando el fallo en "grep".</tipoValidacion>
+    <criterioAceptacion>Fallo real confirmado ante ausencia total de filas 0182.</criterioAceptacion>
+    <posibilidadFallo>Si el job continúa pese a la ausencia total de filas 0182, contradice el código confirmado (grep sin coincidencias siempre falla).</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

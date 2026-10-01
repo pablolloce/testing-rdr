@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_reubicacion_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de reubicación tras cierre (Fan-Out/Fan-In)</nombre>
+    <objetivo>Verificar el ciclo end-to-end: llegada del fichero, bifurcación en 3 ramas paralelas, y convergencia correcta en el Fan-In final.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero Reubicacion.csv válido disponible para depositar tras el cierre de oficinas de un domingo, dentro de la ventana de monitoreo (desde 11:00).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta monitoreada" valor="/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Reubicacion.csv tras las 11:00 del domingo de cierre.</paso>
+      <paso numero="2">Confirmar que el filewatcher detecta el fichero y termina con código 0, disparando las 3 ramas en paralelo.</paso>
+      <paso numero="3">Confirmar la ejecución completa de KYTL_REU_GSPROCESS (carga real vía Workflow RDR_Reubicacion) y su sucesor MEKYTL0111.</paso>
+      <paso numero="4">Confirmar la ejecución de MEKYTL0233 y MEKYTL0234 en paralelo.</paso>
+      <paso numero="5">Confirmar que MEKYTL0122 arranca solo cuando las 3 ramas (MEKYTL0111, MEKYTL0233, MEKYTL0234) han confirmado OK.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 ramas terminan OK, el Fan-In se ejecuta correctamente, y la cadena se cierra habilitando la difusión posterior.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 6 jobs en Control-M + verificación de la carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs, con carga real confirmada.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando deliberadamente otro escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="conflicto_integridad">
+    <nombre>Filewatcher agota el timeout de 13h (RC=7) — salto directo al evento final</nombre>
+    <objetivo>Confirmar en ejecución real que, cuando el filewatcher agota el timeout de ctmfw (13h, produciendo RC=7 — confirmado como el timeout nativo de la utilidad BMC Control-M Agent), la cadena se marca OK y salta directamente al evento final sin ejecutar los 5 pasos restantes, igual que en RDR_CONC_OFICINAS_new.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar o de observar en un entorno de pruebas un cierre del filewatcher por timeout (fichero ausente durante toda la ventana de 13h).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Código de retorno a verificar" valor="7 (timeout nativo de ctmfw, confirmado con documentación oficial de BMC)"/>
+      <dato campo="Evento esperado si RC=7" valor="RDR_REUBICACION_MEKYTL0122_OK_new (directamente)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar o localizar una ejecución real donde el filewatcher agote el timeout de 13h sin recibir Reubicacion.csv.</paso>
+      <paso numero="2">Confirmar que se publica directamente el evento final, sin ejecutar ninguno de los 5 pasos restantes.</paso>
+      <paso numero="3">Confirmar que no hay reubicación real cargada en GoldenSource ese ciclo.</paso>
+      <paso numero="4">Confirmar si RDR_DIFUSION_BATCH_CIERREOFI_new arranca igualmente pese a la ausencia de carga real.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se cierra como exitosa sin haber reubicado ningún dato, confirmando (o descartando) RISK-REUB-001.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Control-M + verificación de ausencia de carga real en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado con evidencia de ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma el salto y la cadena de difusión arranca igualmente sin alerta, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="regresion">
+    <nombre>Confirmación en ejecución real de que MEKYTL0234 ejecuta de verdad contra el destino inerte</nombre>
+    <objetivo>El TASKTYPE real de MEKYTL0234 ya está confirmado como Job (no Dummy) con el export real de Control-M. Este caso confirma en ejecución real si el script intenta de verdad la transferencia contra spgec001 (y falla o no-opera ahí) o si el propio script decide no operar antes de intentar la transferencia.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a logs de ejecución real de MEKYTL0234, o al contenido del script MEGENV0001.sh invocado con PARM1=MEKYTL0234.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="TASKTYPE confirmado" valor="Job (Workspace_589_2.xml)"/>
+      <dato campo="Directiva textual del documento" valor="ESTE ENVÍO NO DEBE EJECUTARSE. DEBE QUEDAR A DUMMY"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Revisar logs de una ejecución real de MEKYTL0234.</paso>
+      <paso numero="2">Confirmar si efectivamente intenta la transferencia contra spgec001 y falla ahí, o si el script mismo no-opera antes de intentarlo.</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación inequívoca del mecanismo técnico real, sin depender de la interpretación de la directiva textual.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de la definición de Control-M + logs de ejecución reales.</tipoValidacion>
+    <criterioAceptacion>Mecanismo técnico confirmado con evidencia directa.</criterioAceptacion>
+    <posibilidadFallo>N/A — este caso es de confirmación documental, no de detección de fallo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de MEKYTL0233 no debe bloquear el Fan-In — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a staging (MEKYTL0233) se marca OK igualmente (Force-OK) y no bloquea la ejecución de MEKYTL0122. El código real de MEGENV0001.sh confirma que, si el fallo es por ausencia de fichero, el resultado depende de FALLA_NO_FICHERO para la clave MEKYTL0233: "SI" produce exit 60/45 (fallo real concreto); cualquier otro valor tolera. Este caso debe confirmar el valor real configurado.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0233 (p. ej. destino Ippwc501 no disponible, o fichero de origen ausente).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia (Control-M)" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Mecanismo real confirmado (script)" valor="MEGENV0001.sh: FALLA_NO_FICHERO=SI -&gt; exit 60/45 ante fichero ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real de transmisión en MEKYTL0233 (incluyendo, por separado, la ausencia del fichero de origen).</paso>
+      <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
+      <paso numero="3">Confirmar en el log de MEGENV0001.sh si, ante fichero ausente, el script termina con exit 60/45 según el valor real de FALLA_NO_FICHERO para esta clave.</paso>
+      <paso numero="4">Confirmar que MEKYTL0122 arranca normalmente (no queda bloqueado esperando un reintento).</paso>
+    </pasos>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama; se confirma el valor real de FALLA_NO_FICHERO para MEKYTL0233.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta + inspección del log de MEGENV0001.sh.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in, y mecanismo real de fichero ausente documentado.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de MEKYTL0234 no debe bloquear el Fan-In — mecanismo real FALLA_NO_FICHERO confirmado</nombre>
+    <objetivo>Confirmar que un fallo real en la transmisión a destino inerte (MEKYTL0234) se marca OK igualmente y no bloquea MEKYTL0122. Mismo mecanismo real que TC-004 (MEGENV0001.sh, FALLA_NO_FICHERO), a confirmar para la clave MEKYTL0234.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en la transmisión de MEKYTL0234.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Regla de tolerancia (Control-M)" valor="Cuándo Job completado No OK: Marcar como OK"/>
+      <dato campo="Mecanismo real confirmado (script)" valor="MEGENV0001.sh: FALLA_NO_FICHERO=SI -&gt; exit 60/45 ante fichero ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en MEKYTL0234 (si es un job real, ver TC-003).</paso>
+      <paso numero="2">Confirmar que Control-M lo marca OK pese al fallo real.</paso>
+      <paso numero="3">Confirmar en el log de MEGENV0001.sh el comportamiento real ante fichero ausente para esta clave.</paso>
+      <paso numero="4">Confirmar que MEKYTL0122 arranca normalmente.</paso>
+    </pasos>
+    <resultadoEsperado>El Fan-In se completa con éxito aparente pese al fallo real de esta rama; se confirma el valor real de FALLA_NO_FICHERO para MEKYTL0234.</resultadoEsperado>
+    <tipoValidacion>Estado OK forzado en Control-M + confirmación de que MEKYTL0122 se ejecuta + inspección del log de MEGENV0001.sh.</tipoValidacion>
+    <criterioAceptacion>Force-OK confirmado, sin bloqueo del fan-in, y mecanismo real de fichero ausente documentado.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real bloquea el fan-in, contradice la tolerancia documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Filewatcher agota el timeout de 13 horas sin recibir el fichero</nombre>
+    <objetivo>Confirmar el comportamiento cuando Reubicacion.csv no llega dentro de las 780 minutos (13h) de espera configurados.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de prueba donde Reubicacion.csv no se deposita durante la ventana completa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Timeout configurado" valor="780 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="conflicto_integridad">
+    <nombre>Fan-In no arranca con solo 2 de las 3 ramas confirmadas</nombre>
+    <objetivo>Confirmar que MEKYTL0122 no se ejecuta si solo 2 de los 3 eventos requeridos (MEKYTL0111_OK, MEKYTL0233_OK, MEKYTL0234_OK) están presentes.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de retrasar deliberadamente una de las 3 ramas paralelas sin que llegue a completarse.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición Fan-In" valor="MEKYTL0111_OK AND MEKYTL0233_OK AND MEKYTL0234_OK"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Retrasar o bloquear deliberadamente una de las 3 ramas.</paso>
+      <paso numero="2">Confirmar que MEKYTL0122 permanece en espera mientras falte cualquiera de los 3 eventos.</paso>
+      <paso numero="3">Completar la rama pendiente y confirmar que MEKYTL0122 arranca inmediatamente.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0122 solo arranca cuando los 3 eventos están presentes simultáneamente, nunca con solo 2.</resultadoEsperado>
+    <tipoValidacion>Observación directa del estado de espera en Control-M.</tipoValidacion>
+    <criterioAceptacion>Fan-In estricto de 3 eventos confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si MEKYTL0122 arranca con solo 2 eventos, contradice la expresión lógica Fan-In documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Confirmación de topología completa y consumo de recurso compartido</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente 6 pasos y que cada uno consume 1 unidad del recurso MAX-LPRDR501, compartido con RDR_CONC_OFICINAS_new.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder completo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso compartido" valor="MAX-LPRDR501 (total asignado: 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 6 jobs con la topología Fan-Out/Fan-In documentada.</paso>
+      <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
+      <paso numero="3">Confirmar si existe contención real con RDR_CONC_OFICINAS_new cuando ambas cadenas coinciden en ventana (poco probable dado que una es de madrugada entre semana y otra domingo, pero no descartado).</paso>
+    </pasos>
+    <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de un job nuevo o la eliminación de uno existente debe motivar una actualización de esta especificación.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Fallo real de MEKYTL0111 o MEKYTL0122 — Force-OK confirmado no documentado en el funcional original</nombre>
+    <objetivo>Confirmar el impacto real de un fallo en la transmisión del reporte (MEKYTL0111) o en la propia historificación final (MEKYTL0122), dado que el export real de Control-M confirma que ambos tienen un override NOTOK-&gt;OK que el documento funcional original no mencionaba. Para MEKYTL0122, el código real de RAMERC0068.sh confirma además un mecanismo de fallo concreto y conocido ante fichero ausente: exit 6 si FALLASINOFICHS=0 para esta clave (ver spec.md R7b) — este caso debe confirmar si ese es realmente el valor configurado.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar un fallo real en MEKYTL0111 (p. ej. XCOMWPMER no disponible) y, por separado, en MEKYTL0122 (p. ej. Reubicacion.csv ausente en el momento de la ejecución, o permisos de escritura en /old/ revocados).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Override confirmado" valor="ON STMT=&quot;*&quot; CODE=&quot;NOTOK&quot; -&gt; DOACTION ACTION=&quot;OK&quot;, presente en ambos jobs"/>
+      <dato campo="Mecanismo real confirmado en MEKYTL0122" valor="RAMERC0068.sh: FALLASINOFICHS=0 -&gt; exit 6 ante fichero ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en MEKYTL0111 y confirmar que Control-M lo marca OK igualmente.</paso>
+      <paso numero="2">Confirmar si, pese al Force-OK, el reporte real llegó o no a XCOMWPMER.</paso>
+      <paso numero="3">Repetir el escenario provocando la ausencia de Reubicacion.csv antes de MEKYTL0122 y confirmar en el log de RAMERC0068.sh si termina con exit 6 (según el valor real de FALLASINOFICHS para esta clave) pese a que Control-M lo marque OK.</paso>
+      <paso numero="4">Confirmar si el fichero llegó o no realmente a /old/ en ese escenario.</paso>
+    </pasos>
+    <resultadoEsperado>En ambos casos Control-M marca OK pese al fallo real; se documenta si el efecto real (transmisión/historificación) ocurrió o no pese al estado verde, y se confirma el valor real de FALLASINOFICHS para MEKYTL0122.</resultadoEsperado>
+    <tipoValidacion>Provocación de fallo controlado + verificación directa del efecto real (fichero en destino/en /old/) + inspección del log de RAMERC0068.sh.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado sin ambigüedad, confirmando el alcance real de RISK-REUB-002 y el valor de FALLASINOFICHS para esta clave.</criterioAceptacion>
+    <posibilidadFallo>Si el fallo real no deja ningún rastro visible (ni en logs ni en alertas) pese a no haberse completado la transmisión/historificación real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="happy_path">
+    <nombre>Reubicación individual válida — reasignación de contrapartidas y estado INACTIVEPEND</nombre>
+    <objetivo>Confirmar que el procedimiento PL·SQL REUBICACION de Sub_Load reasigna correctamente las relaciones de contrapartida (TRADES_WITH/RISKPYME) de la oficina cerrada hacia la oficina destino, y que la oficina cerrada queda en FT_T_FINS como INACTIVEPEND, no INACTIVE.</objetivo>
+    <precondiciones>
+      <precondicion>Línea de Reubicacion.csv con una oficina de cierre y una oficina destino, ambas existentes y activas, y con al menos una relación de contrapartida TRADES_WITH o RISKPYME asociada a la oficina de cierre.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Campos CSV relevantes" valor="campos[1]=oficinaDES (cierre), campos[3]=oficinaPER (destino)"/>
+      <dato campo="Tipos de relación reasignados" valor="TRADES_WITH, RISKPYME"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar una línea de Reubicacion.csv con oficina de cierre y destino válidas.</paso>
+      <paso numero="2">Confirmar que todas las filas FT_T_SUFR con SUBDIV_RL_TYP TRADES_WITH/RISKPYME de la oficina de cierre pasan a apuntar a la oficina destino (SUBDIV_ID/SUBD_ORG_ID/SUBD_OID).</paso>
+      <paso numero="3">Confirmar que se insertan 2 filas en FT_T_RLT1 (éxito de reubicación + paso a INACTIVEPEND) si la oficina de cierre estaba ACTIVE.</paso>
+      <paso numero="4">Confirmar que FT_T_SUFR/FT_T_SUBD de la oficina de cierre quedan INACTIVE y FT_T_FINS queda INACTIVEPEND (no INACTIVE).</paso>
+    </pasos>
+    <resultadoEsperado>Las relaciones de contrapartida se conservan bajo la nueva oficina, sin pérdida de histórico, y la oficina cerrada queda en un estado intermedio (INACTIVEPEND) en vez de eliminarse o marcarse INACTIVE de forma definitiva.</resultadoEsperado>
+    <tipoValidacion>Verificación directa en FT_T_SUFR/FT_T_SUBD/FT_T_FINS/FT_T_RLT1 antes y después de la carga.</tipoValidacion>
+    <criterioAceptacion>Reasignación completa confirmada, estado final INACTIVEPEND confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si alguna relación de contrapartida queda huérfana (sin reasignar) o la oficina de cierre queda INACTIVE en vez de INACTIVEPEND, es una desviación del comportamiento confirmado en el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Oficina de cierre no encontrada en FT_T_SUFR — excepción controlada, lote continúa</nombre>
+    <objetivo>Confirmar que si la oficina de cierre de una línea del CSV no existe en FT_T_SUFR (IS_OFFI, SUBD_ORG_ID='A1'), se dispara la excepción OFICINAD_NOT_FOUND, se registra en FT_T_RLT1, y el procesado del lote de 500 registros continúa sin detenerse.</objetivo>
+    <precondiciones>
+      <precondicion>Línea de Reubicacion.csv con un código de oficina de cierre que no existe en FT_T_SUFR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Excepción esperada" valor="OFICINAD_NOT_FOUND"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Incluir en el lote una línea con oficina de cierre inexistente, junto con otras líneas válidas.</paso>
+      <paso numero="2">Confirmar que se inserta una fila de auditoría en FT_T_RLT1 describiendo el error para esa línea concreta.</paso>
+      <paso numero="3">Confirmar que las demás líneas válidas del mismo lote se procesan con normalidad (no se aborta el lote completo).</paso>
+    </pasos>
+    <resultadoEsperado>Solo la línea afectada queda sin procesar, con su error auditado; el resto del lote se completa con normalidad.</resultadoEsperado>
+    <tipoValidacion>Verificación de FT_T_RLT1 + confirmación de que el resto de líneas del lote sí se cargaron.</tipoValidacion>
+    <criterioAceptacion>Tolerancia a fallo individual confirmada sin abortar el lote.</criterioAceptacion>
+    <posibilidadFallo>Si el error de una línea aborta el procesado de todo el lote de 500, contradice el comportamiento confirmado en el código (manejo de excepción sin RAISE posterior).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="error_funcional">
+    <nombre>Oficina destino no encontrada o duplicada — excepciones controladas</nombre>
+    <objetivo>Confirmar el comportamiento cuando la oficina destino de una línea no existe (OFICINAP_NOT_FOUND) o existe más de una vez (OFICINAP_DUPLICATE) en FT_T_SUFR, con la misma tolerancia que TC-012.</objetivo>
+    <precondiciones>
+      <precondicion>2 líneas de prueba: una con oficina destino inexistente, otra con oficina destino duplicada en FT_T_SUFR.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Excepciones esperadas" valor="OFICINAP_NOT_FOUND, OFICINAP_DUPLICATE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Probar una línea con oficina destino inexistente; confirmar OFICINAP_NOT_FOUND y su registro en FT_T_RLT1.</paso>
+      <paso numero="2">Probar una línea con oficina destino duplicada; confirmar OFICINAP_DUPLICATE y su registro en FT_T_RLT1.</paso>
+      <paso numero="3">Confirmar en ambos casos que el resto del lote continúa procesándose.</paso>
+    </pasos>
+    <resultadoEsperado>Ambos escenarios quedan auditados individualmente sin detener el lote.</resultadoEsperado>
+    <tipoValidacion>Verificación de FT_T_RLT1 para cada escenario + confirmación de continuidad del lote.</tipoValidacion>
+    <criterioAceptacion>Ambas excepciones confirmadas con su comportamiento tolerante documentado.</criterioAceptacion>
+    <posibilidadFallo>Igual que TC-012 — cualquier aborto del lote completo por un registro individual contradice el código confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="conflicto_integridad">
+    <nombre>Oficina de cierre ya INACTIVE antes de la reubicación — auditoría de éxito omitida</nombre>
+    <objetivo>Confirmar que, si la oficina de cierre ya tenía DATA_STAT_TYP distinto de ACTIVE antes de ejecutar la reubicación, el procedimiento reasigna igualmente las relaciones de contrapartida, pero NO inserta las 2 filas de auditoría de éxito en FT_T_RLT1 (condicionadas a DATA_STAT_TYPD = 'ACTIVE').</objetivo>
+    <precondiciones>
+      <precondicion>Oficina de cierre con FT_T_FINS.DATA_STAT_TYP ya distinto de ACTIVE antes de procesar la línea de Reubicacion.csv correspondiente.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición del código" valor="IF DATA_STAT_TYPD = 'ACTIVE' THEN INSERT INTO FT_T_RLT1 ..."/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar una oficina de cierre ya no ACTIVE antes de la carga.</paso>
+      <paso numero="2">Ejecutar la reubicación para esa línea y confirmar que las relaciones de contrapartida se reasignan igualmente.</paso>
+      <paso numero="3">Confirmar que NO se insertan las 2 filas de auditoría de éxito en FT_T_RLT1 para esa línea, a diferencia de TC-011.</paso>
+    </pasos>
+    <resultadoEsperado>La reasignación ocurre igualmente pero sin dejar rastro de auditoría de éxito — posible pérdida de trazabilidad a documentar como hallazgo (RISK-REUB-007).</resultadoEsperado>
+    <tipoValidacion>Comparación directa del contenido de FT_T_RLT1 respecto al escenario de TC-011.</tipoValidacion>
+    <criterioAceptacion>Comportamiento asimétrico confirmado y documentado como riesgo, no como error a corregir en este alcance.</criterioAceptacion>
+    <posibilidadFallo>Si el equipo funcional considera esta falta de trazabilidad inaceptable, debe elevarse como defecto, no solo como riesgo documentado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="happy_path">
+    <nombre>LimpiarReubicacion confirma el layout real de columnas de Reubicacion.csv</nombre>
+    <objetivo>Confirmar que, tras el preprocesado real (cut -f 1,2,5,6 -d ";"), la oficina que se cierra llega a Sub_Load desde la columna 2 del Reubicacion.csv original, y la oficina destino desde la columna 6 — no la columna 4, corrigiendo lo documentado en la ronda anterior.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv de prueba con valores distintos y reconocibles en cada una de sus 6+ columnas, para poder rastrear cuál llega como oficina de cierre y cuál como destino.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comando real confirmado" valor="cut -f 1,2,5,6 -d &quot;;&quot; Reubicacion.csv | sort -ur"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar una línea de Reubicacion.csv con valores únicos y reconocibles en las columnas 1 a 6.</paso>
+      <paso numero="2">Ejecutar el paso 2 (KYTL_REU_GSPROCESS) y confirmar en la reubicación resultante que la oficina de cierre corresponde al valor de la columna 2 original.</paso>
+      <paso numero="3">Confirmar que la oficina destino corresponde al valor de la columna 6 original, no al de la columna 4.</paso>
+    </pasos>
+    <resultadoEsperado>El layout de columnas queda confirmado exactamente como en el código real: columna 2 = cierre, columna 6 = destino.</resultadoEsperado>
+    <tipoValidacion>Comparación directa entre los valores de entrada y el resultado real de la reubicación en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Mapeo de columnas confirmado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si el valor de la columna 4 aparece como destino en vez del de la columna 6, indicaría una versión distinta del script a la analizada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="conflicto_integridad">
+    <nombre>Deduplicación silenciosa de LimpiarReubicacion sobre columnas descartadas</nombre>
+    <objetivo>Confirmar que 2 filas del Reubicacion.csv original que comparten exactamente los valores de las columnas 1, 2, 5 y 6, pero difieren en las columnas 3 y/o 4 (descartadas por el cut), se colapsan en una sola línea por el sort -u, procesándose como una única reubicación en vez de 2.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv de prueba con 2 filas idénticas en columnas 1,2,5,6 pero distintas en columnas 3/4.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo real confirmado" valor="sort -ur deduplica por línea completa de las 4 columnas retenidas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar 2 filas con columnas 1,2,5,6 idénticas y columnas 3/4 distintas.</paso>
+      <paso numero="2">Ejecutar el paso 2 y confirmar en Reubicacion.tmp que solo queda 1 línea tras el preprocesado.</paso>
+      <paso numero="3">Confirmar que Sub_Load procesa una única reubicación para ese par de oficinas, no 2.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento de deduplicación confirmado tal como en el código; documentar como hallazgo si negocio esperaba procesar ambas filas por separado.</resultadoEsperado>
+    <tipoValidacion>Inspección directa de Reubicacion.tmp + conteo de reubicaciones procesadas en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Deduplicación confirmada exactamente como en el código real.</criterioAceptacion>
+    <posibilidadFallo>Si negocio consideraba que las columnas 3/4 distinguían instrucciones de reubicación independientes, esta deduplicación es un defecto a elevar (RISK-REUB-008), no un comportamiento aceptado.</posibilidadFallo>
+  </casoDePrueba>
+
+
+</casosDePrueba>
