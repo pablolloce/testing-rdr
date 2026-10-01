@@ -18,6 +18,8 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 
 ## Reglas de comportamiento
 
+- **La spec es autosuficiente (máxima prioridad).** Toda la información de un proceso vive en `salidas/`. Lo que aporte `documentos_fuente/` se incorpora a la spec; nunca escribas "ver el documento fuente", "diccionario completo en documentos_fuente/...", "no se duplica aquí" ni remitas a `memoria/` o a la spec de otro proceso para el contenido. Lo común a varios procesos va a una spec de componente `salidas/comun_<nombre>/spec.md`, que sí se puede referenciar. Si algo es demasiado grande para caber, avisa al usuario en vez de dejarlo fuera.
+- **Modo consulta.** Si el usuario pregunta por un proceso ya especificado, responde solo con `salidas/<proceso>/` y las `salidas/comun_*` que referencie. Si no puedes responder con eso, es un gap de la spec: dilo, complétala (desde la fuente o preguntando) y responde desde la spec ya completada.
 - Revisa toda la documentación fuente antes de generar.
 - No asumas comportamientos no documentados.
 - Si falta información clave, haz preguntas antes de continuar.
@@ -40,7 +42,8 @@ Analizar documentos de entrada, detectar huecos, pedir confirmación de lo falta
 ## Salida mínima requerida
 
 Por proceso, crea `salidas/<nombre_proceso>/` con tres ficheros:
-- `spec.md`: resumen ejecutivo, alcance, requisitos, gaps y preguntas (con respuestas),
+- `spec.md`: resumen ejecutivo, alcance (siempre en 3 puntos: ámbito funcional, ámbito técnico y
+  fuera de alcance — ver detalle en `copilot-instructions.md`), requisitos, gaps y preguntas (con respuestas),
   especificación funcional/técnica/de testing, validaciones (resumen), duplicidades/errores y
   conclusión. La especificación de testing debe explicar los casos (referenciando su ID en
   `casos_prueba.xml`) y confirmar explícitamente que son ejecutables tal cual están definidos y
@@ -61,5 +64,7 @@ No cierres la especificación si:
 - hay supuestos no confirmados
 - los casos de prueba no son ejecutables, o su cobertura conjunta del proceso (end-to-end y/o
   troceada) no está confirmada y explicada
+- la spec remite a `documentos_fuente/`, a `memoria/` o a la spec de otro proceso para obtener
+  contenido (solo se permite remitir a `salidas/comun_*`)
 
 Cuando detectes un gap, pregunta al usuario y espera su respuesta antes de seguir.
