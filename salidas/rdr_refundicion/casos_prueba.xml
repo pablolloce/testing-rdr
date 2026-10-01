@@ -122,4 +122,213 @@
     <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro de la ventana diaria.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-007" tipo="happy_path">
+    <nombre>Refundición con cliente destino inexistente (CASO A) — preserva histórico, no sobrescribe</nombre>
+    <objetivo>Confirmar que, cuando el cliente destino (CLIENTEP) no existe todavía en GoldenSource, el procedimiento REFUNDICION inserta una fila nueva en FT_T_FIID con el FINS_ID del destino (copiando el resto de atributos del cliente cerrado) y marca la fila original como INACTIVE, en vez de sobrescribir el FINS_ID en sitio (comportamiento anterior a marzo de 2023, ya no vigente).</objetivo>
+    <precondiciones>
+      <precondicion>Línea de Refundicion.csv con CLIENTED existente y activo, y CLIENTEP que no existe en FT_T_FIID/FT_T_FIRL.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comentario del código" valor="Cambio en Marzo del 2023, dejando inactivo el anterior"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar una línea con CLIENTED activo y CLIENTEP inexistente.</paso>
+      <paso numero="2">Confirmar que se inserta una fila nueva en FT_T_FIID con FINS_ID=CLIENTEP y el resto de atributos copiados de la fila de CLIENTED.</paso>
+      <paso numero="3">Confirmar que la fila original (FINS_ID=CLIENTED) queda marcada INACTIVE, no eliminada.</paso>
+      <paso numero="4">Confirmar la inserción de la fila de auditoría de éxito y de las 2 señales PENDING de baja/alta de contrato 460 (B460/A460) en FT_T_RLT1.</paso>
+    </pasos>
+    <resultadoEsperado>El histórico de la fila original se conserva (INACTIVE, no eliminada); el nuevo FINS_ID queda activo en una fila independiente.</resultadoEsperado>
+    <tipoValidacion>Verificación directa en FT_T_FIID antes/después + contenido de FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de preservación de histórico confirmado, sin sobrescritura en sitio.</criterioAceptacion>
+    <posibilidadFallo>Si el código sobrescribe el FINS_ID en la fila original en vez de insertar una nueva, contradice el cambio de comportamiento de marzo 2023 documentado en el propio código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="happy_path">
+    <nombre>Refundición con destino activo (CASO B) — reasignación real de contrapartidas operativas</nombre>
+    <objetivo>Confirmar que, cuando el destino existe y está activo, el procedimiento REFUNDICION reasigna (UPDATE FT_T_FIRL) todos los hijos operativos (REL_TYP=OPERATIVE, FINSRL_TYP=CPARTY) del cliente cerrado hacia el destino, con una fila de auditoría en FT_T_RLT1 por cada uno.</objetivo>
+    <precondiciones>
+      <precondicion>CLIENTED con al menos 2 contrapartidas operativas activas; CLIENTEP existente y activo, sin necesidad de reactivación.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Relación reasignada" valor="FT_T_FIRL: REL_TYP=OPERATIVE, FINSRL_TYP=CPARTY"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar la línea de refundición con CLIENTED y CLIENTEP ambos activos.</paso>
+      <paso numero="2">Confirmar que cada hijo operativo de CLIENTED pasa a tener PRNT_INST_MNEM=CLIENTEP.</paso>
+      <paso numero="3">Confirmar una fila de auditoría en FT_T_RLT1 por cada contrapartida reasignada.</paso>
+    </pasos>
+    <resultadoEsperado>Todas las contrapartidas operativas quedan reapuntadas al destino, con trazabilidad individual.</resultadoEsperado>
+    <tipoValidacion>Verificación directa en FT_T_FIRL antes/después + conteo de filas en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Reasignación completa y auditada confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si alguna contrapartida operativa queda sin reasignar, o no se audita, es una desviación del código confirmado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="conflicto_integridad">
+    <nombre>Refundición sobre destino inactivo por BAJA_CPARTY — reactivación en bloque filtrada</nombre>
+    <objetivo>Confirmar que, si el destino (local y/o su global) está INACTIVE con LAST_CHG_USR_ID=BAJA_CPARTY, el procedimiento reactiva en bloque las ~40 tablas maestras afectadas, y que una fila inactivada por otro usuario/proceso NO se reactiva (RISK nuevo de esta ronda).</objetivo>
+    <precondiciones>
+      <precondicion>Cliente destino local inactivo con LAST_CHG_USR_ID=BAJA_CPARTY en varias tablas maestras; al menos 1 fila de alguna de esas tablas inactivada por un usuario distinto, para verificar que no se reactiva.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Filtro de reactivación" valor="DATA_STAT_TYP=INACTIVE AND LAST_CHG_USR_ID='BAJA_CPARTY'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar el destino local inactivo por BAJA_CPARTY en varias tablas, y una fila adicional inactivada por otro usuario.</paso>
+      <paso numero="2">Ejecutar la refundición y confirmar que las filas de BAJA_CPARTY quedan ACTIVE.</paso>
+      <paso numero="3">Confirmar que la fila inactivada por otro usuario permanece INACTIVE tras la refundición.</paso>
+      <paso numero="4">Repetir con un global único inactivo por BAJA_CPARTY y confirmar la misma reactivación a ese nivel, incluida la actualización de DATA_SRC_ID='RDR' en FT_T_FINS.</paso>
+    </pasos>
+    <resultadoEsperado>Solo las filas dadas de baja exactamente por BAJA_CPARTY se reactivan; cualquier otra fila inactiva por otra causa permanece inactiva — posible inconsistencia a documentar como hallazgo si negocio esperaba una reactivación completa.</resultadoEsperado>
+    <tipoValidacion>Comparación fila a fila del estado de las tablas maestras antes/después de la refundición.</tipoValidacion>
+    <criterioAceptacion>Filtro de reactivación confirmado como estrictamente BAJA_CPARTY, sin excepciones.</criterioAceptacion>
+    <posibilidadFallo>Si negocio consideraba que cualquier baja debía reactivarse, esta selectividad es un defecto a elevar, no un comportamiento aceptado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Cierre en cascada del cliente local y del global tras la refundición</nombre>
+    <objetivo>Confirmar que, si tras reasignar todas las contrapartidas operativas el cliente cerrado no tiene ningún hijo operativo activo restante, se cierra (INACTIVE) a nivel local, y que si el global asociado tampoco tiene ya hijos locales activos, también se cierra.</objetivo>
+    <precondiciones>
+      <precondicion>CLIENTED con todas sus contrapartidas operativas reasignables en la misma línea de refundición, sin otros hijos activos remanentes; su global sin otros hijos locales activos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Condición de cierre local" valor="COUNT_HIJOS_LOCALES = 0"/>
+      <dato campo="Condición de cierre global" valor="COUNT_HIJOS_GLOBALES = 0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la refundición con el escenario preparado.</paso>
+      <paso numero="2">Confirmar que FT_T_FIID/FT_T_FINR/FT_T_FINS del cliente local cerrado quedan INACTIVE, y que se señaliza baja de 460 pendiente.</paso>
+      <paso numero="3">Confirmar que, si corresponde, el global también queda INACTIVE (incluida FT_T_FLG1).</paso>
+    </pasos>
+    <resultadoEsperado>Cierre en cascada completo y correcto en ambos niveles cuando ya no quedan hijos activos.</resultadoEsperado>
+    <tipoValidacion>Verificación directa del estado final de las tablas local y global.</tipoValidacion>
+    <criterioAceptacion>Cierre en cascada confirmado exactamente en las condiciones documentadas.</criterioAceptacion>
+    <posibilidadFallo>Un cierre prematuro (con hijos activos aún) o ausente (sin hijos activos) contradice la lógica confirmada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Caso especial de entidad mexicana (Altamira) — migración de identificadores y domicilio fiscal</nombre>
+    <objetivo>Confirmar que, cuando el cliente que se cierra tiene el flag Altamira (FT_T_ENFR.ORG_ID='1145', ENFR_RL_TYP='LOCAL_ENT') y el destino no lo tiene, se migran los identificadores mexicanos (ALID, SHORTNAME_MEX, HOMOCLAV, CURP, RFC en FT_T_FIID) y la fila FT_T_ENFR del cerrado al destino, y se copian los campos de domicilio fiscal (FT_T_MADR) del cerrado al destino.</objetivo>
+    <precondiciones>
+      <precondicion>CLIENTED con flag Altamira activo y datos de identificación mexicana poblados; CLIENTEP sin flag Altamira.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Flag Altamira" valor="FT_T_ENFR.ORG_ID='1145', ENFR_RL_TYP='LOCAL_ENT'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la refundición con el escenario Altamira preparado.</paso>
+      <paso numero="2">Confirmar que los campos ALID/SHORTNAME_MEX/HOMOCLAV/CURP/RFC quedan migrados a CLIENTEP.</paso>
+      <paso numero="3">Confirmar que la fila FT_T_ENFR pasa a apuntar a CLIENTEP.</paso>
+      <paso numero="4">Confirmar que el domicilio fiscal (FT_T_MADR) de CLIENTEP queda actualizado con los valores de CLIENTED.</paso>
+    </pasos>
+    <resultadoEsperado>Migración completa de los datos específicos mexicanos hacia el cliente destino.</resultadoEsperado>
+    <tipoValidacion>Verificación directa de FT_T_FIID/FT_T_ENFR/FT_T_MADR antes/después.</tipoValidacion>
+    <criterioAceptacion>Migración confirmada exactamente en las condiciones documentadas (Altamira en origen, ausente en destino).</criterioAceptacion>
+    <posibilidadFallo>Si la migración no ocurre, o se dispara sin que se cumplan las 2 condiciones (origen con flag, destino sin él), contradice la lógica confirmada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="error_funcional">
+    <nombre>Excepciones controladas de REFUNDICION — doble auditoría REPORTES+ERRORES</nombre>
+    <objetivo>Confirmar que las 5 excepciones controladas del procedimiento REFUNDICION (CLIENTED_NOT_FOUND, CLIENTED_DUPLICATE, CLIENTEP_NOT_FOUND, CLIENTEP_DUPLICATE, WHEN OTHERS) insertan 2 filas en FT_T_RLT1 (RLT_PURP_TYP=REPORTES y RLT_PURP_TYP=ERRORES) sin relanzar la excepción, y que la fila ERRORES alimenta el circuito ErroresCSV/MarcaRegErroneo (a diferencia del Sub_Load de rdr_reubicacion_new, que inserta una sola fila por excepción).</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1 línea de Refundicion.csv por cada uno de los 5 escenarios de excepción, dentro de un lote con otras líneas válidas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Excepciones a cubrir" valor="CLIENTED_NOT_FOUND, CLIENTED_DUPLICATE, CLIENTEP_NOT_FOUND, CLIENTEP_DUPLICATE, WHEN OTHERS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar cada uno de los 5 escenarios de excepción en líneas separadas del mismo lote.</paso>
+      <paso numero="2">Confirmar que cada una inserta exactamente 2 filas en FT_T_RLT1 (REPORTES + ERRORES), no 1.</paso>
+      <paso numero="3">Confirmar que el resto de líneas válidas del lote se procesan con normalidad.</paso>
+      <paso numero="4">Confirmar que la fila ERRORES resultante es recogida por una ejecución posterior de ErroresCSV y, dado que Refundicion.properties tiene Delta=Si, provoca el reprocesamiento automático vía MarcaRegErroneo al día siguiente.</paso>
+    </pasos>
+    <resultadoEsperado>Doble auditoría confirmada para las 5 excepciones, sin aborto del lote, con enlace real al reprocesamiento automático de ErroresCSV.</resultadoEsperado>
+    <tipoValidacion>Verificación de FT_T_RLT1 por excepción + observación de una ejecución posterior de ErroresCSV/MarcaRegErroneo.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de doble canal y reprocesamiento automático confirmado end-to-end.</criterioAceptacion>
+    <posibilidadFallo>Si falta la fila ERRORES, o el reprocesamiento automático no se dispara pese a Delta=Si, es una desviación del comportamiento documentado en G3/R6-bis.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="conflicto_integridad">
+    <nombre>ThreadComprobacion pierde silenciosamente una sentencia SQL si falla su ejecución</nombre>
+    <objetivo>Confirmar que, si jdbc.ejecutarQuery lanza una excepción al ejecutar una sentencia extraída de Querys.insercionesRLT1, esa sentencia queda perdida (ya se retiró de la cola antes de intentar ejecutarla) y no se registra en el fichero de auditoría InsercionesRLT1.txt, solo en la salida estándar (potencialmente no capturada en producción). Confirmar también si el campo connection, nunca inicializado en el constructor, provoca un fallo inmediato en la primera ejecución real.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de forzar un fallo en jdbc.ejecutarQuery (p. ej. desconexión de base de datos) mientras hay elementos pendientes en Querys.insercionesRLT1.</precondicion>
+      <precondicion>Acceso al log de consola/stdout del proceso donde corre ThreadComprobacion, y al fichero InsercionesRLT1.txt.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Comportamiento real del código" valor="inserciones.remove(0) ocurre antes de jdbc.ejecutarQuery(...)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar primero si el hilo arranca y ejecuta al menos una inserción real (para descartar o confirmar el riesgo de connection nula).</paso>
+      <paso numero="2">Provocar un fallo real en la ejecución de una sentencia pendiente.</paso>
+      <paso numero="3">Confirmar que esa sentencia no aparece en InsercionesRLT1.txt y que no se reintenta en ningún ciclo posterior.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma (o se descarta) la pérdida silenciosa de sentencias SQL fallidas, documentando el alcance real del riesgo.</resultadoEsperado>
+    <tipoValidacion>Provocación de fallo controlado + inspección de InsercionesRLT1.txt y logs de consola.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si se confirma la pérdida silenciosa de inserciones RLT1 en producción, debe elevarse como hallazgo de prioridad alta (pérdida de auditoría/reporting real).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="happy_path">
+    <nombre>BajaClientela460 se invoca siempre con Tipologia=TOTAL en producción</nombre>
+    <objetivo>Confirmar en ejecución real que GSProcess.sh, al ejecutar el bloque Accion=Evento/Workflow/RDR_Clientela460 de Refundicion.properties, inyecta Tipologia=TOTAL (valor fijado una sola vez en el bloque Accion=VariablesGlobales inicial del fichero y nunca sobrescrito antes de ese punto), y que BajaClientela460 recibe y procesa ese valor ejecutando la rama TOTAL (B460 seguido de B460C seguido de A460) — descarta el riesgo de no-op total documentado en rondas anteriores.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1 fila PENDING en FT_T_RLT1 con RLT_DIF_ACC en A460, B460 y B460C simultáneamente.</precondicion>
+      <precondicion>Acceso a logs de ejecución de GSProcess.sh/KYTL_REF_GSPROCESS para confirmar el valor de Tipologia realmente inyectado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="TOTAL (confirmado en Refundicion.properties, bloque Accion=VariablesGlobales)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_REF_GSPROCESS de extremo a extremo con filas PENDING preparadas para A460/B460/B460C.</paso>
+      <paso numero="2">Confirmar en el log generado por GSProcess.sh que Tipologia=TOTAL llega al evento Workflow(RDR_Clientela460).</paso>
+      <paso numero="3">Confirmar que BajaClientela460 procesa B460, luego B460C, luego A460 en ese orden, marcando las 3 filas OK.</paso>
+    </pasos>
+    <resultadoEsperado>Tipologia=TOTAL confirmado en ejecución real; las 3 tipologías de señal (A460/B460/B460C) quedan procesadas en un único paso.</resultadoEsperado>
+    <tipoValidacion>Ejecución real + inspección de logs de GSProcess.sh + verificación de RLT_DIF_STAT en FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Valor real de Tipologia y comportamiento TOTAL confirmados sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si Refundicion.properties cambiara Tipologia a un valor no reconocido en una futura modificación, el workflow dejaría de procesar señales 460 sin ningún error visible en Control-M.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="happy_path">
+    <nombre>BajaClientela460 consume correctamente las 3 tipologías reales (ALTA/BAJA/TOTAL)</nombre>
+    <objetivo>Confirmar que, con Tipologia=ALTA, el workflow consulta FT_T_RLT1 (PENDING, RLT_DIF_ACC=A460, cliente ACTIVE en CLIENTELAID), invoca SendClientelaRequest por cada fila y la marca OK; que con Tipologia=BAJA procesa primero B460 (vía BAJA_460_CLI, NIVEL=LOCAL) y después B460C (vía SendClientelaRequest, por folio); y que con Tipologia=TOTAL ejecuta la secuencia B460 → B460C → A460 en un único paso.</objetivo>
+    <precondiciones>
+      <precondicion>Filas PENDING en FT_T_RLT1 para cada uno de los 3 RLT_DIF_ACC: A460, B460, B460C.</precondicion>
+      <precondicion>Capacidad de invocar el workflow fijando explícitamente Tipologia a cada uno de los 3 valores reales.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="ALTA, BAJA, TOTAL (3 ejecuciones separadas)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar con Tipologia=ALTA y confirmar que solo se procesan las filas A460, marcándolas OK.</paso>
+      <paso numero="2">Ejecutar con Tipologia=BAJA y confirmar que se procesan B460 y después B460C, marcando ambas OK.</paso>
+      <paso numero="3">Ejecutar con Tipologia=TOTAL sobre un lote nuevo con las 3 tipologías pendientes y confirmar que procesa las 3 en el orden B460 → B460C → A460.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 tipologías reales quedan confirmadas nodo a nodo, con el orden de procesamiento exacto documentado en BajaClientela460.wkf. Cada envío real llega a SendClientelaRequest (ACCION=A460/B460), se transmite por la cola MQ CLIENTELA (sub-workflow Sub_SendMessageToMQQueue), y queda auditado en FT_T_UTD1 (UTD_USAGE_TYP=A460_Cli/B460_Cli) con las 2 filas de estado "esperando respuesta de Clientela".</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada por tipología + verificación de RLT_DIF_STAT antes/después en FT_T_RLT1 + verificación de filas en FT_T_UTD1 + observación de la cola MQ CLIENTELA.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de las 3 tipologías reales confirmado sin ambigüedad, incluido el transporte MQ y la auditoría en FT_T_UTD1.</criterioAceptacion>
+    <posibilidadFallo>Si alguna tipología no marca OK tras invocar su sub-workflow, o procesa el orden incorrecto en TOTAL, o el mensaje no llega a la cola MQ CLIENTELA, es una desviación del comportamiento documentado en G4.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="error_funcional">
+    <nombre>Ningún paso de KYTL_REF_GSPROCESS detiene la cadena ante un fallo intermedio</nombre>
+    <objetivo>Confirmar que, al no existir ninguna clave Stop=Ok/StopEve=Ok/StopJav=Ok/StopScr=Ok en Refundicion.properties, un fallo en cualquier paso intermedio (Script(Delta), Script(LimpiarRefundicion), Java(ControlCargaDatos.jar), Workflow(RDR_Refundicion), Workflow(RDR_Clientela460), Evento(Errores), Java(RDR_Report.jar), Script(Unix2Dos)) no impide que GSProcess.sh ejecute igualmente todos los pasos siguientes, reportando el fallo del job completo (RC=1) solo al final.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de forzar un fallo controlado en al menos uno de los pasos intermedios (p. ej. Java(ControlCargaDatos.jar) con un fichero de entrada corrupto).</precondicion>
+      <precondicion>Acceso a los logs de GSProcess.sh (LOG_GENERICO/LOG_DIA) para verificar qué pasos se ejecutan tras el fallo forzado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Refundicion.properties" valor="sin ninguna clave Stop/StopEve/StopJav/StopScr=Ok en ningún bloque"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo controlado en un paso intermedio (p. ej. Java(ControlCargaDatos.jar)).</paso>
+      <paso numero="2">Confirmar en los logs que GSProcess.sh registra el fallo (incrementa $Errores) pero continúa con los pasos siguientes (Workflow(RDR_Refundicion), Workflow(RDR_Clientela460), etc.).</paso>
+      <paso numero="3">Confirmar que el job reporta RC=1 (ESTADO-1-) solo al finalizar todos los pasos, no en el momento del fallo.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento de tolerancia total a fallos intermedios confirmado: todos los pasos se ejecutan pese al fallo forzado, con RC=1 solo al final.</resultadoEsperado>
+    <tipoValidacion>Fallo controlado + inspección de logs de GSProcess.sh (LOG_GENERICO/LOG_DIA) + verificación del RC final del job en Control-M.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real de tolerancia a fallos confirmado sin ambigüedad.</criterioAceptacion>
+    <posibilidadFallo>Si un fallo en un paso temprano (p. ej. la carga de datos) no detiene los pasos posteriores, estos podrían ejecutarse sobre datos parciales o inconsistentes sin ninguna señal de alerta intermedia.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

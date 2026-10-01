@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="rdr_carga_plazas_trad_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Ciclo completo de carga de plazas tradicionales</nombre>
+    <objetivo>Verificar el ciclo end-to-end: llegada del fichero, carga vía GSProcess.sh (PARM1=TradPlazas), historificación vía RAMERC0068.sh y cierre de cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero TradPlazas.csv válido disponible para depositar dentro de la ventana de monitoreo (lunes a viernes, desde las 05:00 AM).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta monitoreada" valor="/fichtemcomp/pr/descargas/kytl/TradPlazas/TradPlazas.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar TradPlazas.csv dentro de la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar que KYTL_PLATR_GSPROCESS_FW detecta el fichero y termina con código 0.</paso>
+      <paso numero="3">Confirmar la ejecución completa de KYTL_PLATR_GSPROCESS (carga/conciliación).</paso>
+      <paso numero="4">Confirmar la historificación (MEKYTL0129) y el cierre de cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 pasos terminan OK; el fichero queda procesado e historificado.</resultadoEsperado>
+    <tipoValidacion>Estado OK de los 3 jobs en Control-M + verificación de ficheros generados.</tipoValidacion>
+    <criterioAceptacion>Ciclo completo sin KOs.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada; cualquier KO real invalida el caso salvo que se esté probando deliberadamente otro escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="borde">
+    <nombre>Fallo real del filewatcher detiene la cadena sin ningún salto (a diferencia de sus cadenas hermanas)</nombre>
+    <objetivo>Confirmar que, al no existir ningún bloque ON STMT en el export real de Control-M para KYTL_PLATR_GSPROCESS_FW, un fallo real o un código de retorno distinto de 0 detiene la cadena por completo, sin el mecanismo de salto por RC=7 ya confirmado en RDR_CONC_OFICINAS_new y RDR_REUBICACION_new.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de provocar un fallo real o un código de retorno no estándar en el filewatcher, en entorno de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo confirmado (ausencia)" valor="Sin bloques ON STMT en Workspace_489.xml para ningún job"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real o un código de retorno no 0 en el filewatcher.</paso>
+      <paso numero="2">Confirmar que la cadena queda en KO, sin publicar ningún evento de cierre alternativo.</paso>
+      <paso numero="3">Confirmar que KYTL_PLATR_GSPROCESS y MEKYTL0129 no se ejecutan.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena queda detenida en KO real, sin ningún mecanismo de salto que la marque como completada.</resultadoEsperado>
+    <tipoValidacion>Observación directa del estado de Control-M tras el fallo provocado.</tipoValidacion>
+    <criterioAceptacion>Comportamiento estricto confirmado, contrastando con las cadenas hermanas.</criterioAceptacion>
+    <posibilidadFallo>Si se detecta algún mecanismo de salto no visible en el export ya revisado, sería un hallazgo a documentar y contradiría R2.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Filewatcher agota el timeout de 4 horas sin recibir el fichero</nombre>
+    <objetivo>Confirmar el comportamiento cuando TradPlazas.csv no llega dentro de los 240 minutos (4h) de espera configurados.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de prueba donde TradPlazas.csv no se deposita durante la ventana completa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Timeout configurado" valor="240 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
+      <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
+    <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="error_funcional">
+    <nombre>Fallo real de KYTL_PLATR_GSPROCESS sin tolerancia Force-OK</nombre>
+    <objetivo>Confirmar que, al no existir ningún override en el export real, un fallo real en la carga/conciliación se refleja como KO real en Control-M, deteniendo la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en KYTL_PLATR_GSPROCESS (p. ej. fichero con formato inválido).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Máximo de relanzamientos" valor="0"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en el paso de carga/conciliación.</paso>
+      <paso numero="2">Confirmar que el job termina en KO real, sin ningún Force-OK.</paso>
+      <paso numero="3">Confirmar que MEKYTL0129 no se ejecuta.</paso>
+    </pasos>
+    <resultadoEsperado>KO real visible, sin reintento automático ni tolerancia, con alerta al grupo de soporte.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M + confirmación de que el paso siguiente no arranca.</tipoValidacion>
+    <criterioAceptacion>Comportamiento estricto confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si el job se marca OK pese al fallo real, contradice la ausencia de Force-OK confirmada en el export.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="error_funcional">
+    <nombre>Fallo real de MEKYTL0129 sin tolerancia Force-OK</nombre>
+    <objetivo>Confirmar que un fallo real en la historificación (MEKYTL0129) se refleja como KO real, a diferencia de MEKYTL0242/MEKYTL0122 (cuyas fichas EX-005-03 sí confirman diseño tolerante).</objetivo>
+    <precondiciones>
+      <precondicion>Escenario de fallo controlado en MEKYTL0129 (p. ej. permisos de escritura revocados en la ruta destino).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Contraste" valor="MEKYTL0242/MEKYTL0122 sí tienen diseño tolerante confirmado; MEKYTL0129 no tiene ficha EX-005-03 propia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar un fallo real en MEKYTL0129.</paso>
+      <paso numero="2">Confirmar que el job termina en KO real, sin ningún Force-OK.</paso>
+    </pasos>
+    <resultadoEsperado>KO real visible, cadena detenida sin cierre.</resultadoEsperado>
+    <tipoValidacion>Estado KO en Control-M.</tipoValidacion>
+    <criterioAceptacion>Comportamiento estricto confirmado.</criterioAceptacion>
+    <posibilidadFallo>Si el job se marca OK pese al fallo real, contradice la ausencia de Force-OK confirmada en el export.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="regresion">
+    <nombre>Confirmación de topología completa y consumo de recurso compartido</nombre>
+    <objetivo>Confirmar en revisiones futuras que la cadena sigue teniendo exactamente 3 pasos y que cada uno consume 1 unidad del recurso MAX-LPRDR501, compartido con RDR_CONC_OFICINAS_new y RDR_REUBICACION_new.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición real de Control-M del folder completo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Recurso compartido" valor="MAX-LPRDR501 (total asignado: 100)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 3 jobs con la topología lineal documentada.</paso>
+      <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
+      <paso numero="3">Confirmar si existe contención real con RDR_CONC_OFICINAS_new/RDR_REUBICACION_new cuando coinciden en ventana.</paso>
+    </pasos>
+    <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
+    <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Sin discrepancias no documentadas.</criterioAceptacion>
+    <posibilidadFallo>La aparición de un 4º job (p. ej. una transmisión XCOM) sería un cambio estructural relevante a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="regresion">
+    <nombre>Confirmación en ejecución real de la ruta y nombre de fichero generado por MEKYTL0129</nombre>
+    <objetivo>Confirmar en una ejecución real que MEKYTL0129 genera TradPlazas_yyyymmdd.csv en /fichtemcomp/pr/descargas/kytl/TradPlazas/old/, tal como confirma la ficha real EX-005-03 (ya no una inferencia por analogía con MEKYTL0242).</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a una ejecución real o de prueba de MEKYTL0129.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ruta confirmada (ficha EX-005-03)" valor="/fichtemcomp/pr/descargas/kytl/TradPlazas/old/TradPlazas_yyyymmdd.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso 3 en un ciclo real o de prueba.</paso>
+      <paso numero="2">Confirmar que el fichero generado coincide exactamente con la ruta y nombre de la ficha EX-005-03.</paso>
+    </pasos>
+    <resultadoEsperado>Ruta y nombre reales coinciden con lo documentado en la ficha.</resultadoEsperado>
+    <tipoValidacion>Observación directa del fichero generado.</tipoValidacion>
+    <criterioAceptacion>Coincidencia exacta confirmada.</criterioAceptacion>
+    <posibilidadFallo>Si la ruta real difiere de la de la ficha EX-005-03, sería una discrepancia entre diseño e implementación a documentar.</posibilidadFallo>
+  </casoDePrueba>
+
+
+</casosDePrueba>
