@@ -30,14 +30,20 @@ Spec Intake Formatter Agent/
 ├── documentos_fuente/                           <- Documentos técnicos a analizar
 ├── memoria/
 │   └── memoria_spec_intake_formatter.md         <- Memoria persistente entre sesiones
-├── salidas/
-│   └── <nombre_proceso>/                        <- Una carpeta por proceso analizado
-│       ├── spec.md                              <- Especificación funcional/técnica/testing
-│       ├── prerrequisitos.md                    <- Documento explicativo de prerrequisitos
-│       └── casos_prueba.xml                     <- Matriz de casos de prueba en XML
+├── salidas/                                     <- ÚNICA fuente de verdad de los procesos
+│   ├── <nombre_proceso>/                        <- Una carpeta por proceso analizado
+│   │   ├── spec.md                              <- Especificación funcional/técnica/testing
+│   │   ├── prerrequisitos.md                    <- Documento explicativo de prerrequisitos
+│   │   └── casos_prueba.xml                     <- Matriz de casos de prueba en XML
+│   └── comun_<componente>/                      <- Componente usado por varios procesos
+│       └── spec.md                              <- (script genérico, jar, plataforma...)
 ├── README.md
 └── ...
 ```
+
+**Las specs son autosuficientes.** Cualquier pregunta sobre un proceso se responde leyendo solo
+`salidas/<nombre_proceso>/` y las specs `salidas/comun_*` que referencie. `documentos_fuente/`
+es material de trabajo para construir las specs, nunca un sitio al que remitir.
 
 ## Comportamiento esperado del agente
 

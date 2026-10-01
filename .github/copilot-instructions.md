@@ -37,6 +37,87 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
     forma parte del flujo normal y nunca se activa por iniciativa propia. → §"Modo
     ejecutable".
 
+Si el usuario no pide analizar un documento nuevo sino **preguntar por un proceso ya
+especificado**, no sigas este runbook: aplica §"Modo consulta".
+
+---
+
+## Autosuficiencia de la especificación — regla de máxima prioridad
+
+**La información final de un proceso vive únicamente en `salidas/`.** `documentos_fuente/` es
+material de trabajo para construir la especificación, no un sitio donde dejar conocimiento.
+Cuando la spec esté cerrada, cualquier pregunta sobre el proceso debe poder responderse leyendo
+solo `salidas/<nombre_proceso>/` y, como mucho, las specs de componente común a las que esa
+carpeta remita (ver abajo). Si para responder hace falta abrir un documento fuente, la memoria o
+la spec de otro proceso, la especificación está incompleta.
+
+Por eso, al redactar `spec.md`, `prerrequisitos.md` y `casos_prueba.xml`:
+
+- **Nunca remitas a `documentos_fuente/` para el contenido.** Prohibido escribir "ver el
+  documento fuente", "diccionario completo en `documentos_fuente/...`", "código completo en...",
+  "no se duplica aquí por volumen" o equivalentes. Lo que el documento fuente aporta se
+  incorpora a la spec: diccionarios de campos, queries, rutas, parámetros, planificación,
+  códigos de retorno, mensajes de log, mapeos, reglas. Se puede citar la procedencia
+  ("según la ficha EX-005-03 de MEKYTL0072") como trazabilidad, siempre que el contenido esté
+  copiado o analizado en la propia spec.
+- **Nunca remitas a `memoria/` para el contenido.** Las respuestas del usuario que cierran un gap
+  van literalmente en la sección 4 de `spec.md` ("Gaps identificados y preguntas pendientes, con
+  las respuestas obtenidas"). La memoria es para trabajar, no para consultar el proceso.
+- **No remitas a la spec de otro proceso para explicar este.** Puedes decir que este proceso
+  consume la salida de otro o que comparte cadena con él (es contexto útil), pero todo lo que
+  haga falta para entender este proceso —incluido el formato exacto de lo que recibe de otro—
+  debe estar aquí. La única remisión permitida es a una spec de componente común.
+- **Analizar no es copiar.** Para un script, una clase o un `.properties` no hace falta pegar el
+  fichero entero: hace falta el análisis que exige "Reglas obligatorias" 7 (qué hace, qué
+  recibe y produce, qué campos de la salida afecta, qué pasa si falla), con los fragmentos
+  literales que determinan comportamiento (la query, la línea del `case`, el valor del
+  parámetro). Copia literal sí cuando el valor exacto importa: diccionarios de campos, layouts,
+  queries, máscaras, cabeceras, códigos y textos de error.
+
+### Specs de componente común
+
+Lo que usan varios procesos —un script genérico, un jar compartido, una plataforma de
+transferencia, una utilidad de Control-M— se documenta **una sola vez** en su propia spec de
+componente, también dentro de `salidas/`, y las specs de proceso la referencian:
+
+- Carpeta: `salidas/comun_<nombre_componente>/` (minúsculas, guiones bajos, sin extensión), con
+  un único fichero `spec.md`. No lleva `casos_prueba.xml` ni `prerrequisitos.md`: las pruebas
+  del componente se hacen dentro de los procesos que lo usan.
+- Contenido: qué es, cómo se invoca, todos sus parámetros y su significado, ficheros de
+  configuración que lee y su contenido relevante, códigos de retorno, mensajes de log,
+  comportamiento ante fallo, riesgos conocidos, y una tabla de **qué procesos lo usan y con qué
+  parámetros**. Debe ser tan autosuficiente como una spec de proceso.
+- En la spec de proceso, la remisión es explícita y acotada: "el funcionamiento genérico de
+  `RAMERC0068.sh` está en `salidas/comun_ramerc0068/spec.md`". Lo **específico de este proceso**
+  (con qué clave se invoca, qué línea de configuración le corresponde, qué ficheros mueve aquí,
+  qué ocurre en este proceso si falla) se queda en la spec del proceso, nunca en la del
+  componente.
+- Antes de documentar un artefacto dentro de una spec de proceso, comprueba si ya existe su
+  `salidas/comun_*`. Si existe, úsala y complétala si aportas algo nuevo. Si no existe y el
+  artefacto lo usa más de un proceso, créala.
+
+### Límite de tamaño
+
+Si el análisis de un proceso, o de un fichero que ejecuta, es tan grande que no cabe
+razonablemente en la spec (una spec que ya no se puede leer de una vez, una clase o un workflow
+de miles de líneas cuyo análisis completo la desbordaría), **no lo recortes ni lo dejes fuera
+en silencio, y no lo mandes a `documentos_fuente/`**: avisa al usuario de qué es, de cuánto
+ocupa y de qué partes quedarían fuera, y acordad cómo abordarlo antes de cerrar la spec.
+
+## Modo consulta — responder preguntas sobre un proceso ya especificado
+
+Cuando el usuario pregunte algo sobre un proceso que ya tiene carpeta en `salidas/`:
+
+1. Responde **solo** con `salidas/<nombre_proceso>/` y las specs `salidas/comun_*` a las que
+   remita. No abras `documentos_fuente/`, ni la memoria, ni specs de otros procesos para
+   completar la respuesta.
+2. Cita la sección de la spec de la que sale cada dato.
+3. Si la spec no permite responder, **no improvises ni vayas a buscarlo a la fuente por tu
+   cuenta**. Dilo claramente: es un gap de la especificación. Ofrece cerrarlo: buscarlo en
+   `documentos_fuente/` o pedírselo al usuario, **incorporarlo a la spec**, y entonces responder
+   desde la spec ya completada. La respuesta nunca debe depender de algo que no quede escrito en
+   `salidas/`.
+
 ---
 
 ## Principio esencial
@@ -102,7 +183,10 @@ respuestas sean "sí" con evidencia, procede a generar el documento.
 
 ### 1) Revisión exhaustiva de la documentación
 Lee íntegramente todos los documentos disponibles en `documentos_fuente/` antes de generar nada
-(ver "Documentos de entrada" si el usuario te lo adjunta directamente en el chat).
+(ver "Documentos de entrada" si el usuario te lo adjunta directamente en el chat). Todo lo que
+saques de ellos y sea relevante para el proceso debe acabar escrito en la spec: el documento
+fuente se lee para construir la spec, no para remitir a él (ver §"Autosuficiencia de la
+especificación").
 
 Debes identificar:
 - proceso o flujo funcional
@@ -411,6 +495,11 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
   ambigüedad)
 - el conjunto de casos, end-to-end y/o troceados, cubre por completo el correcto funcionamiento
   del proceso, y eso queda explicado y justificado en la especificación de testing de `spec.md`
+- **la spec es autosuficiente**: ningún fichero de `salidas/<nombre_proceso>/` remite a
+  `documentos_fuente/`, a `memoria/` ni a la spec de otro proceso para obtener contenido; las
+  únicas remisiones de contenido son a `salidas/comun_*`, y esas specs de componente existen y
+  cubren lo que se les delega. Compruébalo buscando en la carpeta las cadenas
+  `documentos_fuente`, `memoria/` y `salidas/` y revisando cada aparición
 
 ## Modo ejecutable — preparar casos para AtSQA Framework
 
@@ -586,6 +675,12 @@ Flujo recomendado:
 Nunca inventes información en la memoria. Solo registra aquello que provenga de la
 documentación fuente o de respuestas literales del usuario. La memoria no sustituye al
 análisis; solo conserva evidencia ya confirmada y útil para reutilización.
+
+**La memoria es una herramienta de trabajo del agente, no una fuente de consulta de los
+procesos.** Todo lo que se registre en memoria y afecte a un proceso debe estar también en su
+spec (ver §"Autosuficiencia de la especificación"). El conocimiento técnico compartido por
+varios procesos —scripts genéricos, plataformas, utilidades— no va a memoria: va a una spec de
+componente en `salidas/comun_<nombre>/`.
 
 ## Modelo de ramas: rama personal + rama compartida `nfq`
 
