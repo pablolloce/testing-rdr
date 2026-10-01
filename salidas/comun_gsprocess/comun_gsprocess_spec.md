@@ -197,7 +197,7 @@ reconocidas (se comparan los 5 primeros caracteres de la clave):
 | `TipoFichero` | `TipoFichero` | Tipo de fichero |
 | `Tipologia` | `Tipologia` | Tipología |
 | `Paginacion` | `Paginacion` | Paginación |
-| `Stop` | `Stop` | Si vale `Ok`, **cualquier** subproceso fallido detiene el script (ver §7) |
+| `Stop` | `Stop` | Si vale `Ok`, **cualquier** subproceso fallido detiene el script (ver §7). La comparación es exacta y distingue mayúsculas (`[ "$Stop" == "Ok" ]`): `OK`, `ok` o `Si` **no detienen nada**. Lo mismo vale para `StopEve`, `StopJava`, `StopScript` y `StopProp` |
 
 Escribe todos estos valores en `LOG_GENERICO` bajo el título `Variables Globales`.
 
