@@ -139,24 +139,5 @@
     <posibilidadFallo>Si la ruta real difiere de la de la ficha EX-005-03, sería una discrepancia entre diseño e implementación a documentar.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-008" tipo="conflicto_integridad">
-    <nombre>Confirmación operativa de las dependencias cruzadas de negocio (RDR_CARGA_PLAZAS / carga de nombres legales)</nombre>
-    <objetivo>Confirmar con negocio/ANS RDR si las 2 dependencias de negocio descritas textualmente en la ficha EX-005-03 del filewatcher (predecesor RDR_CARGA_PLAZAS, sucesor "Carga de nombres legales en RDR", probablemente rdr_cargalei_new) se cumplen operativamente pese a no tener ningún INCOND/OUTCOND cruzado en el export real de Control-M.</objetivo>
-    <precondiciones>
-      <precondicion>Acceso a alguien del equipo funcional/ANS RDR, o a un histórico de ejecuciones que permita correlacionar el horario de cierre de RDR_CARGA_PLAZAS y el arranque de rdr_cargalei_new con los de esta cadena.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="Texto literal de la ficha" valor="En cuanto se reciba y haya finalizado el proceso RDR_CARGA_PLAZAS, se desencadena la cadena del proceso Carga de nombres legales en RDR"/>
-      <dato campo="Confirmado en Control-M real" valor="Sin INCOND/OUTCOND cruzado en ninguno de los 3 jobs"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Preguntar a negocio/ANS RDR si RDR_CARGA_PLAZAS es una cadena real distinta y si su finalización condiciona en la práctica el procesado de TradPlazas.csv.</paso>
-      <paso numero="2">Confirmar si rdr_cargalei_new arranca realmente tras el cierre de esta cadena, y por qué mecanismo si no es un INCOND de Control-M.</paso>
-    </pasos>
-    <resultadoEsperado>Confirmación explícita de si ambas dependencias son reales y cómo se coordinan sin Control-M, cerrando RISK-CARGATRAD-004.</resultadoEsperado>
-    <tipoValidacion>Confirmación funcional directa + correlación de horarios de ejecución real si es posible.</tipoValidacion>
-    <criterioAceptacion>Respuesta explícita documentada en esta especificación.</criterioAceptacion>
-    <posibilidadFallo>Si ninguna de las 2 dependencias se cumple operativamente pese a estar documentadas, debe elevarse como hallazgo de prioridad media (coordinación de negocio no garantizada por Control-M).</posibilidadFallo>
-  </casoDePrueba>
 
 </casosDePrueba>

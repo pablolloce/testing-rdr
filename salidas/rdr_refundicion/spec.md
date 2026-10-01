@@ -360,11 +360,6 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
   (`STAT_DEF_ID='NUMFOLII'` escrito vs. `'NUMFOLIO'` filtrado), posible defecto de tipo de job (`crearJOB`
   con `"C460"`, `cerrarJOB` con `"CCL"`), y en `ThreadComprobacion`: conexión JDBC nunca inicializada,
   *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución.
-  **Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence):**
-  al tratarse de código de una cadena ajena, `cerrarJOB` con `"CCL"` tras abrir con `"C460"` correspondería a
-  nomenclatura heredada de esa rutina externa, sin efecto en la ejecución; `NUMFOLII` sería un campo/columna
-  histórica del modelo de datos de esa misma aplicación ajena. Ninguna de las 2 explicaciones se ha verificado
-  con código o ficha adicional — se documentan como hipótesis, no como hechos confirmados.
 * **Reprocesamiento automático vía `MarcaRegErroneo` (§6.1, G3):** al estar `Delta=Si` en
   `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
   `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) queda marcado para

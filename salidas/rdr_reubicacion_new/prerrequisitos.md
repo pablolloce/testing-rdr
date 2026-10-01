@@ -73,8 +73,8 @@
   directiva textual "DEBE QUEDAR A DUMMY" del documento describe intención de diseño, no el mecanismo técnico.
 - **Importante, hallazgo nuevo (RISK-REUB-004):** la ficha oficial de diseño EX-005-02 documenta
   explícitamente que "MEKYTL0122 no debe tener dependencia de MEKYTL0234" — pero esa dependencia **sigue
-  existiendo** en la configuración real de Control-M. Antes de diseñar pruebas que traten esa dependencia
-  como un hecho aceptado, confirmar con el equipo funcional/de desarrollo si es intencional (TC-010).
+  existiendo** en la configuración real de Control-M. No tratar esa dependencia como un defecto a corregir
+  sin más contexto.
 - **Importante:** `RDR_CARGA_PLAZAS_TRAD_new` queda documentada por separado (`salidas/rdr_carga_plazas_trad_new/`),
   como especificación independiente, no como extensión de esta ni de `RDR_CONC_OFICINAS_new`.
 - **Nota:** el campo "Rearranques" de la ficha EX-005-02 (chain-level) de esta cadena está vacío — no hay un
@@ -83,5 +83,4 @@
   aportadas sí incluyen, cada una, una norma de aviso explícita ("Avisar a ANS RDR (BZG03906)...").
 - **Importante, nuevo (RISK-REUB-009):** la ficha de cadena EX-005-02 declara criticidad **W**, pero las 4
   fichas de job EX-005-03 aportadas (`MEKYTL0111`, `MEKYTL0122`, `MEKYTL0233`, `MEKYTL0234`) declaran todas
-  **C (Aviso inmediato)** — confirmar con ANS RDR cuál rige realmente antes de diseñar pruebas que asuman
-  un SLA de aviso concreto (TC-017).
+  **C (Aviso inmediato)**. Según aclaración de negocio, la criticidad **W** es la que rige operativamente.

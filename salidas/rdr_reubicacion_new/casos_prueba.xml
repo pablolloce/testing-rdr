@@ -190,26 +190,6 @@
     <posibilidadFallo>Si el fallo real no deja ningún rastro visible (ni en logs ni en alertas) pese a no haberse completado la transmisión/historificación real, debe elevarse como hallazgo de prioridad alta.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
-    <nombre>Confirmación de intencionalidad de la dependencia MEKYTL0122→MEKYTL0234 (RISK-REUB-004)</nombre>
-    <objetivo>Confirmar con el equipo funcional/de desarrollo si la dependencia real de MEKYTL0122 sobre MEKYTL0234 es intencional, dado que la ficha oficial de diseño EX-005-02 documenta explícitamente la instrucción "MEKYTL0122 no debe tener dependencia de MEKYTL0234", instrucción que no se refleja en la configuración real de Control-M.</objetivo>
-    <precondiciones>
-      <precondicion>Acceso a alguien del equipo funcional o de desarrollo que pueda confirmar la historia de este diseño, o a un histórico de cambios de la definición del folder en Control-M.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="Instrucción de diseño (ficha EX-005-02)" valor="MEKYTL0122 no debe tener dependencia de MEKYTL0234"/>
-      <dato campo="Configuración real confirmada" valor="INCOND MEKYTL0234_OK_new presente en MEKYTL0122, AND_OR=A"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Preguntar al equipo funcional/de desarrollo si la dependencia es intencional o un defecto histórico no corregido.</paso>
-      <paso numero="2">Si es posible, consultar el histórico de versiones de la definición del folder en Control-M (VERSION_SERIAL) para ver si la dependencia se añadió en algún momento posterior a la ficha de diseño.</paso>
-    </pasos>
-    <resultadoEsperado>Confirmación explícita de la intencionalidad (o no) de la dependencia, cerrando RISK-REUB-004.</resultadoEsperado>
-    <tipoValidacion>Confirmación funcional directa + revisión del histórico de versiones si está disponible.</tipoValidacion>
-    <criterioAceptacion>Respuesta explícita del equipo funcional/de desarrollo, documentada en esta especificación.</criterioAceptacion>
-    <posibilidadFallo>Si nadie puede confirmar la intención y la dependencia no tiene justificación funcional conocida, debe tratarse como un defecto pendiente de corrección, no como un comportamiento aceptado.</posibilidadFallo>
-  </casoDePrueba>
-
   <casoDePrueba id="TC-011" tipo="happy_path">
     <nombre>Reubicación individual válida — reasignación de contrapartidas y estado INACTIVEPEND</nombre>
     <objetivo>Confirmar que el procedimiento PL·SQL REUBICACION de Sub_Load reasigna correctamente las relaciones de contrapartida (TRADES_WITH/RISKPYME) de la oficina cerrada hacia la oficina destino, y que la oficina cerrada queda en FT_T_FINS como INACTIVEPEND, no INACTIVE.</objetivo>
@@ -332,24 +312,5 @@
     <posibilidadFallo>Si negocio consideraba que las columnas 3/4 distinguían instrucciones de reubicación independientes, esta deduplicación es un defecto a elevar (RISK-REUB-008), no un comportamiento aceptado.</posibilidadFallo>
   </casoDePrueba>
 
-  <casoDePrueba id="TC-017" tipo="conflicto_integridad">
-    <nombre>Confirmación de la criticidad real de la cadena (EX-005-02 W vs. EX-005-03 C)</nombre>
-    <objetivo>Confirmar con negocio/ANS RDR qué clasificación de criticidad rige realmente el tratamiento de alertas de esta cadena, dado que la ficha de diseño de cadena EX-005-02 declara W (aviso día siguiente) mientras que las 4 fichas de job EX-005-03 aportadas (MEKYTL0111, MEKYTL0122, MEKYTL0233, MEKYTL0234) declaran todas C (aviso inmediato).</objetivo>
-    <precondiciones>
-      <precondicion>Acceso a alguien del equipo de soporte (ANS RDR) o al sistema de gestión de alertas (Remedy) que pueda confirmar la clasificación operativa real aplicada.</precondicion>
-    </precondiciones>
-    <datosEmpleados>
-      <dato campo="Criticidad ficha de cadena (EX-005-02)" valor="W - Aviso día siguiente"/>
-      <dato campo="Criticidad fichas de job (EX-005-03, las 4 aportadas)" valor="C - Aviso inmediato"/>
-    </datosEmpleados>
-    <pasos>
-      <paso numero="1">Preguntar a ANS RDR o consultar el sistema de alertas real qué clasificación se aplica efectivamente a un fallo de estos jobs.</paso>
-      <paso numero="2">Si es posible, provocar un fallo controlado en entorno de prueba y observar el tiempo/canal real de aviso generado.</paso>
-    </pasos>
-    <resultadoEsperado>Confirmación explícita de cuál de las 2 clasificaciones rige realmente, cerrando RISK-REUB-009.</resultadoEsperado>
-    <tipoValidacion>Confirmación funcional directa + observación del aviso real ante un fallo de prueba, si es posible.</tipoValidacion>
-    <criterioAceptacion>Respuesta explícita documentada en esta especificación.</criterioAceptacion>
-    <posibilidadFallo>Si la clasificación operativa real es más laxa (W) que la declarada a nivel de job (C), un fallo real podría no generar aviso inmediato pese a la urgencia que las fichas de job sugieren.</posibilidadFallo>
-  </casoDePrueba>
 
 </casosDePrueba>

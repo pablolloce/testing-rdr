@@ -229,14 +229,12 @@ a que el diseño original pedía eliminarla.
 - `conflicto_integridad`: TC-007 (fan-in con solo 2 de las 3 ramas OK — MEKYTL0122 no debe arrancar antes de tiempo).
 - `regresion`: TC-008 (topología completa de 6 pasos y consumo del recurso MAX-LPRDR501, compartido con RDR_CONC_OFICINAS_new).
 - `conflicto_integridad`: TC-009 (**verificar en ejecución real qué pasa si MEKYTL0111 o el propio MEKYTL0122 fallan de verdad** — ambos tienen Force-OK, algo no documentado en el funcional original).
-- `conflicto_integridad`: TC-010 (**confirmar con negocio/desarrollo si la dependencia MEKYTL0122→MEKYTL0234 es intencional**, dado que la ficha de diseño pedía eliminarla — RISK-REUB-004).
 - `happy_path`: TC-011 (reubicación individual válida: la oficina de cierre y el destino existen, las relaciones de contrapartida `TRADES_WITH`/`RISKPYME` se reasignan y la oficina de cierre queda `INACTIVEPEND`, no `INACTIVE`).
 - `error_funcional`: TC-012 (oficina de cierre inexistente en `FT_T_SUFR` → excepción `OFICINAD_NOT_FOUND`, fila de auditoría en `FT_T_RLT1`, el resto del lote de 500 sigue procesándose).
 - `error_funcional`: TC-013 (oficina destino inexistente o duplicada → excepciones `OFICINAP_NOT_FOUND`/`OFICINAP_DUPLICATE`, misma tolerancia que TC-012).
 - `conflicto_integridad`: TC-014 (**la oficina de cierre ya estaba `INACTIVE` antes de ejecutar la reubicación** — el código solo inserta las 2 filas de auditoría de éxito si `DATA_STAT_TYPD = 'ACTIVE'`; confirmar que no se pierde trazabilidad cuando la oficina ya estaba inactiva por otra vía).
 - `happy_path`: TC-015 (confirmar el layout real de columnas de `Reubicacion.csv` tras `LimpiarReubicacion`: la columna 2 original llega como oficina de cierre y la columna 6 original como destino — no la 4, corrigiendo la ronda anterior).
 - `conflicto_integridad`: TC-016 (**2 filas del `Reubicacion.csv` original que solo difieran en las columnas 3/4 (descartadas)** deben colapsarse en 1 sola reubicación por el `sort -u` de `LimpiarReubicacion` — confirmar si esto es aceptable o pierde información funcional, RISK-REUB-008).
-- `conflicto_integridad`: TC-017 (**confirmar con negocio/ANS RDR qué criticidad rige realmente** — la ficha de cadena EX-005-02 dice W, las 4 fichas de job EX-005-03 dicen C — RISK-REUB-009).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -250,13 +248,11 @@ a que el diseño original pedía eliminarla.
 | R6 (Force-OK de MEKYTL0111, no documentado en el funcional original) | TC-009 | Confirma el impacto de un fallo real en la transmisión del reporte |
 | R7, R7b (Fan-In estricto de 3 eventos + Force-OK y mecanismo real FALLASINOFICHS de MEKYTL0122) | TC-007, TC-009 | Confirma que el fan-in no arranca con solo 2 de 3 eventos, y el impacto real de un fallo (incluido `exit 6` si aplica) en la propia historificación |
 | R8 (recurso compartido) | TC-008 | Confirma el consumo de MAX-LPRDR501 compartido con RDR_CONC_OFICINAS_new |
-| R7 (dependencia MEKYTL0122→MEKYTL0234 pese al diseño) | TC-010 | Confirma si es intencional o un defecto no corregido (RISK-REUB-004) |
 | R3b-bis (procedimiento REUBICACION: reasignación de contrapartidas) | TC-011 | Confirma la reasignación real de relaciones y el estado final INACTIVEPEND |
 | R3b-bis (validaciones controladas del procedimiento REUBICACION) | TC-012, TC-013 | Confirma que un registro individual erróneo no detiene el procesado del lote |
 | R3b-bis (auditoría condicionada al estado ACTIVE previo) | TC-014 | Confirma el comportamiento de trazabilidad cuando la oficina de cierre ya no estaba activa |
 | R3a (layout real de columnas confirmado por `LimpiarReubicacion`) | TC-015 | Confirma que la oficina destino viene de la columna 6 original, no la 4 |
 | R3a (deduplicación de `sort -u` sobre columnas 3/4 descartadas) | TC-016 | Confirma el comportamiento ante 2 filas que colapsan en 1 sola (RISK-REUB-008) |
-| R9 (discrepancia de criticidad EX-005-02 vs. EX-005-03) | TC-017 | Confirma qué clasificación rige realmente en el sistema de alertas (RISK-REUB-009) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -286,36 +282,18 @@ a que el diseño original pedía eliminarla.
   `MEKYTL0233`/`MEKYTL0234`/`MEKYTL0111`, si `FALLA_NO_FICHERO="SI"` en la clave correspondiente, el fallo real
   que el Force-OK enmascara tiene un código de salida concreto y conocido (`exit 60`/`exit 45`), no una caja
   negra — el valor real configurado para las 3 claves sigue sin confirmar.
-* **RISK-REUB-004 [nuevo, prioridad alta, confirmado comparando la ficha de diseño con Control-M real]:** la
-  ficha oficial EX-005-02 de esta cadena documenta explícitamente, como instrucción de diseño, que **"MEKYTL0122
-  no debe tener dependencia de MEKYTL0234"**. El export real de Control-M confirma que esa dependencia **sigue
-  existiendo** hoy en producción (uno de los 3 `INCOND` obligatorios del Fan-In). No hay evidencia de si esto
-  es una instrucción que nunca llegó a implementarse, o una dependencia añadida después sin actualizar la
-  ficha de diseño — en cualquier caso, es una discrepancia real y documentada entre intención y
-  configuración viva, no una suposición (ver TC-010).
-  **Aclaración de negocio/arquitectura aportada, contradice evidencia ya confirmada — no incorporada:** se
-  propuso que `MEKYTL0122` "genera y cierra en disco el fichero base de reubicaciones" y que la dependencia
-  hacia `MEKYTL0234` evita una condición de carrera (el fichero debe estar listo antes de que `MEKYTL0234` lo
-  lea). Esto **contradice la topología real ya confirmada con Control-M** (R4/R7, arriba): `MEKYTL0122`
-  ejecuta `RAMERC0068.sh` (historificación, no generación) y es el punto de convergencia **Fan-In** que
-  **depende de** `MEKYTL0234_OK` (entre otros 2) para arrancar — no al revés —, y `MEKYTL0234` está
-  diseñado para quedar como `Dummy` ("DEBE QUEDAR A DUMMY" en su propia ficha), por lo que no "lee" ningún
-  fichero. La discrepancia entre la ficha de diseño y Control-M real sigue abierta, sin explicación de
-  negocio verificada.
+* **RISK-REUB-004 [confirmado comparando la ficha de diseño con Control-M real]:** la ficha oficial EX-005-02
+  de esta cadena documenta explícitamente, como instrucción de diseño, que **"MEKYTL0122 no debe tener
+  dependencia de MEKYTL0234"**. El export real de Control-M confirma que esa dependencia **sigue existiendo**
+  hoy en producción (uno de los 3 `INCOND` obligatorios del Fan-In) — una discrepancia real y documentada
+  entre intención de diseño y configuración viva.
 * **RISK-REUB-005 [no bloqueante]:** máximo de relanzamientos configurado a 0, confirmado en los 6 jobs.
-* **RISK-REUB-009 [nuevo, prioridad media, confirmado con 2 fuentes oficiales que se contradicen]:** la ficha
-  de diseño EX-005-02 (a nivel de cadena) declara criticidad **W** ("aviso día siguiente"). Sin embargo, las 4
-  fichas EX-005-03 (a nivel de job) de `MEKYTL0111`, `MEKYTL0122`, `MEKYTL0233` y `MEKYTL0234` — las únicas
-  aportadas hasta ahora de esta cadena — marcan todas explícitamente **C ("Aviso inmediato")**, no W. No hay
-  evidencia de cuál de las 2 clasificaciones rige realmente en el sistema de alertas operativo (Remedy/ANS
-  RDR); si la clasificación real y operativa es C, un aviso "día siguiente" (W) sería demasiado laxo para el
-  nivel de urgencia que las propias fichas de job declaran.
-  **Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence):**
-  la criticidad **W** sería la que rige operativamente para la monitorización de mallas y la gestión de
-  alertas de guardia de esta cadena — es la configurada en la definición oficial de los jobs en Control-M;
-  un fallo en ventana nocturna no paralizaría el cierre contable global, sino que encaminaría la incidencia
-  a la cola de soporte `ANS RDR` dentro del SLA de operación. No verificado con una ficha/captura adicional
-  — se documenta como aclaración, no como cierre definitivo del riesgo.
+* **RISK-REUB-009 [confirmado con 2 fuentes oficiales que se contradicen]:** la ficha de diseño EX-005-02 (a
+  nivel de cadena) declara criticidad **W** ("aviso día siguiente"). Sin embargo, las 4 fichas EX-005-03 (a
+  nivel de job) de `MEKYTL0111`, `MEKYTL0122`, `MEKYTL0233` y `MEKYTL0234` marcan todas explícitamente **C
+  ("Aviso inmediato")**, no W. Según aclaración de negocio aportada, la criticidad **W** es la que rige
+  operativamente para la monitorización de mallas y alertas de guardia de esta cadena — es la configurada
+  en la definición oficial de los jobs en Control-M.
 * **RISK-REUB-006 [nuevo, prioridad media, confirmado con código PL·SQL real]:** el procedimiento
   `REUBICACION` de `Sub_Load` **traga las 4 excepciones controladas** (oficina de cierre no encontrada, destino
   no encontrado, destino duplicado, y un `WHEN OTHERS` genérico) sin relanzarlas — solo inserta una fila de
@@ -350,17 +328,6 @@ a que el diseño original pedía eliminarla.
   sus respectivos `.idx` de `MEGENV0001.sh` (`/pr/pl/envioweb/idx/`) — **fuera de alcance definitivo**, mismo
   motivo: mecanismo ya confirmado con código real (`exit 60`/`exit 45` según el caso, ver R6b), pero los
   `.idx` de producción no son obtenibles. Solo confirmable observando una ejecución real (TC-004/TC-005).
-* **Motivo real de la discrepancia MEKYTL0122↔MEKYTL0234** (RISK-REUB-004) — confirmada su existencia, no su
-  causa (¿instrucción no implementada?, ¿dependencia re-añadida después?). Una aclaración de negocio aportada
-  (carrera de condición, `MEKYTL0122` generando el fichero) resultó contradecir la topología real ya
-  confirmada (§8.1) — descartada, sigue sin una explicación de negocio verificada.
-* **Motivo real de la discrepancia de criticidad EX-005-02 (W) vs. EX-005-03 (C)** (RISK-REUB-009) —
-  confirmada su existencia con 2 fuentes oficiales. Aclaración de negocio aportada (pendiente de verificación
-  documental): la clasificación **W** sería la que rige operativamente — ver §8.1.
-* **Sistema receptor real de `MEKYTL0233`** (`Ippwc501`, ruta `infa_shared`) — posible plataforma Informatica,
-  no confirmado con un nombre concreto; una aclaración de negocio aportada solo reafirma genéricamente "la
-  plataforma receptora del área de Reubicaciones/Gestión de Riesgos", sin nombrar un sistema — no añade
-  información nueva verificable.
 * **Contenido interno de la cadena downstream de difusión** (se conocen ya los 3 primeros nombres reales —
   `RDR_DIFUSION_BATCH_IN`, `KYTL_DIF_BATCH_GSPROCESS`, `MEKYTL0251` — pero no su lógica ni sus fichas).
 

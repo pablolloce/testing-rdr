@@ -47,8 +47,7 @@
 - **Importante, hallazgo nuevo (RISK-CARGATRAD-004):** la ficha EX-005-03 del filewatcher describe 2
   dependencias de negocio (predecesor `RDR_CARGA_PLAZAS`, sucesor "Carga de nombres legales en RDR",
   probablemente `rdr_cargalei_new`) que **no tienen ningún `INCOND`/`OUTCOND` cruzado en el Control-M real**.
-  No asumir que estas dependencias se cumplen automáticamente al diseñar pruebas de integración cruzada —
-  confirmar primero con negocio/ANS RDR (TC-008).
+  No asumir que estas dependencias se cumplen automáticamente al diseñar pruebas de integración cruzada.
 - **Importante, confirmado (ya no una hipótesis):** `TradPlazas` significa "Traducción de Plazas", no "plazas
   tradicionales" — corrección de nomenclatura confirmada con la ficha real EX-005-03 y el contenido real del
   fichero.

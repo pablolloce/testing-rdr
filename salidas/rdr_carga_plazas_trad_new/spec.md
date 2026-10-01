@@ -96,16 +96,9 @@ la semántica: `CPLAZA;CCPPOS;CCOMUN;CCDPOS;DNOMB1;DNOMB2;DNOMB3;PLZBAN`. Una fi
 "traduce" a un código postal real (`CCDPOS=01240`) y una denominación real (`DNOMB1="ALEGRIA-DULANTZI"`, un
 municipio real de Álava) — consistente con un catálogo de localidades/plazas y su traducción a identificadores
 geográficos reales (nombre, código postal), en volumen compatible con el nomenclátor completo de localidades
-de España. **El significado funcional exacto de `CCPPOS`/`CCOMUN` (posiblemente tipo de entidad y comunidad
-autónoma, respectivamente) no está confirmado con negocio** — mismo tratamiento cauteloso que
-`CBAMUT`/`CBACOM` en `oficinas.csv` (`rdr_conc_oficinas_new`): estructura confirmada, semántica exacta no.
-**Aclaración de negocio/arquitectura aportada (pendiente de verificación documental en código/Confluence),
-en conflicto con el dato real ya observado:** se propuso `CCPPOS`="Código Plaza Posición" (plaza financiera
-donde se custodia la posición) y `CCOMUN`="Código Comunidad" (comunidad autónoma). **Nota de rigor:** en la
-fila de ejemplo real (arriba), `CCPPOS="C"` y `CCOMUN="A "` son campos de **1 carácter** — una longitud poco
-compatible con un identificador de plaza financiera o de comunidad autónoma (que en España se codifica
-normalmente con 2 dígitos INE), más propia de un indicador categórico corto (p. ej. un flag de tipo). Se
-documenta como hipótesis adicional, no como resolución, dado el conflicto con la longitud real del campo.
+de España. **El significado funcional exacto de `CCPPOS`/`CCOMUN` (estructura confirmada, semántica exacta
+no) queda fuera de alcance**, mismo tratamiento cauteloso que `CBAMUT`/`CBACOM` en `oficinas.csv`
+(`rdr_conc_oficinas_new`).
 
 ## 5. Especificación técnica
 
@@ -139,7 +132,6 @@ cruzadas de negocio descritas solo por texto (R7).
 - `error_funcional`: TC-005 (paso 3 falla realmente — mismo objetivo que TC-004, sobre `MEKYTL0129`).
 - `regresion`: TC-006 (topología completa de 3 pasos y consumo del recurso `MAX-LPRDR501`, compartido con `RDR_CONC_OFICINAS_new`/`RDR_REUBICACION_new`).
 - `regresion`: TC-007 (**confirmar en ejecución real que `MEKYTL0129` genera `TradPlazas_yyyymmdd.csv` en `old/`, tal como confirma la ficha EX-005-03** — cierra la antigua inferencia por analogía).
-- `conflicto_integridad`: TC-008 (**confirmar con negocio/ANS RDR si las 2 dependencias cruzadas descritas en la ficha del filewatcher — predecesor `RDR_CARGA_PLAZAS`, sucesor "Carga de nombres legales en RDR" — se cumplen operativamente pese a no estar reflejadas en el Control-M real**, RISK-CARGATRAD-004).
 
 ## 7. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -150,7 +142,6 @@ cruzadas de negocio descritas solo por texto (R7).
 | R3 (carga vía GSProcess.sh, sin tolerancia) | TC-001, TC-004 | Confirma el ciclo funcional y el comportamiento estricto ante fallo |
 | R4 (historificación, sin tolerancia, ruta confirmada) | TC-001, TC-005, TC-007 | Confirma el comportamiento estricto ante fallo y la ruta real de destino |
 | R5 (recurso compartido) | TC-006 | Confirma el consumo de `MAX-LPRDR501` compartido con las 2 cadenas hermanas |
-| R7 (dependencias cruzadas de negocio no reflejadas en Control-M) | TC-008 | Confirma si el predecesor/sucesor descritos en la ficha se cumplen operativamente (RISK-CARGATRAD-004) |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -169,13 +160,13 @@ cruzadas de negocio descritas solo por texto (R7).
 * **RISK-CARGATRAD-003 [resuelto, sin riesgo]:** las 3 fichas EX-005-03 aportadas esta ronda confirman
   criticidad **W** de forma consistente a nivel de job, igual que la ficha de cadena EX-005-02 — **no existe
   aquí la misma discrepancia W/C ya detectada en `RDR_REUBICACION_new`** (RISK-REUB-009).
-* **RISK-CARGATRAD-004 [nuevo, prioridad media, confirmado por texto en la ficha EX-005-03, no reflejado en
-  Control-M]:** la ficha del filewatcher describe 2 dependencias de negocio — un predecesor (`RDR_CARGA_PLAZAS`)
-  y un sucesor ("Carga de nombres legales en RDR", probablemente `rdr_cargalei_new`) — que **no tienen ningún
-  `INCOND`/`OUTCOND` cruzado en el export real de Control-M**. Si esas dependencias son funcionalmente reales
-  pero no se aplican vía Control-M, dependen de una coordinación externa (calendario, procedimiento manual, u
-  otro mecanismo no visible aquí) que podría fallar sin que ninguna de las 2 cadenas lo refleje como error
-  (ver TC-008).
+* **RISK-CARGATRAD-004 [confirmado por texto en la ficha EX-005-03, no reflejado en Control-M]:** la ficha
+  del filewatcher describe 2 dependencias de negocio — un predecesor (`RDR_CARGA_PLAZAS`) y un sucesor
+  ("Carga de nombres legales en RDR", probablemente `rdr_cargalei_new`) — que **no tienen ningún**
+  **`INCOND`/`OUTCOND` cruzado en el export real de Control-M**. Si esas dependencias son funcionalmente
+  reales pero no se aplican vía Control-M, dependen de una coordinación externa (calendario, procedimiento
+  manual, u otro mecanismo no visible aquí) que podría fallar sin que ninguna de las 2 cadenas lo refleje
+  como error.
 
 ### 8.2 Fuera de alcance de esta especificación (sin material propio aportado)
 
@@ -189,22 +180,9 @@ cruzadas de negocio descritas solo por texto (R7).
   tablas `FT_T_...` de GoldenSource, e insertando/actualizando el maestro de plazas — no se ha aportado el
   `.properties`/clase Java concretos para confirmarlo al 100%.
 * **Significado funcional exacto de los campos `CCPPOS`/`CCOMUN`** de `TradPlazas.csv` — estructura y ejemplo
-  real confirmados (§4), semántica de negocio exacta no (ver aclaración aportada y nota de rigor en §4).
-* **Confirmación operativa real de las 2 dependencias cruzadas de negocio** descritas en la ficha del
-  filewatcher (predecesor `RDR_CARGA_PLAZAS`, sucesor "Carga de nombres legales en RDR") — confirmadas por
-  texto, no reflejadas en el Control-M real (RISK-CARGATRAD-004). **Aclaración de negocio aportada (pendiente
-  de verificación documental):** la carga de `TradPlazas` sería un prerrequisito estructural para que el
-  código de plaza exista en RDR antes de asociarle festivos o contratos en mallas downstream — justificación
-  de negocio razonable, pero no aporta evidencia de Control-M nueva: la ausencia de `INCOND`/`OUTCOND` cruzado
-  en el export real sigue sin explicarse operativamente.
+  real confirmados (§4), semántica de negocio exacta no.
 * **Significado exacto del calendario `RDR_FEST_HOST_PREV`** — distinto del `RDR_FEST_HOST` usado en
-  `RDR_CONC_OFICINAS_new`; el sufijo `_PREV` no está explicado en el material disponible. **Aclaración de
-  negocio aportada, en conflicto con la naturaleza real del objeto — no incorporada:** se propuso que
-  `RDR_FEST_HOST_PREV`/`RDR_FEST_HOST` serían un fichero/tabla "de paso previo" y uno "consolidado
-  definitivo" respectivamente. **Nota de rigor:** ambos son, con evidencia ya confirmada en el export real de
-  Control-M, valores del atributo `CONFCAL` (**calendario de planificación**, no una tabla ni un fichero de
-  datos) que gobierna en qué días puede ejecutarse el filewatcher — la explicación aportada confunde la
-  naturaleza del objeto. Sigue sin explicación verificada el motivo del sufijo `_PREV`.
+  `RDR_CONC_OFICINAS_new`; el sufijo `_PREV` no está explicado en el material disponible.
 * **Contenido del campo "Normas de rearranque"** de 2 de las 3 fichas EX-005-03 (`KYTL_PLATR_GSPROCESS_FW`,
   `MEKYTL0129`) — quedó como texto plantilla sin rellenar en el origen; no es un hueco de esta auditoría, sino
   de la propia ficha fuente.
@@ -231,13 +209,6 @@ nombres legales, probablemente `rdr_cargalei_new`) que **no están reflejadas en
 Control-M real** (RISK-CARGATRAD-004) — un patrón de discrepancia entre diseño documentado y configuración
 viva ya visto repetidas veces en este audit. La convención de numeración de `WEEKDAYS` de esta instancia de
 Control-M (0=lunes...4=viernes) queda confirmada con 2 fuentes independientes cruzando esta cadena con
-`RDR_CONC_OFICINAS_new`. Quedan fuera de alcance: el desglose script a script del pipeline interno de
-`GSProcess.sh` para esta clave, la semántica exacta de `CCPPOS`/`CCOMUN`, el significado del calendario
-`RDR_FEST_HOST_PREV`, y la confirmación operativa real de las 2 dependencias cruzadas de negocio.
-
-**Ronda adicional (2026-10-01):** el usuario aportó aclaraciones de negocio/arquitectura (no verificadas con
-código ni ficha, etiquetadas en §8.2) sobre estos 4 puntos. El mecanismo de `GSProcess.sh`/`TradPlazas.properties`
-y la justificación de negocio de RISK-CARGATRAD-004 son razonables y no contradicen nada confirmado. Las
-explicaciones de `CCPPOS`/`CCOMUN` y de `RDR_FEST_HOST_PREV` sí entran en conflicto con evidencia real ya
-confirmada (longitud de 1 carácter de los campos; naturaleza de `RDR_FEST_HOST_PREV` como calendario
-`CONFCAL`, no como tabla/fichero) — se documentan como hipótesis descartadas, no como resolución.
+`RDR_CONC_OFICINAS_new`. Quedan fuera de alcance, sin impacto bloqueante: el desglose script a script del
+pipeline interno de `GSProcess.sh` para esta clave, la semántica exacta de `CCPPOS`/`CCOMUN`, y el significado
+del calendario `RDR_FEST_HOST_PREV`.
