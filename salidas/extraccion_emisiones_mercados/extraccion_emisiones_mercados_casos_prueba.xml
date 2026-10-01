@@ -274,11 +274,11 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">No depositar dictionaryMarkets.csv dentro de la ventana.</paso>
-      <paso numero="2">Esperar el timeout del filewatcher (parámetros CREATE 0 60 10 5 60).</paso>
+      <paso numero="2">Esperar el tiempo agotado del filewatcher (parámetros CREATE 0 60 10 5 60: busca cada 60 s, mide cada 10 s, 5 mediciones iguales, espera máxima 60 minutos; es decir, unos 60 minutos desde el arranque).</paso>
       <paso numero="3">Verificar el código de retorno OS real y el estado final del job.</paso>
       <paso numero="4">Verificar si MEKYTL0857 llega a ejecutarse.</paso>
     </pasos>
-    <resultadoEsperado>RDR_MARKETS_EXTRAC_FW retorna código de retorno de OS = 7 (timeout); Control-M lo marca como OK igualmente (soft-failure acotado a ese código específico); MEKYTL0857 NO se ejecuta (no se agrega el evento de continuidad); no hay historificación ese día.</resultadoEsperado>
+    <resultadoEsperado>RDR_MARKETS_EXTRAC_FW retorna código de retorno de OS = 7 (tiempo agotado a los 60 minutos); Control-M lo marca como OK igualmente (soft-failure acotado a ese código específico); MEKYTL0857 NO se ejecuta (no se agrega el evento de continuidad); no hay historificación ese día.</resultadoEsperado>
     <tipoValidacion>Código de retorno del job + estado final en Control-M + ausencia de ejecución de MEKYTL0857.</tipoValidacion>
     <criterioAceptacion>Job marcado OK pese a código de retorno 7, MEKYTL0857 confirmado como no ejecutado, confirmando el patrón acotado documentado (GAP-EMIS-008).</criterioAceptacion>
     <posibilidadFallo>Resultado esperado y correcto según la evidencia real capturada; un código de retorno distinto de 0 o 7 indicaría un escenario no cubierto por el soft-failure y debería propagarse como KO real.</posibilidadFallo>

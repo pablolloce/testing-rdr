@@ -61,22 +61,22 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
   (invocan el workflow GoldenSource `Refinitiv_Request_Response`, parametrizado por
   `idType`/`requestType`/`vreqOid`) y `GestionAlertas_DERIVADOS_REFINITIV` (instancia la plantilla genérica
   `GestionAlertas.properties`, ya confirmada en otro proceso de este audit, filtrada por
-  `DERIVADOS_REFINITIV`) — ver `descarga_derivados_refinitiv_spec.md` §5.3/§5.4.
+  `DERIVADOS_REFINITIV`) — ver `descarga_derivados_refinitiv_spec.md` §6.3/§6.4.
 - **Las 3 piezas de workflow de los jobs 5/6 reales aportadas (2026-10-01):** `Refinitiv_Request_Response.wkf`,
   `Load_Refinitiv_Response.wkf` y `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — confirman con código, ya no como
   hipótesis, que los jobs 5/6 lanzan una solicitud real a Refinitiv (mismo cliente `RDR_Refinitiv_Request.jar`
   que el proceso hermano `RDR_BATCH_EMISORES_REFINITIV`); el job 6 reutiliza el pipeline completo de 3 jars
   del job 4; y el job 5 carga la respuesta vía el motor genérico "Standard File Load" de GoldenSource y da de
-  alta el rol `ISSUER` (`FT_T_FINR`) vía un mensaje JMS — ver `descarga_derivados_refinitiv_spec.md` §5.3. TC-014 queda cerrado al 100%.
+  alta el rol `ISSUER` (`FT_T_FINR`) vía un mensaje JMS — ver `descarga_derivados_refinitiv_spec.md` §6.3. TC-014 queda cerrado al 100%.
 - **5 ficheros Java reales del jar aportados (2026-10-01):** `LoaderProcess.java`, `IssuersService.java`,
   `UnderlyingService.java`, `ListedDerivativesService.java`, `DerivativesProcessor.java` — el 100% del código
   del jar `refinitivDerivativesLoader.jar`. Cierran TC-015 (atribución completa del Grupo E, incluida la
   escritura real de `FT_T_FINR` fuera del jar) y TC-016 al 100% (mapeo campo→columna de las 11 tablas
   satélite del Grupo C); revelan un defecto confirmado en `setVreqStatus()` (TC-011), la cadena real de
   validación de negocio de `ListedDerivativesService` (TC-012), y la asimetría `FT_T_SWCH`/`FT_T_OPCH`
-  (TC-010) — ver `descarga_derivados_refinitiv_spec.md` §5.2.
+  (TC-010) — ver `descarga_derivados_refinitiv_spec.md` §6.2.
 - **Muestra real de ficheros de carga (2026-10-01):** `Subyacentes_20261001_081453.txt` y
-  `Derivados_Enriquecido.txt` aportados (estructura y correlación cruzada confirmadas, `descarga_derivados_refinitiv_spec.md` §5.6);
+  `Derivados_Enriquecido.txt` aportados (estructura y correlación cruzada confirmadas, `descarga_derivados_refinitiv_spec.md` §6.6);
   `Emisores_20261001_081453.txt` aportado pero vacío; `SWAP_TC-010_LINEA_SINTETICA.txt` cubre el hueco de
   swap en la muestra real (ajustar a 45 campos antes de usar).
 
@@ -98,7 +98,7 @@ pero no el único punto que escribe: el job 6, vía el workflow `Refinitiv_Reque
 `Load_Refinitiv_Response`, carga su respuesta por el motor genérico "Standard File Load" de GoldenSource y,
 vía `Refinitiv_Bloomberg_AltaRolEmisor`, da de alta el rol `ISSUER` en `FT_T_FINR` por un mensaje JMS — 3
 mecanismos de escritura distintos para 3 piezas distintas de la cadena (confirmado con las 3 piezas de
-workflow reales, `descarga_derivados_refinitiv_spec.md` §5.3) — ver `descarga_derivados_refinitiv_spec.md` §4/§5 para el detalle completo.
+workflow reales, `descarga_derivados_refinitiv_spec.md` §6.3) — ver `descarga_derivados_refinitiv_spec.md` §5/§6 para el detalle completo.
 
 - **Jobs 5/6 (confirmado con `.properties` + workflow real):** invocan el workflow compartido
   `Refinitiv_Request_Response` — necesario para TC-017 poder observar el `.properties` temporal generado

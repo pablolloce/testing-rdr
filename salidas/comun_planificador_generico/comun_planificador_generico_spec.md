@@ -59,6 +59,7 @@ Consecuencias:
 | Job | `RDRKYTL001`. Es una plantilla de job: el mismo nombre se reutiliza en otras cadenas con otro parámetro (por ejemplo `dictionaryIndex` en la de diccionarios) |
 | Frecuencia | Cada 30-60 minutos según la ficha de la cadena. El cron exacto no está documentado (pregunta P-PLA-03) |
 | Orden | `GSProcess.sh planifGenerico` (ver `salidas/comun_gsprocess/comun_gsprocess_spec.md`) |
+| Otras cadenas que lo lanzan | Las cadenas de `extraccion_emisiones_mercados` también ejecutan `GSProcess.sh planifGenerico` (a las 09:25 y de 14:25 a 18:40). Cada ejecución procesa lo que toque según `FT_T_QPF1`, con independencia de qué cadena la lance |
 
 ### 2.1 `planifGenerico.properties` (contenido real)
 

@@ -6,8 +6,8 @@
   `RDR_ISSUES_RESTO_T` a las 23:00h) generan su propio fichero de partida (`emisiones.xml`,
   `emisiones.resto.xml`) mediante extracción directa a base de datos (`ExtraccionGenericaEMISI`).
 - No hay diccionario de datos disponible para `emisiones.xml`, `emisiones.resto.xml` ni
-  `emisiones_filter.xml` con evidencia documental verificable — el detalle de esquemas XSD aportado en
-  sesión no está respaldado por fichero fuente (ver `rdr_issues_re_pro_new_spec.md`, gap G7 y sección 9).
+  `emisiones_filter.xml` con evidencia documental verificable (ver `rdr_issues_re_pro_new_spec.md`, gap G7 y sección 9); las
+  etiquetas raíz son `<Securities>` y `<Security>` por registro, según el script real del validador.
 - Los 3 esquemas XSD (`xsd_emisiones_batch.xsd` para `ISSUE`/`ISSUERESTO`, `Baskets_Schema.xsd` para
   `BASKET`, `RDR_XSD_Generico.xsd` para `CPARTY`) deben estar disponibles en
   `/$ENV/kytl/online/multipais/multicanal/dat/properties/` del servidor de ejecución — ruta confirmada con

@@ -19,10 +19,10 @@
       <paso numero="5">Confirmar que los 2 jobs de enriquecimiento (issues/futures) terminan OK.</paso>
       <paso numero="6">Confirmar que el job de reporte/alertas final termina OK.</paso>
     </pasos>
-    <resultadoEsperado>Los 7 jobs terminan OK; los datos del fichero quedan cargados en Oracle KYTL_GC según el linaje descrito en descarga_derivados_refinitiv_spec.md §5.2.</resultadoEsperado>
+    <resultadoEsperado>Los 7 jobs terminan OK; los datos del fichero quedan cargados en Oracle KYTL_GC según el linaje descrito en descarga_derivados_refinitiv_spec.md §6.2.</resultadoEsperado>
     <tipoValidacion>Estado de ejecución en Control-M + inspección de las tablas Oracle afectadas + revisión de logs del script.</tipoValidacion>
     <criterioAceptacion>Los 7 jobs en "Ended OK"; filas nuevas/actualizadas visibles en FT_T_FINS/FT_T_ISSR/FT_T_ISID/FT_T_ISSU/FT_T_MKIS y la(s) tabla(s) satélite correspondiente(s) al tipo de derivado cargado.</criterioAceptacion>
-    <posibilidadFallo>Si alguna tabla del Grupo A-D no recibe los datos esperados, es una desviación del linaje confirmado en §5.2.</posibilidadFallo>
+    <posibilidadFallo>Si alguna tabla del Grupo A-D no recibe los datos esperados, es una desviación del linaje confirmado en §6.2.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="e2e">
@@ -44,7 +44,7 @@
     <resultadoEsperado>Los 7 jobs terminan OK; mismo resultado de carga en Oracle que en TC-001, confirmando que D y P son la misma lógica con distinta cadencia.</resultadoEsperado>
     <tipoValidacion>Estado de ejecución en Control-M + inspección de las tablas Oracle afectadas.</tipoValidacion>
     <criterioAceptacion>Los 7 jobs en "Ended OK"; mismas tablas Oracle actualizadas que en TC-001 para un fichero de contenido equivalente.</criterioAceptacion>
-    <posibilidadFallo>Si el modo WEEKLY produjera un resultado de carga distinto al modo DAILY para un fichero de contenido equivalente, contradice la afirmación de "mismo binario, mismo jar, mismo destino" de §5.3.</posibilidadFallo>
+    <posibilidadFallo>Si el modo WEEKLY produjera un resultado de carga distinto al modo DAILY para un fichero de contenido equivalente, contradice la afirmación de "mismo binario, mismo jar, mismo destino" de §6.3.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="negativo">
@@ -143,7 +143,7 @@
     <resultadoEsperado>Mismo binario y mismo jar confirmados en ambas cadenas, sin ninguna variante oculta por entorno.</resultadoEsperado>
     <tipoValidacion>Comparación de rutas/checksums de los binarios reales en producción.</tipoValidacion>
     <criterioAceptacion>Checksums idénticos para el script y el jar entre las 2 cadenas.</criterioAceptacion>
-    <posibilidadFallo>Si existiera una versión distinta del script o del jar entre D y P, la afirmación de "misma lógica de negocio" de §5.3 quedaría invalidada.</posibilidadFallo>
+    <posibilidadFallo>Si existiera una versión distinta del script o del jar entre D y P, la afirmación de "misma lógica de negocio" de §6.5 quedaría invalidada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="happy_path">
@@ -192,7 +192,7 @@
     <nombre>Carga real de Derivados por tipo (opción/swap/futuro) en sus tablas satélite — mapeo completo confirmado, FT_T_SWCH se crea para cualquier tipo</nombre>
     <objetivo>Confirmar que ListedDerivativesService+DerivativesProcessor cargan un derivado del fichero Derivados_Enriquecido*.txt en FT_T_ISSU/FT_T_ISID (comunes) y en las tablas satélite correspondientes, incluida la asimetría confirmada entre FT_T_OPCH (solo opciones) y FT_T_SWCH (siempre, cualquier tipo).</objetivo>
     <precondiciones>
-      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap. La muestra real (1.837 derivados) solo contiene OPT/FUT/BONDFUT, ningún SWAP — el usuario aportó 2026-10-01 una línea sintética (SWAP_TC-010_LINEA_SINTETICA.txt) para cubrir ese hueco. AVISO DE CALIDAD DE DATO: esa línea tiene 43 campos |-delimitados, no los 45 confirmados como ancho real del fichero en §5.6 — ajustar a 45 campos (añadiendo 2 vacíos al final) antes de usarla, para que coincida con el formato exacto que ListedDerivativesService/DerivativesProcessor esperan.</precondicion>
+      <precondicion>Un fichero Derivados_Enriquecido*.txt de prueba con al menos 1 derivado de tipo opción y 1 de tipo swap. La muestra real (1.837 derivados) solo contiene OPT/FUT/BONDFUT, ningún SWAP — el usuario aportó 2026-10-01 una línea sintética (SWAP_TC-010_LINEA_SINTETICA.txt) para cubrir ese hueco. AVISO DE CALIDAD DE DATO: esa línea tiene 43 campos |-delimitados, no los 45 confirmados como ancho real del fichero en §6.6 — ajustar a 45 campos (añadiendo 2 vacíos al final) antes de usarla, para que coincida con el formato exacto que ListedDerivativesService/DerivativesProcessor esperan.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Derivado de prueba 1 (opción, cubierto con muestra real)" valor="p. ej. AMATj162610200.U|...|AMAT261016C01020000|OPRA|OPT|...|C|...|1020|...|US0382221051|...|AMAT.O|...|UNDLYRFV|||  — campo 19=C (call), campo 23=1020 (strike)"/>
@@ -207,7 +207,7 @@
     <resultadoEsperado>Cada derivado queda cargado en las tablas comunes y FT_T_SWCH (ambos), más FT_T_OPCH solo para la opción — confirma la asimetría de diseño real, no un error de carga.</resultadoEsperado>
     <tipoValidacion>Inspección directa de FT_T_ISSU/FT_T_ISID/FT_T_OPCH/FT_T_SWCH/resto de tablas satélite tras la carga.</tipoValidacion>
     <criterioAceptacion>FT_T_SWCH presente para ambos derivados (con divisas nocionales null para la opción); FT_T_OPCH presente solo para la opción; resto de tablas comunes presentes para ambos.</criterioAceptacion>
-    <posibilidadFallo>Confirmado por código que FT_T_SWCH no es exclusiva de swaps — si un hallazgo o una prueba asumiera "FT_T_SWCH solo para swaps" (simétrico a FT_T_OPCH), subestimaría el volumen real de filas en esa tabla. Si un derivado de un tipo recibiera filas en una tabla satélite condicional de otro tipo (p. ej. FT_T_OPCH para un futuro), sería una desviación real del mapeo documentado en §5.2.</posibilidadFallo>
+    <posibilidadFallo>Confirmado por código que FT_T_SWCH no es exclusiva de swaps — si un hallazgo o una prueba asumiera "FT_T_SWCH solo para swaps" (simétrico a FT_T_OPCH), subestimaría el volumen real de filas en esa tabla. Si un derivado de un tipo recibiera filas en una tabla satélite condicional de otro tipo (p. ej. FT_T_OPCH para un futuro), sería una desviación real del mapeo documentado en §6.2.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-011" tipo="error_funcional">
@@ -252,7 +252,7 @@
     <resultadoEsperado>El registro inválido queda registrado como alerta real (FT_T_ALD1/FT_T_ALG1) y descartado individualmente; el resto del lote se carga con normalidad; el reporte del job 7 refleja la alerta.</resultadoEsperado>
     <tipoValidacion>Ejecución controlada + inspección de FT_T_ALD1/FT_T_ALG1 + FT_T_ISSU/FT_T_ISID de las líneas de control + salida del job 7.</tipoValidacion>
     <criterioAceptacion>Alerta específica confirmada en FT_T_ALG1 para la línea inválida; líneas de control cargadas; reporte del job 7 la refleja.</criterioAceptacion>
-    <posibilidadFallo>Confirmado por código que el fallo es por línea, no por lote — un hallazgo que asumiera "un registro inválido detiene toda la carga" sería incorrecto. Si el job 7 no reflejara la alerta, sería una discrepancia real con el mecanismo de GestionAlertas ya confirmado en §5.4 (no con §5.5, que no existe en este documento).</posibilidadFallo>
+    <posibilidadFallo>Confirmado por código que el fallo es por línea, no por lote — un hallazgo que asumiera "un registro inválido detiene toda la carga" sería incorrecto. Si el job 7 no reflejara la alerta, sería una discrepancia real con el mecanismo de GestionAlertas ya confirmado en §6.4.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="error_funcional">
@@ -285,17 +285,17 @@
       <dato campo="Rama issueRequest (job 5) — Refinitiv_Request_Response.wkf" valor="pathOut=.../Enrichment/issues/; lanza RDR_Refinitiv_Request.jar; espera hasta 300s la respuesta; invoca Load_Refinitiv_Response y PRC_ESCOBA_SUBYACENTES()"/>
       <dato campo="Load_Refinitiv_Response.wkf" valor="carga la respuesta vía el motor GENÉRICO GoldenSource 'Standard File Load' (BusinessFeed=Refinitiv_Issue_Response/Refinitiv_Identifiers_Response), NO el jar Java; invoca Refinitiv_Bloomberg_AltaRolEmisor; comprueba FT_T_NTEL tras la carga; marca FT_T_VREQ PROCESSED salvo IS_EXTF='Y'"/>
       <dato campo="Refinitiv_Bloomberg_AltaRolEmisor.wkf (confirmado 2026-10-01)" valor="lee un fichero de identificadores a nivel de ENTIDAD (64 campos formato REFINITIV: LEI=campo22, ORG_ID=campo21, INSTRUMENT_TYPE=campo6, ClassificationScheme=campo8; o 47 campos formato BLOOMBERG: LEI=campo21, ORG_ID=campo22); resuelve FINS_ID por LEI (FT_T_FIID), con resolución de grupo/matriz vía FT_T_FIRL si el LEI es compartido; si la entidad es gestora de fondos (FT_T_FIGP) Y el instrumento es ETF/EXTF, fija IS_EXTF='Y' y NO crea rol; si no, comprueba si ya existe rol ISSUER en FT_T_FINR y, si no, construye XML PtyDetlListUpd/RolDetl y lo envía por JMS al sub-workflow AltaRolEmisor — ESTE es el punto de alta real de FT_T_FINR"/>
-      <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §5.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
+      <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §6.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Inspeccionar el contenido real de las 3 piezas de workflow (hecho).</paso>
       <paso numero="2">Confirmar que construyen y envían una solicitud real a Refinitiv, no una operación puramente interna (confirmado en ambas ramas).</paso>
       <paso numero="3">Confirmar el mecanismo de carga/alta de cada pieza: job 5 vía el motor genérico "Standard File Load" de GoldenSource + alta de rol vía mensaje JMS; job 6 vía el mismo jar Java que el job 4.</paso>
     </pasos>
-    <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia completa, cerrando el gap de §8.2 al 100% salvo el consumidor externo del mensaje JMS (fuera de alcance por naturaleza).</resultadoEsperado>
+    <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia completa, cerrando el gap de §9.2 al 100% salvo el consumidor externo del mensaje JMS (fuera de alcance por naturaleza).</resultadoEsperado>
     <tipoValidacion>Inspección directa de las 3 piezas de workflow reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
     <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga/alta distintos (motor genérico GoldenSource + JMS para job 5, jar Java para job 6).</criterioAceptacion>
-    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §5.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía JMS). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §5.3/§8.1/TC-017).</posibilidadFallo>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §6.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía JMS). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §6.3/§9.1/TC-017).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
@@ -324,7 +324,7 @@
 
   <casoDePrueba id="TC-016" tipo="negativo">
     <nombre>Mapeo campo a campo del fichero origen Refinitiv a columna Oracle — CERRADO AL 100% para Emisores/Subyacentes/Derivados, incluidas las tablas satélite del Grupo C</nombre>
-    <objetivo>Confirmar, con el código fuente real de los 5 componentes del jar y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §5.2.</objetivo>
+    <objetivo>Confirmar, con el código fuente real de los 5 componentes del jar y una muestra real de los ficheros, qué campo exacto del .txt origen alimenta cada columna Oracle confirmada en §6.2.</objetivo>
     <precondiciones>
       <precondicion>Una copia real de al menos 1 fichero .txt de cada tipo — PARCIALMENTE CUMPLIDA: Subyacentes_20261001_081453.txt (1.091 filas) y Derivados_Enriquecido.txt (1.837 filas) aportados; Emisores_20261001_081453.txt aportado pero vacío (0 bytes, sin altas de emisor en ese lote).</precondicion>
       <precondicion>Código fuente de IssuersService/UnderlyingService/ListedDerivativesService/DerivativesProcessor — TODOS APORTADOS (DerivativesProcessor.java, 2026-10-01), resuelven el mapeo campo→columna para los 3 ficheros a nivel de tablas maestras y de las 11 tablas satélite del Grupo C.</precondicion>
@@ -332,7 +332,7 @@
     <datosEmpleados>
       <dato campo="Emisores*.txt" valor="un orgId por línea, SIN delimitador |; usado solo para localizar FT_T_FINS (lectura) y crear FT_T_ISSR (escritura)"/>
       <dato campo="Subyacentes*.txt" valor="3 campos |-delimitados = exactamente UnderlyingPositionsTemplate.UNDERLYING_ID/UNDERLYING_ID_TYPE/UNDERLYING_TYPOLOGY; alimentan FT_T_ISSU/FT_T_ISID (escritura) y FT_T_MKIS (solo lectura aquí)"/>
-      <dato campo="Derivados_Enriquecido.txt — mapeo completo confirmado 2026-10-01 (DerivativesProcessor.java)" valor="45 campos → FT_T_ISSU (comunes) + FT_T_ISDE/FT_T_ISGU(x2)/FT_T_FECH/FT_T_UWCH/FT_T_SWCH/FT_T_MKIS/FT_T_RIDF/FT_T_RISS/FT_T_RGCH (siempre) + FT_T_OPCH (solo OPTIONS) + FT_T_FNCH (si aplica) + FT_T_IEDF (solo alta, valores constantes) — ver §5.2 para el detalle campo a campo de cada tabla satélite"/>
+      <dato campo="Derivados_Enriquecido.txt — mapeo completo confirmado 2026-10-01 (DerivativesProcessor.java)" valor="45 campos → FT_T_ISSU (comunes) + FT_T_ISDE/FT_T_ISGU(x2)/FT_T_FECH/FT_T_UWCH/FT_T_SWCH/FT_T_MKIS/FT_T_RIDF/FT_T_RISS/FT_T_RGCH (siempre) + FT_T_OPCH (solo OPTIONS) + FT_T_FNCH (si aplica) + FT_T_IEDF (solo alta, valores constantes) — ver §6.2 para el detalle campo a campo de cada tabla satélite"/>
       <dato campo="Correlación cruzada verificada" valor="82/83 valores distintos del RIC de subyacente de Derivados_Enriquecido.txt aparecen en Subyacentes*.txt; dominio UNDLYRFV/FUTRFV idéntico entre ambos ficheros"/>
     </datosEmpleados>
     <pasos>
@@ -347,7 +347,7 @@
 
   <casoDePrueba id="TC-017" tipo="conflicto_integridad">
     <nombre>Los parámetros idType/requestType/vreqOid llegan realmente al workflow Refinitiv_Request_Response</nombre>
-    <objetivo>Confirmar en ejecución real, mediante inspección del .properties temporal generado por GSProcess.sh (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) o de los logs del job, que los campos idType/requestType/vreqOid llegan efectivamente al workflow invocado, validando la deducción de código de §5.3 sobre los arrays clave[]/valor[] no limpiados entre bloques Accion.</objetivo>
+    <objetivo>Confirmar en ejecución real, mediante inspección del .properties temporal generado por GSProcess.sh (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) o de los logs del job, que los campos idType/requestType/vreqOid llegan efectivamente al workflow invocado, validando la deducción de código de §6.3 sobre los arrays clave[]/valor[] no limpiados entre bloques Accion.</objetivo>
     <precondiciones>
       <precondicion>Acceso a los logs de ejecución de GSProcess.sh (LOG_GENERICO) o al fichero .properties temporal generado durante una ejecución real de los jobs 5 o 6.</precondicion>
     </precondiciones>
@@ -359,7 +359,7 @@
       <paso numero="2">Confirmar si el .properties temporal generado (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) contiene las líneas idType=UNDLY, requestType=issueRequest, vreqOid=UNDLY_ISSUES_ENRICHMENT.</paso>
       <paso numero="3">Confirmar si el campo id=MULTI aparece o no en el fichero temporal (se espera que no, por ser sobrescrito por NomWorkflow).</paso>
     </pasos>
-    <resultadoEsperado>Confirmación de que idType/requestType/vreqOid llegan al workflow (validando la deducción de §5.3), y de que id no llega.</resultadoEsperado>
+    <resultadoEsperado>Confirmación de que idType/requestType/vreqOid llegan al workflow (validando la deducción de §6.3), y de que id no llega.</resultadoEsperado>
     <tipoValidacion>Inspección de logs/fichero temporal de una ejecución real.</tipoValidacion>
     <criterioAceptacion>Contenido real del .properties temporal confirmado, coincidente o no con la deducción de código.</criterioAceptacion>
     <posibilidadFallo>Si estos campos NO llegaran al workflow (contradiciendo la deducción de código), el workflow Refinitiv_Request_Response no tendría forma de distinguir una solicitud de issues de una de futures, salvo por otro mecanismo no identificado.</posibilidadFallo>

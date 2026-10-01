@@ -135,6 +135,16 @@ Paso 2 — Java ProjectMain.jar     → clase com.bbva.project.main.process.Proj
 Consume 1 unidad de `MAX-LPRDR501`. Al finalizar OK, agrega el evento de continuidad hacia el Dummy-OUT.
 Criticidad **A** (aviso inmediato) en ambas cadenas.
 
+**Qué hace realmente `planifGenerico`.** Es la orden que arranca el **Planificador Genérico**: cada vez que se
+lanza, el motor lee de la base de datos las extracciones activas (tablas de configuración `FT_T_ATE1`/
+`FT_T_QPF1`) y ejecuta **las que toquen en ese día y a esa hora**, dejando cada resultado en el fichero que
+tenga configurado. Por tanto, lo que producen las cadenas 2 y 3 depende del contenido de esas tablas en el
+entorno, no de código propio de estas cadenas. En el inventario de extracciones activas conocido (21
+combinaciones, ver `comun_planificador_generico`) **no hay ninguna extracción de emisiones** con horario
+09:25 o 14:25-18:40, por lo que no se puede afirmar qué fichero de emisiones generan (P-EMI-02). El job termina
+en verde si el motor arranca, aunque no encuentre nada que ejecutar. `traducir_creden` y el `.properties` usan
+la variable de entorno como `@@ENV@@` según la spec común (pregunta abierta P-GSP-01 de `comun_gsprocess`).
+
 **Paso OUT (Dummy).** `RDR_EXTRACCION_EMISIONES_OUT` / `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT`, mismo patrón que
 el IN: prerrequisito el evento del paso OS, agrega el evento de cierre de malla al finalizar. Ninguno de los 3
 jobs de ninguna de las 2 cadenas tiene acción On-Do documentada — un fallo real detiene la cadena.
@@ -231,9 +241,17 @@ Consume 1 unidad de `MAX-LPRDR501`. Agrega `RDR_MARKETS_EXT_IN_OK_new`.
 **Paso 2 — `RDR_MARKETS_EXTRAC_FW`.** Filewatcher nativo Control-M (`ctmfw`), servidor real `pr-rdr.igrupobbva`,
 usuario `xpctma1`. Prerrequisito: `RDR_MARKETS_EXT_IN_OK_new`. Comando exacto: `ctmfw
 '/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv' CREATE 0 60 10 5 60`. Consume 1 unidad de
-`MAX-LPRDR501`. **Acciones Si (confirmadas por captura real, GAP-EMIS-008):**
+`MAX-LPRDR501`. **Significado de los argumentos de `ctmfw`** (`ctmfw '<fichero>' CREATE <min_size> <sleep_int>
+<mon_int> <min_detect> <wait_time>`): `CREATE` = espera a que el fichero se cree; `0` = tamaño mínimo 0 bytes
+(vale cualquier tamaño); `60` = lo busca cada 60 segundos; `10` = una vez encontrado, mide su tamaño cada 10
+segundos; `5` = lo da por completo cuando el tamaño es igual en 5 mediciones seguidas; `60` = **60 minutos**
+de espera máxima (no segundos). Es decir: si `dictionaryMarkets.csv` no aparece (o no se estabiliza) en 60
+minutos desde el arranque del job (hacia las 02:00-03:00), `ctmfw` termina con código 7 (tiempo agotado). No hay
+reintentos ni validación de contenido: `ctmfw` solo detecta presencia y estabilidad de tamaño. **Acciones Si
+(confirmadas por captura real, GAP-EMIS-008):**
 - Código de retorno OS = 0 → agrega el evento `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`.
-- Código de retorno OS = 7 (timeout) → **Marcar como OK** — patrón acotado a este código específico de `ctmfw`
+- Código de retorno OS = 7 (tiempo agotado) → **Marcar como OK** (la cadena tiene la regla "7 → OK": termina en
+  verde sin procesar nada; cualquier otro código distinto de 0 y 7 deja el job en error) — patrón acotado a este código específico de `ctmfw`
   (mismo patrón ya visto en Cesión de Cestas a Abaco), no un "código ≠ 0 → OK" genérico. En este caso, el evento
   de continuidad **no** se agrega, por lo que `MEKYTL0857` no llega a ejecutarse ese día.
 
@@ -244,6 +262,18 @@ unidad de `MAX-LPRDR501`. Mueve `dictionaryMarkets.csv` de
 Al finalizar OK, agrega el evento `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` — nombre confirmado real por captura
 de Control-M, con la palabra "BASKETS" pese a pertenecer a la cadena de Mercados/Emisiones, no a Cestas a Abaco
 (GAP-EMIS-004; ver anomalía de naming, sección 9). Sin sucesor documentado — es el último paso de la cadena.
+
+**Quién genera `dictionaryMarkets.csv` y qué contiene.** Este proceso no genera el fichero: lo produce el
+**Planificador Genérico** (motor Java que ejecuta extracciones SQL según calendario; ver
+`salidas/comun_planificador_generico/comun_planificador_generico_spec.md`), fila 8 de su inventario: script de
+consulta `DictionaryMarkets.sql` (clave `ACT1_OID` `02F1D8B76` en la tabla de configuración `FT_T_ATE1`),
+fichero de salida `/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv`, **martes a sábado a las
+02:00:00**. Es un CSV con el diccionario de mercados de RDR (la fuente no describe sus columnas: P-EMI-04). El
+filewatcher de la cadena 6 arranca a la misma hora que la extracción (02:00), por lo que normalmente el fichero
+aparece en los primeros minutos; si no aparece en 60 minutos, el job se da por bueno y `MEKYTL0857` no corre.
+Tras detectarlo, `MEKYTL0857` (`RAMERC0068.sh`, `PARM1=MEKYTL0857`) lo mueve a `Backup/` con fecha; después del
+movimiento no queda `dictionaryMarkets.csv` en la carpeta origen hasta la siguiente extracción. Nadie más lo
+consume dentro de esta cadena (quién lo usa fuera es P-EMI-04).
 
 **Nota de discrepancia documental:** el documento funcional indica periodicidad "M-S" (Martes a Sábado) para
 esta cadena; la configuración real de Control-M para `RDR_MARKETS_EXT_IN` es "Avanzado (1, 2, 3, 4, 0)". Se
@@ -396,11 +426,11 @@ lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) más allá de su 
 | R7 | Todas las cadenas usan el recurso cuantitativo `MAX-LPRDR501` (1/100) y el protocolo de soporte ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`) ante fallo real. |
 | R8 | La Cadena 6 tiene soft-failure **acotado** a un código de retorno de OS específico en `RDR_MARKETS_EXTRAC_FW` (código=7 → OK); el resto de jobs de las 7 cadenas no tienen ninguna acción On-Do documentada ni confirmada. |
 
-## 4. Gaps identificados y resolución
+## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
-Todos los gaps quedan **resueltos** con evidencia real.
+### 4.1 Gaps resueltos con respuesta o evidencia real del usuario
 
-- **GAP-EMIS-001 (ficha técnica `RDR_CUENTA_EMISIONES`) — resuelto.** Capturas reales de Control-M confirman la estructura de folder, jobs y atributos de la Cadena 1 documentados en la sección 6.1.
+- **GAP-EMIS-001 (ficha técnica `RDR_CUENTA_EMISIONES`) — resuelto.** Capturas reales de Control-M confirman la estructura de folder, jobs y atributos de la Cadena 1 documentados en la sección 1.1.
 - **GAP-EMIS-002 (programación real `GS_FUSION_EMISIONES`) — resuelto.** Capturas reales confirman la programación y criticidad de la Cadena 4.
 - **GAP-EMIS-003 (programación real `KYTL_HISTORIFICACION_EMISIONES`) — resuelto.** Capturas reales confirman que Control-M programa el job en día `6` (Sábado) exclusivamente, frente a la "periodicidad Diaria (D)" que indica el documento funcional — prevalece la configuración real de Control-M (misma regla ya aplicada en otros procesos de este mismo intake).
 - **GAP-EMIS-004 (evento real `MEKYTL0857`) — resuelto.** Capturas reales confirman `RAMERC0068.sh` con `PARM1=MEKYTL0857` y revelan una anomalía no preguntada: el evento de salida se llama literalmente `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` — nomenclatura "BASKETS" reutilizada de la plantilla de eventos de otra cadena (Cesión de Cestas a Abaco), confirmada real y no un error de transcripción del documento.
@@ -409,6 +439,17 @@ Todos los gaps quedan **resueltos** con evidencia real.
 - **GAP-EMIS-008 (ambigüedad del soft-failure en `RDR_MARKETS_EXTRAC_FW`) — resuelto.** Capturas reales de Acciones Si confirman patrón **acotado** (no genérico): código de retorno = 0 → agrega evento `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`; código de retorno = 7 → Marcar como OK (mismo patrón de timeout de `ctmfw` ya visto en Cesión de Cestas a Abaco).
 
 > No se usó el identificador GAP-EMIS-005 en ninguna ronda de evidencia de esta especificación.
+
+### 4.2 Preguntas pendientes (sin respuesta en ninguna fuente recibida)
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-EMI-01 | Días reales de ejecución de las cadenas 3 y 6 en Control-M: se documenta "Avanzado (1,2,3,4,0)" para ambas, y para las cadenas 2 y 4 se da (1,2,3,4,5) con lecturas funcionales distintas (L-V frente a M-S). ¿Qué día de la semana es cada número? | El Planificador solo genera `dictionaryMarkets.csv` de martes a sábado; si la cadena 6 corre en un día sin extracción, espera 60 minutos en vano (y queda en verde) |
+| P-EMI-02 | ¿Qué extracción de emisiones (y a qué fichero) ejecuta `planifGenerico` en las cadenas 2 y 3 (09:25 y 14:25-18:40)? No hay ninguna de emisiones en el inventario de extracciones activas | Sin esto no se puede especificar el resultado de dos de las siete cadenas |
+| P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
+| P-EMI-04 | Columnas y consumidores de `dictionaryMarkets.csv` (y línea `IDX` de `RAMERC0068.sh` para `MEKYTL0857`: ¿mueve o copia el fichero?) | Define el contenido a validar y quién se ve afectado si no se genera |
+| P-EMI-05 | Nombre real del backup de RE: `emisiones_ddmmyyyy.xml.tar.gz` (ficha de `MEKYTL0536`) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh`) | Si difieren, el conteo RE del informe diario sale siempre a 0 sin error |
+| P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` | Hoy son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
 
 ## 5. Especificación funcional
 
@@ -436,8 +477,19 @@ Genera 3 ficheros de salida en `/fichtemcomp/$ENV/descargas/kytl/issues/Cuenta_R
 - `Registros_Por_Destino_MMYYYY.csv` — conteo por destino (RE, CARE, SMARTDATA, SHS, RIMS, MENTOR, PRIIPS).
 - `Emisiones_Emisores_Por_Destino.csv` — copia sin fecha de `Registros_Por_Destino_MMYYYY.csv` (función `copiaficheros()`, `cp` íntegro en cada ejecución), usada como adjunto del correo.
 
-El correo se envía vía `EnvioReporteEmisiones.properties` → Workflow `SendMailReport` (ver sección 7 para el
+El correo se envía vía `EnvioReporteEmisiones.properties` → Workflow `SendMailReport` (ver §6 para el
 detalle real de destinatarios y el defecto de asunto/adjunto, DEF-EMIS-001).
+
+**De dónde salen los ficheros que cuenta.** Los de RE/CARE/SMARTDATA (`emisiones_DDMMYYYY.xml.gz` en
+`ReportingEngine/Backup/`) y SHS (`SHS_KSHS_RTV_YYYYMMDD_0001.XML.gz` en `SHS/Backup/`) son copias históricas
+que genera otro proceso, la cadena `RDR_ISSUES_RE_PRO_new` (spec `salidas/rdr_issues_re_pro_new/`): su extracción
+de emisiones (`GSProcess.sh ExtraccionGenericaEMISI_ALL`, jar `ExtraccionGenericaEMISI.jar`, **del que no se ha
+recibido el código**) escribe `emisiones.xml` en `ReportingEngine/`, y el job `MEKYTL0536` lo comprime a
+`Backup/`; la rama de SHS (`emisiones_filter.xml`) la historifica `MEKYTL1139` con el nombre
+`SHS_KSHS_RTV_AAAAMMDD_0001.XML.gz`, que coincide con lo que busca `Cuenta_Emisiones.sh`. Aviso: la ficha de
+`MEKYTL0536` dice que el fichero queda como `emisiones_ddmmyyyy.xml.tar.gz`, mientras que `Cuenta_Emisiones.sh`
+busca `emisiones_DDMMYYYY.xml.gz`; si el nombre real es el de la ficha, la fuente RE se contaría siempre como 0
+(P-EMI-05). Además, esa cadena purga `Backup/` pasados 7 días.
 
 ### Cadenas 2 y 3 — Extracción de emisiones vigentes y vencidas
 
@@ -482,10 +534,12 @@ siguientes. Control-M real: programado exclusivamente en día `6` (Sábado), 06:
 | 2 | `RDR_MARKETS_EXTRAC_FW` | Filewatcher (`ctmfw`) de `dictionaryMarkets.csv` |
 | 3 | `MEKYTL0857` | `RAMERC0068.sh` → historifica a `/Backup/dictionaryMarkets_DDMMYYYY.csv` |
 
-`RDR_MARKETS_EXTRAC_FW`: `ctmfw '/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv' CREATE 0 60 10 5 60`.
-**Soft-failure acotado confirmado (GAP-EMIS-008):** código de retorno = 0 → agrega evento
-`RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`; código de retorno = 7 (timeout, fichero no encontrado) →
-Marcar como OK. `MEKYTL0857` (`RAMERC0068.sh`, `PARM1=MEKYTL0857`) espera ese evento y, al finalizar, agrega el
+`RDR_MARKETS_EXTRAC_FW`: `ctmfw '/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv' CREATE 0 60 10 5 60`
+(lo busca cada 60 s; una vez encontrado, mide su tamaño cada 10 s; lo da por completo con 5 mediciones iguales;
+error de tiempo agotado si en 60 minutos no lo detecta). El fichero lo genera el Planificador Genérico (fila 8,
+`DictionaryMarkets.sql`, martes a sábado 02:00). **Soft-failure acotado confirmado (GAP-EMIS-008):** código de retorno = 0 → agrega evento
+`RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`; código de retorno = 7 (tiempo agotado, fichero no detectado en 60 min) →
+Marcar como OK (regla "7 → OK": cadena en verde sin procesar nada). `MEKYTL0857` (`RAMERC0068.sh`, `PARM1=MEKYTL0857`) espera ese evento y, al finalizar, agrega el
 evento `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` (anomalía de naming "BASKETS" confirmada real, GAP-EMIS-004).
 Nota de discrepancia documental: el documento funcional indica periodicidad "M-S" (Martes a Sábado), mientras
 que la configuración real de Control-M para `RDR_MARKETS_EXT_IN` es "Avanzado (1, 2, 3, 4, 0)" — aplica la
@@ -596,8 +650,7 @@ Referencia de casos por tipo:
    Confirmado real, no bloqueante, pero a tener en cuenta para no confundir monitorización cruzada entre ambas
    cadenas.
 
-No quedan gaps abiertos por falta de evidencia: los 8 gaps de esta especificación (GAP-EMIS-001 a 008, sin el
-005) se resolvieron con evidencia real.
+Los 8 gaps documentales de la sección 4.1 (GAP-EMIS-001 a 008, sin el 005) se resolvieron con evidencia real; quedan abiertas las preguntas P-EMI-01 a P-EMI-06 de la sección 4.2.
 
 ## 10. Conclusión
 

@@ -8,9 +8,10 @@
   PRIIPS `EmisoresRDR_delta_YYYYMMDD.csv`) — cualquiera ausente se cuenta como 0, no bloquea la ejecución.
 - **Cadenas 2 y 3:** origen de datos de `planifGenerico.properties` / `ProjectMain.jar` no documentado en el
   alcance de esta especificación (caja negra del Planificador Genérico); se asume disponible en BBDD.
-- **Cadena 6 (`RDR_MARKETS_EXTRACCION_new`):** el fichero `dictionaryMarkets.csv` debe depositarse en
-  `/fichtemcomp/pr/descargas/kytl/markets/` antes de que expire la ventana del filewatcher (a partir de las
-  02:00 AM); si no llega, el job se marca OK igualmente por soft-failure acotado (código 7), pero `MEKYTL0857`
+- **Cadena 6 (`RDR_MARKETS_EXTRACCION_new`):** el fichero `dictionaryMarkets.csv` (lo genera el Planificador
+  Genérico con `DictionaryMarkets.sql`, martes a sábado 02:00; para probar se puede crear a mano un CSV de
+  cualquier tamaño) debe depositarse en `/fichtemcomp/pr/descargas/kytl/markets/` antes de que expire la
+  ventana del filewatcher (60 minutos desde las 02:00 AM); si no llega, el job se marca OK igualmente por soft-failure acotado (código 7), pero `MEKYTL0857`
   no se ejecuta y no hay historificación ese día.
 - `Cuenta_Registros_MMYYYY.csv` y `Registros_Por_Destino_MMYYYY.csv` son ficheros **acumulativos mensuales**:
   antes del primer día de cada mes no existen y se crean con cabecera; el resto del mes se van ampliando

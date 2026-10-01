@@ -52,17 +52,17 @@
     <nombre>Timeout del filewatcher del bloque 1 (RC=7)</nombre>
     <objetivo>Confirmar la alerta por email cuando emisiones.xml no aparece en la ventana de 3h.</objetivo>
     <precondiciones>
-      <precondicion>RDR_ISSUES_RE_PRO falla o no genera el fichero.</precondicion>
+      <precondicion>RDR_ISSUES_RE_PRO termina en verde pero no deja emisiones.xml en ReportingEngine/ (si el job fallara, publicaría ..._NO_OK y el filewatcher ni arrancaría).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero" valor="Ausente durante toda la ventana de escucha"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Forzar la ausencia de emisiones.xml durante toda la ventana de FW_RDR_ISSUES_RE_PRO.</paso>
-      <paso numero="2">Verificar RC=7 al agotarse el timeout.</paso>
+      <paso numero="2">Verificar RC=7 al agotarse la espera de 180 minutos (ctmfw ... CREATE 0 60 10 5 180: busca cada 60 s, mide cada 10 s, 5 mediciones iguales, 180 minutos máximo).</paso>
       <paso numero="3">Verificar el envío de email a ans_rdr.es@bbva.com.</paso>
     </pasos>
-    <resultadoEsperado>Se genera la alerta por email; MEKYTL0811 y el resto del bloque 1 no se ejecutan.</resultadoEsperado>
+    <resultadoEsperado>Se genera la alerta por email; FW_RDR_ISSUES_RE_PRO queda NOTOK (no hay regla 7 a OK); MEKYTL0811 y el resto del bloque 1 no se ejecutan, y MEKYTL1028 tampoco (necesita el cierre de ambos bloques).</resultadoEsperado>
     <tipoValidacion>Verificación de RC y de la notificación por correo.</tipoValidacion>
     <criterioAceptacion>Email recibido; ningún job posterior del bloque 1 cambia de estado.</criterioAceptacion>
     <posibilidadFallo>Que el bloque 2 (independiente) se vea afectado indebidamente por el fallo del bloque 1.</posibilidadFallo>
@@ -72,16 +72,16 @@
     <nombre>Timeout del filewatcher del bloque 2 (RC=7)</nombre>
     <objetivo>Confirmar la alerta por email cuando emisiones.resto.xml no aparece en la ventana de 2h.</objetivo>
     <precondiciones>
-      <precondicion>RDR_ISSUES_RESTO_T falla o no genera el fichero.</precondicion>
+      <precondicion>RDR_ISSUES_RESTO_T termina en verde pero no deja emisiones.resto.xml en ReportingEngine/.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero" valor="Ausente durante las 2h de escucha"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Forzar la ausencia de emisiones.resto.xml durante las 2h de FW_RDR_ISSUES_RESTO_T.</paso>
-      <paso numero="2">Verificar RC=7 y el envío de email de alerta.</paso>
+      <paso numero="2">Verificar RC=7 al agotarse la espera de 120 minutos (ctmfw ... CREATE 0 60 10 5 120) y el envío de email de alerta.</paso>
     </pasos>
-    <resultadoEsperado>Alerta enviada; RDRKYTL002 y las 8 ramas del bloque 2 no se ejecutan.</resultadoEsperado>
+    <resultadoEsperado>Alerta enviada; FW_RDR_ISSUES_RESTO_T queda NOTOK (no hay regla 7 a OK); RDRKYTL002 y las 8 ramas del bloque 2 no se ejecutan; MEKYTL1028 queda esperando MEKYTL0981 y no corre.</resultadoEsperado>
     <tipoValidacion>Verificación de RC y de la notificación por correo.</tipoValidacion>
     <criterioAceptacion>Email recibido; ningún job posterior del bloque 2 cambia de estado.</criterioAceptacion>
     <posibilidadFallo>Que MEKYTL1028 quede bloqueado indefinidamente esperando el cierre del bloque 2 sin ninguna alerta adicional de ese bloqueo.</posibilidadFallo>

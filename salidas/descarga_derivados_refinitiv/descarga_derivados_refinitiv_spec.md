@@ -10,8 +10,10 @@
 > preserva exactamente** las distinciones de confianza que el propio documento ya hace explícitas (✅
 > confirmado directamente del bytecode/código real citado vs. ⚠️/❌ no disponible, y lenguaje del propio
 > documento como "es muy probable"/"es razonable asumir"/"posiblemente", que se documentan aquí como
-> **hipótesis del documento fuente, no como hechos verificados de forma independiente**). Detalle completo en
-> `documentos_fuente/evidencia_descarga_derivados_refinitiv/`.
+> **hipótesis del documento fuente, no como hechos verificados de forma independiente**). Posteriormente se
+> incorporaron, en rondas sucesivas, el código Java real del jar, los 3 workflows y los 3 `.properties` de los
+> jobs GSProcess, una muestra real de 2 ficheros de carga y una línea sintética de swap; todo ello está
+> resumido en esta especificación.
 >
 > **Estado:** topología de las 2 cadenas (7 jobs cada una), el pipeline interno de 5 pasos del script de carga,
 > y el catálogo de 20 tablas Oracle (grupos A-D) con sus columnas confirmados con alta confianza (bytecode JPA
@@ -51,12 +53,12 @@ ANS RDR.
   enriquecimiento final y el reporte/alertas de cierre de ciclo.
 * **Ámbito técnico:** las 2 cadenas Control-M completas (`KYTL001D...`/`KYTL001P...`, 7 pasos cada una), el
   script `Refinitiv_Derivados_Batch.sh` y el jar `refinitivDerivativesLoader.jar`.
-* **Fuera de alcance** (detalle completo en §8.2): la generación del fichero en la plataforma Refinitiv
+* **Fuera de alcance** (detalle completo en §9.2): la generación del fichero en la plataforma Refinitiv
   (proveedor externo); el consumidor real del mensaje JMS `AltaRolEmisor` que inserta en `FT_T_FINR` (el
-  disparo y el payload sí están confirmados — ver §5.3); el algoritmo interno del servicio externo OpenFigi.
+  disparo y el payload sí están confirmados — ver §6.3); el algoritmo interno del servicio externo OpenFigi.
   La atribución de las 5 tablas del Grupo E, el contenido de toda la cadena de workflows de los jobs 5/6, y
   el mapeo campo a campo de Emisores/Subyacentes/Derivados (incluidas las tablas satélite del Grupo C) quedan
-  resueltos esta ronda (ver §5.2/§5.3/§5.6).
+  resueltos esta ronda (ver §6.2/§6.3/§6.6).
 
 ## 3. Requisitos detectados
 
@@ -65,14 +67,39 @@ ANS RDR.
 | R1 | `MEKYTL10{80\|81}_RECOGE` (host `LPFTP501`) debe listar y recibir, vía SFTP (alias `REFINI_PRO_R9029087`), el/los fichero(s) de Refinitiv desde `plus.datascope.refinitiv.com:/Bulk_Reports/YYYYMMDD/` (patrón `*.REF.*.[1-9][0-6].*.*.txt.zip` en D, `*.REF...[0-9].txt.zip` en P), depositándolos en `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/issues/Refinitiv/OpcionesFutures/{Daily\|Weekly}/`. **Único punto de todo el proceso que trae datos desde fuera de BBVA.** |
 | R2 | `MEKYTL10{80\|81}` (`MEGENV0001.sh`, `Param1=MEKYTL10{80\|81}`) debe reenviar el fichero recibido hacia la pasarela `lpftp501:/unload/transmisiones/KYTL/`. |
 | R3 | `MEKYTL10{80\|81}_DEL` (comando OS, usuario `root`, host `lpftp501`) debe borrar el fichero ya transmitido en la pasarela (`rm *.REF.*.*.[0-9].txt.zip` en D, `rm *.INT.*.*.[0-9].txt.zip` en P). |
-| R4 | `REFINITIV_DERIVADOS_CARGA_{D\|P}` (usuario `xakytl1p`, host `pr-rdr.igrupobbva`) debe ejecutar `Refinitiv_Derivados_Batch.sh` con parámetro `DAILY` (cadena D) o `WEEKLY` (cadena P), ejecutando el pipeline de 5 pasos (§5.2) que filtra, enriquece y carga en Oracle Emisores, Subyacentes y Derivados. **Es el único job de toda la cadena que escribe en base de datos.** |
-| R5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_issues`, `.properties` real confirmado) debe invocar el workflow GoldenSource **`Refinitiv_Request_Response`** con `idType=UNDLY`, `requestType=issueRequest`, `vreqOid=UNDLY_ISSUES_ENRICHMENT`. Ver desglose real en §5.2. |
-| R6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_futures`, `.properties` real confirmado) debe invocar el **mismo workflow `Refinitiv_Request_Response`** que R5, con `idType=OPTFUT`, `requestType=optionsfuturesRequest`, `vreqOid=OPTIONS_FUTURES_ENRICHMENT`. Ver desglose real en §5.2. |
-| R7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_{D\|P}` (`GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV`, `.properties` real confirmado) debe instanciar el motor genérico de alertas **`GestionAlertas`** (ya confirmado en otros procesos de este audit) filtrado por el proceso `DERIVADOS_REFINITIV`, como último paso de la cadena. Ver desglose real en §5.3. |
+| R4 | `REFINITIV_DERIVADOS_CARGA_{D\|P}` (usuario `xakytl1p`, host `pr-rdr.igrupobbva`) debe ejecutar `Refinitiv_Derivados_Batch.sh` con parámetro `DAILY` (cadena D) o `WEEKLY` (cadena P), ejecutando el pipeline de 5 pasos (§6.2) que filtra, enriquece y carga en Oracle Emisores, Subyacentes y Derivados. **Es el único job de toda la cadena que escribe en base de datos.** |
+| R5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_issues`, `.properties` real confirmado) debe invocar el workflow GoldenSource **`Refinitiv_Request_Response`** con `idType=UNDLY`, `requestType=issueRequest`, `vreqOid=UNDLY_ISSUES_ENRICHMENT`. Ver desglose real en §6.2. |
+| R6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_futures`, `.properties` real confirmado) debe invocar el **mismo workflow `Refinitiv_Request_Response`** que R5, con `idType=OPTFUT`, `requestType=optionsfuturesRequest`, `vreqOid=OPTIONS_FUTURES_ENRICHMENT`. Ver desglose real en §6.2. |
+| R7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_{D\|P}` (`GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV`, `.properties` real confirmado) debe instanciar el motor genérico de alertas **`GestionAlertas`** (ya confirmado en otros procesos de este audit) filtrado por el proceso `DERIVADOS_REFINITIV`, como último paso de la cadena. Ver desglose real en §6.3. |
 | R8 | `comprobarError()` (dentro de `Refinitiv_Derivados_Batch.sh`) debe tratar como "no hay ficheros que procesar" (warning o exit tolerante, según flag `EXIT`/`NOEXIT`) los mensajes `"No zipfiles found"`/`"No such file or directory"`; cualquier otro error debe registrar log de error y terminar con `exit -1`. |
 | R9 | En modo `DAILY`, el script debe segmentar el fichero en hasta 96 partes y repetir el pipeline de 5 pasos por segmento; en modo `WEEKLY`, debe ejecutar una pasada única sin segmentación. |
 
-## 4. Especificación funcional
+## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
+
+### 4.1 Respuestas obtenidas del usuario (rondas del 2026-10-01)
+
+| Gap original | Respuesta / material aportado | Resultado (dónde se documenta) |
+|---|---|---|
+| Contenido de los 3 `.properties` de los jobs 5, 6 y 7 | Los 3 ficheros reales | Jobs 5/6 lanzan el workflow `Refinitiv_Request_Response` con `idType`/`requestType`/`vreqOid`; job 7 es el motor `GestionAlertas` con código `DERIVADOS_REFINITIV` (§6.3, §6.4) |
+| Qué hace `Refinitiv_Request_Response` | Los 3 workflows reales (`Refinitiv_Request_Response`, `Load_Refinitiv_Response`, `Refinitiv_Bloomberg_AltaRolEmisor`) | Los jobs 5/6 piden una solicitud nueva a Refinitiv; el 6 reutiliza el pipeline de 3 jars del job 4 (§6.3) |
+| Atribución de las 5 tablas del Grupo E | Las 5 entidades JPA, `FT_T_FINS`, `FT_T_ISGU` y el código completo del jar | `FT_T_FINR` se escribe por mensaje JMS desde un workflow; `FT_T_FIRL`/`FT_T_GUNT` solo se leen; `FT_T_FRID`/`FT_T_REP1` sin referencias (§6.2) |
+| Mapeo campo a columna | `LoaderProcess`, `IssuersService`, `UnderlyingService`, `ListedDerivativesService`, `DerivativesProcessor` reales y muestra de ficheros | Resuelto para Emisores, Subyacentes y Derivados (§6.2, §6.6) |
+| Falta de swap en la muestra (TC-010) | Una línea sintética de swap (43 campos) | Debe ampliarse a 45 campos para usarla (§10) |
+
+### 4.2 Preguntas pendientes (sin respuesta en ninguna fuente recibida)
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-DDR-01 | ¿Qué script y qué lógica ejecuta el job 1 (`MEKYTL1080_RECOGE` / `MEKYTL1081_RECOGE`)? El diagrama del documento fuente dice `LPFTPEXCA0004`; su tabla dice "sin .sh propio". ¿Qué código de salida da si no hay fichero en Refinitiv? ¿Descarga todos los ficheros que casan el patrón o solo uno? | Sin esto no se sabe si la ausencia del fichero se detecta en el job 1 o solo en el 4, ni qué hacer ante un fallo SFTP |
+| P-DDR-02 | Línea de configuración (`.idx`) de las claves `MEKYTL1080`/`MEKYTL1081` de `MEGENV0001.sh` y sus códigos de salida | Define el origen exacto y qué hace el job 2 si no hay fichero |
+| P-DDR-03 | Los workflows de los jobs 5/6 insertan alertas con `PROCESO='PETICION_REFINITIV_EMISIONES'`, pero el job 7 solo procesa `DERIVADOS_REFINITIV`. ¿Qué job/proceso envía las de `PETICION_REFINITIV_EMISIONES` desde esta cadena? Además, ¿en qué tabla/código de proceso escribe `ExceptionService` del jar (clase no recibida)? | Si el código no coincide, las alertas de error de los jobs 5/6 y del jar podrían no llegar nunca a nadie por esta cadena |
+| P-DDR-04 | Definición Control-M exacta de las 2 cadenas: condiciones de entrada/salida, reintentos, si hay regla de aceptación de códigos de salida (p. ej. si el job 3 se pone en verde cuando `rm` no encuentra fichero), calendario real de `KYTL001P` y quién la lanza | Determina qué fallo detiene la cadena y cuál se ignora |
+| P-DDR-05 | Código fuente completo de `Refinitiv_Derivados_Batch.sh` (la fuente solo trae su descripción): carpeta donde deja `Emisores*`/`Subyacentes*`/`Derivados_Enriquecido*`, qué hace con los `.zip` ya procesados, retención/purga de `old/` y de `lake/` | Permite saber qué queda en disco y si crece sin límite |
+| P-DDR-06 | El `.properties` de alertas aportado tiene rutas de integración (`/fichtemcomp/ei/...`). ¿Cómo llega el entorno correcto (`pr`) en producción (`$ENV` / sustitución)? | Si no se sustituye, el job 7 podría apuntar a rutas de otro entorno (relacionado con P-GSP-01 de `comun_gsprocess`) |
+| P-DDR-07 | Decisión: ¿se corrige el defecto de `setVreqStatus()` (marca `PROCESSED` sin comprobar las cargas)? ¿Hay un control manual hoy? | Es un falso positivo funcional confirmado por código |
+| P-DDR-08 | Contenido real de `Emisores*.txt` (muestra con altas) y del servicio consumidor del mensaje JMS `AltaRolEmisor` | Cierra el único punto no verificado de la carga de emisores y del alta de rol `ISSUER` |
+
+## 5. Especificación funcional
 
 1. `MEKYTL10{80|81}_RECOGE` descarga vía SFTP el/los fichero(s) de Refinitiv y los deposita en el área de
    descarga de RDR (`Daily/` o `Weekly/` según la cadena).
@@ -87,16 +114,16 @@ ANS RDR.
       `openFigiEnricher.jar`, generando los 3 ficheros de carga: `Emisores*.txt`, `Subyacentes*.txt`,
       `Derivados_Enriquecido*.txt`.
    e. Carga los 3 ficheros en Oracle (esquema `KYTL_GC`) vía `refinitivDerivativesLoader.jar` (detalle
-      completo en §5.2), y empaqueta los ficheros de carga en `.tar.gz` en `old/`.
+      completo en §6.2), y empaqueta los ficheros de carga en `.tar.gz` en `old/`.
 5. `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D|P}` enriquece los subyacentes de tipo emisión simple ya
    cargados.
 6. `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D|P}` enriquece los subyacentes de tipo futuro/derivado.
 7. `REFINITIV_REPORTE_CARGA_DERIVADOS_{D|P}` genera el reporte/alertas de cierre del ciclo completo, como
    último paso.
 
-## 5. Especificación técnica
+## 6. Especificación técnica
 
-### 5.1 Topología y entorno
+### 6.1 Topología y entorno
 
 * **Aplicación Control-M:** KYTL. **Grupo de soporte:** ANS RDR. **Esquema Oracle:** `KYTL_GC`.
 * **Hosts:** job 1 en `LPFTP501`; jobs 2 y 4-7 en `pr-rdr.igrupobbva`; job 3 en `lpftp501`.
@@ -107,7 +134,47 @@ ANS RDR.
   el usuario real no coincide con el esperado para ese entorno**. Classpath Java incluye `ojdbc8.jar`
   (driver Oracle) + `ConexionBD.jar` (conexión propia RDR) — confirma escritura directa a Oracle vía JDBC.
 
-### 5.2 El jar `refinitivDerivativesLoader.jar` — carga real en Oracle, confirmada con los 4 servicios reales (ronda 2026-10-01)
+**Cómo se lanza y cómo se encadena (Control-M).** Cada cadena es una malla Control-M de 7 jobs en serie (cada
+job arranca cuando termina bien el anterior; no hay jobs paralelos). `KYTL001D...` se lanza sola cada día
+(L-D, 01:00, fecha de proceso D-1); `KYTL001P...` es "a petición": la lanza el equipo RDR/operación a mano
+(recogida real semanal; el job 1 de la cadena P está definido internamente como semanal). El fichero a
+procesar lo fija el patrón del job 1 y la carpeta (`Daily/` o `Weekly/`); no hay en la cadena un job
+`ctmfw` de espera de fichero (la fuente no describe ninguno): si Refinitiv aún no ha publicado el fichero,
+el job 1 no recibe nada y la ausencia se descubre en el job 4 ("No zipfiles found", ver R8).
+
+**Los 7 jobs, uno por uno:**
+
+| # | Job (D / P) | Mecanismo | Qué recibe | Qué produce |
+|---|---|---|---|---|
+| 1 | `MEKYTL1080_RECOGE` / `MEKYTL1081_RECOGE` | Transmisión SFTP en la pasarela `LPFTP501` (familia `LPFTPEXCA`; el diagrama del documento fuente indica el script `LPFTPEXCA0004`, la tabla del mismo documento dice "sin .sh propio"; ver P-DDR-01). Alias SFTP `REFINI_PRO_R9029087`, usuario `r9029087` en `plus.datascope.refinitiv.com` (159.220.50.21) | Fichero(s) de `/Bulk_Reports/YYYYMMDD/` con patrón `*.REF.*.[1-9][0-6].*.*.txt.zip` (D) / `*.REF...[0-9].txt.zip` (P) | El `.zip` en `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/issues/Refinitiv/OpcionesFutures/{Daily\|Weekly}/` |
+| 2 | `MEKYTL1080` / `MEKYTL1081` | `/pr/pl/envioweb/scrt/MEGENV0001.sh`, `Param1` = identificador del job (`MEKYTL1080` / `MEKYTL1081`); usuario `xsramer1`. La línea de configuración (`.idx`) de estas claves no se ha recibido (P-DDR-02) | Lo que hay en `.../Daily/` o `.../Weekly/` | Copia en la pasarela `lpftp501:/unload/transmisiones/KYTL/` |
+| 3 | `MEKYTL1080_DEL` / `MEKYTL1081_DEL` | Comando de sistema (no script) como `root` en `lpftp501`: `cd /unload/transmisiones/KYTL ; rm *.REF.*.*.[0-9].txt.zip` (D) / `rm *.INT.*.*.[0-9].txt.zip` (P) | El fichero de la pasarela | Pasarela limpia. Si no hay ficheros que casen, `rm` devuelve error (código ≠ 0) y el job queda en error (comportamiento estándar de `rm`; no verificado en Control-M, P-DDR-04) |
+| 4 | `REFINITIV_DERIVADOS_CARGA_D` / `_P` | `Refinitiv_Derivados_Batch.sh DAILY\|WEEKLY` como `xakytl1p` | El `.zip` de `Daily/` o `Weekly/` | Filas en Oracle (§6.2), `Emisores*.txt`, `Subyacentes*.txt` y `Derivados_Enriquecido*.txt` (ubicación exacta no indicada en la fuente, P-DDR-05) empaquetados en `.tar.gz` en `old/`; el `.zip` original en `old/` |
+| 5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_D` / `_P` | `GSProcess.sh Refinitiv_Undly_Enrichment_issues` (§6.3) | — | Nueva solicitud a Refinitiv y carga de la respuesta (`.../Enrichment/issues/`) |
+| 6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_D` / `_P` | `GSProcess.sh Refinitiv_Undly_Enrichment_futures` (§6.3) | — | Nueva solicitud y carga (`.../Enrichment/optionsfutures/`) |
+| 7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_D` / `_P` | `GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV` (§6.4) | Incidencias del proceso | Correo de alertas (si las hay) |
+
+**Cómo saber si fue bien o mal.** Control-M solo ve el código de salida de cada job. Job 4: verde si el script
+termina sin error (también cuando no hay fichero: "No zipfiles found" se tolera); rojo (`exit -1`, que
+Control-M recibe como 255) ante cualquier otro error del pipeline. Jobs 5-7 (`GSProcess.sh`): sin clave
+`Stop*=Ok` en el `.properties` los pasos siguientes se ejecutan aunque falle uno, la acción `Property`
+(job 7) nunca detecta el fallo del submódulo, y la acción `Evento` (jobs 5/6) lanza el workflow vía
+`executeBbvaEvent`; el estado funcional real de una solicitud a Refinitiv está en
+`FT_T_VREQ.VND_RQST_STAT_TYP` (`PROCESSED`/`FAILED`), con las salvedades de §6.2 (puede quedar `PROCESSED`
+sin haber cargado nada) y de `IS_EXTF` (§6.3). Los jobs 1-3 usan los scripts comunes de pasarela
+(`LPFTPEXCA`/`MEGENV0001.sh`), cuya lógica interna y códigos de salida no se conocen (P-DDR-01/02).
+
+**Qué queda después de una ejecución correcta.** En Oracle (`KYTL_GC`): instrumentos derivados y
+subyacentes nuevos o actualizados, `FT_T_VREQ` cerrado; en disco: `.zip` original y `.tar.gz` de ficheros de
+carga en `old/` (nadie los purga según la fuente: P-DDR-05); pasarela `lpftp501` sin el fichero. Tras un
+fallo del job 1-3 el fichero puede quedarse en `Daily/`/`Weekly/` o en la pasarela; tras un fallo del job 4
+queda el `.zip` sin historificar (o los `.txt` intermedios) y hay que relanzar la cadena desde el job 4.
+Relanzar un job 4 ya completado no duplica filas de emisores ni de subyacentes (ambos servicios buscan antes
+de insertar) y los derivados se tratan como alta o modificación (`insertDerivativeData` /
+`updateDerivativeData`); pero dará "No zipfiles found" (verde, sin cargar nada) si el `.zip` ya se historificó
+en `old/`.
+
+### 6.2 El jar `refinitivDerivativesLoader.jar` — carga real en Oracle, confirmada con los 4 servicios reales (ronda 2026-10-01)
 
 * **Arquitectura:** Spring (`AnnotationConfigApplicationContext`) + Hibernate/JPA, conexión Oracle vía
   `ojdbc8`. Clase principal: `com.bbva.kytl.refinitivderivativesloader.LoaderProcess.main()`.
@@ -122,7 +189,7 @@ ANS RDR.
   fallado (`if (loadProcessStatus && ...)`) — confirma a nivel de código la secuencialidad estricta de R4.
   Finalmente, **solo si `ExceptionService.vreqOid != null`** (es decir, solo en las invocaciones con un 5º
   argumento — la rama `optionsfuturesRequest` de `Refinitiv_Request_Response.wkf` invoca el jar con 4
-  argumentos, sin `vreqOid`, según §5.3), llama a `setVreqStatus()`.
+  argumentos, sin `vreqOid`, según §6.3), llama a `setVreqStatus()`.
   **[Hallazgo de código — defecto real confirmado]:** `setVreqStatus()` consulta `FT_T_VREQ` por `vreqOid` y,
   si su estado actual **no es ya literalmente `'FAILED'`**, lo marca `'PROCESSED'` — **sin consultar en
   ningún momento `loadProcessStatus`** (la variable que sí gobierna si las 3 cargas se ejecutan, pero que no
@@ -132,7 +199,7 @@ ANS RDR.
   `PROCESSED` sin haberse cargado nada — **ningún mecanismo del propio `LoaderProcess` impide este falso
   positivo**; el único freno real sería que el propio workflow `Refinitiv_Request_Response.wkf` hubiera
   marcado `FAILED` por otra vía antes de esta llamada (p. ej. su nodo `Update KO Request` ante "Unable to
-  load response, file not found" — ver §5.3), lo cual no cubre el caso de que el jar SÍ reciba 3 ficheros
+  load response, file not found" — ver §6.3), lo cual no cubre el caso de que el jar SÍ reciba 3 ficheros
   pero uno de ellos no se pueda leer. Ver TC-011.
 * **Catálogo de tablas Oracle — confirmado con los 4 servicios reales (`LoaderProcess`/`IssuersService`/
   `UnderlyingService`/`ListedDerivativesService`), corrige 2 asunciones del catálogo por bytecode:**
@@ -146,7 +213,7 @@ ANS RDR.
     en `FT_T_ISSR` (rol de emisor, 22 columnas: `issrNme`=`instNme`, `instMnem`/`finsInstMnem`=`instMnem` de
     `FT_T_FINS`, `finsrlTyp`="ISSUER") — **`FT_T_ISSR` es la única tabla que `IssuersService` escribe.**
   - **Grupo B (Subyacentes → `UnderlyingService`):** **[CORREGIDO]** el fichero real `Subyacentes*.txt` tiene
-    exactamente los 3 campos ya confirmados en §5.6 (`UNDERLYING_ID`/`UNDERLYING_ID_TYPE`/
+    exactamente los 3 campos ya confirmados en §6.6 (`UNDERLYING_ID`/`UNDERLYING_ID_TYPE`/
     `UNDERLYING_TYPOLOGY` — resuelve la hipótesis abierta en esa sección: no es una lista reducida de claves
     de otra naturaleza, **es literalmente el único fichero que este servicio necesita**). Busca `FT_T_ISSU`
     por `(underlyingId, underlyingIdType)`; si hay más de un resultado distinto, lo marca duplicado (alerta
@@ -158,7 +225,7 @@ ANS RDR.
     `UnderlyingService` nunca inserta/actualiza `FT_T_MKIS` — **pero sí lo hace `DerivativesProcessor`** (ver
     Grupo C), así que la escritura real de `FT_T_MKIS` ocurre al cargar el derivado, no el subyacente.
   - **Grupo C (Derivados → `ListedDerivativesService`+`DerivativesProcessor`, ambos reales, 2026-10-01):**
-    `ListedDerivativesService` confirma el fichero real de 45 campos `|`-delimitados (§5.6) y resuelve varios
+    `ListedDerivativesService` confirma el fichero real de 45 campos `|`-delimitados (§6.6) y resuelve varios
     de esos campos por nombre de negocio real (vía la clase `PositionsTemplate`, constantes de índice no
     decompiladas: `RIC`, `QUOTE_PERM_ID`, `UNDERLYING_RIC`, `UNDERLYING_ISIN`, `UNDERLYING_CHEAPEST_ISIN`,
     `UNDERLYING_ISIN_ESMA`, `ASSET_STATUS`, `ACTION`, `CURRENCY`, `EXERCISE_STYLE`,
@@ -220,14 +287,14 @@ ANS RDR.
   - **Grupo E — [CERRADO al 100% esta ronda con el 100% del código del jar + el workflow
     `Refinitiv_Bloomberg_AltaRolEmisor.wkf` real]:** resultado final, tabla por tabla:
     - **`FT_T_FINR` — SÍ SE ESCRIBE, pero no desde el jar.** `Refinitiv_Bloomberg_AltaRolEmisor.wkf`
-      (invocado por `Load_Refinitiv_Response.wkf`, rama `issueRequest`/job 5 — ver §5.3) resuelve el
+      (invocado por `Load_Refinitiv_Response.wkf`, rama `issueRequest`/job 5 — ver §6.3) resuelve el
       `FINS_ID` de cada entidad recibida (por `LEI`, con lógica de resolución de grupo/matriz vía
       `FT_T_FIRL` si el LEI es compartido por varias entidades), comprueba si ya tiene rol `ISSUER` activo en
       `FT_T_FINR` (join con `FT_T_FIID`) y, si no, construye un XML `PtyDetlListUpd`/`RolDetl` (rol
       `CPARTY`, `ORG_ID`+`LEIID`) y lo envía vía el sub-workflow `AltaRolEmisor` (mensaje JMS) — **este es el
       punto de alta real del rol `ISSUER` en `FT_T_FINR`**, confirmado por el payload XML y la condición de
       guarda (`Issuer Exist?`), aunque el `INSERT` SQL final ocurre en el consumidor de ese mensaje (fuera de
-      alcance, ver §8.2).
+      alcance, ver §9.2).
     - **`FT_T_FIRL` — de solo lectura**, usada en `Refinitiv_Bloomberg_AltaRolEmisor.wkf` para resolver la
       entidad "operativa" (no subsidiaria) cuando un mismo `LEI` identifica a un grupo/matriz (2 saltos de
       join sobre `FT_T_FIRL`, filtrando `subsidiary_ind='N'`) — nunca se escribe.
@@ -242,7 +309,7 @@ ANS RDR.
     JMS/ESB), no por el código Java de carga. Las otras 4 no tienen ninguna escritura confirmada en todo el
     código y los workflows inspeccionados — ver TC-015.
 
-### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
+### 6.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
 
 Los `.properties` reales de ambos jobs (aportados en una ronda previa) muestran una estructura mínima,
 idéntica entre ambos salvo 3 valores: un bloque `Accion=VariablesGlobales` seguido de un único `Accion=Evento`
@@ -302,17 +369,17 @@ real de las ramas que usan los jobs 5/6, `issueRequest`/`UNDLY_ISSUES_ENRICHMENT
      (`com.bbva.kytl.MainProcess`, modo `ONLINE`) → `openFigiEnricher.jar`
      (`com.bbva.kytl.EnricherProcess`, mismo servicio externo OpenFigi que el job 4) →
      `refinitivDerivativesLoader.jar` (`com.bbva.kytl.refinitivderivativesloader.LoaderProcess`, modo
-     `ONLINE` — **mismo jar y mismas 20 tablas Oracle de §5.2** que la carga del job 4) → historificación
+     `ONLINE` — **mismo jar y mismas 20 tablas Oracle de §6.2** que la carga del job 4) → historificación
      (`mv *.txt old`) → `PRC_ESCOBA_SUBYACENTES()` (mismo punto de convergencia que la rama `issueRequest`).
 4. **Confirma el uso de `FT_T_VREQ`:** ante cualquier error, `Update KO Request` actualiza
    `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT` por `vreqOid`, igual que ya estaba confirmado para
    `BATCH_ISSUER`/`BATCH_RATINGS` en el otro proceso de este audit.
 
-**Conclusión de esta ronda:** la hipótesis de §9 (ronda anterior) queda **confirmada al 100%, no solo "muy
+**Conclusión de esta ronda:** la hipótesis de §10 (ronda anterior) queda **confirmada al 100%, no solo "muy
 probable"**: los jobs 5/6 disparan una nueva solicitud a Refinitiv (vía el mismo cliente
 `RDR_Refinitiv_Request.jar`), y el job 6 además reutiliza literalmente el pipeline de 3 jars del job 4 sobre
 la respuesta recibida — es decir, el job 4 no es el único punto de la cadena que escribe en las 20 tablas
-Oracle de §5.2 (contradice R4 tal y como estaba redactado: "es el único job de toda la cadena que escribe en
+Oracle de §6.2 (contradice R4 tal y como estaba redactado: "es el único job de toda la cadena que escribe en
 base de datos" debe entenderse referido solo a la ejecución directa por Control-M, no a la cascada
 Job6→workflow→carga).
 
@@ -348,12 +415,12 @@ Load"** (el mismo patrón `CallSubWorkflow` reutilizado en todo este audit), no 
    rol `ISSUER` activo en `FT_T_FINR` (join con `FT_T_FIID`); si no lo tiene, construye un XML
    `PtyDetlListUpd`/`PtyDetlUpd`/`RolDetl` (rol `CPARTY`, `AltPty` con `ORG_ID` y `LEIID`) y lo envía como
    mensaje JMS al sub-workflow `AltaRolEmisor` — **este es el punto de alta real del rol `ISSUER` en
-   `FT_T_FINR`** (ver §5.2 Grupo E), aunque el `INSERT` SQL final lo ejecuta el consumidor de ese mensaje
-   (fuera de alcance, ver §8.2).
+   `FT_T_FINR`** (ver §6.2 Grupo E), aunque el `INSERT` SQL final lo ejecuta el consumidor de ese mensaje
+   (fuera de alcance, ver §9.2).
 4. Tras la carga, comprueba `FT_T_NTEL` (vía `FT_T_TRID`/`job_id`) por mensajes con `MSG_SEVERITY_CDE > 20`:
    si los hay, inserta una alerta en `TABLEALERTGENER` (`PROCESO='PETICION_REFINITIV_EMISIONES'`) y marca
    `FT_T_VREQ` `FAILED` con "Load failed" — mismo mecanismo de alerta ya confirmado en el propio
-   `Refinitiv_Request_Response.wkf` (§5.3 arriba) para el resto de errores de esta cadena.
+   `Refinitiv_Request_Response.wkf` (§6.3 arriba) para el resto de errores de esta cadena.
 5. Si no hay errores graves y la rama es `issueRequest`, cruza `FT_T_RLT1`
    (`RLT_PURP_TYP='LISTED_MIC'`,`DATA_SRC_APP='RFNT_ISSUE_REQUEST'`, por `job_id`) con el mapa de MIC en
    memoria para generar un segundo fichero (`CargaListedMIC_<timestamp>.xml`), cargado a su vez por otro
@@ -367,31 +434,45 @@ Load"** (el mismo patrón `CallSubWorkflow` reutilizado en todo este audit), no 
 (`Refinitiv_Request_Response.wkf`, `Load_Refinitiv_Response.wkf`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf`)
 están ya inspeccionadas nodo a nodo. Único resto, fuera de alcance por naturaleza: el consumidor real del
 mensaje JMS `AltaRolEmisor` (presumiblemente un servicio ESB/de gestión de terceros compartido en BBVA, no
-propio de este proceso) — ver §8.2.
+propio de este proceso) — ver §9.2.
 
-### 5.4 Job 7 (reporte/alertas) — `.properties` real confirmado: es el motor genérico `GestionAlertas`
+### 6.4 Job 7 (reporte/alertas) — `.properties` real confirmado: es el motor genérico `GestionAlertas`
 
 El `.properties` real de `GestionAlertas_DERIVADOS_REFINITIV` (aportado esta ronda) usa el mecanismo
 `Accion=Property` de `GSProcess.sh` (función `Property()`, ya confirmada con código real en este audit):
-copia la plantilla genérica **`GestionAlertas.properties`** (la misma plantilla ya confirmada en
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GestionAlertas.properties`, usada por otros procesos de
-este mismo audit) a un fichero temporal, y sustituye el literal `PROCESOS` por `DERIVADOS_REFINITIV`
+copia la plantilla genérica **`GestionAlertas.properties`** (la misma que usan otros procesos de RDR; su
+descripción general está en `salidas/comun_gestion_alertas/comun_gestion_alertas_spec.md`) a un fichero
+temporal, y sustituye el literal `PROCESOS` por `DERIVADOS_REFINITIV`
 (`ArgProp2=PROCESOS-DERIVADOS_REFINITIV`, vía `sed -i "s/PROCESOS/DERIVADOS_REFINITIV/g"`), antes de
 reinvocar `GSProcess.sh` sobre el fichero ya sustituido. **Esto corrige/precisa la hipótesis hedged del
 documento fuente** ("es muy probable que lea FT_T_ALD1/FT_T_ALG1... y FT_T_VREQ... y posiblemente FT_T_REP1"):
 el mecanismo real, ya confirmado en otro proceso de este mismo audit (`kytl001d_ratings_ada`), es:
 
-1. **`GestionAlertas_BarridoAlertas`** (`RDR_AlertasBarrido.jar`, clase `main.Ppal`, `ArgJava3=DERIVADOS_REFINITIV`
-   tras la sustitución) — barre las alertas pendientes filtradas por el proceso `DERIVADOS_REFINITIV`.
-2. **`GestionAlertas_cocinado`** (`RDR_AlertasCocinado.jar`, clase `main.Ppal`, librerías Apache POI,
-   `ArgJava3=DERIVADOS_REFINITIV`) — genera el informe (Excel/BODY) de esas alertas.
-3. **`Workflow(RDR_AlertasEnvio)`** — envía el informe por correo.
+1. **`GestionAlertas_BarridoAlertas`** (`RDR_AlertasBarrido.jar`, clase `main.Ppal`, `ArgJava1=2`,
+   `ArgJava2=log4jAlertasBarrido.properties`, `ArgJava3=DERIVADOS_REFINITIV` tras la sustitución) — convierte
+   las incidencias pendientes de ese proceso (filas de `FT_T_TPG1` con `PROCESO='DERIVADOS_REFINITIV'` y
+   `END_TMS` nulo) en mensajes de `FT_T_ALG1`. Librerías: `ConexionBD.jar`, `ojdbc8.jar`, `common-lang3.jar`,
+   `log4j.jar`.
+2. **`GestionAlertas_cocinado`** (`RDR_AlertasCocinado.jar`, clase `main.Ppal`, `ArgJava2=
+   log4jAlertasCocinado.properties`, `ArgJava3=DERIVADOS_REFINITIV`, librerías Apache POI 3.17) — prepara el
+   informe Excel/cuerpo del correo de esas alertas y marca `FT_T_REP1.SEND_PEND='Y'` (informe pendiente de
+   envío).
+3. **`Workflow(RDR_AlertasEnvio)`** (acción `Evento`) — envía por correo **todos** los informes pendientes
+   de **todos** los procesos, no solo los de `DERIVADOS_REFINITIV`.
+
+Consecuencias para este proceso (reglas del motor común y de `GSProcess.sh`): (a) la acción `Property` **nunca
+detecta el fallo** del Barrido/Cocinado/Envío, así que el job 7 termina en verde aunque no se envíe ningún
+correo; (b) si no hay incidencias de `DERIVADOS_REFINITIV` pendientes, no hay informe nuevo y el job termina
+igualmente en verde; (c) el job no recibe el resultado de las cargas: solo envía lo que las cargas dejaron
+como incidencia. Las alertas que escriben directamente los workflows de los jobs 5/6 (`TABLEALERTGENER`,
+`PROCESO='PETICION_REFINITIV_EMISIONES'`, `PROCESADO='N'`) llevan otro código de proceso distinto del que
+barre este job (ver pregunta P-DDR-03 en §4).
 
 No se ha decompilado en esta ronda el contenido exacto de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
 (motor genérico, ya tratado como tal en otros procesos de este audit), pero la estructura y el parámetro de
 filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real — ya no es una hipótesis.
 
-### 5.5 Comparativa D vs P
+### 6.5 Comparativa D vs P
 
 | Aspecto | D (Diaria) | P (Semanal) |
 |---|---|---|
@@ -407,10 +488,10 @@ filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real �
 Ambas cadenas ejecutan la misma lógica de negocio con distinta cadencia; el destino de datos en Oracle es
 exactamente el mismo.
 
-### 5.6 Muestra real de ficheros de carga (ronda 2026-10-01) — estructura y semántica de campo confirmadas con `UnderlyingService`/`ListedDerivativesService`/`IssuersService` reales
+### 6.6 Muestra real de ficheros de carga (ronda 2026-10-01) — estructura y semántica de campo confirmadas con `UnderlyingService`/`ListedDerivativesService`/`IssuersService` reales
 
 El usuario aportó una muestra real (no comprimida) de 2 de los 3 ficheros de carga que el pipeline genera
-(§4.d): `Subyacentes_<timestamp>.txt` (1.091 líneas) y `Derivados_Enriquecido.txt` (1.837 líneas).
+(§5, paso 4.d): `Subyacentes_<timestamp>.txt` (1.091 líneas) y `Derivados_Enriquecido.txt` (1.837 líneas).
 `Emisores_<timestamp>.txt` fue aportado pero **vacío (0 bytes)** — este lote de producción no contenía altas
 de emisores, así que su estructura sigue sin muestra real.
 
@@ -433,7 +514,7 @@ de emisores, así que su estructura sigue sin muestra real.
   `Derivados_Enriquecido.txt` coincide, en 82 de 83 valores distintos, con el campo 1 de `Subyacentes*.txt`;
   el dominio de valores del campo 42 (`UNDLYRFV`/`FUTRFV`) es idéntico al del campo 3 de `Subyacentes*.txt`.
   Confirma que ambos ficheros proceden del mismo lote real y que el subyacente de cada derivado se referencia
-  por RIC, consistente con el modelo `FT_T_ISID`/`FT_T_ISSU` de §5.2.
+  por RIC, consistente con el modelo `FT_T_ISID`/`FT_T_ISSU` de §6.2.
 * **[RESUELTO esta ronda con `UnderlyingService.java` real]** La hipótesis (b) de la ronda anterior queda
   **confirmada**: los 3 campos de `Subyacentes*.txt` no son una lista reducida de claves de otra naturaleza —
   son **exactamente** los 3 campos que `UnderlyingService.loadUnderlyings()` lee, en ese mismo orden
@@ -442,25 +523,25 @@ de emisores, así que su estructura sigue sin muestra real.
   2 `FT_T_ISID` (identificador de negocio + `RDR_ID` generado) usando solo esos 3 valores — no consulta
   ningún otro atributo de `Subyacentes*.txt` porque no hay ningún otro atributo que consultar. La tabla
   `FT_T_MKIS` (cotización en mercado) solo se **lee** aquí (para obtener la divisa de un subyacente RIC ya
-  existente), nunca se inserta desde este servicio — ver §5.2 Grupo B para el detalle completo.
+  existente), nunca se inserta desde este servicio — ver §6.2 Grupo B para el detalle completo.
 * **[RESUELTO esta ronda con `IssuersService.java` real]** `Emisores*.txt` tiene una estructura mucho más
   simple de lo asumido: **un `orgId` por línea, sin delimitador `|`** — no un fichero de campos múltiples.
   `IssuersService` lo usa solo para localizar una `FT_T_FINS` ya existente (no la crea) y, si existe, crear
-  (si no hay ya) su fila `FT_T_ISSR` — ver §5.2 Grupo A.
-* **Lo que sigue sin confirmar:** el mapeo campo→columna exacto de las tablas satélite del Grupo C
-  (`FT_T_OPCH`/`FT_T_SWCH`/etc., ver §5.2) requiere `DerivativesProcessor` (no aportado); y la muestra real de
-  `Emisores*.txt` (contenido, no ya estructura) sigue sin aportar — el lote recibido no tenía altas de
-  emisores.
+  (si no hay ya) su fila `FT_T_ISSR` — ver §6.2 Grupo A.
+* **Lo que sigue sin confirmar:** solo la muestra real de `Emisores*.txt` (contenido; el lote recibido
+  estaba vacío, 0 bytes, sin altas de emisores). El mapeo campo→columna de las tablas satélite del Grupo C
+  quedó resuelto con `DerivativesProcessor` (ver §6.2). La línea sintética de swap aportada para TC-010 tiene
+  43 campos y debe ampliarse a 45 (ver §10).
 
-## 6. Especificación de testing
+## 7. Especificación de testing
 
 La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5 pasos del script de carga
 (incluida la diferencia de segmentación DAILY/WEEKLY), la carga real en las 3 familias de tablas Oracle
 (Emisores/Subyacentes/Derivados), el cierre de ciclo (`FT_T_VREQ`) y el circuito de alertas ante error
-(`FT_T_ALD1`/`FT_T_ALG1`), más 3 casos dedicados a los gaps confirmados en §8.2 (contenido de los 3
+(`FT_T_ALD1`/`FT_T_ALG1`), más 3 casos dedicados a los gaps confirmados en §9.2 (contenido de los 3
 `.properties`, atribución de las 5 tablas del Grupo E, y mapeo campo-columna del fichero origen).
 
-## 7. Validaciones de casos de prueba
+## 8. Validaciones de casos de prueba
 
 | Tipo | Qué garantiza | Caso(s) |
 |------|----------------|---------|
@@ -480,36 +561,36 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 | `negativo` | Contenido nodo a nodo de toda la cadena de workflows de los jobs 5/6 (`Refinitiv_Request_Response`→`Load_Refinitiv_Response`→`Refinitiv_Bloomberg_AltaRolEmisor`) — **confirmado al 100%**, único resto fuera de alcance por naturaleza (consumidor del mensaje JMS). | TC-014 |
 | `negativo` | Atribución real del punto de escritura de las 5 tablas del Grupo E (`FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1`) — **resuelto al 100%: `FT_T_FINR` se escribe vía mensaje JMS desde `Refinitiv_Bloomberg_AltaRolEmisor`; `FT_T_FIRL`/`FT_T_GUNT` se leen; `FT_T_FRID`/`FT_T_REP1` sin ninguna referencia.** | TC-015 |
 | `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — **resuelto al 100% para Emisores/Subyacentes/Derivados**, incluidas las 11 tablas satélite del Grupo C (confirmado por código real de los 5 componentes del jar). | TC-016 |
-| `conflicto_integridad` | Los parámetros `idType`/`requestType`/`vreqOid` de los jobs 5/6 llegan realmente al workflow `Refinitiv_Request_Response` (confirmar el efecto colateral de arrays deducido en §5.3 con un log/traza real). | TC-017 |
+| `conflicto_integridad` | Los parámetros `idType`/`requestType`/`vreqOid` de los jobs 5/6 llegan realmente al workflow `Refinitiv_Request_Response` (confirmar el efecto colateral de arrays deducido en §6.3 con un log/traza real). | TC-017 |
 | `happy_path` | El job 7 ejecuta correctamente el motor genérico `GestionAlertas` filtrado por `DERIVADOS_REFINITIV` (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`). | TC-018 |
 
-## 8. Riesgos, decisiones documentadas y fuera de alcance
+## 9. Riesgos, decisiones documentadas y fuera de alcance
 
-### 8.1 Riesgos
+### 9.1 Riesgos
 
 * **[Resuelto con `.properties` real, 2026-10-01] Job 7 es el motor genérico `GestionAlertas`, no una lectura
   directa de `FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ`/`FT_T_REP1`:** la hipótesis hedged del documento fuente
-  queda sustituida por el mecanismo real confirmado en §5.4 (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`,
+  queda sustituida por el mecanismo real confirmado en §6.4 (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`,
   filtrado por `DERIVADOS_REFINITIV`) — ya no es una suposición.
 * **[Resuelto con los workflows reales, 2026-10-01] Jobs 5/6 disparan una nueva solicitud a Refinitiv, el
   job 6 reutiliza el pipeline de carga del job 4, y el job 5 da de alta el rol de emisor vía mensajería
   JMS/ESB:** confirmado al 100% con las 3 piezas de workflow (`Refinitiv_Request_Response.wkf`,
-  `Load_Refinitiv_Response.wkf`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — ver §5.3) — ya no es una hipótesis
-  deducida solo de los nombres. El job 4 **no es el único punto que escribe en las 20 tablas Oracle de §5.2**
+  `Load_Refinitiv_Response.wkf`, `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — ver §6.3) — ya no es una hipótesis
+  deducida solo de los nombres. El job 4 **no es el único punto que escribe en las 20 tablas Oracle de §6.2**
   cuando se considera la cascada completa, lo que matiza R4 tal y como estaba redactado.
 * **[NUEVO, prioridad media-alta, DEFECTO CONFIRMADO con `LoaderProcess.java` real, 2026-10-01] `FT_T_VREQ`
   puede marcarse `PROCESSED` sin haberse cargado nada:** `setVreqStatus()` marca `PROCESSED` siempre que el
   estado actual no sea ya literalmente `'FAILED'`, **sin comprobar en ningún momento si las 3 cargas
-  (`loadProcessStatus`) realmente se ejecutaron o tuvieron éxito** — ver §5.2. Un fallo de lectura de fichero
+  (`loadProcessStatus`) realmente se ejecutaron o tuvieron éxito** — ver §6.2. Un fallo de lectura de fichero
   (p. ej. `Emisores*.txt` ausente o no encontrado) o no encontrar exactamente 3 ficheros en la carpeta deja la
   solicitud marcada como procesada con éxito aunque no se haya cargado una sola fila. Solo se evita si el
   propio workflow invocador marcó `FAILED` por otra vía antes (p. ej. "file not found" en
-  `Refinitiv_Request_Response.wkf`, §5.3) — no cubre el caso de fichero presente pero ilegible/incompleto. Ver
+  `Refinitiv_Request_Response.wkf`, §6.3) — no cubre el caso de fichero presente pero ilegible/incompleto. Ver
   TC-011.
 * **[NUEVO, no bloqueante, deducido de código ya confirmado de `GSProcess.sh`] Los parámetros `idType`/
   `requestType`/`vreqOid` de los jobs 5/6 llegarían al workflow por un efecto colateral de los arrays
   `clave[]`/`valor[]` no limpiados entre bloques `Accion`, no por un mecanismo explícito para campos
-  personalizados — ver §5.3. El campo `id=MULTI` no sobrevive (se sobrescribe), posible parámetro perdido sin
+  personalizados — ver §6.3. El campo `id=MULTI` no sobrevive (se sobrescribe), posible parámetro perdido sin
   efecto confirmado.
 * **[No confirmado] Función exacta del job 2:** el documento describe la función de `MEKYTL10{80|81}` como
   "probable control de seguridad/red antes de exponer el fichero" — lenguaje explícitamente hedged, no una
@@ -517,31 +598,31 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 * **[Resuelto, 2026-10-01] Mapeo campo a campo de Emisores/Subyacentes/Derivados, incluidas las tablas
   satélite del Grupo C:** `UnderlyingService.java`/`ListedDerivativesService.java`/`DerivativesProcessor.java`
   reales confirman que los 3 campos de `Subyacentes*.txt` son exactamente los que `UnderlyingService`
-  necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §5.2). Único resto:
+  necesita, y el mapeo campo→columna completo de las 11 tablas satélite del Grupo C (ver §6.2). Único resto:
   una muestra de contenido real de `Emisores*.txt` (su estructura — un `orgId` por línea — ya está confirmada
   por código).
 * **[Resuelto, 2026-10-01] Las 5 tablas del Grupo E quedan atribuidas al 100%:** `FT_T_FINR` **sí se escribe**
   — no desde el jar, sino desde el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` vía un mensaje JMS
   (`AltaRolEmisor`) que da de alta el rol `ISSUER`; `FT_T_FIRL`/`FT_T_GUNT` se **leen** (resolución de
   grupo/matriz y geolocalización, respectivamente) pero nunca se escriben; `FT_T_FRID`/`FT_T_REP1` no tienen
-  ninguna referencia (ni lectura ni escritura) en ningún código ni workflow inspeccionado — ver §5.2/TC-015.
+  ninguna referencia (ni lectura ni escritura) en ningún código ni workflow inspeccionado — ver §6.2/TC-015.
 * **[Riesgo no bloqueante] Job 1 sin script propio documentado:** la recogida SFTP desde Refinitiv no tiene
   un `.sh` propio identificado — se describe solo a partir de fichas/capturas de Control-M, no de código
   fuente real, a diferencia del resto de jobs de la cadena.
 * **[Confirmado, no un riesgo — diseño intencional] Solicitud sin estado terminal ante una ETF gestionada por
   fondo:** `Load_Refinitiv_Response.wkf` (rama `issueRequest`/job 5) omite deliberadamente
   `FT_T_VREQ=PROCESSED` si el flag `IS_EXTF` (confirmado en `Refinitiv_Bloomberg_AltaRolEmisor.wkf`, ver
-  §5.3) vale `"Y"` — ocurre cuando al menos una entidad del lote es una ETF con rol de gestora de fondos
+  §6.3) vale `"Y"` — ocurre cuando al menos una entidad del lote es una ETF con rol de gestora de fondos
   activo; no recibe alta de rol `ISSUER` por este mecanismo. Confirmado como diseño, no como defecto.
 * **[NUEVO, no bloqueante, 2026-10-01] `FT_T_SWCH` se crea para todos los tipos de derivado, no solo
   swaps:** a diferencia de `FT_T_OPCH` (condicionado a `issTyp=="OPTIONS"`), `DerivativesProcessor` procesa
   `FT_T_SWCH` incondicionalmente — una opción o un futuro sin divisas nocionales ESMA recibe igualmente una
   fila `FT_T_SWCH` con esos 2 campos a `null`. Confirmado por código, asimetría de diseño respecto a `FT_T_OPCH`.
 
-### 8.2 Fuera de alcance
+### 9.2 Fuera de alcance
 
 * **Consumidor real del mensaje JMS `AltaRolEmisor`** (invocado por `Refinitiv_Bloomberg_AltaRolEmisor.wkf`
-  para dar de alta el rol `ISSUER` en `FT_T_FINR`, ver §5.3/§5.2) — el disparo, el payload XML y la condición
+  para dar de alta el rol `ISSUER` en `FT_T_FINR`, ver §6.3/§6.2) — el disparo, el payload XML y la condición
   de guarda están confirmados; el `INSERT` SQL final lo ejecuta un servicio externo (presumiblemente un
   ESB/motor de gestión de terceros compartido en BBVA, no propio de este proceso), fuera de alcance.
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
@@ -554,7 +635,7 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   alcance de este análisis.
 * **Generación del fichero en la plataforma Refinitiv** (proveedor externo).
 
-## 9. Conclusión
+## 10. Conclusión
 
 El proceso queda documentado con alta confianza en su topología (2 cadenas de 7 pasos cada una), su script de
 carga común (pipeline de 5 pasos, con la diferencia real de segmentación DAILY/WEEKLY) y el catálogo completo
@@ -584,18 +665,18 @@ resto** (el sub-workflow `Load_Refinitiv_Response`): se confirma con código rea
 los jobs 5/6 lanzan una solicitud nueva a Refinitiv con el mismo cliente `RDR_Refinitiv_Request.jar` ya
 confirmado en el proceso hermano, y que el job 6 (`OPTIONS_FUTURES_ENRICHMENT`) reutiliza literalmente el
 pipeline de 3 jars del job 4 (`refinitivFilter.jar`→`openFigiEnricher.jar`→`refinitivDerivativesLoader.jar`)
-sobre la respuesta recién recibida — ver §5.3. **TC-016 avanza parcialmente:** la estructura real de
+sobre la respuesta recién recibida — ver §6.3. **TC-016 avanza parcialmente:** la estructura real de
 `Subyacentes*.txt` (3 campos) y `Derivados_Enriquecido.txt` (45 campos) queda documentada con correlación
-cruzada verificada entre ambos ficheros (§5.6), pero el mapeo exacto a columna Oracle sigue sin confirmar —ya
+cruzada verificada entre ambos ficheros (§6.6), pero el mapeo exacto a columna Oracle sigue sin confirmar —ya
 no por falta de muestra, sino por falta del código fuente de los 3 servicios de carga— y la estructura de
 `Emisores*.txt` sigue sin ninguna muestra real. Hallazgo nuevo no bloqueante: el formato de 3 campos de
 `Subyacentes*.txt` es más estrecho de lo esperable para alimentar directamente las 3 tablas del Grupo B, con
-2 hipótesis abiertas sin confirmar (ver §5.6).
+2 hipótesis abiertas sin confirmar (ver §6.6).
 
 **Ronda adicional (2026-10-01, tercera del día):** el usuario aportó las 5 entidades JPA reales (`.java`
 decompilados) del Grupo E: `FT_T_FINR`, `FT_T_FIRL`, `FT_T_FRID`, `FT_T_GUNT`, `FT_T_REP1`. **TC-015 avanza
 parcialmente, sin cerrarse:** confirma con fuente real (no solo bytecode resumido) el catálogo completo de
-columnas de las 5 tablas (§5.2) y añade detalle nuevo (referencias cruzadas por columna entre
+columnas de las 5 tablas (§6.2) y añade detalle nuevo (referencias cruzadas por columna entre
 `FT_T_FINR`↔`FT_T_FIRL`↔`FT_T_FRID`↔`FT_T_GUNT`, jerarquía geográfica propia de `FT_T_GUNT`, columnas de
 `FT_T_REP1` compatibles con una fila de configuración de informe por `PROCESO` — hipótesis razonable, no
 confirmada). **Hallazgo de esta ronda:** ninguna de las 5 clases declara `@OneToMany`/`@ManyToOne` — descarta
@@ -624,7 +705,7 @@ esta ronda se cierran TC-014, TC-015 y TC-016 casi por completo:**
 * **TC-014 — cerrado al 100% salvo un resto mínimo:** `Load_Refinitiv_Response.wkf` confirma que la rama
   `issueRequest`/job 5 carga la respuesta vía el motor genérico "Standard File Load" de GoldenSource (no el
   jar Java), comprueba errores reales en `FT_T_NTEL`, genera alertas en `TABLEALERTGENER` ante fallo, y
-  además asocia mercados (MIC) a las emisiones nuevas vía un segundo fichero/sub-workflow — ver §5.3. Único
+  además asocia mercados (MIC) a las emisiones nuevas vía un segundo fichero/sub-workflow — ver §6.3. Único
   resto: el sub-workflow `Refinitiv_Bloomberg_AltaRolEmisor` (bajo impacto, ya se conoce su rol).
 * **TC-015 — cerrado:** los 4 ficheros Java confirman que **ninguno** de los 4 componentes que forman el
   100% de `refinitivDerivativesLoader.jar` importa, consulta o escribe ninguna de las 5 tablas del Grupo E —
@@ -633,10 +714,10 @@ esta ronda se cierran TC-014, TC-015 y TC-016 casi por completo:**
 * **TC-016 — resuelto para Emisores/Subyacentes/Derivados:** `IssuersService`/`UnderlyingService` confirman
   con código real la estructura exacta de `Emisores*.txt` (un `orgId` por línea) y `Subyacentes*.txt` (los 3
   campos ya observados en la muestra son los únicos que el servicio necesita — cierra la pregunta abierta de
-  §5.6), y `ListedDerivativesService` resuelve por nombre real la mayoría de los 45 campos de
+  §6.6), y `ListedDerivativesService` resuelve por nombre real la mayoría de los 45 campos de
   `Derivados_Enriquecido.txt`. Solo queda `DerivativesProcessor` para el mapeo campo→columna de las tablas
   satélite del Grupo C.
-* **2 correcciones importantes al catálogo de §5.2:** `IssuersService` no crea `FT_T_FINS` (debe preexistir;
+* **2 correcciones importantes al catálogo de §6.2:** `IssuersService` no crea `FT_T_FINS` (debe preexistir;
   solo escribe `FT_T_ISSR`), y `UnderlyingService` no escribe `FT_T_MKIS` (solo lectura; solo escribe
   `FT_T_ISSU`/`FT_T_ISID`) — ambas corrigen la descripción "fichero → 2-3 tablas" por una más precisa de
   qué tabla se lee y cuál se escribe realmente.
@@ -659,7 +740,7 @@ puntos que quedaban pendientes (`DerivativesProcessor.java`, `Refinitiv_Bloomber
 línea sintética de prueba para el swap de TC-010.
 
 * **`DerivativesProcessor.java` real** resuelve el mapeo campo→columna completo de las 11 tablas satélite del
-  Grupo C (ver §5.2): `FT_T_ISDE`/`FT_T_ISGU`/`FT_T_FECH`/`FT_T_UWCH`/`FT_T_SWCH`/`FT_T_MKIS`/`FT_T_RIDF`/
+  Grupo C (ver §6.2): `FT_T_ISDE`/`FT_T_ISGU`/`FT_T_FECH`/`FT_T_UWCH`/`FT_T_SWCH`/`FT_T_MKIS`/`FT_T_RIDF`/
   `FT_T_RISS`/`FT_T_RGCH` se procesan siempre, `FT_T_OPCH` solo para opciones, `FT_T_FNCH` solo si el dato
   llega informado, `FT_T_IEDF` solo en alta con valores constantes. Corrige una asunción anterior: `FT_T_MKIS`
   sí se escribe, pero desde aquí, no desde `UnderlyingService`. Revela una asimetría de diseño confirmada:
@@ -676,7 +757,7 @@ línea sintética de prueba para el swap de TC-010.
 * **Línea sintética de swap para TC-010:** el usuario aportó
   `SWAP_TC-010_LINEA_SINTETICA.txt`, una línea de prueba de tipo `SWAP` para cubrir el hueco de la muestra
   real (que no traía ningún swap). **Nota de calidad del dato:** la línea tiene 43 campos `|`-delimitados,
-  no los 45 confirmados como ancho real de `Derivados_Enriquecido.txt` en la muestra de producción (§5.6) —
+  no los 45 confirmados como ancho real de `Derivados_Enriquecido.txt` en la muestra de producción (§6.6) —
   antes de usarla en TC-010 conviene ajustarla a 45 campos (añadiendo 2 campos vacíos finales) para que
   coincida exactamente con el formato real que `ListedDerivativesService`/`DerivativesProcessor` esperan.
 

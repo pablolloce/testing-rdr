@@ -234,8 +234,12 @@ informa de los fallos.
 | `rdr_duco_cpty` | `OtherEntities` | `DUCOCPTY` |
 | `extraccion_generica_contrapartidas`, `extracciones_adhoc_ctpdas_fircosoft_sire` | `CPTY` (tipo `CPARTY`) y `OtherEntities` (`THIRDPARTIES`) | |
 | `rdr_extraccion_ducomasterdata` | `Unificada` | `DUCOMASTERDATA` |
-| `extraccion_emisiones_mercados` | `EMISI` (tipo `RESTO` y otros) | |
+| `rdr_issues_re_pro_new` | `EMISI` (tipos `ALL` y `RESTO`) | |
+| `rdr_carga_refinitiv_multi` | `EMISI` (tipo `RESTO`) | |
 
 `extraccion_sait_contratos` y `legal_agreements_p062` mencionan estos jars solo como candidatos. Su
 fichero `KYTL_RDR_EXTRACTION_contratos_*.xml` lo genera el **Planificador Genérico** (filas 9 y 20 de
 su inventario).
+
+`extraccion_emisiones_mercados` no ejecuta `EMISI`: cuenta los ficheros que generan `rdr_issues_re_pro_new`
+y `rdr_carga_refinitiv_multi`.
