@@ -52,9 +52,10 @@ ANS RDR.
 * **Ámbito técnico:** las 2 cadenas Control-M completas (`KYTL001D...`/`KYTL001P...`, 7 pasos cada una), el
   script `Refinitiv_Derivados_Batch.sh` y el jar `refinitivDerivativesLoader.jar`.
 * **Fuera de alcance** (detalle completo en §8.2): la generación del fichero en la plataforma Refinitiv
-  (proveedor externo); el contenido campo a campo de los 3 `.properties` de los jobs GSProcess finales; la
-  atribución exacta de 5 tablas satélite a su servicio de escritura; el mapeo campo a campo del fichero
-  origen `.txt` de Refinitiv a columna Oracle; el algoritmo interno del servicio externo OpenFigi.
+  (proveedor externo); el contenido nodo a nodo del workflow `Refinitiv_Request_Response` (invocado por los
+  jobs 5/6, `.properties` ya confirmados — ver §5.3); la atribución exacta de 5 tablas satélite a su servicio
+  de escritura; el mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle; el algoritmo
+  interno del servicio externo OpenFigi.
 
 ## 3. Requisitos detectados
 
@@ -64,9 +65,9 @@ ANS RDR.
 | R2 | `MEKYTL10{80\|81}` (`MEGENV0001.sh`, `Param1=MEKYTL10{80\|81}`) debe reenviar el fichero recibido hacia la pasarela `lpftp501:/unload/transmisiones/KYTL/`. |
 | R3 | `MEKYTL10{80\|81}_DEL` (comando OS, usuario `root`, host `lpftp501`) debe borrar el fichero ya transmitido en la pasarela (`rm *.REF.*.*.[0-9].txt.zip` en D, `rm *.INT.*.*.[0-9].txt.zip` en P). |
 | R4 | `REFINITIV_DERIVADOS_CARGA_{D\|P}` (usuario `xakytl1p`, host `pr-rdr.igrupobbva`) debe ejecutar `Refinitiv_Derivados_Batch.sh` con parámetro `DAILY` (cadena D) o `WEEKLY` (cadena P), ejecutando el pipeline de 5 pasos (§5.2) que filtra, enriquece y carga en Oracle Emisores, Subyacentes y Derivados. **Es el único job de toda la cadena que escribe en base de datos.** |
-| R5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_issues`) debe enriquecer los subyacentes de tipo "emisión simple" ya cargados por el job 4. Contenido exacto no confirmado (§8.2). |
-| R6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_futures`) debe enriquecer los subyacentes de tipo futuro/derivado. Contenido exacto no confirmado (§8.2). |
-| R7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_{D\|P}` (`GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV`) debe generar el reporte/alertas de cierre de la ejecución, como último paso de la cadena. |
+| R5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_issues`, `.properties` real confirmado) debe invocar el workflow GoldenSource **`Refinitiv_Request_Response`** con `idType=UNDLY`, `requestType=issueRequest`, `vreqOid=UNDLY_ISSUES_ENRICHMENT`. Ver desglose real en §5.2. |
+| R6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_futures`, `.properties` real confirmado) debe invocar el **mismo workflow `Refinitiv_Request_Response`** que R5, con `idType=OPTFUT`, `requestType=optionsfuturesRequest`, `vreqOid=OPTIONS_FUTURES_ENRICHMENT`. Ver desglose real en §5.2. |
+| R7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_{D\|P}` (`GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV`, `.properties` real confirmado) debe instanciar el motor genérico de alertas **`GestionAlertas`** (ya confirmado en otros procesos de este audit) filtrado por el proceso `DERIVADOS_REFINITIV`, como último paso de la cadena. Ver desglose real en §5.3. |
 | R8 | `comprobarError()` (dentro de `Refinitiv_Derivados_Batch.sh`) debe tratar como "no hay ficheros que procesar" (warning o exit tolerante, según flag `EXIT`/`NOEXIT`) los mensajes `"No zipfiles found"`/`"No such file or directory"`; cualquier otro error debe registrar log de error y terminar con `exit -1`. |
 | R9 | En modo `DAILY`, el script debe segmentar el fichero en hasta 96 partes y repetir el pipeline de 5 pasos por segmento; en modo `WEEKLY`, debe ejecutar una pasada única sin segmentación. |
 
@@ -137,7 +138,66 @@ ANS RDR.
     fuente especula que podrían escribirse vía relaciones `@OneToMany`/cascada desde `FT_T_FINS`/`FT_T_ISGU`,
     sin confirmarlo — se documenta como hipótesis, no como hecho verificado (ver §8.2).
 
-### 5.3 Comparativa D vs P
+### 5.3 Jobs 5 y 6 (enriquecimiento) — `.properties` reales confirmados, corrigen la hipótesis del documento fuente
+
+Los `.properties` reales de ambos jobs (aportados esta ronda) muestran una estructura mínima, idéntica entre
+ambos salvo 3 valores: un bloque `Accion=VariablesGlobales` seguido de un único `Accion=Evento`
+(`NomEvento=Workflow`, `NomWorkflow=Refinitiv_Request_Response`). **Esto refuta la descripción del documento
+fuente** ("Enriquece los datos de subyacentes... ya cargados por el job 4", como si fuera un paso interno de
+GoldenSource sobre datos ya cargados): el nombre del workflow invocado, **`Refinitiv_Request_Response`**, y el
+campo `vreqOid` (que coincide literalmente con la nomenclatura ya confirmada de `FT_T_VREQ`, *Vendor
+Request*), apuntan en cambio a que estos 2 jobs **disparan una nueva solicitud a Refinitiv** (de ahí
+"Request/Response"), no una pasada de enriquecimiento puramente interna — hipótesis razonable a partir de la
+evidencia, pendiente de confirmar al 100% con el propio workflow `Refinitiv_Request_Response.wkf` (no
+aportado).
+
+* **`Refinitiv_Undly_Enrichment_issues.properties`:** `MOD_EJECUCION=Refinitiv_Request_Response` (sobrescribe
+  el nombre de job original en el bloque `Vari`), `id=MULTI`, `idType=UNDLY`, `requestType=issueRequest`,
+  `vreqOid=UNDLY_ISSUES_ENRICHMENT`.
+* **`Refinitiv_Undly_Enrichment_futures.properties`:** misma estructura, `idType=OPTFUT`,
+  `requestType=optionsfuturesRequest`, `vreqOid=OPTIONS_FUTURES_ENRICHMENT`.
+* **Ambos invocan el mismo workflow `Refinitiv_Request_Response`**, diferenciado únicamente por estos 3
+  parámetros — confirma de forma concreta que issues/futures comparten un único motor genérico de
+  solicitud/respuesta a Refinitiv, parametrizado por tipo.
+* **Hallazgo de código [confirmado por relectura del `Control()` de `GSProcess.sh` ya verificado en este
+  audit, aplicado a estos 2 ficheros — deducción lógica de código confirmado, no observada en una ejecución
+  real]:** ni `id`, `idType`, `requestType` ni `vreqOid` coinciden con ninguno de los patrones que el bloque
+  `Vari` de `GSProcess.sh` reconoce explícitamente (`MOD_E`/`Busin`/`Succe`/`Messa`/`Ruta`/`File`/`Servi`/
+  `Tipo`/`TipoC`/`TipoF`/`Tipol`/`Pagin`/`Stop`) — en principio quedarían descartados por ese bloque. Sin
+  embargo, los arrays `clave[]`/`valor[]` de `GSProcess.sh` **no se limpian entre bloques `Accion`**: como el
+  bloque `Vari` (5 elementos: `MOD_EJECUCION`, `id`, `idType`, `requestType`, `vreqOid`) tiene más elementos
+  que el bloque `Evento` siguiente (2 elementos: `NomEvento`, `NomWorkflow`), los 3 últimos elementos del
+  bloque `Vari` (`idType`, `requestType`, `vreqOid`, en los índices 2-4) **quedan como residuo no limpiado** y
+  el bucle `for element in ${clave[@]}` del caso `"Even"` los vuelve a recorrer, añadiéndolos literalmente al
+  `.properties` temporal generado para el workflow (`echo "$element=${valor[$j]}" >> $PropertiesWorkflow`) —
+  es decir, **sí llegarían al workflow `Refinitiv_Request_Response`, pero por un efecto colateral de los
+  arrays no limpiados, no por un mecanismo explícito del script para campos personalizados**. El campo `id`
+  (índice 1) no sobrevive, porque el bloque `Evento` sí sobrescribe ese índice con `NomWorkflow` — posible
+  parámetro perdido, no confirmado si tiene efecto real (ver TC-017).
+
+### 5.4 Job 7 (reporte/alertas) — `.properties` real confirmado: es el motor genérico `GestionAlertas`
+
+El `.properties` real de `GestionAlertas_DERIVADOS_REFINITIV` (aportado esta ronda) usa el mecanismo
+`Accion=Property` de `GSProcess.sh` (función `Property()`, ya confirmada con código real en este audit):
+copia la plantilla genérica **`GestionAlertas.properties`** (la misma plantilla ya confirmada en
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GestionAlertas.properties`, usada por otros procesos de
+este mismo audit) a un fichero temporal, y sustituye el literal `PROCESOS` por `DERIVADOS_REFINITIV`
+(`ArgProp2=PROCESOS-DERIVADOS_REFINITIV`, vía `sed -i "s/PROCESOS/DERIVADOS_REFINITIV/g"`), antes de
+reinvocar `GSProcess.sh` sobre el fichero ya sustituido. **Esto corrige/precisa la hipótesis hedged del
+documento fuente** ("es muy probable que lea FT_T_ALD1/FT_T_ALG1... y FT_T_VREQ... y posiblemente FT_T_REP1"):
+el mecanismo real, ya confirmado en otro proceso de este mismo audit (`kytl001d_ratings_ada`), es:
+
+1. **`GestionAlertas_BarridoAlertas`** (`RDR_AlertasBarrido.jar`, clase `main.Ppal`, `ArgJava3=DERIVADOS_REFINITIV`
+   tras la sustitución) — barre las alertas pendientes filtradas por el proceso `DERIVADOS_REFINITIV`.
+2. **`GestionAlertas_cocinado`** (`RDR_AlertasCocinado.jar`, clase `main.Ppal`, librerías Apache POI,
+   `ArgJava3=DERIVADOS_REFINITIV`) — genera el informe (Excel/BODY) de esas alertas.
+3. **`Workflow(RDR_AlertasEnvio)`** — envía el informe por correo.
+
+No se ha decompilado en esta ronda el contenido exacto de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
+(motor genérico, ya tratado como tal en otros procesos de este audit), pero la estructura y el parámetro de
+filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real — ya no es una hipótesis.
+
+### 5.5 Comparativa D vs P
 
 | Aspecto | D (Diaria) | P (Semanal) |
 |---|---|---|
@@ -178,19 +238,30 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 | `conflicto_integridad` | `FT_T_VREQ.VND_RQST_STAT_TYP` se marca "procesado" únicamente tras completar las 3 cargas (Emisores+Subyacentes+Derivados), no antes. | TC-011 |
 | `error_funcional` | Un fallo durante la carga hace que `ExceptionService` escriba en `FT_T_ALD1`/`FT_T_ALG1`, reflejado después en el reporte del job 7. | TC-012 |
 | `error_funcional` | Un fallo del servicio externo OpenFigi (paso 4 del pipeline) se trata como "cualquier otro error" — log de error + `exit -1`, detiene la carga. | TC-013 |
-| `negativo` | Contenido real de los 3 `.properties` de los jobs GSProcess (issues/futures/alertas) — pendiente de evidencia, no ejecutable hasta aportarla. | TC-014 |
+| `negativo` | Contenido nodo a nodo del workflow `Refinitiv_Request_Response` (invocado por los jobs 5/6) — pendiente de evidencia, no ejecutable hasta aportarla. | TC-014 |
 | `negativo` | Atribución real del punto de escritura de las 5 tablas del Grupo E (`FT_T_FINR`/`FT_T_FIRL`/`FT_T_FRID`/`FT_T_GUNT`/`FT_T_REP1`) — pendiente de evidencia, no ejecutable hasta aportarla. | TC-015 |
 | `negativo` | Mapeo campo a campo del fichero origen `.txt` de Refinitiv a columna Oracle — pendiente de una muestra real de fichero, no ejecutable hasta aportarla. | TC-016 |
+| `conflicto_integridad` | Los parámetros `idType`/`requestType`/`vreqOid` de los jobs 5/6 llegan realmente al workflow `Refinitiv_Request_Response` (confirmar el efecto colateral de arrays deducido en §5.3 con un log/traza real). | TC-017 |
+| `happy_path` | El job 7 ejecuta correctamente el motor genérico `GestionAlertas` filtrado por `DERIVADOS_REFINITIV` (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`). | TC-018 |
 
 ## 8. Riesgos, decisiones documentadas y fuera de alcance
 
 ### 8.1 Riesgos
 
-* **[No confirmado, lenguaje hedged por el propio documento fuente] Lectura real del job 7:** el documento
-  fuente afirma que el job de reporte/alertas "es muy probable" que lea `FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ` y
-  "posiblemente" use `FT_T_REP1` como plantilla — esto es una hipótesis razonada por el propio documento a
-  partir del análisis del jar, no una confirmación directa del contenido del `.properties` de ese job (que
-  no está disponible). No se debe tratar como un hecho confirmado al diseñar pruebas sobre este job.
+* **[Resuelto con `.properties` real, 2026-10-01] Job 7 es el motor genérico `GestionAlertas`, no una lectura
+  directa de `FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ`/`FT_T_REP1`:** la hipótesis hedged del documento fuente
+  queda sustituida por el mecanismo real confirmado en §5.4 (`BarridoAlertas`→`Cocinado`→`AlertasEnvio`,
+  filtrado por `DERIVADOS_REFINITIV`) — ya no es una suposición.
+* **[NUEVO, prioridad media, deducido de código ya confirmado] Jobs 5/6 probablemente disparan una nueva
+  solicitud a Refinitiv, no un enriquecimiento puramente interno:** el workflow real invocado,
+  `Refinitiv_Request_Response`, y el campo `vreqOid` (coincide con la nomenclatura de `FT_T_VREQ`) contradicen
+  la descripción del documento fuente de estos 2 jobs como enriquecimiento de "datos ya cargados" — ver §5.3.
+  Pendiente de confirmar al 100% con `Refinitiv_Request_Response.wkf` (no aportado).
+* **[NUEVO, no bloqueante, deducido de código ya confirmado de `GSProcess.sh`] Los parámetros `idType`/
+  `requestType`/`vreqOid` de los jobs 5/6 llegarían al workflow por un efecto colateral de los arrays
+  `clave[]`/`valor[]` no limpiados entre bloques `Accion`, no por un mecanismo explícito para campos
+  personalizados — ver §5.3. El campo `id=MULTI` no sobrevive (se sobrescribe), posible parámetro perdido sin
+  efecto confirmado.
 * **[No confirmado] Función exacta del job 2:** el documento describe la función de `MEKYTL10{80|81}` como
   "probable control de seguridad/red antes de exponer el fichero" — lenguaje explícitamente hedged, no una
   confirmación del propósito real de la pasarela intermedia.
@@ -208,9 +279,12 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 
 ### 8.2 Fuera de alcance (sin material propio aportado)
 
-* **Contenido campo a campo de los 3 `.properties`** de los jobs GSProcess finales
-  (`Refinitiv_Undly_Enrichment_issues`, `Refinitiv_Undly_Enrichment_futures`,
-  `GestionAlertas_DERIVADOS_REFINITIV`) — nombres confirmados, detalle interno no.
+* **Contenido nodo a nodo del workflow `Refinitiv_Request_Response`** (invocado por los jobs 5/6) — los
+  `.properties` que lo invocan ya están confirmados (§5.3), pero no su lógica interna: qué solicita realmente
+  a Refinitiv y cómo procesa la respuesta.
+* **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
+  tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
+  (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
 * **Atribución exacta de las 5 tablas del Grupo E** a un servicio/línea de código concreto — presentes en el
   jar, sin confirmación de bytecode del punto de escritura.
 * **Mapeo campo del fichero origen (`.txt` de Refinitiv) → columna Oracle** — no disponible (ficheros
@@ -224,8 +298,19 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 El proceso queda documentado con alta confianza en su topología (2 cadenas de 7 pasos cada una), su script de
 carga común (pipeline de 5 pasos, con la diferencia real de segmentación DAILY/WEEKLY) y el catálogo completo
 de 20 tablas Oracle con punto de escritura confirmado (grupos A-D), según las anotaciones JPA del bytecode
-del jar — descrito por el propio documento fuente como "verificado, no inferido". Quedan 3 huecos de evidencia
-genuinos, ya delimitados con precisión por el propio documento fuente y preservados aquí sin upgrade de
-confianza: el contenido de 3 `.properties`, la atribución de 5 tablas satélite (Grupo E), y el mapeo campo a
-campo del fichero origen. Ninguno de los 3 bloquea el cierre funcional de la especificación — el flujo
-completo, de principio a fin, está confirmado a nivel de fichero/tabla.
+del jar — descrito por el propio documento fuente como "verificado, no inferido".
+
+**Ronda adicional (2026-10-01):** el usuario aportó los 3 `.properties` reales de los jobs GSProcess finales
+(`Refinitiv_Undly_Enrichment_issues`, `Refinitiv_Undly_Enrichment_futures`, `GestionAlertas_DERIVADOS_REFINITIV`)
+— cierra gran parte del hueco de evidencia original. Corrige 2 hipótesis del documento fuente: (a) los jobs
+5/6 invocan un workflow `Refinitiv_Request_Response` (parametrizado por `idType`/`requestType`/`vreqOid`),
+muy probablemente disparando una nueva solicitud a Refinitiv en vez de enriquecer internamente datos ya
+cargados; (b) el job 7 es el motor genérico `GestionAlertas` ya confirmado en otros procesos de este audit
+(`BarridoAlertas`→`Cocinado`→`AlertasEnvio`, filtrado por `DERIVADOS_REFINITIV`), no una lectura directa de
+`FT_T_ALD1`/`FT_T_ALG1`/`FT_T_VREQ`/`FT_T_REP1` como hipotetizaba el documento original. Revela además un
+hallazgo de código (deducido, no observado en ejecución real): los parámetros de los jobs 5/6 llegarían al
+workflow por un efecto colateral de los arrays de `GSProcess.sh` no limpiados entre bloques, no por diseño
+explícito. Quedan 3 huecos de evidencia genuinos, ya delimitados con precisión y no bloqueantes: el contenido
+nodo a nodo del workflow `Refinitiv_Request_Response`, la atribución de 5 tablas satélite (Grupo E), y el
+mapeo campo a campo del fichero origen. Nuevos TC-017/TC-018; TC-014 ya no bloqueado para los jobs 5/6/7 (solo
+para el detalle interno de `Refinitiv_Request_Response.wkf`).

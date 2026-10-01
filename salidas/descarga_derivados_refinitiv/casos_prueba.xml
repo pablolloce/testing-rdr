@@ -268,22 +268,22 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-014" tipo="negativo">
-    <nombre>Contenido real de los 3 .properties de los jobs GSProcess finales</nombre>
-    <objetivo>Confirmar, una vez aportados los .properties reales de Refinitiv_Undly_Enrichment_issues, Refinitiv_Undly_Enrichment_futures y GestionAlertas_DERIVADOS_REFINITIV, qué actualizan exactamente estos 3 jobs campo a campo/tabla a tabla, y si el job de alertas realmente lee FT_T_ALD1/FT_T_ALG1/FT_T_VREQ/FT_T_REP1 como hipotetiza el documento fuente.</objetivo>
+    <nombre>Contenido nodo a nodo del workflow Refinitiv_Request_Response</nombre>
+    <objetivo>Confirmar, una vez aportado el workflow real Refinitiv_Request_Response.wkf (invocado por los jobs 5/6 con idType/requestType/vreqOid distintos), qué solicita realmente a Refinitiv y cómo procesa la respuesta — confirmando o refutando la hipótesis de §5.3 de que estos 2 jobs disparan una nueva solicitud, no un enriquecimiento puramente interno.</objetivo>
     <precondiciones>
-      <precondicion>Ficheros .properties reales de los 3 jobs GSProcess finales, aportados por el usuario.</precondicion>
+      <precondicion>Fichero real Refinitiv_Request_Response.wkf, aportado por el usuario.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Estado actual" valor="nombres de job confirmados, contenido interno no disponible"/>
+      <dato campo="Estado actual" valor=".properties de invocación confirmados (idType/requestType/vreqOid); contenido del workflow invocado no disponible"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Inspeccionar el contenido real de los 3 .properties una vez aportados.</paso>
-      <paso numero="2">Confirmar qué acciones/queries ejecuta cada job y sobre qué tablas.</paso>
-      <paso numero="3">Confirmar o refutar la hipótesis de §5.5 sobre la lectura de FT_T_ALD1/FT_T_ALG1/FT_T_VREQ/FT_T_REP1 por el job 7.</paso>
+      <paso numero="1">Inspeccionar el contenido real del workflow una vez aportado.</paso>
+      <paso numero="2">Confirmar si construye y envía una solicitud real a Refinitiv, o si opera solo sobre datos ya cargados en GoldenSource.</paso>
+      <paso numero="3">Confirmar qué hace con cada uno de los 3 parámetros (idType, requestType, vreqOid) y si usa FT_T_VREQ para rastrear la solicitud.</paso>
     </pasos>
-    <resultadoEsperado>Contenido real de los 3 jobs documentado con evidencia, cerrando el gap de §8.2.</resultadoEsperado>
-    <tipoValidacion>Inspección directa de los .properties reales.</tipoValidacion>
-    <criterioAceptacion>Contenido campo a campo documentado para los 3 jobs.</criterioAceptacion>
+    <resultadoEsperado>Contenido real del workflow documentado con evidencia, cerrando el gap de §8.2.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del workflow real.</tipoValidacion>
+    <criterioAceptacion>Lógica nodo a nodo documentada, hipótesis de §5.3 confirmada o refutada.</criterioAceptacion>
     <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
   </casoDePrueba>
 
@@ -324,6 +324,46 @@
     <tipoValidacion>Inspección de fichero real + código fuente de IssuersService/UnderlyingService/ListedDerivativesService.</tipoValidacion>
     <criterioAceptacion>Tabla de mapeo campo→columna completa para los 3 ficheros.</criterioAceptacion>
     <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="conflicto_integridad">
+    <nombre>Los parámetros idType/requestType/vreqOid llegan realmente al workflow Refinitiv_Request_Response</nombre>
+    <objetivo>Confirmar en ejecución real, mediante inspección del .properties temporal generado por GSProcess.sh (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) o de los logs del job, que los campos idType/requestType/vreqOid llegan efectivamente al workflow invocado, validando la deducción de código de §5.3 sobre los arrays clave[]/valor[] no limpiados entre bloques Accion.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a los logs de ejecución de GSProcess.sh (LOG_GENERICO) o al fichero .properties temporal generado durante una ejecución real de los jobs 5 o 6.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Job de prueba" valor="REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_D (issues)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_D y capturar el log de GSProcess.sh antes de que el fichero temporal se borre.</paso>
+      <paso numero="2">Confirmar si el .properties temporal generado (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) contiene las líneas idType=UNDLY, requestType=issueRequest, vreqOid=UNDLY_ISSUES_ENRICHMENT.</paso>
+      <paso numero="3">Confirmar si el campo id=MULTI aparece o no en el fichero temporal (se espera que no, por ser sobrescrito por NomWorkflow).</paso>
+    </pasos>
+    <resultadoEsperado>Confirmación de que idType/requestType/vreqOid llegan al workflow (validando la deducción de §5.3), y de que id no llega.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs/fichero temporal de una ejecución real.</tipoValidacion>
+    <criterioAceptacion>Contenido real del .properties temporal confirmado, coincidente o no con la deducción de código.</criterioAceptacion>
+    <posibilidadFallo>Si estos campos NO llegaran al workflow (contradiciendo la deducción de código), el workflow Refinitiv_Request_Response no tendría forma de distinguir una solicitud de issues de una de futures, salvo por otro mecanismo no identificado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="happy_path">
+    <nombre>El job 7 ejecuta correctamente el motor genérico GestionAlertas filtrado por DERIVADOS_REFINITIV</nombre>
+    <objetivo>Confirmar que REFINITIV_REPORTE_CARGA_DERIVADOS_{D|P} instancia correctamente la plantilla GestionAlertas.properties sustituyendo PROCESOS por DERIVADOS_REFINITIV, ejecuta BarridoAlertas (RDR_AlertasBarrido.jar) y Cocinado (RDR_AlertasCocinado.jar) filtrados por ese proceso, y envía el informe por correo vía el workflow RDR_AlertasEnvio.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1 alerta pendiente generada durante la carga (p. ej. por ExceptionService tras un fallo forzado, ver TC-012), etiquetada con el proceso DERIVADOS_REFINITIV.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Alerta de prueba" valor="1 alerta pendiente asociada al proceso DERIVADOS_REFINITIV"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar REFINITIV_REPORTE_CARGA_DERIVADOS_D con la alerta de prueba pendiente.</paso>
+      <paso numero="2">Confirmar en el log que el fichero temporal generado (GestionAlertas_DERIVADOS_REFINITIV_&lt;timestamp&gt;.properties) tiene ArgJava3=DERIVADOS_REFINITIV en ambos pasos Java (ya no PROCESOS).</paso>
+      <paso numero="3">Confirmar que se genera el informe (Excel/BODY) y que se envía el correo con el informe.</paso>
+    </pasos>
+    <resultadoEsperado>El job 7 ejecuta el motor genérico GestionAlertas correctamente filtrado por DERIVADOS_REFINITIV, generando y enviando el informe de alertas.</resultadoEsperado>
+    <tipoValidacion>Inspección de logs + fichero temporal generado + confirmación de correo recibido.</tipoValidacion>
+    <criterioAceptacion>ArgJava3=DERIVADOS_REFINITIV confirmado en el fichero temporal; informe generado y enviado.</criterioAceptacion>
+    <posibilidadFallo>Si el filtro no se aplicara correctamente, el informe podría incluir alertas de otros procesos o no incluir las de DERIVADOS_REFINITIV.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

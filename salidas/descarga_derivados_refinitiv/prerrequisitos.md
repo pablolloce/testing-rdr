@@ -25,9 +25,11 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-011 | Capacidad de forzar el fallo de una de las 3 cargas en entorno de test |
 | TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test |
 | TC-013 | Capacidad de simular la indisponibilidad del servicio externo OpenFigi en entorno de test |
-| TC-014 | Ficheros `.properties` reales de los 3 jobs GSProcess finales (no aportados aún) |
+| TC-014 | Fichero real `Refinitiv_Request_Response.wkf` (no aportado aún) |
 | TC-015 | Decompilación adicional del jar o trazas de BD de una ejecución real (no aportadas aún) |
 | TC-016 | Muestra real (o anonimizada) de los 3 ficheros de carga de Refinitiv (no aportada aún — se consumen/borran en producción) |
+| TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o al `.properties` temporal de una ejecución real de los jobs 5/6, antes de que se borre |
+| TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
 
 ## Entorno de ejecución
 
@@ -55,8 +57,12 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 - Classpath Java del script debe incluir `ojdbc8.jar` (driver Oracle) y `ConexionBD.jar` (conexión propia
   RDR) para que el paso 5 (`CargaDerivados`) pueda conectar a Oracle.
 - Acceso real al servicio externo **OpenFigi** (Bloomberg) para TC-001, TC-002, TC-013.
-- `.properties` de los 3 jobs GSProcess finales deben existir y estar correctamente parametrizados — su
-  contenido exacto no está confirmado (ver TC-014).
+- `.properties` reales de los 3 jobs GSProcess finales confirmados esta ronda:
+  `Refinitiv_Undly_Enrichment_issues`/`_futures` (invocan el workflow GoldenSource `Refinitiv_Request_Response`,
+  parametrizado por `idType`/`requestType`/`vreqOid`) y `GestionAlertas_DERIVADOS_REFINITIV` (instancia la
+  plantilla genérica `GestionAlertas.properties`, ya confirmada en otro proceso de este audit, filtrada por
+  `DERIVADOS_REFINITIV`) — ver `spec.md` §5.3/§5.4. Pendiente solo el contenido interno del propio workflow
+  `Refinitiv_Request_Response.wkf` (TC-014).
 
 ## Sistema de ficheros
 
@@ -70,12 +76,22 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 La cadena es estrictamente secuencial por eventos en ambos casos (D y P): job 1 (recogida SFTP) → job 2
 (transmisión a pasarela) → job 3 (limpieza) → job 4 (carga real, pipeline de 5 pasos) → job 5
 (enriquecimiento emisiones simples) → job 6 (enriquecimiento derivados/futuros) → job 7 (reporte/alertas,
-fin de cadena). Job 4 es el único punto de escritura en Oracle de toda la cadena. Ver `spec.md` §4/§5 para
-el detalle completo.
+fin de cadena). Job 4 es el único punto de escritura directa en Oracle de toda la cadena. Ver `spec.md` §4/§5
+para el detalle completo.
+
+- **Jobs 5/6 (confirmado con `.properties` real):** invocan el workflow compartido `Refinitiv_Request_Response`
+  — necesario para TC-014/TC-017 poder observar el `.properties` temporal generado
+  (`Refinitiv_Request_Response_<timestamp>.properties`) antes de que `GSProcess.sh` lo procese/limpie.
+- **Job 7 (confirmado con `.properties` real):** usa el mecanismo `Accion=Property` de `GSProcess.sh` para
+  instanciar la plantilla `GestionAlertas.properties` — necesario para TC-018 poder observar el fichero
+  temporal generado (`GestionAlertas_DERIVADOS_REFINITIV_<timestamp>.properties`) con el valor `ArgJava3`
+  sustituido.
 
 ## Entorno de pruebas
 
 El entorno de test/preproducción usado para TC-003 a TC-006, TC-011, TC-012 y TC-013 debe permitir simular
 ausencia/corrupción de fichero, fallos de conexión a Oracle, fallos de servicios externos (OpenFigi) y
 ficheros de tamaño controlado para la segmentación, sin impacto en la conexión SFTP real a Refinitiv ni en
-las tablas Oracle de producción (`KYTL_GC.*`).
+las tablas Oracle de producción (`KYTL_GC.*`). Para TC-017/TC-018, el entorno debe permitir capturar los
+ficheros `.properties` temporales de `GSProcess.sh` antes de que el propio script los borre (`rm $ficheroP`
+en la función `Property()`; el fichero del workflow se limpia de forma análoga).
