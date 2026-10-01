@@ -30,6 +30,27 @@ Dar de alta una extracción consiste en:
 Consecuencia: **lo que hace el motor en un entorno depende del contenido de esas tablas en ese
 entorno**, no del código. Dos entornos con el mismo jar pueden generar ficheros distintos.
 
+### 1.1 No confundir con la Extracción Genérica (`ExtraccionGenerica*.jar`)
+
+Hay **otro motor** que también guarda sus queries en `FT_T_ATE1`: los jars de Extracción Genérica
+(`ExtraccionGenericaOtherEntities.jar`, `ExtraccionGenericaCPTY.jar`), que generan las extracciones de
+contactos, SSIs, SCIs, contratos, cestas, terceros, etc. Funcionan distinto:
+
+| | Planificador Genérico | Extracción Genérica |
+|---|---|---|
+| Quién lo lanza | Él mismo decide, cada 30-60 min, qué toca según `FT_T_QPF1` | Un job de Control-M concreto de cada proceso, vía `GSProcess.sh` |
+| Qué filas de `FT_T_ATE1` usa | Las `ACTIVE` que tienen calendario `ACTIVE` en `FT_T_QPF1` | Las que tienen un `ACTION_NME` **escrito en el código** (`ExtraccionCONT.sql`, `ExtraccionContingenciaCONT.sql`…), **sin mirar `DATA_STAT_TYP` ni `FT_T_QPF1`** |
+| Parámetros de `FT_T_PAR1` | Sustitución de texto en la query | Etiqueta raíz (`ROOT_TAG`) o cabecera (`HEADER`) del fichero |
+
+Consecuencias:
+- Una fila de Extracción Genérica puede estar `INACTIVE` y seguir usándose. Por ejemplo,
+  `ExtraccionCONT.sql` consta como `INACTIVE` (última modificación 15/09/2025 por `BBVA:CUSTOMER`) y
+  el jar de contactos la sigue leyendo.
+- Si a una fila de Extracción Genérica se le añadiera un calendario `ACTIVE` en `FT_T_QPF1`, **el
+  Planificador la ejecutaría también**.
+- Al revisar `FT_T_ATE1` hay que saber de qué motor es cada fila: las 21 de §5 son del
+  Planificador. Las de Extracción Genérica están en `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md`.
+
 ## 2. Cómo se lanza
 
 | Elemento | Valor |
@@ -100,7 +121,12 @@ host (`LDORA605`), es decir, en `credentials.xml` `host2` es igual a `host`: **l
 error no tiene a dónde conmutar**.
 
 Base de datos: Oracle, servicio `BKYTL003`, host `LDORA605`, puerto `1525`, esquema/usuario
-`KYTL_GC`.
+`KYTL_GC`. El documento no dice de qué entorno es este fichero (P-PLA-01).
+
+Además, el código del módulo `ProjectDAO` trae sus propios ficheros de conexión por entorno:
+`database_de.properties`, `database_pp.properties` y `database_pr.properties`. **El de producción
+está vacío (0 bytes).** No se sabe si el motor usa estos ficheros o solo `planificador.properties`
+(pregunta P-PLA-06).
 
 ## 3. Las tablas de configuración (esquema `KYTL_GC`)
 
@@ -124,7 +150,7 @@ Base de datos: Oracle, servicio `BKYTL003`, host `LDORA605`, puerto `1525`, esqu
 | `QPF1_OID` | Identificador de la fila de calendario. Una extracción puede tener varias filas (varias horas) |
 | `ACT1_OID` | Extracción a la que pertenece |
 | `DATA_STAT_TYP` | Debe valer `ACTIVE` |
-| `QPF1_DAY` | Días de la semana como dígitos concatenados: `1`=lunes … `5`=viernes, `6`=sábado, `0`=domingo. `12345` = lunes a viernes; `23456` = martes a sábado; `0123456` = todos |
+| `QPF1_DAY` | Días de la semana como dígitos concatenados: `1`=lunes … `5`=viernes, `6`=sábado, `0`=domingo. `12345` = lunes a viernes; `23456` = martes a sábado; `0123456` = todos. El documento de análisis dice que `0` es "domingo **o día especial**", sin explicar qué es un día especial (pregunta P-PLA-07). Solo una extracción activa usa `0` sola (fila 20 de §5, la carga total de SAIT) |
 | `QPF1_HOUR` | Hora `HH:MM:SS` |
 | `START_TMS`, `END_TMS` | Vigencia (`END_TMS` vacío = indefinida) |
 | `LAST_CHG_TMS` | Según el análisis del código, la usa la comprobación de "ya ejecutada hoy" |
@@ -147,9 +173,15 @@ Base de datos: Oracle, servicio `BKYTL003`, host `LDORA605`, puerto `1525`, esqu
 
 En cada ejecución (`ProjectRunnableProcess.main` → `processPerformanceList`):
 
+0. `main()` arranca el contexto de Spring, que conecta las tres capas, y llama a
+   `processPerformanceList()`. Existe también un método `cleanSchedules()`, que el análisis nombra
+   pero no describe (pregunta P-PLA-08).
 1. Lee las filas `ACTIVE` de `FT_T_ATE1` y, para cada una, su calendario `ACTIVE` en `FT_T_QPF1`.
 2. `isScheduled()`: comprueba si el día de la semana y la hora actuales coinciden con el
-   calendario.
+   calendario. El análisis dice "solo si coinciden", pero el motor corre cada 30-60 minutos y las
+   horas configuradas tienen segundos (`07:01:00`), así que la comparación tiene que admitir algún
+   margen. Cuál es no se sabe: es la pregunta P-PLA-03, y de ella depende que una extracción se
+   ejecute o no.
 3. `hasBeenExecuted()`: comprueba si ya se ejecutó **hoy**, comparando solo la fecha (no la hora).
 4. Si procede, `replaceParametersSQLQuery()` sustituye en el texto de la query los parámetros
    `ACTIVE` de `FT_T_PAR1` con un reemplazo de texto simple (`String.replace()`, sin sentencias
@@ -162,9 +194,27 @@ En cada ejecución (`ProjectRunnableProcess.main` → `processPerformanceList`):
    error en el log y el fichero se entrega igualmente.**
 
 Arquitectura: tres módulos empaquetados en `ProjectMain.jar` —`ProjectDAO` (acceso a las tablas,
-paquete `com.bbva.project.dao`), `ProjectSQL` (ejecución y escritura, clase `QueryServiceImpl`,
-paquete `com.bbva.project.sql`) y `ProjectMain` (orquestación, Spring)—. Pool de conexiones
-Oracle UCP `ANAG_POOL_CONNECTION` con 8 conexiones mínimas, 24 iniciales y 34 máximas.
+paquete `com.bbva.project.dao`, con entidades `Performance` = `FT_T_ATE1`, `Schedule` = `FT_T_QPF1` y
+`Parameter` = `FT_T_PAR1`, mapeadas a mano desde JDBC), `ProjectSQL` (ejecución y escritura, clase
+`QueryServiceImpl`, paquete `com.bbva.project.sql`) y `ProjectMain` (orquestación, Spring)—. Pool de
+conexiones Oracle UCP `ANAG_POOL_CONNECTION` con 8 conexiones mínimas, 24 iniciales y 34 máximas.
+Los 20 hilos y el tamaño de página de 1.000 son constantes del código (`NUM_THREADS`, `PAGE_SIZE`):
+para cambiarlos hay que recompilar.
+
+**Coincidencias horarias del inventario (§5):** a las 21:50 coinciden 3 extracciones (filas 1, 10 y
+18) y a las 15:00 otras 3 (filas 3, 12 y 16). A las 04:45 solo una en cada día, porque las filas 9
+y 20 no comparten días. Si coinciden XML grandes, compiten por los 20 hilos y por las conexiones del
+pool.
+
+### 4.0 Discrepancias entre la wiki del proceso y el código (según el análisis)
+
+| Aspecto | Wiki | Código | Impacto |
+|---|---|---|---|
+| Frecuencia | Ventana de 30-60 min | El código no la fija: depende solo de Control-M | Bajo |
+| Número de hilos | No lo menciona | Fijo a 20, no configurable | Medio |
+| Validación XSD | No dice si bloquea | No bloquea: el XML inválido se entrega | Alto |
+| Parámetro `INACTIVE` | No lo menciona | No impide la ejecución | Medio |
+| Sustitución de parámetros | No explica cómo | `String.replace()`, sin sentencias preparadas | Alto |
 
 **Errores**: solo se escriben en el log del motor (`LOG.error`). No hay reintentos ni ninguna
 marca en base de datos de que una extracción haya fallado.
@@ -257,6 +307,9 @@ documento; cada spec de proceso que use una de ellas debe incluir su query o dec
 | R7 | Si `traducir_creden` falla, el Java usa la conexión de la ejecución anterior | Bajo |
 | R8 | Las dos direcciones de la conexión son el mismo host: la conmutación por error no aporta nada | Bajo (operativo) |
 | R9 | Límite de 20.000 filas en XML sin paginación explícita; no se sabe si trunca o falla | Medio |
+| R10 | Paginación por `ROWNUM`: cada página de 1.000 filas relanza la query. Si la query no tiene un `ORDER BY` que identifique cada fila de forma única, Oracle no garantiza el mismo orden en cada página y **puede repetir unas filas y perder otras**. Además, con tablas grandes, cada página recorre el resultado desde el principio | Alto si las queries no tienen `ORDER BY` único (no se ha recibido ninguna, §5) |
+| R11 | Varias extracciones a la misma hora (§4) compiten por los 20 hilos y las 34 conexiones | Medio |
+| R12 | Una fila de Extracción Genérica con calendario `ACTIVE` en `FT_T_QPF1` la ejecutaría también el Planificador (§1.1) | Medio |
 
 ## 7. Preguntas abiertas
 
@@ -267,6 +320,33 @@ documento; cada spec de proceso que use una de ellas debe incluir su query o dec
 | P-PLA-03 | ¿Cuál es la planificación exacta de `RDR_SW_PLANIFICADOR_new`? | Una extracción solo se ejecuta si el motor corre en su minuto: si la hora configurada (p. ej. `07:01:00`) no coincide con una ejecución del motor, no se sabe si `isScheduled()` la recoge en la siguiente |
 | P-PLA-04 | ¿Dónde escribe el motor su log y qué texto indica que una extracción ha ido bien? | Es la única forma de detectar fallos (R6) |
 | P-PLA-05 | ¿Qué pasa al superar las 20.000 filas en un XML sin paginación? | R9 |
+| P-PLA-06 | ¿Usa el motor los `database_<entorno>.properties` de `ProjectDAO` (el de producción está vacío) o solo `planificador.properties`? | Decide a qué base de datos se conecta en cada entorno |
+| P-PLA-07 | ¿Qué es el "día especial" que puede representar `0` en `QPF1_DAY`? | Afecta a la carga total de SAIT (fila 20) |
+| P-PLA-08 | ¿Qué hace `cleanSchedules()`? | Puede modificar o filtrar calendarios antes de decidir qué se ejecuta |
+| P-PLA-09 | ¿Tienen las 21 queries un `ORDER BY` que identifique cada fila de forma única? | R10: sin él, los ficheros de más de 1.000 filas pueden tener filas repetidas o perdidas |
+
+## 7.1 Cómo probarlo
+
+El motor no recibe argumentos: lo que ejecuta lo deciden las tablas. Para probar una extracción
+concreta sin esperar a su hora, se hace en un entorno de pruebas:
+
+1. Se inserta (o se copia) su fila en `FT_T_ATE1` con `DATA_STAT_TYP='ACTIVE'` y una ruta de
+   salida de pruebas en `URL_OUTPUT_FILE`.
+2. Se le da una fila `ACTIVE` en `FT_T_QPF1` con el día de hoy y una hora que coincida con la
+   próxima ejecución del motor. Antes hay que resolver P-PLA-03: sin saber el margen de
+   `isScheduled()`, no hay garantía de que se ejecute.
+3. Se lanza `RDRKYTL001` con `planifGenerico`, o se espera al ciclo.
+4. Se comprueban el fichero y el log del motor (P-PLA-04).
+5. Se relanza en el mismo día: no debe volver a ejecutarse (`hasBeenExecuted()`).
+
+Casos que cubren los riesgos:
+- una extracción con 3 horas el mismo día (P-PLA-02, R4);
+- una query de más de 1.000 filas sin `ORDER BY`, comparando el fichero con un `SELECT` directo
+  (R10);
+- un XML que no cumple su XSD (R2);
+- un parámetro de `FT_T_PAR1` en `INACTIVE` (R5);
+- un valor de parámetro con comillas simples (R3);
+- un XML de más de 20.000 filas (R9).
 
 ## 8. Procesos que lo usan
 
