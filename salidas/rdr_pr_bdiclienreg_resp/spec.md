@@ -609,8 +609,11 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
        "$FILES/AltaFondos/csv/altasmasivas.xml", "G", "IP"]` — **`args[2]="G"` confirma que en producción se
        invoca `GenerarXML_version2`, la versión correcta** (ver G6, cierra el hallazgo de prioridad máxima de
        toda la sesión). `args[1]` confirma también el nombre real del XML generado: `altasmasivas.xml`.
-     - `AltaFondos_CuadreCarga`: clase `main.Main` (no aportada), `args = ["2", "<ruta>/log4jAltaFondos.
-       properties"]` — mismo patrón de invocación que `Genera_csv`, sin argumentos de carpeta/canal.
+     - `AltaFondos_CuadreCarga`: clase `main.Main`, `args = ["2", "<ruta>/log4jAltaFondos.
+       properties"]` — mismo patrón de invocación que `Genera_csv`, sin argumentos de carpeta/canal. **Ahora
+       confirmado con el bytecode real del jar** (sin `.java` fuente ni decompilador disponibles en este
+       entorno; análisis vía `javap -v -p`, que recupera firmas de método y el texto SQL íntegro de cada
+       query desde el pool de constantes) — ver §6.9bis.
   2. **`Script`**: `$SCRIPT/Generico.sh <NombreScript> <args>`. **Confirmado con código real de
      `Generico.sh`** (funciones `Historificar`/`MoverFicheros` entre ~20 funciones auxiliares del fichero):
      - `Historificar(ARG1)`: parte `ARG1` en `nombre`+`extensión` (split por `.`), copia (`cp -f`) a
@@ -656,9 +659,75 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
   (o no hubiera) en ese momento. Solo al final, si `$Errores>0`, el job completo de Control-M queda marcado
   como fallido — después de haber ejecutado todo. Mismo mecanismo (motor compartido) en R6, R7 y R9, aunque
   sus `.properties` respectivos no se han aportado y podrían tener `Stop=Ok` en alguna línea.
-- **Gap abierto, no bloqueante:** sigue sin aportar el código de `main.Main` de `AltaFondos_CuadreCarga.jar`
-  (§6.10 solo cubre la clase de `AltaFondos_Genera_csv`, aunque ambas comparten nombre y patrón de invocación
-  idénticos, así que el mecanismo de fallo silencioso descrito ahí es extrapolable con alta confianza).
+### 6.9bis `AltaFondos_CuadreCarga.jar` — confirmado con bytecode real (sin `.java` fuente)
+
+Jar analizado: `AltaFondos_CuadreCarga.jar` (`main.Main`, `jdbc.QuerysStr`, `jdbc.QueryExec`,
+`peticiones.{Fondo,Peticion,Peticiones}`) —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_cuadrecarga/`. No se ha aportado el `.java`
+fuente ni hay decompilador disponible en este entorno; el análisis se apoya en el desensamblado de bytecode
+(`javap -v -p`, volcado completo en `AltaFondos_CuadreCarga_disassembly.txt`), que para esta clase recupera con
+certeza las firmas de método y el **texto SQL íntegro** de cada query (aparece como constante de cadena única
+en el pool de constantes) — alta confianza en datos/SQL/grafo de llamadas; no se ha trazado a nivel de
+instrucción cada rama aritmética más allá de lo descrito.
+
+- **Qué hace:** `main.Main` configura log4j/BBDD igual que `AltaFondos_Genera_csv` (§6.10) y llama a
+  `Peticiones.procesaPeticiones()`:
+  1. **`Peticiones.procesaPeticiones()`**: `selectPeticionesPosibles()` — busca peticiones padre `FT_T_VREQ`
+     (`VND_RQST_XREF_ID_CTXT_TYP='FILE_DATE'`, `STAT_TYP='ALTA_FONDOS_PEND'`) que tengan al menos una petición
+     hija `FundLEI` en `GENERATED_CSV_LINE` (el estado de salida OK de `AltaFondos_Genera_csv`, §6.10/§6.3) —
+     por cada una, instancia `Peticion` y llama a `procesaPeticion()`.
+  2. **`Peticion.procesaPeticion(oidPeticion)`**: marca la petición `FONDOS_CUADRANDO`/`ALTAFONDOS_CUADRE`;
+     `selectFundsPendientes(oidPeticion)` trae los fondos (`FundLEI`/`GENERATED_CSV_LINE`) de esa petición; por
+     cada uno instancia `Fondo` y llama a `procesaFondo()`, contando `oks`/`kos`. Al terminar: si `oks==0` →
+     marca la petición `FONDOS_CUADRE_KO`; **si `oks>=1` (aunque haya `kos>0`) → marca `FONDOS_CUADRE_OK`**, con
+     descripción `"<oks> fondos correctos. <kos> fondos incorrectos."` — **hallazgo de negocio:** un lote con
+     fondos sin casar junto a otros sí casados se marca globalmente `OK`, tolerancia de fallo parcial a nivel
+     de petición (ver caso de prueba).
+  3. **`Fondo.procesaFondo()`** (por fondo, identificado por su `VND_RQST_OID` y LEI): marca el fondo
+     `CUADRANDO_FONDO`/`ALTAFONDOS_CUADRE`; `selectFondosAtributos(vreqOid)` lee de `FT_T_UTD1` (clave
+     `UTD_EXT_ID`) los atributos `LEI_CODE`/`IDPETICION`/`MA_ROL`/`MA_AFC`/`NAME` ya guardados para esa
+     petición; `debeUsarCuadreConNombre(maRol, maAfc, name)` decide el tipo de cuadre — **confirmado a nivel de
+     bytecode: devuelve `true` solo si `"Y".equalsIgnoreCase(maRol)` Y `maAfc` tiene texto Y `name` tiene
+     texto** — en ese caso usa `cuadreByLEI(lei, name, conn)` (cuadre por LEI + nombre legal exacto), si no
+     `cuadreByLEI(lei, conn)` (solo LEI). Ambas variantes resuelven la **jerarquía de 3 niveles** de la
+     contraparte vía `FT_T_FIID`→`FT_T_FINS`→`FT_T_FIRL` (confirmado con el SQL completo): `GLOBAL` →
+     `LOCAL`/`CUSTOMER` → `OPERATIVE`/`CPARTY`, devolviendo `MNEM_GLO`/`FINSID_GLO`/`MNEM_LOC`/`FINSID_LOC`/
+     `MNEM_OPE`/`FINSID_OPE`.
+     - **Sin match** → log "No se ha encontrado contrapartida con el LEI" → marca el fondo `FUND_GENERATE_KO`
+       (vía `updateVREQDescripByOid`, con el mensaje de error como descripción) → `validFund=false`.
+     - **Con match** → persiste cada mnemónico/id resuelto como nuevo atributo en `FT_T_UTD1`
+       (`insertUTD1FundParam`, `DATA_SRC_ID='INVESTORSPLAN_FUNDS'`, saltando valores nulos sin error) y marca
+       el fondo **`FUND_LOADED`** ("Pendiente enriquecimiento") → `validFund=true`. **Este es exactamente el
+       estado que consume `RDR_AltaFondos_Enriquecimientos`** (§6.11) — confirma de punta a punta la
+       secuencia `CuadreCarga` (resuelve mnemónicos) → `Enriquecimientos`/`Autocalc_PARTY` (enriquece y marca
+       `GENERATED_FUND`, §6.13).
+     - **Aislamiento de fallo por fondo, confirmado a nivel de bytecode:** cualquier excepción durante
+       `procesaFondo()` se captura, se registra ("ERROR::Fallo al procesar la respuesta de alta de cliente
+       para el fondo.") y marca el fondo `FUND_GENERATE_KO` con el mensaje de la excepción como descripción —
+       no interrumpe el resto del lote ni de la petición.
+- **Hallazgo — corrige una hipótesis previa, código muerto confirmado:** `jdbc.QuerysStr`/`jdbc.QueryExec`
+  comparten el mismo prefijo de log `AltaFondos_RDR::QueryExec::...` que `clientelaBDI_Altas_response.jar`
+  (R6, §6.1) y contienen 3 métodos adicionales — `insertRLT1` (llama a
+  `{call PCK_GESTIONALERTAS.ADD_GESTIONALERTAS_MSG (?,?,?,?)}`, el mismo mecanismo genérico de alertas ya
+  confirmado en §6.14), `insertVREQ_BDIClient_Req` (crearía una petición `FT_T_VREQ` con contexto
+  `'CLIENTELABDI_ALTAS'`) y `getNewOid` — pero **ninguno de los 3 se invoca realmente en el grafo de llamadas
+  de `main.Main`/`Peticiones`/`Peticion`/`Fondo`** (confirmado buscando cada nombre en el bytecode de las 4
+  clases). Cruzando con el código fuente real de R6 (`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/
+  QuerysStr.java`), `CLIENTELABDI_ALTAS` sí se **lee** allí y `getNewOid` sí se **usa** allí — es decir, este
+  jar comparte código boilerplate (copy-paste) con el jar de R6, pero esos 3 métodos son **código muerto
+  dentro de `AltaFondos_CuadreCarga`**: (a) un fallo de cuadre (`FUND_GENERATE_KO`) **no dispara una alerta
+  `GestionAlertas` directamente** desde este jar (solo actualiza el estado en `FT_T_VREQ`; si llega a alertarse
+  depende del barrido por lotes ya documentado en §6.14); (b) **se descarta la hipótesis de que este jar cree
+  peticiones `CLIENTELABDI_ALTAS`** — esa inserción pertenece al código vivo de R6, no a este jar.
+- **Qué recibe/produce:** sin parámetros de entrada propios (arranca con la query interna de peticiones
+  pendientes); produce las transiciones de estado `FT_T_VREQ` descritas arriba (`FONDOS_CUADRANDO`→
+  `FONDOS_CUADRE_OK`/`FONDOS_CUADRE_KO` a nivel de petición; `CUADRANDO_FONDO`→`FUND_LOADED`/
+  `FUND_GENERATE_KO` a nivel de fondo) y nuevos atributos en `FT_T_UTD1` por cada fondo casado.
+- **Campos de salida afectados:** `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT`, `FT_T_UTD1` (altas de
+  `MNEM_GLO`/`FINSID_GLO`/`MNEM_LOC`/`FINSID_LOC`/`MNEM_OPE`/`FINSID_OPE`).
+- **Qué pasa si falla:** ver aislamiento de fallo por fondo arriba; un fallo en `configuraDByLog()` (conexión
+  a BBDD caída, `.properties` inválido) sigue el mismo patrón de fallo silencioso ya confirmado para
+  `AltaFondos_Genera_csv` en §6.10 (mismo `main.Main`, mismo flujo de arranque).
 
 ### 6.10 `main.Main` (orquestador real de `AltaFondos_Genera_csv.jar`) — confirmado con código real
 
@@ -695,8 +764,8 @@ Workflow analizado: `RDR_AltaFondos_Enriquecimientos` (grupo `Custom/RDR/AltaFon
 
 - **Qué hace:** consulta `FT_T_VREQ` (auto-join) + `FT_T_UTD1` para localizar todas las peticiones de alta de
   fondo cuya petición hija de tipo `FundLEI` está en estado `FUND_LOADED` **y** cuya petición padre de tipo
-  `FILE_DATE` está en estado `FONDOS_CUADRE_OK` (el estado que, por nombre, coincide con la salida esperada de
-  `AltaFondos_CuadreCarga.jar`, no aportado, quinto paso de R8). Por cada fondo encontrado, extrae su
+  `FILE_DATE` está en estado `FONDOS_CUADRE_OK` — **estados ambos confirmados con bytecode real como la salida
+  de `AltaFondos_CuadreCarga.jar`**, quinto paso de R8, ver §6.9bis. Por cada fondo encontrado, extrae su
   mnemónico operativo (`INST_MNEM`) y el identificador de la petición (`VND_RQST_OID`), y llama al
   subworkflow `RDR_AltaFondos_Autocalc_PARTY` — confirmado con `.wkf` real, ver §6.13.
 - **Qué recibe/produce:** no declara parámetros de entrada propios (arranca directamente con la query
@@ -728,18 +797,64 @@ Workflow analizado: `RDR_AltaFondos_Autocalc_PARTY` (grupo `Custom/RDR/AltaFondo
   evento `RDR_AltaFondos_ROL` (asignación de rol) y el subworkflow `PartySetupDifusion` (acción `INSERT`,
   difusión del alta a sistemas dependientes); si el mnemónico operativo fue originado por `SCF` (Investors
   Plan externo, confirmado vía `FT_T_UTD1.LAST_CHG_USR_ID='SCF'`) y la contraparte sigue activa/pendiente de
-  inactivar, invoca además `RDR_AltaSCF_Marca` (no aportado); finalmente marca la petición como `GENERATED_FUND`.
+  inactivar, invoca además `RDR_AltaSCF_Marca` — **confirmado con `.wkf` real, ver §6.13bis**; finalmente marca
+  la petición como `GENERATED_FUND`.
 - **Qué recibe/produce:** recibe `mnemOperativo`/`vreqOid` (ambos `String`, obligatorios, únicos parámetros
   declarados); actualiza el estado de la petición en `FT_T_VREQ` (`PROCESSING_AUTOCALC`→`GENERATED_FUND`) y
-  delega el enriquecimiento real en los 6 subworkflows/evento invocados, ninguno aportado.
+  delega el enriquecimiento real en los 6 subworkflows/evento invocados — 1 de los 6 (`RDR_AltaSCF_Marca`) ya
+  aportado, 5 siguen sin aportar.
 - **Campos de salida afectados:** `FT_T_VREQ.VND_RQST_STAT_TYP`/`VND_RQST_STAT_TXT`; el resto (clasificación
-  regulatoria real, rol asignado, difusión de `PartySetup`) vive dentro de los subworkflows no aportados.
+  regulatoria real, rol asignado, difusión de `PartySetup`, y el alta SCF — ver §6.13bis) vive dentro de los
+  subworkflows invocados.
 - **Qué pasa si falla:** no hay ninguna rama de gestión de error entre las llamadas a subworkflow — si
   cualquiera de los 6 (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`,
   `OperativeRegulatoryInformation`, evento `RDR_AltaFondos_ROL`, `PartySetupDifusion`, `RDR_AltaSCF_Marca`)
   fallara, no se puede confirmar si el fallo se propaga (dejando la petición congelada en
   `PROCESSING_AUTOCALC`, sin llegar nunca a `GENERATED_FUND`) o si GoldenSource lo gestiona de otro modo.
-- **Gap abierto, no bloqueante:** los 6 subworkflows/evento internos no aportados.
+- **Gap abierto, no bloqueante:** 5 de los 6 subworkflows/evento internos siguen sin aportar
+  (`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`, `OperativeRegulatoryInformation`,
+  evento `RDR_AltaFondos_ROL`, `PartySetupDifusion`); `RDR_AltaSCF_Marca` ya está cerrado, ver §6.13bis.
+
+### 6.13bis `RDR_AltaSCF_Marca` — confirmado con `.wkf` real
+
+Workflow analizado: `RDR_AltaSCF_Marca` (grupo `Custom/RDR/AltaFondos` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_AltaSCF_Marca.wkf`).
+
+- **Qué hace:** registra la contraparte como entidad **SCF** completa (de ahí el nombre: "alta SCF y marca").
+  Único parámetro de entrada: `mnemOperativo` (obligatorio). Primero, un **fork paralelo** (`Simple Split`,
+  `ANDSPLIT`) lanza 8 queries independientes contra `FT_T_UTD1`, todas resolviendo primero el `UTD_EXT_ID` de
+  `mnemOperativo` (subselect correlado por `UTD_ID_PURP_TYP='MNEM_OPE'`) y después el valor guardado bajo ese
+  mismo `UTD_EXT_ID` para otros 8 tipos de propósito: `CNAE`, `INST_CODE`→`codInsti`, `FIID`, `FINS_ID`,
+  `VIPCLNT`, `BRANCH`→`branch`, `NUMFOLIO`→`folio`, `MNEM_LOC`→`mnemLocal`, `RISK_LEVEL`→`riskLevel` — es decir,
+  recupera 9 atributos de negocio previamente guardados para esta contraparte (presumiblemente por
+  `RDR_AltaFondos_Autocalc_PARTY`/sus subworkflows de cálculo regulatorio, o por un alta SCF previa). Tras un
+  **AND-JOIN** (`Synchronize`) que espera las 8 ramas, ejecuta en cadena una serie de `INSERT` (todos con SQL
+  literal, confirmado directamente del `.wkf`, sin necesidad de fuente adicional) contra: `FT_T_RSME` (medida
+  de riesgo `RISKLVL`=`riskLevel`, sobre `mnemLocal`), `FT_T_FRCL` (clasificación `VIPCLNT` sobre `mnemLocal`),
+  `FT_T_FRCL` (clasificación `CODINSTI`=`codInsti` sobre `mnemOperativo`), `FT_T_FAB1` (atributo `NUMFOLIO`=
+  `folio`+`branch` sobre `mnemLocal`), `FT_T_FRCL` ×2 (clasificación `CNAE`=`CNAE`, una para `mnemOperativo` y
+  otra para `mnemLocal`), **`FT_T_FINR`** (inserta el registro maestro de relación financiera para
+  `mnemOperativo` con `FINSRL_TYP='SCF'`, `LAST_CHG_USR_ID='SCF_LOADER'`, `DATA_SRC_ID='RDR'` — **el alta SCF
+  propiamente dicha**), `FT_T_ENFR` (rol `OPE_BRANCH`, `ORG_ID='A1'`, `DATA_SRC_ID='DIFUSION'`) y `FT_T_ATB1`
+  (flag `ESB_CHECK='Y'`, `DEST_SYST='SCFFID'`, `DATA_SRC_ID='RDR'` — probablemente consumido por una
+  integración ESB externa identificada como `SCFFID`).
+  - **Nota de nomenclatura, no funcional:** algunos nodos `DBStatement` del `.wkf` tienen un nombre que no
+    coincide con la tabla que su `Prepare Query` previo realmente construye (p. ej. el nodo llamado
+    "INSERT VIPCLIENT" en realidad ejecuta el `INSERT` sobre `FT_T_RSME`, no una clasificación VIP) —
+    desajuste de etiquetado dentro del propio workflow, sin efecto en el comportamiento.
+- **Qué recibe/produce:** recibe `mnemOperativo` (único parámetro); no recibe aparte ninguno de los 9
+  atributos que consume — los relee todos de `FT_T_UTD1` en el momento de ejecutarse. Produce altas en
+  `FT_T_RSME`/`FT_T_FRCL`(x3)/`FT_T_FAB1`/`FT_T_FINR`/`FT_T_ENFR`/`FT_T_ATB1`.
+- **Campos de salida afectados:** los 7 `INSERT` listados arriba; no actualiza `FT_T_VREQ` (esa transición a
+  `GENERATED_FUND` la hace el workflow invocador, `RDR_AltaFondos_Autocalc_PARTY`, después de llamar a este).
+- **Qué pasa si falla:** no hay ninguna rama de gestión de error visible en el `.wkf` entre las 8 queries
+  paralelas, el `Synchronize` y la cadena de 7 `INSERT` — un fallo en cualquiera de las queries del fork
+  (p. ej. un atributo no encontrado en `FT_T_UTD1`, variable nula) o en cualquier `INSERT` no tiene rama de
+  recuperación visible; mismo patrón de "sin gestión de error" ya señalado para el workflow invocador.
+- **Dependencia implícita, no confirmada:** los 9 atributos que este workflow espera encontrar ya guardados en
+  `FT_T_UTD1` bajo el `UTD_EXT_ID` de `mnemOperativo` deben haberse poblado en algún punto anterior del
+  pipeline (candidatos: `RDR_AltaFondos_Autocalc_PARTY` o sus 5 subworkflows no aportados, §6.13) — sin esos
+  subworkflows, no se puede confirmar en qué paso exacto se escriben.
 
 ### 6.14 `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` — confirmado a nivel de queries (sin `main.Ppal`)
 
@@ -987,6 +1102,8 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 | `conflicto_integridad` | Ausencia de `ACKNACK_*.txt` (sin lock activo) detiene el ciclo sin error. | TC-004 |
 | `error_funcional` | `MEKYTL0985` no falla si no hay ficheros que historificar (Soft Failure). | TC-005 |
 | `e2e` | Ciclo completo desde la detección del fichero hasta la historificación final. | TC-006 |
+| `borde` | Una petición de alta de fondos (R8) con fondos mixtos (algunos casados por LEI, otros no) se marca `FONDOS_CUADRE_OK` a nivel de petición pese a tener fondos en `FUND_GENERATE_KO` — el estado de la petición no implica que todos sus fondos se hayan cargado. | TC-007 |
+| `happy_path` | `RDR_AltaSCF_Marca` registra correctamente la contraparte como entidad SCF (`FT_T_FINR` con `FINSRL_TYP='SCF'`) a partir de los 9 atributos ya guardados en `FT_T_UTD1` para su `mnemOperativo`. | TC-008 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -1137,9 +1254,23 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   o la configuración de log4j fallan, `main()` hace `return` sin `System.exit`, y la JVM sale con éxito sin
   haber generado nada. A diferencia del resto de fallos ya documentados en esta cadena (que al menos se
   cuentan en `$Errores` aunque no frenen la cadena, §6.9), este ni siquiera se registraría como fallo del
-  paso — el job de Control-M terminaría en verde sin que se haya generado el CSV de alta de fondos. Mismo
-  patrón de invocación en `AltaFondos_CuadreCarga.jar` (mismo `main.Main`), extrapolable con alta confianza
-  aunque su código no se ha aportado.
+  paso — el job de Control-M terminaría en verde sin que se haya generado el CSV de alta de fondos. **Mismo
+  patrón confirmado ahora con el bytecode real de `AltaFondos_CuadreCarga.jar`** (mismo `main.Main`,
+  `configuraDByLog()`/`cierraBBDD()` con idéntica estructura, ver §6.9bis) — ya no es una extrapolación.
+* **Tolerancia de fallo parcial en el cuadre de fondos (confirmado con bytecode real, §6.9bis):** una petición
+  de fondos (`FT_T_VREQ`, contexto `FILE_DATE`) con algún fondo sin casar (`FUND_GENERATE_KO`) junto a otros
+  sí casados se marca igualmente `FONDOS_CUADRE_OK` a nivel de petición (`AltaFondos_CuadreCarga.jar` solo
+  marca `FONDOS_CUADRE_KO` si **ningún** fondo del lote casó) — es una decisión de negocio razonable (no
+  bloquear todo el lote por un fondo), pero significa que el estado de la petición padre no es señal
+  suficiente para saber si **todos** sus fondos se cargaron: hay que mirar el estado de cada fondo hijo.
+* **Hipótesis descartada — `AltaFondos_CuadreCarga.jar` no crea peticiones `CLIENTELABDI_ALTAS` (confirmado
+  con bytecode real, §6.9bis):** el jar comparte código boilerplate (incluido un método
+  `insertVREQ_BDIClient_Req` y la llamada genérica de alertas `PCK_GESTIONALERTAS.ADD_GESTIONALERTAS_MSG`) con
+  `clientelaBDI_Altas_response.jar` (R6, §6.1), pero ninguno de esos métodos compartidos se invoca realmente
+  desde `main.Main`/`Peticiones`/`Peticion`/`Fondo` — son código muerto en este jar. Un fallo de cuadre
+  (`FUND_GENERATE_KO`) no dispara ninguna alerta `GestionAlertas` por sí mismo; si llega a alertarse depende
+  por completo del barrido por lotes de `FT_T_TPG1` ya documentado en §6.14 (que no se ha confirmado que
+  incluya este tipo de fallo en su alcance).
 * **[R9] Un timeout del servicio "Alert Mirror" es menos auditable que un rechazo explícito (confirmado por
   `.wkf` real, §6.16):** en `SSIs_Fx_Peticion`, un `NACK` explícito de la petición REST inserta un rechazo en
   `FT_T_RLT1` (mismo patrón de tabla de rechazo del resto de la sesión); un timeout/ausencia de respuesta
@@ -1210,20 +1341,30 @@ cadena — todos los pasos posteriores se ejecutan igual, y solo al final el job
 como fallido si hubo algún error. También descubre un límite de 1 fichero por invocación en `Historificar`
 cuando el patrón con comodín coincide con más de uno (mismo patrón que el ya visto en `CSVToXML_Layout.jar`,
 §6.4). `main.Main` (§6.10) cierra la clase orquestadora real de `AltaFondos_Genera_csv` con el hallazgo de
-fallo silencioso ya descrito. `Workflow(RDR_AltaFondos_Enriquecimientos)` (§6.11) queda **resuelto**: enriquece
-vía `RDR_AltaFondos_Autocalc_PARTY` (§6.13, confirmado con `.wkf` real) cada fondo en estado
-`FONDOS_CUADRE_OK`/`FUND_LOADED`. `GestionAlertas.properties` (§6.12) queda **resuelto por completo, de punta
-a punta**: `RDR_AltaFondos_
+fallo silencioso ya descrito. `AltaFondos_CuadreCarga.jar` (§6.9bis) queda **resuelto con bytecode real** (sin
+`.java` fuente ni decompilador disponibles, vía `javap`): confirma la cadena `FONDOS_CUADRANDO`→
+`FONDOS_CUADRE_OK`/`KO` a nivel de petición y `CUADRANDO_FONDO`→`FUND_LOADED`/`FUND_GENERATE_KO` a nivel de
+fondo, el cuadre por LEI (con fallback a LEI+nombre legal según flag `MA_ROL`), un **hallazgo de negocio**
+(una petición con fondos sin casar junto a otros sí casados se marca igualmente `FONDOS_CUADRE_OK` — tolerancia
+de fallo parcial), y **descarta una hipótesis previa**: el jar comparte código boilerplate con
+`clientelaBDI_Altas_response.jar` (R6) pero sus métodos de alerta/creación de petición `CLIENTELABDI_ALTAS`
+están muertos en este jar — no los invoca. `Workflow(RDR_AltaFondos_Enriquecimientos)` (§6.11) queda
+**resuelto**: enriquece vía `RDR_AltaFondos_Autocalc_PARTY` (§6.13, confirmado con `.wkf` real) cada fondo en
+estado `FONDOS_CUADRE_OK`/`FUND_LOADED`. `GestionAlertas.properties` (§6.12) queda **resuelto por completo, de
+punta a punta**: `RDR_AltaFondos_
 Autocalc_PARTY` (§6.13) confirma la derivación de clasificación regulatoria (DFA/EMIR/MiFID) del fondo a 3
-niveles de jerarquía; `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) confirman la tabla de origen
-real de las alertas (`FT_T_TPG1`, corrigiendo la hipótesis anterior sobre `FT_T_RLT1`) y el mecanismo completo
-de cola/marcado (`FT_T_ALG1`→`FT_T_REP1.SEND_PEND`); `AlertasEnvio` (§6.15) confirma por qué se dispara
-siempre 2 veces (plantilla acotada por proceso en Barrido/Cocinado) y descubre un hallazgo propio: el envío
-final **no está acotado al proceso que lo disparó**, es un barrido global de todo `FT_T_REP1` pendiente en
-todo el sistema. Con esto, **R8 queda funcionalmente resuelto de principio a fin, sin cabos sueltos
-bloqueantes**: solo quedan, como residuales de código no aportado, `main.Main` de `AltaFondos_CuadreCarga.jar`
-(extrapolable del ya visto en §6.10), `main.Ppal` de ambos jars de alertas, y los subworkflows internos de
-`RDR_AltaFondos_Autocalc_PARTY`/`Mail`.
+niveles de jerarquía; `RDR_AltaSCF_Marca` (§6.13bis, confirmado con `.wkf` real) confirma el alta SCF completa
+de la contraparte (`FT_T_FINR` con `FINSRL_TYP='SCF'`, más 6 inserts de atributos/clasificación/riesgo/rol/
+check ESB) a partir de 9 atributos releídos de `FT_T_UTD1`; `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`
+(§6.14) confirman la tabla de origen real de las alertas (`FT_T_TPG1`, corrigiendo la hipótesis anterior sobre
+`FT_T_RLT1`) y el mecanismo completo de cola/marcado (`FT_T_ALG1`→`FT_T_REP1.SEND_PEND`); `AlertasEnvio`
+(§6.15) confirma por qué se dispara siempre 2 veces (plantilla acotada por proceso en Barrido/Cocinado) y
+descubre un hallazgo propio: el envío final **no está acotado al proceso que lo disparó**, es un barrido
+global de todo `FT_T_REP1` pendiente en todo el sistema. Con esto, **R8 queda funcionalmente resuelto de
+principio a fin, sin cabos sueltos bloqueantes**: solo quedan, como residuales de código no aportado,
+`main.Ppal` de ambos jars de alertas, y 5 de los 6 subworkflows internos de `RDR_AltaFondos_Autocalc_PARTY`
+(`WKF-Autocalculos-Enriquecimiento`, `Global Regulatory Information`, `OperativeRegulatoryInformation`, evento
+`RDR_AltaFondos_ROL`, `PartySetupDifusion`) y `Mail`.
 
 El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la
 confirmación de nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, pero
