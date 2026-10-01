@@ -31,6 +31,11 @@ observa su generación real.
 | TC-014 | Acceso de lectura a `FT_T_ATE1`/`FT_T_QPF1` (esquema `KYTL_GC`) y a la carpeta `SAIT/` |
 | TC-015 | 1 XML total válido, para recorrer la Cadena 2 completa |
 
+Volúmenes de referencia del plan de pruebas orientado al dato del proceso (datos sintéticos con semilla
+determinista): Cadena 1, semilla 5512 y unos 120 contratos; Cadena 2, semilla 6630 y unos 500 contratos. Sus
+comprobaciones sobre `FT_T_LAGR` (p. ej. más de 100 / más de 450 filas) validan el dato de partida, no el
+comportamiento de estas cadenas, que no leen la base de datos.
+
 ## Entorno de ejecución
 
 - **Producción:** las 2 cadenas ejecutan en `pr-rdr.igrupobbva`, Server Control-M `MERCADOS-4`. Cadena 1
@@ -57,7 +62,9 @@ observa su generación real.
   (TC-003).
 - `MEGENV0001.sh` (motor genérico de transferencias, `salidas/comun_megenv0001/comun_megenv0001_spec.md`)
   debe estar correctamente configurado para `MEKYTL0357`, `MEKYTL0894_CLOUD` y `MEKYTL0356`
-  (TC-010, TC-012, TC-015).
+  (TC-010, TC-012, TC-015). Destinos esperados según las fichas: pasarela `Ipftp503`, ruta `/unload/transmisiones/SAIT/`, para `MEKYTL0357` y
+  `MEKYTL0356`; bucket `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/` (pasarela
+  `filex-cloud-cib.live.es.nextgen.igrupobbva`) para `MEKYTL0894`; los `.idx` literales no se han recibido (P-LA-03).
 - `RAMERC0068.sh` (motor genérico de historificación, `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`) debe estar correctamente
   configurado para `MEKYTL0949`, `MEKYTL0950` y `MEKYTL0948` (TC-006, TC-007, TC-009, TC-015).
 
@@ -80,7 +87,9 @@ MEKYTL0894 → MEKYTL0356 → MEKYTL0948`. Periodicidad domingo, arranque 06:00,
 minutos. Criticidad W en los 5 jobs. Recursos Cuantitativos `MAX-LPRDR501` en `KYTL_MEKYTL0894_FW` y
 `MEKYTL0948`; **confirmado vacío** en `MEKYTL0894` y `MEKYTL0356`.
 
-Normas de Rearranque idénticas en ambas cadenas (aviso ANS RDR + ticket Remedy).
+Normas de Rearranque idénticas en ambas cadenas (aviso ANS RDR + ticket Remedy). Los 10 jobs sin relanzamientos automáticos (máximo 0). Eventos encadenados
+de cada paso: ver `legal_agreements_p062_spec.md` §6.8. Calendario real pendiente de confirmar (P-LA-06): antes de
+planificar pruebas contra producción, comprobar en Control-M los días reales de ambas cadenas.
 
 ## Entorno de pruebas
 

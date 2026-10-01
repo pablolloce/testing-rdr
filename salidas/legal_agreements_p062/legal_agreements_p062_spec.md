@@ -20,6 +20,18 @@ P-062 es el sistema de 2 cadenas Control-M (aplicación KYTL, UUAA `KYTL0000`, s
 transmisión externa vía `TRANSMISIONES_CIB_RDR_SAIT` (jobs `MEKYTL0357_LISTA`/`_BORRA`) queda fuera de
 alcance aquí — ya tiene su propia especificación.
 
+**Ficha de catálogo del proceso (documento original, rama de Miguel).** P-062 «Procesos diarios de legal
+agreements» (identificador `EX-005-02`, estado ACTIVO, criticidad global MEDIA, 2.488 ejecuciones/año entre
+sus cadenas; tecnologías GSProcess, Java, Script, XSLT y Command; documentación fechada 03/09/2026). Entidades
+principales: `LAGR` (Legal Agreements) y `FINS` (entidades). Sistemas conectados: Mentor (servidor `Ipftp503`) y
+Datio Cloud (AWS S3). La ficha declara que publica (acciones PUBLISH/INITIALLOAD) en los tópicos
+`MENTOR.PARTY` y `MENTOR.AGREEMENT`, pero ninguno de los 10 jobs analizados publica en colas (solo transforman,
+envían y historifican ficheros), por lo que esa publicación pertenece al catálogo del proceso global o a otros
+procesos (no verificado). Procesos relacionados según la ficha: P-025 (cesiones específicas de contrapartidas),
+P-026 (cesión de contratos BBVA), P-033 (difusión a Mentor), P-044 (extracción genérica de contrapartidas),
+P-058 (proceso Ritchie), P-060 (proceso diario P32) y P-069 (solicitudes y seguimiento Bloomberg). Grupo de soporte
+de todos los jobs: ANS RDR (en las fichas, «Implantación de Mejoras y Proyectos de Sistemas Distribuidos»).
+
 **Hallazgo mayor (2026-09-30), confirmado por decompilación real del `.jar` de `RDR_Transformacion_SAIT.jar`
 (clase `Batch_Diario_Sait.Batch_Sait`, invocada por `RDR_DAILY_LA_JAVA`):** esta clase **no consulta
 `FT_T_LAGR` ni ninguna base de datos** — solo aplica una transformación XSLT (`Sait_Diario.xsl`) sobre un
@@ -80,9 +92,10 @@ Queda abierto lo siguiente, sin bloquear el testing de las dos cadenas:
 |---|---|---|
 | P-LA-01 | ¿Qué selecciona `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?)? Solo se ha visto el texto de `BATCH_SAIT.sql` (fila 20) | Define el contenido esperado de cada fichero y los datos de prueba |
 | P-LA-02 | La Cadena 1 corre de lunes a viernes a las 06:00, pero el Planificador solo genera de martes a sábado a las 04:45 y revisa qué toca cada 30-60 min. ¿Qué pasa si el fichero no está a las 06:00 o un lunes sin generación? La cadena no tiene `ctmfw` | `Batch_Sait` no aborta ni avisa (ver TC-005); podría transformarse un fichero ausente o antiguo |
-| P-LA-03 | Configuración (IDX) de `MEGENV0001.sh` para `MEKYTL0357`, `MEKYTL0894_CLOUD` y `MEKYTL0356` (destino Datio Cloud S3: bucket y ruta; destino Mentor: nodo Connect:Direct, ruta y nombre) y líneas IDX de `RAMERC0068.sh` para `MEKYTL0949`, `MEKYTL0950` y `MEKYTL0948` (¿mover o copiar?). No se han recibido | Sin ellas no se puede decir en qué ruta exacta llega el fichero a los destinos ni si la historificación lo retira de `SAIT/` |
-| P-LA-04 | ¿La cadena Total tiene regla Control-M "código 7 → OK" en `KYTL_MEKYTL0894_FW`? La documentación no recoge ninguna | Con la regla, un fichero que no llega dejaría la cadena en verde sin enviar nada; sin ella (lo asumido) queda en error |
+| P-LA-03 | **Parcialmente resuelta.** Los destinos (según las fichas de los jobs) son: Datio Cloud S3 `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/` vía la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva` (`MEKYTL0894`, mismo nombre de fichero) y Mentor por Connect:Direct hacia `Ipftp503`, ruta `/unload/transmisiones/SAIT/` (`MEKYTL0356` y `MEKYTL0357`); ver §6.3 y §6.6. Las fichas describen la historificación como «mueve» (`M`). **Sigue pendiente** el contenido literal de los `.idx` de `MEGENV0001.sh` (`MEKYTL0357.idx` y los de `MEKYTL0894_CLOUD`/`MEKYTL0356`) y las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0949`, `MEKYTL0950` y `MEKYTL0948`, para confirmar mover/copiar y rutas exactas | Sin ellas no se puede decir en qué ruta exacta llega el fichero a los destinos ni si la historificación lo retira de `SAIT/` |
+| P-LA-04 | **Parcialmente resuelta.** La ficha del filewatcher solo define el evento de salida `RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK` (al detectar el fichero) y el análisis de riesgos de la documentación original dice que si la extracción se retrasa más de 240 minutos «el FileWatcher fallará con código de error, deteniendo los envíos». **Sigue pendiente** ver la definición real de `KYTL_MEKYTL0894_FW` en Control-M para descartar una regla "código 7 → OK" | Con la regla, un fichero que no llega dejaría la cadena en verde sin enviar nada; sin ella (lo asumido) queda en error |
 | P-LA-05 | Contenido de `Sait_Diario.xsl` (filtros o renombrados sobre la estructura de §6.7) | Define el contenido real del fichero transformado |
+| P-LA-06 | Calendario real de ambas cadenas. Las fichas escriben Cadena 1 = «LMXJV» con días Control-M `0,1,2,3,4` y Cadena 2 = «día 6 (domingo)», aunque la ficha de la Cadena 2 también habla de «sábado/domingo» y la del filewatcher de un arranque «a las 06:00 (o 12:25 según ventana confirmada)». Con la numeración habitual de Control-M (0 = domingo) `0,1,2,3,4` sería domingo-jueves y `6` sábado; con 0 = lunes encajan con las fichas. La misma duda consta en `P-SAIT-05` (`salidas/extraccion_sait_contratos/`) | Determina si la Cadena 1 corre el viernes y si el domingo (único día en que el Planificador genera el total) coincide con la Cadena 2; cambia el análisis de P-LA-02 |
 
 **Corrección adicional, no gap:** el documento original afirma que `MEKYTL0894` y `MEKYTL0356` (Cadena 2)
 transfieren "en paralelo", pero su propia tabla de dependencias muestra que `MEKYTL0356` tiene como
@@ -97,11 +110,12 @@ Paso previo (fuera de la cadena): el Planificador Genérico deja `KYTL_RDR_EXTRA
 (martes a sábado, 04:45).
 
 1. `RDR_DAILY_LA_PRO_IN` (Dummy) abre la ventana a las 06:00.
-2. `RDR_DAILY_LA_JAVA` ejecuta `RDR_Transformacion_SAIT.sh fileloading <credentials.xml>`, que valida
+2. `RDR_DAILY_LA_JAVA` ejecuta `/pr/kytl/online/multipais/multicanal/scrt/RDR_Transformacion_SAIT.sh fileloading /pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` (usuario `xakytl1p`), que valida
    entorno/usuario y lanza `Batch_Diario_Sait.Batch_Sait`. Esta clase lee
    `KYTL_RDR_EXTRACTION_contratos_Diario.xml` (entrada, escrito antes por el Planificador Genérico, fila 9 — §1), le aplica
    `Sait_Diario.xsl`, y escribe `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` (nombre fijo).
-3. `MEKYTL0357` transmite internamente el evento que dispara `MEKYTL0949` **y**, en paralelo, un evento
+3. `MEKYTL0357` (`MEGENV0001.sh MEKYTL0357`, usuario `xsramer1`) deja el fichero transformado en la pasarela `Ipftp503`
+   (`/unload/transmisiones/SAIT/`, ver §6.3) y publica el evento que dispara `MEKYTL0949` **y**, en paralelo, un evento
    cross-chain que arranca `TRANSMISIONES_CIB_RDR_SAIT` (fuera de alcance de este documento).
 4. `MEKYTL0949` historifica el fichero transformado (`..._20000101.xml` → `..._20000101_<fecha>.xml`).
 5. `MEKYTL0950` historifica el fichero genérico de entrada (`..._Diario.xml` → `..._Diario_<fecha>.xml`).
@@ -116,8 +130,8 @@ TC-006.
 Paso previo (fuera de la cadena): el Planificador Genérico deja `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml`
 (domingo, 04:45).
 
-1. `RDR_TOTAL_LA_PRO_IN` (Dummy, usuario `root` — sin motivo confirmado, mismo patrón atípico ya
-   observado en otros jobs de esta sesión) abre la ventana.
+1. `RDR_TOTAL_LA_PRO_IN` (Dummy, usuario `root`; la ficha lo justifica como «inicialización del contenedor»
+   en el orquestador, sin más detalle) abre la ventana.
 2. `KYTL_MEKYTL0894_FW` (filewatcher nativo, usuario `xpctma1`) espera
    `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` hasta 240 minutos (detalle del comando en §6.5).
 3. `MEKYTL0894` envía el fichero a Datio Cloud S3 (`MEGENV0001.sh MEKYTL0894_CLOUD`, usuario `xsramer1`).
@@ -152,8 +166,9 @@ fallo real de envío detiene la cadena.
 ### 6.1 `RDR_DAILY_LA_PRO_IN` / `RDR_TOTAL_LA_PRO_IN` — jobs Dummy (gatillo horario)
 
 Sin script, sin campos de salida afectados directamente — solo habilitan o no el resto de la cadena
-según la hora. `RDR_TOTAL_LA_PRO_IN` documentado con usuario `root`, sin explicación funcional
-confirmada (observación, no bloqueante).
+según la hora. `RDR_DAILY_LA_PRO_IN` se ejecuta como `xakytl1p`; `RDR_TOTAL_LA_PRO_IN` como `root`, que la ficha explica como «inicialización
+del contenedor» del orquestador (explicación documental, sin más detalle; observación no bloqueante). Ambos: sin relanzamientos
+(máximo 0).
 
 ### 6.2 `RDR_DAILY_LA_JAVA` — `RDR_Transformacion_SAIT.sh` + `Batch_Diario_Sait.Batch_Sait`
 
@@ -201,6 +216,13 @@ logger.log(Level.INFO, "FINALIZADA SAIT Diario");                        // SIEM
 Mismo motor genérico de transferencias ya analizado en profundidad en otros procesos de esta sesión
 (`FALLA_NO_FICHERO` gobierna soft-failure/estricto). Publica 2 eventos: uno interno (sucesor
 `MEKYTL0949`) y uno cross-chain hacia `TRANSMISIONES_CIB_RDR_SAIT` (fuera de alcance, ver §2).
+Según su ficha: script en `/pr/pl/envioweb/scrt/`, usuario `xsramer1`, 1 unidad de `MAX-LPRDR501`; carga su
+configuración de `MEKYTL0357.idx`; envía `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` desde
+`/fichtemcomp/pr/descargas/kytl/SAIT/` por Connect:Direct a `Ipftp503`, ruta `/unload/transmisiones/SAIT/`
+(el mismo nombre de fichero en destino). La ficha cita también, para ese destino, el nodo `CDWVMSAITBD01` /
+servidor `WVMSAITDB01` (IP `150.100.230.96`, ruta UNC `\\150.100.230.96\Home\Transmisiones\Recepcion\RDR`); según
+`salidas/extraccion_sait_contratos/` esos datos corresponden al envío final de la cadena `TRANSMISIONES_CIB_RDR_SAIT`
+y el paso de `MEKYTL0357` deja el fichero en la pasarela `lpftp503`.
 
 ### 6.4 `MEKYTL0949`/`MEKYTL0950`/`MEKYTL0948` — `RAMERC0068.sh` (historificación)
 
@@ -213,7 +235,7 @@ Lo que piden las fichas EX-005-03 (las líneas IDX reales no se han recibido, P-
 |---|---|---|---|---|
 | `MEKYTL0949` | `/fichtemcomp/pr/descargas/kytl/SAIT/` | `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` | `.../SAIT/Backup/` | `KYTL_RDR_EXTRACTION_contratos_Diario_20000101_yyyymmdd.xml` |
 | `MEKYTL0950` | ídem | `KYTL_RDR_EXTRACTION_contratos_Diario.xml` | ídem | `KYTL_RDR_EXTRACTION_contratos_Diario_yyyymmdd.xml` |
-| `MEKYTL0948` | ídem | `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` | ídem | `KYTL_RDR_EXTRACTION_contratos_Total_<fecha>.xml` |
+| `MEKYTL0948` | ídem (la ficha añade «o `Backup/`», sin explicar) | `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` | ídem | `KYTL_RDR_EXTRACTION_contratos_Total_yyyymmdd.xml` |
 
 `yyyymmdd` es año, mes y día de la ejecución. Aviso en caso de problema: grupo de soporte ANS RDR
 (`ans_rdr.es@bbva.com`, Remedy). **Campo de salida afectado:** ubicación y nombre final del fichero en `Backup/`.
@@ -228,12 +250,20 @@ tamaño cada 10 s y lo da por completo tras 5 mediciones iguales (así no se env
 si en 240 minutos no lo ha detectado completo, termina con el código 7 (tiempo agotado). Con la
 ejecución a las 06:00 y el fichero escrito a las 04:45, normalmente lo encuentra a la primera. Si el fichero no
 llega, el job queda en error y la cadena se detiene (no consta regla "7 → OK", P-LA-04). Nombre fijo con
-`20000101`, igual que el fichero diario que produce `Batch_Sait`.
+`20000101`, igual que el fichero diario que produce `Batch_Sait`. La ficha da como horario de activación
+«06:00 (o 12:25 según ventana confirmada)» del día de ejecución (P-LA-06) y el evento de salida
+`RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK`.
 
 ### 6.6 `MEKYTL0894`/`MEKYTL0356` — `MEGENV0001.sh` (envío Cloud S3 / Connect:Direct)
 
 Mismo motor genérico ya documentado. Sin Recursos Cuantitativos definidos (confirmado, §4). `MEKYTL0356`
-depende del evento de salida de `MEKYTL0894` — envío secuencial, no paralelo (corrección de §4).
+depende del evento de salida de `MEKYTL0894` — envío secuencial, no paralelo (corrección de §4). Ambos con script en
+`/pr/pl/envioweb/scrt/` y usuario `xsramer1`. Destinos según las fichas: `MEKYTL0894` (`MEGENV0001.sh MEKYTL0894_CLOUD`)
+envía a la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva`, bucket
+`s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/`, con el nombre
+`KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml`, sin historificar ni comprimir en ese paso; `MEKYTL0356`
+(`MEGENV0001.sh MEKYTL0356`) envía el mismo fichero por Connect:Direct a `Ipftp503` (nodo `CDWVMSAITBD01`, servidor
+`WVMSAITDB01`), ruta `/unload/transmisiones/SAIT/`. Los `.idx` con la configuración literal no se han recibido (P-LA-03).
 
 ### 6.7 Los ficheros de datos y su estructura
 
@@ -256,6 +286,26 @@ moneda, listas de inclusión/exclusión de trading, auditoría de última modifi
 `AgmtProdLists`, `AgmtParts` (firmantes), `AgmtSub` (custodia/BUC) y `ExternalIdentifiers` (excluye la fuente
 `Generic` y los contextos `PRODUCT32`/`Onboarding Digital`). El diccionario campo a campo está en la spec
 `salidas/extraccion_sait_contratos/extraccion_sait_contratos_spec.md`, §1.2.
+
+### 6.8 Eventos de Control-M de las dos cadenas
+
+Cada paso espera el evento de salida del anterior y publica el suyo (fecha de ejecución = ODATE):
+
+| Cadena | Job | Evento de entrada | Evento de salida |
+|---|---|---|---|
+| 1 | `RDR_DAILY_LA_PRO_IN` | — (gatillo horario) | `RDR_DAILY_LA_PRO_RDR_DAILY_LA_PRO_IN_OK_new` |
+| 1 | `RDR_DAILY_LA_JAVA` | `RDR_DAILY_LA_PRO_RDR_DAILY_LA_PRO_IN_OK_new` | `RDR_DAILY_LA_PRO_RDR_DAILY_LA_JAVA_OK_new` |
+| 1 | `MEKYTL0357` | `RDR_DAILY_LA_PRO_RDR_DAILY_LA_JAVA_OK_new` | `RDR_DAILY_LA_PRO_MEKYTL0357_OK_new` (interno) y el cross-chain a `TRANSMISIONES_CIB_RDR_SAIT`, que la ficha escribe `RDR_DAILY_LA_PRO_new_MEKYTL0357.OK` (con punto; otras fuentes lo escriben con `_OK`, probable errata) |
+| 1 | `MEKYTL0949` | `RDR_DAILY_LA_PRO_MEKYTL0357_OK_new` | `RDR_DAILY_LA_PRO_MEKYTL0949_OK_new` |
+| 1 | `MEKYTL0950` | `RDR_DAILY_LA_PRO_MEKYTL0949_OK_new` | — (cierra la cadena) |
+| 2 | `RDR_TOTAL_LA_PRO_IN` | — (gatillo horario) | `RDR_TOTAL_LA_PRO_RDR_TOTAL_LA_PRO_IN_OK_new` |
+| 2 | `KYTL_MEKYTL0894_FW` | `RDR_TOTAL_LA_PRO_RDR_TOTAL_LA_PRO_IN_OK_new` | `RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK` |
+| 2 | `MEKYTL0894` | `RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK` | `RDR_TOTAL_LA_PRO_MEKYTL0894_OK_new` |
+| 2 | `MEKYTL0356` | `RDR_TOTAL_LA_PRO_MEKYTL0894_OK_new` | `RDR_TOTAL_LA_PRO_MEKYTL0356_OK_new` |
+| 2 | `MEKYTL0948` | `RDR_TOTAL_LA_PRO_MEKYTL0356_OK_new` | `RDR_TOTAL_LA_PRO_MEKYTL0948_OK_new` (cierra la cadena) |
+
+La coexistencia de los sufijos `_new` en medio o al final de los nombres es tal cual figura en las fichas. Las fichas
+también indican, para los 10 jobs, máximo de relanzamientos = 0, y criticidad `W` (aviso día siguiente).
 
 ## 7. Especificación de testing
 
@@ -305,8 +355,8 @@ marcados como no ejecutables en producción.
 - **Dependencia de horario con el Planificador** (§1, P-LA-02, TC-014): los XML los deja el Planificador
   Genérico a las 04:45 (martes a sábado el diario, domingo el total) y la Cadena 1 no espera al fichero; solo
   la Cadena 2 lo espera (`ctmfw`, 240 min).
-- **Observación no bloqueante:** `RDR_TOTAL_LA_PRO_IN` ejecuta como `root` sin motivo funcional
-  confirmado — mismo patrón ya observado y no bloqueante en otros procesos de esta sesión.
+- **Observación no bloqueante:** `RDR_TOTAL_LA_PRO_IN` ejecuta como `root`; la ficha lo atribuye a la
+  «inicialización del contenedor» del orquestador, sin que conste otro motivo funcional.
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -314,8 +364,8 @@ Las 2 cadenas de P-062 quedan documentadas con análisis funcional y técnico co
 contenido real (decompilado) de `Batch_Diario_Sait.Batch_Sait`, que reveló que la transformación diaria
 no toca base de datos y que un fallo real de esa transformación no se refleja en el log de cierre. Los
 gaps de esta especificación están resueltos: los ficheros de entrada de ambas cadenas los escribe el
-Planificador Genérico (filas 9 y 20 de su inventario, §1). Quedan 5 preguntas abiertas no bloqueantes
-(P-LA-01 a 05, §4). La corrección sobre `Batch_Sait` se trasladó a `salidas/extraccion_sait_contratos/`, que
+Planificador Genérico (filas 9 y 20 de su inventario, §1). Quedan 6 preguntas abiertas no bloqueantes
+(P-LA-01 a 06, §4; tres de ellas con respuesta parcial). La corrección sobre `Batch_Sait` se trasladó a `salidas/extraccion_sait_contratos/`, que
 atribuía erróneamente la consulta a `FT_T_LAGR` a esa clase. El resto del criterio de cierre (`.github/copilot-instructions.md`) se cumple: sin supuestos sin
 confirmar, con resultado esperado explícito y caso de prueba asociado para cada requisito, con cobertura
 de error/borde/duplicidad, y con prerrequisitos explicitados en `legal_agreements_p062_prerrequisitos.md`.

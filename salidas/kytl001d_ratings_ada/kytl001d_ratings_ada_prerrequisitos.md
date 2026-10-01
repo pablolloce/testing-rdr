@@ -2,7 +2,7 @@
 
 ## Orígenes de datos
 
-El proceso se nutre del fichero `RatingsInternos.csv` recibido vía transferencia DataX (`kytl_ratingsinternosdatio_3`, namespace `gl.kytl.app-id-970218.pro`), y concilia contra el sistema interno de rating mediante el procedimiento PL/SQL `CONCINTERN` (fuera de alcance de esta especificación). `FT_T_RLT1` recibe los registros de error cuando el fichero no existe o está vacío. TC-001, TC-004 a TC-009 dependen de poder controlar el contenido del CSV recibido.
+El proceso se nutre del fichero `RatingsInternos.csv` recibido vía transferencia DataX (`kytl_ratingsinternosdatio_3`, vigente según el comando del job; el inventario DataX aún recoge `x_ratingsinternosdatio_2`, ver P-RAT-01; namespace `gl.kytl.app-id-970218.pro`), y concilia contra el sistema interno de rating mediante el procedimiento PL/SQL `CONCINTERN` (fuera de alcance de esta especificación). `FT_T_RLT1` recibe los registros de error cuando el fichero no existe o está vacío. TC-001, TC-004 a TC-009 dependen de poder controlar el contenido del CSV recibido.
 
 ## Datos mínimos
 
@@ -38,7 +38,7 @@ El proceso se nutre del fichero `RatingsInternos.csv` recibido vía transferenci
 
 ## Orquestación
 
-La cadena es estrictamente secuencial por eventos: `MEKYTL1223` → `FW_CONCIL_RATINGMEX` → `MEKYTL1225` → `GS_CODIGOS_RATINGMEX` → `MEKYTL1226` → `MEKYTL1227` → `MEKYTL1232`. `MEKYTL1223` se dispara por planificación (L-V según Control-M en vivo, MXJVS según su propia ficha — infraestructura DataX distinta); el resto es reactivo por eventos. Un fallo de `MEKYTL1223` detiene la cadena. Las Normas de Rearranque de los 6 jobs con ficha son idénticas (aviso manual a ANS RDR + ticket Remedy); ver `kytl001d_ratings_ada_spec.md` §4/§6.
+La cadena es estrictamente secuencial por eventos: `MEKYTL1223` → `FW_CONCIL_RATINGMEX` → `MEKYTL1225` → `GS_CODIGOS_RATINGMEX` → `MEKYTL1226` → `MEKYTL1227` → `MEKYTL1232`. `MEKYTL1223` se dispara por planificación (L-V según Control-M en vivo, MXJVS según su propia ficha — infraestructura DataX distinta); el resto es reactivo por eventos. Cada paso espera un evento de salida del anterior (`KYTL001D_RATINGS_ADA_<JOB>_OK`; el de `MEKYTL1223` es `GC_TESO_KYTL001D_RATINGS_ADA_MEKYTL1223_OK`, fecha de ejecución) con «Eliminar = No» y sin relanzamientos automáticos; los pasos 2-7 consumen 1 unidad del recurso `MAX-LPRDR501`, que debe tener cupo. Un fallo de `MEKYTL1223` detiene la cadena. Las Normas de Rearranque de los 6 jobs con ficha son idénticas (aviso manual a ANS RDR + ticket Remedy); ver `kytl001d_ratings_ada_spec.md` §4/§6.
 
 ## Entorno de pruebas
 

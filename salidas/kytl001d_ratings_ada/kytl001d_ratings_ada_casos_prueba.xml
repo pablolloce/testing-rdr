@@ -44,7 +44,7 @@
     <resultadoEsperado>FW_CONCIL_RATINGMEX termina sin marcarse como fallo pese a no encontrar el fichero; el resto de la cadena no se ejecuta en este ciclo.</resultadoEsperado>
     <tipoValidacion>Estado de ejecución en Control-M</tipoValidacion>
     <criterioAceptacion>FW_CONCIL_RATINGMEX no queda en estado de fallo; MEKYTL1225 sin ejecución.</criterioAceptacion>
-    <posibilidadFallo>El file watcher (ctmfw CREATE 0 60 10 3 200) espera 200 minutos y sale con código 7. Que el job quede en verde depende de una regla "código 7 → OK" cuya existencia no está confirmada (P-RAT-02); si no existe, el job quedará en NOTOK y la cadena detenida. Anotar el estado real observado.</posibilidadFallo>
+    <posibilidadFallo>El file watcher (ctmfw CREATE 0 60 10 3 200) espera 200 minutos y sale con código 7. Que el job quede en verde depende de una regla "código 7 → OK" cuya existencia no está confirmada (P-RAT-02); si no existe, el job quedará en NOTOK y la cadena detenida. Anotar el estado real observado y si se publicó el evento KYTL001D_RATINGS_ADA_FW_CONCIL_RATINGMEX_OK (la ficha del job solo define ese evento como acción de salida).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -190,6 +190,7 @@
       <paso numero="4">Verificar la conciliación de la fila E2E vía CONCINTERN.</paso>
       <paso numero="5">Verificar la generación y el envío del informe.</paso>
       <paso numero="6">Verificar la historificación de los 3 ficheros de salida en receive/old/.</paso>
+      <paso numero="7">Verificar en Control-M la secuencia de eventos: GC_TESO_KYTL001D_RATINGS_ADA_MEKYTL1223_OK, KYTL001D_RATINGS_ADA_FW_CONCIL_RATINGMEX_OK, ..._MEKYTL1225_OK, ..._GS_CODIGOS_RATINGMEX_OK, ..._MEKYTL1226_OK, ..._MEKYTL1227_OK y ..._MEKYTL1232_OK (fin de cadena).</paso>
     </pasos>
     <resultadoEsperado>Los 7 jobs se ejecutan en orden y terminan OK sin intervención manual, desde el disparo automático a las 04:30 hasta la historificación final de los 3 ficheros.</resultadoEsperado>
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 7 jobs) + inspección de BBDD, filesystem y correo</tipoValidacion>

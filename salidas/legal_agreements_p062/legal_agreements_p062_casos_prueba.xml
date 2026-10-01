@@ -186,6 +186,7 @@
       <paso numero="3">Confirmar que MEKYTL0357 se dispara y termina OK, publicando ambos eventos (interno y cross-chain).</paso>
       <paso numero="4">Confirmar que MEKYTL0949 se dispara y termina OK, con el fichero historificado.</paso>
       <paso numero="5">Confirmar que MEKYTL0950 se dispara y termina OK, con el fichero genérico historificado, y cierra la cadena.</paso>
+      <paso numero="6">Confirmar en Control-M la secuencia de eventos de la cadena: RDR_DAILY_LA_PRO_RDR_DAILY_LA_PRO_IN_OK_new, ..._RDR_DAILY_LA_JAVA_OK_new, ..._MEKYTL0357_OK_new (más el evento cross-chain), ..._MEKYTL0949_OK_new.</paso>
     </pasos>
     <resultadoEsperado>Los 5 jobs terminan en estado OK en el orden documentado, y ambos ficheros quedan historificados en Backup/.</resultadoEsperado>
     <tipoValidacion>Observación de estado en Control-M + comprobación de existencia de los ficheros historificados</tipoValidacion>
@@ -198,7 +199,7 @@
     <objetivo>Verificar que la Cadena 2 distribuye correctamente el extracto total a Datio Cloud S3 y luego, de forma secuencial, a Mentor por Connect:Direct.</objetivo>
     <precondiciones>
       <precondicion>Existe KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml en /fichtemcomp/pr/descargas/kytl/SAIT/ el domingo antes de las 06:00.</precondicion>
-      <precondicion>Conectividad operativa a Datio Cloud S3 y a Ipftp503/WVMSAITDB01.</precondicion>
+      <precondicion>Conectividad operativa a Datio Cloud S3 (pasarela filex-cloud-cib.live.es.nextgen.igrupobbva, bucket s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/) y a Ipftp503 (/unload/transmisiones/SAIT/, nodo CDWVMSAITBD01).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="fichero" valor="KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml válido"/>
@@ -312,6 +313,7 @@
       <paso numero="3">Confirmar que MEKYTL0894 se dispara y termina OK.</paso>
       <paso numero="4">Confirmar que MEKYTL0356 se dispara tras MEKYTL0894 y termina OK.</paso>
       <paso numero="5">Confirmar que MEKYTL0948 se dispara y termina OK, cerrando la cadena, con el fichero historificado.</paso>
+      <paso numero="6">Confirmar en Control-M la secuencia de eventos: RDR_TOTAL_LA_PRO_RDR_TOTAL_LA_PRO_IN_OK_new, RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK, RDR_TOTAL_LA_PRO_MEKYTL0894_OK_new, RDR_TOTAL_LA_PRO_MEKYTL0356_OK_new y RDR_TOTAL_LA_PRO_MEKYTL0948_OK_new.</paso>
     </pasos>
     <resultadoEsperado>Los 5 jobs terminan en estado OK en el orden documentado (secuencial, no paralelo entre pasos 3 y 4), y el fichero queda historificado en Backup/.</resultadoEsperado>
     <tipoValidacion>Observación de estado en Control-M + comprobación de existencia del fichero historificado</tipoValidacion>

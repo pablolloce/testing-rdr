@@ -129,3 +129,4 @@ debe recogerlos.
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-CFW-01 | ¿Qué código devuelve `ctmfw` en la versión instalada cuando se agota el tiempo: 7, como asumen las reglas de las cadenas, o 1/2 de los códigos alternativos? | Si no es 7, las reglas "7 → OK" no se activan nunca y el comportamiento de las cadenas ante la falta de fichero es otro |
+| P-CFW-02 | ¿Cómo numera los días el calendario «Avanzado» de Control-M en esta instalación: `0` = domingo (convención habitual, encaja con `rdr_cargasectoada`: «2,3,4,5 = martes-viernes») o `0` = lunes (encaja con las fichas de `legal_agreements_p062` y `kytl001d_ratings_ada`: «LMXJV = 0,1,2,3,4»)? | Las fuentes se contradicen y de ello depende qué días corre cada cadena (afecta también a P-SAIT-05, P-EMI-01, P-LA-06 y P-RAT-07) |

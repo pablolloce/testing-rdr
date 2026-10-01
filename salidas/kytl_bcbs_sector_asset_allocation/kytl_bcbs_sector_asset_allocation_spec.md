@@ -13,7 +13,7 @@ ficheros de salida.
 Alimenta directamente, de forma confirmada por código (no solo por nomenclatura), las clasificaciones
 sectoriales de contrapartida (`FT_T_FRCL`) que después lee la Extracción Genérica de Contrapartidas
 (proceso independiente, ver `salidas/comun_extraccion_generica/comun_extraccion_generica_spec.md`) al
-generar sus ficheros — ver §6.4. "BCBS" = Basel Committee on Banking Supervision (principios BCBS 239
+generar sus ficheros — ver §6.4. La extracción las lee de `FT_T_FRCL`+`FT_T_INCL` con `INDUS_CL_SET_ID` en (`SAASECT`, `SAASUBS`, `SAACCT`) y las publica en el bloque `SectorAssetAllocation` (Sector / Subsector / Activity, con `Date` y `Source`) del nivel OPERATIVE de cada contraparte; esos tres conjuntos son, por tanto, los que mantiene esta cadena. "BCBS" = Basel Committee on Banking Supervision (principios BCBS 239
 de agregación de datos de riesgo).
 
 **Estado operativo — CONFIRMADO EN DUMMY, CONTRADICE AL DOCUMENTO FUENTE (gap 7, resuelto):** todas
@@ -87,8 +87,8 @@ Preguntas pendientes (no figuran en ninguna fuente disponible):
 | P-SAA-01 | ¿Tiene `BCBS_SECTOR_ASSET_ALLOCATION_FW` la regla de post-proceso "código de retorno 7 → OK" (con o sin publicar el evento de fin)? | Define si un día sin fichero deja la cadena en verde sin procesar nada o detenida (TC-002). La ficha solo dice que "no genera error" |
 | P-SAA-02 | Línea completa del `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL1119` (operación `M` mover o `C` copiar, máscara, rutas, si exige fichero) | Decide si el fichero origen sigue o no en `/unload/kytl/datent/datax/` y qué código devuelve el job si falta el fichero |
 | P-SAA-03 | Configuración del informe `SECTOR_ASSET_ALLOCATION` en `FT_T_REP1` (query, cabecera, plantilla Excel, nombres exactos del Excel/BODY, destinatarios en `FT_T_ALR1`) y si el `.properties` `SectorAssetAllocation_Report` declara `Stop*=Ok` | Es el contenido del correo de resultado; sin ello no se puede validar el informe ni saber a quién llega |
-| P-SAA-04 | Layout de `ClienSector.csv`: nº de campos exigido (`TemplatePositions.NUMBER_OF_FIELDS`), orden y significado de cada campo, separador (`Constants.DATA_SPLITTER`), geografías soportadas, valores de `Constants.SECTOR_CLASSIFICATION_IDS`, y significado del valor de descarte `ES0182000000000` | Sin ello no se puede construir un CSV de prueba válido ni saber qué clasificación se escribe en `FT_T_FRCL` |
-| P-SAA-05 | Directorio de trabajo real de `SAA_Local.sh ClienSector`: `MOD_EJECUCION=ClienSector` haría esperar `ClienSector.csv` (y el área `.../kytl/ClienSector/`), pero `MEKYTL1119` deja `<ODATE>._ClienSector.csv` en `.../kytl/SectorAssetAllocation/`. ¿Quién lo renombra o dónde lo busca el script? | Si no coinciden, la carga diría "No hay fichero para procesar" cada día sin error |
+| P-SAA-04 | **Parcialmente resuelta.** Valores de `Constants.SECTOR_CLASSIFICATION_IDS`: casi con seguridad `SAASECT` (sector), `SAASUBS` (subsector) y `SAACCT` (actividad económica), que son los tres `INDUS_CL_SET_ID` que la extracción genérica lee en `FT_T_FRCL`/`FT_T_INCL` para el bloque `SectorAssetAllocation` (deducción desde el lado de la extracción; no se ha visto la constante). El análisis original describe el valor de descarte `ES0182000000000` como «cuenta/valor de descarte conocido»; el prefijo `ES0182` coincide con el código de entidad de BBVA en España, de modo que probablemente es un identificador genérico de cliente que no debe cargarse (inferencia, sin confirmar). **Sigue pendiente** el layout de `ClienSector.csv`: nº de campos exigido (`TemplatePositions.NUMBER_OF_FIELDS`), orden y significado de cada campo, separador (`Constants.DATA_SPLITTER`) y geografías soportadas. | Sin ello no se puede construir un CSV de prueba válido ni saber qué clasificación se escribe en `FT_T_FRCL` |
+| P-SAA-05 | Directorio de trabajo real de `SAA_Local.sh ClienSector`: `MOD_EJECUCION=ClienSector` haría esperar `ClienSector.csv` (y el área `.../kytl/ClienSector/`), pero `MEKYTL1119` deja `<ODATE>._ClienSector.csv` en `.../kytl/SectorAssetAllocation/`. ¿Quién lo renombra o dónde lo busca el script? El análisis original del script describe la comprobación de `comprobarExisteFichero()` como la del fichero `YYYYMMDD_ClienSector.csv` (el mismo que mueve `MEKYTL1119`) en `.../SectorAssetAllocation/`, y la localización del fichero de carga final como `MOD_EJECUCION.csv`, sin explicar la diferencia de nombre; sigue sin resolverse. | Si no coinciden, la carga diría "No hay fichero para procesar" cada día sin error |
 
 ## 5. Especificación funcional
 
@@ -126,7 +126,7 @@ Preguntas pendientes (no figuran en ninguna fuente disponible):
 
 **Quién y cuándo lo lanza.** Control-M, folder `KYTL0000-KYTL_BCBS_SECTOR_ASSET_ALLOCATION`, L-V desde
 las 23:00; solo el filewatcher arranca por horario y el resto por evento `KYTL_BCBS_SECTOR_ASSET_ALLOCATION_<job>_OK`
-del anterior. Rearranque: aviso a ANS RDR + ticket Remedy (`MEKYTL1121`: `N/A`).
+del anterior. Rearranque: aviso a ANS RDR + ticket Remedy (`MEKYTL1121`: `N/A`). Ficha de cadena: periodicidad D, criticidad `W` (aviso día siguiente), interrelación ONLINE, última modificación 22/11/2025; grupo de soporte ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`) en todos los jobs salvo `MEKYTL1121`, cuyo grupo es «PROYECTO RDR».
 
 **Estado inicial.** DataX ha dejado `YYYYMMDD_ClienSector.csv` en `/unload/kytl/datent/datax/`
 (sistema emisor: Datio, contacto `cs-cib_basicdataservicessupport@bbva.com`, DataObject
@@ -138,7 +138,7 @@ del anterior. Rearranque: aviso a ANS RDR + ticket Remedy (`MEKYTL1121`: `N/A`).
 |-----|-------|---------|
 | Clasificación sectorial | `FT_T_FRCL` (BD RDR) | Altas/inactivaciones tipo SCD-2 (`DataStatTyp` `ACTIVE`/`INACTIVE`), sin borrado físico |
 | Marca de redistribución | `FT_T_RLT1` | `RltDifStat=PENDING_ESB`, `DataSrcApp=DATIO`, `MessageRlt=UPDATED_CPTY_SECTOR_ASSET_ALLOCATION` por contraparte modificada |
-| Original archivado | área de trabajo (`.../SectorAssetAllocation/`) | `*_Original.csv` (copia antes de deduplicar) |
+| Original archivado | `.../SectorAssetAllocation/old/` | `*_Original.csv` (copia antes de deduplicar). Corrección: una versión anterior de esta spec lo situaba en el área de trabajo; el análisis original del script y los prerrequisitos (`old/` ya debe existir) lo sitúan en `old/` |
 | Referencia del delta | `.../old/` | fichero del día completo para comparar mañana (ver `salidas/comun_delta/comun_delta_spec.md`) |
 | Informe de carga | `.../SectorAssetAllocation/output/` (por la máscara `*SECTOR_ASSET_ALLOCATION*` que empaqueta `MEKYTL1121`) | Excel + texto BODY; se envía por correo; nombres y contenido exactos: P-SAA-03 |
 | Backup | `.../output/old/reporte_YYYYMMDD.zip` | zip de los `*SECTOR_ASSET_ALLOCATION*` de `output/` (que NO se borran) |
@@ -247,7 +247,7 @@ Comando: `/pr/kytl/online/multipais/multicanal/scrt/SAA_Local.sh ClienSector WAR
    para procesar" y **termina el script sin error**. Campo de salida afectado: determina si hay
    salida en absoluto.
 4. `eliminarLineasDuplicadaPorCampo()` — elimina líneas con el valor fijo `ES0182000000000` y
-   deduplica por el 2º campo (separador `;`), archivando el original con sufijo `_Original.csv`.
+   deduplica por el 2º campo (separador `;`), archivando el original con sufijo `_Original.csv` en `old/`.
    Afecta directamente qué registros llegan a cargarse.
 5. `eliminarCabecera()` — quita la primera línea del CSV ya deduplicado. Sin esto, la cabecera se
    procesaría como un registro más (formato inválido, se auditaría y descartaría, pero es ruido
@@ -321,7 +321,7 @@ lote en un pool fijo de **5 hilos** (`SectorClassificationThread`), esperando a 
     código deja abierta la posibilidad de que, con otro nivel, este caso pasara completamente
     inadvertido. Ver TC-004.
 - Si la contraparte existe, aplica para cada tipo de clasificación sectorial
-  (`Constants.SECTOR_CLASSIFICATION_IDS`; lista de valores no disponible, P-SAA-04) un patrón tipo SCD-2 sobre `FT_T_FRCL`:
+  (`Constants.SECTOR_CLASSIFICATION_IDS`; lista de valores no vista en el código, casi seguro `SAASECT`/`SAASUBS`/`SAACCT`, P-SAA-04) un patrón tipo SCD-2 sobre `FT_T_FRCL`:
   - **Campo de salida afectado:** `FT_T_FRCL.IndusClSetId`, `ClsfOid`, `ClValue`, `ClsfPurpTyp`,
     `DataStatTyp` (`ACTIVE`/`INACTIVE`), `AuditFields`.
   - Si ya existe un valor y cambia → el registro antiguo pasa a `INACTIVE` y se crea uno nuevo
