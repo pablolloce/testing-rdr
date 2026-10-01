@@ -2,7 +2,7 @@
 <casosDePrueba proceso="rdr_carga_plazas_trad_new" fecha="2026-09-30" usuario="pablo.llorente@nfq.es">
 
   <casoDePrueba id="TC-001" tipo="happy_path">
-    <nombre>Ciclo completo de carga de plazas tradicionales</nombre>
+    <nombre>Ciclo completo de traducción de plazas (TradPlazas)</nombre>
     <objetivo>Verificar el ciclo end-to-end: llegada del fichero, carga vía GSProcess.sh (PARM1=TradPlazas), historificación vía RAMERC0068.sh y cierre de cadena.</objetivo>
     <precondiciones>
       <precondicion>Fichero TradPlazas.csv válido disponible para depositar dentro de la ventana de monitoreo (lunes a viernes, desde las 05:00 AM).</precondicion>
@@ -55,7 +55,7 @@
       <paso numero="1">No depositar el fichero durante la ventana de monitoreo.</paso>
       <paso numero="2">Confirmar el comportamiento del filewatcher al agotar el timeout.</paso>
     </pasos>
-    <resultadoEsperado>Comportamiento documentado con evidencia real, incluyendo si genera alerta a ANS RDR.</resultadoEsperado>
+    <resultadoEsperado>Tras 240 minutos sin fichero completo, ctmfw termina con código 7; KYTL_PLATR_GSPROCESS_FW queda en NOTOK (no existe la regla "7 -> OK"), no se publica la condición RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_FW_OK_new y los pasos 2 y 3 no arrancan. Documentar además si se genera alerta a ANS RDR.</resultadoEsperado>
     <tipoValidacion>Observación directa en Control-M de un ciclo sin fichero.</tipoValidacion>
     <criterioAceptacion>Comportamiento documentado, cualquiera que sea.</criterioAceptacion>
     <posibilidadFallo>Ausencia de alerta ante un timeout real sería un hallazgo a documentar.</posibilidadFallo>
@@ -65,7 +65,7 @@
     <nombre>Fallo real de KYTL_PLATR_GSPROCESS sin tolerancia Force-OK</nombre>
     <objetivo>Confirmar que, al no existir ningún override en el export real, un fallo real en la carga/conciliación se refleja como KO real en Control-M, deteniendo la cadena.</objetivo>
     <precondiciones>
-      <precondicion>Escenario de fallo controlado en KYTL_PLATR_GSPROCESS (p. ej. fichero con formato inválido).</precondicion>
+      <precondicion>Escenario de fallo controlado en KYTL_PLATR_GSPROCESS (p. ej. retirar temporalmente TradPlazas.properties, con lo que GSProcess.sh termina con código 1; la validación de formato del fichero no está documentada para esta clave, P-TPL-01).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Máximo de relanzamientos" valor="0"/>
@@ -88,7 +88,7 @@
       <precondicion>Escenario de fallo controlado en MEKYTL0129 (p. ej. permisos de escritura revocados en la ruta destino).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Contraste" valor="MEKYTL0242/MEKYTL0122 sí tienen diseño tolerante confirmado; MEKYTL0129 no tiene ficha EX-005-03 propia"/>
+      <dato campo="Contraste" valor="MEKYTL0242/MEKYTL0122 sí tienen diseño tolerante confirmado; MEKYTL0129 tiene ficha EX-005-03 sin instrucción de tolerancia"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar un fallo real en MEKYTL0129.</paso>

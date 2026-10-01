@@ -13,7 +13,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Esperar el disparo horario de KYTL_BNIVEL_GSPROCESS a las 03:00 AM.</paso>
-      <paso numero="2">Verificar RC=0, generación de los 2 reportes y publicación de RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new y del evento externo hacia RDR_BAJAS_CPARTY_IN.</paso>
+      <paso numero="2">Verificar RC=0, generación de Reporte_bajaniveles.csv (LF) y de su copia Reporte_bajaniveles_dos.csv (CRLF, creada por Unix2Dos) y publicación de RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new y del evento externo hacia RDR_BAJAS_CPARTY_IN.</paso>
       <paso numero="3">Verificar que MEKYTL0351 historifica Reporte_bajaniveles.csv a /old/ con máscara de fecha.</paso>
       <paso numero="4">Verificar que MEKYTL0352 solicita la transmisión XCOM en modo A DUMMY, RC=0.</paso>
       <paso numero="5">Verificar que MEKYTL0945 historifica Reporte_bajaniveles_dos.csv a /old/ y cierra la cadena.</paso>
@@ -28,10 +28,10 @@
     <nombre>Fallo de KYTL_BNIVEL_GSPROCESS bloquea el resto de la cadena y la cadena externa</nombre>
     <objetivo>Confirmar que un fallo en el primer job impide tanto la ejecución de los siguientes jobs como la activación de RDR_BAJAS_CPARTY_new.</objetivo>
     <precondiciones>
-      <precondicion>Se fuerza un fallo simulado (p. ej. desconectividad con GSDM-1) en KYTL_BNIVEL_GSPROCESS.</precondicion>
+      <precondicion>Se fuerza un fallo simulado que sí produzca RC distinto de 0 en KYTL_BNIVEL_GSPROCESS (p. ej. retirar bajaniveles.properties, con lo que GSProcess.sh termina con código 1). Un fallo del propio workflow BajaCpartiesGL (p. ej. sin conexión a GSDM-1) puede no reflejarse en el RC del job: GSProcess.sh no detecta workflows fallidos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Simulación" valor="Conexión JDBC a GSDM-1 inaccesible"/>
+      <dato campo="Simulación" valor="bajaniveles.properties ausente (RC=1)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Forzar RC≠0 en KYTL_BNIVEL_GSPROCESS.</paso>
@@ -58,7 +58,7 @@
       <paso numero="1">Ejecutar MEKYTL0352 y verificar RC=0.</paso>
       <paso numero="2">Verificar que NO existe el fichero Reporte_bajaniveles_yyyymmdd.csv en el destino de red.</paso>
     </pasos>
-    <resultadoEsperado>El job termina OK (valida la interfaz lógica) pero no hay transmisión real de red — comportamiento confirmado, no un fallo de la prueba.</resultadoEsperado>
+    <resultadoEsperado>El job termina OK (valida la interfaz lógica) pero no hay transmisión real de red — comportamiento indicado por la ficha EX-005-03 ("A DUMMY"); cómo se materializa no está confirmado (P-BNI-04).</resultadoEsperado>
     <tipoValidacion>Verificación de RC en Control-M + ausencia de fichero en el destino de red.</tipoValidacion>
     <criterioAceptacion>RC=0 y 0 ficheros nuevos en el destino de red.</criterioAceptacion>
     <posibilidadFallo>Riesgo de negocio: si en algún momento se espera un envío real, este comportamiento simulado pasaría desapercibido.</posibilidadFallo>
@@ -159,6 +159,26 @@
     <tipoValidacion>Verificación combinada Control-M + BD (DATA_STAT_TYP).</tipoValidacion>
     <criterioAceptacion>4/4 jobs OK, DATA_STAT_TYP='INACTIVE' confirmado, evento externo presente.</criterioAceptacion>
     <posibilidadFallo>Imposibilidad de verificar DATA_STAT_TYP por falta de acceso al entorno GSDM-1.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="negativo">
+    <nombre>Fallo del workflow BajaCpartiesGL no detectado por el job</nombre>
+    <objetivo>Comprobar que un fallo interno del workflow (GSProcess.sh no detecta workflows fallidos) no pone en rojo KYTL_BNIVEL_GSPROCESS y cómo se manifiesta.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba donde se pueda provocar el fallo del workflow RDR_BajaCpartiesGL (p. ej. GSDM-1 no accesible) sin quitar bajaniveles.properties.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Defecto conocido" valor="Acción Evento/Workflow de GSProcess.sh evalúa el código del rm del temporal, no el del workflow"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Provocar el fallo del workflow y ejecutar KYTL_BNIVEL_GSPROCESS.</paso>
+      <paso numero="2">Registrar el estado del job y el contenido de Reporte_bajaniveles.csv y de la salida de RDR_ErroresCSV.</paso>
+      <paso numero="3">Verificar en BD que no se ha inactivado ninguna contrapartida.</paso>
+    </pasos>
+    <resultadoEsperado>El job puede terminar en OK y la cadena completarse; el fallo solo se aprecia en reporte vacío/errores y en contrapartidas que siguen activas. Documentar el resultado real.</resultadoEsperado>
+    <tipoValidacion>Estado en Control-M + reporte + consulta a BD.</tipoValidacion>
+    <criterioAceptacion>Comportamiento real documentado.</criterioAceptacion>
+    <posibilidadFallo>Si el job sí queda en NOTOK, el defecto no aplica a esta versión y la spec debe corregirse.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

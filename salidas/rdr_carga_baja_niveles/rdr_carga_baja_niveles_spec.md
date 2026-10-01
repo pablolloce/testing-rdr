@@ -32,7 +32,7 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 | R1 | `KYTL_BNIVEL_GSPROCESS` (03:00 AM, L-V) ejecuta `GSProcess.sh bajaniveles`, Run As `xakytl1p`. Dispara el workflow GoldenSource `RDR_BajaCpartiesGL` (clase `BajaCpartiesGL.gsp` contra `jdbc/GSDM-1`). Sin predecesor (inicio por horario). |
 | R2 | El workflow ejecuta 2 fases secuenciales con `SELECT DISTINCT`: Fase 1 (LOCAL) sobre `ft_t_firl`/`ft_t_fins` — contrapartidas LOCAL activas sin hijas `OPERATIVE` activas; Fase 2 (GLOBAL) — contrapartidas GLOBAL activas sin hijas LOCAL activas. Cada entidad encontrada invoca `Sub_BajaCpartiesGL` (parámetros `job`, `mnem`, `relTyp`=LOCAL/GLOBAL). |
 | R3 | La baja es **lógica, no física** (confirmado por el usuario): `Sub_BajaCpartiesGL` actualiza `DATA_STAT_TYP='INACTIVE'` en las tablas afectadas, conservando trazabilidad de auditoría. |
-| R4 | `KYTL_BNIVEL_GSPROCESS` genera 2 ficheros (`Reporte_bajaniveles.csv`, `Reporte_bajaniveles_dos.csv`), formatea el primero con `Unix2Dos`, y emite el evento `RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new` **más** un evento externo que activa el job `RDR_BAJAS_CPARTY_IN` de la cadena `RDR_BAJAS_CPARTY_new`. |
+| R4 | `KYTL_BNIVEL_GSPROCESS` genera `Reporte_bajaniveles.csv` (evento `Reporte`, `RDR_Reporte`, saltos de línea LF) y, con la acción `Script Unix2Dos`, el fichero `Reporte_bajaniveles_dos.csv` (**copia con saltos CRLF**; `Unix2Dos` crea `<nombre>_dos.<extensión>` y deja el original, ver `salidas/comun_generico_sh/comun_generico_sh_spec.md`), y emite el evento `RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new` **más** un evento externo que activa el job `RDR_BAJAS_CPARTY_IN` de la cadena `RDR_BAJAS_CPARTY_new`. |
 | R5 | `MEKYTL0351` (Run As `xsramer1`) historifica `Reporte_bajaniveles.csv` a `/old/Reporte_bajaniveles_yyyymmdd.csv`. |
 | R6 | `MEKYTL0352` (Run As `xsramer1`) solicita transmisión XCOM **configurada explícitamente "A DUMMY"** de `Reporte_bajaniveles_dos.csv` hacia `\\S00371F2\DATOS\TRANSFTP\MVP00G215\RDR` — valida la interfaz lógica sin envío real de red. Confirmado: es un job dummy de control, mismo patrón que `MEKYTL0135` de `RDR_CONCILIACION_BDI_new` (ambos "jobs dummy de control cuya función es solicitar una transmisión XCOM"), sin motivo de negocio adicional documentado. |
 | R7 | `MEKYTL0945` (Run As `xsramer1`) historifica `Reporte_bajaniveles_dos.csv` a `/old/Reporte_bajaniveles_dos_yyyymmdd.csv`. Fin de cadena, sin evento de salida adicional. |
@@ -43,10 +43,15 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 
 | Gap | Pregunta | Resolución |
 |-----|----------|------------|
-| G1 | ¿La dependencia con la cadena externa `RDR_BAJAS_CPARTY_new` es fuera de alcance sin más, o hay que documentarla como prerrequisito? | Confirmado: `RDR_CARGA_BAJA_NIVELES_new` es la cadena que **alimenta** a `RDR_BAJAS_CPARTY_new` (su evento de salida es un prerrequisito operativo de entrada para el job `RDR_BAJAS_CPARTY_IN` de esa cadena externa). La implementación interna de `RDR_BAJAS_CPARTY_new` queda fuera de alcance, pero la relación de dependencia saliente se documenta explícitamente (R4, R6 de esta sección). **Nota de evidencia:** el usuario citó 2 ficheros adicionales (`Cadenas/Bajas de contrapartidas/Bajas de contrapartidas.txt`, `RDR/generated/TEST-PLAN-Bajas-Contrapartidas.md`) y una cadena adicional (`RDR_BLOQ_DESBLOQ_LOPD_new`/`MEKYTL0143`) que se verificaron **inexistentes** en las 8 ramas de este repositorio Git — no se incorporan a esta especificación. La conclusión de G1 se sostiene únicamente sobre la evidencia real ya disponible en `documentos_fuente/carga_conciliacion_clientes_bdi.md` (línea 471), no sobre esas citas adicionales. |
+| G1 | ¿La dependencia con la cadena externa `RDR_BAJAS_CPARTY_new` es fuera de alcance sin más, o hay que documentarla como prerrequisito? | Confirmado: `RDR_CARGA_BAJA_NIVELES_new` es la cadena que **alimenta** a `RDR_BAJAS_CPARTY_new` (su evento de salida es un prerrequisito operativo de entrada para el job `RDR_BAJAS_CPARTY_IN` de esa cadena externa). La implementación interna de `RDR_BAJAS_CPARTY_new` queda fuera de alcance, pero la relación de dependencia saliente se documenta explícitamente (R4, R6 de esta sección). **Nota de evidencia:** el usuario citó 2 ficheros adicionales (`Cadenas/Bajas de contrapartidas/Bajas de contrapartidas.txt`, `RDR/generated/TEST-PLAN-Bajas-Contrapartidas.md`) y una cadena adicional (`RDR_BLOQ_DESBLOQ_LOPD_new`/`MEKYTL0143`) que se verificaron **inexistentes** en las 8 ramas de este repositorio Git — no se incorporan a esta especificación. La conclusión de G1 se sostiene únicamente sobre la ficha real del job `KYTL_BNIVEL_GSPROCESS` (apartado "Eventos de salida": emite la condición interna `RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new` y "activa el gatillo externo de bajas de contrapartidas"; modificación de planificación del 09/09/2023: hora de inicio 03:00 y sucesor externo `RDR_BAJAS_CPARTY_IN`), no sobre esas citas adicionales. |
 | G2 | ¿Por qué `MEKYTL0352` está en modo "A DUMMY"? ¿Aplica el mismo motivo a `MEKYTL0135` de `RDR_CONCILIACION_BDI_new`? | Confirmado: ambos son "jobs dummy de control cuya función es solicitar una transmisión XCOM" — mismo patrón en ambas cadenas, sin motivo de negocio adicional documentado más allá de esa descripción. |
 | G3 | ¿`Sub_BajaCpartiesGL` hace baja física o lógica? | Confirmado: baja lógica (`DATA_STAT_TYP='INACTIVE'`), con trazabilidad de auditoría conservada. Sin borrado físico de registros. |
 | G4 | ¿Incluir caso de prueba de duplicidad sobre el `SELECT DISTINCT`? | Confirmado: sí, incluir (ver TC-007). |
+| P-BNI-01 | ¿Qué hace exactamente `Sub_BajaCpartiesGL` (qué tablas actualiza, qué escribe en auditoría, si deja traza que alimente el reporte)? | Pendiente. Solo consta que pone `DATA_STAT_TYP='INACTIVE'`; no se puede verificar el alcance real de una baja |
+| P-BNI-02 | ¿Qué columnas y qué consulta usa el evento `RDR_Reporte` para `Reporte_bajaniveles.csv`, y qué produce `RDR_ErroresCSV`? | Pendiente. Sin ello no se puede comprobar el contenido del reporte ni los rechazos |
+| P-BNI-03 | Línea de `MEKYTL0351` y `MEKYTL0945` en el IDX de historificación de producción (operación, campo "falla si no hay fichero") | Pendiente. Determina si un reporte ausente rompe la cadena |
+| P-BNI-04 | Configuración `MEKYTL0352.idx` (protocolo, `FALLA_NO_FICHERO`, destino real) | Pendiente. Aclara qué significa "A DUMMY" y qué pasa si falta `Reporte_bajaniveles_dos.csv` |
+| P-BNI-05 | ¿Cómo se resuelve `@@ENV@@` en `Ruta` si `GSProcess.sh` sustituye `$ENV`? | Pendiente. Si no se sustituyera, la ruta de los reportes sería otra |
 | G5 (transversal) | ¿Aplica el patrón "sin integridad/concurrencia" por defecto a esta cadena y al resto de P-021? | Confirmado: sí, por defecto, salvo evidencia explícita en contrario en una cadena concreta (ver R9). |
 
 ## 5. Especificación funcional
@@ -60,37 +65,82 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 4. `MEKYTL0352` solicita (en modo simulacro, sin envío real) la transmisión XCOM del reporte secundario.
 5. `MEKYTL0945` historifica el reporte secundario y cierra la cadena, sin evento de salida adicional.
 
+**Resultado exacto y cómo saber si fue bien o mal**
+
+| Resultado | Ruta / nombre | Formato | Quién lo crea | Qué queda tras la cadena |
+|---|---|---|---|---|
+| Reporte principal | `/fichtemcomp/pr/descargas/kytl/bajaniveles/Reporte_bajaniveles.csv` | CSV, saltos LF; columnas no documentadas (P-BNI-02) | Evento `RDR_Reporte` (acción 4 de `GSProcess.sh`) | Movido por `MEKYTL0351` a `old/Reporte_bajaniveles_yyyymmdd.csv` |
+| Reporte secundario | `.../bajaniveles/Reporte_bajaniveles_dos.csv` | Copia del anterior con saltos CRLF | `Unix2Dos` (acción 5) | Historificado por `MEKYTL0945` a `old/Reporte_bajaniveles_dos_yyyymmdd.csv`; la copia "A DUMMY" no sale de la máquina |
+| Baja lógica | Tablas GoldenSource (`DATA_STAT_TYP='INACTIVE'`) | — | `Sub_BajaCpartiesGL` | Contrapartidas inactivas, nunca borradas |
+| Condiciones Control-M | las 4 listadas en la tabla de jobs | — | Control-M | `..._MEKYTL0352_OK_new` es la última; `MEKYTL0945` cierra sin condición propia |
+
+Cadena correcta = 4 jobs en OK, las dos condiciones del job 1 publicadas (la interna y la externa hacia `RDR_BAJAS_CPARTY_IN`) y dos ficheros nuevos en `old/` con la fecha del día. Cadena incorrecta = algún job en NOTOK (la cadena se detiene ahí; con `MAXRERUN=0` no hay relanzamiento automático, se avisa a ANS RDR). **Ojo:** un fallo interno del workflow `BajaCpartiesGL` puede no verse en el estado del job 1 (ver §6), y entonces el problema solo se aprecia en un reporte vacío o incompleto, o en contrapartidas que siguen activas. Un día sin candidatas no es un error: los dos queries devuelven 0 filas y la cadena termina en verde.
+
 ## 6. Especificación técnica
 
 * **Folder Control-M:** `KYTL0000-RDR_CARGA_BAJA_NIVELES_new`, servidor `MERCADOS-4`, disparo 03:00 AM L-V.
 * **Motor:** `GSProcess.sh bajaniveles` → `bajaniveles.properties` → evento `RDR_BajaCpartiesGL.gsp` →
   workflow `BajaCpartiesGL` (v4, `Custom/RDR/Integracion_MGC-GS/Bajas`) contra `jdbc/GSDM-1`.
-* **Contenido de `bajaniveles.properties` (capa de parametrización, documento fuente línea 536):**
-  invocado por `GSProcess.sh` con la opción `bajaniveles`, fija:
-  * `Ruta base = /fichtemcomp/pr/descargas/kytl/`: directorio raíz donde `KYTL_BNIVEL_GSPROCESS` lee y
-    escribe los ficheros de esta cadena (subcarpeta `bajaniveles/`, ver R4-R7).
-  * `Delta/MDX = No`: desactiva el procesamiento incremental — cada ejecución evalúa el universo completo
-    de contrapartidas contra `ft_t_firl`/`ft_t_fins`, no solo las modificadas desde la última corrida
-    (relevante para R2: las 2 fases `SELECT DISTINCT` de `BajaCpartiesGL.gsp` no dependen de un delta
-    previo).
-  * `Workflow = Si` con `NomWorkflow = RDR_BajaCpartiesGL`: habilita el motor de workflows y es el
-    parámetro que decide qué evento de negocio se dispara — el `.properties` inyecta este nombre
-    simbólico en `RDR_BajaCpartiesGL.gsp` (clase `com.j2fe.event.GenericEvent`), que a su vez desencadena
-    el workflow `BajaCpartiesGL` descrito en R2/R3. Sin `Workflow=Si` o con `NomWorkflow` apuntando a otro
-    evento, el job no dispararía la inactivación jerárquica de contrapartidas.
-  * `NomEvento = Reporte`: tras finalizar el workflow, es la acción que compila los 2 ficheros de salida
-    de la cadena (`Reporte_bajaniveles.csv`, `Reporte_bajaniveles_dos.csv`, R4).
-  * Post-procesado `Unix2Dos` sobre `bajaniveles/Reporte_bajaniveles.csv`: convierte los saltos de línea
-    LF→CRLF del reporte principal antes de su historificación por `MEKYTL0351` — afecta solo a la
-    codificación del fichero, no a su contenido ni a las columnas del reporte secundario
-    (`Reporte_bajaniveles_dos.csv`, que no pasa por esta conversión).
-  * **Qué pasa si falla/falta/cambia:** si el fichero `bajaniveles.properties` faltara o estuviera mal
-    configurado, `GSProcess.sh bajaniveles` no tendría a qué evento delegar (`NomWorkflow`) ni sobre qué
-    ruta operar, y `KYTL_BNIVEL_GSPROCESS` no podría completar ni la baja lógica (R2/R3) ni la generación
-    de los 2 reportes (R4). El material disponible no documenta el comportamiento exacto de `GSProcess.sh`
-    ante un `.properties` ausente o corrupto (código de salida, log específico) — se deja como dato no
-    confirmado, sin inventarlo.
-* **Historificación/transmisión:** `RAMERC0068.sh` (jobs 2 y 4) y `MEGENV0001.sh` (job 3, modo `A DUMMY`).
+* **Contenido de `bajaniveles.properties`** (según el análisis del fichero real; ruta
+  `/pr/kytl/online/multipais/multicanal/dat/properties/bajaniveles.properties`). `GSProcess.sh` lo lee de
+  arriba abajo (`salidas/comun_gsprocess/comun_gsprocess_spec.md`):
+
+  | Parámetro | Valor | Qué hace |
+  |---|---|---|
+  | `MOD_EJECUCION` | `bajaniveles` | Nombre del módulo; se pasa al workflow |
+  | `Ruta` | `/fichtemcomp/@@ENV@@/descargas/kytl/` | Directorio base; `@@ENV@@` se sustituye por el entorno (`pr`). **Aviso:** `GSProcess.sh` sustituye `$ENV`, no `@@ENV@@` (pregunta abierta P-GSP-01 de la spec común): cómo se resuelve aquí no está confirmado (P-BNI-05) |
+  | `File` | (vacío) | No hay fichero de entrada: el proceso trabaja solo sobre la base de datos |
+  | `Servicio` | `bajaniveles` | Nombre del servicio |
+  | `BusinessFeed`, `MessageType` | (vacíos) | No es una carga de fichero externo |
+  | `SuccessAction` | `LEAVE` | Los ficheros se dejan en el directorio al terminar (no se mueven ni borran) |
+  | Banderas `Delta`, `Preprocesado`, `MDX` | `No` | Sin delta, sin preprocesado, sin carga MDX. Es decir, **no usa `Delta.sh`, ni `ControlCargaDatos.jar`, ni carga de fichero** |
+  | Banderas `Workflow`, `Errores`, `Reporte` | `Si` | Activan esas tres acciones |
+
+  Acciones, en orden (cada una es una llamada de `GSProcess.sh`):
+  1. `Variables` (`VariablesGlobales`): fija las variables anteriores.
+  2. `Evento` `NomEvento=Workflow`, `NomWorkflow=RDR_BajaCpartiesGL`: `./executeBbvaEvent.sh fileloading RDR_BajaCpartiesGL $CREDENTIALS bajaniveles.properties`. Dispara el evento de aplicación `RDR_BajaCpartiesGL` ("RDR Baja Cparties Global Local", clase `com.j2fe.event.GenericEvent`), que lanza el workflow `BajaCpartiesGL` (R2).
+  3. `Evento` `NomEvento=Errores`: `... fileloading RDR_ErroresCSV ...` — consolida los errores del workflow (qué fichero/tabla produce no está documentado, P-BNI-02).
+  4. `Evento` `NomEvento=Reporte`: `... fileloading RDR_Reporte ...` — genera `bajaniveles/Reporte_bajaniveles.csv` (columnas y consulta no documentadas, P-BNI-02). No es `RDR_Report.jar`.
+  5. `Script` `NomScript=Unix2Dos`, `PreArgScri1=$FILES`, `ArgScri1=bajaniveles/Reporte_bajaniveles.csv`: ejecuta `Generico.sh Unix2Dos $FILES/bajaniveles/Reporte_bajaniveles.csv`, que **crea `Reporte_bajaniveles_dos.csv` con CRLF y deja el original**. Si el fichero no existe termina con código 4 (código 2 sin argumento, 1 si falla el `sed`).
+  * **Qué pasa si falla cada cosa.** (a) Si falta el `.properties`: `GSProcess.sh` termina con código 1 y el job queda en NOTOK. (b) **Un workflow fallido nunca se detecta** (defecto conocido de `GSProcess.sh`, la rama `Workflow` evalúa el código del `rm` del temporal): si `BajaCpartiesGL` falla, el job sigue y puede terminar en verde; además el propio workflow tiene `haltOnError=false` y `retries=0`, así que un error en una contrapartida no detiene el resto. (c) `Errores` y `Reporte` sí propagan su código: con código ≠0 suman un error y, si no hay `Stop…=Ok` (no consta ninguno en el `.properties` descrito), continúan; el job termina con 1 al final. (d) Si no se genera `Reporte_bajaniveles.csv`, `Unix2Dos` falla con 4. (e) Si falta `credentials.xml`, `GSProcess.sh` termina con 0 sin hacer nada. Código de salida: 0 si todo OK, 1 si alguna acción falló.
+* **Workflow `BajaCpartiesGL`** (versión 4, categoría `Custom/RDR/Integracion_MGC-GS/Bajas`, última modificación 2022-11-05 por `KYTL_GC`; `clustered=true`, `alwaysPersist=false`, `purgeAtEnd=true`, `haltOnError=false`, `retries=0`, prioridad 50). Pasos: Create Job (registra "Proceso de Baja de Contrapartidas"), consulta LOCAL, bucle (For Each Split) que extrae el mnemónico y llama a `Sub_BajaCpartiesGL` con `job`, `mnem`, `relTyp=LOCAL`; Synchronize; consulta GLOBAL y bucle análogo con `relTyp=GLOBAL`; Close Job; Stop. Si la consulta no devuelve filas, salta a la siguiente fase. Consultas literales contra `jdbc/GSDM-1` (`ft_t_fins` = institución, `ft_t_firl` = relaciones jerárquicas):
+
+  ```sql
+  -- Fase 1: LOCAL sin OPERATIVE activo
+  select distinct firll.inst_mnem
+  from ft_t_firl firll, ft_t_fins finsl
+  where finsl.inst_mnem = firll.inst_mnem and finsl.data_stat_typ <> 'INACTIVE'
+    and firll.rel_typ = 'LOCAL' and firll.data_stat_typ <> 'INACTIVE'
+    and not exists (select 1 from ft_t_firl firlo, ft_t_fins finso
+                    where firlo.prnt_inst_mnem = firll.inst_mnem and finso.inst_mnem = firlo.inst_mnem
+                      and firlo.rel_typ = 'OPERATIVE'
+                      and firlo.data_stat_typ <> 'INACTIVE' and finso.data_stat_typ <> 'INACTIVE')
+  -- Fase 2: GLOBAL sin LOCAL activo
+  select distinct firlg.inst_mnem
+  from ft_t_firl firlg, ft_t_fins finsg
+  where finsg.inst_mnem = firlg.inst_mnem and firlg.rel_typ = 'GLOBAL'
+    and firlg.data_stat_typ <> 'INACTIVE' and finsg.data_stat_typ <> 'INACTIVE'
+    and not exists (select 1 from ft_t_firl firl1, ft_t_fins finsl
+                    where firl1.prnt_inst_mnem = firlg.inst_mnem and finsl.inst_mnem = firl1.inst_mnem
+                      and firl1.rel_typ = 'LOCAL'
+                      and firl1.data_stat_typ <> 'INACTIVE' and finsl.data_stat_typ <> 'INACTIVE')
+  ```
+
+  Como la fase 2 se evalúa después de que la fase 1 haya dado de baja a las LOCAL, una GLOBAL cuya única hija LOCAL se inactiva en esta misma ejecución cae en la misma pasada (orden bottom-up). El contenido de `Sub_BajaCpartiesGL` no está en las fuentes; solo consta (respuesta del usuario) que actualiza `DATA_STAT_TYP='INACTIVE'` en las tablas afectadas con trazabilidad de auditoría (P-BNI-01).
+* **Jobs (ficha del job y Control-M):** todos en `pr-rdr.igrupobbva`, sin `ON STMT`/Force-OK documentados.
+
+  | # | Job | Script (`%%PARM1`) | Usuario | Espera la condición | Publica |
+  |---|---|---|---|---|---|
+  | 1 | `KYTL_BNIVEL_GSPROCESS` | `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh` (`bajaniveles`) | `xakytl1p` | horario 03:00 L-V | `RDR_CARGA_BAJA_NIVELES_KYTL_BNIVEL_GSPROCESS_OK_new` + evento externo hacia `RDR_BAJAS_CPARTY_IN` |
+  | 2 | `MEKYTL0351` | `/pr/pl/scrt/RAMERC0068.sh` (`MEKYTL0351`) | `xsramer1` | `..._KYTL_BNIVEL_GSPROCESS_OK_new` | `RDR_CARGA_BAJA_NIVELES_MEKYTL0351_OK_new` |
+  | 3 | `MEKYTL0352` | `/pr/pl/envioweb/scrt/MEGENV0001.sh` (`MEKYTL0352`) | `xsramer1` | `..._MEKYTL0351_OK_new` | `RDR_CARGA_BAJA_NIVELES_MEKYTL0352_OK_new` |
+  | 4 | `MEKYTL0945` | `/pr/pl/scrt/RAMERC0068.sh` (`MEKYTL0945`) | `xsramer1` | `..._MEKYTL0352_OK_new` | fin de cadena |
+
+* **Historificación/transmisión:** `RAMERC0068.sh` (jobs 2 y 4) y `MEGENV0001.sh` (job 3, modo `A DUMMY`). Las claves se buscan en el IDX de historificación (`/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, `CLAVE@DIR_ORIGEN@FICHEROS@DIR_DESTINO@FALLA_SI_NO_FICH@TIPO_SELECCION@NUM_DIAS@OPERACION`, ver `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`) y `MEGENV0001.sh` en `/pr/pl/envioweb/idx/MEKYTL0352.idx`; **las líneas/configuraciones concretas de `MEKYTL0351`, `MEKYTL0945` y `MEKYTL0352` no están en las fuentes** (P-BNI-03, P-BNI-04). Lo que sí consta (fichas EX-005-03):
+  * `MEKYTL0351`: `/fichtemcomp/pr/descargas/kytl/bajaniveles/Reporte_bajaniveles.csv` → `/fichtemcomp/pr/descargas/kytl/bajaniveles/old/Reporte_bajaniveles_yyyymmdd.csv` ("desplazar": el original desaparece de origen).
+  * `MEKYTL0945`: `.../bajaniveles/Reporte_bajaniveles_dos.csv` → `.../bajaniveles/old/Reporte_bajaniveles_dos_yyyymmdd.csv`.
+  * `MEKYTL0352`: origen `pr-rdr.igrupobbva:/fichtemcomp/pr/descargas/kytl/bajaniveles/Reporte_bajaniveles_dos.csv`; destino `\\S00371F2\DATOS`, ruta `TRANSFTP\MVP00G215\RDR`, nombre **`Reporte_bajaniveles_yyyymmdd.csv`** (no lleva `_dos`), configurado explícitamente "A DUMMY". Cómo se materializa el "A DUMMY" (protocolo `NOENVIO`, destino inerte u otro) no se sabe (P-BNI-04). Si falla, `MEGENV0001.sh` devuelve un código distinto de 0 (p. ej. 60/45 si falta el fichero y `FALLA_NO_FICHERO=SI`, 43 si falla el envío; ver `salidas/comun_megenv0001/comun_megenv0001_spec.md`) y el job queda en NOTOK, y `MEKYTL0945` no arranca.
+  * Si falla un job de historificación (`RAMERC0068.sh`, códigos 2/4/5/6/7... según causa) la cadena se detiene en ese job; el fichero ya movido no se repone.
 * **Recursos:** los 4 jobs consumen `MAX-LPRDR501` (1 unidad cada uno).
 * **Dependencia saliente real:** evento externo desde `KYTL_BNIVEL_GSPROCESS` hacia `RDR_BAJAS_CPARTY_IN`
   (cadena `RDR_BAJAS_CPARTY_new`, fuera de alcance en su implementación interna).
@@ -99,7 +149,7 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 
 La estrategia combina pruebas de orquestación Control-M (encadenamiento lineal de 4 jobs) con la
 verificación específica del control de duplicidad del `SELECT DISTINCT` (gap G4) y de la semántica de baja
-lógica (gap G3). El conjunto TC-001 a TC-008 cubre el 100% de las transiciones de la cadena — lineal, sin
+lógica (gap G3). El conjunto TC-001 a TC-009 cubre el 100% de las transiciones de la cadena — lineal, sin
 bifurcaciones — más el efecto de la dependencia saliente hacia la cadena externa.
 
 ## 8. Validaciones de casos de prueba
@@ -113,6 +163,7 @@ bifurcaciones — más el efecto de la dependencia saliente hacia la cadena exte
 | `conflicto_integridad` | Relanzamiento manual concurrente sin lock (patrón transversal P-021). | TC-005 |
 | `regresion` | Historificación con máscara de fecha correcta en ejecuciones sucesivas. | TC-006 |
 | `duplicidad` | El `SELECT DISTINCT` de ambas fases no procesa la misma entidad más de una vez. | TC-007 |
+| `negativo` | Un fallo interno del workflow puede no verse en el estado del job 1. | TC-009 |
 | `e2e` | Ciclo completo, con verificación de la baja lógica (`DATA_STAT_TYP='INACTIVE'`) y del evento externo hacia `RDR_BAJAS_CPARTY_new`. | TC-008 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
@@ -133,4 +184,4 @@ bifurcaciones — más el efecto de la dependencia saliente hacia la cadena exte
 ## 10. Conclusión y requisitos de cierre
 
 Los 5 gaps (G1-G4 y la transversal G5) tienen resolución explícita, con distinción honesta entre evidencia
-verificable y contenido descartado por no encontrarse en el repositorio. No quedan preguntas sin responder.
+verificable y contenido descartado por no encontrarse en el repositorio. Los gaps G1-G5 están resueltos; quedan abiertas las preguntas P-BNI-01 a P-BNI-05 (contenido de `Sub_BajaCpartiesGL` y de los eventos `RDR_Reporte`/`RDR_ErroresCSV`, líneas IDX de `MEKYTL0351`/`MEKYTL0945`/`MEKYTL0352` y resolución de `@@ENV@@`), que no están en ninguna fuente.

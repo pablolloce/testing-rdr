@@ -41,10 +41,19 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
 - El origen de los ficheros de entrada (`CN460_F%%$DATE._*.csv`, `CN460.csv`): confirmado que proceden de
   Infraestructura de Contratos (IC), sistema externo a RDR — no cambia el comportamiento testeable de
   esta cadena, que solo consume el fichero una vez depositado.
-- `fillingRules_CN460.csv` y la clase `ControlCase` de `ControlCargaDatos.jar`: no se obtuvo el jar ni el
-  fichero de reglas; se nombra el paso (preprocesa `CN460_ConCabecera.csv` y genera
-  `CN460_ConCabecera_processed.csv` + `Contratos460_preprocess_summary.log`) sin poder detallar las
-  reglas exactas de relleno/validación que aplica.
+- `fillingRules_CN460.csv` (el fichero de reglas, en `/pr/kytl/online/multipais/multicanal/dat/properties/`):
+  no se obtuvo, así que se desconoce qué columnas son obligatorias, de qué longitud, numéricas o
+  clave de duplicados (P-C460-01). Lo que sí se sabe del programa `ControlCargaDatos.jar`
+  (clase `controlcargadatos.ControlCase`, ver `salidas/comun_controlcargadatos/comun_controlcargadatos_spec.md`):
+  **valida, no transforma**. Lee `CN460_ConCabecera.csv` registro a registro y separa en
+  `CN460_ConCabecera_processed.csv` (válidos, con la cabecera y los campos sin espacios en los extremos) y
+  `CN460_ConCabecera_noprocessed.csv` (rechazados, con el motivo; primera línea
+  `FICHERO DE REGISTROS NO PROCESADOS`), más el log `Contratos460_preprocess_summary.log` con los recuentos.
+  Las reglas se aplican por **posición de columna**: `NULL` = obligatorio; `POSICION(n)` = longitud exacta
+  n; `LONGITUD(n)` = máximo n; `INTEGER`/`DOUBLE`/`NEGATIVO` (>0); `USAR` = solo caracteres permitidos;
+  `DUPL` = clave de duplicados (queda la última aparición). Un registro con distinto número de campos que
+  la cabecera se rechaza con `"El registro nº:<n> :(<línea>) tiene diferentes campos que la cabecera."`.
+  Siempre termina con código 0, incluso sin fichero de entrada.
 - Los workflows `RDR_BajaContratos460` y `RDR_BajaCodTesBDIGesC460` (disparados por evento desde
   `GSProcess.sh`): no se obtuvo su definición `.wkf`; se nombran como pasos del pipeline sin poder
   confirmar si ejecutan lógica adicional a la ya cubierta por `GestionCpartyC460.jar`.
@@ -89,7 +98,17 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
 | GAP-C460-005 | Los filewatchers/`RDRKYTL001` corren 7 días/semana (`LMXJVSD`/diaria) pero la historificación (`MEKYTL0609`-`0642`) solo L-V (`LMXJV`) — ¿qué pasa con el archivado en fin de semana? | No se pudo verificar con histórico de ejecuciones (pestaña "Ver reports de ejecución" sin datos disponibles). | **Cerrado como observación de riesgo no bloqueante** — ver RISK-C460-002 |
 | GAP-C460-006 | ¿Tiene `RDR_C460` relación funcional real con `legal_agreements_p062`/`extraccion_sait_contratos` (mismo dominio nominal `LAGR`)? | Verificado por código: `FT_T_LAGR` no aparece en ningún punto de `RDR_PLSQL.jar` ni `RDR_GestionCpartyC460.jar`. Las tablas reales tocadas son de dominio de jerarquía de contrapartida/cliente (`FT_T_FIID`, `FT_T_FIRL`, `FT_T_FINS`, `FT_T_FAB1`, etc.), no de Legal Agreement. | **Resuelto: sin relación técnica real** |
 
-**Todos los gaps quedan resueltos.** No quedan supuestos sin confirmar.
+Los gaps anteriores están resueltos. Siguen abiertas estas preguntas, cuya respuesta no está en ninguna
+fuente disponible:
+
+| Id | Pregunta | Por qué importa |
+|---|---|---|
+| P-C460-01 | Contenido de `fillingRules_CN460.csv` (reglas por columna de las 12 columnas) | Decide qué filas llegan a `ConContrato460` y cuáles se rechazan a `_noprocessed.csv`; sin él no se pueden preparar datos de rechazo |
+| P-C460-02 | Comandos `ctmfw` exactos de `FW_C460_RDR`/`FW_C460_RDR_2` (tamaño mínimo, intervalos, mediciones, tiempo máximo), calendario, hora y reglas `ON` (¿existe "7 → OK"?) de cada job | Define qué pasa cuando el fichero no llega (TC-006) y cuándo se da por completo |
+| P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica |
+| P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` |
+| P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline |
+| P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar |
 
 ## 5. Especificación funcional
 
@@ -97,12 +116,21 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
 
 1. **`RDR_C460_IN`** (Dummy): se activa cada día después de las 07:00 AM, sin depender de ningún evento
    previo. Emite `RDR_C460_IN_OK-547`.
-2. **`FW_C460_RDR`**: filewatcher nativo (`ctmfw`) sobre
+2. **`FW_C460_RDR`**: filewatcher nativo (`ctmfw`, utilidad de BMC; sintaxis
+   `ctmfw '<fichero>' CREATE <min_size> <sleep_int s> <mon_int s> <min_detect> <wait_time en MINUTOS>`,
+   ver `salidas/comun_ctmfw/comun_ctmfw_spec.md`) sobre
    `/fichtemcomp/pr/descargas/kytl/Contratos460/CN460_F%%$DATE._*.csv`. Periodicidad `LMXJVSD` (todos los
    días). Predecesor: evento de `RDR_C460_IN`. Emite `RDR_C460_FW_C460_RDR_OK-547`.
 3. **`FW_C460_RDR_2`**: filewatcher nativo sobre
    `/fichtemcomp/pr/descargas/kytl/Contratos460/CN460.csv`. Predecesor: evento de `FW_C460_RDR`. Emite
    `RDR_C460_FW_C460_RDR_2_OK-547`.
+
+   **Parámetros exactos de ambos `ctmfw` (tamaño mínimo, intervalos, número de mediciones y tiempo máximo
+   de espera) y reglas `ON` de Control-M: no constan en ninguna fuente aportada (P-C460-02).** Consecuencia
+   para la lectura de los casos: si el tiempo máximo es 0 el filewatcher espera sin límite; si es mayor y
+   se agota, `ctmfw` termina con código 7, y como no consta ninguna regla "7 → OK" el job quedaría en NOTOK
+   y la cadena se detendría sin procesar nada. `%%$DATE` es una variable de Control-M que se sustituye por
+   la fecha del día antes de ejecutar; su formato exacto no consta.
 
 ### 5.2 Procesamiento (`RDRKYTL001`)
 
@@ -114,8 +142,9 @@ técnico completo en §6.1):
 3. El script `C460` añade cabecera a `CN460.csv`, generando `CN460_ConCabecera.csv` con 12 campos:
    `PAIS;ENTIDAD;IUC;B;O;C;FOLIO;SITUACION;F_CANCELACION;CCLIEN;TIPO_INTERV;NUM_ORDEN`.
 4. `Duplicados.sh` controla duplicados sobre `CN460_ConCabecera.csv` (ver §6.1 para el mecanismo).
-5. `ControlCargaDatos.jar` preprocesa/valida el fichero (fuera de alcance, ver §2), produciendo
-   `CN460_ConCabecera_processed.csv`.
+5. `ControlCargaDatos.jar` **valida** el fichero contra `fillingRules_CN460.csv` (reglas desconocidas, ver
+   §2) y lo separa en `CN460_ConCabecera_processed.csv` (válidos, lo que consume el paso 6) y
+   `CN460_ConCabecera_noprocessed.csv` (rechazados con motivo); log `Contratos460_preprocess_summary.log`.
 6. `ConContrato460` (`RDR_PLSQL.jar`) concilia cada registro contra GoldenSource y delega la carga real al
    procedimiento PL/SQL `CONC460` (ver §6.2).
 7. `GestionCpartyC460` (`RDR_GestionCpartyC460.jar`) ejecuta el barrido de higiene de jerarquía
@@ -139,6 +168,14 @@ RATINGS_ADA, KYTL_BCBS_SECTOR_ASSET_ALLOCATION) mueve, en cascada estricta y sec
 | `MEKYTL0642` | `/Contratos460/CN460_ConCabecera.csv_REPES` | `/Contratos460/old/` |
 
 Cada job depende del evento `_OK` del anterior. `MEKYTL0609` depende de `RDR_C460_new_RDRKYTL001_OK`.
+Las rutas son relativas a `/fichtemcomp/pr/descargas/kytl/`. Las líneas del IDX de historificación de cada
+clave (operación, renombrado, si falla cuando no hay fichero) no constan (P-C460-04); según las fichas
+"mueven" el fichero. Si falla uno de los cuatro (códigos de `RAMERC0068.sh`: 2 clave ausente, 4/5 directorio
+origen/destino inexistente, 6 sin fichero si el IDX lo exige, 7 error al mover) la cascada se detiene y
+`RDR_C460_OUT` no se publica; los ficheros ya movidos no se reponen. **Discrepancia a aclarar (P-C460-03):**
+`MEKYTL0611` toma el origen en `Reportes/Gestion Huerfanos/` (con espacio) mientras que `RDR_Report.jar`
+escribe el informe en `Contratos460/Reportes/GestionHuerfanos/` (sin espacio, pasos 10 del pipeline y
+§6.4); si fuesen directorios distintos, `MEKYTL0611` fallaría con código 4 o 6.
 
 ### 5.4 Cierre
 
@@ -173,6 +210,18 @@ MOD_EJECUCION=Contrato460 | Servicio=Contrato460 | BusinessFeed=Contrato460 | Ti
 11) Script Borrar: Contratos460/CN460_ConCabecera.csv
 ```
 
+**Cómo falla cada paso (código de `GSProcess.sh`, ver `salidas/comun_gsprocess/comun_gsprocess_spec.md` §7):**
+`Stop=OK` aparece en la cabecera del `.properties`, pero el código de `GSProcess.sh` compara el valor
+contra la cadena exacta `Ok`: si el fichero lleva realmente `OK` en mayúsculas, **la parada global no se
+activa** y un paso fallido no detiene los siguientes (P-C460-05). Con `Stop=Ok` real, una acción con código
+distinto de 0 terminaría el job con código 1 inmediatamente. En cualquier caso: `ControlCargaDatos.jar` y
+`RDR_Report.jar` terminan siempre con 0 (no se detecta su fallo; si no hay fichero de entrada el
+`_processed.csv` del día anterior sigue ahí y `ConContrato460` lo vuelve a leer, porque ningún paso del
+pipeline lo borra: solo se borra `CN460_ConCabecera.csv`, paso 11); un workflow fallido
+(`RDR_BajaContratos460`, `RDR_BajaCodTesBDIGesC460`) nunca se detecta; sí se detectan los fallos de
+`CopiarFichero`, de los scripts `C460`/`Duplicados.sh`/`Borrar` y de los jars Java `ConContrato460` y
+`GestionCpartyC460` si salen con código ≠0.
+
 **Hallazgo inesperado:** este pipeline solo lee `CN460.csv`. `CN460_F%%$DATE._*.csv` (vigilado por el
 primer filewatcher) no aparece en ningún paso — es consistente con la hipótesis de que actúa solo como
 señal de disponibilidad, aunque esto no se pudo confirmar con evidencia directa (GAP-C460-003, cerrado
@@ -186,6 +235,8 @@ final sobrescribe el propio fichero de entrada (`CN460_ConCabecera.csv`). El det
 implementación de la clave no se documenta más allá de esto — por decisión explícita del usuario, no es
 relevante para esta especificación si el mecanismo de deduplicación tiene o no un defecto de
 implementación.
+
+Además `Duplicados.sh` deja `CN460_ConCabecera.csv_REPES`, el fichero que historifica `MEKYTL0642`.
 
 ### 6.2 `ConContrato460` (`RDR_PLSQL.jar`, decompilado con `cfr`, sin fuente `.java` disponible)
 
@@ -247,30 +298,46 @@ solo un barrido de desactivación en cascada, no una reconciliación compartida 
 
 ### 6.4 Informes (`RDR_Report.jar` + `select.properties`)
 
-Dos entradas reales de `select.properties`, confirmadas textualmente:
+`RDR_Report.jar` (`CreateReport <select.properties> <clave>`, ver `salidas/comun_rdr_report/comun_rdr_report_spec.md`)
+ejecuta la query de la clave y escribe `<ruta><clave>/<fileName>`, donde `ruta` es la primera línea de
+`select.properties` (en producción `/fichtemcomp/pr/descargas/kytl/`). Texto con la cabecera literal y filas
+separadas por `;`, ISO-8859-1, saltos LF; un valor nulo sin `NVL` saldría como `null`. Antes de escribir
+guarda el informe anterior en `<ruta><clave>/old/<nombre>.zip` (solo la última versión). **Siempre termina
+con código 0**: si falla la conexión o la query, el job no lo ve y puede quedar el informe del día
+anterior. Los informes son la fotografía de `FT_T_RLT1` "de hoy" (`start_tms`/`last_chg_tms >
+trunc(sysdate)`). Las líneas literales de `select.properties` de las tres claves `Contratos460*`:
 
-**`Reportes_Contratos460.csv`** (clave `Contratos460/Reportes`):
-```sql
-select * from (
-  select rlt_purp_typ, message_rlt, main_entity_id clientelaid, src_value NUM_FOLIO_IC, gs_value NUM_FOLIO_RDR
-  from ft_t_rlt1 where rlt_purp_typ='REPORTES' and data_src_app='C460' and start_tms > trunc(sysdate)
-  union
-  select rlt_purp_typ, message_rlt, main_entity_id, '', gs_value
-  from ft_t_rlt1 where rlt_purp_typ='REPORTES' and data_src_app='C460_P' and start_tms > trunc(sysdate)
-) order by clientelaid desc
+**Clave `Contratos460/Reportes`** (paso 9; fichero `.../Contratos460/Reportes/Reportes_Contratos460.csv`):
 ```
-Cabecera: `TYPE;MENSAJE;CLIENTELAID;NUM_FOLIO_IC;NUM_FOLIO_RDR`. Unión de 2 orígenes de "hoy": `C460`
-(únicamente puede provenir del propio procedimiento PL/SQL `CONC460`, ya que ninguna clase Java analizada
-inserta con ese `data_src_app` — dato que `CONC460` registra sus propias discrepancias IC-vs-RDR) y
-`C460_P` (el "no concilia" de `ConContrato460`, confirmado por código en §6.2).
+queryContratos460/Reportes=select * from(select nvl(rlt_purp_typ,'N/A') type, nvl(message_rlt,'N/A') mensaje, nvl(main_entity_id,'N/A') clientelaid, nvl(src_value,'N/A') NUM_FOLIO_IC, nvl(gs_value,'N/A') NUM_FOLIO_RDR from ft_t_rlt1 rlt1 where rlt_purp_typ ='REPORTES' and data_src_app = 'C460' and start_tms > trunc(sysdate) union select nvl(rlt1.rlt_purp_typ,'N/A'), nvl(rlt1.message_rlt,'N/A'), nvl(rlt1.main_entity_id,'N/A'), nvl('','N/A'), nvl(gs_value,'N/A') from ft_t_rlt1 rlt1 where rlt1.rlt_purp_typ = 'REPORTES' and rlt1.data_src_app = 'C460_P' and rlt1.start_tms > trunc(sysdate)) order by clientelaid desc
+cabeceraContratos460/Reportes=TYPE;MENSAJE;CLIENTELAID;NUM_FOLIO_IC;NUM_FOLIO_RDR
+fileNameContratos460/Reportes=Reportes_Contratos460.csv
+```
+Une dos orígenes de hoy: `C460` (únicamente puede provenir del procedimiento PL/SQL `CONC460`: ninguna clase
+Java analizada inserta con ese `data_src_app`; son sus discrepancias IC-vs-RDR) y `C460_P` (el "no concilia" de
+`ConContrato460`, §6.2). En la segunda rama el folio IC va como `N/A`.
 
-**`Reportes_GestionHuerfanos.csv`** (clave `Contratos460/Reportes/GestionHuerfanos`):
-```sql
-select rlt_purp_typ, message_rlt, gs_value "FINS_ID" from ft_t_rlt1
-where rlt_purp_typ='REPORTES' and data_src_app='GESTION_CPARTY_C460' and last_chg_tms > trunc(sysdate)
+**Clave `Contratos460/Reportes/GestionHuerfanos`** (paso 10; fichero `.../Contratos460/Reportes/GestionHuerfanos/Reportes_GestionHuerfanos.csv`):
 ```
-Cabecera: `TYPE;MENSAJE;FINS_ID`. Filtra exactamente `data_src_app='GESTION_CPARTY_C460'` — confirma al
-100% que es la salida literal de `insertarRLT1Huerfanos` de `GestionCpartyC460.jar` (§6.3).
+queryContratos460/Reportes/GestionHuerfanos=select nvl(rlt_purp_typ,'N/A') TYPE, nvl(message_rlt,'N/A') MENSAJE, nvl(gs_value,'N/A') "FINS_ID" from ft_t_rlt1 rlt1 where rlt_purp_typ ='REPORTES' and data_src_app = 'GESTION_CPARTY_C460' and last_chg_tms > trunc(sysdate)
+cabeceraContratos460/Reportes/GestionHuerfanos=TYPE;MENSAJE;FINS_ID
+fileNameContratos460/Reportes/GestionHuerfanos=Reportes_GestionHuerfanos.csv
+```
+Filtra exactamente `data_src_app='GESTION_CPARTY_C460'`: es la salida literal de `insertarRLT1Huerfanos` de
+`GestionCpartyC460.jar` (§6.3).
+
+**Clave `Contratos460`** (no invocada por el `.properties` real; ver §2): genera
+`Reportes_Errores_Contratos460.csv`.
+```
+queryContratos460=SELECT nombre, canonico, nvl(identificador_fiscal,' ') identificador_fiscal, foliordr, folioic, mensaje FROM (SELECT LISTAGG(t.inst_nme, ' | ') WITHIN GROUP(ORDER BY 1) AS nombre, LISTAGG(t.finsid, ' | ') WITHIN GROUP(ORDER BY 1) AS canonico, nvl(t.idfiscal,' ') identificador_fiscal, nvl(t.gs_value,' ') foliordr, nvl(t.src_value,' ') folioic, nvl(t.message_rlt,' ') mensaje FROM (SELECT DISTINCT fins.inst_nme, fiid2.fins_id finsid, rlt1.gs_value, rlt1.src_value, rlt1.message_rlt, nvl((select t1.idfiscal from (select fiid3.fins_id idfiscal, decode(fiid3.fins_id_ctxt_typ, 'N.I.F.', 'A', 'C.I.F.', 'B', 'CIFEX', 'C', 'D.N.I', 'D', 'FECNAC', 'E', 'TARJRES', 'F', 'PASAP', 'G', 'OTROS', 'H', 'EMPNORES', 'I', 'CODCLI', 'J', 'IBEI', 'K', 'HOMOCLAV', 'L', 'RFC', 'M', 'CURP', 'N', 'TAXID', 'O', 'Not_Def') orden, fiid3.inst_mnem from ft_t_fiid fiid3 where fiid3.data_stat_typ = 'ACTIVE' and fiid3.fins_id_ctxt_typ IN ('N.I.F.', 'HOMOCLAV', 'RFC', 'C.I.F.', 'FECNAC', 'CURP', 'CODCLI', 'D.N.I', 'CIFEX', 'EMPNORES', 'Not_Def', 'OTROS', 'PASAP', 'TARJRES', 'TAXID') order by orden) t1 where t1.inst_mnem = fiid2.inst_mnem and rownum=1), 'NA') idfiscal FROM ft_t_rlt1 rlt1, ft_t_fiid fiid, ft_t_fins fins, ft_t_fiid fiid2, ft_t_firl firl WHERE fiid.fins_id = rlt1.main_entity_id AND fiid.inst_mnem = fiid2.inst_mnem AND fiid.inst_mnem = fins.inst_mnem and firl.inst_mnem = fins.inst_mnem and firl.rel_typ = 'LOCAL' and firl.finsrl_typ = 'CUSTOMER' and firl.data_stat_typ = 'ACTIVE' AND rlt1.data_src_app = 'EC460' AND fiid.fins_id_ctxt_typ = 'CLIENTELAID' AND   fiid2.fins_id_ctxt_typ = 'FINSID'  AND   fiid2.data_stat_typ = 'ACTIVE' AND   fiid.data_stat_typ = 'ACTIVE' AND   fins.data_stat_typ = 'ACTIVE' AND   trunc(rlt1.start_tms) = trunc(SYSDATE)) t GROUP BY  t.gs_value, t.src_value, t.message_rlt, t.idfiscal)
+cabeceraContratos460=NOMBRE;CANONICO;IDENTIFICADOR_FISCAL;FOLIORDR;FOLIOIC;MENSAJE
+fileNameContratos460=Reportes_Errores_Contratos460.csv
+```
+
+Cómo saber si el informe es de hoy: el informe se rehace cada día, pero si `RDR_Report.jar` no pudo
+conectar, el fichero que queda es el del día anterior (el job no lo advierte). Una cabecera sin filas
+significa "ninguna discrepancia hoy" o un fallo silencioso: se distingue mirando la fecha del fichero y la
+salida del paso en el log de `GSProcess.sh`.
 
 ### 6.5 Historificación (`RAMERC0068.sh`)
 
@@ -335,9 +402,14 @@ vez de ejecución directa, según el criterio de la regla 5.
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
-- **RISK-C460-001:** filas del fichero con longitud distinta de 12 campos se descartan silenciosamente
-  (solo logueadas) — el job no falla, pero el registro correspondiente nunca se concilia ni aparece en
-  ningún informe, pasando desapercibido.
+- **RISK-C460-001:** filas del fichero con longitud distinta de 12 campos se descartan sin que el job
+  falle: primero las rechaza `ControlCargaDatos.jar` (van a `CN460_ConCabecera_noprocessed.csv` con el texto
+  "tiene diferentes campos que la cabecera") y, como segunda barrera, `ConContrato460` descarta con log
+  cualquier fila de longitud ≠12 que llegara a leer. El registro nunca se concilia ni aparece en
+  ningún informe: solo se ve revisando `_noprocessed.csv` o los logs.
+- **RISK-C460-005:** `ControlCargaDatos.jar` termina siempre con 0 y ningún paso borra
+  `CN460_ConCabecera_processed.csv`: si un día falta el fichero de entrada o el de reglas, `ConContrato460`
+  vuelve a leer el `_processed.csv` del día anterior sin ningún aviso.
 - **RISK-C460-002:** desfase de calendario entre los filewatchers/`RDRKYTL001` (`LMXJVSD`/diaria) y la
   historificación (`MEKYTL0609`-`0642`, `LMXJV`) — no confirmado con histórico de ejecuciones (ver
   GAP-C460-005), documentado como observación de riesgo no bloqueante.
@@ -357,13 +429,13 @@ vez de ejecución directa, según el criterio de la regla 5.
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso cerrado.** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
+**Proceso documentado; quedan abiertas las preguntas P-C460-01 a P-C460-07 de §4.** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
 `.properties` de `GSProcess.sh`, 2 jars decompilados (`RDR_PLSQL.jar`, `RDR_GestionCpartyC460.jar`),
 `select.properties`, `Duplicados.sh`, captura real de la Planificación de Control-M, y confirmación de
-negocio de la wiki del proceso. No quedan supuestos sin confirmar. La relación nominal con el dominio
+negocio de la wiki del proceso. La relación nominal con el dominio
 `LAGR` queda descartada a nivel técnico con evidencia de código (ausencia total de `FT_T_LAGR`).
 
-Quedan fuera de alcance, declarados como tales (no como gaps abiertos): el procedimiento PL/SQL `CONC460`,
-el origen de los ficheros de entrada, `fillingRules_CN460.csv`/`ControlCase`, los 2 workflows de baja, el
-detalle de implementación de `Duplicados.sh`, y la publicación en cola MQ (dato documental no
-re-verificado con el código).
+Quedan fuera de alcance, declarados como tales: el procedimiento PL/SQL `CONC460`, el origen de los ficheros
+de entrada, el contenido de `fillingRules_CN460.csv` (P-C460-01), los 2 workflows de baja, el detalle de
+implementación de `Duplicados.sh` y la publicación en cola MQ (dato documental no re-verificado con el
+código).

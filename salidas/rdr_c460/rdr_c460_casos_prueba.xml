@@ -50,13 +50,13 @@
     <nombre>Fila con longitud de campos incorrecta</nombre>
     <objetivo>Confirmar que una fila con un número de campos distinto de 12 se descarta con log, sin detener el procesamiento del resto del fichero.</objetivo>
     <precondiciones>
-      <precondicion>CN460_ConCabecera_processed.csv contiene al menos una fila con 11 o 13 campos separados por ";" en vez de 12.</precondicion>
+      <precondicion>CN460_ConCabecera.csv contiene al menos una fila con 11 o 13 campos separados por ";" en vez de 12 (la rechaza ControlCargaDatos.jar antes de ConContrato460; para probar solo la segunda barrera se ejecuta ConContrato460 directamente sobre un _processed.csv con esa fila).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="fila_invalida" valor="ES;0182;IUC123;B;O;C;998877;SIT;0001-01-01;1234567890"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar ConContrato460 sobre el fichero con la fila inválida incluida.</paso>
+      <paso numero="1">Ejecutar el pipeline (o ConContrato460 sobre el _processed.csv) con la fila inválida incluida y comprobar que aparece en CN460_ConCabecera_noprocessed.csv con el texto "tiene diferentes campos que la cabecera".</paso>
       <paso numero="2">Revisar el log de ejecución buscando el mensaje "Fallo al leer la fila".</paso>
       <paso numero="3">Confirmar que el resto de filas válidas del fichero se procesan con normalidad.</paso>
     </pasos>
@@ -123,7 +123,7 @@
       <paso numero="2">Verificar que no se emite RDR_C460_FW_C460_RDR_2_OK-547.</paso>
       <paso numero="3">Confirmar que RDRKYTL001 no se lanza mientras no se emita ese evento.</paso>
     </pasos>
-    <resultadoEsperado>La cadena queda en espera en FW_C460_RDR_2, sin avanzar, generando aviso de criticidad W (día siguiente) hasta que el fichero llegue o se intervenga manualmente.</resultadoEsperado>
+    <resultadoEsperado>La cadena queda en espera en FW_C460_RDR_2, sin avanzar, hasta que el fichero llegue o se agote el tiempo máximo de ctmfw (desconocido, P-C460-02). Si se agota, ctmfw sale con código 7 y, al no constar regla "7 -> OK", el job queda en NOTOK y la cadena se detiene sin procesar nada; aviso de criticidad W (día siguiente).</resultadoEsperado>
     <tipoValidacion>Monitorización de estado en Control-M</tipoValidacion>
     <criterioAceptacion>Ningún job posterior a FW_C460_RDR_2 se ejecuta mientras el fichero no llegue.</criterioAceptacion>
     <posibilidadFallo>Verificar por lectura del estado del job en Control-M, no requiere ejecución destructiva.</posibilidadFallo>

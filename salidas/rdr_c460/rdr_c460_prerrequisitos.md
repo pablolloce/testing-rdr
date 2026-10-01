@@ -7,7 +7,7 @@
 | Infraestructura de Contratos (IC), sistema externo a RDR | Deposita `CN460_F%%$DATE._*.csv` y `CN460.csv` en `/fichtemcomp/pr/descargas/kytl/Contratos460/`. Origen confirmado por la wiki del proceso; mecanismo de generación fuera de alcance (TC-002, TC-006, TC-014). |
 | GoldenSource (`FT_T_FIID`/`FT_T_FIRL`/`FT_T_FINS`/`FT_T_EERL`/`FT_T_ENFR`) | Universo de clientes activos con relación `OPERATIVE`/`CPARTY` hacia la organización BBVA (`0182`) — base de la conciliación (TC-001, TC-008, TC-012, TC-015). |
 | `FT_T_FAB1` (`STAT_DEF_ID='NUMFOLIO'`) | Folios activos asociados a cada relación de contrapartida (TC-001, TC-007, TC-012). |
-| `fillingRules_CN460.csv` (fuera de alcance) | Reglas de relleno/validación que aplica `ControlCargaDatos.jar` antes de la carga. |
+| `fillingRules_CN460.csv` (contenido desconocido, P-C460-01 de la spec) | Reglas por columna con las que `ControlCargaDatos.jar` valida el fichero (obligatoriedad, longitud, tipo, duplicados) y lo separa en `_processed.csv`/`_noprocessed.csv`. Ruta: `/pr/kytl/online/multipais/multicanal/dat/properties/`. |
 
 ## Datos mínimos
 
@@ -55,7 +55,8 @@
   se borra al final del pipeline (paso 11).
 - `CN460_ConCabecera_processed.csv`: fichero final que consume `ConContrato460` (TC-001, TC-003, TC-004,
   TC-007, TC-008, TC-009, TC-012, TC-015).
-- `Contratos460_preprocess_summary.log`: log de `ControlCargaDatos.jar` (fuera de alcance de detalle).
+- `CN460_ConCabecera_noprocessed.csv`: registros rechazados por `ControlCargaDatos.jar`, con el motivo (primera línea `FICHERO DE REGISTROS NO PROCESADOS`); ningún paso lo borra.
+- `Contratos460_preprocess_summary.log`: log de `ControlCargaDatos.jar` con los recuentos de cargados, no cargados y duplicados; se sobrescribe cada día.
 - Retención de 3 días en el entorno activo para todos los jobs OS (filewatchers, `RDRKYTL001`,
   historificación).
 

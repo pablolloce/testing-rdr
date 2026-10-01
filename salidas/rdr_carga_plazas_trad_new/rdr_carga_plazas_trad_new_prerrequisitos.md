@@ -5,8 +5,8 @@
 - Fichero `TradPlazas.csv` disponible en `/fichtemcomp/pr/descargas/kytl/TradPlazas/` dentro de la ventana de
   monitoreo (desde las 05:00 AM, lunes a viernes, calendario `RDR_FEST_HOST_PREV`).
 - **Diccionario de campos confirmado con fichero real** (8 campos delimitados por `;`, relleno de ancho fijo
-  con espacios, 80.683 filas): `CPLAZA;CCPPOS;CCOMUN;CCDPOS;DNOMB1;DNOMB2;DNOMB3;PLZBAN`. Confirmado como un
-  catálogo de localidades/plazas traducidas a código postal y denominación reales — ver `rdr_carga_plazas_trad_new_spec.md` §4. No
+  con espacios, 80.683 líneas = cabecera + 80.682 filas; líneas de 155 caracteres, saltos `LF`, codificación de un byte tipo Latin-1, no UTF-8): `CPLAZA;CCPPOS;CCOMUN;CCDPOS;DNOMB1;DNOMB2;DNOMB3;PLZBAN`. Confirmado como un
+  catálogo de localidades/plazas traducidas a código postal y denominación reales — ver `rdr_carga_plazas_trad_new_spec.md` §5 y §5.1 (formato exacto y estadísticas). No
   confirmado el significado funcional exacto de `CCPPOS`/`CCOMUN`.
 - **Predecesor de negocio confirmado por texto (ficha EX-005-03), no por Control-M:** la cadena
   `RDR_CARGA_PLAZAS` (nombre sin `_TRAD_new` — no confirmado si es otra cadena ya existente en el audit) debe
@@ -21,6 +21,9 @@
   `rdr_conc_oficinas_new`/`rdr_reubicacion_new`; la ficha real EX-005-03 confirma que incluye preprocesado,
   carga y generación de reporte, pero **el desglose script a script interno para esta clave concreta no está
   confirmado** (no hay evidencia equivalente a `LimpiarOficinas`/`Delta.sh` específica de `TradPlazas`).
+- Fichero `TradPlazas.properties` presente en `/pr/kytl/online/multipais/multicanal/dat/properties/` (si falta, `GSProcess.sh` termina con código 1). Su contenido no está documentado (P-TPL-01 de la spec).
+- Línea `MEKYTL0129@...` presente en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (si falta, `RAMERC0068.sh` termina con código 2); su contenido no está documentado (P-TPL-03).
+- Directorio `/fichtemcomp/pr/descargas/kytl/TradPlazas/old/` existente (si no existe, `RAMERC0068.sh` falla con código 5).
 - Motor `RAMERC0068.sh` operativo para `MEKYTL0129` (historificación) — mismo motor genérico ya confirmado.
   **Ruta y nombre de fichero de destino confirmados con ficha real EX-005-03:**
   `/fichtemcomp/pr/descargas/kytl/TradPlazas/old/TradPlazas_yyyymmdd.csv`. A diferencia de `MEKYTL0242`/
