@@ -1,0 +1,2891 @@
+# RDR_Report.jar — desensamblado (javap -v -p)
+# No se dispone de .java fuente ni de decompilador en este entorno; se vuelca el bytecode completo
+# (firmas de metodo + pool de constantes) como evidencia reproducible.
+# Generado con: javap -v -p -classpath . <clase>
+
+================================================================
+=== rdr_report.CreateReport ===
+================================================================
+Classfile /tmp/claude-0/-home-user-testing-rdr/32beb769-d5e3-50ef-813b-cac19aa8d9b3/scratchpad/conbdi_jars/report/rdr_report/CreateReport.class
+  Last modified Aug 26, 2026; size 2491 bytes
+  SHA-256 checksum 5034c9fc6109512ea6ac279c0d8cba75903e41b08143bc0b73fa8a19d1ddf4b8
+  Compiled from "CreateReport.java"
+public class rdr_report.CreateReport
+  minor version: 0
+  major version: 61
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #72                         // rdr_report/CreateReport
+  super_class: #2                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 2, attributes: 3
+Constant pool:
+    #1 = Methodref          #2.#3         // java/lang/Object."<init>":()V
+    #2 = Class              #4            // java/lang/Object
+    #3 = NameAndType        #5:#6         // "<init>":()V
+    #4 = Utf8               java/lang/Object
+    #5 = Utf8               <init>
+    #6 = Utf8               ()V
+    #7 = Class              #8            // rdr_report/util/Utilidades
+    #8 = Utf8               rdr_report/util/Utilidades
+    #9 = Methodref          #7.#3         // rdr_report/util/Utilidades."<init>":()V
+   #10 = Class              #11           // rdr_report/jdbc/JDBCAcceso
+   #11 = Utf8               rdr_report/jdbc/JDBCAcceso
+   #12 = Methodref          #10.#3        // rdr_report/jdbc/JDBCAcceso."<init>":()V
+   #13 = Class              #14           // rdr_report/util/Ficheros
+   #14 = Utf8               rdr_report/util/Ficheros
+   #15 = Methodref          #13.#3        // rdr_report/util/Ficheros."<init>":()V
+   #16 = String             #17           //
+   #17 = Utf8
+   #18 = Class              #19           // java/util/ArrayList
+   #19 = Utf8               java/util/ArrayList
+   #20 = Methodref          #18.#3        // java/util/ArrayList."<init>":()V
+   #21 = Methodref          #7.#22        // rdr_report/util/Utilidades.leerProperties:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #22 = NameAndType        #23:#24       // leerProperties:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #23 = Utf8               leerProperties
+   #24 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #25 = Methodref          #18.#26       // java/util/ArrayList.get:(I)Ljava/lang/Object;
+   #26 = NameAndType        #27:#28       // get:(I)Ljava/lang/Object;
+   #27 = Utf8               get
+   #28 = Utf8               (I)Ljava/lang/Object;
+   #29 = Class              #30           // java/lang/String
+   #30 = Utf8               java/lang/String
+   #31 = Methodref          #10.#32       // rdr_report/jdbc/JDBCAcceso.createQuery:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #32 = NameAndType        #33:#24       // createQuery:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #33 = Utf8               createQuery
+   #34 = InvokeDynamic      #0:#35        // #0:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #35 = NameAndType        #36:#37       // makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #36 = Utf8               makeConcatWithConstants
+   #37 = Utf8               (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #38 = Fieldref           #39.#40       // java/lang/System.out:Ljava/io/PrintStream;
+   #39 = Class              #41           // java/lang/System
+   #40 = NameAndType        #42:#43       // out:Ljava/io/PrintStream;
+   #41 = Utf8               java/lang/System
+   #42 = Utf8               out
+   #43 = Utf8               Ljava/io/PrintStream;
+   #44 = InvokeDynamic      #1:#45        // #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #45 = NameAndType        #36:#46       // makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #46 = Utf8               (Ljava/lang/String;)Ljava/lang/String;
+   #47 = Methodref          #48.#49       // java/io/PrintStream.println:(Ljava/lang/String;)V
+   #48 = Class              #50           // java/io/PrintStream
+   #49 = NameAndType        #51:#52       // println:(Ljava/lang/String;)V
+   #50 = Utf8               java/io/PrintStream
+   #51 = Utf8               println
+   #52 = Utf8               (Ljava/lang/String;)V
+   #53 = Methodref          #13.#54       // rdr_report/util/Ficheros.historificaZip:(Ljava/lang/String;)V
+   #54 = NameAndType        #55:#52       // historificaZip:(Ljava/lang/String;)V
+   #55 = Utf8               historificaZip
+   #56 = Methodref          #13.#57       // rdr_report/util/Ficheros.creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+   #57 = NameAndType        #58:#59       // creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+   #58 = Utf8               creaFichero
+   #59 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+   #60 = Methodref          #13.#61       // rdr_report/util/Ficheros.escribirFicheroGeneral:(Ljava/io/File;Ljava/util/ArrayList;)V
+   #61 = NameAndType        #62:#63       // escribirFicheroGeneral:(Ljava/io/File;Ljava/util/ArrayList;)V
+   #62 = Utf8               escribirFicheroGeneral
+   #63 = Utf8               (Ljava/io/File;Ljava/util/ArrayList;)V
+   #64 = Class              #65           // java/io/IOException
+   #65 = Utf8               java/io/IOException
+   #66 = Methodref          #64.#67       // java/io/IOException.printStackTrace:()V
+   #67 = NameAndType        #68:#6        // printStackTrace:()V
+   #68 = Utf8               printStackTrace
+   #69 = Class              #70           // java/lang/Exception
+   #70 = Utf8               java/lang/Exception
+   #71 = Methodref          #69.#67       // java/lang/Exception.printStackTrace:()V
+   #72 = Class              #73           // rdr_report/CreateReport
+   #73 = Utf8               rdr_report/CreateReport
+   #74 = Utf8               Code
+   #75 = Utf8               LineNumberTable
+   #76 = Utf8               LocalVariableTable
+   #77 = Utf8               this
+   #78 = Utf8               Lrdr_report/CreateReport;
+   #79 = Utf8               main
+   #80 = Utf8               ([Ljava/lang/String;)V
+   #81 = Utf8               f
+   #82 = Utf8               Ljava/io/File;
+   #83 = Utf8               e
+   #84 = Utf8               Ljava/io/IOException;
+   #85 = Utf8               Ljava/lang/Exception;
+   #86 = Utf8               args
+   #87 = Utf8               [Ljava/lang/String;
+   #88 = Utf8               ut
+   #89 = Utf8               Lrdr_report/util/Utilidades;
+   #90 = Utf8               jdbc
+   #91 = Utf8               Lrdr_report/jdbc/JDBCAcceso;
+   #92 = Utf8               fich
+   #93 = Utf8               Lrdr_report/util/Ficheros;
+   #94 = Utf8               fileName
+   #95 = Utf8               Ljava/lang/String;
+   #96 = Utf8               cabecera
+   #97 = Utf8               arrayParam
+   #98 = Utf8               Ljava/util/ArrayList;
+   #99 = Utf8               array
+  #100 = Utf8               LocalVariableTypeTable
+  #101 = Utf8               Ljava/util/ArrayList<Ljava/lang/String;>;
+  #102 = Utf8               StackMapTable
+  #103 = Class              #87           // "[Ljava/lang/String;"
+  #104 = Utf8               SourceFile
+  #105 = Utf8               CreateReport.java
+  #106 = Utf8               BootstrapMethods
+  #107 = MethodHandle       6:#108        // REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #108 = Methodref          #109.#110     // java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #109 = Class              #111          // java/lang/invoke/StringConcatFactory
+  #110 = NameAndType        #36:#112      // makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #111 = Utf8               java/lang/invoke/StringConcatFactory
+  #112 = Utf8               (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #113 = String             #114          // \u0001\u0001/\u0001
+  #114 = Utf8               \u0001\u0001/\u0001
+  #115 = String             #116          // El fileName es: \u0001
+  #116 = Utf8               El fileName es: \u0001
+  #117 = Utf8               InnerClasses
+  #118 = Class              #119          // java/lang/invoke/MethodHandles$Lookup
+  #119 = Utf8               java/lang/invoke/MethodHandles$Lookup
+  #120 = Class              #121          // java/lang/invoke/MethodHandles
+  #121 = Utf8               java/lang/invoke/MethodHandles
+  #122 = Utf8               Lookup
+{
+  public rdr_report.CreateReport();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 12: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lrdr_report/CreateReport;
+
+  public static void main(java.lang.String[]);
+    descriptor: ([Ljava/lang/String;)V
+    flags: (0x0009) ACC_PUBLIC, ACC_STATIC
+    Code:
+      stack=4, locals=9, args_size=1
+         0: new           #7                  // class rdr_report/util/Utilidades
+         3: dup
+         4: invokespecial #9                  // Method rdr_report/util/Utilidades."<init>":()V
+         7: astore_1
+         8: new           #10                 // class rdr_report/jdbc/JDBCAcceso
+        11: dup
+        12: invokespecial #12                 // Method rdr_report/jdbc/JDBCAcceso."<init>":()V
+        15: astore_2
+        16: new           #13                 // class rdr_report/util/Ficheros
+        19: dup
+        20: invokespecial #15                 // Method rdr_report/util/Ficheros."<init>":()V
+        23: astore_3
+        24: ldc           #16                 // String
+        26: astore        4
+        28: ldc           #16                 // String
+        30: astore        5
+        32: new           #18                 // class java/util/ArrayList
+        35: dup
+        36: invokespecial #20                 // Method java/util/ArrayList."<init>":()V
+        39: astore        6
+        41: new           #18                 // class java/util/ArrayList
+        44: dup
+        45: invokespecial #20                 // Method java/util/ArrayList."<init>":()V
+        48: astore        7
+        50: aload_1
+        51: aload_0
+        52: iconst_0
+        53: aaload
+        54: aload_0
+        55: iconst_1
+        56: aaload
+        57: invokevirtual #21                 // Method rdr_report/util/Utilidades.leerProperties:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+        60: astore        6
+        62: aload_2
+        63: aload         6
+        65: iconst_0
+        66: invokevirtual #25                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+        69: checkcast     #29                 // class java/lang/String
+        72: aload         6
+        74: iconst_2
+        75: invokevirtual #25                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+        78: checkcast     #29                 // class java/lang/String
+        81: invokevirtual #31                 // Method rdr_report/jdbc/JDBCAcceso.createQuery:(Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+        84: astore        7
+        86: aload         6
+        88: iconst_1
+        89: invokevirtual #25                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+        92: checkcast     #29                 // class java/lang/String
+        95: aload_0
+        96: iconst_1
+        97: aaload
+        98: aload         6
+       100: iconst_3
+       101: invokevirtual #25                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+       104: checkcast     #29                 // class java/lang/String
+       107: invokedynamic #34,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       112: astore        4
+       114: getstatic     #38                 // Field java/lang/System.out:Ljava/io/PrintStream;
+       117: aload         4
+       119: invokedynamic #44,  0             // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       124: invokevirtual #47                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+       127: aload         6
+       129: iconst_2
+       130: invokevirtual #25                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+       133: checkcast     #29                 // class java/lang/String
+       136: astore        5
+       138: aload_3
+       139: aload         4
+       141: invokevirtual #53                 // Method rdr_report/util/Ficheros.historificaZip:(Ljava/lang/String;)V
+       144: aload_3
+       145: aload         4
+       147: aload         5
+       149: invokevirtual #56                 // Method rdr_report/util/Ficheros.creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+       152: astore        8
+       154: aload_3
+       155: aload         8
+       157: aload         7
+       159: invokevirtual #60                 // Method rdr_report/util/Ficheros.escribirFicheroGeneral:(Ljava/io/File;Ljava/util/ArrayList;)V
+       162: goto          182
+       165: astore        8
+       167: aload         8
+       169: invokevirtual #66                 // Method java/io/IOException.printStackTrace:()V
+       172: goto          182
+       175: astore        8
+       177: aload         8
+       179: invokevirtual #71                 // Method java/lang/Exception.printStackTrace:()V
+       182: return
+      Exception table:
+         from    to  target type
+            50   162   165   Class java/io/IOException
+            50   162   175   Class java/lang/Exception
+      LineNumberTable:
+        line 19: 0
+        line 20: 8
+        line 21: 16
+        line 22: 24
+        line 23: 28
+        line 24: 32
+        line 25: 41
+        line 28: 50
+        line 29: 62
+        line 31: 86
+        line 32: 114
+        line 33: 127
+        line 38: 138
+        line 39: 144
+        line 40: 154
+        line 45: 162
+        line 42: 165
+        line 45: 172
+        line 43: 175
+        line 47: 182
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+          154       8     8     f   Ljava/io/File;
+          167       5     8     e   Ljava/io/IOException;
+          177       5     8     e   Ljava/lang/Exception;
+            0     183     0  args   [Ljava/lang/String;
+            8     175     1    ut   Lrdr_report/util/Utilidades;
+           16     167     2  jdbc   Lrdr_report/jdbc/JDBCAcceso;
+           24     159     3  fich   Lrdr_report/util/Ficheros;
+           28     155     4 fileName   Ljava/lang/String;
+           32     151     5 cabecera   Ljava/lang/String;
+           41     142     6 arrayParam   Ljava/util/ArrayList;
+           50     133     7 array   Ljava/util/ArrayList;
+      LocalVariableTypeTable:
+        Start  Length  Slot  Name   Signature
+           41     142     6 arrayParam   Ljava/util/ArrayList<Ljava/lang/String;>;
+           50     133     7 array   Ljava/util/ArrayList<Ljava/lang/String;>;
+      StackMapTable: number_of_entries = 3
+        frame_type = 255 /* full_frame */
+          offset_delta = 165
+          locals = [ class "[Ljava/lang/String;", class rdr_report/util/Utilidades, class rdr_report/jdbc/JDBCAcceso, class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/util/ArrayList, class java/util/ArrayList ]
+          stack = [ class java/io/IOException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/lang/Exception ]
+        frame_type = 6 /* same */
+}
+SourceFile: "CreateReport.java"
+BootstrapMethods:
+  0: #107 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #113 \u0001\u0001/\u0001
+  1: #107 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #115 El fileName es: \u0001
+InnerClasses:
+  public static final #122= #118 of #120; // Lookup=class java/lang/invoke/MethodHandles$Lookup of class java/lang/invoke/MethodHandles
+
+================================================================
+=== rdr_report.jdbc.JDBCAcceso ===
+================================================================
+Classfile /tmp/claude-0/-home-user-testing-rdr/32beb769-d5e3-50ef-813b-cac19aa8d9b3/scratchpad/conbdi_jars/report/rdr_report/jdbc/JDBCAcceso.class
+  Last modified Aug 26, 2026; size 7015 bytes
+  SHA-256 checksum ff94439926860d654c9baf7562ad44c6972b1ae4139f3779a21c17415d30e3db
+  Compiled from "JDBCAcceso.java"
+public class rdr_report.jdbc.JDBCAcceso
+  minor version: 0
+  major version: 61
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #33                         // rdr_report/jdbc/JDBCAcceso
+  super_class: #2                         // java/lang/Object
+  interfaces: 0, fields: 1, methods: 4, attributes: 3
+Constant pool:
+    #1 = Methodref          #2.#3         // java/lang/Object."<init>":()V
+    #2 = Class              #4            // java/lang/Object
+    #3 = NameAndType        #5:#6         // "<init>":()V
+    #4 = Utf8               java/lang/Object
+    #5 = Utf8               <init>
+    #6 = Utf8               ()V
+    #7 = String             #8            // /pr/kytl/online/multipais/multicanal/cfg/entorno/
+    #8 = Utf8               /pr/kytl/online/multipais/multicanal/cfg/entorno/
+    #9 = String             #10           // /pp/kytl/online/multipais/multicanal/cfg/entorno/
+   #10 = Utf8               /pp/kytl/online/multipais/multicanal/cfg/entorno/
+   #11 = String             #12           // /ei/kytl/online/multipais/multicanal/cfg/entorno/
+   #12 = Utf8               /ei/kytl/online/multipais/multicanal/cfg/entorno/
+   #13 = String             #14           // /de/kytl/online/multipais/multicanal/cfg/entorno/
+   #14 = Utf8               /de/kytl/online/multipais/multicanal/cfg/entorno/
+   #15 = String             #16           //
+   #16 = Utf8
+   #17 = Class              #18           // java/io/File
+   #18 = Utf8               java/io/File
+   #19 = Methodref          #17.#20       // java/io/File."<init>":(Ljava/lang/String;)V
+   #20 = NameAndType        #5:#21        // "<init>":(Ljava/lang/String;)V
+   #21 = Utf8               (Ljava/lang/String;)V
+   #22 = Methodref          #17.#23       // java/io/File.exists:()Z
+   #23 = NameAndType        #24:#25       // exists:()Z
+   #24 = Utf8               exists
+   #25 = Utf8               ()Z
+   #26 = InvokeDynamic      #0:#27        // #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #27 = NameAndType        #28:#29       // makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #28 = Utf8               makeConcatWithConstants
+   #29 = Utf8               (Ljava/lang/String;)Ljava/lang/String;
+   #30 = String             #31           // pr
+   #31 = Utf8               pr
+   #32 = Fieldref           #33.#34       // rdr_report/jdbc/JDBCAcceso.env:Ljava/lang/String;
+   #33 = Class              #35           // rdr_report/jdbc/JDBCAcceso
+   #34 = NameAndType        #36:#37       // env:Ljava/lang/String;
+   #35 = Utf8               rdr_report/jdbc/JDBCAcceso
+   #36 = Utf8               env
+   #37 = Utf8               Ljava/lang/String;
+   #38 = String             #39           // pp
+   #39 = Utf8               pp
+   #40 = String             #41           // ei
+   #41 = Utf8               ei
+   #42 = String             #43           // de
+   #43 = Utf8               de
+   #44 = Class              #45           // java/io/FileReader
+   #45 = Utf8               java/io/FileReader
+   #46 = Methodref          #44.#47       // java/io/FileReader."<init>":(Ljava/io/File;)V
+   #47 = NameAndType        #5:#48        // "<init>":(Ljava/io/File;)V
+   #48 = Utf8               (Ljava/io/File;)V
+   #49 = Class              #50           // java/io/BufferedReader
+   #50 = Utf8               java/io/BufferedReader
+   #51 = Methodref          #49.#52       // java/io/BufferedReader."<init>":(Ljava/io/Reader;)V
+   #52 = NameAndType        #5:#53        // "<init>":(Ljava/io/Reader;)V
+   #53 = Utf8               (Ljava/io/Reader;)V
+   #54 = Methodref          #49.#55       // java/io/BufferedReader.readLine:()Ljava/lang/String;
+   #55 = NameAndType        #56:#57       // readLine:()Ljava/lang/String;
+   #56 = Utf8               readLine
+   #57 = Utf8               ()Ljava/lang/String;
+   #58 = InvokeDynamic      #1:#59        // #1:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #59 = NameAndType        #28:#60       // makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #60 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+   #61 = Methodref          #44.#62       // java/io/FileReader.close:()V
+   #62 = NameAndType        #63:#6        // close:()V
+   #63 = Utf8               close
+   #64 = Class              #65           // java/io/IOException
+   #65 = Utf8               java/io/IOException
+   #66 = Methodref          #64.#67       // java/io/IOException.printStackTrace:()V
+   #67 = NameAndType        #68:#6        // printStackTrace:()V
+   #68 = Utf8               printStackTrace
+   #69 = String             #70           // <database>(.*?)</database>
+   #70 = Utf8               <database>(.*?)</database>
+   #71 = Methodref          #72.#73       // java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+   #72 = Class              #74           // java/util/regex/Pattern
+   #73 = NameAndType        #75:#76       // compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+   #74 = Utf8               java/util/regex/Pattern
+   #75 = Utf8               compile
+   #76 = Utf8               (Ljava/lang/String;)Ljava/util/regex/Pattern;
+   #77 = Methodref          #72.#78       // java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+   #78 = NameAndType        #79:#80       // matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+   #79 = Utf8               matcher
+   #80 = Utf8               (Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+   #81 = Methodref          #82.#83       // java/util/regex/Matcher.find:()Z
+   #82 = Class              #84           // java/util/regex/Matcher
+   #83 = NameAndType        #85:#25       // find:()Z
+   #84 = Utf8               java/util/regex/Matcher
+   #85 = Utf8               find
+   #86 = Methodref          #82.#87       // java/util/regex/Matcher.group:(I)Ljava/lang/String;
+   #87 = NameAndType        #88:#89       // group:(I)Ljava/lang/String;
+   #88 = Utf8               group
+   #89 = Utf8               (I)Ljava/lang/String;
+   #90 = String             #91           // <sid>(.*?)</sid>
+   #91 = Utf8               <sid>(.*?)</sid>
+   #92 = String             #93           // <host>(.*?)</host>
+   #93 = Utf8               <host>(.*?)</host>
+   #94 = String             #95           // <host2>(.*?)</host2>
+   #95 = Utf8               <host2>(.*?)</host2>
+   #96 = String             #97           // <port>(.*?)</port>
+   #97 = Utf8               <port>(.*?)</port>
+   #98 = String             #99           // <gcuserapp>(.*?)</gcuserapp>
+   #99 = Utf8               <gcuserapp>(.*?)</gcuserapp>
+  #100 = String             #101          // <gcpassapp>(.*?)</gcpassapp>
+  #101 = Utf8               <gcpassapp>(.*?)</gcpassapp>
+  #102 = Methodref          #103.#104     // java/lang/String.equals:(Ljava/lang/Object;)Z
+  #103 = Class              #105          // java/lang/String
+  #104 = NameAndType        #106:#107     // equals:(Ljava/lang/Object;)Z
+  #105 = Utf8               java/lang/String
+  #106 = Utf8               equals
+  #107 = Utf8               (Ljava/lang/Object;)Z
+  #108 = InvokeDynamic      #2:#109       // #2:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #109 = NameAndType        #28:#110      // makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #110 = Utf8               (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #111 = InvokeDynamic      #3:#112       // #3:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #112 = NameAndType        #28:#113      // makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #113 = Utf8               (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #114 = String             #115          // oracle.jdbc.OracleDriver
+  #115 = Utf8               oracle.jdbc.OracleDriver
+  #116 = Methodref          #117.#118     // java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+  #117 = Class              #119          // java/lang/Class
+  #118 = NameAndType        #120:#121     // forName:(Ljava/lang/String;)Ljava/lang/Class;
+  #119 = Utf8               java/lang/Class
+  #120 = Utf8               forName
+  #121 = Utf8               (Ljava/lang/String;)Ljava/lang/Class;
+  #122 = Methodref          #123.#124     // java/sql/DriverManager.getConnection:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/sql/Connection;
+  #123 = Class              #125          // java/sql/DriverManager
+  #124 = NameAndType        #126:#127     // getConnection:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/sql/Connection;
+  #125 = Utf8               java/sql/DriverManager
+  #126 = Utf8               getConnection
+  #127 = Utf8               (Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/sql/Connection;
+  #128 = Class              #129          // java/io/FileNotFoundException
+  #129 = Utf8               java/io/FileNotFoundException
+  #130 = Methodref          #128.#67      // java/io/FileNotFoundException.printStackTrace:()V
+  #131 = Class              #132          // java/lang/ClassNotFoundException
+  #132 = Utf8               java/lang/ClassNotFoundException
+  #133 = Methodref          #131.#67      // java/lang/ClassNotFoundException.printStackTrace:()V
+  #134 = Class              #135          // java/sql/SQLException
+  #135 = Utf8               java/sql/SQLException
+  #136 = Methodref          #134.#67      // java/sql/SQLException.printStackTrace:()V
+  #137 = Class              #138          // java/util/ArrayList
+  #138 = Utf8               java/util/ArrayList
+  #139 = Methodref          #137.#3       // java/util/ArrayList."<init>":()V
+  #140 = Class              #141          // rdr_report/util/Metodos
+  #141 = Utf8               rdr_report/util/Metodos
+  #142 = Methodref          #140.#3       // rdr_report/util/Metodos."<init>":()V
+  #143 = Methodref          #144.#145     // java/lang/System.currentTimeMillis:()J
+  #144 = Class              #146          // java/lang/System
+  #145 = NameAndType        #147:#148     // currentTimeMillis:()J
+  #146 = Utf8               java/lang/System
+  #147 = Utf8               currentTimeMillis
+  #148 = Utf8               ()J
+  #149 = Methodref          #33.#150      // rdr_report/jdbc/JDBCAcceso.ObtenerConexion:()Ljava/sql/Connection;
+  #150 = NameAndType        #151:#152     // ObtenerConexion:()Ljava/sql/Connection;
+  #151 = Utf8               ObtenerConexion
+  #152 = Utf8               ()Ljava/sql/Connection;
+  #153 = Fieldref           #144.#154     // java/lang/System.out:Ljava/io/PrintStream;
+  #154 = NameAndType        #155:#156     // out:Ljava/io/PrintStream;
+  #155 = Utf8               out
+  #156 = Utf8               Ljava/io/PrintStream;
+  #157 = InvokeDynamic      #4:#27        // #4:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+  #158 = Methodref          #159.#160     // java/io/PrintStream.println:(Ljava/lang/String;)V
+  #159 = Class              #161          // java/io/PrintStream
+  #160 = NameAndType        #162:#21      // println:(Ljava/lang/String;)V
+  #161 = Utf8               java/io/PrintStream
+  #162 = Utf8               println
+  #163 = InterfaceMethodref #164.#165     // java/sql/Connection.createStatement:()Ljava/sql/Statement;
+  #164 = Class              #166          // java/sql/Connection
+  #165 = NameAndType        #167:#168     // createStatement:()Ljava/sql/Statement;
+  #166 = Utf8               java/sql/Connection
+  #167 = Utf8               createStatement
+  #168 = Utf8               ()Ljava/sql/Statement;
+  #169 = InterfaceMethodref #170.#171     // java/sql/Statement.executeQuery:(Ljava/lang/String;)Ljava/sql/ResultSet;
+  #170 = Class              #172          // java/sql/Statement
+  #171 = NameAndType        #173:#174     // executeQuery:(Ljava/lang/String;)Ljava/sql/ResultSet;
+  #172 = Utf8               java/sql/Statement
+  #173 = Utf8               executeQuery
+  #174 = Utf8               (Ljava/lang/String;)Ljava/sql/ResultSet;
+  #175 = String             #176          // ;
+  #176 = Utf8               ;
+  #177 = Methodref          #103.#178     // java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+  #178 = NameAndType        #179:#180     // split:(Ljava/lang/String;)[Ljava/lang/String;
+  #179 = Utf8               split
+  #180 = Utf8               (Ljava/lang/String;)[Ljava/lang/String;
+  #181 = InvokeDynamic      #5:#182       // #5:makeConcatWithConstants:(I)Ljava/lang/String;
+  #182 = NameAndType        #28:#89       // makeConcatWithConstants:(I)Ljava/lang/String;
+  #183 = InterfaceMethodref #184.#185     // java/sql/ResultSet.next:()Z
+  #184 = Class              #186          // java/sql/ResultSet
+  #185 = NameAndType        #187:#25      // next:()Z
+  #186 = Utf8               java/sql/ResultSet
+  #187 = Utf8               next
+  #188 = InvokeDynamic      #6:#182       // #6:makeConcatWithConstants:(I)Ljava/lang/String;
+  #189 = Methodref          #140.#190     // rdr_report/util/Metodos.time:(JLjava/lang/String;)V
+  #190 = NameAndType        #191:#192     // time:(JLjava/lang/String;)V
+  #191 = Utf8               time
+  #192 = Utf8               (JLjava/lang/String;)V
+  #193 = InterfaceMethodref #184.#194     // java/sql/ResultSet.getString:(Ljava/lang/String;)Ljava/lang/String;
+  #194 = NameAndType        #195:#29      // getString:(Ljava/lang/String;)Ljava/lang/String;
+  #195 = Utf8               getString
+  #196 = InvokeDynamic      #7:#59        // #7:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #197 = Methodref          #137.#198     // java/util/ArrayList.add:(Ljava/lang/Object;)Z
+  #198 = NameAndType        #199:#107     // add:(Ljava/lang/Object;)Z
+  #199 = Utf8               add
+  #200 = InterfaceMethodref #170.#62      // java/sql/Statement.close:()V
+  #201 = InterfaceMethodref #164.#62      // java/sql/Connection.close:()V
+  #202 = Utf8               Code
+  #203 = Utf8               LineNumberTable
+  #204 = Utf8               LocalVariableTable
+  #205 = Utf8               this
+  #206 = Utf8               Lrdr_report/jdbc/JDBCAcceso;
+  #207 = Utf8               linea
+  #208 = Utf8               e
+  #209 = Utf8               Ljava/io/IOException;
+  #210 = Utf8               fich
+  #211 = Utf8               host
+  #212 = Utf8               host2
+  #213 = Utf8               port
+  #214 = Utf8               sid
+  #215 = Utf8               userdb
+  #216 = Utf8               passdb
+  #217 = Utf8               patronAux
+  #218 = Utf8               Ljava/util/regex/Pattern;
+  #219 = Utf8               matchAux
+  #220 = Utf8               Ljava/util/regex/Matcher;
+  #221 = Utf8               urldb
+  #222 = Utf8               url
+  #223 = Utf8               user
+  #224 = Utf8               password
+  #225 = Utf8               e1
+  #226 = Utf8               Ljava/io/FileNotFoundException;
+  #227 = Utf8               Ljava/lang/ClassNotFoundException;
+  #228 = Utf8               Ljava/sql/SQLException;
+  #229 = Utf8               pathpro
+  #230 = Utf8               pathpre
+  #231 = Utf8               pathint
+  #232 = Utf8               pathdev
+  #233 = Utf8               path
+  #234 = Utf8               folderpro
+  #235 = Utf8               Ljava/io/File;
+  #236 = Utf8               folderpre
+  #237 = Utf8               folderint
+  #238 = Utf8               folderdev
+  #239 = Utf8               connection
+  #240 = Utf8               Ljava/sql/Connection;
+  #241 = Utf8               archivo
+  #242 = Utf8               fr
+  #243 = Utf8               Ljava/io/FileReader;
+  #244 = Utf8               br
+  #245 = Utf8               Ljava/io/BufferedReader;
+  #246 = Utf8               StackMapTable
+  #247 = Utf8               createQuery
+  #248 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+  #249 = Utf8               tit
+  #250 = Utf8               m
+  #251 = Utf8               I
+  #252 = Utf8               query
+  #253 = Utf8               stmnt
+  #254 = Utf8               Ljava/sql/Statement;
+  #255 = Utf8               rs
+  #256 = Utf8               Ljava/sql/ResultSet;
+  #257 = Utf8               i
+  #258 = Utf8               parts
+  #259 = Utf8               [Ljava/lang/String;
+  #260 = Utf8               s
+  #261 = Utf8               longitud
+  #262 = Utf8               param
+  #263 = Utf8               cabecera
+  #264 = Utf8               array
+  #265 = Utf8               Ljava/util/ArrayList;
+  #266 = Utf8               met
+  #267 = Utf8               Lrdr_report/util/Metodos;
+  #268 = Utf8               start
+  #269 = Utf8               J
+  #270 = Utf8               LocalVariableTypeTable
+  #271 = Utf8               Ljava/util/ArrayList<Ljava/lang/String;>;
+  #272 = Class              #259          // "[Ljava/lang/String;"
+  #273 = Utf8               Signature
+  #274 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList<Ljava/lang/String;>;
+  #275 = Utf8               <clinit>
+  #276 = Utf8               SourceFile
+  #277 = Utf8               JDBCAcceso.java
+  #278 = Utf8               BootstrapMethods
+  #279 = MethodHandle       6:#280        // REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #280 = Methodref          #281.#282     // java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #281 = Class              #283          // java/lang/invoke/StringConcatFactory
+  #282 = NameAndType        #28:#284      // makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #283 = Utf8               java/lang/invoke/StringConcatFactory
+  #284 = Utf8               (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #285 = String             #286          // \u0001credentials.xml
+  #286 = Utf8               \u0001credentials.xml
+  #287 = String             #288          // \u0001\u0001
+  #288 = Utf8               \u0001\u0001
+  #289 = String             #290          // jdbc:oracle:thin:@\u0001:\u0001/\u0001
+  #290 = Utf8               jdbc:oracle:thin:@\u0001:\u0001/\u0001
+  #291 = String             #292          // jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)(ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001 )) (ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001))) (CONNECT_DATA=(SERVICE_NAME=\u0001)))
+  #292 = Utf8               jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)(ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001 )) (ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001))) (CONNECT_DATA=(SERVICE_NAME=\u0001)))
+  #293 = String             #294          // La query es : \u0001
+  #294 = Utf8               La query es : \u0001
+  #295 = String             #296          // La longitud es: \u0001
+  #296 = Utf8               La longitud es: \u0001
+  #297 = String             #298          // \u0001datos recuperados
+  #298 = Utf8               \u0001datos recuperados
+  #299 = String             #300          // \u0001\u0001;
+  #300 = Utf8               \u0001\u0001;
+  #301 = Utf8               InnerClasses
+  #302 = Class              #303          // java/lang/invoke/MethodHandles$Lookup
+  #303 = Utf8               java/lang/invoke/MethodHandles$Lookup
+  #304 = Class              #305          // java/lang/invoke/MethodHandles
+  #305 = Utf8               java/lang/invoke/MethodHandles
+  #306 = Utf8               Lookup
+{
+  private static java.lang.String env;
+    descriptor: Ljava/lang/String;
+    flags: (0x000a) ACC_PRIVATE, ACC_STATIC
+
+  public rdr_report.jdbc.JDBCAcceso();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 19: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lrdr_report/jdbc/JDBCAcceso;
+
+  public java.sql.Connection ObtenerConexion();
+    descriptor: ()Ljava/sql/Connection;
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=5, locals=28, args_size=1
+         0: ldc           #7                  // String /pr/kytl/online/multipais/multicanal/cfg/entorno/
+         2: astore_1
+         3: ldc           #9                  // String /pp/kytl/online/multipais/multicanal/cfg/entorno/
+         5: astore_2
+         6: ldc           #11                 // String /ei/kytl/online/multipais/multicanal/cfg/entorno/
+         8: astore_3
+         9: ldc           #13                 // String /de/kytl/online/multipais/multicanal/cfg/entorno/
+        11: astore        4
+        13: ldc           #15                 // String
+        15: astore        5
+        17: new           #17                 // class java/io/File
+        20: dup
+        21: aload_1
+        22: invokespecial #19                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+        25: astore        6
+        27: new           #17                 // class java/io/File
+        30: dup
+        31: aload_2
+        32: invokespecial #19                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+        35: astore        7
+        37: new           #17                 // class java/io/File
+        40: dup
+        41: aload_3
+        42: invokespecial #19                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+        45: astore        8
+        47: new           #17                 // class java/io/File
+        50: dup
+        51: aload         4
+        53: invokespecial #19                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+        56: astore        9
+        58: aconst_null
+        59: astore        10
+        61: aload         6
+        63: invokevirtual #22                 // Method java/io/File.exists:()Z
+        66: ifeq          85
+        69: aload_1
+        70: invokedynamic #26,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        75: astore        5
+        77: ldc           #30                 // String pr
+        79: putstatic     #32                 // Field env:Ljava/lang/String;
+        82: goto          155
+        85: aload         7
+        87: invokevirtual #22                 // Method java/io/File.exists:()Z
+        90: ifeq          109
+        93: aload_2
+        94: invokedynamic #26,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        99: astore        5
+       101: ldc           #38                 // String pp
+       103: putstatic     #32                 // Field env:Ljava/lang/String;
+       106: goto          155
+       109: aload         8
+       111: invokevirtual #22                 // Method java/io/File.exists:()Z
+       114: ifeq          133
+       117: aload_3
+       118: invokedynamic #26,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       123: astore        5
+       125: ldc           #40                 // String ei
+       127: putstatic     #32                 // Field env:Ljava/lang/String;
+       130: goto          155
+       133: aload         9
+       135: invokevirtual #22                 // Method java/io/File.exists:()Z
+       138: ifeq          155
+       141: aload         4
+       143: invokedynamic #26,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       148: astore        5
+       150: ldc           #42                 // String de
+       152: putstatic     #32                 // Field env:Ljava/lang/String;
+       155: aconst_null
+       156: astore        11
+       158: aconst_null
+       159: astore        12
+       161: aconst_null
+       162: astore        13
+       164: new           #17                 // class java/io/File
+       167: dup
+       168: aload         5
+       170: invokespecial #19                 // Method java/io/File."<init>":(Ljava/lang/String;)V
+       173: astore        11
+       175: new           #44                 // class java/io/FileReader
+       178: dup
+       179: aload         11
+       181: invokespecial #46                 // Method java/io/FileReader."<init>":(Ljava/io/File;)V
+       184: astore        12
+       186: new           #49                 // class java/io/BufferedReader
+       189: dup
+       190: aload         12
+       192: invokespecial #51                 // Method java/io/BufferedReader."<init>":(Ljava/io/Reader;)V
+       195: astore        13
+       197: ldc           #15                 // String
+       199: astore        15
+       201: aload         13
+       203: invokevirtual #54                 // Method java/io/BufferedReader.readLine:()Ljava/lang/String;
+       206: dup
+       207: astore        14
+       209: ifnull        226
+       212: aload         15
+       214: aload         14
+       216: invokedynamic #58,  0             // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       221: astore        15
+       223: goto          201
+       226: aload         12
+       228: invokevirtual #61                 // Method java/io/FileReader.close:()V
+       231: goto          241
+       234: astore        16
+       236: aload         16
+       238: invokevirtual #66                 // Method java/io/IOException.printStackTrace:()V
+       241: aconst_null
+       242: astore        16
+       244: aconst_null
+       245: astore        17
+       247: aconst_null
+       248: astore        18
+       250: aconst_null
+       251: astore        19
+       253: aconst_null
+       254: astore        20
+       256: aconst_null
+       257: astore        21
+       259: ldc           #69                 // String <database>(.*?)</database>
+       261: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       264: astore        22
+       266: aload         22
+       268: aload         15
+       270: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       273: astore        23
+       275: aload         23
+       277: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       280: ifeq          291
+       283: aload         23
+       285: iconst_1
+       286: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       289: astore        15
+       291: ldc           #90                 // String <sid>(.*?)</sid>
+       293: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       296: astore        22
+       298: aload         22
+       300: aload         15
+       302: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       305: astore        23
+       307: aload         23
+       309: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       312: ifeq          323
+       315: aload         23
+       317: iconst_1
+       318: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       321: astore        19
+       323: ldc           #92                 // String <host>(.*?)</host>
+       325: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       328: astore        22
+       330: aload         22
+       332: aload         15
+       334: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       337: astore        23
+       339: aload         23
+       341: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       344: ifeq          355
+       347: aload         23
+       349: iconst_1
+       350: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       353: astore        16
+       355: ldc           #94                 // String <host2>(.*?)</host2>
+       357: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       360: astore        22
+       362: aload         22
+       364: aload         15
+       366: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       369: astore        23
+       371: aload         23
+       373: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       376: ifeq          387
+       379: aload         23
+       381: iconst_1
+       382: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       385: astore        17
+       387: ldc           #96                 // String <port>(.*?)</port>
+       389: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       392: astore        22
+       394: aload         22
+       396: aload         15
+       398: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       401: astore        23
+       403: aload         23
+       405: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       408: ifeq          419
+       411: aload         23
+       413: iconst_1
+       414: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       417: astore        18
+       419: ldc           #98                 // String <gcuserapp>(.*?)</gcuserapp>
+       421: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       424: astore        22
+       426: aload         22
+       428: aload         15
+       430: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       433: astore        23
+       435: aload         23
+       437: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       440: ifeq          451
+       443: aload         23
+       445: iconst_1
+       446: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       449: astore        20
+       451: ldc           #100                // String <gcpassapp>(.*?)</gcpassapp>
+       453: invokestatic  #71                 // Method java/util/regex/Pattern.compile:(Ljava/lang/String;)Ljava/util/regex/Pattern;
+       456: astore        22
+       458: aload         22
+       460: aload         15
+       462: invokevirtual #77                 // Method java/util/regex/Pattern.matcher:(Ljava/lang/CharSequence;)Ljava/util/regex/Matcher;
+       465: astore        23
+       467: aload         23
+       469: invokevirtual #81                 // Method java/util/regex/Matcher.find:()Z
+       472: ifeq          483
+       475: aload         23
+       477: iconst_1
+       478: invokevirtual #86                 // Method java/util/regex/Matcher.group:(I)Ljava/lang/String;
+       481: astore        21
+       483: aconst_null
+       484: astore        24
+       486: ldc           #42                 // String de
+       488: getstatic     #32                 // Field env:Ljava/lang/String;
+       491: invokevirtual #102                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+       494: ifne          508
+       497: ldc           #40                 // String ei
+       499: getstatic     #32                 // Field env:Ljava/lang/String;
+       502: invokevirtual #102                // Method java/lang/String.equals:(Ljava/lang/Object;)Z
+       505: ifeq          524
+       508: aload         16
+       510: aload         18
+       512: aload         19
+       514: invokedynamic #108,  0            // InvokeDynamic #2:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       519: astore        24
+       521: goto          541
+       524: aload         16
+       526: aload         18
+       528: aload         17
+       530: aload         18
+       532: aload         19
+       534: invokedynamic #111,  0            // InvokeDynamic #3:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       539: astore        24
+       541: ldc           #114                // String oracle.jdbc.OracleDriver
+       543: invokestatic  #116                // Method java/lang/Class.forName:(Ljava/lang/String;)Ljava/lang/Class;
+       546: pop
+       547: aload         24
+       549: astore        25
+       551: aload         20
+       553: astore        26
+       555: aload         21
+       557: astore        27
+       559: aload         25
+       561: aload         26
+       563: aload         27
+       565: invokestatic  #122                // Method java/sql/DriverManager.getConnection:(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/sql/Connection;
+       568: astore        10
+       570: goto          600
+       573: astore        14
+       575: aload         14
+       577: invokevirtual #130                // Method java/io/FileNotFoundException.printStackTrace:()V
+       580: goto          600
+       583: astore        14
+       585: aload         14
+       587: invokevirtual #133                // Method java/lang/ClassNotFoundException.printStackTrace:()V
+       590: goto          600
+       593: astore        14
+       595: aload         14
+       597: invokevirtual #136                // Method java/sql/SQLException.printStackTrace:()V
+       600: aload         10
+       602: areturn
+      Exception table:
+         from    to  target type
+           201   231   234   Class java/io/IOException
+           175   570   573   Class java/io/FileNotFoundException
+           175   570   583   Class java/lang/ClassNotFoundException
+           175   570   593   Class java/sql/SQLException
+      LineNumberTable:
+        line 25: 0
+        line 26: 3
+        line 27: 6
+        line 28: 9
+        line 30: 13
+        line 31: 17
+        line 32: 27
+        line 33: 37
+        line 34: 47
+        line 35: 58
+        line 37: 61
+        line 38: 69
+        line 39: 77
+        line 41: 85
+        line 42: 93
+        line 43: 101
+        line 45: 109
+        line 46: 117
+        line 47: 125
+        line 49: 133
+        line 50: 141
+        line 51: 150
+        line 55: 155
+        line 56: 158
+        line 57: 161
+        line 59: 164
+        line 62: 175
+        line 63: 186
+        line 66: 197
+        line 69: 201
+        line 70: 212
+        line 72: 226
+        line 78: 231
+        line 74: 234
+        line 77: 236
+        line 83: 241
+        line 84: 244
+        line 85: 247
+        line 86: 250
+        line 87: 253
+        line 88: 256
+        line 90: 259
+        line 91: 266
+        line 92: 275
+        line 94: 283
+        line 97: 291
+        line 98: 298
+        line 99: 307
+        line 101: 315
+        line 104: 323
+        line 105: 330
+        line 106: 339
+        line 108: 347
+        line 111: 355
+        line 112: 362
+        line 113: 371
+        line 115: 379
+        line 118: 387
+        line 119: 394
+        line 120: 403
+        line 122: 411
+        line 125: 419
+        line 126: 426
+        line 127: 435
+        line 129: 443
+        line 132: 451
+        line 133: 458
+        line 134: 467
+        line 136: 475
+        line 139: 483
+        line 141: 486
+        line 142: 508
+        line 144: 524
+        line 150: 541
+        line 151: 547
+        line 153: 551
+        line 155: 555
+        line 157: 559
+        line 168: 570
+        line 158: 573
+        line 161: 575
+        line 168: 580
+        line 162: 583
+        line 164: 585
+        line 168: 590
+        line 165: 593
+        line 167: 595
+        line 169: 600
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+          209      25    14 linea   Ljava/lang/String;
+          236       5    16     e   Ljava/io/IOException;
+          201     369    15  fich   Ljava/lang/String;
+          244     326    16  host   Ljava/lang/String;
+          247     323    17 host2   Ljava/lang/String;
+          250     320    18  port   Ljava/lang/String;
+          253     317    19   sid   Ljava/lang/String;
+          256     314    20 userdb   Ljava/lang/String;
+          259     311    21 passdb   Ljava/lang/String;
+          266     304    22 patronAux   Ljava/util/regex/Pattern;
+          275     295    23 matchAux   Ljava/util/regex/Matcher;
+          486      84    24 urldb   Ljava/lang/String;
+          551      19    25   url   Ljava/lang/String;
+          555      15    26  user   Ljava/lang/String;
+          559      11    27 password   Ljava/lang/String;
+          575       5    14    e1   Ljava/io/FileNotFoundException;
+          585       5    14     e   Ljava/lang/ClassNotFoundException;
+          595       5    14     e   Ljava/sql/SQLException;
+            0     603     0  this   Lrdr_report/jdbc/JDBCAcceso;
+            3     600     1 pathpro   Ljava/lang/String;
+            6     597     2 pathpre   Ljava/lang/String;
+            9     594     3 pathint   Ljava/lang/String;
+           13     590     4 pathdev   Ljava/lang/String;
+           17     586     5  path   Ljava/lang/String;
+           27     576     6 folderpro   Ljava/io/File;
+           37     566     7 folderpre   Ljava/io/File;
+           47     556     8 folderint   Ljava/io/File;
+           58     545     9 folderdev   Ljava/io/File;
+           61     542    10 connection   Ljava/sql/Connection;
+          158     445    11 archivo   Ljava/io/File;
+          161     442    12    fr   Ljava/io/FileReader;
+          164     439    13    br   Ljava/io/BufferedReader;
+      StackMapTable: number_of_entries = 22
+        frame_type = 255 /* full_frame */
+          offset_delta = 85
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection ]
+          stack = []
+        frame_type = 23 /* same */
+        frame_type = 23 /* same */
+        frame_type = 21 /* same */
+        frame_type = 255 /* full_frame */
+          offset_delta = 45
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection, class java/io/File, class java/io/FileReader, class java/io/BufferedReader, top, class java/lang/String ]
+          stack = []
+        frame_type = 255 /* full_frame */
+          offset_delta = 24
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection, class java/io/File, class java/io/FileReader, class java/io/BufferedReader, class java/lang/String, class java/lang/String ]
+          stack = []
+        frame_type = 255 /* full_frame */
+          offset_delta = 7
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection, class java/io/File, class java/io/FileReader, class java/io/BufferedReader, top, class java/lang/String ]
+          stack = [ class java/io/IOException ]
+        frame_type = 6 /* same */
+        frame_type = 255 /* full_frame */
+          offset_delta = 49
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection, class java/io/File, class java/io/FileReader, class java/io/BufferedReader, top, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/util/regex/Pattern, class java/util/regex/Matcher ]
+          stack = []
+        frame_type = 31 /* same */
+        frame_type = 31 /* same */
+        frame_type = 31 /* same */
+        frame_type = 31 /* same */
+        frame_type = 31 /* same */
+        frame_type = 31 /* same */
+        frame_type = 252 /* append */
+          offset_delta = 24
+          locals = [ class java/lang/String ]
+        frame_type = 15 /* same */
+        frame_type = 16 /* same */
+        frame_type = 255 /* full_frame */
+          offset_delta = 31
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/lang/String, class java/io/File, class java/io/File, class java/io/File, class java/io/File, class java/sql/Connection, class java/io/File, class java/io/FileReader, class java/io/BufferedReader ]
+          stack = [ class java/io/FileNotFoundException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/lang/ClassNotFoundException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/sql/SQLException ]
+        frame_type = 6 /* same */
+
+  public java.util.ArrayList<java.lang.String> createQuery(java.lang.String, java.lang.String);
+    descriptor: (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=5, locals=16, args_size=3
+         0: new           #137                // class java/util/ArrayList
+         3: dup
+         4: invokespecial #139                // Method java/util/ArrayList."<init>":()V
+         7: astore_3
+         8: new           #140                // class rdr_report/util/Metodos
+        11: dup
+        12: invokespecial #142                // Method rdr_report/util/Metodos."<init>":()V
+        15: astore        4
+        17: invokestatic  #143                // Method java/lang/System.currentTimeMillis:()J
+        20: lstore        5
+        22: aload_0
+        23: invokevirtual #149                // Method ObtenerConexion:()Ljava/sql/Connection;
+        26: astore        7
+        28: aload_1
+        29: astore        8
+        31: getstatic     #153                // Field java/lang/System.out:Ljava/io/PrintStream;
+        34: aload_1
+        35: invokedynamic #157,  0            // InvokeDynamic #4:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        40: invokevirtual #158                // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        43: aload         7
+        45: invokeinterface #163,  1          // InterfaceMethod java/sql/Connection.createStatement:()Ljava/sql/Statement;
+        50: astore        9
+        52: aconst_null
+        53: astore        10
+        55: aload         9
+        57: aload         8
+        59: invokeinterface #169,  2          // InterfaceMethod java/sql/Statement.executeQuery:(Ljava/lang/String;)Ljava/sql/ResultSet;
+        64: astore        10
+        66: iconst_0
+        67: istore        11
+        69: aload_2
+        70: ldc           #175                // String ;
+        72: invokevirtual #177                // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+        75: astore        12
+        77: ldc           #15                 // String
+        79: astore        13
+        81: aload         12
+        83: arraylength
+        84: istore        14
+        86: getstatic     #153                // Field java/lang/System.out:Ljava/io/PrintStream;
+        89: iload         14
+        91: invokedynamic #181,  0            // InvokeDynamic #5:makeConcatWithConstants:(I)Ljava/lang/String;
+        96: invokevirtual #158                // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        99: aload         10
+       101: invokeinterface #183,  1          // InterfaceMethod java/sql/ResultSet.next:()Z
+       106: ifeq          215
+       109: ldc           #15                 // String
+       111: astore        13
+       113: iinc          11, 1
+       116: iload         11
+       118: sipush        1000
+       121: irem
+       122: ifne          143
+       125: iload         11
+       127: invokedynamic #188,  0            // InvokeDynamic #6:makeConcatWithConstants:(I)Ljava/lang/String;
+       132: astore        15
+       134: aload         4
+       136: lload         5
+       138: aload         15
+       140: invokevirtual #189                // Method rdr_report/util/Metodos.time:(JLjava/lang/String;)V
+       143: iconst_0
+       144: istore        15
+       146: iload         15
+       148: iload         14
+       150: iconst_1
+       151: isub
+       152: if_icmpge     182
+       155: aload         13
+       157: aload         10
+       159: aload         12
+       161: iload         15
+       163: aaload
+       164: invokeinterface #193,  2          // InterfaceMethod java/sql/ResultSet.getString:(Ljava/lang/String;)Ljava/lang/String;
+       169: invokedynamic #196,  0            // InvokeDynamic #7:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       174: astore        13
+       176: iinc          15, 1
+       179: goto          146
+       182: aload         13
+       184: aload         10
+       186: aload         12
+       188: iload         14
+       190: iconst_1
+       191: isub
+       192: aaload
+       193: invokeinterface #193,  2          // InterfaceMethod java/sql/ResultSet.getString:(Ljava/lang/String;)Ljava/lang/String;
+       198: invokedynamic #58,  0             // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       203: astore        13
+       205: aload_3
+       206: aload         13
+       208: invokevirtual #197                // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+       211: pop
+       212: goto          99
+       215: aload         9
+       217: invokeinterface #200,  1          // InterfaceMethod java/sql/Statement.close:()V
+       222: aload         7
+       224: invokeinterface #201,  1          // InterfaceMethod java/sql/Connection.close:()V
+       229: goto          239
+       232: astore        7
+       234: aload         7
+       236: invokevirtual #136                // Method java/sql/SQLException.printStackTrace:()V
+       239: aload_3
+       240: areturn
+      Exception table:
+         from    to  target type
+            22   229   232   Class java/sql/SQLException
+      LineNumberTable:
+        line 175: 0
+        line 176: 8
+        line 177: 17
+        line 180: 22
+        line 182: 28
+        line 183: 31
+        line 187: 43
+        line 188: 52
+        line 189: 55
+        line 190: 66
+        line 192: 69
+        line 193: 77
+        line 195: 81
+        line 197: 86
+        line 199: 99
+        line 201: 109
+        line 202: 113
+        line 203: 116
+        line 205: 125
+        line 206: 134
+        line 208: 143
+        line 210: 155
+        line 208: 176
+        line 212: 182
+        line 214: 205
+        line 217: 215
+        line 219: 222
+        line 224: 229
+        line 221: 232
+        line 223: 234
+        line 225: 239
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+          134       9    15   tit   Ljava/lang/String;
+          146      36    15     m   I
+           28     201     7 connection   Ljava/sql/Connection;
+           31     198     8 query   Ljava/lang/String;
+           52     177     9 stmnt   Ljava/sql/Statement;
+           55     174    10    rs   Ljava/sql/ResultSet;
+           69     160    11     i   I
+           77     152    12 parts   [Ljava/lang/String;
+           81     148    13     s   Ljava/lang/String;
+           86     143    14 longitud   I
+          234       5     7     e   Ljava/sql/SQLException;
+            0     241     0  this   Lrdr_report/jdbc/JDBCAcceso;
+            0     241     1 param   Ljava/lang/String;
+            0     241     2 cabecera   Ljava/lang/String;
+            8     233     3 array   Ljava/util/ArrayList;
+           17     224     4   met   Lrdr_report/util/Metodos;
+           22     219     5 start   J
+      LocalVariableTypeTable:
+        Start  Length  Slot  Name   Signature
+            8     233     3 array   Ljava/util/ArrayList<Ljava/lang/String;>;
+      StackMapTable: number_of_entries = 7
+        frame_type = 255 /* full_frame */
+          offset_delta = 99
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/util/ArrayList, class rdr_report/util/Metodos, long, class java/sql/Connection, class java/lang/String, class java/sql/Statement, class java/sql/ResultSet, int, class "[Ljava/lang/String;", class java/lang/String, int ]
+          stack = []
+        frame_type = 43 /* same */
+        frame_type = 252 /* append */
+          offset_delta = 2
+          locals = [ int ]
+        frame_type = 250 /* chop */
+          offset_delta = 35
+        frame_type = 32 /* same */
+        frame_type = 255 /* full_frame */
+          offset_delta = 16
+          locals = [ class rdr_report/jdbc/JDBCAcceso, class java/lang/String, class java/lang/String, class java/util/ArrayList, class rdr_report/util/Metodos, long ]
+          stack = [ class java/sql/SQLException ]
+        frame_type = 6 /* same */
+    Signature: #274                         // (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList<Ljava/lang/String;>;
+
+  static {};
+    descriptor: ()V
+    flags: (0x0008) ACC_STATIC
+    Code:
+      stack=1, locals=0, args_size=0
+         0: ldc           #15                 // String
+         2: putstatic     #32                 // Field env:Ljava/lang/String;
+         5: return
+      LineNumberTable:
+        line 21: 0
+}
+SourceFile: "JDBCAcceso.java"
+BootstrapMethods:
+  0: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #285 \u0001credentials.xml
+  1: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #287 \u0001\u0001
+  2: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #289 jdbc:oracle:thin:@\u0001:\u0001/\u0001
+  3: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #291 jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)(ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001 )) (ADDRESS = (PROTOCOL = TCP)(HOST =\u0001)(PORT = \u0001))) (CONNECT_DATA=(SERVICE_NAME=\u0001)))
+  4: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #293 La query es : \u0001
+  5: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #295 La longitud es: \u0001
+  6: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #297 \u0001datos recuperados
+  7: #279 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #299 \u0001\u0001;
+InnerClasses:
+  public static final #306= #302 of #304; // Lookup=class java/lang/invoke/MethodHandles$Lookup of class java/lang/invoke/MethodHandles
+
+================================================================
+=== rdr_report.util.Ficheros ===
+================================================================
+Classfile /tmp/claude-0/-home-user-testing-rdr/32beb769-d5e3-50ef-813b-cac19aa8d9b3/scratchpad/conbdi_jars/report/rdr_report/util/Ficheros.class
+  Last modified Aug 26, 2026; size 5955 bytes
+  SHA-256 checksum 7b31c9b65df9682117a60694ed410e771ace735737f1e1487512a0aa06ae174f
+  Compiled from "Ficheros.java"
+public class rdr_report.util.Ficheros
+  minor version: 0
+  major version: 61
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #127                        // rdr_report/util/Ficheros
+  super_class: #2                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 6, attributes: 3
+Constant pool:
+    #1 = Methodref          #2.#3         // java/lang/Object."<init>":()V
+    #2 = Class              #4            // java/lang/Object
+    #3 = NameAndType        #5:#6         // "<init>":()V
+    #4 = Utf8               java/lang/Object
+    #5 = Utf8               <init>
+    #6 = Utf8               ()V
+    #7 = Class              #8            // java/io/File
+    #8 = Utf8               java/io/File
+    #9 = Methodref          #7.#10        // java/io/File."<init>":(Ljava/lang/String;)V
+   #10 = NameAndType        #5:#11        // "<init>":(Ljava/lang/String;)V
+   #11 = Utf8               (Ljava/lang/String;)V
+   #12 = Methodref          #7.#13        // java/io/File.setExecutable:(ZZ)Z
+   #13 = NameAndType        #14:#15       // setExecutable:(ZZ)Z
+   #14 = Utf8               setExecutable
+   #15 = Utf8               (ZZ)Z
+   #16 = Methodref          #7.#17        // java/io/File.setWritable:(ZZ)Z
+   #17 = NameAndType        #18:#15       // setWritable:(ZZ)Z
+   #18 = Utf8               setWritable
+   #19 = Methodref          #7.#20        // java/io/File.setReadable:(ZZ)Z
+   #20 = NameAndType        #21:#15       // setReadable:(ZZ)Z
+   #21 = Utf8               setReadable
+   #22 = Class              #23           // java/io/FileOutputStream
+   #23 = Utf8               java/io/FileOutputStream
+   #24 = Methodref          #22.#25       // java/io/FileOutputStream."<init>":(Ljava/io/File;Z)V
+   #25 = NameAndType        #5:#26        // "<init>":(Ljava/io/File;Z)V
+   #26 = Utf8               (Ljava/io/File;Z)V
+   #27 = Class              #28           // java/io/OutputStreamWriter
+   #28 = Utf8               java/io/OutputStreamWriter
+   #29 = String             #30           // ISO-8859-1
+   #30 = Utf8               ISO-8859-1
+   #31 = Methodref          #27.#32       // java/io/OutputStreamWriter."<init>":(Ljava/io/OutputStream;Ljava/lang/String;)V
+   #32 = NameAndType        #5:#33        // "<init>":(Ljava/io/OutputStream;Ljava/lang/String;)V
+   #33 = Utf8               (Ljava/io/OutputStream;Ljava/lang/String;)V
+   #34 = Class              #35           // java/io/PrintWriter
+   #35 = Utf8               java/io/PrintWriter
+   #36 = Methodref          #34.#37       // java/io/PrintWriter."<init>":(Ljava/io/Writer;)V
+   #37 = NameAndType        #5:#38        // "<init>":(Ljava/io/Writer;)V
+   #38 = Utf8               (Ljava/io/Writer;)V
+   #39 = Methodref          #34.#40       // java/io/PrintWriter.println:(Ljava/lang/String;)V
+   #40 = NameAndType        #41:#11       // println:(Ljava/lang/String;)V
+   #41 = Utf8               println
+   #42 = Methodref          #27.#43       // java/io/OutputStreamWriter.close:()V
+   #43 = NameAndType        #44:#6        // close:()V
+   #44 = Utf8               close
+   #45 = Methodref          #22.#43       // java/io/FileOutputStream.close:()V
+   #46 = Class              #47           // java/io/FileNotFoundException
+   #47 = Utf8               java/io/FileNotFoundException
+   #48 = Methodref          #46.#49       // java/io/FileNotFoundException.printStackTrace:()V
+   #49 = NameAndType        #50:#6        // printStackTrace:()V
+   #50 = Utf8               printStackTrace
+   #51 = Class              #52           // java/io/UnsupportedEncodingException
+   #52 = Utf8               java/io/UnsupportedEncodingException
+   #53 = Methodref          #51.#49       // java/io/UnsupportedEncodingException.printStackTrace:()V
+   #54 = Class              #55           // java/io/IOException
+   #55 = Utf8               java/io/IOException
+   #56 = Methodref          #54.#49       // java/io/IOException.printStackTrace:()V
+   #57 = Methodref          #58.#59       // java/util/ArrayList.size:()I
+   #58 = Class              #60           // java/util/ArrayList
+   #59 = NameAndType        #61:#62       // size:()I
+   #60 = Utf8               java/util/ArrayList
+   #61 = Utf8               size
+   #62 = Utf8               ()I
+   #63 = Methodref          #58.#64       // java/util/ArrayList.get:(I)Ljava/lang/Object;
+   #64 = NameAndType        #65:#66       // get:(I)Ljava/lang/Object;
+   #65 = Utf8               get
+   #66 = Utf8               (I)Ljava/lang/Object;
+   #67 = Class              #68           // java/lang/String
+   #68 = Utf8               java/lang/String
+   #69 = String             #70           // \\/
+   #70 = Utf8               \\/
+   #71 = Methodref          #67.#72       // java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+   #72 = NameAndType        #73:#74       // split:(Ljava/lang/String;)[Ljava/lang/String;
+   #73 = Utf8               split
+   #74 = Utf8               (Ljava/lang/String;)[Ljava/lang/String;
+   #75 = Class              #76           // java/io/FileInputStream
+   #76 = Utf8               java/io/FileInputStream
+   #77 = Methodref          #75.#10       // java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+   #78 = Methodref          #22.#10       // java/io/FileOutputStream."<init>":(Ljava/lang/String;)V
+   #79 = Class              #80           // java/util/zip/ZipOutputStream
+   #80 = Utf8               java/util/zip/ZipOutputStream
+   #81 = Methodref          #79.#82       // java/util/zip/ZipOutputStream."<init>":(Ljava/io/OutputStream;)V
+   #82 = NameAndType        #5:#83        // "<init>":(Ljava/io/OutputStream;)V
+   #83 = Utf8               (Ljava/io/OutputStream;)V
+   #84 = Class              #85           // java/util/zip/ZipEntry
+   #85 = Utf8               java/util/zip/ZipEntry
+   #86 = Methodref          #84.#10       // java/util/zip/ZipEntry."<init>":(Ljava/lang/String;)V
+   #87 = Methodref          #79.#88       // java/util/zip/ZipOutputStream.putNextEntry:(Ljava/util/zip/ZipEntry;)V
+   #88 = NameAndType        #89:#90       // putNextEntry:(Ljava/util/zip/ZipEntry;)V
+   #89 = Utf8               putNextEntry
+   #90 = Utf8               (Ljava/util/zip/ZipEntry;)V
+   #91 = Methodref          #75.#92       // java/io/FileInputStream.read:([BII)I
+   #92 = NameAndType        #93:#94       // read:([BII)I
+   #93 = Utf8               read
+   #94 = Utf8               ([BII)I
+   #95 = Methodref          #79.#96       // java/util/zip/ZipOutputStream.write:([BII)V
+   #96 = NameAndType        #97:#98       // write:([BII)V
+   #97 = Utf8               write
+   #98 = Utf8               ([BII)V
+   #99 = Methodref          #79.#100      // java/util/zip/ZipOutputStream.flush:()V
+  #100 = NameAndType        #101:#6       // flush:()V
+  #101 = Utf8               flush
+  #102 = Methodref          #79.#43       // java/util/zip/ZipOutputStream.close:()V
+  #103 = Methodref          #75.#43       // java/io/FileInputStream.close:()V
+  #104 = Class              #105          // java/lang/Exception
+  #105 = Utf8               java/lang/Exception
+  #106 = Methodref          #104.#49      // java/lang/Exception.printStackTrace:()V
+  #107 = Methodref          #67.#3        // java/lang/String."<init>":()V
+  #108 = InvokeDynamic      #0:#109       // #0:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #109 = NameAndType        #110:#111     // makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #110 = Utf8               makeConcatWithConstants
+  #111 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #112 = InvokeDynamic      #1:#113       // #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+  #113 = NameAndType        #110:#114     // makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+  #114 = Utf8               (Ljava/lang/String;)Ljava/lang/String;
+  #115 = Methodref          #7.#116       // java/io/File.exists:()Z
+  #116 = NameAndType        #117:#118     // exists:()Z
+  #117 = Utf8               exists
+  #118 = Utf8               ()Z
+  #119 = Methodref          #7.#120       // java/io/File.mkdirs:()Z
+  #120 = NameAndType        #121:#118     // mkdirs:()Z
+  #121 = Utf8               mkdirs
+  #122 = InvokeDynamic      #2:#109       // #2:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #123 = InvokeDynamic      #3:#109       // #3:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #124 = String             #125          //
+  #125 = Utf8
+  #126 = Methodref          #127.#128     // rdr_report/util/Ficheros.creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+  #127 = Class              #129          // rdr_report/util/Ficheros
+  #128 = NameAndType        #130:#131     // creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+  #129 = Utf8               rdr_report/util/Ficheros
+  #130 = Utf8               creaFichero
+  #131 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+  #132 = Methodref          #7.#133       // java/io/File.delete:()Z
+  #133 = NameAndType        #134:#118     // delete:()Z
+  #134 = Utf8               delete
+  #135 = Methodref          #7.#136       // java/io/File.renameTo:(Ljava/io/File;)Z
+  #136 = NameAndType        #137:#138     // renameTo:(Ljava/io/File;)Z
+  #137 = Utf8               renameTo
+  #138 = Utf8               (Ljava/io/File;)Z
+  #139 = Fieldref           #140.#141     // java/lang/System.out:Ljava/io/PrintStream;
+  #140 = Class              #142          // java/lang/System
+  #141 = NameAndType        #143:#144     // out:Ljava/io/PrintStream;
+  #142 = Utf8               java/lang/System
+  #143 = Utf8               out
+  #144 = Utf8               Ljava/io/PrintStream;
+  #145 = String             #146          // Error intentando cambiar el nombre de fichero
+  #146 = Utf8               Error intentando cambiar el nombre de fichero
+  #147 = Methodref          #148.#40      // java/io/PrintStream.println:(Ljava/lang/String;)V
+  #148 = Class              #149          // java/io/PrintStream
+  #149 = Utf8               java/io/PrintStream
+  #150 = String             #151          // \\.
+  #151 = Utf8               \\.
+  #152 = InvokeDynamic      #4:#109       // #4:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+  #153 = Methodref          #127.#154     // rdr_report/util/Ficheros.Zippear:(Ljava/lang/String;Ljava/lang/String;)V
+  #154 = NameAndType        #155:#156     // Zippear:(Ljava/lang/String;Ljava/lang/String;)V
+  #155 = Utf8               Zippear
+  #156 = Utf8               (Ljava/lang/String;Ljava/lang/String;)V
+  #157 = Utf8               Code
+  #158 = Utf8               LineNumberTable
+  #159 = Utf8               LocalVariableTable
+  #160 = Utf8               this
+  #161 = Utf8               Lrdr_report/util/Ficheros;
+  #162 = Utf8               e1
+  #163 = Utf8               Ljava/io/FileNotFoundException;
+  #164 = Utf8               e
+  #165 = Utf8               Ljava/io/UnsupportedEncodingException;
+  #166 = Utf8               Ljava/io/IOException;
+  #167 = Utf8               fileName
+  #168 = Utf8               Ljava/lang/String;
+  #169 = Utf8               header
+  #170 = Utf8               pw
+  #171 = Utf8               Ljava/io/PrintWriter;
+  #172 = Utf8               os
+  #173 = Utf8               Ljava/io/OutputStreamWriter;
+  #174 = Utf8               fos
+  #175 = Utf8               Ljava/io/FileOutputStream;
+  #176 = Utf8               f
+  #177 = Utf8               Ljava/io/File;
+  #178 = Utf8               StackMapTable
+  #179 = Utf8               Exceptions
+  #180 = Utf8               escribirFicheroGeneral
+  #181 = Utf8               (Ljava/io/File;Ljava/util/ArrayList;)V
+  #182 = Utf8               i
+  #183 = Utf8               I
+  #184 = Utf8               composicionFichero
+  #185 = Utf8               Ljava/util/ArrayList;
+  #186 = Utf8               LocalVariableTypeTable
+  #187 = Utf8               Ljava/util/ArrayList<Ljava/lang/String;>;
+  #188 = Utf8               Signature
+  #189 = Utf8               (Ljava/io/File;Ljava/util/ArrayList<Ljava/lang/String;>;)V
+  #190 = Utf8               zipEntry
+  #191 = Utf8               Ljava/util/zip/ZipEntry;
+  #192 = Utf8               len
+  #193 = Utf8               Ljava/lang/Exception;
+  #194 = Utf8               pFile
+  #195 = Utf8               pZipFile
+  #196 = Utf8               fis
+  #197 = Utf8               Ljava/io/FileInputStream;
+  #198 = Utf8               zipos
+  #199 = Utf8               Ljava/util/zip/ZipOutputStream;
+  #200 = Utf8               BUFFER_SIZE
+  #201 = Utf8               str1
+  #202 = Utf8               [Ljava/lang/String;
+  #203 = Utf8               pFile2
+  #204 = Utf8               buffer
+  #205 = Utf8               [B
+  #206 = Class              #202          // "[Ljava/lang/String;"
+  #207 = Class              #205          // "[B"
+  #208 = Class              #209          // java/lang/Throwable
+  #209 = Utf8               java/lang/Throwable
+  #210 = Utf8               historifica
+  #211 = Utf8               file
+  #212 = Utf8               str
+  #213 = Utf8               ruta
+  #214 = Utf8               rutaold
+  #215 = Utf8               old
+  #216 = Utf8               fichero
+  #217 = Utf8               fichero2
+  #218 = Utf8               success
+  #219 = Utf8               Z
+  #220 = Utf8               historificaZip
+  #221 = Utf8               SourceFile
+  #222 = Utf8               Ficheros.java
+  #223 = Utf8               BootstrapMethods
+  #224 = MethodHandle       6:#225        // REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #225 = Methodref          #226.#227     // java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #226 = Class              #228          // java/lang/invoke/StringConcatFactory
+  #227 = NameAndType        #110:#229     // makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #228 = Utf8               java/lang/invoke/StringConcatFactory
+  #229 = Utf8               (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #230 = String             #231          // \u0001\u0001/
+  #231 = Utf8               \u0001\u0001/
+  #232 = String             #233          // \u0001old
+  #233 = Utf8               \u0001old
+  #234 = String             #235          // \u0001/\u0001
+  #235 = Utf8               \u0001/\u0001
+  #236 = String             #237          // \u0001\u0001
+  #237 = Utf8               \u0001\u0001
+  #238 = String             #239          // \u0001/\u0001.zip
+  #239 = Utf8               \u0001/\u0001.zip
+  #240 = Utf8               InnerClasses
+  #241 = Class              #242          // java/lang/invoke/MethodHandles$Lookup
+  #242 = Utf8               java/lang/invoke/MethodHandles$Lookup
+  #243 = Class              #244          // java/lang/invoke/MethodHandles
+  #244 = Utf8               java/lang/invoke/MethodHandles
+  #245 = Utf8               Lookup
+{
+  public rdr_report.util.Ficheros();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 15: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lrdr_report/util/Ficheros;
+
+  public java.io.File creaFichero(java.lang.String, java.lang.String) throws java.lang.Exception;
+    descriptor: (Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=8, args_size=3
+         0: aconst_null
+         1: astore_3
+         2: aconst_null
+         3: astore        4
+         5: aconst_null
+         6: astore        5
+         8: aconst_null
+         9: astore        6
+        11: new           #7                  // class java/io/File
+        14: dup
+        15: aload_1
+        16: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+        19: astore        6
+        21: aload         6
+        23: iconst_1
+        24: iconst_0
+        25: invokevirtual #12                 // Method java/io/File.setExecutable:(ZZ)Z
+        28: pop
+        29: aload         6
+        31: iconst_1
+        32: iconst_0
+        33: invokevirtual #16                 // Method java/io/File.setWritable:(ZZ)Z
+        36: pop
+        37: aload         6
+        39: iconst_1
+        40: iconst_0
+        41: invokevirtual #19                 // Method java/io/File.setReadable:(ZZ)Z
+        44: pop
+        45: new           #22                 // class java/io/FileOutputStream
+        48: dup
+        49: aload         6
+        51: iconst_1
+        52: invokespecial #24                 // Method java/io/FileOutputStream."<init>":(Ljava/io/File;Z)V
+        55: astore        5
+        57: new           #27                 // class java/io/OutputStreamWriter
+        60: dup
+        61: aload         5
+        63: ldc           #29                 // String ISO-8859-1
+        65: invokespecial #31                 // Method java/io/OutputStreamWriter."<init>":(Ljava/io/OutputStream;Ljava/lang/String;)V
+        68: astore        4
+        70: new           #34                 // class java/io/PrintWriter
+        73: dup
+        74: aload         4
+        76: invokespecial #36                 // Method java/io/PrintWriter."<init>":(Ljava/io/Writer;)V
+        79: astore_3
+        80: aload_3
+        81: aload_2
+        82: invokevirtual #39                 // Method java/io/PrintWriter.println:(Ljava/lang/String;)V
+        85: aload         4
+        87: invokevirtual #42                 // Method java/io/OutputStreamWriter.close:()V
+        90: aload         5
+        92: invokevirtual #45                 // Method java/io/FileOutputStream.close:()V
+        95: goto          125
+        98: astore        7
+       100: aload         7
+       102: invokevirtual #48                 // Method java/io/FileNotFoundException.printStackTrace:()V
+       105: goto          125
+       108: astore        7
+       110: aload         7
+       112: invokevirtual #53                 // Method java/io/UnsupportedEncodingException.printStackTrace:()V
+       115: goto          125
+       118: astore        7
+       120: aload         7
+       122: invokevirtual #56                 // Method java/io/IOException.printStackTrace:()V
+       125: aload         6
+       127: areturn
+      Exception table:
+         from    to  target type
+            11    95    98   Class java/io/FileNotFoundException
+            11    95   108   Class java/io/UnsupportedEncodingException
+            11    95   118   Class java/io/IOException
+      LineNumberTable:
+        line 22: 0
+        line 23: 2
+        line 24: 5
+        line 25: 8
+        line 28: 11
+        line 29: 21
+        line 30: 29
+        line 31: 37
+        line 32: 45
+        line 33: 57
+        line 34: 70
+        line 35: 80
+        line 36: 85
+        line 37: 90
+        line 50: 95
+        line 39: 98
+        line 42: 100
+        line 50: 105
+        line 43: 108
+        line 46: 110
+        line 50: 115
+        line 47: 118
+        line 49: 120
+        line 52: 125
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+          100       5     7    e1   Ljava/io/FileNotFoundException;
+          110       5     7     e   Ljava/io/UnsupportedEncodingException;
+          120       5     7     e   Ljava/io/IOException;
+            0     128     0  this   Lrdr_report/util/Ficheros;
+            0     128     1 fileName   Ljava/lang/String;
+            0     128     2 header   Ljava/lang/String;
+            2     126     3    pw   Ljava/io/PrintWriter;
+            5     123     4    os   Ljava/io/OutputStreamWriter;
+            8     120     5   fos   Ljava/io/FileOutputStream;
+           11     117     6     f   Ljava/io/File;
+      StackMapTable: number_of_entries = 4
+        frame_type = 255 /* full_frame */
+          offset_delta = 98
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/PrintWriter, class java/io/OutputStreamWriter, class java/io/FileOutputStream, class java/io/File ]
+          stack = [ class java/io/FileNotFoundException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/io/UnsupportedEncodingException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/io/IOException ]
+        frame_type = 6 /* same */
+    Exceptions:
+      throws java.lang.Exception
+
+  public void escribirFicheroGeneral(java.io.File, java.util.ArrayList<java.lang.String>) throws java.lang.Exception;
+    descriptor: (Ljava/io/File;Ljava/util/ArrayList;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=7, args_size=3
+         0: aconst_null
+         1: astore_3
+         2: aconst_null
+         3: astore        4
+         5: aconst_null
+         6: astore        5
+         8: aload_1
+         9: iconst_1
+        10: iconst_0
+        11: invokevirtual #12                 // Method java/io/File.setExecutable:(ZZ)Z
+        14: pop
+        15: aload_1
+        16: iconst_1
+        17: iconst_0
+        18: invokevirtual #16                 // Method java/io/File.setWritable:(ZZ)Z
+        21: pop
+        22: aload_1
+        23: iconst_1
+        24: iconst_0
+        25: invokevirtual #19                 // Method java/io/File.setReadable:(ZZ)Z
+        28: pop
+        29: new           #22                 // class java/io/FileOutputStream
+        32: dup
+        33: aload_1
+        34: iconst_1
+        35: invokespecial #24                 // Method java/io/FileOutputStream."<init>":(Ljava/io/File;Z)V
+        38: astore        5
+        40: new           #27                 // class java/io/OutputStreamWriter
+        43: dup
+        44: aload         5
+        46: ldc           #29                 // String ISO-8859-1
+        48: invokespecial #31                 // Method java/io/OutputStreamWriter."<init>":(Ljava/io/OutputStream;Ljava/lang/String;)V
+        51: astore        4
+        53: new           #34                 // class java/io/PrintWriter
+        56: dup
+        57: aload         4
+        59: invokespecial #36                 // Method java/io/PrintWriter."<init>":(Ljava/io/Writer;)V
+        62: astore_3
+        63: goto          83
+        66: astore        6
+        68: aload         6
+        70: invokevirtual #48                 // Method java/io/FileNotFoundException.printStackTrace:()V
+        73: goto          83
+        76: astore        6
+        78: aload         6
+        80: invokevirtual #53                 // Method java/io/UnsupportedEncodingException.printStackTrace:()V
+        83: iconst_0
+        84: istore        6
+        86: iload         6
+        88: aload_2
+        89: invokevirtual #57                 // Method java/util/ArrayList.size:()I
+        92: if_icmpge     114
+        95: aload_3
+        96: aload_2
+        97: iload         6
+        99: invokevirtual #63                 // Method java/util/ArrayList.get:(I)Ljava/lang/Object;
+       102: checkcast     #67                 // class java/lang/String
+       105: invokevirtual #39                 // Method java/io/PrintWriter.println:(Ljava/lang/String;)V
+       108: iinc          6, 1
+       111: goto          86
+       114: aload         4
+       116: invokevirtual #42                 // Method java/io/OutputStreamWriter.close:()V
+       119: aload         5
+       121: invokevirtual #45                 // Method java/io/FileOutputStream.close:()V
+       124: goto          134
+       127: astore        6
+       129: aload         6
+       131: invokevirtual #56                 // Method java/io/IOException.printStackTrace:()V
+       134: return
+      Exception table:
+         from    to  target type
+             8    63    66   Class java/io/FileNotFoundException
+             8    63    76   Class java/io/UnsupportedEncodingException
+           114   124   127   Class java/io/IOException
+      LineNumberTable:
+        line 58: 0
+        line 59: 2
+        line 60: 5
+        line 64: 8
+        line 65: 15
+        line 66: 22
+        line 67: 29
+        line 68: 40
+        line 69: 53
+        line 78: 63
+        line 70: 66
+        line 73: 68
+        line 78: 73
+        line 74: 76
+        line 77: 78
+        line 79: 83
+        line 81: 95
+        line 79: 108
+        line 85: 114
+        line 86: 119
+        line 91: 124
+        line 87: 127
+        line 90: 129
+        line 92: 134
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+           68       5     6    e1   Ljava/io/FileNotFoundException;
+           78       5     6     e   Ljava/io/UnsupportedEncodingException;
+           86      28     6     i   I
+          129       5     6     e   Ljava/io/IOException;
+            0     135     0  this   Lrdr_report/util/Ficheros;
+            0     135     1     f   Ljava/io/File;
+            0     135     2 composicionFichero   Ljava/util/ArrayList;
+            2     133     3    pw   Ljava/io/PrintWriter;
+            5     130     4    os   Ljava/io/OutputStreamWriter;
+            8     127     5   fos   Ljava/io/FileOutputStream;
+      LocalVariableTypeTable:
+        Start  Length  Slot  Name   Signature
+            0     135     2 composicionFichero   Ljava/util/ArrayList<Ljava/lang/String;>;
+      StackMapTable: number_of_entries = 7
+        frame_type = 255 /* full_frame */
+          offset_delta = 66
+          locals = [ class rdr_report/util/Ficheros, class java/io/File, class java/util/ArrayList, class java/io/PrintWriter, class java/io/OutputStreamWriter, class java/io/FileOutputStream ]
+          stack = [ class java/io/FileNotFoundException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/io/UnsupportedEncodingException ]
+        frame_type = 6 /* same */
+        frame_type = 252 /* append */
+          offset_delta = 2
+          locals = [ int ]
+        frame_type = 250 /* chop */
+          offset_delta = 27
+        frame_type = 76 /* same_locals_1_stack_item */
+          stack = [ class java/io/IOException ]
+        frame_type = 6 /* same */
+    Exceptions:
+      throws java.lang.Exception
+    Signature: #189                         // (Ljava/io/File;Ljava/util/ArrayList<Ljava/lang/String;>;)V
+
+  public void Zippear(java.lang.String, java.lang.String);
+    descriptor: (Ljava/lang/String;Ljava/lang/String;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=14, args_size=3
+         0: aconst_null
+         1: astore_3
+         2: aconst_null
+         3: astore        4
+         5: aconst_null
+         6: astore        5
+         8: sipush        1024
+        11: istore        6
+        13: aload_1
+        14: ldc           #69                 // String \\/
+        16: invokevirtual #71                 // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+        19: astore        7
+        21: aload         7
+        23: aload         7
+        25: arraylength
+        26: iconst_1
+        27: isub
+        28: aaload
+        29: astore        8
+        31: iload         6
+        33: newarray       byte
+        35: astore        9
+        37: new           #75                 // class java/io/FileInputStream
+        40: dup
+        41: aload_1
+        42: invokespecial #77                 // Method java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+        45: astore_3
+        46: new           #22                 // class java/io/FileOutputStream
+        49: dup
+        50: aload_2
+        51: invokespecial #78                 // Method java/io/FileOutputStream."<init>":(Ljava/lang/String;)V
+        54: astore        4
+        56: new           #79                 // class java/util/zip/ZipOutputStream
+        59: dup
+        60: aload         4
+        62: invokespecial #81                 // Method java/util/zip/ZipOutputStream."<init>":(Ljava/io/OutputStream;)V
+        65: astore        5
+        67: new           #84                 // class java/util/zip/ZipEntry
+        70: dup
+        71: aload         8
+        73: invokespecial #86                 // Method java/util/zip/ZipEntry."<init>":(Ljava/lang/String;)V
+        76: astore        10
+        78: aload         5
+        80: aload         10
+        82: invokevirtual #87                 // Method java/util/zip/ZipOutputStream.putNextEntry:(Ljava/util/zip/ZipEntry;)V
+        85: iconst_0
+        86: istore        11
+        88: aload_3
+        89: aload         9
+        91: iconst_0
+        92: iload         6
+        94: invokevirtual #91                 // Method java/io/FileInputStream.read:([BII)I
+        97: dup
+        98: istore        11
+       100: iconst_m1
+       101: if_icmpeq     117
+       104: aload         5
+       106: aload         9
+       108: iconst_0
+       109: iload         11
+       111: invokevirtual #95                 // Method java/util/zip/ZipOutputStream.write:([BII)V
+       114: goto          88
+       117: aload         5
+       119: invokevirtual #99                 // Method java/util/zip/ZipOutputStream.flush:()V
+       122: aload         5
+       124: invokevirtual #102                // Method java/util/zip/ZipOutputStream.close:()V
+       127: aload_3
+       128: invokevirtual #103                // Method java/io/FileInputStream.close:()V
+       131: aload         4
+       133: invokevirtual #45                 // Method java/io/FileOutputStream.close:()V
+       136: goto          217
+       139: astore        10
+       141: aload         10
+       143: invokevirtual #56                 // Method java/io/IOException.printStackTrace:()V
+       146: goto          217
+       149: astore        10
+       151: aload         10
+       153: athrow
+       154: astore        11
+       156: aload         11
+       158: invokevirtual #106                // Method java/lang/Exception.printStackTrace:()V
+       161: aload         5
+       163: invokevirtual #102                // Method java/util/zip/ZipOutputStream.close:()V
+       166: aload_3
+       167: invokevirtual #103                // Method java/io/FileInputStream.close:()V
+       170: aload         4
+       172: invokevirtual #45                 // Method java/io/FileOutputStream.close:()V
+       175: goto          217
+       178: astore        10
+       180: aload         10
+       182: invokevirtual #56                 // Method java/io/IOException.printStackTrace:()V
+       185: goto          217
+       188: astore        12
+       190: aload         5
+       192: invokevirtual #102                // Method java/util/zip/ZipOutputStream.close:()V
+       195: aload_3
+       196: invokevirtual #103                // Method java/io/FileInputStream.close:()V
+       199: aload         4
+       201: invokevirtual #45                 // Method java/io/FileOutputStream.close:()V
+       204: goto          214
+       207: astore        13
+       209: aload         13
+       211: invokevirtual #56                 // Method java/io/IOException.printStackTrace:()V
+       214: aload         12
+       216: athrow
+       217: return
+      Exception table:
+         from    to  target type
+           122   136   139   Class java/io/IOException
+            37   122   149   Class java/lang/Exception
+           151   154   154   Class java/lang/Exception
+           161   175   178   Class java/io/IOException
+            37   122   188   any
+           149   161   188   any
+           190   204   207   Class java/io/IOException
+           188   190   188   any
+      LineNumberTable:
+        line 96: 0
+        line 97: 2
+        line 98: 5
+        line 101: 8
+        line 102: 13
+        line 103: 21
+        line 105: 31
+        line 108: 37
+        line 110: 46
+        line 112: 56
+        line 113: 67
+        line 114: 78
+        line 115: 85
+        line 117: 88
+        line 118: 104
+        line 120: 117
+        line 132: 122
+        line 133: 127
+        line 134: 131
+        line 138: 136
+        line 135: 139
+        line 137: 141
+        line 140: 146
+        line 121: 149
+        line 124: 151
+        line 125: 154
+        line 127: 156
+        line 132: 161
+        line 133: 166
+        line 134: 170
+        line 138: 175
+        line 135: 178
+        line 137: 180
+        line 140: 185
+        line 131: 188
+        line 132: 190
+        line 133: 195
+        line 134: 199
+        line 138: 204
+        line 135: 207
+        line 137: 209
+        line 140: 214
+        line 141: 217
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+           78      44    10 zipEntry   Ljava/util/zip/ZipEntry;
+           88      34    11   len   I
+          141       5    10     e   Ljava/io/IOException;
+          156       5    11    e1   Ljava/lang/Exception;
+          151      10    10     e   Ljava/lang/Exception;
+          180       5    10     e   Ljava/io/IOException;
+          209       5    13     e   Ljava/io/IOException;
+            0     218     0  this   Lrdr_report/util/Ficheros;
+            0     218     1 pFile   Ljava/lang/String;
+            0     218     2 pZipFile   Ljava/lang/String;
+            2     216     3   fis   Ljava/io/FileInputStream;
+            5     213     4   fos   Ljava/io/FileOutputStream;
+            8     210     5 zipos   Ljava/util/zip/ZipOutputStream;
+           13     205     6 BUFFER_SIZE   I
+           21     197     7  str1   [Ljava/lang/String;
+           31     187     8 pFile2   Ljava/lang/String;
+           37     181     9 buffer   [B
+      StackMapTable: number_of_entries = 10
+        frame_type = 255 /* full_frame */
+          offset_delta = 88
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/FileInputStream, class java/io/FileOutputStream, class java/util/zip/ZipOutputStream, int, class "[Ljava/lang/String;", class java/lang/String, class "[B", class java/util/zip/ZipEntry, int ]
+          stack = []
+        frame_type = 28 /* same */
+        frame_type = 255 /* full_frame */
+          offset_delta = 21
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/FileInputStream, class java/io/FileOutputStream, class java/util/zip/ZipOutputStream, int, class "[Ljava/lang/String;", class java/lang/String, class "[B" ]
+          stack = [ class java/io/IOException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/lang/Exception ]
+        frame_type = 255 /* full_frame */
+          offset_delta = 4
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/FileInputStream, class java/io/FileOutputStream, class java/util/zip/ZipOutputStream, int, class "[Ljava/lang/String;", class java/lang/String, class "[B", class java/lang/Exception ]
+          stack = [ class java/lang/Exception ]
+        frame_type = 255 /* full_frame */
+          offset_delta = 23
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/FileInputStream, class java/io/FileOutputStream, class java/util/zip/ZipOutputStream, int, class "[Ljava/lang/String;", class java/lang/String, class "[B" ]
+          stack = [ class java/io/IOException ]
+        frame_type = 73 /* same_locals_1_stack_item */
+          stack = [ class java/lang/Throwable ]
+        frame_type = 255 /* full_frame */
+          offset_delta = 18
+          locals = [ class rdr_report/util/Ficheros, class java/lang/String, class java/lang/String, class java/io/FileInputStream, class java/io/FileOutputStream, class java/util/zip/ZipOutputStream, int, class "[Ljava/lang/String;", class java/lang/String, class "[B", top, top, class java/lang/Throwable ]
+          stack = [ class java/io/IOException ]
+        frame_type = 6 /* same */
+        frame_type = 248 /* chop */
+          offset_delta = 2
+
+  public void historifica(java.lang.String) throws java.lang.Exception;
+    descriptor: (Ljava/lang/String;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=9, args_size=2
+         0: aload_1
+         1: ldc           #69                 // String \\/
+         3: invokevirtual #71                 // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+         6: astore_2
+         7: new           #67                 // class java/lang/String
+        10: dup
+        11: invokespecial #107                // Method java/lang/String."<init>":()V
+        14: astore_3
+        15: iconst_0
+        16: istore        4
+        18: iload         4
+        20: aload_2
+        21: arraylength
+        22: iconst_1
+        23: isub
+        24: if_icmpge     44
+        27: aload_3
+        28: aload_2
+        29: iload         4
+        31: aaload
+        32: invokedynamic #108,  0            // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+        37: astore_3
+        38: iinc          4, 1
+        41: goto          18
+        44: aload_3
+        45: invokedynamic #112,  0            // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        50: astore        4
+        52: new           #7                  // class java/io/File
+        55: dup
+        56: aload         4
+        58: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+        61: astore        5
+        63: aload         5
+        65: invokevirtual #115                // Method java/io/File.exists:()Z
+        68: ifne          77
+        71: aload         5
+        73: invokevirtual #119                // Method java/io/File.mkdirs:()Z
+        76: pop
+        77: aload         4
+        79: aload_2
+        80: aload_2
+        81: arraylength
+        82: iconst_1
+        83: isub
+        84: aaload
+        85: invokedynamic #122,  0            // InvokeDynamic #2:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+        90: astore        4
+        92: aload_3
+        93: aload_2
+        94: aload_2
+        95: arraylength
+        96: iconst_1
+        97: isub
+        98: aaload
+        99: invokedynamic #123,  0            // InvokeDynamic #3:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       104: astore_3
+       105: new           #7                  // class java/io/File
+       108: dup
+       109: aload_3
+       110: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+       113: astore        6
+       115: new           #7                  // class java/io/File
+       118: dup
+       119: aload         4
+       121: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+       124: astore        7
+       126: aload         6
+       128: invokevirtual #115                // Method java/io/File.exists:()Z
+       131: ifne          142
+       134: aload_0
+       135: aload_1
+       136: ldc           #124                // String
+       138: invokevirtual #126                // Method creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+       141: pop
+       142: aload         7
+       144: invokevirtual #115                // Method java/io/File.exists:()Z
+       147: ifeq          156
+       150: aload         7
+       152: invokevirtual #132                // Method java/io/File.delete:()Z
+       155: pop
+       156: aload         6
+       158: aload         7
+       160: invokevirtual #135                // Method java/io/File.renameTo:(Ljava/io/File;)Z
+       163: istore        8
+       165: iload         8
+       167: ifne          178
+       170: getstatic     #139                // Field java/lang/System.out:Ljava/io/PrintStream;
+       173: ldc           #145                // String Error intentando cambiar el nombre de fichero
+       175: invokevirtual #147                // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+       178: return
+      LineNumberTable:
+        line 146: 0
+        line 147: 7
+        line 148: 15
+        line 150: 27
+        line 148: 38
+        line 152: 44
+        line 153: 52
+        line 154: 63
+        line 156: 71
+        line 158: 77
+        line 159: 92
+        line 160: 105
+        line 161: 115
+        line 163: 126
+        line 165: 134
+        line 167: 142
+        line 169: 150
+        line 172: 156
+        line 174: 165
+        line 175: 170
+        line 177: 178
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+           18      26     4     i   I
+            0     179     0  this   Lrdr_report/util/Ficheros;
+            0     179     1  file   Ljava/lang/String;
+            7     172     2   str   [Ljava/lang/String;
+           15     164     3  ruta   Ljava/lang/String;
+           52     127     4 rutaold   Ljava/lang/String;
+           63     116     5   old   Ljava/io/File;
+          115      64     6 fichero   Ljava/io/File;
+          126      53     7 fichero2   Ljava/io/File;
+          165      14     8 success   Z
+      StackMapTable: number_of_entries = 6
+        frame_type = 254 /* append */
+          offset_delta = 18
+          locals = [ class "[Ljava/lang/String;", class java/lang/String, int ]
+        frame_type = 250 /* chop */
+          offset_delta = 25
+        frame_type = 253 /* append */
+          offset_delta = 32
+          locals = [ class java/lang/String, class java/io/File ]
+        frame_type = 253 /* append */
+          offset_delta = 64
+          locals = [ class java/io/File, class java/io/File ]
+        frame_type = 13 /* same */
+        frame_type = 252 /* append */
+          offset_delta = 21
+          locals = [ int ]
+    Exceptions:
+      throws java.lang.Exception
+
+  public void historificaZip(java.lang.String) throws java.lang.Exception;
+    descriptor: (Ljava/lang/String;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=8, args_size=2
+         0: aload_1
+         1: ldc           #69                 // String \\/
+         3: invokevirtual #71                 // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+         6: astore_2
+         7: new           #67                 // class java/lang/String
+        10: dup
+        11: invokespecial #107                // Method java/lang/String."<init>":()V
+        14: astore_3
+        15: iconst_0
+        16: istore        4
+        18: iload         4
+        20: aload_2
+        21: arraylength
+        22: iconst_1
+        23: isub
+        24: if_icmpge     44
+        27: aload_3
+        28: aload_2
+        29: iload         4
+        31: aaload
+        32: invokedynamic #108,  0            // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+        37: astore_3
+        38: iinc          4, 1
+        41: goto          18
+        44: aload_3
+        45: invokedynamic #112,  0            // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        50: astore        4
+        52: new           #7                  // class java/io/File
+        55: dup
+        56: aload         4
+        58: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+        61: astore        5
+        63: aload         5
+        65: invokevirtual #115                // Method java/io/File.exists:()Z
+        68: ifne          77
+        71: aload         5
+        73: invokevirtual #119                // Method java/io/File.mkdirs:()Z
+        76: pop
+        77: aload         4
+        79: aload_2
+        80: aload_2
+        81: arraylength
+        82: iconst_1
+        83: isub
+        84: aaload
+        85: ldc           #150                // String \\.
+        87: invokevirtual #71                 // Method java/lang/String.split:(Ljava/lang/String;)[Ljava/lang/String;
+        90: iconst_0
+        91: aaload
+        92: invokedynamic #152,  0            // InvokeDynamic #4:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+        97: astore        4
+        99: aload_3
+       100: aload_2
+       101: aload_2
+       102: arraylength
+       103: iconst_1
+       104: isub
+       105: aaload
+       106: invokedynamic #123,  0            // InvokeDynamic #3:makeConcatWithConstants:(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+       111: astore_3
+       112: new           #7                  // class java/io/File
+       115: dup
+       116: aload_3
+       117: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+       120: astore        6
+       122: new           #7                  // class java/io/File
+       125: dup
+       126: aload         4
+       128: invokespecial #9                  // Method java/io/File."<init>":(Ljava/lang/String;)V
+       131: astore        7
+       133: aload         6
+       135: invokevirtual #115                // Method java/io/File.exists:()Z
+       138: ifne          149
+       141: aload_0
+       142: aload_1
+       143: ldc           #124                // String
+       145: invokevirtual #126                // Method creaFichero:(Ljava/lang/String;Ljava/lang/String;)Ljava/io/File;
+       148: pop
+       149: aload         7
+       151: invokevirtual #115                // Method java/io/File.exists:()Z
+       154: ifeq          163
+       157: aload         7
+       159: invokevirtual #132                // Method java/io/File.delete:()Z
+       162: pop
+       163: aload_0
+       164: aload_1
+       165: aload         4
+       167: invokevirtual #153                // Method Zippear:(Ljava/lang/String;Ljava/lang/String;)V
+       170: aload         6
+       172: invokevirtual #132                // Method java/io/File.delete:()Z
+       175: pop
+       176: return
+      LineNumberTable:
+        line 181: 0
+        line 182: 7
+        line 183: 15
+        line 185: 27
+        line 183: 38
+        line 187: 44
+        line 188: 52
+        line 189: 63
+        line 191: 71
+        line 193: 77
+        line 194: 99
+        line 195: 112
+        line 196: 122
+        line 197: 133
+        line 199: 141
+        line 201: 149
+        line 203: 157
+        line 206: 163
+        line 207: 170
+        line 208: 176
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+           18      26     4     i   I
+            0     177     0  this   Lrdr_report/util/Ficheros;
+            0     177     1  file   Ljava/lang/String;
+            7     170     2   str   [Ljava/lang/String;
+           15     162     3  ruta   Ljava/lang/String;
+           52     125     4 rutaold   Ljava/lang/String;
+           63     114     5   old   Ljava/io/File;
+          122      55     6 fichero   Ljava/io/File;
+          133      44     7 fichero2   Ljava/io/File;
+      StackMapTable: number_of_entries = 5
+        frame_type = 254 /* append */
+          offset_delta = 18
+          locals = [ class "[Ljava/lang/String;", class java/lang/String, int ]
+        frame_type = 250 /* chop */
+          offset_delta = 25
+        frame_type = 253 /* append */
+          offset_delta = 32
+          locals = [ class java/lang/String, class java/io/File ]
+        frame_type = 253 /* append */
+          offset_delta = 71
+          locals = [ class java/io/File, class java/io/File ]
+        frame_type = 13 /* same */
+    Exceptions:
+      throws java.lang.Exception
+}
+SourceFile: "Ficheros.java"
+BootstrapMethods:
+  0: #224 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #230 \u0001\u0001/
+  1: #224 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #232 \u0001old
+  2: #224 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #234 \u0001/\u0001
+  3: #224 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #236 \u0001\u0001
+  4: #224 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #238 \u0001/\u0001.zip
+InnerClasses:
+  public static final #245= #241 of #243; // Lookup=class java/lang/invoke/MethodHandles$Lookup of class java/lang/invoke/MethodHandles
+
+================================================================
+=== rdr_report.util.Metodos ===
+================================================================
+Classfile /tmp/claude-0/-home-user-testing-rdr/32beb769-d5e3-50ef-813b-cac19aa8d9b3/scratchpad/conbdi_jars/report/rdr_report/util/Metodos.class
+  Last modified Aug 26, 2026; size 1582 bytes
+  SHA-256 checksum 2985d0a26318c461272f4e7735fb8ac0d194279ab6876ef5a055d3e209928b00
+  Compiled from "Metodos.java"
+public class rdr_report.util.Metodos
+  minor version: 0
+  major version: 61
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #52                         // rdr_report/util/Metodos
+  super_class: #2                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 2, attributes: 3
+Constant pool:
+   #1 = Methodref          #2.#3          // java/lang/Object."<init>":()V
+   #2 = Class              #4             // java/lang/Object
+   #3 = NameAndType        #5:#6          // "<init>":()V
+   #4 = Utf8               java/lang/Object
+   #5 = Utf8               <init>
+   #6 = Utf8               ()V
+   #7 = Methodref          #8.#9          // java/lang/System.currentTimeMillis:()J
+   #8 = Class              #10            // java/lang/System
+   #9 = NameAndType        #11:#12        // currentTimeMillis:()J
+  #10 = Utf8               java/lang/System
+  #11 = Utf8               currentTimeMillis
+  #12 = Utf8               ()J
+  #13 = Methodref          #14.#15        // java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+  #14 = Class              #16            // java/lang/Integer
+  #15 = NameAndType        #17:#18        // valueOf:(I)Ljava/lang/Integer;
+  #16 = Utf8               java/lang/Integer
+  #17 = Utf8               valueOf
+  #18 = Utf8               (I)Ljava/lang/Integer;
+  #19 = Methodref          #14.#20        // java/lang/Integer.intValue:()I
+  #20 = NameAndType        #21:#22        // intValue:()I
+  #21 = Utf8               intValue
+  #22 = Utf8               ()I
+  #23 = Integer            3600000
+  #24 = Integer            60000
+  #25 = Methodref          #14.#26        // java/lang/Integer.toString:()Ljava/lang/String;
+  #26 = NameAndType        #27:#28        // toString:()Ljava/lang/String;
+  #27 = Utf8               toString
+  #28 = Utf8               ()Ljava/lang/String;
+  #29 = Methodref          #30.#31        // java/lang/String.length:()I
+  #30 = Class              #32            // java/lang/String
+  #31 = NameAndType        #33:#22        // length:()I
+  #32 = Utf8               java/lang/String
+  #33 = Utf8               length
+  #34 = Methodref          #30.#35        // java/lang/String.substring:(II)Ljava/lang/String;
+  #35 = NameAndType        #36:#37        // substring:(II)Ljava/lang/String;
+  #36 = Utf8               substring
+  #37 = Utf8               (II)Ljava/lang/String;
+  #38 = Fieldref           #8.#39         // java/lang/System.out:Ljava/io/PrintStream;
+  #39 = NameAndType        #40:#41        // out:Ljava/io/PrintStream;
+  #40 = Utf8               out
+  #41 = Utf8               Ljava/io/PrintStream;
+  #42 = InvokeDynamic      #0:#43         // #0:makeConcatWithConstants:(Ljava/lang/String;IIILjava/lang/String;)Ljava/lang/String;
+  #43 = NameAndType        #44:#45        // makeConcatWithConstants:(Ljava/lang/String;IIILjava/lang/String;)Ljava/lang/String;
+  #44 = Utf8               makeConcatWithConstants
+  #45 = Utf8               (Ljava/lang/String;IIILjava/lang/String;)Ljava/lang/String;
+  #46 = Methodref          #47.#48        // java/io/PrintStream.println:(Ljava/lang/String;)V
+  #47 = Class              #49            // java/io/PrintStream
+  #48 = NameAndType        #50:#51        // println:(Ljava/lang/String;)V
+  #49 = Utf8               java/io/PrintStream
+  #50 = Utf8               println
+  #51 = Utf8               (Ljava/lang/String;)V
+  #52 = Class              #53            // rdr_report/util/Metodos
+  #53 = Utf8               rdr_report/util/Metodos
+  #54 = Utf8               Code
+  #55 = Utf8               LineNumberTable
+  #56 = Utf8               LocalVariableTable
+  #57 = Utf8               this
+  #58 = Utf8               Lrdr_report/util/Metodos;
+  #59 = Utf8               time
+  #60 = Utf8               (JLjava/lang/String;)V
+  #61 = Utf8               ini
+  #62 = Utf8               J
+  #63 = Utf8               titulo
+  #64 = Utf8               Ljava/lang/String;
+  #65 = Utf8               fin
+  #66 = Utf8               tot
+  #67 = Utf8               Ljava/lang/Integer;
+  #68 = Utf8               h
+  #69 = Utf8               I
+  #70 = Utf8               m
+  #71 = Utf8               s
+  #72 = Utf8               ms1
+  #73 = Utf8               ms
+  #74 = Utf8               SourceFile
+  #75 = Utf8               Metodos.java
+  #76 = Utf8               BootstrapMethods
+  #77 = MethodHandle       6:#78          // REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #78 = Methodref          #79.#80        // java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #79 = Class              #81            // java/lang/invoke/StringConcatFactory
+  #80 = NameAndType        #44:#82        // makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #81 = Utf8               java/lang/invoke/StringConcatFactory
+  #82 = Utf8               (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #83 = String             #84            // \u0001 : \u0001:\u0001:\u0001.\u0001
+  #84 = Utf8               \u0001 : \u0001:\u0001:\u0001.\u0001
+  #85 = Utf8               InnerClasses
+  #86 = Class              #87            // java/lang/invoke/MethodHandles$Lookup
+  #87 = Utf8               java/lang/invoke/MethodHandles$Lookup
+  #88 = Class              #89            // java/lang/invoke/MethodHandles
+  #89 = Utf8               java/lang/invoke/MethodHandles
+  #90 = Utf8               Lookup
+{
+  public rdr_report.util.Metodos();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 3: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lrdr_report/util/Metodos;
+
+  public void time(long, java.lang.String);
+    descriptor: (JLjava/lang/String;)V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=6, locals=12, args_size=3
+         0: invokestatic  #7                  // Method java/lang/System.currentTimeMillis:()J
+         3: lstore        4
+         5: lload         4
+         7: lload_1
+         8: lsub
+         9: l2i
+        10: invokestatic  #13                 // Method java/lang/Integer.valueOf:(I)Ljava/lang/Integer;
+        13: astore        6
+        15: aload         6
+        17: invokevirtual #19                 // Method java/lang/Integer.intValue:()I
+        20: ldc           #23                 // int 3600000
+        22: idiv
+        23: bipush        24
+        25: irem
+        26: istore        7
+        28: aload         6
+        30: invokevirtual #19                 // Method java/lang/Integer.intValue:()I
+        33: ldc           #24                 // int 60000
+        35: idiv
+        36: bipush        60
+        38: irem
+        39: iload         7
+        41: bipush        60
+        43: imul
+        44: isub
+        45: istore        8
+        47: aload         6
+        49: invokevirtual #19                 // Method java/lang/Integer.intValue:()I
+        52: sipush        1000
+        55: idiv
+        56: iload         8
+        58: bipush        60
+        60: imul
+        61: isub
+        62: istore        9
+        64: aload         6
+        66: invokevirtual #25                 // Method java/lang/Integer.toString:()Ljava/lang/String;
+        69: astore        10
+        71: aload         10
+        73: aload         10
+        75: invokevirtual #29                 // Method java/lang/String.length:()I
+        78: iconst_3
+        79: isub
+        80: aload         10
+        82: invokevirtual #29                 // Method java/lang/String.length:()I
+        85: invokevirtual #34                 // Method java/lang/String.substring:(II)Ljava/lang/String;
+        88: astore        11
+        90: getstatic     #38                 // Field java/lang/System.out:Ljava/io/PrintStream;
+        93: aload_3
+        94: iload         7
+        96: iload         8
+        98: iload         9
+       100: aload         11
+       102: invokedynamic #42,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;IIILjava/lang/String;)Ljava/lang/String;
+       107: invokevirtual #46                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+       110: return
+      LineNumberTable:
+        line 7: 0
+        line 8: 5
+        line 9: 15
+        line 10: 28
+        line 11: 47
+        line 12: 64
+        line 13: 71
+        line 15: 90
+        line 17: 110
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0     111     0  this   Lrdr_report/util/Metodos;
+            0     111     1   ini   J
+            0     111     3 titulo   Ljava/lang/String;
+            5     106     4   fin   J
+           15      96     6   tot   Ljava/lang/Integer;
+           28      83     7     h   I
+           47      64     8     m   I
+           64      47     9     s   I
+           71      40    10   ms1   Ljava/lang/String;
+           90      21    11    ms   Ljava/lang/String;
+}
+SourceFile: "Metodos.java"
+BootstrapMethods:
+  0: #77 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #83 \u0001 : \u0001:\u0001:\u0001.\u0001
+InnerClasses:
+  public static final #90= #86 of #88;    // Lookup=class java/lang/invoke/MethodHandles$Lookup of class java/lang/invoke/MethodHandles
+
+================================================================
+=== rdr_report.util.Utilidades ===
+================================================================
+Classfile /tmp/claude-0/-home-user-testing-rdr/32beb769-d5e3-50ef-813b-cac19aa8d9b3/scratchpad/conbdi_jars/report/rdr_report/util/Utilidades.class
+  Last modified Aug 26, 2026; size 2326 bytes
+  SHA-256 checksum 7910b2323b4cae9594174025799aae8d2660805f9e7eab98f3f1fa544f2762ef
+  Compiled from "Utilidades.java"
+public class rdr_report.util.Utilidades
+  minor version: 0
+  major version: 61
+  flags: (0x0021) ACC_PUBLIC, ACC_SUPER
+  this_class: #72                         // rdr_report/util/Utilidades
+  super_class: #2                         // java/lang/Object
+  interfaces: 0, fields: 0, methods: 2, attributes: 3
+Constant pool:
+    #1 = Methodref          #2.#3         // java/lang/Object."<init>":()V
+    #2 = Class              #4            // java/lang/Object
+    #3 = NameAndType        #5:#6         // "<init>":()V
+    #4 = Utf8               java/lang/Object
+    #5 = Utf8               <init>
+    #6 = Utf8               ()V
+    #7 = Class              #8            // java/util/ArrayList
+    #8 = Utf8               java/util/ArrayList
+    #9 = Methodref          #7.#3         // java/util/ArrayList."<init>":()V
+   #10 = Class              #11           // java/util/Properties
+   #11 = Utf8               java/util/Properties
+   #12 = Methodref          #10.#3        // java/util/Properties."<init>":()V
+   #13 = Methodref          #14.#15       // java/lang/String.toString:()Ljava/lang/String;
+   #14 = Class              #16           // java/lang/String
+   #15 = NameAndType        #17:#18       // toString:()Ljava/lang/String;
+   #16 = Utf8               java/lang/String
+   #17 = Utf8               toString
+   #18 = Utf8               ()Ljava/lang/String;
+   #19 = Class              #20           // java/io/FileInputStream
+   #20 = Utf8               java/io/FileInputStream
+   #21 = Methodref          #19.#22       // java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+   #22 = NameAndType        #5:#23        // "<init>":(Ljava/lang/String;)V
+   #23 = Utf8               (Ljava/lang/String;)V
+   #24 = Methodref          #10.#25       // java/util/Properties.load:(Ljava/io/InputStream;)V
+   #25 = NameAndType        #26:#27       // load:(Ljava/io/InputStream;)V
+   #26 = Utf8               load
+   #27 = Utf8               (Ljava/io/InputStream;)V
+   #28 = Class              #29           // java/util/Date
+   #29 = Utf8               java/util/Date
+   #30 = Methodref          #31.#32       // java/lang/System.currentTimeMillis:()J
+   #31 = Class              #33           // java/lang/System
+   #32 = NameAndType        #34:#35       // currentTimeMillis:()J
+   #33 = Utf8               java/lang/System
+   #34 = Utf8               currentTimeMillis
+   #35 = Utf8               ()J
+   #36 = Methodref          #28.#37       // java/util/Date."<init>":(J)V
+   #37 = NameAndType        #5:#38        // "<init>":(J)V
+   #38 = Utf8               (J)V
+   #39 = String             #40           //
+   #40 = Utf8
+   #41 = InvokeDynamic      #0:#42        // #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #42 = NameAndType        #43:#44       // makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #43 = Utf8               makeConcatWithConstants
+   #44 = Utf8               (Ljava/lang/String;)Ljava/lang/String;
+   #45 = Methodref          #10.#46       // java/util/Properties.getProperty:(Ljava/lang/String;)Ljava/lang/String;
+   #46 = NameAndType        #47:#44       // getProperty:(Ljava/lang/String;)Ljava/lang/String;
+   #47 = Utf8               getProperty
+   #48 = Fieldref           #31.#49       // java/lang/System.out:Ljava/io/PrintStream;
+   #49 = NameAndType        #50:#51       // out:Ljava/io/PrintStream;
+   #50 = Utf8               out
+   #51 = Utf8               Ljava/io/PrintStream;
+   #52 = InvokeDynamic      #1:#42        // #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #53 = Methodref          #54.#55       // java/io/PrintStream.println:(Ljava/lang/String;)V
+   #54 = Class              #56           // java/io/PrintStream
+   #55 = NameAndType        #57:#23       // println:(Ljava/lang/String;)V
+   #56 = Utf8               java/io/PrintStream
+   #57 = Utf8               println
+   #58 = InvokeDynamic      #2:#42        // #2:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #59 = Methodref          #7.#60        // java/util/ArrayList.add:(Ljava/lang/Object;)Z
+   #60 = NameAndType        #61:#62       // add:(Ljava/lang/Object;)Z
+   #61 = Utf8               add
+   #62 = Utf8               (Ljava/lang/Object;)Z
+   #63 = String             #64           // ruta
+   #64 = Utf8               ruta
+   #65 = InvokeDynamic      #3:#42        // #3:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #66 = InvokeDynamic      #4:#42        // #4:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #67 = Methodref          #14.#68       // java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+   #68 = NameAndType        #69:#70       // valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+   #69 = Utf8               valueOf
+   #70 = Utf8               (Ljava/lang/Object;)Ljava/lang/String;
+   #71 = InvokeDynamic      #5:#42        // #5:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+   #72 = Class              #73           // rdr_report/util/Utilidades
+   #73 = Utf8               rdr_report/util/Utilidades
+   #74 = Utf8               Code
+   #75 = Utf8               LineNumberTable
+   #76 = Utf8               LocalVariableTable
+   #77 = Utf8               this
+   #78 = Utf8               Lrdr_report/util/Utilidades;
+   #79 = Utf8               leerProperties
+   #80 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+   #81 = Utf8               select
+   #82 = Utf8               Ljava/lang/String;
+   #83 = Utf8               Servicio
+   #84 = Utf8               arrayParam
+   #85 = Utf8               Ljava/util/ArrayList;
+   #86 = Utf8               prop
+   #87 = Utf8               Ljava/util/Properties;
+   #88 = Utf8               propFileName
+   #89 = Utf8               is
+   #90 = Utf8               Ljava/io/InputStream;
+   #91 = Utf8               time
+   #92 = Utf8               Ljava/util/Date;
+   #93 = Utf8               query
+   #94 = Utf8               LocalVariableTypeTable
+   #95 = Utf8               Ljava/util/ArrayList<Ljava/lang/String;>;
+   #96 = Utf8               Exceptions
+   #97 = Class              #98           // java/io/IOException
+   #98 = Utf8               java/io/IOException
+   #99 = Utf8               Signature
+  #100 = Utf8               (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList<Ljava/lang/String;>;
+  #101 = Utf8               SourceFile
+  #102 = Utf8               Utilidades.java
+  #103 = Utf8               BootstrapMethods
+  #104 = MethodHandle       6:#105        // REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #105 = Methodref          #106.#107     // java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #106 = Class              #108          // java/lang/invoke/StringConcatFactory
+  #107 = NameAndType        #43:#109      // makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #108 = Utf8               java/lang/invoke/StringConcatFactory
+  #109 = Utf8               (Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+  #110 = String             #111          // query\u0001
+  #111 = Utf8               query\u0001
+  #112 = String             #113          // QUERYA: \u0001
+  #113 = Utf8               QUERYA: \u0001
+  #114 = String             #115          // QUERYD: \u0001
+  #115 = Utf8               QUERYD: \u0001
+  #116 = String             #117          // cabecera\u0001
+  #117 = Utf8               cabecera\u0001
+  #118 = String             #119          // fileName\u0001
+  #119 = Utf8               fileName\u0001
+  #120 = String             #121          // [\u0001]Se ha leido correctamente del properties
+  #121 = Utf8               [\u0001]Se ha leido correctamente del properties
+  #122 = Utf8               InnerClasses
+  #123 = Class              #124          // java/lang/invoke/MethodHandles$Lookup
+  #124 = Utf8               java/lang/invoke/MethodHandles$Lookup
+  #125 = Class              #126          // java/lang/invoke/MethodHandles
+  #126 = Utf8               java/lang/invoke/MethodHandles
+  #127 = Utf8               Lookup
+{
+  public rdr_report.util.Utilidades();
+    descriptor: ()V
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=1, locals=1, args_size=1
+         0: aload_0
+         1: invokespecial #1                  // Method java/lang/Object."<init>":()V
+         4: return
+      LineNumberTable:
+        line 10: 0
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0       5     0  this   Lrdr_report/util/Utilidades;
+
+  public java.util.ArrayList<java.lang.String> leerProperties(java.lang.String, java.lang.String) throws java.io.IOException;
+    descriptor: (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList;
+    flags: (0x0001) ACC_PUBLIC
+    Code:
+      stack=4, locals=9, args_size=3
+         0: new           #7                  // class java/util/ArrayList
+         3: dup
+         4: invokespecial #9                  // Method java/util/ArrayList."<init>":()V
+         7: astore_3
+         8: new           #10                 // class java/util/Properties
+        11: dup
+        12: invokespecial #12                 // Method java/util/Properties."<init>":()V
+        15: astore        4
+        17: aload_1
+        18: invokevirtual #13                 // Method java/lang/String.toString:()Ljava/lang/String;
+        21: astore        5
+        23: new           #19                 // class java/io/FileInputStream
+        26: dup
+        27: aload         5
+        29: invokespecial #21                 // Method java/io/FileInputStream."<init>":(Ljava/lang/String;)V
+        32: astore        6
+        34: aload         4
+        36: aload         6
+        38: invokevirtual #24                 // Method java/util/Properties.load:(Ljava/io/InputStream;)V
+        41: new           #28                 // class java/util/Date
+        44: dup
+        45: invokestatic  #30                 // Method java/lang/System.currentTimeMillis:()J
+        48: invokespecial #36                 // Method java/util/Date."<init>":(J)V
+        51: astore        7
+        53: ldc           #39                 // String
+        55: astore        8
+        57: aload         4
+        59: aload_2
+        60: invokedynamic #41,  0             // InvokeDynamic #0:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        65: invokevirtual #45                 // Method java/util/Properties.getProperty:(Ljava/lang/String;)Ljava/lang/String;
+        68: invokevirtual #13                 // Method java/lang/String.toString:()Ljava/lang/String;
+        71: astore        8
+        73: getstatic     #48                 // Field java/lang/System.out:Ljava/io/PrintStream;
+        76: aload         8
+        78: invokedynamic #52,  0             // InvokeDynamic #1:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        83: invokevirtual #53                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        86: getstatic     #48                 // Field java/lang/System.out:Ljava/io/PrintStream;
+        89: aload         8
+        91: invokedynamic #58,  0             // InvokeDynamic #2:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+        96: invokevirtual #53                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+        99: aload_3
+       100: aload         8
+       102: invokevirtual #59                 // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+       105: pop
+       106: aload_3
+       107: aload         4
+       109: ldc           #63                 // String ruta
+       111: invokevirtual #45                 // Method java/util/Properties.getProperty:(Ljava/lang/String;)Ljava/lang/String;
+       114: invokevirtual #59                 // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+       117: pop
+       118: aload_3
+       119: aload         4
+       121: aload_2
+       122: invokedynamic #65,  0             // InvokeDynamic #3:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       127: invokevirtual #45                 // Method java/util/Properties.getProperty:(Ljava/lang/String;)Ljava/lang/String;
+       130: invokevirtual #59                 // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+       133: pop
+       134: aload_3
+       135: aload         4
+       137: aload_2
+       138: invokedynamic #66,  0             // InvokeDynamic #4:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       143: invokevirtual #45                 // Method java/util/Properties.getProperty:(Ljava/lang/String;)Ljava/lang/String;
+       146: invokevirtual #59                 // Method java/util/ArrayList.add:(Ljava/lang/Object;)Z
+       149: pop
+       150: getstatic     #48                 // Field java/lang/System.out:Ljava/io/PrintStream;
+       153: aload         7
+       155: invokestatic  #67                 // Method java/lang/String.valueOf:(Ljava/lang/Object;)Ljava/lang/String;
+       158: invokedynamic #71,  0             // InvokeDynamic #5:makeConcatWithConstants:(Ljava/lang/String;)Ljava/lang/String;
+       163: invokevirtual #53                 // Method java/io/PrintStream.println:(Ljava/lang/String;)V
+       166: aload_3
+       167: areturn
+      LineNumberTable:
+        line 15: 0
+        line 16: 8
+        line 17: 17
+        line 18: 23
+        line 19: 34
+        line 22: 41
+        line 23: 53
+        line 24: 57
+        line 25: 73
+        line 26: 86
+        line 27: 99
+        line 28: 106
+        line 29: 118
+        line 30: 134
+        line 33: 150
+        line 34: 166
+      LocalVariableTable:
+        Start  Length  Slot  Name   Signature
+            0     168     0  this   Lrdr_report/util/Utilidades;
+            0     168     1 select   Ljava/lang/String;
+            0     168     2 Servicio   Ljava/lang/String;
+            8     160     3 arrayParam   Ljava/util/ArrayList;
+           17     151     4  prop   Ljava/util/Properties;
+           23     145     5 propFileName   Ljava/lang/String;
+           34     134     6    is   Ljava/io/InputStream;
+           53     115     7  time   Ljava/util/Date;
+           57     111     8 query   Ljava/lang/String;
+      LocalVariableTypeTable:
+        Start  Length  Slot  Name   Signature
+            8     160     3 arrayParam   Ljava/util/ArrayList<Ljava/lang/String;>;
+    Exceptions:
+      throws java.io.IOException
+    Signature: #100                         // (Ljava/lang/String;Ljava/lang/String;)Ljava/util/ArrayList<Ljava/lang/String;>;
+}
+SourceFile: "Utilidades.java"
+BootstrapMethods:
+  0: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #110 query\u0001
+  1: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #112 QUERYA: \u0001
+  2: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #114 QUERYD: \u0001
+  3: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #116 cabecera\u0001
+  4: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #118 fileName\u0001
+  5: #104 REF_invokeStatic java/lang/invoke/StringConcatFactory.makeConcatWithConstants:(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/String;Ljava/lang/invoke/MethodType;Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/invoke/CallSite;
+    Method arguments:
+      #120 [\u0001]Se ha leido correctamente del properties
+InnerClasses:
+  public static final #127= #123 of #125; // Lookup=class java/lang/invoke/MethodHandles$Lookup of class java/lang/invoke/MethodHandles
+
