@@ -22,8 +22,8 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
 4. **Preguntas, sin límite de rondas**: pregunta todo lo de la lista obligatoria y cualquier gap
    adicional. Repite rondas hasta que tu checklist de cierre esté en "sí" para todo. Nunca
    generes con huecos. → §"Rigor analítico e iteración sin límite" y §"Reglas obligatorias" 4.
-5. **Genera la salida** en `salidas/<nombre_proceso>/`, en este orden: `spec.md`, después
-   `casos_prueba.xml`, y por último `prerrequisitos.md` derivado de los casos. → §"Estructura de
+5. **Genera la salida** en `salidas/<nombre_proceso>/`, en este orden: `<nombre_proceso>_spec.md`, después
+   `<nombre_proceso>_casos_prueba.xml`, y por último `<nombre_proceso>_prerrequisitos.md` derivado de los casos. → §"Estructura de
    salida esperada".
 6. **Verifica el criterio de cierre** antes de dar nada por terminado. → §"Criterio de cierre".
 7. **Actualiza la memoria compartida** con lo aprendido de esta sesión. → §"Memoria única y
@@ -36,6 +36,131 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
     el agente `atsqa-generator` de EQAT genere las pruebas automáticas del proceso. No
     forma parte del flujo normal y nunca se activa por iniciativa propia. → §"Modo
     ejecutable".
+
+Si el usuario no pide analizar un documento nuevo sino **preguntar por un proceso ya
+especificado**, no sigas este runbook: aplica §"Modo consulta".
+
+---
+
+## Autosuficiencia de la especificación — regla de máxima prioridad
+
+**La información final de un proceso vive únicamente en `salidas/`.** `documentos_fuente/` es
+material de trabajo para construir la especificación, no un sitio donde dejar conocimiento.
+Cuando la spec esté cerrada, cualquier pregunta sobre el proceso debe poder responderse leyendo
+solo `salidas/<nombre_proceso>/` y, como mucho, las specs de componente común a las que esa
+carpeta remita (ver abajo). Si para responder hace falta abrir un documento fuente, la memoria o
+la spec de otro proceso, la especificación está incompleta.
+
+Por eso, al redactar `<nombre_proceso>_spec.md`, `<nombre_proceso>_prerrequisitos.md` y `<nombre_proceso>_casos_prueba.xml`:
+
+- **Nunca remitas a `documentos_fuente/` para el contenido.** Prohibido escribir "ver el
+  documento fuente", "diccionario completo en `documentos_fuente/...`", "código completo en...",
+  "no se duplica aquí por volumen" o equivalentes. Lo que el documento fuente aporta se
+  incorpora a la spec: diccionarios de campos, queries, rutas, parámetros, planificación,
+  códigos de retorno, mensajes de log, mapeos, reglas. Se puede citar la procedencia
+  ("según la ficha EX-005-03 de MEKYTL0072") como trazabilidad, siempre que el contenido esté
+  copiado o analizado en la propia spec.
+- **Nunca remitas a `memoria/` para el contenido.** Las respuestas del usuario que cierran un gap
+  van literalmente en la sección 4 de `<nombre_proceso>_spec.md` ("Gaps identificados y preguntas pendientes, con
+  las respuestas obtenidas"). La memoria es para trabajar, no para consultar el proceso.
+- **No remitas a la spec de otro proceso para explicar este.** Puedes decir que este proceso
+  consume la salida de otro o que comparte cadena con él (es contexto útil), pero todo lo que
+  haga falta para entender este proceso —incluido el formato exacto de lo que recibe de otro—
+  debe estar aquí. La única remisión permitida es a una spec de componente común.
+- **Analizar no es copiar.** Para un script, una clase o un `.properties` no hace falta pegar el
+  fichero entero: hace falta el análisis que exige "Reglas obligatorias" 7 (qué hace, qué
+  recibe y produce, qué campos de la salida afecta, qué pasa si falla), con los fragmentos
+  literales que determinan comportamiento (la query, la línea del `case`, el valor del
+  parámetro). Copia literal sí cuando el valor exacto importa: diccionarios de campos, layouts,
+  queries, máscaras, cabeceras, códigos y textos de error.
+
+### Specs de componente común
+
+Lo que usan varios procesos —un script genérico, un jar compartido, una plataforma de
+transferencia, una utilidad de Control-M— se documenta **una sola vez** en su propia spec de
+componente, también dentro de `salidas/`, y las specs de proceso la referencian:
+
+- Carpeta: `salidas/comun_<nombre_componente>/` (minúsculas, guiones bajos, sin extensión), con
+  un único fichero `comun_<nombre_componente>_spec.md`. No lleva casos de prueba ni prerrequisitos: las pruebas
+  del componente se hacen dentro de los procesos que lo usan.
+- Contenido: qué es, cómo se invoca, todos sus parámetros y su significado, ficheros de
+  configuración que lee y su contenido relevante, códigos de retorno, mensajes de log,
+  comportamiento ante fallo, riesgos conocidos, y una tabla de **qué procesos lo usan y con qué
+  parámetros**. Debe ser tan autosuficiente como una spec de proceso.
+- En la spec de proceso, la remisión es explícita y acotada: "el funcionamiento genérico de
+  `RAMERC0068.sh` está en `salidas/comun_ramerc0068/comun_ramerc0068_spec.md`". Lo **específico de este proceso**
+  (con qué clave se invoca, qué línea de configuración le corresponde, qué ficheros mueve aquí,
+  qué ocurre en este proceso si falla) se queda en la spec del proceso, nunca en la del
+  componente.
+- Antes de documentar un artefacto dentro de una spec de proceso, comprueba si ya existe su
+  `salidas/comun_*`. Si existe, úsala y complétala si aportas algo nuevo. Si no existe y el
+  artefacto lo usa más de un proceso, créala.
+
+### Autointerrogatorio — cómo comprobar que la spec es autosuficiente
+
+No basta con que la spec no remita a fuera: tiene que **responder**. Antes de cerrarla, ponte en
+el lugar de alguien que no conoce el proceso, que solo tiene la carpeta `salidas/<proceso>/` (y
+las `salidas/comun_*` que referencie), y hazle preguntas. Por cada pregunta, clasifica:
+
+| Resultado | Qué haces |
+|---|---|
+| La spec responde, con dato concreto y sin interpretar | Nada |
+| Responde a medias o con vaguedades ("procesa los datos", "según configuración") | Es un gap: complétalo |
+| No responde, pero la respuesta está en `documentos_fuente/` | Incorpórala a la spec |
+| No responde y no está en ninguna fuente | Pregunta al usuario; sin respuesta no se cierra |
+
+**Ronda 1 — preguntas de quien llega de cero**, como mínimo:
+
+- *Qué es y para qué sirve*: ¿qué hace este proceso en una frase? ¿Qué necesidad de negocio
+  cubre? ¿Quién usa lo que produce? ¿Qué pasa si un día no se ejecuta?
+- *Qué hay inicialmente*: ¿qué tiene que existir antes de arrancar? ¿De qué tablas, ficheros o
+  servicios lee, y qué contienen? ¿Con qué formato llegan? ¿Qué volumen es normal?
+- *Cuándo y quién lo lanza*: ¿cuándo se ejecuta, con qué calendario y a qué hora? ¿Qué lo
+  dispara? ¿De qué depende y qué depende de él? ¿Qué pasa en festivos o si llega tarde la
+  entrada?
+- *Cómo funciona*: ¿qué pasos tiene y en qué orden? ¿Qué comando exacto ejecuta cada paso, con
+  qué parámetros, en qué máquina y con qué usuario? ¿Qué hace cada script, jar o workflow?
+- *Qué lógica aplica*: ¿qué filtra? ¿Qué transforma? ¿Cómo se obtiene cada campo de la salida?
+  ¿Qué valida? ¿Qué hace con duplicados, nulos o registros inválidos?
+- *Cuál es el resultado final*: ¿qué produce exactamente, dónde lo deja, con qué nombre y con
+  qué formato campo a campo? ¿Qué cambia en base de datos? ¿Quién lo recoge y cómo?
+- *Cómo sé que ha ido bien o mal*: ¿qué escribe en log y dónde? ¿Qué códigos de retorno da?
+  ¿Qué pasa si falla cada paso: salida parcial, vacía o nada? ¿Quién recibe la alerta? ¿Cómo se
+  relanza y qué hay que limpiar antes?
+- *Qué queda después*: ¿se historifica? ¿Cuánto se guarda? ¿Qué se purga y cuándo?
+- *Cómo se prueba*: ¿qué datos y qué entorno hacen falta para ejecutar cada caso?
+
+**Ronda 2 — barrido de términos.** Recorre la spec entera y, por cada nombre propio que aparezca
+(tabla, campo, script, jar, job, cadena, fichero, parámetro, sigla, sistema externo, código de
+error), pregunta "¿qué es esto y qué papel tiene aquí?". Si la spec lo nombra sin explicarlo, es
+un gap.
+
+**Ronda 3 y siguientes — preguntas que nacen de las respuestas.** Cada respuesta abre otras
+("lee de FT_T_X" → ¿qué columnas?, ¿con qué filtro?, ¿qué pasa si está vacía?). Repite rondas
+hasta que una ronda completa no encuentre ningún gap nuevo. Eso, y no otra cosa, es la señal de
+que la spec está completa.
+
+### Límite de tamaño
+
+Si el análisis de un proceso, o de un fichero que ejecuta, es tan grande que no cabe
+razonablemente en la spec (una spec que ya no se puede leer de una vez, una clase o un workflow
+de miles de líneas cuyo análisis completo la desbordaría), **no lo recortes ni lo dejes fuera
+en silencio, y no lo mandes a `documentos_fuente/`**: avisa al usuario de qué es, de cuánto
+ocupa y de qué partes quedarían fuera, y acordad cómo abordarlo antes de cerrar la spec.
+
+## Modo consulta — responder preguntas sobre un proceso ya especificado
+
+Cuando el usuario pregunte algo sobre un proceso que ya tiene carpeta en `salidas/`:
+
+1. Responde **solo** con `salidas/<nombre_proceso>/` y las specs `salidas/comun_*` a las que
+   remita. No abras `documentos_fuente/`, ni la memoria, ni specs de otros procesos para
+   completar la respuesta.
+2. Cita la sección de la spec de la que sale cada dato.
+3. Si la spec no permite responder, **no improvises ni vayas a buscarlo a la fuente por tu
+   cuenta**. Dilo claramente: es un gap de la especificación. Ofrece cerrarlo: buscarlo en
+   `documentos_fuente/` o pedírselo al usuario, **incorporarlo a la spec**, y entonces responder
+   desde la spec ya completada. La respuesta nunca debe depender de algo que no quede escrito en
+   `salidas/`.
 
 ---
 
@@ -52,9 +177,9 @@ no verificada.
 ## Objetivo principal
 
 Generar, por proceso, una carpeta de salida `salidas/<nombre_proceso>/` con tres artefactos:
-- `spec.md` — especificación funcional, técnica, de testing y demás contenido narrativo
-- `prerrequisitos.md` — documento explicativo, solo de prerrequisitos y condiciones previas
-- `casos_prueba.xml` — matriz de casos de prueba en XML, con manejo explícito de errores,
+- `<nombre_proceso>_spec.md` — especificación funcional, técnica, de testing y demás contenido narrativo
+- `<nombre_proceso>_prerrequisitos.md` — documento explicativo, solo de prerrequisitos y condiciones previas
+- `<nombre_proceso>_casos_prueba.xml` — matriz de casos de prueba en XML, con manejo explícito de errores,
   duplicidades y datos sintéticos repetidos
 
 Ver "Estructura de salida esperada" para el detalle de cada fichero.
@@ -102,7 +227,10 @@ respuestas sean "sí" con evidencia, procede a generar el documento.
 
 ### 1) Revisión exhaustiva de la documentación
 Lee íntegramente todos los documentos disponibles en `documentos_fuente/` antes de generar nada
-(ver "Documentos de entrada" si el usuario te lo adjunta directamente en el chat).
+(ver "Documentos de entrada" si el usuario te lo adjunta directamente en el chat). Todo lo que
+saques de ellos y sea relevante para el proceso debe acabar escrito en la spec: el documento
+fuente se lee para construir la spec, no para remitir a él (ver §"Autosuficiencia de la
+especificación").
 
 Debes identificar:
 - proceso o flujo funcional
@@ -166,8 +294,8 @@ desde la entrada del dato hasta el resultado esperado.
 
 Cada caso de prueba debe incluir: ID, nombre, objetivo, precondiciones, datos empleados, pasos,
 resultado esperado, tipo de validación, criterio de aceptación, posibilidad de error o fallo
-esperado. Estos casos se entregan en `casos_prueba.xml` (ver "Estructura de salida esperada"),
-no en `spec.md`.
+esperado. Estos casos se entregan en `<nombre_proceso>_casos_prueba.xml` (ver "Estructura de salida esperada"),
+no en `<nombre_proceso>_spec.md`.
 
 #### Redacción de cada caso
 
@@ -215,12 +343,13 @@ análisis.
 Si no puedes responder a esas cuatro cosas, es un gap: pregunta al usuario antes de cerrar, igual
 que harías con una regla de negocio sin confirmar.
 
-**Antes de pedir nada, agota el documento fuente.** Si la documentación del proceso ya explica un
-artefacto al nivel que exigen las cuatro preguntas anteriores, el análisis técnico de ese
-artefacto está hecho: no pidas el fichero ni preguntes por él. Solo se pide material adicional
-cuando el documento **lo nombra sin explicarlo**, lo explica de forma incompleta, o se contradice.
-Esta regla no convierte cada proceso en una recogida de ficheros: es un remedio para los huecos,
-no un trámite.
+**Antes de pedir nada, agota el material disponible.** Si un fichero ya está en
+`documentos_fuente/` o su análisis ya consta en la memoria compartida, léelo: no lo pidas. Para lo
+que no se ejecuta —configuración de referencia, tablas, reglas descritas en el documento— basta
+con que la documentación del proceso lo explique al nivel que exigen las cuatro preguntas
+anteriores; solo se pide material cuando el documento **lo nombra sin explicarlo**, lo explica de
+forma incompleta, o se contradice. **Los ficheros que se ejecutan son la excepción: se piden
+siempre** (ver "Todo lo que se ejecuta en el proceso se pide", más abajo).
 
 **Cuando falte, analiza tú los artefactos; al usuario pídele el fichero, no la explicación.** Cuando tengas un
 script, un `.properties`, una query o una hoja de transformación, tu trabajo es leerlos y deducir
@@ -232,6 +361,27 @@ fichero que él puede facilitarte entero.
 un fichero de configuración de log, una query referencia tablas. Recorre esa cadena hasta donde
 llegue el material disponible y **documenta el mapa resultante**: qué fichero llama a cuál y con
 qué. Cuando la cadena se corte porque falta un fichero, pídelo por su nombre.
+
+**Todo lo que se ejecuta en el proceso se pide, aunque el documento lo describa.** El documento
+cuenta lo que un componente debería hacer; el fichero, lo que hace. Por cada cosa que la cadena
+ejecute, si no tienes el fichero, pídelo por su nombre. Sigue la cadena hasta el final: un
+`.properties` lleva a un workflow, un workflow a sus sub-workflows, un script a otro script o a un
+jar.
+
+| Qué se ejecuta | Cómo se reconoce en el material | Qué se pide |
+|---|---|---|
+| Script | Comando del job en Control-M, `NomScript`, `LanzaScriptBash`, llamadas a `./<script>.sh` | El `.sh` / `.ksh` |
+| Configuración de `GSProcess.sh` | `GSProcess.sh <clave>` | `<clave>.properties` |
+| Workflow de GoldenSource | `NomEvento=Workflow`, `NomWorkflow=<X>`, `executeBbvaEvent.sh … <X>`, `Workflow(<X>)` | El `.wkf` de `<X>` |
+| Sub-workflow | `CallSubWorkflow`, nodos `Sub_*` dentro de un `.wkf` | El `.wkf` de cada sub-workflow |
+| Jar o clase Java | `Accion=Java`, `NomPaquete`, `java -cp … <clase>` | El `.jar` (o el código de la clase) y su fichero de configuración |
+| SQL o PL/SQL | `ACTION_NME`, `sqlplus`, procedimientos o paquetes invocados | La query, el `.sql` o el cuerpo del paquete |
+| Transformación o validación | `xsltproc`, `XSLT_TO_XML`, `.xsl`, `.xsd` | La hoja o el esquema |
+
+Si el usuario no puede conseguir uno de estos ficheros, **no lo sustituyas por la descripción del
+documento**: regístralo como gap en `<nombre_proceso>_spec.md` con su nombre, quién lo invoca y qué parte del
+análisis y de las pruebas queda sin confirmar. Un ejecutable que no se ha podido analizar se dice;
+nunca queda en silencio para que lo descubra después otra revisión.
 
 **Deducir del fichero es analizar; deducir del nombre, no.** Trazar un argumento leyendo el script
 que lo consume es análisis válido y debe recogerse indicando de dónde sale. Suponer su significado
@@ -265,6 +415,8 @@ Respóndelas tú mismo siempre que el material disponible lo permita. Pregunta a
 **los ficheros que te falten para poder responderlas**, y aplica el mismo bloqueo que en la parte
 funcional: sin respuesta, no se cierra la especificación.
 
+- ¿Qué ficheros se ejecutan en la cadena —scripts, `.properties`, workflows y sub-workflows de
+  GoldenSource, jars, SQL y hojas de transformación— y los tienes todos?
 - ¿Qué hace exactamente cada script, clase o jar que ejecuta la cadena, y sobre qué datos actúa?
 - ¿Qué significa cada argumento o parámetro que recibe?
 - ¿Dónde vive la lógica que construye la salida: en el código desplegado, en base de datos, en un
@@ -277,9 +429,19 @@ funcional: sin respuesta, no se cierra la especificación.
 ## Estructura de salida esperada
 
 Por cada proceso analizado, crea la carpeta `salidas/<nombre_proceso>/` (nombre en minúsculas,
-con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
+con guiones bajos, sin espacios ni tildes) con estos tres ficheros.
 
-### `spec.md`
+**Cada fichero lleva delante el nombre del proceso, igual que su carpeta, seguido del tipo de
+documento:** `<nombre_proceso>_spec.md`, `<nombre_proceso>_prerrequisitos.md` y
+`<nombre_proceso>_casos_prueba.xml`. Por ejemplo, `salidas/extraccion_contactos/` contiene
+`extraccion_contactos_spec.md`, `extraccion_contactos_prerrequisitos.md` y
+`extraccion_contactos_casos_prueba.xml`. Así cada fichero se identifica aunque salga de su carpeta
+(un adjunto, una descarga, una carga en otra herramienta). Lo mismo vale para el resto de ficheros
+que generes en la carpeta del proceso. Nunca crees ficheros llamados solo `spec.md`,
+`prerrequisitos.md` o `casos_prueba.xml`. Si al retomar un proceso encuentras sus ficheros con ese
+nombre antiguo, renómbralos con `git mv`, que conserva el historial, en vez de crear copias.
+
+### `<nombre_proceso>_spec.md`
 1. Resumen ejecutivo
 2. Alcance del proceso
 3. Requisitos detectados
@@ -287,9 +449,11 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 5. Especificación funcional
 6. Especificación técnica — no un inventario de componentes, sino un análisis de qué hace cada
    uno, qué campos de la salida impacta y qué ocurre si falla. Ver "Reglas obligatorias" 7 para el
-   nivel de detalle exigido y el criterio de profundidad
+   nivel de detalle exigido y el criterio de profundidad. Incluye un **inventario de
+   ejecutables**: una tabla con cada fichero que se ejecuta en el proceso, quién lo invoca, si se
+   ha aportado y dónde está analizado o, si no se ha podido conseguir, el gap correspondiente
 7. Especificación de testing: explica la estrategia de pruebas y los casos definidos en
-   `casos_prueba.xml` (referenciando su ID), y confirma explícitamente que:
+   `<nombre_proceso>_casos_prueba.xml` (referenciando su ID), y confirma explícitamente que:
    - cada caso es ejecutable tal cual está definido — pasos concretos, datos concretos, resultado
      esperado verificable; nunca una descripción abstracta que no se pueda ejecutar sin más
      interpretación
@@ -303,9 +467,9 @@ con guiones bajos, sin espacios ni tildes) con estos tres ficheros:
 9. Riesgos, duplicidades y escenarios de fallo
 10. Conclusión y requisitos de cierre
 
-### `prerrequisitos.md`
+### `<nombre_proceso>_prerrequisitos.md`
 
-**Genéralo el último, derivado de `casos_prueba.xml`.** Un prerrequisito es lo que debe estar en
+**Genéralo el último, derivado de `<nombre_proceso>_casos_prueba.xml`.** Un prerrequisito es lo que debe estar en
 su sitio para que los casos se puedan ejecutar, no una descripción de cómo está montado el
 proceso. Si acabas describiendo la instalación en lugar de lo que hace falta para probar, lo has
 enfocado mal.
@@ -333,7 +497,7 @@ Secciones mínimas, adaptadas a lo que tenga cada proceso:
 | Orquestación | Planificación, dependencias y eventos, cuando existan |
 | Entorno de pruebas | Qué hace falta que tenga y qué queda por definir |
 
-### `casos_prueba.xml`
+### `<nombre_proceso>_casos_prueba.xml`
 La matriz de casos de prueba en XML, un elemento `<casoDePrueba>` por caso, con los mismos diez
 campos de "Reglas para casos de prueba" y el atributo `tipo` (`happy_path`, `negativo`,
 `error_funcional`, `borde`, `duplicidad`, `conflicto_integridad`, `datos_sinteticos`,
@@ -373,15 +537,25 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
 - toda la documentación fuente ha sido revisada; no hay lagunas relevantes en documentación
 - has hecho las preguntas necesarias y no queda ninguna sin responder
 - has detectado y resuelto los gaps relevantes; no hay supuestos sin confirmar
+- el inventario de ejecutables está completo: cada fichero que se ejecuta en el proceso está
+  aportado y analizado, o figura como gap con su nombre y la confirmación del usuario de que no se
+  puede conseguir
 - el resultado esperado está definido explícitamente
 - cada requisito tiene una validación y un caso de prueba asociado, con resultado esperado claro
 - hay cobertura de error, borde y duplicidad; los datos sintéticos y condiciones de fallo están
   contemplados con el detalle exigido en "Control de duplicidades y datos sintéticos"
-- hay prerrequisitos explicitados en `prerrequisitos.md`
+- hay prerrequisitos explicitados en `<nombre_proceso>_prerrequisitos.md`
 - cada caso de prueba es ejecutable tal cual está definido (pasos y datos concretos, sin
   ambigüedad)
 - el conjunto de casos, end-to-end y/o troceados, cubre por completo el correcto funcionamiento
-  del proceso, y eso queda explicado y justificado en la especificación de testing de `spec.md`
+  del proceso, y eso queda explicado y justificado en la especificación de testing de `<nombre_proceso>_spec.md`
+- **la spec es autosuficiente**: ningún fichero de `salidas/<nombre_proceso>/` remite a
+  `documentos_fuente/`, a `memoria/` ni a la spec de otro proceso para obtener contenido; las
+  únicas remisiones de contenido son a `salidas/comun_*`, y esas specs de componente existen y
+  cubren lo que se les delega. Compruébalo buscando en la carpeta las cadenas
+  `documentos_fuente`, `memoria/` y `salidas/` y revisando cada aparición
+- has pasado el **autointerrogatorio** (§"Autosuficiencia de la especificación") hasta una ronda
+  sin gaps nuevos: toda pregunta razonable sobre el proceso se responde con la spec
 
 ## Modo ejecutable — preparar casos para AtSQA Framework
 
@@ -413,7 +587,7 @@ agente y de que lo que tú escribas puede quedar desactualizado en cuanto EQAT a
 ### Cuándo aplica
 
 Solo cuando el usuario lo pida para un proceso concreto. Requisito previo innegociable: ese
-proceso ya debe tener en `salidas/<nombre_proceso>/` una `spec.md` y un `casos_prueba.xml`
+proceso ya debe tener en `salidas/<nombre_proceso>/` una `<nombre_proceso>_spec.md` y un `<nombre_proceso>_casos_prueba.xml`
 cerrados según el criterio de cierre general.
 
 ### Qué se puede automatizar y qué no
@@ -430,7 +604,7 @@ un script, la prueba ejecuta ese mismo script con los mismos parámetros. De ah�
 
 ### Paso 1 — Triaje, antes de preguntar nada
 
-Lee el `casos_prueba.xml` del proceso y clasifica cada caso:
+Lee el `<nombre_proceso>_casos_prueba.xml` del proceso y clasifica cada caso:
 
 | Grupo | Significado |
 |---|---|
@@ -502,12 +676,12 @@ generarlo sabiendo que va a pasar siempre en verde por falta de datos contra los
 
 ### Paso 3 — Salida
 
-Un único fichero, `salidas/<nombre_proceso>/brief_atsqa.md`, redactado para que el usuario se lo
+Un único fichero, `salidas/<nombre_proceso>/<nombre_proceso>_brief_atsqa.md`, redactado para que el usuario se lo
 entregue a `atsqa-generator`. Contiene:
 
-1. **Identificación del proceso** y referencia a su `spec.md`.
+1. **Identificación del proceso** y referencia a su `<nombre_proceso>_spec.md`.
 2. **Triaje confirmado**: tabla de casos con su grupo, y los descartados con el motivo.
-3. **Por cada caso automatizable**: su identificador de `casos_prueba.xml`, su objetivo en una
+3. **Por cada caso automatizable**: su identificador de `<nombre_proceso>_casos_prueba.xml`, su objetivo en una
    frase, y **los pasos en orden, uno por línea, atómicos** — una sola acción y una sola
    comprobación por paso, en lenguaje natural y con los valores concretos. No indiques qué acción
    del framework usar.
@@ -524,14 +698,14 @@ configure en su máquina cuando ejecute.
 
 Antes de entregar el encargo, verifica y comunica:
 
-- [ ] El proceso tenía `spec.md` y `casos_prueba.xml` cerrados antes de empezar.
+- [ ] El proceso tenía `<nombre_proceso>_spec.md` y `<nombre_proceso>_casos_prueba.xml` cerrados antes de empezar.
 - [ ] El triaje fue confirmado por el usuario.
 - [ ] Todos los datos que los casos necesitan están confirmados por el usuario en esta sesión.
       Ninguno deducido, ninguno traído de otro proceso ni de la memoria.
 - [ ] Todos los pasos son atómicos: una acción y una comprobación por paso.
 - [ ] El fichero no contiene ninguna credencial.
 - [ ] Los casos descartados están listados con su motivo.
-- [ ] Cada caso del encargo es trazable a un identificador de `casos_prueba.xml`.
+- [ ] Cada caso del encargo es trazable a un identificador de `<nombre_proceso>_casos_prueba.xml`.
 
 **Declara siempre esta limitación al entregar**: el encargo no se ha ejecutado ni puede validarse
 desde aquí. Lo que salga de `atsqa-generator` habrá que probarlo en una máquina con AtSQA
@@ -557,6 +731,12 @@ Flujo recomendado:
 Nunca inventes información en la memoria. Solo registra aquello que provenga de la
 documentación fuente o de respuestas literales del usuario. La memoria no sustituye al
 análisis; solo conserva evidencia ya confirmada y útil para reutilización.
+
+**La memoria es una herramienta de trabajo del agente, no una fuente de consulta de los
+procesos.** Todo lo que se registre en memoria y afecte a un proceso debe estar también en su
+spec (ver §"Autosuficiencia de la especificación"). El conocimiento técnico compartido por
+varios procesos —scripts genéricos, plataformas, utilidades— no va a memoria: va a una spec de
+componente en `salidas/comun_<nombre>/`.
 
 ## Modelo de ramas: rama personal + rama compartida `nfq`
 
@@ -588,8 +768,8 @@ mismas reglas que cualquier otro de `documentos_fuente/`: puede commitearse en l
 pero nunca debe llegar a `nfq`.
 
 ### Paso 1 — Generar y confirmar en la rama personal
-Cuando el usuario esté conforme con los artefactos generados (`spec.md`, `prerrequisitos.md`,
-`casos_prueba.xml`), muéstrale los ficheros relevantes y pide confirmación antes de hacer commit.
+Cuando el usuario esté conforme con los artefactos generados (`<nombre_proceso>_spec.md`, `<nombre_proceso>_prerrequisitos.md`,
+`<nombre_proceso>_casos_prueba.xml`), muéstrale los ficheros relevantes y pide confirmación antes de hacer commit.
 Con esa confirmación, haz commit + push normal a la **rama personal** — nunca a `nfq` en este
 paso. Al ser una rama que solo usa este usuario, no hace falta comprobación de concurrencia aquí.
 
