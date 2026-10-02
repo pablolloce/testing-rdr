@@ -51,7 +51,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
 | G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. El subworkflow `Mail` queda **cerrado con `.wkf` real** (§6.15bis): envío SMTP puro sin autenticación real, que traga cualquier excepción internamente y no declara salida — confirma de raíz por qué ningún llamante de `Mail` en todo el audit comprueba su resultado. Con `main.Ppal` real de ambos jars de alertas (§6.14) se confirma la clase orquestadora de `AlertasBarrido` — y aparece un **hallazgo de máxima prioridad**: las llamadas que ejecutarían el `INSERT` real en `FT_T_ALG1`/`FT_T_RLT1` están comentadas en el código fuente aportado, mientras el propio proceso audita el paso como `"OK"` igualmente; además `marcaUsadosTPG1` tiene un desajuste de índices que, en el caso habitual, impide que el cierre de `FT_T_TPG1` llegue a ejecutarse. `main.Ppal` de `AlertasCocinado` delega en `report.ReportesRDR`/`report.ReporteRDR`/`report.DocumentGenerator`, **las 3 confirmadas con código fuente real** (§6.14), incluida la generación física de cada fichero. Sin ningún cabo suelto. |
-| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. `SSIs_Valida_Fx`, `SSIs_Fx_Exec`, `SSIs_Fx_Reporte`, `SSIsData_Fx` y `SSIsCreateNew` quedan todos **confirmados con evidencia real** (§6.19) — este último aplicando la SDI vía el mismo motor `"Basic Message Processing"` de §6.8. Solo queda, como residual mínimo, `RDR_SSI_Publish_ESB` (invocado por `SSIs_Fx_Difusion`, también confirmado). |
+| G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/r9_ssis_fx/`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. `SSIs_Valida_Fx`, `SSIs_Fx_Exec`, `SSIs_Fx_Reporte`, `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion` y `RDR_SSI_Publish_ESB` quedan todos **confirmados con evidencia real** (§6.19) — `SSIsCreateNew` aplicando la SDI vía el mismo motor `"Basic Message Processing"` de §6.8, y `RDR_SSI_Publish_ESB` publicándola en la cola JMS/EMS `RDR.SETTLEMENT.PUBLISH`. Sin ningún residuo de código sin aportar. |
 
 ## 5. Especificación funcional
 
@@ -2126,11 +2126,50 @@ workflows modificados más recientemente de toda esta auditoría —
   clonado este `.wkf` a partir de otro objeto no relacionado, sin actualizar su comentario de negocio.
 - **Qué recibe/produce:** recibe `Action`/`ID` (el `ALT_ID`); produce la invocación a `RDR_SSI_Publish_ESB`
   con el `SSI_OID` resuelto — no declara salida propia.
-- **Qué pasa si falla:** sin rama de gestión de error visible en este `.wkf`; si `RDR_SSI_Publish_ESB` falla,
-  el comportamiento depende de ese subworkflow, no aportado.
-- **Gap residual, no bloqueante:** `RDR_SSI_Publish_ESB` (el publicador real al ESB) no aportado — por su
-  nombre, es probable que sea un mecanismo genérico compartido con otros procesos de alerta, no exclusivo de
-  esta cadena.
+- **Qué pasa si falla:** sin rama de gestión de error visible en este `.wkf`; el comportamiento ante un fallo
+  depende de `RDR_SSI_Publish_ESB` (ver Anexo siguiente, **confirmado con `.wkf` real**).
+- **Sin gaps abiertos:** `RDR_SSI_Publish_ESB` queda confirmado con `.wkf` real — ver Anexo siguiente. Con
+  esto, no queda ningún residuo de código sin aportar en todo `rdr_pr_bdiclienreg_resp`.
+
+**Anexo — `RDR_SSI_Publish_ESB`, confirmado con `.wkf` real:**
+
+Workflow analizado: `RDR_SSI_Publish_ESB` (grupo **`Custom/RDR/Integracion_ABACO-GS/Difusion_ESB`** — una
+carpeta de integración distinta de `.../Alert/InvestorsPlan`, **confirma la hipótesis de que es un mecanismo
+genérico compartido** con otra integración, "ABACO", no exclusivo de la familia `SSIs_Fx_*`; estado
+`RELEASED`, v3 — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/RDR_SSI_Publish_ESB.wkf`).
+
+- **Qué hace:** recibe `Action` (1 letra: `A`/`M`/`R`/`P`/`C`/`S`/`E`/`D`) e `ID` (el `SSI_OID`), y publica
+  hasta **2** operaciones de alta/baja de SDI en una sola llamada — algunas acciones de negocio (p. ej.
+  `"R"`/reasignación, `"P"`/reasignación ILP) requieren dar de baja la SDI vieja **y** dar de alta la nueva
+  en el mismo evento. Primero clasifica `Action` en 3 casos especiales que necesitan resolver un 2º
+  `SSI_OID` relacionado antes de nada (`"Action Type ??"`): `"C"` (Copia) → busca el `SSI_OID` original vía
+  `FT_T_SSIS.SHIPPING_TYP`; `"R"`/`"P"` → busca el `SSI_OID` relacionado vía `FT_T_SAI1`
+  (`ID_CTXT_TYP='REL_OLD'`, `DATA_SRC_ID='RDR_DENE'`); `"S"` → vía `FT_T_SAI1`
+  (`ID_CTXT_TYP='REL_NEW'`, `DATA_SRC_ID='RDR_DERE'`); el resto de acciones no necesita este paso. Luego
+  (`"Genera difusion"`) construye un array de 2 elementos `{accionXML, Id_SSI}` según el mapeo de negocio:
+  `A`→`INSERT` (alta); `M`→`UPDATE` (modificación); `R`/`P`→`DELETE`+`INSERT` (baja+alta, el 2º con el
+  `SSI_OID` resuelto antes); `C`→`INSERT` sobre el `SSI_OID` resuelto (alta por copia); `S`→`DELETE`
+  (baja+reasignación); `E`→`UPDATE` (activación); `D`→`DELETE` (desactivación). Itera (`ForEach`) los 2
+  elementos del array y, para cada uno con `accionXML` no vacío: ejecuta la query canned de GoldenSource
+  `RDR_PushSettlementInstructionByIds` (vía `XMLQuery`, genera el XML de la instrucción de liquidación) y lo
+  publica en la **cola JMS/EMS `RDR.SETTLEMENT.PUBLISH`** (subworkflow genérico `Sub_SendMessageToEMSQueue`,
+  no analizado — un simple envío a cola, no un `RaiseEvent` como la difusión ya vista en
+  `PartySetupDifusion`, §6.13septies: **es un mecanismo de publicación distinto**, pese a compartir la
+  palabra "ESB" en el nombre). El elemento con `accionXML` vacío (cuando `Action` solo necesita 1 operación)
+  se descarta silenciosamente del bucle (`"FIN_FOR"`).
+- **[Hallazgo] `Action` desconocida/no mapeada se descarta en silencio, sin ningún log:** si `Action` no es
+  ninguna de las 8 letras reconocidas, `Array_SSI` queda con ambos elementos vacíos (`accionXML=""`) y el
+  `ForEach` los salta a los dos sin registrar en ningún punto que la acción recibida no tenía mapeo — a
+  diferencia del resto de ramas, que sí logean cada publicación real.
+- **[Hallazgo] las 3 queries de resolución de `SSI_OID` relacionado (`COPY`/`DENE`/`DERE`) no tienen rama
+  explícita para "sin resultado"** — solo definen la transición `goto-next`, igual que el patrón ya visto en
+  `SSIsData_Fx` (§6.19 — Anexo) para `Validate Queries`/intermediario 1; si la consulta no encuentra fila,
+  el comportamiento no es observable desde este análisis estático del `.wkf`.
+- **Qué recibe/produce:** recibe `Action`/`ID`; no declara salida de negocio — su efecto son los 1 o 2
+  mensajes de alta/baja de SDI publicados en la cola `RDR.SETTLEMENT.PUBLISH`.
+- **Qué pasa si falla:** sin rama de gestión de error genérica visible; los 2 puntos de incertidumbre ya
+  señalados (`Action` no mapeada, query de resolución sin resultado) son las únicas 2 fuentes de
+  comportamiento no confirmable de este `.wkf`.
 
 ## 7. Especificación de testing
 
@@ -2448,6 +2487,11 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   análisis estático. El mismo workflow usa además una variable (`Benef`) que nunca declara ni asigna
   internamente — llega como estado implícito heredado de `SSIs_Fx_Exec`/`SSIs_Fx_Alta`, un acoplamiento no
   reflejado en su firma de parámetros.
+* **[Confirmado con `.wkf` real, §6.19 — Anexo] `RDR_SSI_Publish_ESB` descarta en silencio, sin ningún log,
+  cualquier `Action` que no sea una de las 8 letras reconocidas** (`A`/`M`/`R`/`P`/`C`/`S`/`E`/`D`) — a
+  diferencia del resto de ramas, que sí registran cada publicación real. Sus 3 queries de resolución de
+  `SSI_OID` relacionado (para `Action` `C`/`R`/`P`/`S`) tampoco definen una transición explícita para "sin
+  resultado", mismo patrón ya señalado en `SSIsData_Fx` para `Validate Queries`/intermediario 1.
 * **[Confirmado con `.wkf` real, §6.13quater — Anexo] 2ª confirmación de un nombre de bind cruzado entre el
   nivel Global y el Operativo:** `Other Regulatory Information Extraction` (lado Global) usa
   `:cntrprtyOperativeOid` como nombre de bind en su SQL pese a mapear el parámetro real `cntrprtyGlobalOid`
@@ -2652,8 +2696,10 @@ el reportador de auditoría genérico (`FT_T_RLT1`/`FT_T_VREQ`) que invocan `SSI
 resolviendo los `FINS_ID` de las hasta 6 partes de la liquidación; y **`SSIsCreateNew` cierra la pregunta
 que quedaba abierta desde el principio de R9 — aplica la SDI invocando el mismo motor genérico `"Basic
 Message Processing"` ya confirmado en §6.8**, el mismo que usa `RDR_XMLReader` para el alta de
-contrapartidas. Solo queda, como residual mínimo, `RDR_SSI_Publish_ESB` (el publicador real al ESB invocado
-por `SSIs_Fx_Difusion`, probablemente un mecanismo genérico compartido con otros procesos).
+contrapartidas. `RDR_SSI_Publish_ESB` (el publicador real invocado por `SSIs_Fx_Difusion`) queda también
+**confirmado con `.wkf` real**: resuelve hasta 2 operaciones alta/baja por llamada y las publica en la cola
+JMS/EMS `RDR.SETTLEMENT.PUBLISH` — un mecanismo distinto del `RaiseEvent` de `PartySetupDifusion`, y
+**confirmado como genérico de verdad**: vive en la carpeta de integración `ABACO`, no en la de
+`InvestorsPlan`.
 **Con esto, R9 queda funcionalmente resuelto de principio a fin, y la auditoría completa de
-`RDR_PR_BDICLIENREG_RESP_new` (R1-R9) no tiene más gaps técnicos abiertos, salvo ese único residual mínimo y
-los demás cabos sueltos no bloqueantes ya señalados en cada sección.**
+`RDR_PR_BDICLIENREG_RESP_new` (R1-R9) no tiene ya ningún gap técnico ni residuo de código sin aportar.**
