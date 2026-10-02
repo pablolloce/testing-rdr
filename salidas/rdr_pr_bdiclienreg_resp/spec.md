@@ -1015,7 +1015,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   compartido con carpeta GoldenSource dedicada. **Corrección sobre la estimación previa de esta misma
   sesión:** `Get Canonical Identifier`, que se había citado como uno de esos ~10 subworkflows, **no lo es**
   — es una `DBQuery` inline dentro del propio `.wkf` de `OperativeRegulatoryInformation` (§6.13sexies,
-  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 6 de los 16 ya
+  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 11 de los 16 ya
   están cerrados con `.wkf` real — ver el listado en el Anexo de §6.13quater más abajo.
 - **[Hallazgo, no confirmado como defecto] SQL de cierre (`UPDATE DR`) con sintaxis dudosa para Oracle:**
   `UPDATE ft_t_rlt1 SET RLT_DIF_STAT = 'FIN' FROM FT_T_INCL WHERE ft_t_rlt1.main_entity_id=? AND
@@ -1026,7 +1026,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
 
-**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (6 de 16):**
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (11 de 16):**
 
 - **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
   Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
@@ -1115,6 +1115,79 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   inconsistencia real entre copias del motor. También tiene una condición SQL comentada
   (`--AND LAST_CHG_USR_ID='BBVA:CUSTOMER'`) en una de sus 2 ramas de `UPDATE`, ausente en la otra —
   asimetría entre 2 ramas que debieran comportarse igual.
+- **`Calculate Counterparty type under SFTR`** (mismo grupo, estado **`DEVELOPMENT`, v2**, última
+  modificación 2025-04-12 — notablemente más reciente y menos madura que el resto de la familia, casi toda
+  `RELEASED` de 2024 o antes): calcula la etiqueta base SFTR mediante un `switch` **estructuralmente
+  idéntico** al de `Calculate Counterparty type under EMIR` (mismos casos — `"NFC / EXENT"`, `"EXENT /
+  FINAN."`, `"PEND. / NFC"`, `"EXENT EXC. REP."`, `"FINANCIAL"`, etc. — mismas sub-condiciones), confirmando
+  que EMIR y SFTR comparten el mismo árbol de reglas de negocio para la tipología de contraparte, solo que
+  alimentan clasificaciones distintas. Reutiliza las mismas 4 queries en paralelo que su gemelo EMIR (`BDI
+  Code Extract`, `Clearing Extract`, `Entity Own Extract`, `Legalent or Individual`). **[Hallazgo] Parámetro
+  de entrada `etiquetaEmir` reutilizado tal cual de la plantilla EMIR, pese a llevar aquí la etiqueta base
+  SFTR** — resto de copy-paste nunca renombrado. **[Hallazgo] no tiene el nodo `Calculo DR`/gate
+  `hacerCalculoDR` que sí tienen todos los demás `Calculate_*` de esta familia:** el cálculo se ejecuta
+  siempre, sin posibilidad de desactivarlo desde el llamante. **[Hallazgo — asimetría arquitectónica] no
+  escribe nada en `FT_T_FRA1`:** tras calcular `calculoSFTR`, el workflow va directo a `Synchronize`→`Close
+  Transaction`→`Stop` — a diferencia de `Calculate Counterparty type under EMIR`, que sí persiste su propio
+  resultado en `FT_T_FRA1` (clasificación `EMIRCAT`) además de alimentar a `Calculate Final type under EMIR`.
+  Para SFTR no parece existir un set de clasificación "no final" equivalente a `EMIRCAT`; solo `Calculate
+  Final type under SFTR` (ya cerrado) persiste algo bajo `FINALSFTR`.
+- **`Calculate European Person Indicator`** (mismo grupo, estado `RELEASED`, v9): calcula el indicador
+  booleano "persona europea" (`USINDEM`, `"Y"`/`"N"`) comprobando si la contraparte pertenece, a través de su
+  jerarquía de unidades geográficas (`FT_T_FIGU`/`FT_T_GUGP`/`FT_T_GUNT`), a un país/comunidad/alianza europea
+  activa marcada con propósito `EMIRREGU` (`GU_TYP IN ('COUNTRY','EURCMMTY','ALLIANCE')`, `FINS_GU_PURP_TYP=
+  'STSMNTCT'`). Compara el valor recién calculado con el ya existente en `FT_T_FRA1` con el mismo patrón
+  `out`/`true`/`reactivar`/`false` de toda la familia; clasificación `INDICYN`, **registrada bajo
+  `REG_NME='EMIR'`** (dato curioso: el "European Person Indicator" se archiva bajo el cajón regulatorio EMIR,
+  no bajo uno propio). **[Hallazgo] 6ª confirmación del patrón de conexión JDBC manual dentro de
+  `BeanShellScript`** en la rama `false` (alta nueva) — y esta vez con un detalle adicional: **el `Logger` del
+  nodo está mal etiquetado como `"Calculate Final type under EMIR"`**, resto literal de copiar y pegar el
+  bloque de código desde ese otro subworkflow sin renombrar el logger — confirma que este bloque de inserción
+  JDBC manual se propaga por copy-paste entre subworkflows distintos de la familia, no solo el patrón sino el
+  propio código fuente del nodo.
+- **`Calculate Other Regulatory Information`** (mismo grupo, estado `RELEASED`, v8): calcula indicadores de
+  rol auxiliares para **CFTC** (`RR_CRD`/`RR_COM`/`RR_EQD`/`RR_FX`, derivados por defecto del rol genérico
+  `WE-COD-ROLIN` cuando no están ya informados: `WE-COD-ROLCR`/`ROLCO`/`ROLEQ`/`ROLFX`) y **SEC**
+  (`SEC_EQD`, derivado de `WE-COD-ROLCRSEC` cuando falta `WE-COD-ROLEQSEC`) a partir de 2 mapas de entrada
+  (`cftcMap`/`secMap`). Un nodo `Analize Maps` decide, según qué claves falten en ambos mapas, una de 5 rutas
+  (`false`/`out`/`out2`/`ok`/`calculate`) — `ok` cuando ambos mapas ya están completos (no hace nada más que
+  informar), `calculate` cuando hay que derivar indicadores por defecto. Para cada indicador derivado, itera
+  (`For Each Split`) y ejecuta el `UPDATE`/`INSERT` estándar (nodo `DBStatement` normal, **sin** JDBC manual
+  esta vez) sobre `FT_T_FRA1`, con el set de clasificación parametrizado dinámicamente por el propio tag
+  (`RR_CRD`/`RR_COM`/etc.) y `REG_NME='DFA'` — es decir, estos indicadores CFTC/SEC, pese a su nombre,
+  se archivan bajo el cajón regulatorio DFA (coherente: CFTC/SEC son los reguladores estadounidenses del
+  Dodd-Frank Act). Sí conserva el gate `hacerCalculoDR` estándar en los 3 puntos de entrada posibles.
+- **`Calculate_Reporting_Delegation_Model`** (mismo grupo, estado `RELEASED`, v9): calcula el **modelo de
+  delegación de reporting SFTR** (`SFTRREPDEL`, valores `"02"` delegado / `"06"` no delegado) solo para
+  contrapartidas de nivel `REL_TYP='GLOBAL'` (si no lo es, termina sin hacer nada — comprobación previa al
+  gate general). Primero comprueba si la contraparte ya está clasificada como SFTR "Non FC-" (`MANUALSFTR`,
+  `CL_VALUE='04'`): si lo está, fija el modelo a `"02"` (delegado) de forma directa. Si no, deriva el valor a
+  partir del "European Person Indicator" ya calculado (`europeanPersonData2`/`USINDEM`): `"Y"`→`"02"`,
+  cualquier otro valor o ausencia de dato→`"06"`/`"02"` por defecto. En ambos casos gestiona 0/1 filas activas
+  existentes en `FT_T_FRA1` (comprobaciones `SFTR-FRA1 EXIST?`/`SFTR-FRA1 02?`/`SFTR-FRA1 INACTIVE?`) para
+  decidir entre alta nueva, reactivación o actualización. **[Hallazgo] 7ª confirmación del patrón JDBC manual
+  dentro de `BeanShellScript`** en la rama de alta nueva — **con el mismo `Logger` mal etiquetado
+  `"Calculate Final type under EMIR"`** ya visto en `Calculate European Person Indicator`: el copy-paste de
+  este bloque de código concreto (con su logger sin renombrar) se extiende ya a 2 subworkflows distintos de
+  esta ronda, más allá de los que solo compartían el patrón de conexión manual sin el error de logger.
+  **[Hallazgo] usa `REGULATORY_INFO` en vez de `FT_T_REG1`** para resolver `REG1_OID`, igual que
+  `Calculate_EMIR_Category` (ya señalado como posible inconsistencia) — pero aquí lo hace de forma consistente
+  en **todos** sus nodos SQL, no solo en el JDBC manual, lo que apoya más la hipótesis de que `REGULATORY_INFO`
+  es una vista/sinónimo real de `FT_T_REG1` y no un error aislado.
+- **`Calculate EMIR NFC Sector`** (mismo grupo, estado **`DEVELOPMENT`, v11**): hermano EMIR de `Calculate
+  SFTR NFC Sector` (ya cerrado) — mismo esqueleto exacto: gate `hacerCalculoDR`; comprobación de bloqueo
+  manual (`FT_T_FIST`, `NFCSECCA='Y'`) que si está activo salta todo el cálculo; comprobación de que la
+  contraparte reside en el grupo de países `EMIRREGU` (si no, inactiva toda la sectorización `EMISECNF`
+  existente); comprobación de que su clasificación final (`FINALEM`) es `"Non FC+"`/`"Non FC"` (si no,
+  también inactiva todo); resolución de CNAE→sector de 2 dígitos (`FT_T_INCL`, `CNAESECT`)→letra; **si no hay
+  CNAE o no está parametrizado en `CNAESECT`, inserta una alerta directamente en `TABLEALERTGENER`**
+  (`PROCESO='CALCULO_EMIR_SECT'`, mismo patrón de alerta directa ya confirmado para el lado SFTR — 2ª
+  confirmación de esta vía paralela); gestión de 0/1/más de 1 filas `FT_T_FRA1` activas (`Switch Case` sobre
+  conteo) con la misma lógica de deduplicación que su gemelo SFTR. **[Hallazgo] inconsistencia de madurez
+  declarada entre el par EMIR/SFTR:** el gemelo SFTR (`Calculate SFTR NFC Sector`) está `RELEASED` v25,
+  mientras que este, con una lógica de negocio prácticamente idéntica línea a línea, sigue marcado
+  `DEVELOPMENT` v11 — no está claro si realmente está en desarrollo o si el estado simplemente no se
+  actualizó al pasar a producción junto con su gemelo.
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1843,16 +1916,32 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   **Confirmado una 3ª vez en `Calculate Final type under SFTR` y una 4ª en `Calculate Investment Firm`** (este
   último además usa ese mismo bloque de código, ya visto en `Mail`/`PartySetupDifusion`, para leer
   `credentials.xml` del entorno y construir la URL JDBC manualmente — 3 workflows distintos reutilizando el
-  mismo fragmento de lectura de credenciales).
-* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate SFTR NFC Sector` inserta alertas directamente
-  en `TABLEALERTGENER`, sin pasar por el ciclo `FT_T_TPG1`→`AlertasBarrido`/`AlertasCocinado`:** es la primera
-  vía de alerta confirmada en este audit que escribe en esa tabla sin intermediación del barrido por lotes de
-  §6.14 — dos mecanismos de alerta paralelos y distintos conviven en la misma familia de procesos.
+  mismo fragmento de lectura de credenciales). **Confirmado una 5ª vez en `Calculate_EMIR_Category`, una 6ª en
+  `Calculate European Person Indicator` y una 7ª en `Calculate_Reporting_Delegation_Model`** — en estas 2
+  últimas, además, el nodo de inserción lleva un `Logger` mal etiquetado `"Calculate Final type under EMIR"`,
+  resto literal de copiar y pegar el bloque completo (código y logger incluidos) desde ese subworkflow
+  original sin renombrar nada: el mismo fragmento de código concreto, con el mismo error, se propaga ya a 2
+  subworkflows distintos de esta familia.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate SFTR NFC Sector` y `Calculate EMIR NFC
+  Sector` insertan alertas directamente en `TABLEALERTGENER`, sin pasar por el ciclo
+  `FT_T_TPG1`→`AlertasBarrido`/`AlertasCocinado`:** 2 confirmaciones ya (una por cada lado del par EMIR/SFTR)
+  de esta vía de alerta que escribe en esa tabla sin intermediación del barrido por lotes de §6.14 — dos
+  mecanismos de alerta paralelos y distintos conviven en la misma familia de procesos.
 * **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate Investment Firm` descarta re-ejecuciones
   dentro del mismo minuto mediante una restricción de unicidad en `FT_T_RRM1`, no mediante lógica de negocio:**
   si 2 invocaciones para la misma contraparte caen en el mismo minuto, la segunda se descarta por completo sin
   recalcular — protección de reentrancia que también podría descartar una invocación legítima si coincide en
   el tiempo.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate Counterparty type under SFTR` no tiene gate
+  `hacerCalculoDR` y no escribe en `FT_T_FRA1`, a diferencia de su gemelo `Calculate Counterparty type under
+  EMIR`:** asimetría arquitectónica entre el lado EMIR y el lado SFTR del mismo árbol de reglas de negocio —
+  el cálculo SFTR de tipo de contraparte no se puede desactivar desde el llamante y no persiste ningún
+  resultado "no final" propio (solo `Calculate Final type under SFTR` sí escribe). Workflow además marcado
+  `DEVELOPMENT` v2, fecha 2025-04-12 — sensiblemente más reciente que el resto de la familia.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate EMIR NFC Sector` sigue marcado `DEVELOPMENT`
+  v11 pese a tener una lógica de negocio prácticamente idéntica, línea a línea, a su gemelo `Calculate SFTR
+  NFC Sector` (`RELEASED` v25):** no está claro si el estado refleja la realidad o simplemente no se
+  actualizó al pasar a producción junto con el resto del par EMIR/SFTR.
 * **[PRIORIDAD ALTA, confirmado con `main.Ppal` real de `AlertasBarrido`, §6.14] El `INSERT` real en
   `FT_T_ALG1`/`FT_T_RLT1` está desactivado en el código fuente aportado, pero el propio proceso audita el paso
   como `"OK"` igualmente:** las 2 llamadas a `realizaInserciones(...)` que ejecutarían los inserts están
@@ -1973,17 +2062,22 @@ Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
 delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
-fuera de alcance**: 9 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
+fuera de alcance**: 14 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
 (`Calculate Counterparty type under EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under
-SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category` del lado Global,
-`Auxiliary DFA Data Extraction`/`Calculate Counterparty type under DFA`/`DFA Type Extraction` del lado
-Operativo — ver los Anexos de §6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración
-(`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión
-JDBC manual dentro de `BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 5 de
-estos subworkflows; una vía de alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14;
-`Calculate_EMIR_Category` como único subworkflow con una condición de entrada previa al gate general
-(solo aplica a personas físicas a nivel Global); y un mecanismo de
-deduplicación por minuto vía restricción de unicidad en `FT_T_RRM1`; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
+SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category`/`Calculate European
+Person Indicator`/`Calculate Other Regulatory Information`/`Calculate_Reporting_Delegation_Model`/`Calculate
+Counterparty type under SFTR`/`Calculate EMIR NFC Sector` del lado Global, `Auxiliary DFA Data Extraction`/
+`Calculate Counterparty type under DFA`/`DFA Type Extraction` del lado Operativo — ver los Anexos de
+§6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando
+`INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión JDBC manual dentro de
+`BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 7 de estos subworkflows (en 2
+de ellos con el mismo `Logger` mal etiquetado, copiado literalmente de un subworkflow distinto); una vía de
+alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14, confirmada ya en el lado EMIR y
+en el lado SFTR; `Calculate_EMIR_Category` como único subworkflow con una condición de entrada previa al gate
+general (solo aplica a personas físicas a nivel Global); un mecanismo de deduplicación por minuto vía
+restricción de unicidad en `FT_T_RRM1`; y una asimetría estructural entre el lado EMIR y el lado SFTR del
+cálculo de tipo de contraparte (`Calculate Counterparty type under SFTR` no tiene gate ni escribe en
+`FT_T_FRA1`, a diferencia de su gemelo EMIR); `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
 corrección sobre la hipótesis previa — no es un `RaiseEvent`, es un `CallSubWorkflow` real que asigna el rol
 "Mandated Account" (`FT_T_FINR`/`FT_T_ENFR`/`FT_T_FRRL`) condicionado a un flag de `FT_T_UTD1`; y
 `PartySetupDifusion` (§6.13septies, confirmado con `.wkf` real) cierra el sexto y último subworkflow: difusión
