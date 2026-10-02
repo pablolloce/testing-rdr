@@ -5,6 +5,9 @@
 > (GAP-EMIS-001 a 004, GAP-EMIS-008), código fuente real de `Cuenta_Emisiones.sh` (GAP-EMIS-006), workflow real
 > `SendMailReport.wkf` + análisis de código real de `GSProcess.sh` (GAP-EMIS-007, reutilizado del análisis de
 > Cesión de Cestas a Abaco).
+> Pasada de cierre 2 (02/10/2026): volcado de la BD de workflows de GoldenSource (repositorio `fileloading`: tabla de
+> eventos y workflows `SelectivePublish`, `Mail`, `SendMailReport` y `Email Exceptions`) y consulta de publicación
+> `RDR_ME_PushSecuritiesByIds`; ver §6.7. **Revisa DEF-EMIS-001 (el correo de la Cadena 1) y desarrolla la Cadena 7.**
 >
 > **Decisión explícita del usuario sobre granularidad:** el documento fuente declara en su propia introducción
 > cubrir solo 4 cadenas ("emisiones vigentes, emisiones vencidas, datos de mercados y publicación selectiva"),
@@ -50,12 +53,12 @@ secciones del documento.
  ENVIO_REPORTE_EMISIONES (GSProcess.sh EnvioReporteEmisiones)
       │  Accion=Evento, tipo Workflow → executeBbvaEvent.sh fileloading SendMailReport ...
       ▼
- Workflow SendMailReport (.wkf real, parámetros CONSTANT hardcodeados — ver DEF-EMIS-001)
+ Workflow SendMailReport (.wkf real, parámetros CONSTANT hardcodeados — ver DEF-EMIS-001, en revisión: el evento SendMailReport arranca el workflow Mail, §6.7)
       │  adjunta Emisiones_Emisores_Por_Destino.csv (contenido correcto, vía parámetro VARIABLE `File`)
       │  asunto real: "Informe diario carga contrapartidas"   (NO "Reporte cuenta Emisiones - Emisores")
       │  nombre adjunto real: "Report.csv"                     (NO Emisiones_Emisores_Por_Destino.csv)
       ▼
- 4 destinatarios: r.plaza.guijarro@, rdr_factory@, cesar.castillo@, miguel.munoz@bbva.com
+ 4 destinatarios: rdr_factory@bbva.com + 3 buzones individuales (omitidos)
 ```
 
 **Paso 1 — `RDR_CUENTA_EMISIONES_IN`.** Dummy, servidor `MERCADOS-4`, usuario `xsramer1`. Arranca a las 23:40
@@ -102,8 +105,10 @@ El Workflow `SendMailReport` real (`.wkf`) tiene `subject` y `attachmentsName[0]
 correo sale literalmente con esos valores, no con "Reporte cuenta Emisiones - Emisores" /
 `Emisiones_Emisores_Por_Destino.csv` que indica la ficha funcional (**DEF-EMIS-001**). El adjunto `attachments[0]`
 sí es correcto (parámetro `VARIABLE`, contenido real de `Emisiones_Emisores_Por_Destino.csv`). Destinatarios
-reales (parámetros `CONSTANT recipients[0..3]`): `r.plaza.guijarro@bbva.com`, `rdr_factory@bbva.com`,
-`cesar.castillo@bbva.com`, `miguel.munoz@bbva.com`; remitente `moca.users.es@bbva.com`.
+reales (parámetros `CONSTANT recipients[0..3]`): `rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas).
+Remitente `moca.users.es@bbva.com`.
+
+**Revisión en la pasada de cierre 2 (§6.7):** en la tabla de eventos de la base de datos de workflows de GoldenSource, el evento `SendMailReport` arranca el workflow `Mail`, no el workflow `SendMailReport` analizado arriba. Mientras no se tenga `EnvioReporteEmisiones.properties` y la definición del evento en producción, **DEF-EMIS-001 no está confirmado** y los destinatarios, el asunto y el adjunto reales son los que fije ese `.properties`.
 
 ### 1.2 Cadenas 2 y 3 — Extracción de emisiones vigentes y vencidas
 
@@ -286,7 +291,7 @@ documenta el valor real de Control-M como el vigente, siguiendo la regla ya apli
       │  GSProcess.sh selectivePublishEmisiones
       ▼
  Workflow RDR_SelectivePublish, filtro IS_PUBLISH
-      │  publica las emisiones marcadas para publicación selectiva — lógica interna caja negra
+      │  publica las emisiones marcadas para publicación selectiva en RDR.SECURITIES.PUBLISH (§6.7)
       ▼
  fin (sin evento de salida ni sucesor documentado)
 ```
@@ -295,8 +300,8 @@ documenta el valor real de Control-M como el vigente, siguiendo la regla ya apli
 `xakytl1p`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`. Arranca directamente por ventana horaria (03:00
 AM, M-S), sin prerrequisito de evento documentado. Comando: `GSProcess.sh selectivePublishEmisiones` →
 `selectivePublishEmisiones.properties` dispara `Accion=Evento` tipo Workflow: `RDR_SelectivePublish`, con filtro
-`IS_PUBLISH` (lógica interna del workflow no documentada, caja negra fuera de alcance). Criticidad **W** (aviso
-día siguiente). Sin On-Do documentado.
+`IS_PUBLISH` (la lógica interna del workflow se describe en §6.7 con el volcado de la BD de workflows). Criticidad **W** (aviso
+día siguiente). Sin On-Do documentado. Como la acción es de tipo Workflow, un fallo del workflow no llega al job (riesgo R14 de la spec común de `GSProcess.sh`, §6.7).
 
 ### 1.7 Independencia entre las 7 cadenas
 
@@ -380,7 +385,7 @@ cierre ni un evento de fin de malla confirmado.
 | 1 | `CUENTA_EMISIONES` | Una fuente (p. ej. RE) no existe (típico sábado) | Sin On-Do documentado; el script trata la ausencia como conteo 0, no como error | Job OK, columnas de esa fuente a 0, resto de columnas correctas |
 | 1 | `CUENTA_EMISIONES` | Ninguna fuente existe | Igual que arriba, generalizado | Job OK, todos los conteos a 0; el correo se envía igual con un reporte "vacío" |
 | 1 | `CUENTA_EMISIONES` | Relanzamiento el mismo día | Sin comprobación de fecha duplicada (RISK-EMIS-001) | Job OK; línea duplicada en ambos CSV acumulativos |
-| 1 | `ENVIO_REPORTE_EMISIONES` | Envío normal | Workflow `SendMailReport` con parámetros `CONSTANT` incorrectos (DEF-EMIS-001) | Job OK; correo real con asunto/adjunto distintos de los documentados |
+| 1 | `ENVIO_REPORTE_EMISIONES` | Envío normal | Workflow `SendMailReport` con parámetros `CONSTANT` incorrectos (DEF-EMIS-001, en revisión: el evento arranca `Mail`, §6.7) | Job OK; correo con el asunto, adjunto y destinatarios que fije la definición real del evento (pendiente de confirmar) |
 | 2 | `RDR_EXTRACCION_EMISIONES` | Fallo real del Planificador Genérico | Sin On-Do documentado | KO real; `RDR_EXTRACCION_EMISIONES_OUT` no se ejecuta esa ventana |
 | 3 | `RDR_EXTRACCION_EMISIONES_VENCIDAS` | Fallo real del Planificador Genérico | Sin On-Do documentado | KO real; cadena detenida ese día |
 | 4 | `GS_FUSION_EMISIONES` | Fallo real del JAR de fusión | Sin On-Do documentado | KO real; sin sucesor que se vea afectado (no hay evento de salida) |
@@ -388,7 +393,7 @@ cierre ni un evento de fin de malla confirmado.
 | 5 | `KYTL_HISTORIFICACION_EMISIONES` | Paso 3 con "error" en el log (exit=0 pero log contiene "error") | Detección por contenido de log, no solo exit code → exit -2 | Pasos 4-5 no se ejecutan; el borrado de >40 días no ocurre ese sábado |
 | 6 | `RDR_MARKETS_EXTRAC_FW` | `dictionaryMarkets.csv` no llega (timeout) | Código 7 → Marcar como OK (soft-failure acotado, GAP-EMIS-008) | Job "OK" visible en Control-M, pero `MEKYTL0857` no se ejecuta y no hay historificación ese día |
 | 6 | `MEKYTL0857` | Fallo real de `RAMERC0068.sh` (p. ej. permisos en `/Backup/`) | Sin On-Do documentado | KO real; el fichero permanece sin historificar en la ruta origen |
-| 7 | `PUBLICACIONSELECTIVA_EMISIONES` | Fallo real del Workflow `RDR_SelectivePublish` | Sin On-Do documentado | KO real; publicación selectiva no ocurre ese día |
+| 7 | `PUBLICACIONSELECTIVA_EMISIONES` | Fallo real del Workflow `RDR_SelectivePublish` | Sin On-Do documentado; `GSProcess.sh` evalúa el código de un `rm -f` posterior y no el del workflow (R14 de la spec común de `GSProcess.sh`) | Job OK aunque el workflow falle; la publicación selectiva no ocurre o queda incompleta y solo se ve en las marcas pendientes de `FT_T_RLT1` (§6.7) |
 
 Todos los KO reales (no soft-failure) generan alerta al grupo ANS RDR (`ans_rdr.es@bbva.com`), criticidad según
 cadena (A, S, C/S o W — ver sección 1.8). Ninguna cadena de este sistema tiene, en la evidencia real disponible,
@@ -411,7 +416,7 @@ más de un código de retorno con soft-failure documentado (la Cadena 6 es la ú
 **Fuera de alcance:** la lógica interna de negocio de los JAR Java (`ProjectMain.jar`, `ProcesoFusion.jar`,
 `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar`, `RDR_Borrado_Emisiones.jar`) — se documenta su
 invocación, parámetros y efecto observable, no su SQL/lógica interna, que es caja negra de la aplicación. La
-lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) más allá de su filtro documentado (`IS_PUBLISH`).
+lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) está descrita en §6.7 (volcado de la BD de workflows); quedan fuera de alcance las marcas que alimentan su entrada y su script `Type of publication`.
 
 ## 3. Requisitos detectados
 
@@ -435,7 +440,7 @@ lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) más allá de su 
 - **GAP-EMIS-003 (programación real `KYTL_HISTORIFICACION_EMISIONES`) — resuelto.** Capturas reales confirman que Control-M programa el job en día `6` (Sábado) exclusivamente, frente a la "periodicidad Diaria (D)" que indica el documento funcional — prevalece la configuración real de Control-M (misma regla ya aplicada en otros procesos de este mismo intake).
 - **GAP-EMIS-004 (evento real `MEKYTL0857`) — resuelto.** Capturas reales confirman `RAMERC0068.sh` con `PARM1=MEKYTL0857` y revelan una anomalía no preguntada: el evento de salida se llama literalmente `RDR_ACK_NACK_BASKETS_MEKYTL0857_OK_new` — nomenclatura "BASKETS" reutilizada de la plantilla de eventos de otra cadena (Cesión de Cestas a Abaco), confirmada real y no un error de transcripción del documento.
 - **GAP-EMIS-006 (duplicidad en `Cuenta_Registros_MMYYYY.csv`) — resuelto con hallazgo de riesgo.** El código real de `Cuenta_Emisiones.sh` confirma que la escritura de la línea diaria (funciones `cuenta()` y `generadestino()`) es un `>>` (append) incondicional sobre la fecha del día, sin comprobar si ya existe una línea con esa fecha; solo se comprueba la existencia del fichero para decidir si escribir la cabecera. Un relanzamiento del job `CUENTA_EMISIONES` el mismo día duplica la línea del día en `Cuenta_Registros_MMYYYY.csv` **y** en `Registros_Por_Destino_MMYYYY.csv` → registrado como **RISK-EMIS-001**.
-- **GAP-EMIS-007 (destinatarios y asunto/adjunto reales del correo) — resuelto con hallazgo de defecto.** El `.wkf` real de `SendMailReport` confirma los 4 destinatarios reales, pero también que el asunto (`"Informe diario carga contrapartidas"`) y el nombre del adjunto (`"Report.csv"`) están hardcodeados como parámetros `CONSTANT` del propio workflow, distintos de lo que documenta la ficha funcional (`"Reporte cuenta Emisiones - Emisores"` / `Emisiones_Emisores_Por_Destino.csv`). El análisis del código real de `GSProcess.sh` (acción tipo Workflow) confirma que no existe ningún mecanismo de invocación capaz de sobrescribir esos parámetros `CONSTANT` — el correo real sale con los valores hardcodeados del workflow → registrado como **DEF-EMIS-001**.
+- **GAP-EMIS-007 (destinatarios y asunto/adjunto reales del correo) — resuelto con hallazgo de defecto.** El `.wkf` real de `SendMailReport` confirma los 4 destinatarios reales, pero también que el asunto (`"Informe diario carga contrapartidas"`) y el nombre del adjunto (`"Report.csv"`) están hardcodeados como parámetros `CONSTANT` del propio workflow, distintos de lo que documenta la ficha funcional (`"Reporte cuenta Emisiones - Emisores"` / `Emisiones_Emisores_Por_Destino.csv`). El análisis del código real de `GSProcess.sh` (acción tipo Workflow) confirma que no existe ningún mecanismo de invocación capaz de sobrescribir esos parámetros `CONSTANT` — el correo real sale con los valores hardcodeados del workflow → registrado como **DEF-EMIS-001**. **Revisado en la pasada de cierre 2 (§6.7):** el evento `SendMailReport` arranca el workflow `Mail` según el volcado de la BD de workflows, de modo que el defecto no está confirmado.
 - **GAP-EMIS-008 (ambigüedad del soft-failure en `RDR_MARKETS_EXTRAC_FW`) — resuelto.** Capturas reales de Acciones Si confirman patrón **acotado** (no genérico): código de retorno = 0 → agrega evento `RDR_MARKETS_EXT_RDR_MARKETS_EXTRAC_FW_OK_new`; código de retorno = 7 → Marcar como OK (mismo patrón de timeout de `ctmfw` ya visto en Cesión de Cestas a Abaco).
 
 > No se usó el identificador GAP-EMIS-005 en ninguna ronda de evidencia de esta especificación.
@@ -449,7 +454,7 @@ lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) más allá de su 
 | P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
 | P-EMI-04 | Columnas y consumidores de `dictionaryMarkets.csv` (y línea `IDX` de `RAMERC0068.sh` para `MEKYTL0857`: ¿mueve o copia el fichero?) | Define el contenido a validar y quién se ve afectado si no se genera |
 | P-EMI-05 | Nombre real del backup de RE: `emisiones_ddmmyyyy.xml.tar.gz` (ficha de `MEKYTL0536`) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh`) | Si difieren, el conteo RE del informe diario sale siempre a 0 sin error |
-| P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` | Hoy son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
+| P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` | **Resuelta en parte (cierre 2, 02/10/2026).** El workflow `RDR_SelectivePublish` (evento -> `SelectivePublish` v13) está analizado en §6.7: qué lee, qué publica y dónde. **Siguen abiertos** los cuatro jars, de los que no hay código. Hoy los jars son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
 
 ## 5. Especificación funcional
 
@@ -579,7 +584,7 @@ cabecera). Un relanzamiento del job el mismo día duplica la línea del día.
 | `subject` | CONSTANT | "Informe diario carga contrapartidas" |
 | `attachmentsName[0]` | CONSTANT | "Report.csv" |
 | `attachments[0]` | VARIABLE | `File` (contenido dinámico, sí correcto) |
-| `recipients[0..3]` | CONSTANT | `r.plaza.guijarro@bbva.com`, `rdr_factory@bbva.com`, `cesar.castillo@bbva.com`, `miguel.munoz@bbva.com` |
+| `recipients[0..3]` | CONSTANT | `rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas) |
 | `from` | CONSTANT | `moca.users.es@bbva.com` |
 
 `GSProcess.sh`, al invocar una acción tipo Workflow, llama a `executeBbvaEvent.sh fileloading $NombreWorkflow
@@ -595,6 +600,33 @@ nombre de adjunto del correo real son los hardcodeados en el `.wkf`, no los docu
 |-----|--------------|---------|
 | `RDR_MARKETS_EXTRAC_FW` (Cadena 6) | **Sí, acotado** | Código de retorno = 7 → Marcar como OK |
 | Resto de jobs OS de las 7 cadenas (`CUENTA_EMISIONES`, `ENVIO_REPORTE_EMISIONES`, `RDR_EXTRACCION_EMISIONES(_VENCIDAS)`, `GS_FUSION_EMISIONES`, `KYTL_HISTORIFICACION_EMISIONES`, `MEKYTL0857`, `PUBLICACIONSELECTIVA_EMISIONES`) | No documentado ni confirmado | Sin evidencia de acción On-Do — se asume que un fallo real detiene el job/la cadena |
+
+### 6.7 Cierre 2 (02/10/2026): volcado de la BD de workflows de GoldenSource
+
+**Procedencia y límite.** Volcado de la BD de workflows de GoldenSource (repositorio `fileloading`: catálogo, nodos, transiciones, parámetros, parámetros de entrada y tabla de eventos; no consta de qué entorno es) y la consulta de publicación `RDR_ME_PushSecuritiesByIds`. Los scripts BeanShell largos son blobs que el volcado no incluye.
+
+**Cómo se llega a un workflow.** `GSProcess.sh` (acción `Evento`, `NomEvento=Workflow`) ejecuta `executeBbvaEvent.sh fileloading <nombre> ...`; `<nombre>` es el nombre de un **evento** de GoldenSource, no el de un workflow, y la tabla de eventos del volcado decide qué workflow arranca. En `GSProcess.sh` esta acción evalúa el código de un `rm -f` posterior y no el del workflow (riesgo R14 de la spec común de `GSProcess.sh`): **un fallo del workflow no hace fallar el job**. Un error duro de una actividad (`haltOnError=true`) deja la instancia detenida en la consola de GoldenSource; allí se puede aplicar la resolución manual `Email` (evento `Email`, workflow `Email Exceptions`, que envía un correo HTML con la lista de problemas).
+
+| Evento | Workflow que arranca (volcado) | Cadena |
+|---|---|---|
+| `SendMailReport` | `Mail` (versión 6, grupo `Custom/RDR/Common`) | 1 (`ENVIO_REPORTE_EMISIONES`) |
+| `RDR_SelectivePublish` | `SelectivePublish` (versión 13, grupo `Custom/RDR/Common`) | 7 |
+
+**Correo de la Cadena 1: revisión de DEF-EMIS-001.** El workflow `SendMailReport` (versión 3, grupo `Custom/RDR/Reports/Load`) es el de los parámetros `CONSTANT` de §6 (asunto, nombre de adjunto, destinatarios y remitente fijos; adjunto en la variable `File`). Pero en el volcado **ningún evento ni workflow lo llama**: el evento `SendMailReport` (descripción "Send a mail with the file Report.csv attachment") arranca el workflow `Mail`. `Mail` no tiene nada fijo: recibe `Destination` (destinatarios separados por `;`), `Subject` y `Mail` (cuerpo) como parámetros de entrada obligatorios y `FileMail` (ruta) y `NameFile` (nombre) del adjunto como opcionales; lee el servidor SMTP y el remitente de `ServerMailConfig.xml` del entorno (con valores de desarrollo si falta), envía por el puerto 25 sin contraseña, adjunta el fichero solo si existe y captura cualquier excepción sin propagarla. Consecuencias, según qué ocurra en producción:
+1. Si el evento arranca `Mail` como en el volcado, el asunto, el cuerpo, los destinatarios y el adjunto los pone `EnvioReporteEmisiones.properties` (que no se tiene) y los datos fijos de §6 no se usan; **DEF-EMIS-001 no existe** o tiene otra forma.
+2. Si ese `.properties` solo trae las claves pensadas para `SendMailReport` (`File`...), faltarían `Destination`, `Subject` y `Mail` y el evento fallaría al arrancar: no saldría ningún correo y el job seguiría en OK (R14).
+3. Si en producción el evento sí arranca `SendMailReport`, §6 es correcto tal cual.
+Se necesita el `.properties` de producción y la definición del evento en producción (hueco H-EMI-11). Hasta entonces, TC-005 sirve para averiguar el correo real, no para confirmar el defecto.
+
+**Workflow `SelectivePublish` (Cadena 7).** Versión 13, `RELEASED`, modificada por `user1` el 03/06/2026, comentario `Decomisar_Diccionario`, `haltOnError=false`; trece versiones desde 2018. Parámetro de entrada opcional `filterName`; la spec de la Cadena 7 dice que `selectivePublishEmisiones.properties` lo fija a `IS_PUBLISH` (el `.properties` no se tiene, H-EMI-05).
+1. **Entrada:** filas pendientes de publicación selectiva de `FT_T_RLT1` (`RLT_DIF_STAT='PENDING'` y `RLT_DIF_ACC='SELPUSH'`): `DATA_SRC_APP` = entidad (`IS_PUBLISH` para emisiones), `GS_FIELD` = tipo de identificador, `GS_VALUE` = identificador, `RLT_PURP_TYP` = acción (`I`, `U`, `D`). Con `filterName='IS_PUBLISH'` solo se leen las de `DATA_SRC_APP='IS_PUBLISH'`; con cualquier otro valor o sin él, todas las pendientes.
+2. **Emisiones (`IS_PUBLISH`):** para cada fila, la acción `I` se publica como `INSERT` y la `U` como `UPDATE` (cabecera `Action` del mensaje); cualquier otra, incluida `D`, no se publica. Lee `ISS_TYP` de `FT_T_ISSU` por `instr_id`, ejecuta la consulta XML `RDR_ME_PushSecuritiesByIds` con `MsgType` = ese tipo, `ReqID` = `0` y el `instr_id`, y envía el XML a la cola EMS `RDR.SECURITIES.PUBLISH` con el workflow común `Sub_SendMessageToEMSQueue`. Escribe una traza cada 100 filas.
+3. **Cierre de la fila:** tras enviarla (o tras descartarla por acción o tipo no válidos) hace `UPDATE FT_T_RLT1 SET LAST_CHG_USR_ID='SELPUSH', RLT_DIF_STAT='OK'` sobre esa fila. Una fila que no llega a marcarse `OK` se vuelve a leer en la ejecución siguiente; no hay reintento propio ni aviso.
+4. **Sin filtro** el workflow publica además otras entidades: acuerdos (`LA_PUBLISH`, cola `RDR.AGREEMENT.PUBLISH`), confirmaciones (`SC_PUBLISH`, cola `RDR.CONFIRMATIONS.PUBLISH`), índices (`IX_PUBLISH`, cola `RDR.INDEX.PUBLISH`), cestas y libros, con las consultas `RDR_PushIndexByIds`, `RDR_PushNettingSetsByMnem`/`ByIds`, `RDR_PushConfirmationsByMnem`/`ByIds`, `RDR_ME_PushSecuritiesBasketsByIds` y `RDR_PushBooksByIds`. Esta cadena, con el filtro, no las toca; qué consulta y qué cola corresponde exactamente a cada entidad no se conoce del todo porque el script `Type of publication` (1.483 bytes) no está en el volcado.
+
+El XML que se publica por emisión (`SecuritiesResp`) lleva `ReqID`, `ReqRslt` y un elemento `Security` con `ID`, `Typ`, `LstChngTm` (la mayor fecha de cambio entre `FT_T_ISID`, `ISGU`, `ISDE`, `MKIS`, `RIDF`, `OPCH`, `SWCH`, `RGCH` e `ISCL`), `Name`, `User`, el bloque `Instrmt` (fuente e identificador preferido, símbolo, estado, descripción, múltiplo, fechas de emisión y vencimiento, país de registro y de emisión, `ToTV` y fechas de primera negociación y vencimiento, tipo de instrumento, CFI, CIC, datos de fondos, warrants y cupón, mercado y divisa) y los datos del emisor (`Finsid`, `LEI`, `BBGCID`, identificador fiscal). Es la misma estructura de registro `<Security>` que cuenta `Cuenta_Emisiones.sh`; no consta que la extracción de `emisiones.xml` emita exactamente estos campos.
+
+**Quién escribe las marcas `SELPUSH`.** Ningún otro workflow del volcado ni `rdrRules.jar` contienen `SELPUSH` ni `IS_PUBLISH`: las marcas que alimentan esta cadena las crea otro componente (hipótesis: las cargas o los jars de fusión de la Cadena 5), no `SelectivePublish`. Si nadie las crea, la cadena termina siempre sin publicar nada y en OK.
 
 ## 7. Especificación de testing
 
@@ -617,7 +649,7 @@ Referencia de casos por tipo:
 |-----------|--------------------|----------------|
 | R1 (Cadena 1, conteo) | TC-001, TC-002, TC-003 | Conteo correcto con todas/algunas/ninguna fuente disponible |
 | R1 (Cadena 1, duplicidad) | TC-004 | Confirma RISK-EMIS-001 (duplicidad por relanzamiento) |
-| R1 (Cadena 1, correo) | TC-005 | Confirma DEF-EMIS-001 (asunto/adjunto reales incorrectos) |
+| R1 (Cadena 1, correo) | TC-005 | Averigua el asunto, adjunto y destinatarios reales del correo y confirma o descarta DEF-EMIS-001 |
 | R2 (Cadena 2) | TC-006, TC-007 | Ejecución ordinaria y las 6 ejecuciones diarias |
 | R2 (Cadena 3) | TC-008 | Ejecución única de emisiones vencidas |
 | R3 (Cadena 4) | TC-009 | Fusión M-S 01:00 OK |
@@ -633,7 +665,7 @@ Referencia de casos por tipo:
    (y, por extensión, en `Emisiones_Emisores_Por_Destino.csv`, que es una copia íntegra del segundo). No hay
    ninguna comprobación de fecha ya existente, solo de existencia del fichero. Riesgo de negocio: el reporte
    mensual acumulativo puede contener conteos duplicados para un mismo día sin ninguna alerta.
-2. **DEF-EMIS-001 — el correo de la Cadena 1 sale con asunto y nombre de adjunto incorrectos.** El Workflow real
+2. **DEF-EMIS-001 — el correo de la Cadena 1 sale con asunto y nombre de adjunto incorrectos (EN REVISIÓN desde la pasada de cierre 2, §6.7: el evento `SendMailReport` arranca el workflow `Mail`, no el `SendMailReport` analizado; no confirmado).** El Workflow real
    `SendMailReport` tiene hardcodeados "Informe diario carga contrapartidas" / "Report.csv" en vez de "Reporte
    cuenta Emisiones - Emisores" / `Emisiones_Emisores_Por_Destino.csv`. Confirmado por deducción del código real
    de `GSProcess.sh`: no existe mecanismo de invocación que sobrescriba esos parámetros `CONSTANT`. Riesgo de
@@ -663,3 +695,5 @@ comportamiento real en el envío de correo (**DEF-EMIS-001**) que el documento f
 configuración real de Control-M (periodicidad de las Cadenas 5 y 6) y una anomalía de nomenclatura de eventos
 entre cadenas (Cadena 6 / Cesión de Cestas a Abaco), sin que ninguna de las dos bloquee el cierre de la
 especificación.
+
+**Pasada de cierre 2 (02/10/2026).** Con el volcado de la BD de workflows de GoldenSource: el workflow de la Cadena 7 queda descrito (§6.7) y el correo de la Cadena 1 pasa a ser un hueco abierto, porque el evento `SendMailReport` arranca el workflow `Mail` y no el que se había analizado (H-EMI-11). Siguen abiertos P-EMI-01 a P-EMI-05, los cuatro jars de P-EMI-06 y los puntos que dependen de Control-M, `.properties` y scripts de producción.

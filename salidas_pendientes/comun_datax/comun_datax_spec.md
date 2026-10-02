@@ -76,19 +76,19 @@ nombre en el directorio de DataX no siempre es el mismo que en la ruta de trabaj
 |---|---|---|---|---|---|---|---|
 | Contrapartidas | `KYTL_RDR_EXTRACTION_CPARTYS.xml` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica` | `KYTL_RDR_EXTRACTION_CPARTYS_AAAAMMDD_1.xml` (`DD_1` = día anterior al envío) | `x_kytlcparties_1` | Solar (xfin) | `ge-sypm@bbva.com` | — |
 | Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | CommSurveillance (EFON) | `fonetic.support@bbva.com` | `MEEFON0104` |
-| Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | Market Abuse EAMC (NOVA) | `virginia.bricio.tech@bbva.com` | — |
+| Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | Market Abuse EAMC (NOVA) | (contacto individual omitido) | — |
 | Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | MSIR | `it_sm_cib_sire.mx@bbva.com` | Transferencia `x_msir_rdr_w_1` (espacio `mx.msir.app-id-945782.pro`) |
 | Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | BSIR | `brt_support@bbva.com` | Transferencia `ctpy_kytl2bsir_0` (espacio `bsir.gl.pro`) |
 | Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | SGDT | — | Transferencias `e_rdr_counterparties_bts_1`, `esgdtno_customer_idrdr_salesforce_transfer_fund_manager_id_1`, `esgdt__no_customer_id_salesforce_transfer_rdr_1`, `esgdt_salesforce_transfer_rdr_1`, `esgdt_subaccounts_salesforce_transfer_rdr_1` |
 | Contrapartidas | ídem | ídem | ídem | `x_kytlcparties_1` | WGTB (GTB Workflow Tool) | `ans.bpm@bbva.com` | Transferencia `kwgtb_counterparties_2` |
-| Contrapartidas mexicanas | `ctpda.csv` | `/fichtemcomp/pr/descargas/kytl/sire_files` | `ctpda.csv` | `x_ctpda_mex_do` | APX R3 | `carlosdavid.reyna.contractor@bbva.com` | — |
+| Contrapartidas mexicanas | `ctpda.csv` | `/fichtemcomp/pr/descargas/kytl/sire_files` | `ctpda.csv` | `x_ctpda_mex_do` | APX R3 | (contacto individual omitido) | — |
 | Contrapartidas (Altamira México) | `RDR_clientesAAAAMMDD.csv` (`AAAAMMDD` = fecha ODATE del planificador) | `/fichtemcomp/pr/descargas/kytl/AltamiraMexico/send` | `RDR_clientesAAAAMMDD.csv` | `x_altamiramexs_1` | TM (MTMH) | `soporte-tm-mexico.group@bbva.com` | `MEKYTL1205` |
 | Emisiones | `emisiones.resto.xml` | `/fichtemcomp/pr/descargas/kytl/issues/ReportingEngine/` | `emisiones.resto.xml` | `x_kytlissuesresto_1` | Solar (xfin) | `ge-sypm@bbva.com` | — |
 | Emisiones | ídem | ídem | ídem | `x_kytlissuesresto_1` | BSIR | `brt_support@bbva.com` | Transferencia `emisiones_kytl2bsir_0` (espacio `bsir.gl.pro`) |
 | Emisiones | ídem | ídem | ídem | `x_kytlissuesresto_1` | TEUB (UBIX) | `ans.ubix.es@bbva.com` | Transferencia `kteub_issues_resto` (espacio `gl.teub.app-id-2403499.pro`) |
 | Emisiones | `emisiones_filter_SHS.xml` | `/fichtemcomp/pr/descargas/kytl/issues/SHS` | `emisiones_filter.xml` | `x_kytlissuesshs_1` | SHS (KSHS) | `shs_tool_development@bbva.com` | — |
 | Cestas | `baskets.xml` | `/fichtemcomp/pr/descargas/kytl/issues/Baskets` | `baskets.xml` | `x_kytlbaskets_1` | Solar (xfin) | `ge-sypm@bbva.com` | — |
-| Cestas | ídem | ídem | ídem | `x_kytlbaskets_1` | XDOS (detección de operaciones sospechosas) | `pedroignacio.ares.tech@bbva.com`, `mv.garcia.espot@bbva.com` | — |
+| Cestas | ídem | ídem | ídem | `x_kytlbaskets_1` | XDOS (detección de operaciones sospechosas) | (contacto individual omitido), (contacto individual omitido) | — |
 | Contactos | `DominiosContactosRDR.csv` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/` | `DominiosContactosRDR.csv` | `x_kytlextracciondominios_1` | BPS & Fraud | `cib_fraud_domains@bbva.com` | — |
 | Contactos | `ExtraccionContingenciaCONT.xml` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/CONT/` | `ExtraccionContingenciaCONT.xml` | `x_kytlcontacts_1` | IHS Markit | `soporte.markit.reporting.es@bbva.com` | — |
 | Productos, calendarios, índices y day basis | `ExtraccionDUCOMASTERDATA.csv` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOMASTERDATA` | `ExtraccionDUCOMASTERDATA.csv` | `x_kytlProdCalIndDaysBasis_1` | DUCO | `duco.onsite@bbva.com` | `MEKYTL1299` |
@@ -104,7 +104,7 @@ Ficheros que otros sistemas dejan en `/unload/kytl/datent/datax`.
 | Contrapartidas (Altamira México) | `Altamira_concilAAAAMMDD.csv` (fecha ODATE) | `/fichtemcomp/pr/descargas/kytl/AltamiraMexico/receive` | `Altamira_concilAAAAMMDD.csv` | `x_altamiramexr_1` | TM | `soporte-tm-mexico.group@bbva.com` | `MEKYTL1219` |
 | Contrapartidas | `CatalogValuesTaxonomy_{gf_cutoff_date}.csv` | `/fichtemcomp/pr/descargas/kytl/T1_CatalogValuesTaxonomy` | `CatalogValuesTaxonom.csv` (así, truncado, en la wiki) | `kcatalogvaluestaxonomy_1` | Taxonomy | `ans_globaldatahub@bbva.com` | `MEKYTL1273` / `MEKYTL1281` |
 | Contrapartidas | `RelValuesTaxonomy_{gf_cutoff_date}.csv` | `/fichtemcomp/pr/descargas/kytl/T2_RelValuesTaxonomy/` | `RelValuesTaxonomy.csv` | `krelvaluestaxonomy_1` | Taxonomy | `ans_globaldatahub@bbva.com` | `MEKYTL1274` / `MEKYTL1282` |
-| Contrapartidas | `IssuersIssuesCustomer_{gf_cutoff_date}.csv` | `/fichtemcomp/pr/descargas/kytl/T3_IssuersIssuesCustomer/` | `IssuersIssuesCustomer.csv` | `ekytl_ada_saatransfer_1` | Sectorización ADA | `mario.siu.burillo@bbva.com`, `eukene.azpitarte.contractor@bbva.com`, `franco.hidalgo@bbva.com` | `MEKYTL1275` / `MEKYTL1283` |
+| Contrapartidas | `IssuersIssuesCustomer_{gf_cutoff_date}.csv` | `/fichtemcomp/pr/descargas/kytl/T3_IssuersIssuesCustomer/` | `IssuersIssuesCustomer.csv` | `ekytl_ada_saatransfer_1` | Sectorización ADA | (contacto individual omitido), (contacto individual omitido), (contacto individual omitido) | `MEKYTL1275` / `MEKYTL1283` |
 
 ## 6. El inventario no es completo
 

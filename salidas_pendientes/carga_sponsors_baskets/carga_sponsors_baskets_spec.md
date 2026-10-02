@@ -11,6 +11,11 @@
 > `RDR_HIST_BASKETS_SPONSORS_IN`), un extracto real de `FT_T_ISST` y el documento original de
 > análisis. En total, 25 ficheros de evidencia; lo que contienen se transcribe en esta spec.
 >
+> Pasada de cierre 2 (02/10/2026): reconstrucción completa de los parámetros multilínea de los workflows del volcado de la base de datos de
+> GoldenSource (`fileloading`: `Load_Baskets_Sponsors`, `Auto_Load_Basket_Sponsors`, `Reload_Baskets_Sponsors`, `Reload_Baskets_Sponsors_Email`,
+> `Sub_PublishBasket`, `Standard File Load`, `Mail`, `AlertasEnvioExcepciones`) comparados con los `.wkf` de las fuentes (mismas versiones), y los
+> scripts embebidos de `Load_Baskets_Sponsors.wkf`; §6.5.
+>
 > **Estado: lógica de las 3 cadenas confirmada con evidencia real; quedan preguntas abiertas P-SPBK-01 a
 > P-SPBK-09 (sección 4)**, entre ellas el contenido de las filas de `FT_T_PAR1` que gobiernan qué ficheros se
 > cargan, las líneas de configuración de `RAMERC0068.sh` de la Cadena 2 y quién consume las alertas. Además hay
@@ -146,7 +151,7 @@ transcribe en las secciones 5 y 6.
 | P-SPBK-06 | **Resuelta.** Según la tabla de eventos de la base de datos de workflows de GoldenSource (volcado `fileloading`): el evento `AutoLoadBasketSponsors` ejecuta el workflow `Auto_Load_Basket_Sponsors`; `RDR_CargaBasketSponsor` ejecuta `Load_Baskets_Sponsors`; `Reload_Baskets_Sponsors_Email` ejecuta el workflow del mismo nombre, y existen además `Reload_Baskets_Sponsors`, `RDR_LoadBasketsAdHoc` (`Load_Baskets_AdHoc`), `RDR_ReceiveBasketsMx3` (`Load_Baskets_Mx3`) y `Configure_Basket_Sponsor`. Los workflows analizados son los que se ejecutan. Pregunta original: nombres con los que están registrados (`AutoLoadBasketSponsors` frente a `Auto_Load_Basket_Sponsors.wkf`; `RDR_CargaBasketSponsor` frente a `Load_Baskets_Sponsors.wkf`). | Confirma que los workflows analizados son los que realmente se ejecutan. |
 | P-SPBK-07 | `AutoLoadBasketSponsors.properties` se recibió con `environment=ei` (integración). ¿Qué valor lleva en producción y cómo se sustituye? (pregunta común P-GSP-01 de `GSProcess.sh`). | Un valor erróneo apuntaría a otro entorno. |
 | P-SPBK-08 | Significado de `L`/`T` en la sintaxis `<código>@L`/`<código>@T` de `RDR_SponsorSplit.sh`, y alcance real de `RDR_CargaBasketSponsorTotal.sh` (¿hay herramientas equivalentes para `Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`? ¿quién las ejecuta?). | Para saber cómo se recarga a mano cada sponsor. |
-| P-SPBK-09 | ¿Quién y con qué procedimiento ejecuta la recarga manual (`RELOAD_BASKETS_SPONSORS`)? ¿Qué usuario ejecuta `MEKYTL1176` (su ficha no lo indica)? | Responsable operativo de la recarga y de la cesión manual. |
+| P-SPBK-09 | **Resuelta en parte (cierre 2, 02/10/2026):** el procedimiento técnico es el evento `Reload_Baskets_Sponsors` (workflow del mismo nombre, entrada `basketId`; §6.5) y ningún workflow ni job de Control-M lo lanza, de modo que lo lanza una persona o una pantalla; **sigue abierto** quién lo ejecuta y qué usuario ejecuta `MEKYTL1176` (su ficha no lo indica). Pregunta original: ¿Quién y con qué procedimiento ejecuta la recarga manual (`RELOAD_BASKETS_SPONSORS`)? ¿Qué usuario ejecuta `MEKYTL1176`? | Responsable operativo de la recarga y de la cesión manual. |
 
 ---
 
@@ -364,7 +369,7 @@ Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de
    bcp1 componentes`) de componentes de la cesta, con un paso previo `Cesta Grande?` que, si el fichero XML
    tiene **más de 400 componentes**, lo procesa por una ruta separada de fichero troceado
    (`fileSplittedPath`, con `SuccessAction=DELETE` y una limpieza posterior de ficheros temporales) en vez
-   de la ruta directa (`Ruta`, `SuccessAction=LEAVE`) — ambas rutas confluyen en el mismo paso `Carga MDX`
+   de la ruta directa (`Ruta`, `SuccessAction=LEAVE`) (las órdenes literales de la ruta troceada están en §6.5) — ambas rutas confluyen en el mismo paso `Carga MDX`
    (una llamada a sub-workflow con `BusinessFeed=Load_Baskets_Sponsors`, es decir, el motor de carga real se
    invoca a sí mismo como mecanismo de commit final).
 5. La publicación real de la cesta se delega a un sub-workflow `Sub_PublishBasket` (`publishAction=UPDATE`);
@@ -428,7 +433,7 @@ Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de
      Esta rama solo se activa si alguien invoca el workflow fijando `proceso='RELOAD_BASKETS_SPONSORS'`
      explícitamente, fuera del pipeline automático — coherente con una acción manual desde la consola de
      administración GoldenSource (herramienta de soporte de 2º nivel para recargar un único índice bajo
-     demanda). La identidad de quién la ejecuta en la práctica es un dato operativo/de personas, no técnico.
+     demanda). La identidad de quién la ejecuta en la práctica es un dato operativo/de personas, no técnico. **Cierre 2:** el workflow que fija `proceso='RELOAD_BASKETS_SPONSORS'` es `Reload_Baskets_Sponsors` (§6.5).
 
 ### 6.3 Cadena 2 — `RDR_HIST_BASKETS_SPONSORS` (11 pasos: 1 Dummy cabecera + 9 Job reales + 1 Dummy)
 
@@ -466,6 +471,30 @@ fichas). Folder completo: `DATACENTER=MERCADOS-4`, método de ejecución `PLAN_1
 
 Criticidad W, 05:00 AM L-M-X-J-V, confirmado al 100% con ficha real, sin discrepancias con el documento
 original.
+
+### 6.5 Cierre 2 (02/10/2026): volcado de la base de datos de workflows de GoldenSource
+
+**Procedencia y límite.** Los tres workflows de carga del volcado (`Load_Baskets_Sponsors` v22, `Auto_Load_Basket_Sponsors` v7 y `Reload_Baskets_Sponsors_Email` v5) son los mismos que los `.wkf` de las fuentes: mismos comentarios de versión y mismo texto en todas las consultas y scripts que el volcado deja ver (los scripts largos son blobs que el volcado no incluye; en los `.wkf` sí están). Por tanto, la lógica descrita en §6.2 es la registrada como última versión.
+
+**Estructura del XML de formato único que lee `Load_Baskets_Sponsors`** (diccionario deducido de los `XPath` y los scripts del workflow; lo produce `RDR_FormatoUnicoBaskets.jar`, que no se ha recibido, H-SPBK-01):
+- Cabecera de la cesta, en `/Baskets/Index/`: `INDEX_IDENTIFIER` (código propio, identificador `INHOUSE`), `INDEX_ISIN`, `INDEX_TICKER`, `INDEX_RIC` e `INDEX_CURRENCY` (si tiene valor, el workflow comprueba que la cesta tenga esa divisa en alguno de sus mercados, con el error `La cesta ... no tiene la divisa ... en ninguno de sus mercados`; si viene vacío, no hace esa comprobación).
+- Componentes, en `/Baskets/Index/Components/Component`: `CURRENCY`, `INSTRUMENT_NAME` y un identificador principal que depende del sponsor: `ISIN` para `BME`, `Euronext`, `MSCI`, `SP_DJ`, `STOXX_DAX` y `MANUAL`; `SEDOL` para `FTSE`; `RIC` para `Solactive` y `STOXX`. Con identificador `ISIN`, el mercado es `COMPONENT_MIC` (si falta, el componente da el error `El fichero de entrada no tiene mercado informado para el ISIN`) y, solo para `STOXX_DAX`, `EXCHANGE`, que el workflow traduce a mercado de RDR. Un componente sin su identificador principal da `El fichero de entrada tiene un componente sin <identificador>`.
+- Antes de cargar valida el XML contra el esquema `db://resource/RDR/xml/SecurityMessages/Baskets/BasketsSponsorsFormatoUnico.xsd`. Es un recurso de la base de datos de GoldenSource (663 bytes, 18/11/2023); el volcado solo trae su inventario, no su contenido (H-SPBK-09). Un error de lectura o de validación acaba en `ERROR TÉCNICO RDR` y no se intenta cargar nada.
+
+**Ruta de cesta grande (más de 400 componentes), órdenes literales** (script `Generar comandos XSLT`, ejecutadas con `CommandLine`, esperando el final, con `killTimeout=300` s; `<env>` se saca del segundo segmento de la ruta del XML):
+1. `java -cp /<env>/kytl/online/multipais/multicanal/jar/Transformar_XML.jar ppal.Transformar <XML> /<env>/kytl/online/multipais/multicanal/dat/properties/baskets_sponsor_split_1.xsl <XML sin extensión>_dupli.xml 3 /<env>/.../dat/properties/log4jBaskets_Split.properties`
+2. La misma orden con `baskets_sponsor_split_2.xsl`, de `_dupli.xml` a `_splitted.xml`.
+3. `sed -i 's/<\/Baskets>/&\n/g;s/<Baskets_Split>//g;s/<\/Baskets_Split>//g' <XML>_splitted.xml`: quita el elemento envolvente `Baskets_Split` y pone un salto de línea tras cada `</Baskets>`, es decir, deja el fichero troceado en varios documentos `<Baskets>`, uno por línea, que el feed `XmlSplitterUTF8` trata como mensajes independientes.
+4. `Carga MDX` sobre `_splitted.xml` con `ParallelBranches=1` y `SuccessAction=DELETE` (la ruta directa usa el XML original con `LEAVE`); después borra `_dupli.xml` (esperando) y `_splitted.xml` (sin esperar).
+El workflow no comprueba el código de salida de los pasos 1 a 3: si `Transformar_XML.jar` falla, el fichero troceado queda vacío o incompleto y el fallo solo se verá porque `Get errors NTEL` encuentre notificaciones del job de carga o porque no haya componentes. Qué hace cada hoja XSL (`_1` genera un fichero duplicado, `_2` el troceado) y el significado del argumento `3` (probablemente el nivel de log) no se pueden saber sin el contenido de las hojas y del jar (H-SPBK-07 y H-SPBK-08).
+
+**Publicación de la cesta (`Sub_PublishBasket`).** La consulta con nombre `RDR_ME_PushSecuritiesBasketsByIds` que ejecuta no está en el volcado de consultas (solo figuran `RDR_ME_PushSecuritiesByIds` y `RDR_PushSecurityByIds`); la más parecida, `RDR_ME_PushSecuritiesByIds`, genera el XML `SecuritiesResp` con un elemento `Security` por emisión. El mismo nombre lo usa `SelectivePublish` (tipo de publicación `BA`, cestas).
+
+**Recarga manual: workflow `Reload_Baskets_Sponsors`** (versión 3, `RELEASED`, 05/11/2022, comentario `AOS_RELOAD_v6`; evento del mismo nombre). Recibe `basketId`; consulta en `FT_T_ISST`, para esa cesta, `B_SOPENF` (ruta del último fichero procesado) y `B_OPNRES` (resultado de esa carga); lanza el evento `RDR_CargaBasketSponsor` con `Ruta` = la ruta guardada y `proceso='RELOAD_BASKETS_SPONSORS'`; y devuelve `OUTPUT` = `<STATUS_SPONSOR>Sponsor file reload process started</STATUS_SPONSOR>`, la convención de los workflows lanzados desde una pantalla. No espera a la carga ni mira `B_OPNRES`. Ningún workflow del volcado lanza este evento, y tampoco hay ningún job de Control-M documentado que lo haga: lo lanza una persona o una aplicación externa. Si `B_SOPENF` no existe para la cesta (nunca cargada), la consulta no devuelve filas y el nodo tiene una única transición, de modo que el evento se lanza igualmente sin `Ruta`.
+
+**Alertas.** `TABLEALERTGENER` y `FT_T_ALG1` son la misma tabla para los workflows (el nodo `Insert ALG1` escribe en ella y `Reload_Baskets_Sponsors_Email` y `AlertasEnvioExcepciones` leen esas filas en `FT_T_ALG1`). El Barrido (`Ppal`, rama de Eduardo) lee `FT_T_TPG1` y no interviene; el literal `AlertasBarrido.jar` de `LAST_CHG_USR_ID` es solo texto.
+
+**Motor `Standard File Load` y mapping.** El feed `Load_Baskets_Sponsors` es de tipo `XmlSplitterUTF8` (un elemento XML por mensaje, en UTF-8), con tipo de mensaje del mismo nombre y mapping `db://resource/RDR/mapping/baskets/baskets_sponsors.mdx` (6.018 bytes, modificado el 13/12/2025). El volcado solo inventaría ese recurso: qué tablas y columnas escribe la carga real de componentes no se puede ver (H-SPBK-10). Tras la traducción se ejecutan las reglas de negocio de `rdrRules.jar` según el modelo del mensaje; para el modelo de cestas (`ISSU_BSK`) existen `GenerateBasketId` (asigna el identificador de la cesta), `RegulationSecurityLabelBaskets` (reapunta cestas a emisiones nuevas) y `ControlBaskets` (avisa al inactivar una emisión que forma parte de una cesta), pero el volcado no dice qué modelo usa el mapping de sponsors. `Standard File Load` no se detiene por un componente rechazado: queda como notificación en `FT_T_NTEL` y es `Get errors NTEL` (§6.2) quien la recoge.
 
 ## 7. Especificación de testing
 
@@ -569,3 +598,5 @@ automática nunca la dispara. Los elementos sin material propio (contenido inter
 literal de un `.properties`, el origen técnico de los ficheros de proveedor, y las cifras de impacto
 downstream) quedan explícitamente listados en §9.2 y §4 como fuera de alcance, sin que ninguno de ellos impida
 ejecutar la matriz de pruebas definida en `carga_sponsors_baskets_casos_prueba.xml`.
+
+**Pasada de cierre 2 (02/10/2026).** Con la base de datos de workflows de GoldenSource completa (parámetros multilínea reconstruidos) y los scripts embebidos de `Load_Baskets_Sponsors.wkf`: se documentan el diccionario del XML de formato único, las órdenes literales de la ruta de cesta grande (`Transformar_XML.jar` y las dos hojas XSL), el workflow `Reload_Baskets_Sponsors` que lanza la recarga manual y el mapping del feed (§6.5). Siguen abiertos los contenidos que el volcado solo inventaría o no incluye: los jars `RDR_FormatoUnicoBaskets.jar` y `Transformar_XML.jar`, las hojas XSL, el XSD y el mapping `baskets_sponsors.mdx`, además de los datos de producción (`FT_T_PAR1`, IDX, Control-M, `.properties`).

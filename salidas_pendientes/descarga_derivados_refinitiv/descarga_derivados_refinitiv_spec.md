@@ -13,7 +13,10 @@
 > **hipótesis del documento fuente, no como hechos verificados de forma independiente**). Posteriormente se
 > incorporaron, en rondas sucesivas, el código Java real del jar, los 3 workflows y los 3 `.properties` de los
 > jobs GSProcess, una muestra real de 2 ficheros de carga y una línea sintética de swap; todo ello está
-> resumido en esta especificación.
+> resumido en esta especificación. Pasada de cierre 2 (02/10/2026): volcado de la BD de workflows de GoldenSource
+> (repositorio `fileloading`: `Refinitiv_Request_Response`, `Load_Refinitiv_Response`, `AltaRolEmisor`, `Standard File Load`,
+> `Carga_Listed_MIC`, `AlertasEnvio`, `AlertasEnvioExcepciones`, eventos y parámetros de entrada) y código Java de las
+> clases de alertas `Ppal` (Barrido y Cocinado), `ReportesRDR` y `ReporteRDR` (rama de Eduardo); §6.7.
 >
 > **Estado:** topología de las 2 cadenas (7 jobs cada una), el pipeline interno de 5 pasos del script de carga,
 > y el catálogo de 20 tablas Oracle (grupos A-D) con sus columnas confirmados con alta confianza (bytecode JPA
@@ -54,8 +57,8 @@ ANS RDR.
 * **Ámbito técnico:** las 2 cadenas Control-M completas (`KYTL001D...`/`KYTL001P...`, 7 pasos cada una), el
   script `Refinitiv_Derivados_Batch.sh` y el jar `refinitivDerivativesLoader.jar`.
 * **Fuera de alcance** (detalle completo en §9.2): la generación del fichero en la plataforma Refinitiv
-  (proveedor externo); el consumidor real del mensaje JMS `AltaRolEmisor` que inserta en `FT_T_FINR` (el
-  disparo y el payload sí están confirmados — ver §6.3); el algoritmo interno del servicio externo OpenFigi.
+  (proveedor externo); los `INSERT` concretos de `AltaRolEmisor` en `FT_T_FINR` (los construyen scripts BeanShell que el volcado
+  de la BD de workflows no incluye; el workflow sí está analizado — ver §6.7); el algoritmo interno del servicio externo OpenFigi.
   La atribución de las 5 tablas del Grupo E, el contenido de toda la cadena de workflows de los jobs 5/6, y
   el mapeo campo a campo de Emisores/Subyacentes/Derivados (incluidas las tablas satélite del Grupo C) quedan
   resueltos esta ronda (ver §6.2/§6.3/§6.6).
@@ -92,12 +95,12 @@ ANS RDR.
 |---|---|---|
 | P-DDR-01 | ¿Qué script y qué lógica ejecuta el job 1 (`MEKYTL1080_RECOGE` / `MEKYTL1081_RECOGE`)? El diagrama del documento fuente dice `LPFTPEXCA0004`; su tabla dice "sin .sh propio". ¿Qué código de salida da si no hay fichero en Refinitiv? ¿Descarga todos los ficheros que casan el patrón o solo uno? | Sin esto no se sabe si la ausencia del fichero se detecta en el job 1 o solo en el 4, ni qué hacer ante un fallo SFTP |
 | P-DDR-02 | Línea de configuración (`.idx`) de las claves `MEKYTL1080`/`MEKYTL1081` de `MEGENV0001.sh` y sus códigos de salida | Define el origen exacto y qué hace el job 2 si no hay fichero |
-| P-DDR-03 | Los workflows de los jobs 5/6 insertan alertas con `PROCESO='PETICION_REFINITIV_EMISIONES'`, pero el job 7 solo procesa `DERIVADOS_REFINITIV`. ¿Qué job/proceso envía las de `PETICION_REFINITIV_EMISIONES` desde esta cadena? Además, ¿en qué tabla/código de proceso escribe `ExceptionService` del jar (clase no recibida)? | Si el código no coincide, las alertas de error de los jobs 5/6 y del jar podrían no llegar nunca a nadie por esta cadena |
+| P-DDR-03 | Los workflows de los jobs 5/6 insertan alertas con `PROCESO='PETICION_REFINITIV_EMISIONES'`, pero el job 7 solo procesa `DERIVADOS_REFINITIV`. ¿Qué job/proceso envía las de `PETICION_REFINITIV_EMISIONES` desde esta cadena? Además, ¿en qué tabla/código de proceso escribe `ExceptionService` del jar (clase no recibida)? | Si el código no coincide, las alertas de error de los jobs 5/6 y del jar podrían no llegar nunca a nadie por esta cadena **Resuelta en parte (cierre 2, 02/10/2026):** `TABLEALERTGENER` no es una tabla aparte, sino la propia `FT_T_ALG1` (el `Insert ALG1` de los workflows escribe en ella y `Reload_Baskets_Sponsors_Email` y `AlertasEnvioExcepciones` leen esas mismas filas en `FT_T_ALG1`; §6.7). El Barrido no interviene (lee `FT_T_TPG1`). Las filas `PETICION_REFINITIV_EMISIONES` (`TIPO='CELDAEXCEL'`, `PROCESADO='N'`) las recoge el Cocinado cuando se ejecuta para ese proceso o para todos (`PROCESOS`) y exige un informe activo en `FT_T_REP1`; el job 7 de esta cadena solo lo ejecuta para `DERIVADOS_REFINITIV`. **Sigue abierto** qué job lo lanza para `PETICION_REFINITIV_EMISIONES` y dónde escribe `ExceptionService` (clase no recibida). |
 | P-DDR-04 | Definición Control-M exacta de las 2 cadenas: condiciones de entrada/salida, reintentos, si hay regla de aceptación de códigos de salida (p. ej. si el job 3 se pone en verde cuando `rm` no encuentra fichero), calendario real de `KYTL001P` y quién la lanza | Determina qué fallo detiene la cadena y cuál se ignora |
 | P-DDR-05 | Código fuente completo de `Refinitiv_Derivados_Batch.sh` (la fuente solo trae su descripción): carpeta donde deja `Emisores*`/`Subyacentes*`/`Derivados_Enriquecido*`, qué hace con los `.zip` ya procesados, retención/purga de `old/` y de `lake/` | Permite saber qué queda en disco y si crece sin límite |
 | P-DDR-06 | El `.properties` de alertas aportado tiene rutas de integración (`/fichtemcomp/ei/...`). ¿Cómo llega el entorno correcto (`pr`) en producción (`$ENV` / sustitución)? | Si no se sustituye, el job 7 podría apuntar a rutas de otro entorno (relacionado con P-GSP-01 de `comun_gsprocess`) |
 | P-DDR-07 | Decisión: ¿se corrige el defecto de `setVreqStatus()` (marca `PROCESSED` sin comprobar las cargas)? ¿Hay un control manual hoy? | Es un falso positivo funcional confirmado por código |
-| P-DDR-08 | **Resuelta en parte.** Ya hay una muestra real de `Emisores*.txt` con altas (`Emisores_20220330_162424.txt`, de un lote de marzo de 2022): contiene una única línea, `28311` + salto de línea, sin cabecera, sin `\|` y sin espacios, es decir un `orgId` numérico por línea, tal como lo lee `IssuersService` (§6.6). **Sigue abierto** el servicio consumidor del mensaje JMS `AltaRolEmisor` | Cierra el punto no verificado del alta de rol `ISSUER` |
+| P-DDR-08 | **Resuelta en parte.** Ya hay una muestra real de `Emisores*.txt` con altas (`Emisores_20220330_162424.txt`, de un lote de marzo de 2022): contiene una única línea, `28311` + salto de línea, sin cabecera, sin `\|` y sin espacios, es decir un `orgId` numérico por línea, tal como lo lee `IssuersService` (§6.6). **Cierre 2 (02/10/2026): el consumidor es el propio workflow `AltaRolEmisor`**, que `Refinitiv_Bloomberg_AltaRolEmisor` llama como sub-workflow síncrono con el XML en la variable `JMSTextMessage` (no se publica ningún mensaje JMS; §6.7). **Sigue abierto** el texto de los `INSERT` de rol `ISSUER` (scripts BeanShell `Acciones Issuer`, `query STARMADRID` y `query ORGID`, no incluidos en el volcado) | Cierra el punto no verificado del alta de rol `ISSUER` |
 
 ## 5. Especificación funcional
 
@@ -291,10 +294,11 @@ en `old/`.
       `FINS_ID` de cada entidad recibida (por `LEI`, con lógica de resolución de grupo/matriz vía
       `FT_T_FIRL` si el LEI es compartido por varias entidades), comprueba si ya tiene rol `ISSUER` activo en
       `FT_T_FINR` (join con `FT_T_FIID`) y, si no, construye un XML `PtyDetlListUpd`/`RolDetl` (rol
-      `CPARTY`, `ORG_ID`+`LEIID`) y lo envía vía el sub-workflow `AltaRolEmisor` (mensaje JMS) — **este es el
-      punto de alta real del rol `ISSUER` en `FT_T_FINR`**, confirmado por el payload XML y la condición de
-      guarda (`Issuer Exist?`), aunque el `INSERT` SQL final ocurre en el consumidor de ese mensaje (fuera de
-      alcance, ver §9.2).
+      `CPARTY`, `ORG_ID`+`LEIID`) y lo envía al sub-workflow `AltaRolEmisor` (llamada síncrona con el XML en la variable `JMSTextMessage`, no
+      un mensaje JMS publicado; cierre 2, §6.7) — **este es el punto de alta real del rol `ISSUER` en
+      `FT_T_FINR`**, confirmado por el payload XML y la condición de guarda (`Issuer Exist?`); los `INSERT` los
+      ejecuta el propio `AltaRolEmisor`, con sentencias que construyen scripts BeanShell no incluidos en el volcado
+      (§6.7).
     - **`FT_T_FIRL` — de solo lectura**, usada en `Refinitiv_Bloomberg_AltaRolEmisor.wkf` para resolver la
       entidad "operativa" (no subsidiaria) cuando un mismo `LEI` identifica a un grupo/matriz (2 saltos de
       join sobre `FT_T_FIRL`, filtrando `subsidiary_ind='N'`) — nunca se escribe.
@@ -305,8 +309,8 @@ en `old/`.
     - **`FT_T_FRID`/`FT_T_REP1` — sin ninguna referencia** (ni lectura ni escritura) en ningún código ni
       workflow inspeccionado en todo este proceso.
     **Conclusión:** de las 5 tablas del Grupo E, 1 (`FT_T_FINR`) sí se escribe — pero por un mecanismo externo
-    al jar `refinitivDerivativesLoader.jar` (el workflow `Refinitiv_Bloomberg_AltaRolEmisor` vía mensajería
-    JMS/ESB), no por el código Java de carga. Las otras 4 no tienen ninguna escritura confirmada en todo el
+    al jar `refinitivDerivativesLoader.jar` (el workflow `Refinitiv_Bloomberg_AltaRolEmisor` mediante el
+    sub-workflow `AltaRolEmisor`), no por el código Java de carga. Las otras 4 no tienen ninguna escritura confirmada en todo el
     código y los workflows inspeccionados — ver TC-015.
 
 ### 6.3 Jobs 5 y 6 (enriquecimiento) — `.properties` + workflow `Refinitiv_Request_Response.wkf` reales, refutan la descripción del documento fuente
@@ -337,7 +341,9 @@ idéntica entre ambos salvo 3 valores: un bloque `Accion=VariablesGlobales` segu
   es decir, **sí llegarían al workflow `Refinitiv_Request_Response`, pero por un efecto colateral de los
   arrays no limpiados, no por un mecanismo explícito del script para campos personalizados**. El campo `id`
   (índice 1) no sobrevive, porque el bloque `Evento` sí sobrescribe ese índice con `NomWorkflow` — posible
-  parámetro perdido, no confirmado si tiene efecto real (ver TC-017).
+  parámetro perdido, no confirmado si tiene efecto real (ver TC-017). **Corregido en la pasada de cierre 2 (§6.7):** esa
+  deducción no hace falta, porque a `executeBbvaEvent.sh` se le pasa el `.properties` original completo y el
+  workflow declara `id`, `idType`, `requestType` y `vreqOid` como parámetros de entrada obligatorios.
 
 **[CONFIRMADO esta ronda (2026-10-01) con el workflow real `Refinitiv_Request_Response.wkf`, aportado por el
 usuario]** — refuta por completo la descripción del documento fuente ("enriquece datos ya cargados por el
@@ -413,18 +419,18 @@ Load"** (el mismo patrón `CallSubWorkflow` reutilizado en todo este audit), no 
    ningún rol de emisor para esa línea** — es un diseño confirmado, no un defecto: una ETF gestionada por un
    fondo no recibe alta de rol `ISSUER` por esta vía. En caso contrario, comprueba si el `FINS_ID` ya tiene un
    rol `ISSUER` activo en `FT_T_FINR` (join con `FT_T_FIID`); si no lo tiene, construye un XML
-   `PtyDetlListUpd`/`PtyDetlUpd`/`RolDetl` (rol `CPARTY`, `AltPty` con `ORG_ID` y `LEIID`) y lo envía como
-   mensaje JMS al sub-workflow `AltaRolEmisor` — **este es el punto de alta real del rol `ISSUER` en
-   `FT_T_FINR`** (ver §6.2 Grupo E), aunque el `INSERT` SQL final lo ejecuta el consumidor de ese mensaje
-   (fuera de alcance, ver §9.2).
+   `PtyDetlListUpd`/`PtyDetlUpd`/`RolDetl` (rol `CPARTY`, `AltPty` con `ORG_ID` y `LEIID`) y lo envía al
+   sub-workflow `AltaRolEmisor` (llamada síncrona, no mensaje JMS publicado; §6.7) — **este es el punto de alta real del
+   rol `ISSUER` en `FT_T_FINR`** (ver §6.2 Grupo E); los `INSERT` los ejecuta el propio `AltaRolEmisor`.
 4. Tras la carga, comprueba `FT_T_NTEL` (vía `FT_T_TRID`/`job_id`) por mensajes con `MSG_SEVERITY_CDE > 20`:
    si los hay, inserta una alerta en `TABLEALERTGENER` (`PROCESO='PETICION_REFINITIV_EMISIONES'`) y marca
    `FT_T_VREQ` `FAILED` con "Load failed" — mismo mecanismo de alerta ya confirmado en el propio
    `Refinitiv_Request_Response.wkf` (§6.3 arriba) para el resto de errores de esta cadena.
 5. Si no hay errores graves y la rama es `issueRequest`, cruza `FT_T_RLT1`
    (`RLT_PURP_TYP='LISTED_MIC'`,`DATA_SRC_APP='RFNT_ISSUE_REQUEST'`, por `job_id`) con el mapa de MIC en
-   memoria para generar un segundo fichero (`CargaListedMIC_<timestamp>.xml`), cargado a su vez por otro
-   sub-workflow genérico (`Carga_Listed_MIC`) que asocia los mercados (MIC) a las emisiones recién creadas.
+   memoria para generar un segundo fichero (`CargaListedMIC_<timestamp>.xml`), cargado a su vez por el
+   motor `Standard File Load` con el feed `Carga_Listed_MIC`, que asocia los mercados (MIC) a las emisiones recién
+   creadas (el workflow que se llama igual lo usa `Bloomberg_Response`, no esta cadena; §6.7).
 6. Marca `FT_T_VREQ` `PROCESSED` — **salvo que el flag `IS_EXTF`** (confirmado arriba: al menos 1 entidad del
    lote es una ETF gestionada por un fondo) **sea `"Y"`**, en cuyo caso este cierre final se omite
    deliberadamente — la solicitud queda sin marcar como completada mientras el lote incluya un caso de este
@@ -475,8 +481,7 @@ Envío (workflow `RDR_AlertasEnvio`) comprueba primero la periodicidad de cada d
 adjunto el fichero `BODY_<SHORT_PROCESS>.txt` y pone `SEND_PEND='N'` antes de enviar; el subworkflow `Mail` no
 propaga errores (un SMTP caído no se ve). Además, con el código recibido, el cierre de las incidencias de
 `FT_T_TPG1` por el Barrido podría no llegar a ejecutarse, de modo que las incidencias de `DERIVADOS_REFINITIV`
-se repetirían en cada ejecución del job 7: comprobar `FT_T_TPG1.END_TMS` tras una ejecución. Siguen sin verse las
-clases `ProcesoCLS` (redacción de los mensajes) y `ReportesRDR` (generación del fichero).
+se repetirían en cada ejecución del job 7. **Cierre 2 (02/10/2026):** con el código fuente de `main.Ppal` del Barrido el defecto queda confirmado en el código (§6.7); lo que no se puede asegurar es que el jar desplegado sea ese. Ya se han recibido `ReportesRDR` y `ReporteRDR` (Cocinado) y el workflow `AlertasEnvioExcepciones` (§6.7); siguen sin verse `ProcesoCLS` (redacción de los mensajes del Barrido), `QuerysConfig`, `DocumentGenerator` y `ServerMailConfig.xml`.
 
 ### 6.5 Comparativa D vs P
 
@@ -541,9 +546,36 @@ aportado después una muestra con altas de un lote anterior (ver más abajo).
   espacios ni retorno de carro; el servicio ignora las líneas vacías, no recorta espacios (un `orgId` con espacio
   o `\r\n` no casaría con `FT_T_FINS`) y trata un fichero vacío como lote sin altas, sin error. La muestra no
   prueba por sí sola que `28311` exista en `FT_T_FINS` (ver TC-008).
-* **Lo que sigue sin confirmar:** el servicio consumidor del mensaje JMS `AltaRolEmisor`. El mapeo campo→columna de las tablas satélite del Grupo C
+* **Lo que sigue sin confirmar:** el texto de los `INSERT` de `AltaRolEmisor` (el consumidor es el propio workflow; §6.7). El mapeo campo→columna de las tablas satélite del Grupo C
   quedó resuelto con `DerivativesProcessor` (ver §6.2). La línea sintética de swap aportada para TC-010 tiene
   43 campos y debe ampliarse a 45 (ver §10).
+
+### 6.7 Cierre 2 (02/10/2026): volcado de la BD de workflows de GoldenSource y código de alertas
+
+**Procedencia.** Volcado de la BD de workflows de GoldenSource (repositorio `fileloading`: catálogo, nodos, transiciones, parámetros, parámetros de entrada y eventos; no consta de qué entorno es) y las clases Java de alertas de la rama de Eduardo. **Límite del volcado:** los scripts BeanShell largos son blobs que no se incluyen, y el contenido de los mappings `.mdx` solo figura como inventario del recurso con su tamaño.
+
+**Variantes de `Refinitiv_Request_Response`.** El `.wkf` analizado en §6.3 (ruta fija de Java y clase con prefijo de paquete) es una de tres variantes: la versión 18 del volcado (`NFQ-ADA v4`, 05/12/2025) lee `<javahome>` y lanza `com.bbva.kytl.main.Request`, y el `.wkf` de emisores usa `<javahome17>`. Las tres tienen el mismo grafo de 68 transiciones. No consta cuál corre en cada entorno (P-RFM-08 de `rdr_carga_refinitiv_multi`).
+
+**Cómo reciben los jobs 5/6 sus parámetros (H-DDR-12, resuelto).** El workflow declara como parámetros de entrada obligatorios `id`, `idType`, `requestType` y `vreqOid` (y, opcional, `instMnem`). `GSProcess.sh` entrega al evento el `.properties` original completo, donde están esas cuatro claves (`id=MULTI`, `idType=UNDLY`/`OPTFUT`, `requestType`, `vreqOid`), por lo que llegan por nombre; el `id` tampoco se pierde. Es una deducción de definiciones, no una observación en ejecución.
+
+**Sub-workflow `AltaRolEmisor` (v13, `RELEASED`, 31/03/2026, 85 nodos).** `Refinitiv_Bloomberg_AltaRolEmisor` lo llama de forma síncrona pasando el XML `PtyDetlListUpd` en la variable `JMSTextMessage`; no se publica ningún mensaje JMS (es el mismo workflow que atiende los mensajes JMS reales, vía `GenericValidation` e `IssuerSetUp`). El workflow extrae por XPath el `FINSID`, el `ORG_ID`, el `BBGCID` y el `LEI`; valida (identificadores informados, petición duplicada en `FT_T_VREQ`, FINSID existente, identificadores `STARID`/`MUREXISSUER` no duplicados en `FT_T_FRID`); ejecuta en bucle los `INSERT` de rol y de identificadores que construyen tres scripts BeanShell cuyo texto no está en el volcado; pide los datos del emisor y sus ratings a Refinitiv con `Refinitiv_Request_Response` (`requestType` `issuerRequestBE` y `ratingsRequestBE`, `idType=OrgId`); responde con un `ACK-NACK` a la cola `KYRS.RDR.PARTYSETUP.RESPONSE`; y, con ACK, recalcula el REU (`Sub_CalculateREU`), difunde (`TypeOfDifusion`) y publica (`Sub_PublishLocalGlobal`). Las validaciones fallidas terminan en NACK sin tocar los datos de la entidad. El detalle completo está en la spec `rdr_carga_refinitiv_multi` (§6.9); la llamada desde esta cadena es la misma.
+
+**Motor `Standard File Load` y feeds.** `Load_Refinitiv_Response` carga la respuesta con `Standard File Load` (workflow estándar de GoldenSource 8.7: crea el job, abre el fichero con el feed, y `Parallel File Load Sub` traduce cada mensaje con el mapping `.mdx` del tipo de mensaje, lo procesa en el motor de reglas y cierra la transacción; al final mueve, borra o deja el fichero según `SuccessAction`). Un mensaje rechazado no detiene la carga: queda como notificación en `FT_T_NTEL`, que es lo que consulta después `Load_Refinitiv_Response` (`MSG_SEVERITY_CDE > 20`).
+
+| Feed | Definición | Tipo de mensaje y mapping | `.mdx` |
+|---|---|---|---|
+| `Refinitiv_Issue_Response` | `LineByLine` | `Refinitiv_Issue_Response` -> `mapping/issues/Refinitiv_Issues.mdx` | 29.474 bytes, 22/06/2026 |
+| `Refinitiv_Identifiers_Response` (`issueSearch`) | `LineByLine` | `mapping/issues/Refinitiv_Identifiers.mdx` | 3.660 bytes, 06/11/2021 |
+| `Carga_Listed_MIC` | `XmlSplitter` | `mapping/issues/CargaListedMIC.mdx` | 3.375 bytes, 04/12/2021 |
+
+Qué escribe cada uno (tablas y columnas) no se puede saber sin el contenido de los `.mdx` ni la fila `issueRequestOutput` de `FT_T_PAR1`, que no figura en el volcado (H-DDR-07 y H-DDR-08, resueltos en parte). El workflow que se llama `Carga_Listed_MIC` (v6) existe pero lo usa `Bloomberg_Response`; la cadena de derivados escribe el XML `CargaListedMIC_*.xml` en `Load_Refinitiv_Response` y llama directamente al motor con el feed del mismo nombre.
+
+**Alertas (P-DDR-03, H-DDR-10, H-DDR-11).**
+- `KYTL_GC.TABLEALERTGENER`, donde los workflows de los jobs 5/6 insertan sus alertas (`PROCESO='PETICION_REFINITIV_EMISIONES'`), no es una tabla distinta de `FT_T_ALG1`: el nodo que la escribe se llama `Insert ALG1`, su clave es `ALG1_OID`, y los workflows que leen esas alertas (`Reload_Baskets_Sponsors_Email`, `AlertasEnvioExcepciones`) las buscan en `FT_T_ALG1` con el mismo formato de mensaje. Es un sinónimo o vista de `FT_T_ALG1` (deducción por evidencia cruzada; el tipo de objeto no consta). Por tanto, estas alertas se saltan el Barrido y entran ya como mensajes pendientes (`PROCESADO='N'`, `TIPO='CELDAEXCEL'`) que el Cocinado recoge cuando se ejecuta para ese proceso o para todos (`PROCESOS`), si hay un informe activo en `FT_T_REP1` para él.
+- El Barrido lee `FT_T_TPG1`, no `TABLEALERTGENER`. Con el código de `main.Ppal` recibido (rama de Eduardo), `marcaUsadosTPG1` mueve los identificadores de `oids` a una lista auxiliar en bloques de 990, construye la sentencia con esa lista auxiliar y luego enlaza los parámetros con `oids`, que ya está vacía: `oids.get(-1)` lanza una excepción que el método captura y registra (`Error al marcar los registros de la TPG1 como usados.`), de modo que **la sentencia que cierra las incidencias no llega a ejecutarse** y, aun así, se anota `OK` en la traza. Con más de 990 incidencias enlazaría los parámetros equivocados. Las incidencias de `DERIVADOS_REFINITIV` se releerían en cada ejecución del job 7 (H-DDR-11, confirmado en el código; que el jar desplegado sea este código no está comprobado: mirar `FT_T_TPG1.END_TMS`). Detalle y consecuencias en la spec común de alertas.
+- Cocinado: `ReportesRDR` lee los informes activos de `FT_T_REP1`, descarga los mensajes de `FT_T_ALG1` con la `QUERY` guardada en cada informe, valida combinaciones (mensajes con celdas de Excel, etc.), genera los documentos, marca los mensajes y deja `FT_T_REP1.SEND_PEND='Y'`.
+- Envío: `AlertasEnvio` (evento `RDR_AlertasEnvio`) recorre los informes con `SEND_PEND='Y'` y, por proceso, llama a `AlertasEnvioExcepciones`, que personaliza asunto y cuerpo solo para tres procesos (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`; para `REGU_PDTE_LEI_EMISIONES` cuenta las alertas `PETICION_REFINITIV_EMISIONES` cuyo mensaje empieza por `LEI` y cuyo LEI no tiene la jerarquía completa global-local-operativa de un emisor `ISSUER` activo no subsidiario); `DERIVADOS_REFINITIV` y `PETICION_REFINITIV_EMISIONES` usan el asunto y cuerpo estándar. Los scripts de asunto y las consultas de esos tres casos son blobs no incluidos en el volcado.
+- `Mail` lee servidor y remitente de `ServerMailConfig.xml` (`/root/server[@id='<env>']`, elementos `host` y `user`) y, si falta, usa valores de desarrollo; el contenido por entorno sigue sin recibirse.
 
 ## 7. Especificación de testing
 
@@ -599,11 +631,12 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   propio workflow invocador marcó `FAILED` por otra vía antes (p. ej. "file not found" en
   `Refinitiv_Request_Response.wkf`, §6.3) — no cubre el caso de fichero presente pero ilegible/incompleto. Ver
   TC-011.
-* **[NUEVO, no bloqueante, deducido de código ya confirmado de `GSProcess.sh`] Los parámetros `idType`/
-  `requestType`/`vreqOid` de los jobs 5/6 llegarían al workflow por un efecto colateral de los arrays
-  `clave[]`/`valor[]` no limpiados entre bloques `Accion`, no por un mecanismo explícito para campos
-  personalizados — ver §6.3. El campo `id=MULTI` no sobrevive (se sobrescribe), posible parámetro perdido sin
-  efecto confirmado.
+* **[Corregido en la pasada de cierre 2, 02/10/2026] Los parámetros `id`/`idType`/`requestType`/`vreqOid` de los
+  jobs 5/6 llegan al workflow tal cual:** `GSProcess.sh` pasa a `executeBbvaEvent.sh` el `.properties` original
+  completo (no el temporal) y `Refinitiv_Request_Response` declara esos cuatro como parámetros de entrada
+  obligatorios (§6.7). La hipótesis anterior (arrays `clave[]`/`valor[]` no limpiados, con `id=MULTI` posiblemente
+  perdido) no hace falta y queda descartada; el emparejamiento por nombre se deduce de las definiciones y no se ha
+  observado en una ejecución real (TC-017).
 * **[No confirmado] Función exacta del job 2:** el documento describe la función de `MEKYTL10{80|81}` como
   "probable control de seguridad/red antes de exponer el fichero" — lenguaje explícitamente hedged, no una
   confirmación del propósito real de la pasarela intermedia.
@@ -633,13 +666,11 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 
 ### 9.2 Fuera de alcance
 
-* **Consumidor real del mensaje JMS `AltaRolEmisor`** (invocado por `Refinitiv_Bloomberg_AltaRolEmisor.wkf`
-  para dar de alta el rol `ISSUER` en `FT_T_FINR`, ver §6.3/§6.2) — el disparo, el payload XML y la condición
-  de guarda están confirmados; el `INSERT` SQL final lo ejecuta un servicio externo (presumiblemente un
-  ESB/motor de gestión de terceros compartido en BBVA, no propio de este proceso), fuera de alcance.
+* **Texto de los `INSERT` de alta del rol `ISSUER`** (ver §6.3/§6.2/§6.7): el alta no la hace ningún servicio externo, sino el sub-workflow `AltaRolEmisor`, que `Refinitiv_Bloomberg_AltaRolEmisor.wkf` llama de forma síncrona. El workflow está analizado; las sentencias las construyen scripts BeanShell (`Acciones Issuer`, `query STARMADRID`, `query ORGID`) que el volcado de la BD de workflows no incluye.
 * **Decompilación de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar`** (motor genérico del job 7, ya
   tratado como tal en otros procesos del audit) — se confirma su invocación y parámetro de filtrado
-  (`DERIVADOS_REFINITIV`), no su lógica SQL interna.
+  (`DERIVADOS_REFINITIV`); la lógica del Barrido y del Cocinado está en la spec común de alertas y las clases que
+  siguen sin recibirse se listan en §6.7.
 * **Contenido real de `Emisores*.txt`** — cerrado: la estructura (un `orgId` por línea) está confirmada por código
   (`IssuersService.java`) y por una muestra real con una línea (`28311`, §6.6).
 * **Algoritmo interno del servicio externo OpenFigi** (de Bloomberg) — servicio de terceros, fuera del
@@ -777,3 +808,5 @@ de este audit.** Los 2 puntos que quedan fuera de alcance (el consumidor del men
 el algoritmo interno de OpenFigi) lo están por naturaleza — pertenecen a sistemas externos a
 `refinitivDerivativesLoader.jar` y a los workflows GoldenSource de este proceso, no a huecos de material no
 aportado.
+
+**Pasada de cierre 2 (02/10/2026).** Con el volcado de la BD de workflows de GoldenSource y las clases de alertas de la rama de Eduardo: H-DDR-11 (cierre de `FT_T_TPG1` por el Barrido) y H-DDR-12 (paso de parámetros a los workflows de los jobs 5/6) se resuelven; P-DDR-03, P-DDR-08, H-DDR-07, H-DDR-08 y H-DDR-10 se resuelven en parte (§6.7); el consumidor de `AltaRolEmisor` es el propio workflow, llamado de forma síncrona. Siguen abiertos todos los puntos que dependen de scripts, jars, `.properties` de producción, exports de Control-M y de los mappings `.mdx`/filas de `FT_T_PAR1`.

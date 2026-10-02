@@ -30,7 +30,7 @@ La cadena `RDR_GUIDO_PR_new` combina un pipeline de **carga** de usuarios/roles 
 | R5 | `MEKYTL1061` (`MEGENV0001.sh`) envía `OFP_ROLES_RDR.csv` vía Connect:Direct a `lpnov503`, ruta `/usr/local/pr/nova/landingzone/EINS/filesystempre/incoming/`, renombrado `OFP_ROLES_RDR_YYYYMMDD.csv` (acción remota `rpl` = sobrescribe si ya existe). |
 | R6 | Tras el envío OK, `MEGENV0001.sh` historifica internamente el fichero origen (sin job separado): `mv` a `/fichtemcomp/pr/descargas/kytl/users/backup/`, **sin renombrar** (mismo nombre `OFP_ROLES_RDR.csv`, sin timestamp). |
 | R7 | `MEKYTL1061` y los 3 FileWatchers (`FW1`, `FW2`, `FW3`) tienen soft-failure **genérico**: código de retorno de OS ≠ 0 → Marcar como OK. `RDR_GUIDO_CHMOD` y `RDR_GUIDO_LOAD` no tienen esa acción On-Do (un fallo real los detiene). |
-| R8 | Alertas de fallo real a criticidad W: por defecto `ans_rdr.es@bbva.com`, con escalado nominal adicional a `daria.gonzalez@bbva.com` y `hector.perez.alonso@bbva.com` para este flujo. |
+| R8 | Alertas de fallo real a criticidad W: por defecto `ans_rdr.es@bbva.com`, con escalado nominal adicional a (contacto individual omitido) y (contacto individual omitido) para este flujo. |
 | R9 | Cadena `KYTL0000-RDR_GUIDO_PR_new`, server `MERCADOS-4`, método de ejecución "User Daily específico" (`PLAN_1200`) — arranque diario centralizado, no por horario simple de folder. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)

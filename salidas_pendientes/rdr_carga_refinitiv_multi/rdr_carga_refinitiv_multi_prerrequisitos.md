@@ -32,7 +32,7 @@
 
 ## Base de datos y GoldenSource (TC-001, TC-008, TC-009)
 
-- Acceso de consulta a `FT_T_VREQ` (fila `VND_RQST_OID='MULTI_ISSUE'`) y a `KYTL_GC.TABLEALERTGENER` en el entorno de prueba.
-- En GoldenSource del entorno de prueba: el layout `issueRequestOutput` en `FT_T_PAR1` (`PARAMETER_CTXT_TYP='REFINITIV_PARAMS'`), la alerta `EXCELROW` activa en `FT_T_ALD1`, los feeds `Refinitiv_Issue_Response` y `Carga_Listed_MIC`, el procedimiento `PRC_ESCOBA_SUBYACENTES` y el workflow `Refinitiv_Request_Response` desplegado (versión: P-RFM-08).
+- Acceso de consulta a `FT_T_VREQ` (fila `VND_RQST_OID='MULTI_ISSUE'`, que debe existir en estado `PENDING`: ningún workflow la crea y, si no está, los `UPDATE` de estado no cambian nada ni dan error; P-RFM-06) y a `KYTL_GC.TABLEALERTGENER` en el entorno de prueba.
+- En GoldenSource del entorno de prueba: el layout `issueRequestOutput` en `FT_T_PAR1` (`PARAMETER_CTXT_TYP='REFINITIV_PARAMS'`), la alerta `EXCELROW` activa en `FT_T_ALD1`, los feeds `Refinitiv_Issue_Response` y `Carga_Listed_MIC`, el procedimiento `PRC_ESCOBA_SUBYACENTES` y el workflow `Refinitiv_Request_Response` desplegado (hay tres variantes conocidas, entre ellas la versión 18 del volcado de GoldenSource; anotar cuál es la del entorno de prueba, P-RFM-08).
 - Directorio `/fichtemcomp/<env>/descargas/kytl/issues/Refinitiv/Multi_Request/old/` existente.
 - TC-009 requiere un entorno donde el cliente `RDR_Refinitiv_Request.jar` no obtenga respuesta; deja la fila `MULTI_ISSUE` en `FAILED` (no ejecutar en producción).

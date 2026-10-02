@@ -284,7 +284,7 @@
     <datosEmpleados>
       <dato campo="Rama issueRequest (job 5) — Refinitiv_Request_Response.wkf" valor="pathOut=.../Enrichment/issues/; lanza RDR_Refinitiv_Request.jar; espera hasta 300s la respuesta; invoca Load_Refinitiv_Response y PRC_ESCOBA_SUBYACENTES()"/>
       <dato campo="Load_Refinitiv_Response.wkf" valor="carga la respuesta vía el motor GENÉRICO GoldenSource 'Standard File Load' (BusinessFeed=Refinitiv_Issue_Response/Refinitiv_Identifiers_Response), NO el jar Java; invoca Refinitiv_Bloomberg_AltaRolEmisor; comprueba FT_T_NTEL tras la carga; marca FT_T_VREQ PROCESSED salvo IS_EXTF='Y'"/>
-      <dato campo="Refinitiv_Bloomberg_AltaRolEmisor.wkf (confirmado 2026-10-01)" valor="lee un fichero de identificadores a nivel de ENTIDAD (64 campos formato REFINITIV: LEI=campo22, ORG_ID=campo21, INSTRUMENT_TYPE=campo6, ClassificationScheme=campo8; o 47 campos formato BLOOMBERG: LEI=campo21, ORG_ID=campo22); resuelve FINS_ID por LEI (FT_T_FIID), con resolución de grupo/matriz vía FT_T_FIRL si el LEI es compartido; si la entidad es gestora de fondos (FT_T_FIGP) Y el instrumento es ETF/EXTF, fija IS_EXTF='Y' y NO crea rol; si no, comprueba si ya existe rol ISSUER en FT_T_FINR y, si no, construye XML PtyDetlListUpd/RolDetl y lo envía por JMS al sub-workflow AltaRolEmisor — ESTE es el punto de alta real de FT_T_FINR"/>
+      <dato campo="Refinitiv_Bloomberg_AltaRolEmisor.wkf (confirmado 2026-10-01)" valor="lee un fichero de identificadores a nivel de ENTIDAD (64 campos formato REFINITIV: LEI=campo22, ORG_ID=campo21, INSTRUMENT_TYPE=campo6, ClassificationScheme=campo8; o 47 campos formato BLOOMBERG: LEI=campo21, ORG_ID=campo22); resuelve FINS_ID por LEI (FT_T_FIID), con resolución de grupo/matriz vía FT_T_FIRL si el LEI es compartido; si la entidad es gestora de fondos (FT_T_FIGP) Y el instrumento es ETF/EXTF, fija IS_EXTF='Y' y NO crea rol; si no, comprueba si ya existe rol ISSUER en FT_T_FINR y, si no, construye XML PtyDetlListUpd/RolDetl y lo envía (llamada síncrona, sin mensaje JMS publicado) al sub-workflow AltaRolEmisor — ESTE es el punto de alta real de FT_T_FINR"/>
       <dato campo="Rama optionsfuturesRequest (job 6)" valor="pathOut=.../Enrichment/optionsfutures/; mismo cliente Java de solicitud; tras recibir la respuesta, reejecuta cp *.txt old → refinitivFilter.jar (ONLINE) → openFigiEnricher.jar → refinitivDerivativesLoader.jar (ONLINE, mismas 20 tablas Oracle de §6.2) → mv *.txt old → PRC_ESCOBA_SUBYACENTES()"/>
     </datosEmpleados>
     <pasos>
@@ -295,7 +295,7 @@
     <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia completa, cerrando el gap de §9.2 al 100% salvo el consumidor externo del mensaje JMS (fuera de alcance por naturaleza).</resultadoEsperado>
     <tipoValidacion>Inspección directa de las 3 piezas de workflow reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
     <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga/alta distintos (motor genérico GoldenSource + JMS para job 5, jar Java para job 6).</criterioAceptacion>
-    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §6.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía JMS). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §6.3/§9.1/TC-017).</posibilidadFallo>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §6.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía el sub-workflow AltaRolEmisor). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §6.3/§9.1/TC-017).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
@@ -306,19 +306,19 @@
       <precondicion>Refinitiv_Bloomberg_AltaRolEmisor.wkf — APORTADO 2026-10-01, revela el punto de escritura real de FT_T_FINR, externo al jar.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="FT_T_FINR — SÍ SE ESCRIBE, confirmado 2026-10-01" valor="Refinitiv_Bloomberg_AltaRolEmisor.wkf: nodo 'Issuer Exist?' comprueba rol ISSUER activo en FT_T_FINR (join FT_T_FIID); si no existe, construye XML PtyDetlListUpd/RolDetl (rol CPARTY, ORG_ID+LEIID) y lo envía por JMS al sub-workflow 'AltaRolEmisor' — alta real del rol ISSUER, el INSERT SQL lo ejecuta el consumidor del mensaje (fuera de alcance)"/>
+      <dato campo="FT_T_FINR — SÍ SE ESCRIBE, confirmado 2026-10-01" valor="Refinitiv_Bloomberg_AltaRolEmisor.wkf: nodo 'Issuer Exist?' comprueba rol ISSUER activo en FT_T_FINR (join FT_T_FIID); si no existe, construye XML PtyDetlListUpd/RolDetl (rol CPARTY, ORG_ID+LEIID) y lo envía (llamada síncrona, sin mensaje JMS publicado) al sub-workflow 'AltaRolEmisor' — alta real del rol ISSUER, el INSERT SQL lo ejecuta el consumidor del mensaje (fuera de alcance)"/>
       <dato campo="FT_T_FIRL — de solo lectura, confirmado 2026-10-01" valor="usada en 2 saltos de join (Refinitiv_Bloomberg_AltaRolEmisor.wkf) para resolver la entidad operativa/no-subsidiaria cuando un LEI identifica a un grupo; nunca se escribe"/>
       <dato campo="FT_T_GUNT — de solo lectura, confirmado en 3 puntos" valor="ListedDerivativesService.checkMarketOid + DerivativesProcessor.processIssueGeoUnit/processTotv (StaticData.getMarketGuntMapMic()/...ExchangeCode()) — nunca se escribe"/>
       <dato campo="FT_T_FRID / FT_T_REP1 — sin ninguna referencia" valor="ni lectura ni escritura en ningún código Java (5/5 componentes del jar) ni en ningún workflow inspeccionado de todo el proceso"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>
-      <paso numero="2">Confirmado: FT_T_FINR se escribe, pero desde Refinitiv_Bloomberg_AltaRolEmisor.wkf (vía JMS), no desde el jar; FT_T_FIRL/FT_T_GUNT se leen; FT_T_FRID/FT_T_REP1 no tienen ninguna referencia.</paso>
+      <paso numero="2">Confirmado: FT_T_FINR se escribe, pero desde Refinitiv_Bloomberg_AltaRolEmisor.wkf (vía el sub-workflow AltaRolEmisor), no desde el jar; FT_T_FIRL/FT_T_GUNT se leen; FT_T_FRID/FT_T_REP1 no tienen ninguna referencia.</paso>
       <paso numero="3">Documentar la atribución final tabla por tabla, distinguiendo "escrita por X" de "de solo lectura" y "sin referencia en ningún código inspeccionado".</paso>
     </pasos>
     <resultadoEsperado>Atribución real confirmada y completa para las 5 tablas del Grupo E.</resultadoEsperado>
     <tipoValidacion>Inspección exhaustiva del código fuente real de los 5 componentes del jar + el workflow Refinitiv_Bloomberg_AltaRolEmisor.wkf.</tipoValidacion>
-    <criterioAceptacion>FT_T_FINR clasificada como "escrita por Refinitiv_Bloomberg_AltaRolEmisor.wkf vía JMS"; FT_T_FIRL/FT_T_GUNT como "de solo lectura"; FT_T_FRID/FT_T_REP1 como "sin referencia en ningún código inspeccionado".</criterioAceptacion>
+    <criterioAceptacion>FT_T_FINR clasificada como "escrita por Refinitiv_Bloomberg_AltaRolEmisor.wkf vía el sub-workflow AltaRolEmisor"; FT_T_FIRL/FT_T_GUNT como "de solo lectura"; FT_T_FRID/FT_T_REP1 como "sin referencia en ningún código inspeccionado".</criterioAceptacion>
     <posibilidadFallo>Sin la confirmación de Refinitiv_Bloomberg_AltaRolEmisor.wkf, una conclusión anterior de esta misma ronda ("Grupo E = código muerto/solo lectura en bloque") habría sido incorrecta para FT_T_FINR — lección: la ausencia de escritura en el jar no implica ausencia de escritura en el proceso completo, si existen workflows GoldenSource paralelos con su propio mecanismo de persistencia (aquí, mensajería JMS/ESB).</posibilidadFallo>
   </casoDePrueba>
 
@@ -347,7 +347,7 @@
 
   <casoDePrueba id="TC-017" tipo="conflicto_integridad">
     <nombre>Los parámetros idType/requestType/vreqOid llegan realmente al workflow Refinitiv_Request_Response</nombre>
-    <objetivo>Confirmar en ejecución real, mediante inspección del .properties temporal generado por GSProcess.sh (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) o de los logs del job, que los campos idType/requestType/vreqOid llegan efectivamente al workflow invocado, validando la deducción de código de §6.3 sobre los arrays clave[]/valor[] no limpiados entre bloques Accion.</objetivo>
+    <objetivo>Confirmar en ejecución real, mediante el log del job o la instancia del workflow en la consola de GoldenSource, que los campos id/idType/requestType/vreqOid llegan al workflow invocado. Por la pasada de cierre 2 (spec §6.7), la hipótesis vigente es que llegan por nombre desde el .properties original que GSProcess.sh pasa a executeBbvaEvent.sh (el workflow los declara como parámetros de entrada obligatorios); la deducción antigua de §6.3 sobre arrays clave[]/valor[] no limpiados queda descartada.</objetivo>
     <precondiciones>
       <precondicion>Acceso a los logs de ejecución de GSProcess.sh (LOG_GENERICO) o al fichero .properties temporal generado durante una ejecución real de los jobs 5 o 6.</precondicion>
     </precondiciones>
@@ -356,12 +356,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_D y capturar el log de GSProcess.sh antes de que el fichero temporal se borre.</paso>
-      <paso numero="2">Confirmar si el .properties temporal generado (Refinitiv_Request_Response_&lt;timestamp&gt;.properties) contiene las líneas idType=UNDLY, requestType=issueRequest, vreqOid=UNDLY_ISSUES_ENRICHMENT.</paso>
-      <paso numero="3">Confirmar si el campo id=MULTI aparece o no en el fichero temporal (se espera que no, por ser sobrescrito por NomWorkflow).</paso>
+      <paso numero="2">Confirmar en la instancia del workflow (o en el log) que idType=UNDLY, requestType=issueRequest y vreqOid=UNDLY_ISSUES_ENRICHMENT son los valores de entrada.</paso>
+      <paso numero="3">Confirmar que id=MULTI también llega (aparece en el nombre del fichero de salida RFNT_BBVA_MULTI_&lt;timestamp&gt;.txt).</paso>
     </pasos>
-    <resultadoEsperado>Confirmación de que idType/requestType/vreqOid llegan al workflow (validando la deducción de §6.3), y de que id no llega.</resultadoEsperado>
-    <tipoValidacion>Inspección de logs/fichero temporal de una ejecución real.</tipoValidacion>
-    <criterioAceptacion>Contenido real del .properties temporal confirmado, coincidente o no con la deducción de código.</criterioAceptacion>
+    <resultadoEsperado>Confirmación de que id, idType, requestType y vreqOid llegan al workflow (validando la deducción de §6.7).</resultadoEsperado>
+    <tipoValidacion>Inspección de logs o de la instancia del workflow en una ejecución real.</tipoValidacion>
+    <criterioAceptacion>Valores de entrada reales del workflow confirmados, coincidentes o no con la deducción de §6.7.</criterioAceptacion>
     <posibilidadFallo>Si estos campos NO llegaran al workflow (contradiciendo la deducción de código), el workflow Refinitiv_Request_Response no tendría forma de distinguir una solicitud de issues de una de futures, salvo por otro mecanismo no identificado.</posibilidadFallo>
   </casoDePrueba>
 

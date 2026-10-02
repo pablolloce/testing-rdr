@@ -280,6 +280,7 @@
     <objetivo>Confirmar que una cesta con más de 400 componentes se procesa por la ruta de fichero troceado (fileSplittedPath, SuccessAction=DELETE) en vez de la ruta directa (Ruta, SuccessAction=LEAVE), y que los ficheros temporales se limpian correctamente tras la carga.</objetivo>
     <precondiciones>
       <precondicion>Fichero XML de cesta con más de 400 componentes, cesta ya existente y válida en FT_T_ISID (okToLoad=true).</precondicion>
+      <precondicion>Transformar_XML.jar en /&lt;env&gt;/kytl/online/multipais/multicanal/jar/ y baskets_sponsor_split_1.xsl, baskets_sponsor_split_2.xsl y log4jBaskets_Split.properties en .../dat/properties/ (spec §6.5).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="xmlComponentsSize" valor="&gt;400"/>
@@ -288,8 +289,9 @@
     <pasos>
       <paso numero="1">Ejecutar la carga de una cesta con más de 400 componentes.</paso>
       <paso numero="2">Confirmar que el nodo "Cesta Grande?" evalúa YES y que se usa fileSplittedPath en vez de Ruta.</paso>
-      <paso numero="3">Confirmar que, tras la carga, los ficheros temporales (splitted/dupli) se eliminan (rm splitted file / rm dupli file).</paso>
-      <paso numero="4">Repetir con una cesta de 400 componentes o menos y confirmar que usa la ruta directa (Ruta, SuccessAction=LEAVE).</paso>
+      <paso numero="3">Durante la ejecución, comprobar que junto al XML aparecen _dupli.xml y _splitted.xml, y que _splitted.xml tiene un elemento Baskets por línea y no contiene Baskets_Split (resultado del sed de la spec §6.5).</paso>
+      <paso numero="4">Confirmar que, tras la carga, los ficheros temporales (splitted/dupli) se eliminan (rm splitted file / rm dupli file).</paso>
+      <paso numero="5">Repetir con una cesta de 400 componentes o menos y confirmar que usa la ruta directa (Ruta, SuccessAction=LEAVE).</paso>
     </pasos>
     <resultadoEsperado>La cesta grande se procesa por la ruta troceada sin dejar ficheros temporales residuales; la cesta pequeña usa la ruta directa.</resultadoEsperado>
     <tipoValidacion>Inspección de logs del workflow + verificación de ficheros temporales en el sistema de ficheros tras la ejecución.</tipoValidacion>

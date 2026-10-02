@@ -25,7 +25,7 @@
 - Usuario `xsramer1`: ejecución de `RDR_GUIDO_CHMOD` y de `MEKYTL1061`.
 - Usuario `xakytl1p`: ejecución de `RDR_GUIDO_LOAD`, y propietario final de `GUIDO_IMPORT.csv` tras el `chown` de `RDR_GUIDO_CHMOD`.
 - Usuario `xtcibt1p`: usuario de transmisión Connect:Direct configurado en el `.idx` real de `MEKYTL1061`.
-- El relanzamiento manual en caso de KO está centralizado en el grupo ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`), con escalado nominal adicional a `daria.gonzalez@bbva.com` y `hector.perez.alonso@bbva.com` para este flujo.
+- El relanzamiento manual en caso de KO está centralizado en el grupo ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`), con escalado nominal adicional a (contacto individual omitido) y (contacto individual omitido) para este flujo.
 
 ## Flujos previos que deben haberse completado
 

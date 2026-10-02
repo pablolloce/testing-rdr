@@ -27,9 +27,7 @@
   - `RAMERC0068.sh` en `/pr/pl/scrt/` (Cadena 6, historificación de `dictionaryMarkets.csv`).
 - Ficheros `.properties` desplegados en el `CONF` de `GSProcess.sh`: `planifGenerico.properties`,
   `ProcesoDeFusion.properties`, `EnvioReporteEmisiones.properties`, `selectivePublishEmisiones.properties`.
-- Workflow `SendMailReport` (grupo `Custom/RDR/Reports/Load`) dado de alta en el motor de Workflows y accesible
-  vía `executeBbvaEvent.sh fileloading`; sesión de correo `email/MailSession` operativa. Workflow
-  `RDR_SelectivePublish` dado de alta para la Cadena 7.
+- Evento `SendMailReport` dado de alta en el motor de Workflows y accesible vía `executeBbvaEvent.sh fileloading`. En el volcado de la BD de workflows arranca el workflow `Mail` (servidor SMTP y remitente en `ServerMailConfig.xml`), no el workflow `SendMailReport` (grupo `Custom/RDR/Reports/Load`, sesión `email/MailSession`); anotar cuál arranca en el entorno de prueba (spec §6.7). Evento `RDR_SelectivePublish` (workflow `SelectivePublish`) dado de alta para la Cadena 7.
 - JDK 64-bit para `GSProcess.sh`; **JDK 17 específicamente** para los 5 sub-procesos de la Cadena 5
   (`RDR_Procesar_Emisiones.sh`).
 - Conectividad y permisos de escritura a `/fichtemcomp/$ENV/descargas/kytl/issues/Historificacion/` (Cadena 5) y
@@ -47,9 +45,9 @@
 - Usuario `xpctma1`: ejecución de `RDR_MARKETS_EXTRAC_FW` (filewatcher nativo, Cadena 6).
 - Usuario `DUMMYUSR`: ejecución del dummy de inicio de la Cadena 6 (`RDR_MARKETS_EXT_IN`).
 - Grupo de soporte responsable único para las 7 cadenas: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`).
-- Destinatarios reales del correo de la Cadena 1 (confirmados por el `.wkf`, no coinciden con la ficha
-  funcional en asunto/adjunto — ver DEF-EMIS-001): `r.plaza.guijarro@bbva.com`, `rdr_factory@bbva.com`,
-  `cesar.castillo@bbva.com`, `miguel.munoz@bbva.com`.
+- Destinatarios fijados en el workflow `SendMailReport` (válidos solo si el evento `SendMailReport` arranca ese
+  workflow y no `Mail`; ver DEF-EMIS-001, en revisión): `rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas).
+
 
 ## Flujos previos que deben haberse completado
 
@@ -59,6 +57,6 @@
 - **Importante (RISK-EMIS-001):** antes de cualquier prueba de duplicidad de la Cadena 1, verificar el estado
   actual de `Cuenta_Registros_MMYYYY.csv` del mes en curso, ya que un relanzamiento accidental durante otra
   prueba puede haber dejado ya una línea duplicada para el día de hoy.
-- **Importante (DEF-EMIS-001):** cualquier validación operativa del correo de la Cadena 1 debe verificar el
-  asunto y el nombre del adjunto realmente recibidos, no asumir los que documenta la ficha funcional — el
-  comportamiento real hardcodeado en el workflow es distinto.
+- **Importante (DEF-EMIS-001, en revisión):** cualquier validación operativa del correo de la Cadena 1 debe verificar el
+  asunto, el nombre del adjunto y los destinatarios realmente recibidos, y qué workflow ha arrancado el evento
+  `SendMailReport`; no asumir ni los de la ficha funcional ni los hardcodeados en el workflow `SendMailReport`.

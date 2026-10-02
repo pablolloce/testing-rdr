@@ -83,8 +83,8 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="error_funcional">
-    <nombre>Cadena 1 — Correo con asunto y adjunto incorrectos (DEF-EMIS-001)</nombre>
-    <objetivo>Confirmar el defecto DEF-EMIS-001: el correo real de ENVIO_REPORTE_EMISIONES sale con el asunto y el nombre de adjunto hardcodeados en el workflow, no con los que documenta la ficha funcional.</objetivo>
+    <nombre>Cadena 1 — Asunto, adjunto y destinatarios reales del correo (DEF-EMIS-001 en revisión)</nombre>
+    <objetivo>Averiguar qué correo sale realmente de ENVIO_REPORTE_EMISIONES y confirmar o descartar DEF-EMIS-001. El análisis del workflow SendMailReport indica asunto y adjunto fijos ("Informe diario carga contrapartidas" / "Report.csv"), pero el volcado de la BD de workflows asocia el evento SendMailReport al workflow Mail, que usa lo que ponga EnvioReporteEmisiones.properties (spec §6.7).</objetivo>
     <precondiciones>
       <precondicion>CUENTA_EMISIONES ejecutado con éxito y Emisiones_Emisores_Por_Destino.csv generado.</precondicion>
     </precondiciones>
@@ -94,12 +94,13 @@
     <pasos>
       <paso numero="1">Ejecutar ENVIO_REPORTE_EMISIONES.</paso>
       <paso numero="2">Recibir el correo en el buzón de uno de los 4 destinatarios reales.</paso>
-      <paso numero="3">Inspeccionar el asunto y el nombre del fichero adjunto recibido.</paso>
+      <paso numero="3">Inspeccionar el asunto, el nombre del fichero adjunto y la lista de destinatarios recibidos.</paso>
+      <paso numero="4">Consultar en la consola de GoldenSource qué workflow ha arrancado el evento SendMailReport (Mail o SendMailReport) y si la instancia terminó con error por falta de parámetros (Destination, Subject, Mail).</paso>
     </pasos>
-    <resultadoEsperado>El correo llega con asunto "Informe diario carga contrapartidas" y adjunto nombrado "Report.csv" (con el contenido correcto de Emisiones_Emisores_Por_Destino.csv), no con "Reporte cuenta Emisiones - Emisores" / Emisiones_Emisores_Por_Destino.csv como indica la ficha funcional.</resultadoEsperado>
+    <resultadoEsperado>Se registra el asunto, el adjunto y los destinatarios reales y el workflow que ha arrancado. Si arranca SendMailReport, el correo llega con asunto "Informe diario carga contrapartidas" y adjunto "Report.csv" (DEF-EMIS-001 confirmado). Si arranca Mail, el correo lleva lo que fije EnvioReporteEmisiones.properties (DEF-EMIS-001 descartado), o no llega ninguno si faltan parámetros obligatorios, con el job en OK en todos los casos (R14).</resultadoEsperado>
     <tipoValidacion>Inspección directa del correo real recibido (asunto + nombre de adjunto).</tipoValidacion>
-    <criterioAceptacion>Se confirma la discrepancia real, documentada como DEF-EMIS-001, no como validación superada.</criterioAceptacion>
-    <posibilidadFallo>Riesgo real: los destinatarios pueden ignorar o filtrar el correo por su asunto engañoso, o confundirlo con el proceso de "carga contrapartidas" real.</posibilidadFallo>
+    <criterioAceptacion>El correo real y el workflow que lo envía quedan documentados, y DEF-EMIS-001 se confirma o se descarta con ese dato.</criterioAceptacion>
+    <posibilidadFallo>Si el correo sale con un asunto de otro proceso, los destinatarios pueden ignorarlo o filtrarlo; si no sale ninguno, el job de Control-M sigue en OK y solo se nota por ausencia.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="happy_path">
@@ -119,7 +120,7 @@
     <resultadoEsperado>Extracción completada correctamente; se agrega el evento RDR_EXTRACCION_EMISIONES_new_EXTRACCION_EMISIONES_OK; la cadena cierra con RDR_EXTRACCION_EMISIONES_OUT en OK.</resultadoEsperado>
     <tipoValidacion>Estado OK de los 3 jobs en Control-M.</tipoValidacion>
     <criterioAceptacion>Los 3 jobs terminan OK sin incidencias.</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
+    <posibilidadFallo>Si no hay marcas pendientes, la cadena termina en OK sin publicar nada; si el workflow falla, el job sigue en OK (R14) y las marcas quedan pendientes.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="regresion">
@@ -297,8 +298,9 @@
       <paso numero="1">Esperar el arranque de PUBLICACIONSELECTIVA_EMISIONES a las 03:00 AM.</paso>
       <paso numero="2">Verificar el disparo del Workflow RDR_SelectivePublish con filtro IS_PUBLISH.</paso>
       <paso numero="3">Verificar el estado final del job.</paso>
+      <paso numero="4">Antes y después de la ejecución, contar en FT_T_RLT1 las filas con RLT_DIF_ACC='SELPUSH', DATA_SRC_APP='IS_PUBLISH' y RLT_DIF_STAT='PENDING' (deben pasar a 'OK') y comprobar que se han publicado mensajes en la cola RDR.SECURITIES.PUBLISH (spec §6.7).</paso>
     </pasos>
-    <resultadoEsperado>El Workflow RDR_SelectivePublish ejecuta correctamente aplicando el filtro IS_PUBLISH; job termina OK.</resultadoEsperado>
+    <resultadoEsperado>El Workflow RDR_SelectivePublish ejecuta correctamente aplicando el filtro IS_PUBLISH; job termina OK; las marcas IS_PUBLISH pendientes pasan a OK y su emisión se publica como INSERT o UPDATE en RDR.SECURITIES.PUBLISH. Un job en OK no prueba la publicación (R14).</resultadoEsperado>
     <tipoValidacion>Estado OK del job en Control-M + log de ejecución del Workflow.</tipoValidacion>
     <criterioAceptacion>Job OK, publicación selectiva confirmada.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>

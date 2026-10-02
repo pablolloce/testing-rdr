@@ -26,9 +26,9 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-012 | Capacidad de forzar un fallo de carga con un registro inválido en entorno de test — **RESUELTO (2026-10-01):** cadena de 6 validadores reales confirmada (divisa/estilo de ejercicio/método de entrega/subyacente duplicado/tipo de emisión/mercado-MIC), cada uno descarta solo la línea afectada |
 | TC-013 | Capacidad de simular la indisponibilidad del servicio externo OpenFigi en entorno de test |
 | TC-014 | Las 3 piezas de workflow de los jobs 5/6 — **TODAS APORTADAS (2026-10-01, la última `Refinitiv_Bloomberg_AltaRolEmisor.wkf`). CERRADO AL 100%** |
-| TC-015 | Código fuente del 100% del jar + el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — **CERRADO AL 100% (2026-10-01):** `FT_T_FINR` sí se escribe, pero vía JMS desde ese workflow (no desde el jar); `FT_T_FIRL`/`FT_T_GUNT` se leen; `FT_T_FRID`/`FT_T_REP1` sin ninguna referencia en todo el proceso |
+| TC-015 | Código fuente del 100% del jar + el workflow `Refinitiv_Bloomberg_AltaRolEmisor.wkf` — **CERRADO AL 100% (2026-10-01):** `FT_T_FINR` sí se escribe, pero desde ese workflow mediante el sub-workflow `AltaRolEmisor` (llamada síncrona, no desde el jar); `FT_T_FIRL`/`FT_T_GUNT` se leen; `FT_T_FRID`/`FT_T_REP1` sin ninguna referencia en todo el proceso |
 | TC-016 | Muestra real + código fuente de los 5 componentes del jar — **CERRADO AL 100% (2026-10-01):** `DerivativesProcessor.java` resuelve el mapeo campo→columna de las 11 tablas satélite del Grupo C |
-| TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o al `.properties` temporal de una ejecución real de los jobs 5/6, antes de que se borre |
+| TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o a la instancia del workflow `Refinitiv_Request_Response` en la consola de GoldenSource tras una ejecución real de los jobs 5/6 |
 | TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
 
 ## Entorno de ejecución
@@ -67,7 +67,7 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
   hipótesis, que los jobs 5/6 lanzan una solicitud real a Refinitiv (mismo cliente `RDR_Refinitiv_Request.jar`
   que el proceso hermano `RDR_BATCH_EMISORES_REFINITIV`); el job 6 reutiliza el pipeline completo de 3 jars
   del job 4; y el job 5 carga la respuesta vía el motor genérico "Standard File Load" de GoldenSource y da de
-  alta el rol `ISSUER` (`FT_T_FINR`) vía un mensaje JMS — ver `descarga_derivados_refinitiv_spec.md` §6.3. TC-014 queda cerrado al 100%.
+  alta el rol `ISSUER` (`FT_T_FINR`) vía el sub-workflow `AltaRolEmisor` (llamada síncrona) — ver `descarga_derivados_refinitiv_spec.md` §6.3 y §6.7. TC-014 queda cerrado al 100%.
 - **5 ficheros Java reales del jar aportados (2026-10-01):** `LoaderProcess.java`, `IssuersService.java`,
   `UnderlyingService.java`, `ListedDerivativesService.java`, `DerivativesProcessor.java` — el 100% del código
   del jar `refinitivDerivativesLoader.jar`. Cierran TC-015 (atribución completa del Grupo E, incluida la
@@ -96,13 +96,13 @@ fin de cadena). Job 4 es el único job de la cadena que **Control-M** lanza con 
 pero no el único punto que escribe: el job 6, vía el workflow `Refinitiv_Request_Response`, reejecuta
 `refinitivDerivativesLoader.jar` sobre una nueva respuesta de Refinitiv; el job 5, vía el sub-workflow
 `Load_Refinitiv_Response`, carga su respuesta por el motor genérico "Standard File Load" de GoldenSource y,
-vía `Refinitiv_Bloomberg_AltaRolEmisor`, da de alta el rol `ISSUER` en `FT_T_FINR` por un mensaje JMS — 3
+vía `Refinitiv_Bloomberg_AltaRolEmisor`, da de alta el rol `ISSUER` en `FT_T_FINR` mediante el sub-workflow `AltaRolEmisor` (llamada síncrona) — 3
 mecanismos de escritura distintos para 3 piezas distintas de la cadena (confirmado con las 3 piezas de
 workflow reales, `descarga_derivados_refinitiv_spec.md` §6.3) — ver `descarga_derivados_refinitiv_spec.md` §5/§6 para el detalle completo.
 
 - **Jobs 5/6 (confirmado con `.properties` + workflow real):** invocan el workflow compartido
-  `Refinitiv_Request_Response` — necesario para TC-017 poder observar el `.properties` temporal generado
-  (`Refinitiv_Request_Response_<timestamp>.properties`) antes de que `GSProcess.sh` lo procese/limpie.
+  `Refinitiv_Request_Response` — para TC-017 basta observar los valores de entrada de la instancia del workflow o el log
+  del job (el `.properties` temporal que genera `GSProcess.sh` no se usa; spec §6.7).
 - **Job 7 (confirmado con `.properties` real):** usa el mecanismo `Accion=Property` de `GSProcess.sh` para
   instanciar la plantilla `GestionAlertas.properties` — necesario para TC-018 poder observar el fichero
   temporal generado (`GestionAlertas_DERIVADOS_REFINITIV_<timestamp>.properties`) con el valor `ArgJava3`

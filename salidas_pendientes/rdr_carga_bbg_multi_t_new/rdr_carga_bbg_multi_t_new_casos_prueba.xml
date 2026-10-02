@@ -205,4 +205,29 @@
     <posibilidadFallo>Cualquier fallo puntual de red/SFTP en el envío o la descarga haría fallar el resultado end-to-end esperado en este caso concreto, sin ser necesariamente un defecto de la lógica de negocio.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-010" tipo="datos_sinteticos">
+    <nombre>Estado de las peticiones según la línea de respuesta de Bloomberg</nombre>
+    <objetivo>Comprobar, con respuestas sintéticas, cada rama del workflow Bloomberg_Response (sin SECURITY_TYP, tipo desconocido, futuro u opción, emisión guardada): estado final de FT_T_VREQ y línea en ISSUES_BBVARDR.txt. Campo que varía: SECURITY_TYP (campo 3 de la línea) y la existencia de la emisión. Cuántas veces: 4 ejecuciones, una por rama. Valor de conflicto: ninguno; el caso verifica el efecto de cada rama.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test/preproducción, nunca producción: se escribe en FT_T_VREQ y en el directorio issues.</precondicion>
+      <precondicion>Para cada identificador de prueba existe una fila de FT_T_VREQ en estado PENDING con su FT_T_VRPM (la cadena no la crea; sin ella el workflow no actualiza nada).</precondicion>
+      <precondicion>Existe un tipo de Bloomberg con equivalencia en FT_T_EIST (fuente BB), otro sin ella y otro cuya equivalencia es FUTURES u OPTIONS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea A" valor="ID de 12 caracteres|0|N| (campo 3 vacío)"/>
+      <dato campo="Línea B" valor="ID de 12 caracteres|0|N|TIPO_SIN_EQUIVALENCIA"/>
+      <dato campo="Línea C" valor="ID de 12 caracteres|0|N|tipo equivalente a FUTURES"/>
+      <dato campo="Línea D" valor="ID de 12 caracteres|0|N|tipo válido, con la emisión ya guardada"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar el fichero Path con la línea A, lanzar el evento Bloomberg_Response y consultar FT_T_VREQ.</paso>
+      <paso numero="2">Repetir con las líneas B, C y D, cada una con su petición PENDING.</paso>
+      <paso numero="3">Revisar ISSUES_BBVARDR.txt tras la línea D.</paso>
+    </pasos>
+    <resultadoEsperado>A: FAILED sin texto. B: FAILED con "Issue Type does not exists in RDR". C: FAILED con "Can not request an Option or Future" y OUTPUT = FUTURES_OPTIONS. D: PROCESSED y una línea "processed" en ISSUES_BBVARDR.txt.</resultadoEsperado>
+    <tipoValidacion>Consulta a base de datos + inspección de fichero, en entorno de test</tipoValidacion>
+    <criterioAceptacion>El estado y el texto de cada petición coinciden con los indicados; ninguna otra petición PENDING cambia de estado.</criterioAceptacion>
+    <posibilidadFallo>Si el comportamiento real difiere, hay que corregir la spec §6.8 y los riesgos R-11 y R-12 (por ejemplo, si el workflow continuara con la línea siguiente tras una rama de error).</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

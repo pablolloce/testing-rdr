@@ -313,8 +313,7 @@ anterior desde `/old/LEI_old.csv`" y lanza `GSProcess.sh aviso_LEI`. Según el d
 envía con el workflow `SendMailReport` un correo a `ans_rdr.es@bbva.com`, asunto "Reporte error carga de LEIs",
 con `LEI.csv` adjunto. **Contradicción con la evidencia:** el `SendMailReport.wkf` recibido (versión 16,
 estado `RELEASED`, grupo `Custom/RDR/Reports/Load`) envía siempre desde `moca.users.es@bbva.com`, a cuatro
-destinatarios fijos (`r.plaza.guijarro@bbva.com`, `rdr_factory@bbva.com`, `cesar.castillo@bbva.com`,
-`miguel.munoz@bbva.com`), con asunto fijo "Informe diario carga contrapartidas", texto "Informe adjunto" y el
+destinatarios fijos (`rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas)), con asunto fijo "Informe diario carga contrapartidas", texto "Informe adjunto" y el
 adjunto (parámetro `File`) con nombre fijo `Report.csv`. Qué recibe realmente el aviso queda en P-LEI-07.
 
 Dentro de esta cadena, la comprobación es el paso 6: llega después de la carga y del informe (GAP-LEI-001).

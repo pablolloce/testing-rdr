@@ -169,6 +169,7 @@
     <precondiciones>
       <precondicion>Entorno de prueba (no producción) en el que RDR_Refinitiv_Request.jar no deja el fichero de respuesta (por ejemplo, sin conectividad con Refinitiv).</precondicion>
       <precondicion>REFINITIV_MULTI_ISSUE.csv presente en /fichtemcomp/&lt;env&gt;/descargas/kytl/issues/Refinitiv/Multi_Request/.</precondicion>
+      <precondicion>Fila VND_RQST_OID='MULTI_ISSUE' existente en FT_T_VREQ (si no existe, el UPDATE a FAILED no cambia nada y el caso no puede comprobar el estado; P-RFM-06).</precondicion>
       <precondicion>Lectura en Control-M y consulta SQL sobre FT_T_VREQ y KYTL_GC.TABLEALERTGENER.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -182,7 +183,7 @@
       <paso numero="4">Consultar TABLEALERTGENER WHERE PROCESO='PETICION_REFINITIV_EMISIONES' con START_TMS del ciclo.</paso>
       <paso numero="5">Anotar el estado final del job en Control-M.</paso>
     </pasos>
-    <resultadoEsperado>FT_T_VREQ de MULTI_ISSUE queda en FAILED con VND_RQST_STAT_TXT='Unable to load response, file not found'; hay una fila nueva en TABLEALERTGENER con MENSAJE='|Load Failed|MULTI|MULTI|Unable to load response, file not found', TIPO='CELDAEXCEL' y PROCESADO='N'. El estado del job en Control-M depende de P-RFM-07 y se registra como dato para cerrar esa pregunta.</resultadoEsperado>
+    <resultadoEsperado>FT_T_VREQ de MULTI_ISSUE queda en FAILED con VND_RQST_STAT_TXT='Unable to load response, file not found'; hay una fila nueva en TABLEALERTGENER con MENSAJE='|Load Failed|MULTI|MULTI|Unable to load response, file not found', TIPO='CELDAEXCEL' y PROCESADO='N'. El workflow termina por una transición normal a su nodo final, por lo que el job de Control-M queda en OK (P-RFM-07, resuelta para los fallos de negocio); se registra el estado real como confirmación.</resultadoEsperado>
     <tipoValidacion>Consulta SQL + estado en Control-M</tipoValidacion>
     <criterioAceptacion>Las dos filas de base de datos coinciden literalmente con lo esperado.</criterioAceptacion>
     <posibilidadFallo>Si FT_T_VREQ no cambia, el workflow no siguió la rama de error documentada. No ejecutar en producción: deja la petición MULTI_ISSUE en FAILED.</posibilidadFallo>

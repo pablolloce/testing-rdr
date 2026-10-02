@@ -17,18 +17,19 @@ El proceso se dispara por la llegada de `ADR_FILE.csv` en `/fichtemcomp/pr/desca
 | TC-007 | 2 filas con columna 3 de distinto valor (`ISIN` vs. otro) |
 | TC-008 | Capacidad de invocar el script manualmente en entorno de test con un tercer parámetro distinto |
 | TC-009 | 2+ filas de datos limpias, con distintos tipos de identificador |
+| TC-010 | Entorno de test con filas PENDING de `FT_T_VREQ`/`FT_T_VRPM` (la cadena no las crea) para los identificadores de prueba, y tipos de Bloomberg con y sin equivalencia en `FT_T_EIST` (fuente `BB`) |
 
 ## Entorno de ejecución
 
 - **Producción:** `FICHERO_RDR_FW` ejecuta con el usuario `xpctma1`; `RDR_BBG_REQUEST` (`Bloomberg_MultiRequest.sh`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`) y `RDR_CARGA_BBG_MULTI_OUT` con `xakytl1p`. Host `pr-rdr.igrupobbva`, server Control-M `MERCADOS-4`.
 - **TC-001, TC-002, TC-004, TC-005, TC-007, TC-009 (producción o entorno equivalente monitorizado):** requieren acceso de escritura a `/fichtemcomp/pr/descargas/kytl/issues/ADRMultirequest/` (para depositar el CSV de prueba) y de lectura a `Backup/`, además de lectura de Control-M.
-- **TC-003, TC-006, TC-008 (entorno de test/preproducción, nunca producción):** requieren poder invocar `Bloomberg_MultiRequest.sh` manualmente y simular de forma controlada un fallo de red/FTP o de `executeBbvaEvent.sh`, sin afectar el envío real a Bloomberg ni la carga real en GoldenSource.
+- **TC-003, TC-006, TC-008, TC-010 (entorno de test/preproducción, nunca producción):** requieren poder invocar `Bloomberg_MultiRequest.sh` manualmente y simular de forma controlada un fallo de red/FTP o de `executeBbvaEvent.sh`, sin afectar el envío real a Bloomberg ni la carga real en GoldenSource.
 
 ## Configuración
 
 - `BLOOMBERG_PARAMETERS.properties` debe existir en `/$ENV/kytl/online/multipais/multicanal/dat/properties/` con el contenido confirmado (cabecera Data License `getdata`, 41 campos) para que la petición se construya correctamente (TC-001, TC-004, TC-005, TC-007, TC-009).
 - `credentials.xml` debe existir y contener credenciales Bloomberg válidas para el envío/descarga SFTP (TC-001, TC-009).
-- `executeBbvaEvent.sh` y `BloombergMultiResponse.properties` deben estar desplegados y ser invocables para la carga en GoldenSource (TC-001, TC-006, TC-009). El contenido de `BloombergMultiResponse.properties` y las tablas que carga el evento `Bloomberg_Response` no están documentados (pregunta P-BBGM-02 de la spec): por eso los casos verifican la carga por el log del script y no por base de datos.
+- `executeBbvaEvent.sh` y `BloombergMultiResponse.properties` deben estar desplegados y ser invocables para la carga en GoldenSource (TC-001, TC-006, TC-009). El workflow del evento `Bloomberg_Response` está analizado en la spec (§6.8: estado de `FT_T_VREQ` y `ISSUES_BBVARDR.txt`), pero el contenido de `BloombergMultiResponse.properties` y las tablas que escribe el mapping `.mdx` no están documentados (pregunta P-BBGM-02 de la spec): por eso los casos verifican la carga por el log del script y no por base de datos.
 
 ## Sistema de ficheros
 
