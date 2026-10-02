@@ -27,6 +27,8 @@
 | TC-013 | Acceso de solo lectura a la Planificación de Control-M del folder |
 | TC-014 | Ambos ficheros de entrada completos y válidos, con al menos 1 registro activo reconciliable |
 | TC-015 | Fichero procesado con solo cabecera, 0 filas de datos |
+| TC-016 | Entorno aislado con la cola lógica `CLIENTELA` en `TRACE` (`FT_T_PAR1`) y 3 filas `PROCESO`/`PENDING` en `FT_T_RLT1` (`A460`, `B460`, `B460C`) con sus datos de apoyo (`CLIENTELAID` activo, folio `NUMFOLIO` activo) |
+| TC-017 | Entorno aislado con la cola lógica `BDI` en `TRACE` y 1 fila `PROCESO`/`PENDING` con `RLT_DIF_ACC='B460BDI'` y un código BDI de 6 caracteres en `GS_VALUE` |
 
 ## Entorno de ejecución
 
@@ -47,6 +49,9 @@
 | `select.properties` (claves `Contratos460/Reportes` y `Contratos460/Reportes/GestionHuerfanos`) | Define la query exacta de cada informe | TC-008, TC-011, TC-014 |
 | `log4jGestionCpartyC460.properties` | Configuración de logging de `GestionCpartyC460.jar` | TC-010, TC-011 |
 | `fillingRules_CN460.csv` (fuera de alcance) | Reglas de preprocesado antes de `ConContrato460` | — (no cubierto por ningún caso, fuera de alcance declarado) |
+| Workflows `BajaClientela460`, `BajaCodTesBDIGesC460`, `SendClientelaRequest`, `BAJA_460_CLI`, `SUB_GET_FOLIO`, `SendBDIRequest`, `Sub_SendMessageToMQQueue` y eventos `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` desplegados en GoldenSource | Envío por MQ de las señales `PENDING` de alta/baja (pasos 7 y 8 del pipeline) | TC-016, TC-017 |
+| `FT_T_PAR1` (`ACT1_OID='DIFFUSMODE'`, `PARAMETER_CTXT_TYP='MQQUEUE'`, `PAR1_NME` = `CLIENTELA`/`BDI`) | Interruptor `PUBLISH`/`TRACE` de las colas lógicas; en `TRACE` el mensaje se escribe en el log y no se envía | TC-016, TC-017 |
+| Cola JMS `KYTL.TEGC.Q001` (fábrica `jms/RDR_MQ_CONN_FACT`) | Destino real de las colas lógicas `CLIENTELA` y `BDI` con la cola en `PUBLISH` | TC-016, TC-017 (solo con `PUBLISH`) |
 
 ## Sistema de ficheros
 

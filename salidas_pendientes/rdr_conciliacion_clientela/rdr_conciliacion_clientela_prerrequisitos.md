@@ -41,6 +41,10 @@
   `fillingRules_ConClientela.csv` y `select.properties` (clave `ConClientela`, ver spec §6.1); y
   `ConClientela.properties` de `GSProcess.sh` (spec §6). Directorio `ConClientela/old/` existente y con
   escritura (lo necesitan `Delta` y la historificación).
+- Jars en `…/jar`: `ControlCargaDatos.jar` 1.0.0 (24/08/2026, `controlcargadatos.ControlCase`), `RDR_PLSQL.jar` 1.0.0
+  (26/08/2026, `rdr_plsql.ConClientela`) y `RDR_Report.jar` (`rdr_report.CreateReport`), con JDK 17
+  (`JDKV=17`); son las versiones con paquete que nombra `ConClientela.properties`. Se desconoce si producción
+  ejecuta estas versiones (H-CCL-05).
 - BD GoldenSource accesible desde `pr-rdr.igrupobbva` con el procedimiento `CONCLI2` y las tablas
   `FT_T_JBLG`, `FT_T_RLT1`, `FT_T_VREQ`, `FT_T_FIID`, `FT_T_FIRL`, `FT_T_FRRL`, `FT_T_FINR`.
 

@@ -72,7 +72,7 @@ llegó `Refundicion.csv`), esta cadena no arranca.
 | P-CCL-01 | ¿Qué sistema/equipo deposita `ConClientela.csv`, a qué hora, y cuál es el layout oficial de sus 97 columnas (cabecera, significado, formato del campo LEI con su carácter inicial)? | Sin él no se pueden preparar datos de prueba reales ni saber a quién avisar si no llega. |
 | P-CCL-02 | ¿Cómo está el calendario de `KYTL_REF_GSPROCESS`? La ficha de Refundición dice "martes a sábado" y a la vez `LMXJVSD` (7 días). Si no corre un día, esta cadena (7 días) tampoco arranca. ¿Tiene Control-M alguna regla para el código 7 del `ctmfw` (¿OK o NOTOK?)? | Determina si hay días sin conciliación y si la ausencia de fichero deja la malla en rojo o en verde. |
 | P-CCL-03 | Contenido de `fillingRules_ConClientela.csv` y cuerpo del procedimiento Oracle `CONCLI2`. | Define qué registros se rechazan y qué se actualiza exactamente en GS. |
-| P-CCL-04 | ¿Qué job/cadena ejecuta la clave `ConClientela/ReporteLEI` (informe `Reporte_LEI.csv`) y a quién se envía? | Es el informe de LEI de esta misma conciliación, pero no figura en ninguno de los 4 jobs. |
+| P-CCL-04 | ¿Qué job/cadena ejecuta la clave `ConClientela/ReporteLEI` (informe `Reporte_LEI.csv`) y a quién se envía? | Es el informe de LEI de esta misma conciliación, pero no figura en ninguno de los 4 jobs. **Resuelta en parte (02/10/2026):** en GoldenSource existe el evento `RDR_Reporte_LEI_C460` (descripción «Informe de modificaciones en los contratos 460») que arranca el workflow `envioReporteMail` (versión 4), con una variante `LEI` y otra `C460` (dos consultas `Select1`/`Select2` y un `Destination` que le llegan por el `.properties` del llamador, y envío por el sub-workflow `Mail`). Es el único mecanismo de envío por correo de un informe de LEI hallado, pero ni `ConClientela.properties` ni ningún otro `.properties` recibido lo invoca, y los scripts que fijan asunto, adjunto y destinatarios son blobs no legibles. **Sigue abierto** quién lo lanza, con qué `Destination` y si el adjunto es `Reporte_LEI.csv` |
 | P-CCL-05 | Configuración (`.idx`) real de las claves `MEKYTL0131` y `MEKYTL0130` (protocolo, usuario de transmisión, `FALLA_NO_FICHERO`, historificación en `RUTA_HISTORIFICACION`). | Confirma la tolerancia a fichero ausente y el comportamiento si el destino rechaza el fichero. |
 
 ## 5. Especificación funcional
@@ -299,6 +299,25 @@ Código fuente real aportado por el usuario: `ConClientela.java` y la versión c
 `jdbc.ConDB`, acceso a BD compartido con las cadenas hermanas `ConBDI`/`ConContrato460`). Todo lo que sigue
 sale de leer ese código; el cuerpo del procedimiento Oracle `CONCLI2` no se ha visto.
 
+**Contraste con el jar Maven `RDR_PLSQL.jar` (segunda pasada, 02/10/2026).** La rama de Eduardo aporta el jar
+`RDR_PLSQL.jar` 1.0.0, compilado el 26/08/2026 con JDK 17 (clases `rdr_plsql.ConClientela`, `rdr_plsql.ConBDI`,
+`rdr_plsql.ConContrato460`, `rdr_plsql.jdbc.ConDB`, `rdr_plsql.util.*`). Descompilado con `cfr` y comparado con el
+código fuente de esta sección:
+- **`rdr_plsql.ConClientela` hace lo mismo que el `ConClientela.java` analizado:** mismas 28 posiciones de columna, 97
+  campos exigidos, regla de «Cuentas Gestionadas» con las mismas cuatro ramas (`obtenerMA`, `reportarMA`,
+  `publicarMA`), comprobación de consistencia de LEI por canónico (`insertRLT1ClientelaLEI`, en `FT_T_VREQ`), lotes y
+  hilos, y `CONCLI2` con 29 parámetros. En el código compilado **no existen** las inserciones de `noConci` ni de
+  `errorConci` (las listas se rellenan y no se usan), es decir, el jar coincide con el fuente comentado
+  (H-CCL-02): sigue sin saberse si ese es el jar que corre en producción.
+- **Diferencias de `ConDB`:** las clases están en paquetes (`rdr_plsql.*`), que es lo que el `ConClientela.properties`
+  de integración ya nombra (`NomClaseJava=rdr_plsql.ConClientela`, `JDKV=17`); y `crearJOB`, `cerrarJOB`,
+  `insertRLT1Clientela` e `insertRLT1ClientelaLEI` usan parámetros enlazados en vez de concatenar: con el jar, un
+  apóstrofo en un nombre de cliente o en una lista de clientes no rompe esas sentencias. Los demás métodos
+  (`obtenerCLIs`, `obtenerLEIactual`, `obtenerCANONICO`, `obtenerMA`, `reportarMA`, `publicarMA`, `executeCONCLI_Hilos`)
+  coinciden. Cierra el job con la etiqueta `CCL` (solo informativa) y lo crea con `JOB_MSG_TYP='CCL'`.
+- El jar contiene también `ConBDI` y `ConContrato460` (las cadenas hermanas comparten el mismo jar y la misma clase
+  `ConDB`, con una sola conexión compartida entre hilos en `ConBDI`/`ConClientela`).
+
 **Cómo se ejecuta:** `GSProcess.sh` lanza `java ... rdr_plsql.ConClientela <$FILES/ConClientela/ConClientela_processed.csv>`
 (JDK 17, `ojdbc8.jar`). Obtiene credenciales de BD de la configuración de la plataforma (no se documentan
 aquí), abre conexión, **crea un job** en `FT_T_JBLG` (`JOB_MSG_TYP='CCL'`, estado `OPEN`, identificador
@@ -378,7 +397,7 @@ la definición oficial del fichero de Clientela no está en las fuentes, P-CCL-0
     vacío, localiza el mnemónico "padre" de mandato (`FT_T_FRRL`/`FT_T_FINR`, mismo patrón que `obtenerMA`)
     e inserta un registro `FT_T_RLT1` de propósito `INFO` (no `REPORTES`) — un aviso informativo distinto
     de los reportes de discrepancia.
-  **Código muerto (mismo patrón que en la cadena hermana `ConBDI`):** el bloque que
+  **Código muerto (mismo patrón que en la cadena hermana `ConBDI`; también ausente del jar Maven de 26/08/2026):** el bloque que
   registraría en `FT_T_RLT1` los códigos de cliente presentes en GoldenSource pero ausentes del fichero
   (`noConci`) y los errores de formato de línea (`errorConci`) está **completo pero enteramente
   comentado** en el código real aportado — se calculan ambas listas pero ninguna se llega a insertar.
@@ -424,7 +443,7 @@ de las transiciones documentadas.
   `ConClientela.java` bloquea la conciliación completa de un cliente (no solo su LEI) si tiene una cuenta
   gestionada activa con un LEI distinto del que trae el fichero — ese cliente queda excluido de la
   actualización ese ciclo, con solo un reporte separado en lugar de una conciliación real.
-* **Código muerto (mismo patrón que `ConBDI`, §6.2):** la detección de
+* **Código muerto (mismo patrón que `ConBDI`, §6.2; confirmado también en el jar Maven de 26/08/2026):** la detección de
   clientes presentes en GoldenSource pero ausentes del fichero, y de líneas con formato inválido, se
   calcula pero el bloque que la registraría en `FT_T_RLT1` está enteramente comentado — mismo hallazgo
   de prioridad alta que en la cadena hermana.

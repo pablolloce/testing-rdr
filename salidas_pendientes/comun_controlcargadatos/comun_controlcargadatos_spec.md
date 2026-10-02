@@ -18,6 +18,8 @@
 >   sobre formatos, mensajes, recuentos y códigos de salida coincide con lo observado.
 
 > **Procedencia del jar analizado.** El jar recibido es una compilación Maven del 24/08/2026 (`pom.xml` con `url` `https://github.com/bbva/controlcargadatos`, JDK 17, clases en el paquete `controlcargadatos`). Coincide con lo que invocan los `.properties` de **integración** (`controlcargadatos.ControlCase`, `JDKV=17`). El `ConBDI.properties` de **producción** invoca la clase **sin paquete** (`ControlCase`) y sin `JDKV=17`, es decir, una versión anterior del jar. Lo descrito aquí es el comportamiento de la versión analizada; el de producción podría diferir (pregunta P-CCD-04).
+La segunda copia del jar recibida el 02/10/2026 (evidencia de conciliación BDI, rama de Eduardo) es **idéntica byte a
+byte** (mismo md5) a la analizada aquí: no aporta la versión de producción.
 
 ## 1. Qué es y para qué sirve
 

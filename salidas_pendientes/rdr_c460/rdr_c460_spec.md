@@ -57,9 +57,10 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
   `DUPL` = clave de duplicados (queda la última aparición). Un registro con distinto número de campos que
   la cabecera se rechaza con `"El registro nº:<n> :(<línea>) tiene diferentes campos que la cabecera."`.
   Siempre termina con código 0, incluso sin fichero de entrada.
-- Los workflows `RDR_BajaContratos460` y `RDR_BajaCodTesBDIGesC460` (disparados por evento desde
-  `GSProcess.sh`): no se obtuvo su definición `.wkf`; se nombran como pasos del pipeline sin poder
-  confirmar si ejecutan lógica adicional a la ya cubierta por `GestionCpartyC460.jar`.
+- Los sistemas que reciben los mensajes de los workflows `RDR_BajaContratos460` y
+  `RDR_BajaCodTesBDIGesC460` (Clientela y BDI, por cola MQ): los dos workflows en sí **sí están analizados**
+  (§6.8, con la base de workflows de GoldenSource), pero lo que hagan los destinatarios con el mensaje queda
+  fuera.
 - El mecanismo interno exacto de deduplicación de `Duplicados.sh`: se documenta su propósito e
   interfaz (ficheros de entrada/salida, campo usado como clave) pero no se profundiza en el detalle de
   implementación, por decisión explícita del usuario (no es relevante para esta especificación si hay o
@@ -110,7 +111,8 @@ Los gaps anteriores están resueltos. Preguntas pendientes y su estado tras la p
 | P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica | Abierta (la ficha original de `MEKYTL0611` repite la ruta con espacio, sin aclararlo) |
 | P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` | **Resuelta en parte** — renombrado y máscaras conocidos por las fichas originales (§5.3); sigue abierto el campo "falla si no hay fichero" y la operación literal del IDX |
 | P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline | Abierta |
-| P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar | Abierta |
+| P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar | **Resuelta en parte** — los dos workflows están analizados (§6.8): `RDR_BajaContratos460` arranca `BajaClientela460` y `RDR_BajaCodTesBDIGesC460` arranca `BajaCodTesBDIGesC460`; ambos drenan señales `PENDING` de `FT_T_RLT1` y las envían por MQ. **Sigue abierto** el cuerpo del procedimiento Oracle `CONC460` (único artefacto sin código) |
+| P-C460-08 | ¿Quién lanza el workflow de correo `envioReporteMail` (evento `RDR_Reporte_LEI_C460`, «Informe de modificaciones en los contratos 460») y qué adjunta? | Define si `Reportes_Contratos460.csv` se envía por correo y a quién | **Resuelta en parte** — el evento y el workflow existen en GoldenSource (§6.6) y no los lanza ningún paso del `.properties` de `Contrato460`; sus scripts BeanShell no están disponibles |
 
 ## 5. Especificación funcional
 
@@ -166,7 +168,9 @@ técnico completo en §6.1):
    procedimiento PL/SQL `CONC460` (ver §6.2).
 7. `GestionCpartyC460` (`RDR_GestionCpartyC460.jar`) ejecuta el barrido de higiene de jerarquía
    (bajas C460, bajas BDI, huérfanos LOCAL/GLOBAL — ver §6.3), **independiente del contenido del fichero**.
-8-9. Se disparan los workflows `RDR_BajaContratos460` y `RDR_BajaCodTesBDIGesC460` (fuera de alcance).
+8-9. Se disparan los eventos `RDR_BajaContratos460` (arranca el workflow `BajaClientela460`) y
+`RDR_BajaCodTesBDIGesC460` (arranca `BajaCodTesBDIGesC460`): envían por MQ a Clientela y a BDI las altas/bajas
+que los pasos 6 y 7 han dejado como `PENDING` en `FT_T_RLT1` (§6.8).
 10-11. Se generan los 2 informes `Reportes_Contratos460.csv` y `Reportes_GestionHuerfanos.csv` (ver §6.4).
 12. Se borra el fichero de trabajo `CN460_ConCabecera.csv`.
 
@@ -230,8 +234,8 @@ MOD_EJECUCION=Contrato460 | Servicio=Contrato460 | BusinessFeed=Contrato460 | Ti
 5) Java RDR_PLSQL.jar / clase ConContrato460: arg1=CN460_ConCabecera_processed.csv
 6) Java RDR_GestionCpartyC460.jar / clase main/GestionCpartyC460: arg1=2 (nivel log INFO),
    arg2=log4jGestionCpartyC460.properties, arg3=PRO (entorno)
-7) Evento Workflow RDR_BajaContratos460
-8) Evento Workflow RDR_BajaCodTesBDIGesC460
+7) Evento Workflow RDR_BajaContratos460      (-> workflow BajaClientela460, §6.8)
+8) Evento Workflow RDR_BajaCodTesBDIGesC460   (-> workflow BajaCodTesBDIGesC460, §6.8)
 9) Java RDR_Report.jar / clase CreateReport, ServicioJava=ReporteContratos460:
    arg1=select.properties, arg2=Contratos460/Reportes
 10) Java RDR_Report.jar / clase CreateReport, ServicioJava=ReporteContratos460/GestionHuerfanos:
@@ -267,11 +271,23 @@ implementación.
 
 Además `Duplicados.sh` deja `CN460_ConCabecera.csv_REPES`, el fichero que historifica `MEKYTL0642`.
 
-### 6.2 `ConContrato460` (`RDR_PLSQL.jar`, decompilado con `cfr`, sin fuente `.java` disponible)
+### 6.2 `ConContrato460` (`RDR_PLSQL.jar`, clase `rdr_plsql.ConContrato460`)
 
-Lee `CN460_ConCabecera_processed.csv`, separado por `;`, exactamente 12 campos esperados por fila
-(`campos.length != 12` → fila descartada con log, el job no aborta). Mapeo real confirmado por código:
-`campos[6]`=`FOLIO`, `campos[8]`=`F_CANCELACION`, `campos[9]`=`CCLIEN`.
+Contrastado en esta ronda con el jar Maven `RDR_PLSQL.jar` 1.0.0 (compilado el 26/08/2026, JDK 17; clases
+`rdr_plsql.ConContrato460`, `rdr_plsql.jdbc.ConDB`, `rdr_plsql.util.*`), descompilado con `cfr`: su lógica es la
+misma que la del código fuente `ConContrato460.java`/`ConDB.java` ya analizado. Diferencia de empaquetado: en el
+jar las clases están dentro de paquetes (`rdr_plsql.*`), así que el `.properties` debe invocar
+`rdr_plsql.ConContrato460`; si el `.properties` de producción de `Contrato460` nombra la clase sin paquete
+(como hace `ConBDI.properties`, ver spec de `rdr_conciliacion_bdi` P-CBD-13), el jar desplegado sería el antiguo y no
+este.
+
+Lee `CN460_ConCabecera_processed.csv` (ISO-8859-1, salta la cabecera), separado por `;`. **Si una línea acaba en
+`;`, le añade una `N`** antes de trocearla (el último campo vacío cuenta como campo). Exige exactamente 12 campos
+por fila (`campos.length != 12` → fila descartada con log, el job no aborta). Mapeo real confirmado por código:
+`campos[6]`=`FOLIO`, `campos[8]`=`F_CANCELACION`, `campos[9]`=`CCLIEN`. Abre cuatro conexiones a BD con las credenciales de `credentials.xml` (mismas reglas de
+conexión que `ConBDI`): la 0 ejecuta las sentencias diferidas (`INSERT` de `FT_T_RLT1` y `UPDATE` de `FT_T_FAB1`),
+la 1 crea y cierra el job, lee el universo y llama a `CONC460`; la 2 se pasa a los métodos que construyen los
+`INSERT` pero estos no la usan, y la 3 no se usa.
 
 **Universo de referencia** (`obtenerClientelaIDBBVA`, query real):
 ```sql
@@ -292,16 +308,38 @@ combinación exacta `(clientelaId;0001-01-01)` (es decir, el fichero no lo trae 
 se marca "no concilia": 2 `INSERT` en `FT_T_RLT1` (`DATA_SRC_APP='ALTA_CPARTY'`/`PROCESO` y
 `'C460_P'`/`REPORTES`), mensaje `"Contrato 460 pendiente de dar de alta"`, estado `PENDING`.
 
-**Procesamiento por fila del fichero** (`executeCONC460_Hilos`):
-- `CCLIEN == '000000000'` → se descarta sin más (ni carga ni desactivación).
-- `F_CANCELACION == '0001-01-01'` (activo) → llama al procedimiento PL/SQL `{call CONC460 (clientelaId,
-  folio, jobId)}` — el loader/reconciliador real, fuera de alcance (compilado en BBDD).
-- `F_CANCELACION` con fecha real (cancelado) → **no** llama a `CONC460`; encola un
-  `UPDATE FT_T_FAB1 SET STAT_DEF_ID='NUMFOLII', DATA_STAT_TYP='INACTIVE', LAST_CHG_USR_ID='CONC460'`
-  filtrado por el folio y el `ClientelaID` (vía `FT_T_FIID`/`CLIENTELAID`), desactivando directamente ese
-  folio sin pasar por la conciliación normal.
+**Procesamiento por fila del fichero** (`executeCONC460_Hilos`; pese al nombre **no usa hilos**: recorre todas las
+filas una a una con la conexión 1). Orden real de las comprobaciones:
+- Primero se mira `F_CANCELACION`. `F_CANCELACION` con fecha real (cancelado, distinto de `0001-01-01`) → **no**
+  llama a `CONC460`; encola un
+  `UPDATE FT_T_FAB1 SET STAT_DEF_ID='NUMFOLII', DATA_STAT_TYP='INACTIVE', LAST_CHG_USR_ID='CONC460', LAST_CHG_TMS=SYSDATE`
+  con `WHERE DATA_STAT_TYP <> 'INACTIVE' AND STAT_DEF_ID='NUMFOLIO' AND FLD_VAL=<folio>` y el `INST_MNEM` de las
+  filas `FT_T_FIID` `CLIENTELAID` no inactivas con `FINS_ID=<ClientelaID>`. Como el `WHERE` exige `NUMFOLIO` y el
+  `SET` escribe `NUMFOLII`, el cambio de tipo es deliberado (marca el folio como «folio inactivo»), no una errata:
+  el folio deja de ser candidato para cualquier consulta que busque `NUMFOLIO` (p. ej. `SUB_GET_FOLIO`, §6.8). La
+  sentencia se construye concatenando el folio y el ClientelaID (un apóstrofo en el fichero la rompería; el error
+  se escribe en la salida estándar y la sentencia se pierde). **El centinela `000000000` no se filtra en esta
+  rama**: una fila cancelada con `CCLIEN='000000000'` también encola su `UPDATE`, que en la práctica no toca
+  nada porque la query del universo excluye ese código y no se espera una fila `FIID` con él.
+- `F_CANCELACION == '0001-01-01'` (activo): si `CCLIEN == '000000000'` se descarta sin más; en otro caso llama
+  al procedimiento PL/SQL `{call CONC460 (clientelaId, folio, jobId)}` — el loader/reconciliador real, fuera de
+  alcance (compilado en BBDD) — y cuenta la llamada. Un error SQL en una llamada aborta el recorrido de **todas**
+  las filas restantes (el `try` envuelve el bucle completo; solo se escribe la traza).
 
-Todos los `UPDATE`/`INSERT` encolados se ejecutan al final del job (`updatesFAB1()`, `insertarRLT1()`).
+**Orden de ejecución diferida** (verificado en `main`): 1) se construyen las sentencias de «no concilia» y se
+**ejecutan ya** (`insertarRLT1()`, primero las `ALTA_CPARTY`/`PROCESO`, luego las `C460_P`/`REPORTES`) con la
+conexión 0; 2) se llama a `CONC460` fila a fila; 3) al final se ejecutan los `UPDATE FT_T_FAB1` acumulados
+(`updatesFAB1()`). Cada sentencia diferida se ejecuta por separado; el código no hace `COMMIT` ni cambia el modo
+de confirmación de la conexión (cada sentencia se confirma con el autocommit por defecto del controlador); un fallo
+de una sentencia solo escribe la traza y sigue con la siguiente. Las sentencias `INSERT` llevan `WHERE NOT EXISTS` con la misma combinación de mnemónico, mensaje, acción, campo,
+propósito, origen y estado: las señales `PROCESO` (`ALTA_CPARTY`) no se duplican en un relanzamiento mientras sigan
+`PENDING`; las filas `REPORTES` (`C460_P`) sí se repiten, porque su comprobación incluye el `JOB_ID` y un
+relanzamiento crea un job nuevo.
+
+**Job de GS:** crea un job `FT_T_JBLG` con `JOB_MSG_TYP='C460'` y, al terminar, lo cierra llamando a
+`cerrarJOB(..., "CCL", ...)`; la etiqueta que se pasa al cierre no se usa (el `UPDATE` solo filtra por `JOB_ID`),
+por lo que no hay efecto: el job queda `CLOSED` con tipo `C460`. Los informes de §6.4 no dependen de ese job
+(usan `data_src_app` y `start_tms`).
 
 ### 6.3 `GestionCpartyC460` (`RDR_GestionCpartyC460.jar`, decompilado con `cfr`)
 
@@ -381,25 +419,131 @@ Según la wiki del proceso ("Conciliación de Contratos 460"): se concilian los 
 se actualiza RDR con los datos de IC (propietario del dato); además se solicita la baja de contratos 460
 **en IC** cuyo `ClientelaID` no exista en RDR. Esto explica el propósito de negocio real de los mensajes
 `"pendiente de dar de alta"`/`"...de dar de baja"` que el código escribe en `FT_T_RLT1`: no son solo
-registros internos, son las peticiones de alta/baja que deben accionarse hacia IC (mecanismo de envío de
-esas peticiones fuera de alcance de esta cadena — documentación técnica adicional disponible en
-`DT_Regularización_Gestión_Contrato_460_v1.0.docx`, drive de ANS, no obtenido).
+registros internos, son las peticiones de alta/baja que deben accionarse hacia IC. **El mecanismo de envío
+está en la propia cadena** (pasos 7 y 8 del pipeline): los workflows de §6.8 leen esas filas `PENDING` y las
+publican por cola MQ hacia Clientela y BDI (que el sistema destino de la cola lógica `CLIENTELA` las reenvíe a IC
+no consta). Documentación técnica adicional: `DT_Regularización_Gestión_Contrato_460_v1.0.docx`, drive de ANS,
+no obtenido.
 
-**Posible envío por correo de los informes (dato indirecto):** el análisis del informe MIFID (documento original de ese proceso, rama de Miguel) descarta el workflow genérico `envioReporteMail.gsp` para MiFID porque "sus variables `LEI`/`C460` y sus plantillas `Reporte_LEI_*`/`Contratos460` pertenecen a otros procesos (Gestión LEI y Contratos 460)". Es decir, existe en GoldenSource un workflow de envío de informes por correo con una variante `C460` y una plantilla `Contratos460`. Ninguno de los 12 pasos de `GSProcess.sh Contrato460` lanza un evento de correo (solo los dos workflows de baja, pasos 7 y 8, de los que no se tiene definición, P-C460-07), así que no se sabe qué proceso o paso envía por correo `Reportes_Contratos460.csv`; queda como hipótesis a comprobar junto con P-C460-07.
+**Envío por correo de los informes (resuelto en parte, P-C460-08).** El análisis del informe MIFID (documento
+original de ese proceso, rama de Miguel) descartaba el workflow genérico `envioReporteMail` para MiFID porque «sus
+variables `LEI`/`C460` y sus plantillas `Reporte_LEI_*`/`Contratos460` pertenecen a otros procesos». La base de
+workflows de GoldenSource confirma que ese workflow existe y para qué es: el evento de aplicación
+`RDR_Reporte_LEI_C460` (descripción «Informe de modificaciones en los contratos 460») arranca el workflow
+`envioReporteMail` (versión 4, grupo `Custom/RDR/Integracion_MGC-GS/MIFID`, `haltOnError=No`). Entradas:
+`Destination` (destinatarios), `Select1` y `Select2` (dos consultas SQL, que llegan en el `.properties` del
+llamador). Estructura: un nodo «Inicializa Variables C460» y otro «Inicializa Variables LEI» (cada uno fija
+`Subject`, `fileMail`, `nameFile`, `mail`, `ruta` y una marca `hayPlantilla`/`hayPlantillaLEI`), una comprobación
+de nulo por variante, una consulta (`Select`, resultado en `Query1`/`Query2`) y la llamada al sub-workflow genérico
+`Mail` (envío SMTP con adjunto opcional, descrito en la spec de `rdr_conciliacion_bdi` §6.11). Los scripts BeanShell
+de los dos nodos de inicialización (qué fichero y qué texto lleva cada correo) no están en el material. **Quién lo
+lanza no consta:** ninguno de los pasos de `GSProcess.sh Contrato460` invoca ese evento, ni el
+`ConClientela.properties` (cuyo informe `ConClientela/ReporteLEI` es el homólogo de LEI), y el volcado no contiene
+ninguna planificación del motor que lo dispare. Conclusión: existe un envío por correo del «informe de
+modificaciones en los contratos 460», pero no se puede afirmar que `Reportes_Contratos460.csv` salga por esa vía
+ni quién lo recibe; el `Reportes_Contratos460.csv` de §6.4 solo sale por correo si algo externo a los 11 pasos
+(un job de Control-M no documentado) lanza `RDR_Reporte_LEI_C460`.
 
-### 6.7 Dato no verificado con el código disponible
+### 6.7 La cola `...AGREEMENT.PUBLISH` del documento fuente (contrastado con la base de workflows)
 
-El documento fuente indica que la cadena "Acaba publicando su resultado en la cola destino
-`GLB.BBVA.GMA_{env}.KYRS.RDR.AGREEMENT.PUBLISH`". No se encontró ninguna referencia a colas MQ/JMS en el
-código decompilado de `RDR_PLSQL.jar` ni `RDR_GestionCpartyC460.jar` (ambos solo hacen JDBC vía
-`ojdbc8.jar`). Se documenta tal cual figura en el documento fuente, como dato no re-verificado con el
-código disponible — no se pudo confirmar ni refutar con la evidencia obtenida en esta sesión.
+El documento fuente indica que la cadena «Acaba publicando su resultado en la cola destino
+`GLB.BBVA.GMA_{env}.KYRS.RDR.AGREEMENT.PUBLISH`». Contrastado en esta ronda:
+1. `RDR_PLSQL.jar` (`ConContrato460`/`ConDB`) y `RDR_GestionCpartyC460.jar` no usan MQ/JMS: solo JDBC vía
+   `ojdbc8.jar`.
+2. **La cadena sí publica en colas MQ, pero lo hacen los workflows de §6.8** (pasos 7 y 8), hacia las colas
+   lógicas `CLIENTELA` y `BDI`, que `Sub_SendMessageToMQQueue` resuelve a la cola JMS `KYTL.TEGC.Q001`
+   (la misma para las dos).
+3. `RDR.AGREEMENT.PUBLISH` es una cola lógica EMS de la publicación online de GoldenSource
+   (variable `CONFIG_ONLINE_PUBLISHING` de `Sub_PublishChanges`) que da salida al segmento `LegalAgreement`
+   (identificador `LAGROID`, tabla `FT_T_LAGR`). Esta cadena no escribe en `FT_T_LAGR` (GAP-C460-006), así que
+   nada de lo analizado publica en esa cola.
+Conclusión: el dato del documento no corresponde al comportamiento real de `RDR_C460`; lo más probable es que
+proceda de la plantilla del circuito de acuerdos legales. La publicación real de `RDR_C460` es la de §6.8. No
+consta cómo se traduce el nombre lógico EMS al nombre físico con prefijo `GLB.BBVA.GMA_{env}.KYRS.`.
+
+### 6.8 Workflows de baja lanzados por evento (pasos 7 y 8 del pipeline)
+
+Fuente: volcado de la base de workflows de GoldenSource (catálogo, nodos, transiciones, parámetros y eventos de
+aplicación). `GSProcess.sh` lanza cada evento con `executeBbvaEvent.sh fileloading <evento> <credenciales>
+Contrato460.properties` y entrega el `.properties` completo al workflow.
+
+| Evento (paso) | Workflow que arranca | Versión / estado | `haltOnError` |
+|---|---|---|---|
+| `RDR_BajaContratos460` (7) | `BajaClientela460` | 10, `RELEASED`, grupo `Custom/RDR/Integracion_MGC-GS/Bajas`, último cambio 05/11/2022 | No |
+| `RDR_BajaCodTesBDIGesC460` (8) | `BajaCodTesBDIGesC460` | 3, `RELEASED`, mismo grupo, último cambio 05/11/2022 | No |
+
+`BajaClientela460` es el mismo workflow que arranca el evento `RDR_Clientela460` de la cadena de refundición:
+cambia solo el `.properties` que recibe. Su descripción nodo a nodo está en
+`salidas_pendientes/rdr_refundicion/rdr_refundicion_spec.md` §6.1; aquí se resume lo que importa para `RDR_C460`.
+
+**`BajaClientela460`.** Decide por el parámetro `Tipologia` (`ALTA`, `BAJA`, `TOTAL`; otro valor o nulo = no hace
+nada). El `.properties` de `Contrato460` fija `Tipologia=TOTAL`, así que procesa las tres señales, todas
+`RLT_DIF_STAT='PENDING'` de `FT_T_RLT1`:
+- **`B460`** (`select main_entity_id from FT_T_RLT1 where RLT_DIF_STAT='PENDING' and RLT_DIF_ACC='B460'`): por cada
+  mnemónico llama a `BAJA_460_CLI` (`NIVEL=LOCAL`), que a través de `SUB_GET_FOLIO` envía **una baja por cada folio
+  activo** (`FT_T_FAB1`, `STAT_DEF_ID='NUMFOLIO'`, `DATA_STAT_TYP='ACTIVE'`) mediante `SendClientelaRequest`
+  (`ACCION=B460`). Después: `UPDATE FT_T_RLT1 SET LAST_CHG_USR_ID='BAJA_CLIENTELA', RLT_DIF_STAT='OK' WHERE
+  MAIN_ENTITY_ID=? AND RLT_PURP_TYP='PROCESO' AND RLT_DIF_ACC='B460' AND RLT_DIF_STAT='PENDING'`.
+- **`B460C`** (`select src_value ... RLT_DIF_ACC='B460C'`, baja a nivel de folio): por cada folio llama a
+  `SendClientelaRequest` (`ACCION=B460`, `FOLIO`, `BRANCH=A1`, `CODBAN=0182`, `CODOFI=0997`) y marca `OK` por
+  `SRC_VALUE`.
+- **`A460`** (`select fiid.fins_id cclien, rlt1.main_entity_id MNEM from FT_T_RLT1, FT_T_FIID where PENDING and
+  RLT_DIF_ACC='A460' and fiid.fins_id_ctxt_typ='CLIENTELAID' and fiid.data_stat_typ='ACTIVE' and
+  rlt1.main_entity_id=fiid.inst_mnem`): por cada cliente llama a `SendClientelaRequest` (`ACCION=A460`, `CCLIEN`,
+  `BRANCH=A1`, `CODBAN=0182`, `CODOFI=0997`) y marca `OK` por `MAIN_ENTITY_ID`. Un mnemónico sin `CLIENTELAID`
+  activo no se selecciona y su señal se queda `PENDING`.
+- Pausas de 5 s entre bloques (`Wait`).
+
+Quién deja las señales: `A460`/`PROCESO`/`ALTA_CPARTY` las inserta `ConContrato460` (§6.2: clientes del universo que
+no concilian con el fichero); `B460`/`PROCESO`/`BAJA_CPARTY`, la fase de bajas de `GestionCpartyC460` (§6.3).
+**`B460C`: ninguna clase Java analizada de `RDR_PLSQL.jar` la inserta**; solo consta como señal consumida, y el
+origen más probable es el procedimiento `CONC460` (no recibido, P-C460-07). Las filas `REPORTES` de `C460_P` llevan
+`RLT_DIF_ACC='A_REPORTE'` precisamente para que este workflow no las recoja.
+
+**Transporte de `SendClientelaRequest`.** Construye un mensaje de ancho fijo, lo audita en `FT_T_UTD1`
+(`UTD_USAGE_TYP='A460_Cli'`/`'B460_Cli'`, `DATA_SRC_ID='CLIENTELA'`, más dos filas «esperando respuesta») y lo publica
+llamando a `Sub_SendMessageToMQQueue` con la cola lógica `CLIENTELA` (detalle de ambos en la spec de refundición).
+`Sub_SendMessageToMQQueue` (versión 20, `haltOnError=Sí`, último cambio 27/07/2024): consulta
+`SELECT PAR1_VALUE FROM FT_T_PAR1 WHERE ACT1_OID='DIFFUSMODE' AND PARAMETER_CTXT_TYP='MQQUEUE' AND PAR1_NME=? AND
+DATA_STAT_TYP='ACTIVE'` con el nombre de la cola lógica; si el valor es `TRACE` solo escribe el mensaje en el log
+(«queue in TRACE MODE») y **no lo envía**; con `PUBLISH`, con cualquier otro valor o sin fila, publica. Las colas
+lógicas conocidas son `ALTAMIRA`, `BDI`, `CLIENTELA`, `FS` (FircoSoft), `MGC-ABACO` y `OFAC`; una no listada solo
+deja un error en el log («ADD THE NEW CASE TO THE SWITCH, OTHERWISE THE MESSAGE WILL NOT BE SENT») y el mensaje
+se pierde. `CLIENTELA` y `BDI` publican en la cola JMS `jms/queue/KYTL.TEGC.Q001` con la fábrica de conexiones
+`jms/RDR_MQ_CONN_FACT`, cabeceras `ApplIdentityData`/`PutApplName`=`GOLDENSOURCE`, formato `MQSTR` y respuesta a
+`DYD.TEGC.KYTL.Q001` (gestor `QMDESM01`); son constantes del workflow (los nombres parecen de un entorno de
+desarrollo) y los `jms/...` son referencias del servidor de aplicaciones, de modo que qué cola física hay detrás en
+producción no consta. En el volcado, las seis colas lógicas están en `PUBLISH`.
+
+**`BajaCodTesBDIGesC460`.** Consulta `select gs_value CODBDI from ft_t_rlt1 where rlt_dif_stat='PENDING' and
+rlt_dif_acc='B460BDI'` (sin filtrar el propósito) y, por cada código BDI, llama a `SendBDIRequest` con
+`ACCION=BAJAC460`; después ejecuta `UPDATE FT_T_RLT1 SET LAST_CHG_USR_ID='BAJA_B460BDI', RLT_DIF_STAT='OK' WHERE
+GS_VALUE=? AND RLT_PURP_TYP='PROCESO' AND RLT_DIF_ACC='B460BDI' AND RLT_DIF_STAT='PENDING'`. `SendBDIRequest`
+(versión 14, `haltOnError=No`) trata `BAJAC460` igual que `BAJA`: arma el mensaje (`B` + OID nuevo + día y hora en 4 cifras
++ `BBDIBAJA`, y el código BDI rellenado a 6 posiciones), inserta una fila en `FT_T_UTD1`
+(`UTD_USAGE_TYP='B460BDI'`, `UTD_ID_PURP_TYP='BDIID'`, `UTD_ID=<código BDI>`, `DATA_SRC_ID='BDI'`) y publica por
+`Sub_SendMessageToMQQueue` con la cola lógica `BDI` (misma cola JMS que `CLIENTELA`). Las filas `B460BDI` las debería
+dejar la fase de bajas BDI de `GestionCpartyC460` (§6.3, «mismo patrón»); esa correspondencia se infiere del
+consumidor y no se ha contrastado con el código de esa fase.
+
+**Qué pasa si falla.**
+- `GSProcess.sh` no detecta el fallo de ninguno de los dos eventos (§6.1).
+- Una señal no consumida sigue `PENDING` y se reintenta en la ejecución siguiente (el `UPDATE ... 'OK'` va después de
+  la llamada al sub-workflow). Con `haltOnError=No` en `BajaClientela460`, `BAJA_460_CLI` y `SendBDIRequest`, y `Sí`
+  en `SendClientelaRequest` y `Sub_SendMessageToMQQueue`, no se puede asegurar sin ejecución si una excepción en la
+  publicación MQ impide el `UPDATE`; hay que contrastar el resultado en `FT_T_UTD1` y en el estado de las filas.
+- Si hay dos filas `PENDING` para el mismo mnemónico (o código BDI), la consulta devuelve el valor dos veces y se
+  envían dos peticiones iguales; el primer `UPDATE` marca ambas filas `OK`.
+- Un fichero de entrada vacío convierte a todo el universo en señales `A460` `PENDING` (RISK-C460-003) y este
+  workflow las envía todas a Clientela como altas (RISK-C460-007).
+- Los dos workflows leen siempre `FT_T_RLT1` completo, no solo lo de la ejecución actual: arrastran también señales
+  `PENDING` de días anteriores.
 
 ## 7. Especificación de testing
 
-La matriz de `rdr_c460_casos_prueba.xml` (15 TC: TC-001 a TC-015) cubre los 9 tipos exigidos:
+La matriz de `rdr_c460_casos_prueba.xml` (17 TC: TC-001 a TC-017) cubre los 9 tipos exigidos:
 `happy_path` (TC-001, TC-002), `borde` (TC-003, TC-004, TC-005), `negativo` (TC-006, TC-015),
-`error_funcional` (TC-007, TC-008), `duplicidad` (TC-009), `conflicto_integridad` (TC-010, TC-011),
+`error_funcional` (TC-007, TC-008, TC-016), `duplicidad` (TC-009), `conflicto_integridad` (TC-010, TC-011, TC-017),
 `datos_sinteticos` (TC-012), `regresion` (TC-013), `e2e` (TC-014).
 
 Cada caso define pasos concretos, datos concretos y un resultado esperado verificable, ejecutable tal
@@ -408,6 +552,7 @@ cual está definido. La cobertura combina:
 - **Tramo de procesamiento** (TC-001, TC-003, TC-004, TC-007, TC-008, TC-009, TC-012, TC-015): la
   conciliación fila a fila y el barrido de higiene, cubriendo las 2 ramas (activo/cancelado), el
   centinela `000000000`, filas inválidas, duplicidad, huérfanos y bajas.
+- **Tramo de envío de señales por MQ** (TC-016, TC-017): los workflows de baja de §6.8 (pasos 7 y 8).
 - **Tramo de historificación y cierre** (TC-013, parte de TC-014): la cascada de 4 jobs y el cierre.
 - **TC-014** (e2e) combina los 3 tramos end-to-end, confirmando que la suma de los tramos troceados cubre
   el flujo completo sin huecos: no hay ninguna transición entre jobs que no quede cubierta por al menos
@@ -424,9 +569,9 @@ vez de ejecución directa, según el criterio de la regla 5.
 | `happy_path` | El flujo normal (contrato activo reconciliado, cadena completa sin incidencias) funciona | TC-001, TC-002 |
 | `borde` | Filas inválidas, el centinela `000000000` y el desfase de calendario fin de semana se manejan sin romper el job | TC-003, TC-004, TC-005 |
 | `negativo` | Ausencia de fichero (los filewatchers dan OK al agotar 15 min) y fichero vacío no corrompen el universo de conciliación y quedan trazados | TC-006, TC-015 |
-| `error_funcional` | Las 2 ramas de`F_CANCELACION` (activo/cancelado) y el "no concilia" siguen su camino correcto | TC-007, TC-008 |
+| `error_funcional` | Las 2 ramas de`F_CANCELACION` (activo/cancelado) y el "no concilia" siguen su camino correcto; las señales `PENDING` de alta/baja se envían por MQ y pasan a `OK` | TC-007, TC-008, TC-016 |
 | `duplicidad` | El control de duplicados se ejecuta y el pipeline continúa sin fallar | TC-009 |
-| `conflicto_integridad` | Las relaciones de contrapartida que pierden conexión BBVA, y los nodos huérfanos de jerarquía, se detectan y desactivan | TC-010, TC-011 |
+| `conflicto_integridad` | Las relaciones de contrapartida que pierden conexión BBVA, y los nodos huérfanos de jerarquía, se detectan y desactivan; la baja de códigos BDI se envía y marca | TC-010, TC-011, TC-017 |
 | `datos_sinteticos` | 3 filas sintéticas (coincidente, discrepante, cancelada) siguen cada una su rama correcta | TC-012 |
 | `regresion` | `MEKYTL0642` sigue presente y cableado tras el hallazgo de la solicitud de eliminación no ejecutada | TC-013 |
 | `e2e` | El flujo completo, de principio a fin, produce los 2 informes y aplica la conciliación en BBDD | TC-014 |
@@ -455,6 +600,14 @@ vez de ejecución directa, según el criterio de la regla 5.
   clientes activos de GoldenSource se marca "no concilia" / "pendiente de dar de alta" — ninguno
   encontrará coincidencia en un fichero vacío (ver TC-015). Puede inundar el informe diario sin que exista
   una incidencia real de datos (podría ser simplemente un fallo de generación/entrega del fichero en IC).
+- **RISK-C460-007 (nuevo, §6.8):** `BajaClientela460` (`Tipologia=TOTAL`) envía a Clientela por MQ **todas** las
+  señales `A460`/`B460`/`B460C` `PENDING`, sin límite ni confirmación de negocio. Un fichero de entrada vacío o
+  parcial (RISK-C460-003) puede generar una avalancha de altas `A460`, y un barrido de higiene erróneo
+  (`GestionCpartyC460`) una avalancha de bajas `B460`. Con `Sub_SendMessageToMQQueue` en modo `TRACE` (valor de
+  `FT_T_PAR1`), el mensaje no se envía pero las filas pueden quedar `OK`.
+- **RISK-C460-008 (nuevo, §6.8):** las colas `CLIENTELA` y `BDI` comparten la cola JMS física `KYTL.TEGC.Q001`
+  (según el workflow): sus mensajes (altas/bajas de contratos y bajas de códigos de tesorería BDI) viajan mezclados y
+  con respuesta a la misma cola `DYD.TEGC.KYTL.Q001`.
 - **RISK-C460-004:** la solicitud de eliminación de `MEKYTL0642` (16/05/2026, documentada en su ficha)
   no se ha ejecutado — si se ejecuta en el futuro sin actualizar `RDR_C460_OUT` para depender del evento
   de `MEKYTL0611`, la cadena quedaría bloqueada indefinidamente en el último paso (ver TC-013).
@@ -467,13 +620,13 @@ vez de ejecución directa, según el criterio de la regla 5.
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso documentado; quedan abiertas las preguntas P-C460-01, P-C460-03, P-C460-05 y P-C460-07 de §4 (P-C460-04 resuelta en parte; P-C460-02 resuelta).** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
+**Proceso documentado; quedan abiertas las preguntas P-C460-01, P-C460-03 y P-C460-05 de §4 (P-C460-04, P-C460-07 y P-C460-08 resueltas en parte; P-C460-02 resuelta). De P-C460-07 solo falta el cuerpo de `CONC460`; los dos workflows de baja están analizados (§6.8).** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
 `.properties` de `GSProcess.sh`, 2 jars decompilados (`RDR_PLSQL.jar`, `RDR_GestionCpartyC460.jar`),
 `select.properties`, `Duplicados.sh`, captura real de la Planificación de Control-M, y confirmación de
 negocio de la wiki del proceso. La relación nominal con el dominio
 `LAGR` queda descartada a nivel técnico con evidencia de código (ausencia total de `FT_T_LAGR`).
 
 Quedan fuera de alcance, declarados como tales: el procedimiento PL/SQL `CONC460`, el origen de los ficheros
-de entrada, el contenido de `fillingRules_CN460.csv` (P-C460-01), los 2 workflows de baja, el detalle de
-implementación de `Duplicados.sh` y la publicación en cola MQ (dato documental no re-verificado con el
-código).
+de entrada, el contenido de `fillingRules_CN460.csv` (P-C460-01), los sistemas que consumen los mensajes MQ y
+el detalle de implementación de `Duplicados.sh`. Los 2 workflows de baja y la publicación en cola MQ están
+analizados en §6.8 y §6.7 (la cola `AGREEMENT.PUBLISH` del documento fuente no es la de esta cadena).

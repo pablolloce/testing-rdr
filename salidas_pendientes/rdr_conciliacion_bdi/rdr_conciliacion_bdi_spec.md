@@ -22,7 +22,9 @@
 > 2026-09-23 y 2026-09-28. Revisión de autosuficiencia: 01/10/2026. Pasada de cierre (01/10/2026):
 > `ConBDI.properties` **real de producción** (rama de Carlos), plantilla y muestra de salida real del Excel
 > Broker del 23/02/2026 (rama de Eduardo), sub-workflow `Mail` real (rama de Eduardo) y capturas de
-> Control-M del job `MEKYTL0812` (rama de Carlos).
+> Control-M del job `MEKYTL0812` (rama de Carlos). Segunda pasada de cierre (02/10/2026): jar Maven `RDR_PLSQL.jar`
+> 1.0.0 y jar `ControlCargaDatos.jar` 1.0.0 (rama de Eduardo, descompilados y contrastados con el código fuente ya
+> analizado) y la base de workflows de GoldenSource (`informeBroker_BDI`, `Mail`).
 
 ## 1. Resumen ejecutivo
 
@@ -121,9 +123,9 @@ el destinatario del correo con el Excel; el consumo del informe SWIFT (no tiene 
 | P-CBD-08 | ¿De dónde sale el destinatario del correo (parámetro `Destination` del workflow `informeBroker_BDI`)? ¿Es una clave de `ConBDI.properties`? ¿Se puede obtener el sub-workflow `Mail`? | **Resuelta** (`ConBDI.properties` de producción, rama de Carlos, y workflow `Mail`, rama de Eduardo). `Destination` es una clave del bloque de variables globales de `ConBDI.properties`; en el fichero de producción vale una única dirección individual de buzón corporativo (un buzón individual (dirección personal omitida)), no una lista de distribución. El sub-workflow `Mail` está descrito en §6.11 (acepta varios destinatarios separados por `;`). Queda por confirmar que el destinatario sigue vigente |
 | P-CBD-09 | ¿Qué significa cada una de las 46 columnas de `ConBDI.csv` (descripción funcional) y qué volumen diario es normal? Solo se conocen los nombres técnicos | Para preparar datos de prueba realistas y para que la spec responda "qué trae cada campo" |
 | P-CBD-10 | ¿En qué codificación llega `ConBDI.csv` (ISO-8859-1 o UTF-8)? | Con UTF-8, los registros con `é`, `í`, `ó` o `ñ` en las 22 columnas `USAR` se rechazan (riesgo R6 de `ControlCargaDatos.jar`) |
-| P-CBD-11 | ¿El bloque comentado de `ConBDI.java` que registraría los códigos BDI que existen en GS pero no vienen en el fichero (`noConci`) está desactivado a propósito? ¿El jar desplegado corresponde a este código? | Hoy esa detección se calcula y se descarta sin ningún efecto (§6.7) |
+| P-CBD-11 | ¿El bloque comentado de `ConBDI.java` que registraría los códigos BDI que existen en GS pero no vienen en el fichero (`noConci`) está desactivado a propósito? ¿El jar desplegado corresponde a este código? | Hoy esa detección se calcula y se descarta sin ningún efecto (§6.7). **Resuelta en parte (02/10/2026):** el jar Maven `RDR_PLSQL.jar` de 26/08/2026 (rama de Eduardo) coincide con el código fuente: tampoco inserta `noConci`. Sigue sin saberse si es intencionado ni si es el jar que ejecuta producción |
 | P-CBD-12 | ¿Es intencionado que, para una línea con número de campos incorrecto, `ConBDI.java` registre como "código BDI" el **tercer** campo (`DES-NOMCORT2`) en lugar de `COD-CLINTERN`? | El informe muestra en la columna `BDI_ID` el nombre corto 2, no el código (§6.7) |
-| P-CBD-13 | El `.properties` de producción no define `JDKV` y nombra las clases `ControlCase` y `CreateReport` sin paquete, mientras que los jars recibidos (`ControlCargaDatos.jar`, `RDR_Report.jar`, compilados con JDK 17) contienen `controlcargadatos.ControlCase` y `rdr_report.CreateReport` y la cadena hermana `ConClientela` sí usa `JDKV=17` y los nombres con paquete. ¿Qué JDK (`<javahome>` de `credentials.xml`) y qué versión de cada jar ejecuta realmente `ConBDI` en producción? ¿Coincide su comportamiento con el analizado? | Si el jar desplegado es el antiguo (clases sin paquete), las reglas de §6.6 y §6.8 se han deducido del jar nuevo y podrían diferir; con el jar nuevo y estos nombres, el paso fallaría con `ClassNotFoundException` |
+| P-CBD-13 | El `.properties` de producción no define `JDKV` y nombra las clases `ControlCase` y `CreateReport` sin paquete, mientras que los jars recibidos (`ControlCargaDatos.jar`, `RDR_Report.jar`, compilados con JDK 17) contienen `controlcargadatos.ControlCase` y `rdr_report.CreateReport` y la cadena hermana `ConClientela` sí usa `JDKV=17` y los nombres con paquete. ¿Qué JDK (`<javahome>` de `credentials.xml`) y qué versión de cada jar ejecuta realmente `ConBDI` en producción? ¿Coincide su comportamiento con el analizado? | Si el jar desplegado es el antiguo (clases sin paquete), las reglas de §6.6 y §6.8 se han deducido del jar nuevo y podrían diferir; con el jar nuevo y estos nombres, el paso fallaría con `ClassNotFoundException`. **Resuelta en parte (02/10/2026):** el `ControlCargaDatos.jar` de la evidencia de BDI es el mismo fichero (idéntico byte a byte) que el de la evidencia de oficinas, 1.0.0 compilado el 24/08/2026 con clases `controlcargadatos.ControlCase`, `controlcargadatos.ControlCase_ant` y `controlcargadatos.util.Metodo`; el `RDR_PLSQL.jar` es 1.0.0 del 26/08/2026 con `rdr_plsql.*`. Ninguno es anterior ni sin paquete, y su comportamiento coincide con el analizado (salvo los parámetros enlazados de `ConDB`, §6.7). **Sigue abierto** qué jars y JDK corren en producción: no se ha recibido la versión sin paquete que exige el `.properties` de producción |
 
 ## 5. Especificación funcional
 
@@ -455,8 +457,10 @@ que exista), etiquetas `<sid>`, `<host>`, `<host2>`, `<port>`, `<gcuser>` y `<gc
    `DATA_SRC_APP='BDI'`, `SRC_FIELD='BDI Id Fichero'`, `SRC_VALUE=null`, `GS_FIELD='BDI Id en RDR'`,
    `GS_VALUE=<campo 3>`, `MAIN_ENTITY_NME='BDI Id en RDR'`, `MAIN_ENTITY_ID=<campo 3>`,
    `START_TMS=LAST_CHG_TMS=sysdate`, `LAST_CHG_USR_ID='BBVA:CUSTOMER'`, `RLT_DIF_STAT='NO'`, `JOB_ID=<id>`.
-   La sentencia se construye concatenando el valor: un apóstrofo en él hace fallar el `INSERT` (se escribe
-   la traza y la fila se pierde).
+   En el código fuente analizado (versión sin paquete) la sentencia se construye concatenando el valor: un
+   apóstrofo en él hace fallar el `INSERT` (se escribe la traza y la fila se pierde). **En el jar Maven de
+   26/08/2026 la sentencia usa parámetros enlazados** (`?`), así que ese apóstrofo no afecta; columnas y valores
+   insertados son los mismos.
 8. Cierra el job: `Update FT_T_JBLG set job_stat_typ='CLOSED', job_end_tms=sysdate, job_tme_txt='<h>:<m>:<s>' where job_id='<id>'`.
    Se ejecuta aunque haya fallado la lectura del fichero.
 
@@ -479,6 +483,29 @@ REGISTROS ERRONEOS - <n>`, `Se cierra el JOB de BDI: <id>` y `FIN CONCILIACION D
 - Error SQL en una llamada a `CONBDI2`: se escribe la traza y **se abandonan los registros restantes de
   ese lote de 100**; los demás lotes siguen. El código de salida sigue siendo 0.
 - Fichero inexistente: escribe la traza (`ERROR1`), cierra el job y termina con 0.
+
+**Contraste con el jar Maven `RDR_PLSQL.jar` (segunda pasada, 02/10/2026).** La rama de Eduardo aporta
+`RDR_PLSQL.jar` 1.0.0, compilado el 26/08/2026 con JDK 17 (Maven, `com.bbva.kytl:RDR_PLSQL`), con las clases
+`rdr_plsql.ConBDI`, `rdr_plsql.ConClientela`, `rdr_plsql.ConContrato460`, `rdr_plsql.jdbc.ConDB` y
+`rdr_plsql.util.{Utilidades,Ficheros,Metodos}`. Descompilado con `cfr` y comparado con el código fuente de esta
+sección:
+- **`rdr_plsql.ConBDI` hace lo mismo que el `ConBDI.java` analizado:** mismas posiciones de columna, mismos 21
+  parámetros de `CONBDI2` (con el identificador de job en el 20 y `COD_CDIPEX` en el 21), lotes de 100, conteo de
+  `;` igual a 45, mensajes `Fallo en ... debido a longitud` y mismo cierre de job. **El bloque que insertaría los
+  códigos BDI ausentes del fichero (`noConci`) no existe en el código compilado** (la lista se calcula y se
+  descarta); el de líneas inválidas (`errorConci`) sí está activo. Es decir, el comentario del fuente y el jar
+  coinciden (P-CBD-11); lo que sigue sin saberse es si producción ejecuta este jar.
+- **Diferencias de `ConDB`:** (1) todas las clases están dentro de paquetes (`rdr_plsql.*`); (2) `crearJOB`,
+  `cerrarJOB` e `insertRLT1BDI` usan parámetros enlazados en vez de concatenar. El resto de métodos de
+  `ConDB` (credenciales, URL de conexión, `executeCONBDI_Hilos`, `obtenerBDIs`) coincide. Hay además una sobrecarga
+  `executeCONBDI_Hilos(arr)` de 19 parámetros que no llama a `execute` (código muerto, no usada).
+- **Consecuencia para P-CBD-13:** el `ConBDI.properties` de producción invoca `ConBDI`, `ControlCase` y
+  `CreateReport` **sin paquete**, y este jar solo contiene `rdr_plsql.ConBDI`. Con este jar ese `.properties` daría
+  `ClassNotFoundException`. Además, las clases de los dos jars están compiladas en formato Java 17 (versión de
+  clase 61): con un JDK anterior el paso fallaría con `UnsupportedClassVersionError`, y el `.properties` de
+  producción no fija `JDKV=17`. Por tanto, o producción ejecuta una versión anterior sin paquete (la que corresponde al
+  código fuente y al `.properties`) o el `.properties` de producción está sin actualizar. Los `.properties` de
+  `ConClientela` y `Refundicion` de la copia de integración sí usan los nombres con paquete y `JDKV=17`.
 
 ### 6.8 Informe CSV: `RDR_Report.jar`, clave `ConBDI`
 
@@ -639,6 +666,13 @@ Nodos:
    `FileMail=fileMail`, `Mail=mail`, `NameFile=nameFile` y `Subject`.
 5. `Stop` (id 2).
 
+Contrastado en la segunda pasada (02/10/2026) con la base de workflows de GoldenSource: `informeBroker_BDI`
+(versión 4, `haltOnError=No`, 5 nodos: `Start`, script de variables, `Switch Case` sobre `enviar`, llamada a `Mail` y
+`Stop`) y `Mail` (versión 6, `haltOnError=No`, 2 scripts) coinciden con lo descrito; el script de `HOST - USER`
+confirma literalmente la lectura de `ServerMailConfig.xml` y los valores de desarrollo por defecto. Los scripts de
+`informeBroker_BDI` (variables) y del envío SMTP de `Mail` son blobs no legibles en el volcado: lo descrito de ellos
+sigue viniendo del paquete `.gsp` y del `.wkf` aportados antes.
+
 Resultado: un correo con asunto `Informe Conciliacion Broker BDI-RDR` y el Excel del día adjunto, o ningún
 correo si el Excel no existe. Qué devuelve `executeBbvaEvent.sh` si el sub-workflow `Mail` falla depende de
 la pregunta abierta P-EBE-01 de su spec común.
@@ -731,8 +765,8 @@ mismo día sobrescribe el fichero fechado en `old/`. Log en `/pr/pl/log/<CLAVE>_
 | `ConBDI.properties` | `GSProcess.sh` | Sí (fichero real de producción) | §6.3 |
 | `Delta.sh` | Paso 1 | Sí | §6.4 y spec común |
 | `Generico.sh` (`QuitarNulos`, `Unix2Dos`) | Pasos 2 y 6 | Sí | §6.5, §6.9 y spec común |
-| `ControlCargaDatos.jar` + `fillingRules_ConBDI.csv` | Paso 3 | Sí (jar desensamblado, reglas reales) | §6.6 y spec común |
-| `RDR_PLSQL.jar` (`ConBDI`, `jdbc.ConDB`, `util.Utilidades`) | Paso 4 | Sí (código fuente) | §6.7 |
+| `ControlCargaDatos.jar` + `fillingRules_ConBDI.csv` | Paso 3 | Sí (jar 1.0.0 de 24/08/2026, con `controlcargadatos.ControlCase`; reglas reales) | §6.6 y spec común |
+| `RDR_PLSQL.jar` (`ConBDI`, `jdbc.ConDB`, `util.Utilidades`) | Paso 4 | Sí (código fuente sin paquete y jar Maven 1.0.0 de 26/08/2026 con `rdr_plsql.*`) | §6.7 |
 | Procedimiento `CONBDI2` | `ConDB.executeCONBDI_Hilos` | **No** | P-CBD-01 |
 | `RDR_Report.jar` + `select.properties` | Paso 5 | Sí | §6.8 y spec común |
 | `RDR_InformeBroker.jar` (`InformeBroker`, `ConDB`) | Paso 7 | Sí (código fuente) | §6.10 |
@@ -818,7 +852,7 @@ dicen en su criterio de aceptación.
 | RS10 | El Excel Broker usa el último `job_id` con filas `REPORTES`/`BDI`: si hoy no hay ninguna, envía las diferencias de otro día | Medio |
 | RS11 | Si la máscara de `MEKYTL0361` incluyera la plantilla, la movería y el informe dejaría de generarse | Alto (P-CBD-05) |
 | RS12 | Historificación en cascada: un fallo de `MEKYTL0135` o `MEKYTL0132` deja sin archivar los Excel | Bajo |
-| RS13 | Las líneas con número de campos incorrecto se registran con el campo 3 (nombre corto) como código y un apóstrofo hace perder la fila | Bajo (P-CBD-12) |
+| RS13 | Las líneas con número de campos incorrecto se registran con el campo 3 (nombre corto) como código y, en la versión sin paquete, un apóstrofo hace perder la fila (el jar Maven de 26/08/2026 usa parámetros enlazados) | Bajo (P-CBD-12) |
 | RS14 | Patrón P-021: sin control de integridad ni de concurrencia; dos ejecuciones simultáneas comparten ficheros y `LOG_DIA` | Medio |
 | RS15 | Un `ConBDI.csv` vacío (tamaño 0) se da por llegado; la cadena termina en verde sin cargar nada | Medio |
 | RS16 | El sub-workflow `Mail` captura cualquier excepción y termina en éxito: un SMTP caído, un `Destination` vacío o inválido, o un `ServerMailConfig.xml` sin la entrada del entorno (se usa el servidor de desarrollo) hacen que el informe Broker no llegue sin ninguna alarma | Medio |
@@ -832,7 +866,8 @@ corregidas de `fillingRules_ConBDI.csv`), la carga hasta la llamada a `CONBDI2`,
 cabecera y nombre literales), las dos conversiones a CRLF, el Excel Broker, el workflow de correo y los
 jobs de transmisión e historificación, con sus códigos de salida y sus fallos.
 
-Tras la pasada de cierre (01/10/2026) quedan resueltas P-CBD-02 (`.properties` real de producción) y
+Segunda pasada (02/10/2026): P-CBD-11 y P-CBD-13 pasan a resueltas en parte (el jar Maven coincide con el código
+analizado; falta saber qué corre en producción). Tras la pasada de cierre (01/10/2026) quedan resueltas P-CBD-02 (`.properties` real de producción) y
 P-CBD-08 (destinatario y sub-workflow `Mail`), y parciales P-CBD-03 y P-CBD-04. Para cerrar del todo
 quedan abiertas P-CBD-01, P-CBD-03 a P-CBD-07 y P-CBD-09 a P-CBD-13. Las que más condicionan las pruebas son
 el cuerpo de `CONBDI2` (P-CBD-01), el contenido de la plantilla `Plantilla_ReportMail` (P-CBD-03), el

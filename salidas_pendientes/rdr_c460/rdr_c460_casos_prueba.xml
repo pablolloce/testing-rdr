@@ -85,7 +85,7 @@
     <resultadoEsperado>El registro centinela no produce ninguna llamada a CONC460 ni ninguna fila en FT_T_RLT1, en ninguna de las 2 fuentes de conciliación.</resultadoEsperado>
     <tipoValidacion>Revisión de log + consulta SQL sobre FT_T_RLT1</tipoValidacion>
     <criterioAceptacion>Cero actividad en BBDD asociada a FINS_ID/CCLIEN='000000000'.</criterioAceptacion>
-    <posibilidadFallo>Ninguna conocida — doble exclusión confirmada por código.</posibilidadFallo>
+    <posibilidadFallo>Ninguna conocida para filas activas — doble exclusión confirmada por código. Solo una fila cancelada con CCLIEN='000000000' encola igualmente su UPDATE de FT_T_FAB1 (la exclusión del centinela está en la rama activa, no en la cancelada); no debe cambiar ningún folio mientras no exista un FIID CLIENTELAID con ese código.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-005" tipo="borde">
@@ -325,6 +325,51 @@
     <tipoValidacion>Consulta SQL sobre FT_T_RLT1, comparando el recuento con el tamaño del universo de referencia</tipoValidacion>
     <criterioAceptacion>El número de filas "pendiente de dar de alta" coincide exactamente con el tamaño del universo de GoldenSource en el momento de la ejecución.</criterioAceptacion>
     <posibilidadFallo>No ejecutar sobre el entorno real de producción con el fichero genuino — simular en entorno de prueba con un universo de referencia acotado y conocido.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="error_funcional">
+    <nombre>Señales PENDING A460/B460/B460C se envían por MQ y pasan a OK</nombre>
+    <objetivo>Confirmar que el paso 7 (evento RDR_BajaContratos460, workflow BajaClientela460 con Tipologia=TOTAL) publica una petición por cada señal PENDING de alta/baja en la cola MQ de Clientela y las marca OK.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba aislado (nunca producción) con la cola lógica CLIENTELA en modo TRACE en FT_T_PAR1 (ACT1_OID='DIFFUSMODE', PARAMETER_CTXT_TYP='MQQUEUE', PAR1_NME='CLIENTELA', PAR1_VALUE='TRACE') para no enviar mensajes reales.</precondicion>
+      <precondicion>FT_T_RLT1 contiene 3 filas PROCESO PENDING: una A460 (MAIN_ENTITY_ID de un mnemónico con CLIENTELAID activo), una B460 (mnemónico con un folio NUMFOLIO activo en FT_T_FAB1) y una B460C (SRC_VALUE = un folio).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Tipologia" valor="TOTAL"/>
+      <dato campo="RLT_DIF_ACC" valor="A460, B460, B460C (3 filas PENDING, RLT_PURP_TYP='PROCESO')"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar el evento RDR_BajaContratos460 con el .properties de Contrato460 (Tipologia=TOTAL).</paso>
+      <paso numero="2">Comprobar en el log de GoldenSource tres mensajes «queue in TRACE MODE» de CLIENTELA: uno de alta (A460) y dos de baja (B460 por el folio del mnemónico y B460C por el folio indicado).</paso>
+      <paso numero="3">Consultar FT_T_UTD1 (UTD_USAGE_TYP 'A460_Cli' y 'B460_Cli') y FT_T_RLT1 tras la ejecución.</paso>
+      <paso numero="4">Repetir el evento sin crear señales nuevas.</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 filas quedan con RLT_DIF_STAT='OK' y LAST_CHG_USR_ID='BAJA_CLIENTELA'; hay auditoría en FT_T_UTD1 de cada petición; la repetición del paso 4 no genera ningún mensaje nuevo (la consulta solo recoge filas PENDING).</resultadoEsperado>
+    <tipoValidacion>Revisión de log de GoldenSource + consulta SQL sobre FT_T_RLT1 y FT_T_UTD1</tipoValidacion>
+    <criterioAceptacion>Un mensaje por señal, todas marcadas OK, y ningún reenvío en la segunda ejecución.</criterioAceptacion>
+    <posibilidadFallo>Si el mnemónico de la señal A460 no tiene CLIENTELAID activo, la señal no se selecciona y sigue PENDING (comportamiento esperado, no fallo). GSProcess.sh no detecta si el evento falla: verificar siempre en BD. Con la cola en PUBLISH se enviarían mensajes reales.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="conflicto_integridad">
+    <nombre>Baja de códigos de tesorería BDI (B460BDI) enviada por MQ y marcada</nombre>
+    <objetivo>Confirmar que el paso 8 (evento RDR_BajaCodTesBDIGesC460, workflow BajaCodTesBDIGesC460) envía una baja por cada código BDI en señal B460BDI PENDING y la marca OK.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba aislado (nunca producción) con la cola lógica BDI en modo TRACE en FT_T_PAR1.</precondicion>
+      <precondicion>FT_T_RLT1 contiene una fila PROCESO PENDING con RLT_DIF_ACC='B460BDI' y GS_VALUE = un código BDI de 6 caracteres.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="RLT_DIF_ACC" valor="B460BDI"/>
+      <dato campo="GS_VALUE (código BDI)" valor="123456"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar el evento RDR_BajaCodTesBDIGesC460 con el .properties de Contrato460.</paso>
+      <paso numero="2">Comprobar en el log el mensaje «queue in TRACE MODE» de la cola BDI cuyo texto termina en BBDIBAJA seguido del código BDI rellenado a 6 posiciones.</paso>
+      <paso numero="3">Consultar FT_T_UTD1 (UTD_USAGE_TYP 'B460BDI', UTD_ID_PURP_TYP 'BDIID') y FT_T_RLT1.</paso>
+    </pasos>
+    <resultadoEsperado>La fila queda con RLT_DIF_STAT='OK' y LAST_CHG_USR_ID='BAJA_B460BDI'; existe una fila en FT_T_UTD1 con UTD_ID igual al código BDI; se emite un único mensaje.</resultadoEsperado>
+    <tipoValidacion>Revisión de log + consulta SQL sobre FT_T_RLT1 y FT_T_UTD1</tipoValidacion>
+    <criterioAceptacion>Fila marcada OK, auditoría creada y un solo mensaje por código.</criterioAceptacion>
+    <posibilidadFallo>Si hay dos filas PENDING con el mismo código BDI se emitirán dos mensajes iguales (la consulta no deduplica). Qué fase de GestionCpartyC460 deja las filas B460BDI no está contrastado con el código.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
