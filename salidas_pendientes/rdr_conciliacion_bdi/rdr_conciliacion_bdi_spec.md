@@ -25,12 +25,12 @@
 > Control-M del job `MEKYTL0812` (rama de Carlos). Segunda pasada de cierre (02/10/2026): jar Maven `RDR_PLSQL.jar`
 > 1.0.0 y jar `ControlCargaDatos.jar` 1.0.0 (rama de Eduardo, descompilados y contrastados con el código fuente ya
 > analizado) y la base de workflows de GoldenSource (`informeBroker_BDI`, `Mail`). Reconciliación con
-> `feature/Eduardo` (02/10/2026): se incorporan a `documentos_fuente/evidencia_rdr_conciliacion_bdi/` los
+> `feature/Eduardo` (02/10/2026): se incorporan como evidencia del proceso (rama de Eduardo) los
 > ficheros `RDR_PLSQL.jar`, `Reporte_ConciliacionBroker_20260223.xlsx`, `Reporte_ConciliacionBroker_Plantilla.xlsx`
 > y `rdr_report_jar/RDR_Report_disassembly.txt` que faltaban en el árbol de evidencia aunque su análisis ya
 > estaba incorporado en la spec; se confirma por `md5sum` que las copias de `ControlCargaDatos.jar` y
 > `RDR_Report.jar` de esa rama son idénticas byte a byte a las ya presentes en
-> `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`, así que no se duplican. Se añade además
+> la evidencia de carga_conciliacion_plazas_oficinas, así que no se duplican. Se añade además
 > la comparación de la ventana temporal de `queryConBDI` con la de `queryConClientela` (§6.8, RS19),
 > cruzada con `salidas_pendientes/rdr_conciliacion_clientela/rdr_conciliacion_clientela_spec.md`. El resto
 > del contenido de `feature/Eduardo:salidas/rdr_conciliacion_bdi/spec.md` (análisis de `ConBDI.java`,

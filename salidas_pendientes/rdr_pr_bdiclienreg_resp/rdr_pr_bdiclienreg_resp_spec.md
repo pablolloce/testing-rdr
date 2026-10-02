@@ -1286,7 +1286,7 @@ que lo leído de él es válido para workflows estables, pero no prueba qué ver
   `StandardSettlementInstructions` y la procesa con `ProcessSegments` como vía alternativa. **Confirmado con
   el `.wkf` real de `SSIs_Fx_Difusion` y de su subworkflow de publicación (grupo
   `Custom/RDR/Alert/InvestorsPlan`, v4 en el export de la rama vs. v5 aquí — ver cautela del volcado arriba;
-  `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Fx_Difusion.wkf` y `RDR_SSI_Publish_ESB.wkf`):**
+  `SSIs_Fx_Difusion.wkf` (evidencia de la rama de Eduardo) y `RDR_SSI_Publish_ESB.wkf`):**
   el export real abre un `Job` hijo (`CreateJob`, `configInfo="SSIs_Fx_Difusion"`) e invoca directamente
   `RDR_SSI_Publish_ESB` (grupo `Custom/RDR/Integracion_ABACO-GS/Difusion_ESB`) con `Action`/`ID=SSI_OID`; ese
   subworkflow resuelve el `Action` recibido a uno o dos pares `{accionXML, Id_SSI}` (BeanShell "Genera

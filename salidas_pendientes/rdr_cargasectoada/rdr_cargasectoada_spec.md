@@ -8,7 +8,7 @@
 > (`MEKYTL1287`/`1293`). Lo esencial de cada ficha está recogido en esta spec (§5 y §6). Segunda pasada de cierre
 > (02/10/2026): jar `RDR_SectorizacionEmisores.jar` 0.0.1-SNAPSHOT (rama de Eduardo, compilado el 26/08/2026 con JDK 17),
 > descompilado con `cfr` y analizado clase a clase (§6.5 y §6.6). Tercera pasada (03/10/2026, reconciliación con
-> `feature/Eduardo`): se incorporan a `documentos_fuente/evidencia_rdr_cargasectoada/` los 4 ficheros físicos que
+> `feature/Eduardo`): se incorporan como evidencia del proceso (rama de Eduardo) los 4 ficheros físicos que
 > respaldaban ese análisis y que no se habían llegado a versionar — `RDR_SectorizacionEmisores.jar` y los 3
 > `.properties` reales de la Carga Core (`CargaSectorizacionT1/T2/T3.properties`, entorno de integración) — y se
 > verifica con `javap` sobre ese mismo jar un hallazgo adicional de la rama de Eduardo (nombres de campo reales de
@@ -297,7 +297,7 @@ Argumentos comunes: `ArgJava1=2` es el nivel de log (INFO) y `ArgJava2` el fiche
   (versión de clase 61; el `pom.xml` fija `maven.compiler.target=17` y se construyó con JDK 17.0.20), así que en un
   entorno cuyo JDK por defecto sea anterior T2 fallará al arrancar con `UnsupportedClassVersionError`. Lo que
   sigue sin saberse es cuál es el JDK por defecto y si el `.properties` de producción de T2 sí lo fija
-  (H-ADA-01). **Confirmado ahora con los 3 ficheros reales** (`documentos_fuente/evidencia_rdr_cargasectoada/CargaSectorizacionT1.properties`,
+  (H-ADA-01). **Confirmado ahora con los 3 ficheros reales** (`CargaSectorizacionT1.properties`,
   `CargaSectorizacionT2.properties`, `CargaSectorizacionT3.properties`, de entorno de integración, incorporados en
   esta ronda): `T1.properties` y `T3.properties` tienen literalmente `JDKV=17`; `T2.properties` no tiene esa clave
   en ningún punto del fichero — no es una omisión de lectura, es así en el fichero real.
@@ -554,7 +554,7 @@ Oracle único, mismo hallazgo de acoplamiento T1↔T2 en la Carga Core de T2, mi
 T2), lo que corrobora de forma independiente el análisis ya recogido en §6.5/§6.6. Su aportación neta tras comparar
 ambas versiones con detalle: (1) los 4 ficheros físicos que respaldaban ese análisis (`RDR_SectorizacionEmisores.jar`
 y los 3 `.properties` reales de la Carga Core) no estaban versionados en esta rama y se incorporan ahora a
-`documentos_fuente/evidencia_rdr_cargasectoada/`; (2) con ese jar ya disponible, se verifica con `javap` un detalle
+la evidencia del proceso (rama de Eduardo); (2) con ese jar ya disponible, se verifica con `javap` un detalle
 que esta spec no tenía: los nombres de campo reales que arman las clases de T2 y T3 antes de llamar al procedimiento
 (`gf_rdr_id`, `descrip`, `g_asset_allocation_sector_type`/`subsec_type`/`actvy_type`, `gf_rdr_operative_id` — nueva
 información en §6.5, avance de P-ADA-01/P-ADA-05); (3) con los 3 `.properties` reales ya en el repositorio se
