@@ -26,7 +26,7 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
   malla global de tratamiento de errores que presumiblemente consume el evento `..._NO_OK` de
   `RDR_ISSUES_RE_PRO` (sin consumidor documentado en este material); y el contenido/estructura de negocio
   detallada de `emisiones.xml`/`emisiones.resto.xml`/`emisiones_filter.xml` más allá de lo confirmado por
-  declaración del usuario en sesión (ver sección 4, gap G7, y sección 9).
+  declaración del usuario en sesión (ver sección 4, gap G7, y sección 9). Desde el cierre 3 (02/10/2026) el diccionario de datos y la vinculación con la hoja XSLT están confirmados con la plantilla de despliegue (§6.3); la consulta SQL de la extracción sigue fuera de alcance (P-IRP-01).
 
 ## 3. Requisitos detectados
 
@@ -75,18 +75,33 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
 | G4 | Varios jobs tienen "Librería Origen" = `RA` — ¿es un placeholder o un valor real? | Confirmado: placeholder sin resolver en la ficha fuente, sin significado funcional a documentar (R17). |
 | G5 | El evento `..._NO_OK` de `RDR_ISSUES_RE_PRO` no tiene consumidor en este documento — ¿existe una rama de error no incluida? | Confirmado: evento huérfano en este documento, consumido (presumiblemente) por mallas globales de error fuera de alcance (R18). |
 | G6 | 3 puntos de sincronización externos (`IHSM_RDR_ISSUES`, `GC_TESO`, SHS global) — ¿fuera de alcance o dependencia a validar? | Confirmado: los 3 quedan fuera de alcance directo de esta especificación (R19). |
-| G7 | Diccionario de datos de `emisiones.xml`/`emisiones.resto.xml`/`emisiones_filter.xml`, esquemas XSD y algoritmo del validador — ¿confirmado o no? | **Algoritmo del validador resuelto por completo (2026-09-24) con el script real `RDR_Validacion_XSD.sh`**: confirma exactamente el troceado por `awk` en bloques de 1.000 registros (`maxRecs=1000`) y la validación en paralelo con `xmllint --schema`, máx. 20 procesos simultáneos (`MAX_PARALLEL_JOBS=20`). Confirma también la asociación exacta tipo↔XSD: `RDR_XSD_Generico.xsd` (`CPARTY`), `Baskets_Schema.xsd` (`BASKET`), `xsd_emisiones_batch.xsd` (compartido por `ISSUE` e `ISSUERESTO`), todos en `/$ENV/kytl/online/multipais/multicanal/dat/properties/`. **Hallazgo no solicitado (ver R20, sección 9):** el script solo falla el job (`exit 1`) ante un desbalance estructural de etiquetas (`estructura_xml()`, chequeo previo al troceado); una violación de esquema detectada por `xmllint` en la fase de `validacion()` se registra en el log con estadísticas detalladas, pero nunca hace fallar el script — siempre termina con `exit 0`. El diccionario de datos de los 3 ficheros XML y la vinculación exacta cadena↔plantilla XSLT (`Extraccion_Emisiones.xsl`) quedan, aparte de esto, explícitamente **no confirmados**, por decisión del propio usuario al no existir evidencia de invocación específica. **Cierre 2 (02/10/2026), sin cambiar esa decisión:** el volcado de la BD de workflows de GoldenSource incluye dos consultas de publicación con la misma estructura de registro `Security` (`RDR_ME_PushSecuritiesByIds` y su variante de México `RDR_Securities_IssueMexInac`, que añade un bloque `Mx`): cuelgan de `SecuritiesResp` (con `ReqID` y `ReqRslt`) y cada `Security` lleva `ID`, `Typ`, `LstChngTm`, `Name`, `User`, el bloque `Instrmt` y los datos del emisor. Coincide con la etiqueta `<Security>` que cuenta el validador, pero la raíz difiere (`SecuritiesResp` frente a `<Securities>`) y esas consultas alimentan la publicación hacia la cola de mensajes, no la extracción `ExtraccionGenericaEMISI.jar` (cuya consulta no se tiene, P-IRP-01). Es evidencia indirecta, no diccionario de `emisiones.xml`: G7 sigue parcial. |
+| G7 | Diccionario de datos de `emisiones.xml`/`emisiones.resto.xml`/`emisiones_filter.xml`, esquemas XSD y algoritmo del validador — ¿confirmado o no? | **Algoritmo del validador resuelto por completo (2026-09-24) con el script real `RDR_Validacion_XSD.sh`**: confirma exactamente el troceado por `awk` en bloques de 1.000 registros (`maxRecs=1000`) y la validación en paralelo con `xmllint --schema`, máx. 20 procesos simultáneos (`MAX_PARALLEL_JOBS=20`). Confirma también la asociación exacta tipo↔XSD: `RDR_XSD_Generico.xsd` (`CPARTY`), `Baskets_Schema.xsd` (`BASKET`), `xsd_emisiones_batch.xsd` (compartido por `ISSUE` e `ISSUERESTO`), todos en `/$ENV/kytl/online/multipais/multicanal/dat/properties/`. **Hallazgo no solicitado (ver R20, sección 9):** el script solo falla el job (`exit 1`) ante un desbalance estructural de etiquetas (`estructura_xml()`, chequeo previo al troceado); una violación de esquema detectada por `xmllint` en la fase de `validacion()` se registra en el log con estadísticas detalladas, pero nunca hace fallar el script — siempre termina con `exit 0`. El diccionario de datos de los 3 ficheros XML y la vinculación exacta cadena↔plantilla XSLT (`Extraccion_Emisiones.xsl`) quedan, aparte de esto, explícitamente **no confirmados**, por decisión del propio usuario al no existir evidencia de invocación específica. **Cierre 2 (02/10/2026), sin cambiar esa decisión:** el volcado de la BD de workflows de GoldenSource incluye dos consultas de publicación con la misma estructura de registro `Security` (`RDR_ME_PushSecuritiesByIds` y su variante de México `RDR_Securities_IssueMexInac`, que añade un bloque `Mx`): cuelgan de `SecuritiesResp` (con `ReqID` y `ReqRslt`) y cada `Security` lleva `ID`, `Typ`, `LstChngTm`, `Name`, `User`, el bloque `Instrmt` y los datos del emisor. Coincide con la etiqueta `<Security>` que cuenta el validador, pero la raíz difiere (`SecuritiesResp` frente a `<Securities>`) y esas consultas alimentan la publicación hacia la cola de mensajes, no la extracción `ExtraccionGenericaEMISI.jar` (cuya consulta no se tiene, P-IRP-01). Es evidencia indirecta, no diccionario de `emisiones.xml`: G7 sigue parcial. **Cierre 3 (02/10/2026): G7 resuelto.** La plantilla de despliegue trae `xsd_emisiones_batch.xsd` (diccionario de los tres ficheros: estructura, orden y obligatoriedad de cada campo, §6.3.B) y `TransforEmisiones.properties` + `Extraccion_Emisiones.xsl`, que confirman la vinculación de `RDRKYTL001` con la hoja (§6.3.C). El motivo de la decisión del 24/09 era la falta de evidencia; la consulta SQL de la extracción sigue en P-IRP-01. |
 
 ### Preguntas pendientes (sin respuesta en ninguna fuente recibida)
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-IRP-01 | Código de `ExtraccionGenericaEMISI.jar` (clase `Ppal`) y contenido de sus `.properties` `ExtraccionGenericaEMISI_ALL`/`_RESTO`: qué query ejecuta, qué diferencia a `emisiones.xml` de `emisiones.resto.xml`, qué escribe en `emisionesErrores.xml`/`emisiones.restoErrores.xml` y con qué código sale ante un error | Es el origen de todos los datos de la cadena; sin código no se sabe si un fallo parcial deja un fichero incompleto con salida 0 |
+| P-IRP-01 | Código de `ExtraccionGenericaEMISI.jar` (clase `Ppal`) y contenido de sus `.properties` `ExtraccionGenericaEMISI_ALL`/`_RESTO`: qué query ejecuta, qué diferencia a `emisiones.xml` de `emisiones.resto.xml`, qué escribe en `emisionesErrores.xml`/`emisiones.restoErrores.xml` y con qué código sale ante un error **Resuelta en parte (cierre 3, 02/10/2026):** `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` de la plantilla dan jar, clase, argumentos, ficheros de salida y logs (§6.3.A); sigue sin recibirse el jar (consulta, diferencia real entre modos, errores y código de salida). | Es el origen de todos los datos de la cadena; sin código no se sabe si un fallo parcial deja un fichero incompleto con salida 0 |
 | P-IRP-02 | La cabecera de la cadena habla de una ventana de disparo a las 15:25 y de un sucesor `MEKYTL1128` de `MEKYTL0981`, y la ficha de `MEKYTL1105` fija las 22:00h; ninguno tiene job propio entre los 30. ¿Existen en Control-M? | Podría haber ejecuciones o dependencias no documentadas |
 | P-IRP-03 | Líneas de configuración (IDX) de `MEGENV0001.sh` y `RAMERC0068.sh` para las 22 claves de envío/historificación de la cadena (¿`RAMERC0068` mueve o copia?, ¿borra el original?) | Hoy origen/destino salen de las fichas, no de la configuración real |
 | P-IRP-04 | Nombre real del backup de `MEKYTL0536`: `emisiones_ddmmyyyy.xml.tar.gz` (ficha) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh` del proceso `extraccion_emisiones_mercados`) | Si difieren, el conteo diario de emisiones RE sale siempre 0 |
 | P-IRP-05 | ¿Hay reglas On-Do (acciones tras fallo) en los jobs de envío y validadores, además de las de los filewatchers? Solo se conoce el email de los `ctmfw` | Determina qué fallos avisan y cuáles quedan solo en rojo |
 | P-IRP-06 | Decisión: ¿debe la validación XSD hacer fallar el job (R20)? | Hoy se envían a 13 destinos ficheros posiblemente inválidos sin ningún aviso |
+
+### Cierre 3 (02/10/2026): estado de los huecos con la plantilla de despliegue
+
+Procedencia: según la plantilla de despliegue (repositorio `estaticos`, rama `develop`); lo que lleva `.pr` son valores de producción según la plantilla, no una copia verificada del servidor. Detalle en §6.3.
+
+| Id | Estado | Qué aporta la plantilla / qué falta |
+|---|---|---|
+| G7 | Resuelta | Diccionario de datos = `xsd_emisiones_batch.xsd`; vinculación `RDRKYTL001`↔`Extraccion_Emisiones.xsl` confirmada por `TransforEmisiones.properties` (§6.3.B y C) |
+| H-IRP-02 | Resuelta | `TransforEmisiones.properties` literal (§6.3.C) |
+| H-IRP-03 | Resuelta | `xsd_emisiones_batch.xsd` analizado entero (§6.3.B) |
+| P-IRP-01 | Resuelta en parte | `.properties` `ExtraccionGenericaEMISI_ALL`/`_RESTO` (§6.3.A); falta el jar |
+| H-IRP-01 | Resuelta en parte | Hoja `Extraccion_Emisiones.xsl` analizada (§6.3.C); falta `Transformar_XML.jar` |
+| H-IRP-04, H-IRP-08 | Abierta | `ConexionBD.jar` y `ExtraccionGenericaEMISI.jar` no están en la plantilla; nada de ella describe `emisionesErrores.xml` ni `emisiones.restoErrores.xml` |
+| H-IRP-05 | Abierta | Ningún script de la plantilla crea los `.flag.rdr` de `MEKYTL0997`/`MEKYTL1010` (`Genera_Bandera.sh` es de otra cadena) |
+| P-IRP-02..05, H-IRP-06, H-IRP-07, H-IRP-10..14 | Abierta | Dependen de Control-M, del IDX de `MEGENV0001.sh`/`RAMERC0068.sh` o de los módulos `.mod`; la plantilla no los contiene |
 
 ## 5. Especificación funcional
 
@@ -218,6 +233,52 @@ están decomisionados y ya no existen en la cadena.
   enviadas, y el cierre común no se ejecuta; relanzar a mano el job fallido (salvo `MEKYTL1146`) lo reanuda y
   libera el fan-in. Un relanzamiento reenvía el mismo fichero (los destinos pueden recibir duplicados, TC-007).
 
+### 6.3 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`)
+
+**Cómo leer este apartado.** La plantilla no es la copia de un entorno: el plan de despliegue sustituye `@@ENV@@` por `de`, `ei`, `pp` o `pr`, y los ficheros `.pr/.pp/.ei/.de` son variantes por entorno. Es la base anterior a la migración a Java 17 (`GSProcess.sh` sin `JDKV`, clases sin paquete). Los valores `.pr` son "valores de producción según la plantilla", no una copia verificada. Hosts y credenciales no están incluidos.
+
+#### 6.3.A Extracción: `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties`
+
+Lanzados por `GSProcess.sh` (acción Java, una sola por fichero). Idénticos salvo el fichero de log, el nombre del fichero de salida y el modo:
+
+| Elemento | `ExtraccionGenericaEMISI_ALL` (`RDR_ISSUES_RE_PRO`) | `ExtraccionGenericaEMISI_RESTO` (`RDR_ISSUES_RESTO_T`) |
+|---|---|---|
+| Jars (`/<env>/kytl/online/multipais/multicanal/jar/`) | `ConexionBD.jar` y `ExtraccionGenericaEMISI.jar` | igual |
+| Clase / servicio | `Ppal` / `ExtraccionGenericaEMISI_log` | igual |
+| Argumentos, en orden | `2`; `<dat/properties>/log4jExtraccionGenericaEMISI_ALL.properties`; `20`; `/fichtemcomp/<env>/descargas/kytl/issues/ReportingEngine/`; esa misma carpeta + `emisiones.xml`; `ALL`; `/<env>/kytl/online/multipais/multicanal/cfg/entorno` | igual con `..._RESTO.properties`, fichero `emisiones.resto.xml` y modo `RESTO` |
+| Librerías (`.../lib/`) | `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar` | igual |
+| Log | `.../logs/ExtraccionGenericaEMISI_ALL.log` (log4j, nivel `info`, 100000 KB, 3 copias) | `.../logs/ExtraccionGenericaEMISI_RESTO.log` |
+
+El 4.º argumento es el directorio de salida (donde después se esperan `emisiones.xml` y `emisiones.resto.xml`) y el último, la carpeta de `credentials.xml` (la conexión Oracle). El significado de `2` y `20` y la consulta de cada modo están en el jar (no recibido). Control del resultado: `GSProcess.sh` suma un error si el Java devuelve distinto de 0 y termina con 1 (el job queda NOK y se publica `..._NO_OK`); si el jar captura sus excepciones y sale con 0, el job queda OK con un fichero posiblemente incompleto. Los ficheros de errores `emisionesErrores.xml` y `emisiones.restoErrores.xml` no aparecen en ningún fichero de la plantilla.
+
+#### 6.3.B `xsd_emisiones_batch.xsd`: diccionario de datos de los tres ficheros
+
+Es el esquema (15.785 bytes, sin `targetNamespace`) contra el que `RDR_Validacion_XSD.sh` valida `emisiones.xml` y `emisiones.resto.xml` (tipos `ISSUE`/`ISSUERESTO`). Raíz `Securities` con uno o más `Security`; **todos los campos son `xs:string`** (no hay fechas, números ni enumeraciones tipadas) y los elementos son `nillable`. Es una `xs:sequence`: **el orden de los elementos importa**.
+
+| Bloque | Campos (los obligatorios llevan *) |
+|---|---|
+| `Security` | `ID`* (OID interno de la base de datos RDR), `Typ`* (tipo de emisión), `Name`*, `LstChngTm`* (última modificación), `Instrmt`*, `ExchGrp` (0..n, datos de mercado), `RegulatedMarket` (marca MMOO), `SecClsfnGrp` (0..n, clasificación), `InstrmtExt`, `Undly`, `Issuer` |
+| `Instrmt` | `Src`*, `ID`* (identificador principal, normalmente ISIN), `Sym`*, `Status`*, `Desc`*, `StrkMult`*, `Issued`*, `Rgstry`, `IssCtry`, `ToTV`*, `FrstTradDt`*, `MtrtyDt`*, `UKToTV`*, `UKFrstTradDt`*, `UKMtrtyDt`*, `StartDt`, `Mat`*, `PutCall`, `OptExerStyle`, `StrkPr`, `StrkPrCurr`, `Notional1`*, `Notional2`*, `DeliType`, `ContractSize`, `AID` (0..n), `InsrtType`*, `ClasificationType`*, `WarrTyp`, `WarrUndlyTyp`, `Volatility90`, `Volatility360`, `CicCategory`, `CfiCode`, `SftrSecurityType`, `CountryISO`, `MarketCap`, `FundTicker`, `LastDlvDt`, `MrktStatus`, `FundLeverage`, `InverseFund`, `FundType`, `FundDirective`, `FundPricingFreq`, `FundLeverageAmount`, `BasketAssociated`, `QIS`, `StrgLin`, `PortUndly`, `Mx` (0..n) |
+| `AID` | `AltIDSrc`, `AltID`, `Exch` (todos opcionales) |
+| `ExchGrp` | `Exch`* (MIC), `Ccy`*, `RequestDT`*, `Submarket` (0..n), `Primary` (0..n), `Instrmt` (0..n con `Src`, `ID`, `Status`, `Sym`, `Desc`, `ShrtNm`) |
+| `SecClsfnGrp` | `Nm` (p. ej. `CFI`), `Purpose`, `Val` |
+| `InstrmtExt` | `RndMeth` |
+| `Undly` | `Src`, `ID`, `AID` (0..n), `UndlyCcy`, `Qty`, `uToTV`, `uFrstTradDt`, `uMtrtyDt`, `UKuToTV`, `UKuFrstTradDt`, `UKuMtrtyDt`, `FirstExcerciseDate`, `UnderlyingType`, `LastExcerciseDate`, `uIndex`, `BuySell`, `uIndexMat` (todos opcionales) |
+| `Issuer` | `Finsid`, `LEI`, `BBGCID`, `SFTRJurisdiction`, `FiscalIdentifier`, `FiscalIdentifierValue` (todos opcionales) |
+| `Mx` (México) | `Name`, `Serie`, `Coupon`, `DatedDate`, `Settlement`, `TVBMV`, `NominalValue`, `IssueDate`, `FaceValue`, `Price`, `InsGrCod`, `InsGrDes`, `Blocked`, `InvestCompTyp`, `Description` (todos opcionales) |
+
+Consecuencia para R20: como todos los campos son texto, una violación de esquema solo puede ser un campo obligatorio ausente, un elemento fuera de orden o un elemento no declarado; un "valor de tipo incorrecto" no existe en este esquema (TC-021 ajustado).
+
+#### 6.3.C `TransforEmisiones.properties` y `Extraccion_Emisiones.xsl` (job `RDRKYTL001`)
+
+`TransforEmisiones.properties`: jar `Transformar_XML.jar`, clase `ppal.Transformar`, `ServicioJava=TransformarEmisiones`; argumentos: (1) `/fichtemcomp/<env>/descargas/kytl/issues/ReportingEngine/emisiones.resto.xml`; (2) `/<env>/kytl/online/multipais/multicanal/dat/properties/Extraccion_Emisiones.xsl`; (3) `/fichtemcomp/<env>/descargas/kytl/issues/SHS/emisiones_filter.xml`; (4) `3`; (5) `.../dat/properties/log4jTransformEmisiones.properties` (log `.../logs/TransforEmisiones.log`, nivel `info`, 100000 KB × 3). **Confirma que `RDRKYTL001` aplica `Extraccion_Emisiones.xsl` a `emisiones.resto.xml` para producir `emisiones_filter.xml`.** No lleva `Stop`; el resultado sigue el código de salida del jar (no recibido).
+
+`Extraccion_Emisiones.xsl` (XSLT 1.0, 964 bytes): copia el documento tal cual (plantilla de identidad) salvo para cada `Security`, donde (a) **descarta los repetidos por `Instrmt/ID`** (conserva el primero de cada identificador, `xsl:key` + `generate-id`) y (b) **conserva solo los registros cuyo `Typ` no es `FUTURES`, `OPTIONS`, `WARRANTS` ni `EQINDEX`** (parámetros `tipo01` a `tipo04`), añadiendo un salto de línea tras cada `Security` conservado. Por tanto `emisiones_filter.xml` (lo que se envía a Terminals ES/MX y se historifica como `SHS_KSHS_RTV_AAAAMMDD_0001.XML.gz`) no tiene derivados, warrants, índices de renta variable ni duplicados. Incluso si `emisiones.resto.xml` ya los excluyera, la hoja los vuelve a filtrar. TC-022 lo comprueba.
+
+#### 6.3.D Validador: `RDR_Validacion_XSD.sh` frente a `ValidatorEmisiones.properties`
+
+El script de la plantilla (463 líneas, ANS RDR 2025) coincide con lo descrito en §6.2 y G7 (tipos `CPARTY`, `BASKET`, `ISSUE`, `ISSUERESTO`; trozos de 1000 registros; 20 procesos como máximo; `set -euo pipefail` y `trap` de errores). Detalles adicionales: los trozos se llaman `emisionestrozo_<n>.xml` (ISSUE) y `emisiones.restotrozo_<n>.xml` (ISSUERESTO) y viven en `ReportingEngine/` mientras dura la validación; el log es `<logs>/RDR_Validacion_XSD_<AAAAMMDD>.log`; entorno no válido o tipo no válido → `exit 1`; tipos `CONTACT`, `CONTRACT_BBVA` y `CONTRACT_BANCOMER` están reconocidos pero devuelven error "no implementado". `ValidatorEmisiones.properties` (jar `EmisionesValidation.jar`, clase `main.Validate`, argumentos: la carpeta `ReportingEngine/` y el XSD) es otro validador que ninguna acción de la plantilla invoca.
+
 ## 7. Especificación de testing
 
 Dada la complejidad del grafo (2 bloques paralelos, fan-out de 5 y 8 ramas, sub-convergencia de 3 ramas y
@@ -229,7 +290,7 @@ el 100% del grafo, más un caso end-to-end:
 - El cierre final (`MEKYTL1028`/`MEKYTL1029`) queda cubierto por TC-012 y el propio TC-020 (e2e).
 - Los 2 filewatchers (timeout y alerta) quedan cubiertos por TC-003 y TC-004.
 - Los 2 validadores XSD quedan cubiertos, para el caso de XML mal formado, por TC-005 y TC-013; el caso de
-  XML bien formado pero inválido según el XSD (R20, no detiene la cadena) queda cubierto por el nuevo TC-021.
+  XML bien formado pero inválido según el XSD (R20, no detiene la cadena) queda cubierto por el nuevo TC-021; la hoja `Extraccion_Emisiones.xsl` de `RDRKYTL001` (cierre 3) queda cubierta por TC-022.
 - Las excepciones/particularidades transversales (Mentor sin relanzamiento, evento huérfano, placeholder
   `RA`, criticidad de cadena "A") quedan cubiertas por TC-014 a TC-018.
 
@@ -258,6 +319,7 @@ ejecutable tal cual está definido, con pasos y datos concretos.
 | `borde` | Envío a Terminals ES/MX: el flag se genera y transmite correctamente aunque el fichero de datos ya se haya enviado antes. | TC-019 |
 | `conflicto_integridad` | `MEKYTL1028` no dispara hasta que ambos bloques (1 y 2) confirman su cierre, aunque uno termine mucho antes que el otro. | TC-012 |
 | `error_funcional` | Un fichero bien formado pero inválido según el XSD no detiene la cadena (RC=0) y las ramas de envío se disparan igualmente — confirmado por código real (R20). | TC-021 |
+| `datos_sinteticos` | La hoja `Extraccion_Emisiones.xsl` de `RDRKYTL001` elimina duplicados por `Instrmt/ID` y los tipos FUTURES, OPTIONS, WARRANTS y EQINDEX (cierre 3). | TC-022 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -266,7 +328,7 @@ ejecutable tal cual está definido, con pasos y datos concretos.
   tras haberse documentado inicialmente solo por declaración del usuario en sesión (una cita de rutas
   locales de Windows como supuesta evidencia "del repositorio" se había verificado inexistente en las 7
   ramas de este repositorio Git). El diccionario de datos de los 3 XML y la vinculación cadena↔XSLT
-  concreta siguen explícitamente sin confirmar.
+  quedaron sin confirmar hasta el cierre 3 (02/10/2026), que los resuelve con la plantilla de despliegue (§6.3.B y §6.3.C).
 * **Validación XSD sin efecto sobre el resultado del job (R20, hallazgo confirmado por código real):** el
   script solo hace fallar `MEKYTL0811`/`RDRKYTL002` ante un desbalance estructural de etiquetas (chequeo
   `estructura_xml()` previo al troceado). Una violación real del esquema XSD, detectada por `xmllint` en la
@@ -275,6 +337,7 @@ ejecutable tal cual está definido, con pasos y datos concretos.
   pero que no cumple el XSD (tipo de dato incorrecto, campo obligatorio ausente, etc.) dispara igualmente
   las 5/8 ramas de envío con datos inválidos según el esquema, sin que Control-M lo detecte ni lo bloquee —
   la única forma de detectarlo es revisar manualmente el contenido del log de `RDR_Validacion_XSD.sh`.
+* **Alcance real del XSD (cierre 3, §6.3.B):** al ser todos los campos `xs:string`, el XSD no valida formatos de fecha, importes ni códigos; solo estructura, orden y obligatoriedad. Que el validador pasara en verde no dice nada sobre la calidad de los valores.
 * **Evento huérfano (G5):** `..._NO_OK` de `RDR_ISSUES_RE_PRO` no tiene consumidor documentado en esta
   cadena — si la malla global de error fuera de alcance no existe o falla, un error en el disparador inicial
   del bloque 1 podría no generar ninguna alerta operativa más allá del filewatcher.
@@ -298,7 +361,9 @@ diferenciando entre confirmación documental verificable y declaración del usua
 fuente adjunto. El algoritmo del validador XSD (parte de G7) quedó cerrado el 2026-09-24 con el script real
 `RDR_Validacion_XSD.sh`, que además reveló un hallazgo no solicitado (R20): la validación XSD nunca hace
 fallar el job, solo el chequeo estructural previo. El diccionario de datos de los 3 XML y la vinculación
-cadena↔XSLT siguen sin confirmar. No quedan preguntas de la lista de gaps sin responder. La cobertura de
-testing (TC-001 a TC-021) cubre la totalidad de las transiciones del grafo documentado, incluyendo ambos
+cadena↔XSLT quedaron sin confirmar hasta el cierre 3 (más abajo). No quedan preguntas de la lista de gaps sin responder. La cobertura de
+testing (TC-001 a TC-022) cubre la totalidad de las transiciones del grafo documentado, incluyendo ambos
 bloques paralelos, la sub-convergencia interna, el cierre final común, y el nuevo escenario de validación
 XSD sin efecto sobre el resultado del job.
+
+**Cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`): el diccionario de datos de los tres XML queda dado por `xsd_emisiones_batch.xsd` y la vinculación `RDRKYTL001`↔`Extraccion_Emisiones.xsl` queda confirmada por `TransforEmisiones.properties` (G7 resuelto, H-IRP-02 y H-IRP-03 cerrados, §6.3); la hoja filtra duplicados y los tipos FUTURES, OPTIONS, WARRANTS y EQINDEX (TC-022). El XSD valida solo estructura, orden y obligatoriedad (todos los campos son texto). Siguen abiertos los jars (`ExtraccionGenericaEMISI.jar`, `Transformar_XML.jar`, `ConexionBD.jar`), el IDX de las 22 claves, los módulos `SF_MEGENV0001_*.mod`, la versión de `RAMERC0068.sh`, los flags de Terminals y todo lo que depende de Control-M.

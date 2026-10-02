@@ -57,6 +57,7 @@ comportamiento de estas cadenas, que no leen la base de datos.
   `Sait_Diario.xsl` deben existir y ser accesibles desde
   `/pr/kytl/online/multipais/multicanal/scrt/`/`/jar/`/`/dat/properties/` respectivamente para que
   `RDR_DAILY_LA_JAVA` funcione (TC-001 a TC-005, TC-009).
+- `Sait_Diario.xsl` (plantilla de despliegue) filtra los contratos cuyas marcas `*_last_chg_tms` coinciden con `actual_date`: para probar contenido, el XML de entrada debe llevar esos campos (TC-001, TC-002). Opciones de JVM del wrapper propias de JDK 8.
 - `credentials.xml` real de producción debe contener las rutas de JDK, credenciales de BD y logs
   correctas para el entorno (`pr`) — el script valida el usuario de ejecución contra este fichero
   (TC-003).

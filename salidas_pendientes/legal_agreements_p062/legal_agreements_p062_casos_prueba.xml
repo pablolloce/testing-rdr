@@ -10,14 +10,14 @@
       <precondicion>Acceso de ejecución como xakytl1p sobre RDR_Transformacion_SAIT.sh.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="XML válido con 3 elementos &lt;Agreement&gt; de ejemplo"/>
+      <dato campo="KYTL_RDR_EXTRACTION_contratos_Diario.xml" valor="XML válido con 3 elementos &lt;Agreement&gt; de ejemplo con actual_date y los campos *_last_chg_tms: dos con alguna marca igual a actual_date (sin guiones) y uno con todas distintas"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar RDR_Transformacion_SAIT.sh fileloading &lt;credentials.xml&gt; como xakytl1p.</paso>
       <paso numero="2">Comprobar que se crea KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml en la misma carpeta.</paso>
       <paso numero="3">Comprobar en el log log_rdr_contratos_AAAAMMDD.log las líneas "Salida específica para SAIT Diario generada" y "FINALIZADA SAIT Diario".</paso>
     </pasos>
-    <resultadoEsperado>El fichero de salida se crea con el nombre exacto KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml, con el contenido transformado según Sait_Diario.xsl, y el log registra ambas líneas de cierre sin errores previos.</resultadoEsperado>
+    <resultadoEsperado>El fichero de salida se crea con el nombre exacto KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml, con la envoltura AgreementResp y solo los 2 contratos con alguna marca igual a actual_date (el tercero se descarta), sin los campos actual_date ni *_last_chg_tms dentro de cada Agreement, y el log registra ambas líneas de cierre sin errores previos.</resultadoEsperado>
     <tipoValidacion>Verificación de existencia y contenido del fichero de salida + lectura de log</tipoValidacion>
     <criterioAceptacion>Fichero de salida presente, con nombre exacto, y log sin entradas de error.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada; cualquier ausencia del fichero de salida o error en el log invalida el caso.</posibilidadFallo>
@@ -38,10 +38,10 @@
       <paso numero="2">Comprobar si se genera KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml y si es estructuralmente válido (aunque vacío de registros).</paso>
       <paso numero="3">Comprobar el log de cierre.</paso>
     </pasos>
-    <resultadoEsperado>El proceso no aborta (confirmado por lectura de código: no hay comprobación de conteo de registros); el resultado exacto (fichero vacío válido vs. error de XSLT) depende del contenido de Sait_Diario.xsl, no verificado en esta sesión — documentar el resultado observado.</resultadoEsperado>
+    <resultadoEsperado>El proceso no aborta (no hay comprobación de conteo de registros) y Sait_Diario.xsl escribe siempre la envoltura: se genera KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml bien formado con &lt;AgreementResp MsgType="UNTTG2"&gt;&lt;ReqID&gt;SAIT&lt;/ReqID&gt;&lt;ReqRslt&gt;1&lt;/ReqRslt&gt; y &lt;/AgreementResp&gt; y sin elementos &lt;Agreement&gt;; el log registra "FINALIZADA SAIT Diario".</resultadoEsperado>
     <tipoValidacion>Ejecución controlada en entorno de test + verificación por lectura de código (ausencia de comprobación de conteo)</tipoValidacion>
     <criterioAceptacion>El proceso finaliza (sin colgarse ni lanzar excepción no capturada); el resultado exacto queda documentado para actualizar legal_agreements_p062_spec.md.</criterioAceptacion>
-    <posibilidadFallo>El resultado depende de Sait_Diario.xsl, cuyo contenido no está disponible en esta sesión — no ejecutar en producción.</posibilidadFallo>
+    <posibilidadFallo>Si el Sait_Diario.xsl instalado difiere del de la plantilla de despliegue (sin envoltura fija), el resultado sería otro — no ejecutar en producción.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">

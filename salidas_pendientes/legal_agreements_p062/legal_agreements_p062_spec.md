@@ -38,6 +38,13 @@ de todos los jobs: ANS RDR (en las fichas, «Implantación de Mejoras y Proyecto
 XML **ya existente** (`KYTL_RDR_EXTRACTION_contratos_Diario.xml`). Esa corrección se trasladó también a
 `salidas_pendientes/extraccion_sait_contratos/`, que atribuía erróneamente esa consulta a esta clase.
 
+**3ª pasada de cierre (plantilla de despliegue).** Según la plantilla de despliegue (repositorio `estaticos`, rama develop) se han leído enteros
+`Sait_Diario.xsl`, `RDR_Transformacion_SAIT.sh`, y, como contexto, `SAITLoading.properties` + `loadSAIT.sh`; se ha comprobado que la plantilla no incluye el XSD con
+el que el Planificador valida estos XML ni `BATCH_SAIT_DIARIO.sql`. `@@ENV@@` es un marcador que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores
+son "de producción según la plantilla", no una copia verificada de producción; la plantilla es la base anterior a la migración a Java 17 (migración en curso). **Resultado principal:**
+`Sait_Diario.xsl` **filtra** los contratos (solo pasan los modificados en la fecha `actual_date` del propio fichero, §6.2.1), de modo que `Batch_Sait` sí aplica una regla de negocio
+aunque el código Java no la conozca.
+
 **Corrección (2026-10-01): quién genera los XML de entrada.** Los escribe el **Planificador Genérico**
 (`ProjectMain.jar`, job `RDRKYTL001` de la cadena `RDR_SW_PLANIFICADOR_new`, que ejecuta extracciones SQL
 configuradas en la base RDR y las deja en `/fichtemcomp/pr/descargas/kytl/`), mediante dos filas activas de su
@@ -63,7 +70,7 @@ Cubre los 10 jobs de las 2 cadenas (`RDR_DAILY_LA_PRO_IN`, `RDR_DAILY_LA_JAVA`, 
 `MEKYTL0948`). No cubre: la generación de `KYTL_RDR_EXTRACTION_contratos_Diario.xml`/`_Total_20000101.xml`
 desde `FT_T_LAGR`, que hace el Planificador Genérico (filas 9 y 20; ver §1 y §4) y se describe solo como
 contexto; la transmisión externa
-de `TRANSMISIONES_CIB_RDR_SAIT` (especificación propia); el contenido exacto de `Sait_Diario.xsl`.
+de `TRANSMISIONES_CIB_RDR_SAIT` (especificación propia). (El contenido de `Sait_Diario.xsl` ya está analizado, §6.2.1.)
 
 ## 3. Requisitos detectados
 
@@ -90,12 +97,15 @@ Queda abierto lo siguiente, sin bloquear el testing de las dos cadenas:
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-LA-01 | ¿Qué selecciona `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?)? Solo se ha visto el texto de `BATCH_SAIT.sql` (fila 20) | Define el contenido esperado de cada fichero y los datos de prueba |
+| P-LA-01 | **Resuelta en parte (3ª pasada):** `Sait_Diario.xsl` filtra por `actual_date` (§6.2.1), lo que obliga a que `BATCH_SAIT_DIARIO.sql` entregue por contrato 16 campos `*_last_chg_tms` y `actual_date`; el texto de la query sigue sin recibirse. ¿Qué selecciona `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?)? Solo se ha visto el texto de `BATCH_SAIT.sql` (fila 20) | Define el contenido esperado de cada fichero y los datos de prueba |
 | P-LA-02 | La Cadena 1 corre de lunes a viernes a las 06:00, pero el Planificador solo genera de martes a sábado a las 04:45 y revisa qué toca cada 30-60 min. ¿Qué pasa si el fichero no está a las 06:00 o un lunes sin generación? La cadena no tiene `ctmfw` | `Batch_Sait` no aborta ni avisa (ver TC-005); podría transformarse un fichero ausente o antiguo |
 | P-LA-03 | **Parcialmente resuelta.** Los destinos (según las fichas de los jobs) son: Datio Cloud S3 `s3://ada-eu-south-2-data-live-ho-staging-in/in/staging/ratransmit/rdr/kytl/` vía la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva` (`MEKYTL0894`, mismo nombre de fichero) y Mentor por Connect:Direct hacia `Ipftp503`, ruta `/unload/transmisiones/SAIT/` (`MEKYTL0356` y `MEKYTL0357`); ver §6.3 y §6.6. Las fichas describen la historificación como «mueve» (`M`). **Sigue pendiente** el contenido literal de los `.idx` de `MEGENV0001.sh` (`MEKYTL0357.idx` y los de `MEKYTL0894_CLOUD`/`MEKYTL0356`) y las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0949`, `MEKYTL0950` y `MEKYTL0948`, para confirmar mover/copiar y rutas exactas | Sin ellas no se puede decir en qué ruta exacta llega el fichero a los destinos ni si la historificación lo retira de `SAIT/` |
 | P-LA-04 | **Parcialmente resuelta.** La ficha del filewatcher solo define el evento de salida `RDR_TOTAL_LA_PRO_new_KYTL_MEKYTL0894_FW_OK` (al detectar el fichero) y el análisis de riesgos de la documentación original dice que si la extracción se retrasa más de 240 minutos «el FileWatcher fallará con código de error, deteniendo los envíos». **Sigue pendiente** ver la definición real de `KYTL_MEKYTL0894_FW` en Control-M para descartar una regla "código 7 → OK" | Con la regla, un fichero que no llega dejaría la cadena en verde sin enviar nada; sin ella (lo asumido) queda en error |
-| P-LA-05 | Contenido de `Sait_Diario.xsl` (filtros o renombrados sobre la estructura de §6.7) | Define el contenido real del fichero transformado |
+| P-LA-05 | **Resuelta (3ª pasada):** hoja leída entera, §6.2.1. (Pregunta original:) Contenido de `Sait_Diario.xsl` (filtros o renombrados sobre la estructura de §6.7) | Define el contenido real del fichero transformado |
 | P-LA-06 | Calendario real de ambas cadenas. Las fichas escriben Cadena 1 = «LMXJV» con días Control-M `0,1,2,3,4` y Cadena 2 = «día 6 (domingo)», aunque la ficha de la Cadena 2 también habla de «sábado/domingo» y la del filewatcher de un arranque «a las 06:00 (o 12:25 según ventana confirmada)». Con la numeración habitual de Control-M (0 = domingo) `0,1,2,3,4` sería domingo-jueves y `6` sábado; con 0 = lunes encajan con las fichas. La misma duda consta en `P-SAIT-05` (`salidas_pendientes/extraccion_sait_contratos/`) | Determina si la Cadena 1 corre el viernes y si el domingo (único día en que el Planificador genera el total) coincide con la Cadena 2; cambia el análisis de P-LA-02 |
+| H-LA-02 | **Resuelta (3ª pasada).** Con 0 registros de entrada `Sait_Diario.xsl` escribe la envoltura `<AgreementResp …>` vacía (§6.2, §6.2.1); TC-002 actualizado. | TC-002 |
+| H-LA-06 | **Resuelta en parte (3ª pasada).** `RDR_Transformacion_SAIT.sh` lee de `credentials.xml` `environment/javahome` y `logs` y `database/{gcuser,gcpassapp,port,alias,host}` (§6.2.1); los valores no están en la plantilla. | Entorno de ejecución |
+| H-LA-07 | **Abierta (3ª pasada).** La plantilla no tiene ningún XSD con raíz `AgreementResp`: los de `dat/properties` (`Agreements_BBVA_Schema.xsd`, `ContratosBancomer_Schema.xsd`, `RDR_XSD_Generico*.xsd`, `*MGCyG.xsd`, etc.) son de otros extractos (raíces `ROOT`, `GLOBALS`, `LOCALS`). | Validación del Planificador |
 
 **Corrección adicional, no gap:** el documento original afirma que `MEKYTL0894` y `MEKYTL0356` (Cadena 2)
 transfieren "en paralelo", pero su propia tabla de dependencias muestra que `MEKYTL0356` tiene como
@@ -196,7 +206,7 @@ logger.log(Level.INFO, "FINALIZADA SAIT Diario");                        // SIEM
 ```
 
 - **Qué hace dentro de este proceso:** transforma vía XSLT un XML ya existente en otro con nombre fijo.
-  No inserta, no consulta, no valida contenido de negocio.
+  No inserta ni consulta; el código Java no valida contenido de negocio, pero la hoja `Sait_Diario.xsl` sí filtra los contratos (§6.2.1).
 - **Qué recibe:** el XML genérico (`.../SAIT/KYTL_RDR_EXTRACTION_contratos_Diario.xml`, escrito por el
   Planificador Genérico, fila 9 — §1) y la hoja `Sait_Diario.xsl`.
 - **Qué produce:** `.../SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` — nombre **fijo**, no
@@ -206,10 +216,25 @@ logger.log(Level.INFO, "FINALIZADA SAIT Diario");                        // SIEM
   error, pero el proceso **continúa** y registra igualmente "Salida específica... generada" /
   "FINALIZADA SAIT Diario". El log no permite distinguir un fallo real de una ejecución correcta. Ver
   TC-004.
-- **Qué ocurre con 0 registros de entrada:** no hay ninguna comprobación de contenido — el
-  comportamiento depende enteramente de cómo `Sait_Diario.xsl` trate un XML de entrada sin elementos
-  (no confirmado, contenido de la hoja `.xsl` no disponible en esta sesión); el código Java no aborta ni
-  distingue este caso. Ver TC-002.
+- **Qué ocurre con 0 registros de entrada (resuelto en la 3ª pasada):** el código Java no abre ni distingue este caso, y `Sait_Diario.xsl`
+  escribe **siempre** la envoltura `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` … `</AgreementResp>`: con un XML de entrada
+  válido y sin elementos `<Agreement>` (o con contratos que no pasan el filtro) el resultado es un fichero **bien formado con la envoltura vacía**, que `MEKYTL0357` envía igualmente.
+  Si el XML de entrada no tiene la raíz `/AgreementResp` el bucle no itera y ocurre lo mismo. Ver TC-002.
+
+#### 6.2.1 `Sait_Diario.xsl` (hoja leída entera; XSLT 1.0)
+
+Procedencia: plantilla de despliegue, `dat/properties/Sait_Diario.xsl` (4.913 bytes). Procesador: el classpath del wrapper incluye `xalan-2.7.1.jar` y `serializer-2.7.2.jar`; salida XML UTF-8 con sangrado
+(`indent="yes"`). Comportamiento:
+
+1. Escribe siempre la raíz `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` (la misma cabecera que el Planificador pone al fichero total de la fila 20) y la cierra al final.
+2. Recorre `/AgreementResp/Agreement`. Para cada contrato lee `actual_date` y 16 marcas de última modificación (`lagr_`, `laid_`, `flar_`, `lag1_`, `lat1_`, `laan_`, `lac1_`, `lars_`, `cnta_`, `laap_`, `lacd_`, `lad1_`, `cntc_`, `aclp_`, `acct_` y `lar1_` + `last_chg_tms`), les quita los guiones con `translate(…,'-','')` y
+   **conserva el contrato solo si alguna de las 16 es igual (como texto) a `actual_date`**; es decir, solo pasan los contratos con algún cambio en la fecha de extracción. Es el filtro de «diario»; el SQL (P-LA-01) no se conoce.
+3. De cada contrato conservado copia, tal cual (`copy-of`) y en este orden, los bloques `AgreementID`, `AgmtMultiBrInd`, `Pty`, `FinDetls`, `PtySecT`, `Coll`, `AgmtMarket`, `AgmtExeCntc`, `AgmtContacts`, `AgmtPlazas`, `AgmtProdLists`, `AgmtParts`, `AgmtSub` y `ExternalIdentifiers`, y añade un salto de línea. **No copia** `actual_date` ni los 16 campos de marca: el fichero de salida solo lleva la parte de negocio de §6.7.
+4. No renombra ni transforma ningún valor (sin cambios de formato de fechas ni de códigos).
+
+Consecuencias deducidas: (a) la comparación es de texto, así que solo funciona si `actual_date` y las marcas tienen el mismo formato (un timestamp con hora frente a una fecha no coincidiría nunca); (b) si faltara `actual_date` en un contrato, su valor es la cadena vacía y coincide con cualquier marca ausente, de modo que el contrato **pasaría el filtro**; (c) si el XML de entrada no es bien formado o falta, `Batch_Sait` captura el error y lo registra (sin parar), con el riesgo ya descrito de que el fichero de salida quede vacío o incompleto.
+
+**`RDR_Transformacion_SAIT.sh` (3ª pasada, plantilla de despliegue).** Además de lo anterior: el primer argumento (`fileloading` o `publishing`) solo se valida y se guarda en `DOMAIN`, sin más uso; de `credentials.xml` extrae del bloque `environment` las etiquetas `javahome` y `logs` y del bloque `database` `gcuser`, `gcpassapp`, `port`, `alias` y `host` (variables que **esta** transformación no usa); el classpath del `java` es `RDR_Transformacion_SAIT.jar`, `RDRCommon.jar`, `ojdbc8.jar`, `serializer-2.7.2.jar`, `xalan-2.7.1.jar` y `ucp.jar`; el directorio de entrada y de salida es `/fichtemcomp/<env>/descargas/kytl/SAIT/`; el log es la carpeta `logs` + `/`. El script añade `$JAVA64` al **final** del `PATH` y lanza `java` sin ruta, de modo que la JDK que arranca es la primera `java` del `PATH`, no necesariamente la de `credentials.xml`. Sus opciones de JVM (`-XX:+AggressiveOpts`, `-XX:+UseGCTaskAffinity`, `-XX:+BindGCTaskThreadsToCPUs`, `-XX:+UseParallelOldGC`, `-XX:+AlwaysPreTouch`, `-Xmx8G`) son propias de JDK 8: con una JDK 17 la JVM no arrancaría por opciones desconocidas (hipótesis a verificar; la plantilla es anterior a la migración a Java 17). El código de salida del script es el de `java`, que es 0 aunque la transformación falle (error capturado en `Batch_Sait`).
 
 ### 6.3 `MEKYTL0357` — `MEGENV0001.sh` (motor genérico ya documentado)
 
@@ -270,7 +295,7 @@ envía a la pasarela `filex-cloud-cib.live.es.nextgen.igrupobbva`, bucket
 | Fichero (en `/fichtemcomp/pr/descargas/kytl/SAIT/`) | Formato | Quién lo escribe | Quién lo lee |
 |---|---|---|---|
 | `KYTL_RDR_EXTRACTION_contratos_Diario.xml` | XML, raíz `<AgreementResp>` | Planificador Genérico (fila 9) | `Batch_Sait`; `MEKYTL0950` lo historifica |
-| `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` | XML transformado por `Sait_Diario.xsl` | `Batch_Sait` | `MEKYTL0357`, `MEKYTL0949` y la cadena `TRANSMISIONES_CIB_RDR_SAIT` |
+| `KYTL_RDR_EXTRACTION_contratos_Diario_20000101.xml` | XML transformado por `Sait_Diario.xsl` (solo contratos con alguna modificación en `actual_date`, sin los campos auxiliares; §6.2.1) | `Batch_Sait` | `MEKYTL0357`, `MEKYTL0949` y la cadena `TRANSMISIONES_CIB_RDR_SAIT` |
 | `KYTL_RDR_EXTRACTION_contratos_Total_20000101.xml` | XML, raíz `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` | Planificador Genérico (fila 20) | `KYTL_MEKYTL0894_FW`, `MEKYTL0894`, `MEKYTL0356`, `MEKYTL0948` |
 
 Estructura de los XML escritos por el Planificador (confirmada con el texto de `BATCH_SAIT.sql`, 900 líneas,
@@ -306,6 +331,10 @@ Cada paso espera el evento de salida del anterior y publica el suyo (fecha de ej
 
 La coexistencia de los sufijos `_new` en medio o al final de los nombres es tal cual figura en las fichas. Las fichas
 también indican, para los 10 jobs, máximo de relanzamientos = 0, y criticidad `W` (aviso día siguiente).
+
+### 6.9 Otros ficheros SAIT de la plantilla (contexto; fuera de las dos cadenas)
+
+* `loadSAIT.sh` + `SAITLoading.properties` forman la carga **inversa** (de un `XMLContratos.xml` de SAIT a GoldenSource): el script (`XE36781`, 14/07/2016) exige dos argumentos (`fileloading|publishing` y `credentials.xml`), calcula el entorno por la existencia de `/fichtemcomp/<env>`, exige el usuario `xakytl1<env>`, hace `chmod 664` a `<inputDataFolder>/SAIT/XMLContratos.xml` y lanza `executeBbvaEvent.sh <dominio> SAITLoading <credentials> SAITLoading.properties`. El `.properties` define tres cargas sobre el mismo `…/SAIT/XMLContratos.xml`: `SAIT` (tipo de mensaje `Contratos`, bloques de 500, 2 ramas paralelas), `SAIT_Comp` (`Contratos_Comp`, 500, 2 ramas) y `SAIT_Contc` (`Contratos_Contc`, 1, 1 rama), con `MessageProcessingEvent=ProcessFeedMessage`, `ParallelFileLoadSub=Parallel File Load Sub` y `SuccessAction=LEAVE`. Ninguno de los 10 jobs de las dos cadenas lo ejecuta, ni el fichero tiene el nombre de los que escriben estas cadenas.
 
 ## 7. Especificación de testing
 
@@ -364,8 +393,7 @@ Las 2 cadenas de P-062 quedan documentadas con análisis funcional y técnico co
 contenido real (decompilado) de `Batch_Diario_Sait.Batch_Sait`, que reveló que la transformación diaria
 no toca base de datos y que un fallo real de esa transformación no se refleja en el log de cierre. Los
 gaps de esta especificación están resueltos: los ficheros de entrada de ambas cadenas los escribe el
-Planificador Genérico (filas 9 y 20 de su inventario, §1). Quedan 6 preguntas abiertas no bloqueantes
-(P-LA-01 a 06, §4; tres de ellas con respuesta parcial). La corrección sobre `Batch_Sait` se trasladó a `salidas_pendientes/extraccion_sait_contratos/`, que
+Planificador Genérico (filas 9 y 20 de su inventario, §1). Quedan abiertas (3ª pasada) las preguntas P-LA-01 (parcial), P-LA-02, P-LA-03 (parcial), P-LA-04 (parcial) y P-LA-06 (P-LA-05 queda resuelta con `Sait_Diario.xsl`, §6.2.1). La corrección sobre `Batch_Sait` se trasladó a `salidas_pendientes/extraccion_sait_contratos/`, que
 atribuía erróneamente la consulta a `FT_T_LAGR` a esa clase. El resto del criterio de cierre (`.github/copilot-instructions.md`) se cumple: sin supuestos sin
 confirmar, con resultado esperado explícito y caso de prueba asociado para cada requisito, con cobertura
 de error/borde/duplicidad, y con prerrequisitos explicitados en `legal_agreements_p062_prerrequisitos.md`.

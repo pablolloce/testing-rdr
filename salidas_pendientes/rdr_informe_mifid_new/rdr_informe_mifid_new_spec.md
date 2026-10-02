@@ -7,7 +7,8 @@ Control-M: RDR_INFORME_MIFID_new" ("Informe MIFID elegible"); fichas del gestor 
 `KYTL_INFMIFID_GSPROCESS`, `MEKYTL0353` y `MEKYTL0362`; código `InformeMIFID.java`; fragmento XML de
 `GenerateReports.gsp`; SQL `arrayStringSelects[16]`; consultas ejecutadas por el usuario sobre `FT_T_FIRL` y
 `FT_T_FIST`; listado del directorio `informeMIFID`; respuestas del usuario en sesión. **El código, el workflow y el
-SQL literal se analizaron en sesión y no están en el repositorio** (ver P-INF-01).
+SQL literal se analizaron en sesión y no están en el repositorio** (ver P-INF-01). **3ª pasada de cierre:** el literal de `informeMIFID.properties` (variantes por entorno) se ha leído en la plantilla
+de despliegue (repositorio `estaticos`, rama develop), con los valores de producción según la plantilla sin verificar en el servidor y con los destinatarios enmascarados (§6.2).
 
 ## 1. Resumen ejecutivo
 
@@ -89,10 +90,11 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción **Segunda pasada de cierre:** el volcado de workflows de GoldenSource contiene `GenerateReports` v20, pero el script del nodo `Initialize Variables` que construye el array de SELECT (27.736 bytes) sale como blob sin texto, así que el SQL literal sigue sin estar. Lo que el volcado confirma: la rama `informeMIFID` fija `FileName = Reporte_informeMIFID.csv` y la cabecera de §6.3 (R3) es una constante del workflow |
-| P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar`. **Resuelta en parte (pasada de cierre):** el análisis original del proceso confirma las tres etapas, el evento `RDR_Reporte`, el evento `RDR_InformeMIFID` y que el Java recibe el CSV y el nombre base `Reporte_informeMIFID`; nombra el jar de dos formas (`InformeMIFID.jar` y `RDR_InformeMIFID.jar`, clase `InformeMIFID`; por la convención `RDR_*.jar` de otras cadenas, el nombre real probablemente es `RDR_InformeMIFID.jar`, sin confirmar). Siguen sin constar el literal, `Stop` y el nombre exacto del jar |
+| P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar`. **Resuelta en parte (3ª pasada): literal en §6.2 según la plantilla de despliegue — sin `Stop`, jar `RDR_InformeMIFID.jar`, dos eventos de tipo `Workflow`; falta verificar el `.properties` instalado en `pr` y los destinatarios reales.** Antes, resuelta en parte (pasada de cierre): el análisis original del proceso confirma las tres etapas, el evento `RDR_Reporte`, el evento `RDR_InformeMIFID` y que el Java recibe el CSV y el nombre base `Reporte_informeMIFID`; nombra el jar de dos formas (`InformeMIFID.jar` y `RDR_InformeMIFID.jar`, clase `InformeMIFID`; por la convención `RDR_*.jar` de otras cadenas, el nombre real probablemente es `RDR_InformeMIFID.jar`, sin confirmar). Siguen sin constar el literal, `Stop` y el nombre exacto del jar |
 | P-INF-03 | ¿Con qué script historifican `MEKYTL0353` y `MEKYTL0362` (¿`RAMERC0068.sh`?) y con qué configuración? | Para saber si fallan cuando falta el fichero |
 | P-INF-04 | Los Excel observados (`_20260729`, `_20260827`, `_20260901`) se generaron en miércoles, jueves y martes, no en tercer lunes de mes. ¿Fueron ejecuciones manuales o la planificación real es otra? | Contradice R1; decide cuándo hay que esperar el informe |
 | P-INF-05 | ¿Cómo maneja `InformeMIFID.java` el fallo de escritura final (código de salida)? | La spec recoge que el error se captura sin propagarse: el job podría terminar OK sin Excel |
+| H-INF-04 | **Resuelta en parte (3ª pasada).** Nombre real del jar: `RDR_InformeMIFID.jar` según `NomPaquete1` de la plantilla (§6.2); falta verificar el jar desplegado. | Nombre del jar |
 | H-INF-07 | ¿Qué calcula el script `Inicializa variables` del workflow `InformeMIFID` (`ruta`, `fileMail`, `nameFile`, `mail`)? | Decide qué fichero se adjunta (¿el Excel con fecha del día?), con qué nombre y con qué cuerpo. El texto (1.520 bytes) no viene en el volcado de workflows; sin él no se puede afirmar qué adjunto lleva el correo ni si sale sin adjunto cuando falta el Excel del día |
 
 ## 5. Especificación funcional
@@ -130,17 +132,40 @@ criticidad W; soporte ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`); sin jobs Dumm
 
 ### 6.2 `informeMIFID.properties.pr` — acciones de `GSProcess.sh`
 
-Contenido descrito (literal pendiente, P-INF-02):
+Contenido literal (3ª pasada), según la plantilla de despliegue (repositorio `estaticos`, rama develop; variantes por entorno `informeMIFID.properties.{de,ei,pp,pr}` — el plan de
+despliegue instala la del entorno como `informeMIFID.properties`; `@@ENV@@` es un marcador que el plan sustituye por `de`, `ei`, `pp` o `pr`). Los cuatro ficheros son **idénticos salvo `Destination`**: vacío (un espacio) en `de`, `ei` y `pp`; en
+`pr`, dos destinatarios separados por `;` que la plantilla trae enmascarados (no se copian; coinciden en número con los dos destinatarios que da el documento original). Son valores de producción según la plantilla, no una copia verificada de producción:
 
-| # | Acción | Comando que resulta (según la spec común de `GSProcess.sh`) | Si falla |
-|---|--------|------------------------------------------------------------|----------|
-| 1 | `Evento`, `NomEvento=Reporte` | `./executeBbvaEvent.sh fileloading RDR_Reporte $CREDENTIALS informeMIFID.properties` → workflow `GenerateReports` (nombre interno `<name id="742">GenerateReports</name>`) | Código 1 de `executeBbvaEvent.sh` (no pudo lanzar, tiempo agotado…) |
-| 2 | `Java` | `java ... -cp InformeMIFID.jar:... InformeMIFID <CSV> Reporte_informeMIFID` (argumentos: el CSV generado y el nombre base de salida) | Excepción no capturada → código distinto de 0 |
-| 3 | `Evento` | Workflow `InformeMIFID` (evento `RDR_InformeMIFID`): correo | Código 1 de `executeBbvaEvent.sh` |
+```
+MOD_EJECUCION=informeMIFID
+Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/
+Destination=<dos destinatarios en pr, separados por ';' (no incluidos en la plantilla); vacío en de/ei/pp>
+Servicio=informeMIFID
+Accion=VariablesGlobales
+NomEvento=Workflow    NomWorkflow=RDR_Reporte                                           Accion=Evento
+NomPaquete1=RDR_InformeMIFID.jar   NomClaseJava=InformeMIFID   ServicioJava=InformeMIFID
+PreArgJava1=$FILES  ArgJava1=informeMIFID/Reporte_informeMIFID.csv
+PreArgJava2=$FILES  ArgJava2=informeMIFID/Reporte_informeMIFID
+Libreria1=ojdbc8.jar  Libreria2=common-lang3.jar  Libreria3=log4j.jar  Libreria4=dom4j-1.6.jar  Libreria5=poi-3.9.jar
+Libreria6=jxl.jar  Libreria7=poi-ooxml-3.9.jar  Libreria8=poi-ooxml-schemas-3.7.jar  Libreria9=xmlbeans.jar
+Accion=Java
+NomEvento=Workflow    NomWorkflow=RDR_InformeMIFID                                      Accion=Evento
+```
 
-Sin `Stop`, un fallo no detiene las acciones siguientes y `GSProcess.sh` termina con 1 al final (`ESTADO-1-` en
-`execute_informeMIFID_<AAAAMMDD>.log`); con todo correcto, `ESTADO-0-` y código 0. Si el job termina con 1,
-`MEKYTL0353` y `MEKYTL0362` no se ejecutan.
+**No hay ninguna clave `Stop*`**, así que un fallo no detiene las acciones siguientes. El jar se llama **`RDR_InformeMIFID.jar`** (clase `InformeMIFID`, sin paquete en la plantilla; migración a Java 17 en curso: la plantilla no lleva `JDKV`). Sin `DirJava`, la JVM arranca con las directivas por defecto de
+`GSProcess.sh` (`-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<dat/properties>`).
+
+| # | Acción real | Comando que resulta | Si falla |
+|---|-------------|---------------------|----------|
+| 1 | `Evento`, tipo **`Workflow`**, `NomWorkflow=RDR_Reporte` | `./executeBbvaEvent.sh fileloading RDR_Reporte $CREDENTIALS informeMIFID.properties` → workflow `GenerateReports` (nombre interno `<name id="742">GenerateReports</name>`) | **No se detecta**: en la acción `Evento`/`Workflow` `GSProcess.sh` evalúa el código del `rm -f` del temporal `RDR_Reporte_.properties`, no el de `executeBbvaEvent.sh`, así que nunca suma error por este paso |
+| 2 | `Java` | `<javahome>/bin/java -Xmx16G … -cp RDR_InformeMIFID.jar:<libs> InformeMIFID $FILES/informeMIFID/Reporte_informeMIFID.csv $FILES/informeMIFID/Reporte_informeMIFID` | Excepción no capturada → código distinto de 0 (única fuente de error del job) |
+| 3 | `Evento`, tipo **`Workflow`**, `NomWorkflow=RDR_InformeMIFID` | `./executeBbvaEvent.sh fileloading RDR_InformeMIFID $CREDENTIALS informeMIFID.properties` | No se detecta (mismo motivo) |
+
+**Corrección (3ª pasada):** la versión anterior decía que el primer evento era `NomEvento=Reporte` y que un código 1 de `executeBbvaEvent.sh` se contaba como error. En la plantilla los dos eventos son de tipo `Workflow`
+(el tipo `Reporte` sí devolvería el código real), por lo que **un fallo de la extracción o del envío del correo no cambia el código de salida de `GSProcess.sh`**; solo lo cambia el `Java`.
+Como no hay `Stop`, un fallo del `Java` (por ejemplo, plantilla ausente) no impide que el workflow de correo se lance (confirma la corrección de §4.1).
+
+`GSProcess.sh` termina con 1 (`ESTADO-1-` en `execute_informeMIFID_<AAAAMMDD>.log`) solo si el `Java` devolvió ≠ 0; en caso contrario, `ESTADO-0-` y código 0. Si el job termina con 1, `MEKYTL0353` y `MEKYTL0362` no se ejecutan.
 
 ### 6.3 Extracción: `GenerateReports`, rama `informeMIFID`
 
@@ -193,7 +218,7 @@ CSV ausente o antiguo, y el Java fallaría después al no encontrarlo (P-INF-05)
 
 ### 6.4 `InformeMIFID.jar`
 
-Clase `InformeMIFID` (código analizado en sesión; el jar figura en el análisis original también como `RDR_InformeMIFID.jar`, P-INF-02). Sin lógica de negocio ni SQL: lee el CSV, abre la plantilla
+Clase `InformeMIFID` (código analizado en sesión; el jar es `RDR_InformeMIFID.jar` según el `.properties` de la plantilla de despliegue, §6.2; el nombre `InformeMIFID.jar` del análisis original era la abreviatura de la clase). Sin lógica de negocio ni SQL: lee el CSV, abre la plantilla
 `Reporte_informeMIFID_Plantilla.xlsx` con Apache POI, escribe cada línea en la hoja `CtpdasExpiran` aplicando
 estilos alternos por fila (bandas de color, bordes) y guarda `Reporte_informeMIFID_<yyyyMMdd>.xlsx` en el mismo
 directorio. Si la plantilla no existe, falla al abrir el `FileInputStream` (excepción no capturada). Un error en
@@ -201,7 +226,7 @@ la escritura final se captura sin propagarse (P-INF-05).
 
 ### 6.5 Correo: workflow `InformeMIFID`
 
-Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; un buzón individual (dirección personal omitida)`. Asunto fijo
+Destinatarios fijos en el parámetro `Destination` de `informeMIFID.properties` (en la plantilla, dos destinatarios separados por `;` solo en la variante `pr`, enmascarados; vacío en `de`/`ei`/`pp`, donde el correo no tiene a quién ir): `elegible.mifid@bbva.com; un buzón individual (dirección personal omitida)` según el documento original. Asunto fijo
 "Informe MIFID con datos economicos cerca de expirar". Adjunto: el Excel generado. El workflow
 `envioReporteMail.gsp` no interviene (sus variables `LEI`/`C460` son de otros procesos).
 
@@ -230,7 +255,7 @@ el correo intentaría salir por el servidor de desarrollo. Los valores de `Serve
 | Ejecutable | Lo invoca | ¿Recibido? | Dónde está analizado |
 |------------|-----------|------------|----------------------|
 | `GSProcess.sh` | `KYTL_INFMIFID_GSPROCESS` | Sí | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; §6.2 |
-| `informeMIFID.properties.pr` | `GSProcess.sh` | Descrito; literal no | §6.2; P-INF-02 |
+| `informeMIFID.properties.{de,ei,pp,pr}` | `GSProcess.sh` | Sí (plantilla de despliegue; `Destination` de `pr` enmascarado) | §6.2; P-INF-02 (resuelta en parte) |
 | `executeBbvaEvent.sh` | Acciones `Evento` | Sí | `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
 | `GenerateReports.gsp` (rama 636, SQL `arrayStringSelects[16]`) | Evento `RDR_Reporte` | Estructura reconstruida del volcado de workflows de GoldenSource (§6.3); SQL literal no disponible | §6.3; P-INF-01 |
 | `InformeMIFID.jar` | Acción `Java` | Código analizado en sesión | §6.4; P-INF-05 |
@@ -286,6 +311,6 @@ escritura en tablas maestras: solo en entorno de pruebas.
 
 ## 10. Conclusión y requisitos de cierre
 
-La cadena queda descrita de principio a fin y se ha corregido cómo se encadenan sus pasos. **No está cerrada**:
-el SQL literal (P-INF-01) y el `.properties` (P-INF-02) deben incorporarse, y quedan abiertas la historificación
+La cadena queda descrita de principio a fin y se ha corregido cómo se encadenan sus pasos y qué errores se detectan (3ª pasada: los dos eventos son de tipo `Workflow` y no cuentan como error). **No está cerrada**:
+el SQL literal (P-INF-01) debe incorporarse, el `.properties` instalado en `pr` debe contrastarse con la plantilla (P-INF-02) y quedan abiertas la historificación
 (P-INF-03), la planificación real (P-INF-04) y el código de salida del Java (P-INF-05).

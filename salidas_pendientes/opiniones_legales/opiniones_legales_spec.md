@@ -108,12 +108,15 @@ de `Legal_Opinion_Cargador.jar` queda documentado como contexto técnico en §6.
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-OPLEG-01 | `LegalOpinion.sql` usa `sysdate-1` (y `sysdate-2` si hoy es lunes), pero la fila 17 del Planificador solo corre de martes a sábado. ¿Qué ocurre con lo modificado en sábado y domingo? Con esta planificación el martes solo recoge el lunes y el lunes nunca se ejecuta | Los cambios de fin de semana podrían no llegar nunca a Mentor |
-| P-OPLEG-02 | La cadena 1 empieza a las 14:00, la misma hora a la que el Planificador (que revisa cada 30-60 min) escribe el CSV, y no hay `ctmfw` antes de `MEKYTL0930`. ¿Qué hace `MEKYTL0930` si el CSV aún no existe o es el del día anterior? | El pipeline de formateo podría trabajar sobre un fichero ausente o antiguo y el filewatcher posterior no lo distinguiría |
-| P-OPLEG-03 | De las alertas de la cadena 2: ¿códigos de proceso que usan los `GestionAlertas_Legal_Opinion_Response`/`...1`?, ¿qué query y qué plantilla Excel hay en `FT_T_REP1` para el informe?, ¿quién recibe el correo (`FT_T_ALR1`/`FT_T_ALU1`)?, ¿quién escribe las incidencias en `FT_T_TPG1`, si el jar solo escribe en `FT_T_RLT1`? Dato conocido: el `.properties` tiene dos pasos `Property` consecutivos, `GestionAlertas_Legal_Opinion_Response` («alerta de proceso») y `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»), pero no se sabe qué hace cada uno | Sin ello no se sabe a quién llega el informe ni de dónde salen sus datos (§6.5) |
-| P-OPLEG-04 | **Resuelta en parte.** Resuelto: nombres y origen de las 12 columnas que devuelve `LegalOpinion.sql` (§6.1), nombres de los ficheros intermedios del pipeline de la cadena 1 (§6.2) y secuencia de 5 pasos de `LegalOpinionResponse.properties` (§6.3), según el documento original del proceso (rama de Miguel). **Sigue pendiente:** contenido literal de ambos `.properties` (rutas completas, si hay `Stop`), contenido de `CabeceraLegalOpinion.csv` (nombres de columna de la cabecera fija y separador; no se sabe si coinciden con los alias del SQL) y el texto completo de `LegalOpinion.sql` | Sin los ficheros no se pueden fijar los nombres exactos de la cabecera ni las rutas intermedias |
-| P-OPLEG-05 | El paso 8 del pipeline de la cadena 1 es `ConvertirUNIX` tras `Unix2Dos`: ¿deja el fichero final en formato Unix aunque se dice que Mentor lo exige en formato DOS? | Formato de salida real del fichero que recibe Mentor |
-| P-OPLEG-06 | **Resuelta en parte.** La descripción del pipeline en el documento original del proceso (rama de Miguel) dice que el paso `Borrar` elimina únicamente `Legal_Opinion_Response.xlsx`, y que el paso Java «mueve los ficheros procesados a `old/`»; no menciona que se borre `loadLegalOpinionLog.csv`. Queda por confirmar si el jar mueve el log a `old/` (con qué nombre) antes de que `MEKYTL0978` lo historifique a `.../old/loadLegalOpinionLog_YYYYMMDD.rar` y qué hace `MEKYTL0978` si ya no está. | Si algo lo retira antes, `MEKYTL0978` no encuentra nada que historificar |
+| P-OPLEG-02 | **Resuelta en parte (3ª pasada):** con el fichero ausente `MEKYTL0930` crea uno con solo la cabecera y termina NOTOK (§6.2); falta el orden real de ejecución con el Planificador. La cadena 1 empieza a las 14:00, la misma hora a la que el Planificador (que revisa cada 30-60 min) escribe el CSV, y no hay `ctmfw` antes de `MEKYTL0930`. ¿Qué hace `MEKYTL0930` si el CSV aún no existe o es el del día anterior? | El pipeline de formateo podría trabajar sobre un fichero ausente o antiguo y el filewatcher posterior no lo distinguiría |
+| P-OPLEG-03 | **Resuelta en parte (3ª pasada):** los códigos de proceso son `Legal_Opinion_Response` y `Legal_Opinion_Response1` (§6.3); falta la configuración en base de datos. De las alertas de la cadena 2: ¿códigos de proceso que usan los `GestionAlertas_Legal_Opinion_Response`/`...1`?, ¿qué query y qué plantilla Excel hay en `FT_T_REP1` para el informe?, ¿quién recibe el correo (`FT_T_ALR1`/`FT_T_ALU1`)?, ¿quién escribe las incidencias en `FT_T_TPG1`, si el jar solo escribe en `FT_T_RLT1`? Dato conocido: el `.properties` tiene dos pasos `Property` consecutivos, `GestionAlertas_Legal_Opinion_Response` («alerta de proceso») y `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»), pero no se sabe qué hace cada uno | Sin ello no se sabe a quién llega el informe ni de dónde salen sus datos (§6.5) |
+| P-OPLEG-04 | **Resuelta en parte (3ª pasada: literales de `LegalOpinion.properties`, `LegalOpinionResponse.properties` y `CabeceraLegalOpinion.csv` en §6.2 y §6.3; sin `Stop`; sigue pendiente solo el texto completo de `LegalOpinion.sql`).** Resuelto: nombres y origen de las 12 columnas que devuelve `LegalOpinion.sql` (§6.1), nombres de los ficheros intermedios del pipeline de la cadena 1 (§6.2) y secuencia de 5 pasos de `LegalOpinionResponse.properties` (§6.3), según el documento original del proceso (rama de Miguel). **Sigue pendiente:** contenido literal de ambos `.properties` (rutas completas, si hay `Stop`), contenido de `CabeceraLegalOpinion.csv` (nombres de columna de la cabecera fija y separador; no se sabe si coinciden con los alias del SQL) y el texto completo de `LegalOpinion.sql` | Sin los ficheros no se pueden fijar los nombres exactos de la cabecera ni las rutas intermedias |
+| P-OPLEG-05 | **Resuelta (3ª pasada):** el paso 8 (`dos2unix`) deja el fichero final en formato Unix (LF), anulando el `Unix2Dos` de los pasos 5 a 7 (§6.2). (Pregunta original:) El paso 8 del pipeline de la cadena 1 es `ConvertirUNIX` tras `Unix2Dos`: ¿deja el fichero final en formato Unix aunque se dice que Mentor lo exige en formato DOS? | Formato de salida real del fichero que recibe Mentor |
+| P-OPLEG-06 | **Resuelta en parte (3ª pasada: la plantilla pasa al jar la ruta `agreements/old/` como `args[2]`, sin que se vea qué hace con ella).** La descripción del pipeline en el documento original del proceso (rama de Miguel) dice que el paso `Borrar` elimina únicamente `Legal_Opinion_Response.xlsx`, y que el paso Java «mueve los ficheros procesados a `old/`»; no menciona que se borre `loadLegalOpinionLog.csv`. Queda por confirmar si el jar mueve el log a `old/` (con qué nombre) antes de que `MEKYTL0978` lo historifique a `.../old/loadLegalOpinionLog_YYYYMMDD.rar` y qué hace `MEKYTL0978` si ya no está. | Si algo lo retira antes, `MEKYTL0978` no encuentra nada que historificar |
 | P-OPLEG-07 | **Resuelta en parte.** Comando (fichas del documento original del proceso, rama de Miguel): `ctmfw '/fichtemcomp/pr/descargas/kytl/agreements/loadLegalOpinionLog.csv' CREATE 0 60 10 3 240`, host `pr-rdr.igrupobbva`, usuario `xpctma1` (ver §5.2). Sigue pendiente confirmar cómo se fija el límite de las 23:00 en Control-M (el documento solo indica «activo 18:00-23:00») y a qué hora arranca realmente el job | Define cuándo se considera completo el log y a qué hora vence el job si no llega |
+| H-OPLEG-02 | **Resuelta (3ª pasada).** Un fichero solo con cabecera (o vacío) pasa por el pipeline de formateo sin error y produce el fichero con solo la cabecera fija (§6.2). | TC-003 |
+| H-OPLEG-07 | **Resuelta en parte (3ª pasada).** Los códigos de proceso son `Legal_Opinion_Response` y `Legal_Opinion_Response1` y caen en la rama `DEFAULT` de `AlertasEnvioExcepciones` (§6.5); `ServerMailConfig.xml` en la plantilla tiene un `server` por entorno con `host` y `user` enmascarados. Falta el contenido real de producción. | Correo de alertas |
+| H-OPLEG-11 | **Nuevo (3ª pasada, no bloqueante).** `log4jLegalOpinionResponse.properties` y `log4jLegal_Opinion_Cargador.properties`, citados por los `.properties` de la plantilla, no están en la plantilla; no se sabe dónde escribe el log del jar de la cadena 2. | Diagnóstico de fallos del jar |
 
 ## 5. Especificación funcional
 
@@ -164,7 +167,7 @@ Diaria M-S (no lunes), 14:00, criticidad W.
   copia local en la carpeta de historificación (las 10 últimas) y copia comprimida `.gz` en `lpops302…/old/`
   (las 10 últimas). **Mal:** `MEKYTL0930` en error (formateo) o `RDR_LEGALOPINION_FW` vencido a los 150 min
   (fichero ausente): `MEKYTL0924` y `MEKYTL0938` no se ejecutan; la criticidad W avisa al día siguiente. Un fichero
-  que solo tenga la cabecera (0 registros) se espera que pase como correcto (TC-003, sin confirmar).
+  que solo tenga la cabecera (0 registros) pasa por el formateo sin error y se envía con solo la cabecera fija (TC-003; §6.2).
 - **Cadena 2, bien:** los 4 jobs en verde; por cada línea de `loadLegalOpinionLog.csv` hay una fila nueva en
   `FT_T_RLT1` (`DATA_SRC_APP='LEGALOPINION'`, `LAST_CHG_USR_ID='LEGALOPINION:ACK'`, `GS_VALUE` `OK` o `KO`);
   se envió el informe de alerta; `loadLegalOpinionLog.csv` queda en `.../old/loadLegalOpinionLog_YYYYMMDD.rar`.
@@ -207,30 +210,68 @@ pero el Planificador no corre los lunes (P-OPLEG-01).
 
 ### 6.2 `LegalOpinion.properties` — pipeline de formateo (`MEKYTL0930`, sin SQL)
 
-Se ejecuta con `GSProcess.sh LegalOpinion` (ver `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`: sin clave
-`Stop*=Ok` los pasos siguientes se ejecutan aunque falle uno; no consta si este `.properties` la tiene,
-P-OPLEG-04). Las operaciones son funciones de `Generico.sh` (`salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`):
-`ConvertirUNIX` = `dos2unix` en sitio; `CortarEliminarCabecera` = quita la primera línea del fichero, extrae las
-columnas indicadas (separador `;`), las añade al fichero de salida y borra el de entrada; `CatFicheros` =
-concatena dos ficheros en un tercero; `Unix2Dos` = crea `<nombre>_dos.<ext>` con finales de línea CRLF y deja
-el original; `MoverFichero` = `mv -f` más `chmod 664`.
+**3ª pasada de cierre.** Contenido literal según la plantilla de despliegue (repositorio `estaticos`, rama develop; `dat/properties/LegalOpinion.properties`, finales de línea
+CRLF; `@@ENV@@` es un marcador que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores son los "de producción según la plantilla", no una copia verificada de producción).
+`<M>` = `/fichtemcomp/@@ENV@@/descargas/kytl/LAGR/MENTOR`, `<P>` = `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties`:
 
-Los 8 pasos reales son: `ConvertirUNIX` sobre `BBVAContracts_UpdtLO.csv` → `CortarEliminarCabecera` (quita la cabecera del SQL y deja
-solo las filas de datos en `BBVAContracts_UpdtLO_tratado1.csv`) → `CatFicheros` (concatena la cabecera fija
-`CabeceraLegalOpinion.csv`, fichero estático del directorio `.../kytl/online/multipais/multicanal/dat/properties/` que
-no genera el SQL, con los datos, en `BBVAContracts_UpdtLO_tratado2.csv`) → borra `_tratado1.csv` → `Unix2Dos` sobre
-`_tratado2.csv` (formato requerido por Mentor; deja `_tratado2_dos.csv`) → borra `_tratado2.csv` → `MoverFichero` (renombra
-`_tratado2_dos.csv` al nombre final `BBVAContracts_UpdtLO.csv`) → `ConvertirUNIX` final.
+```
+MOD_EJECUCION=legalOpinion      Servicio=legalOpinion      Accion=VariablesGlobales
+1  ConvertirUNIX            <M>/BBVAContracts_UpdtLO.csv
+2  CortarEliminarCabecera   <M>/BBVAContracts_UpdtLO.csv  <M>/BBVAContracts_UpdtLO_tratado1.csv  1
+3  CatFicheros              <P>/CabeceraLegalOpinion.csv  <M>/BBVAContracts_UpdtLO_tratado1.csv  <M>/BBVAContracts_UpdtLO_tratado2.csv
+4  Borrar                   <M>/BBVAContracts_UpdtLO_tratado1.csv
+5  Unix2Dos                 <M>/BBVAContracts_UpdtLO_tratado2.csv
+6  Borrar                   <M>/BBVAContracts_UpdtLO_tratado2.csv
+7  MoverFichero             <M>/BBVAContracts_UpdtLO_tratado2_dos.csv  <M>/BBVAContracts_UpdtLO.csv
+8  ConvertirUNIX            <M>/BBVAContracts_UpdtLO.csv
+```
+
+(Cada paso es una acción `Script` de `GSProcess.sh`; `GSProcess.sh` añade `/` a cada `PreArgScri*`.) **No hay ninguna clave `Stop*`**: si un paso falla, los siguientes se ejecutan igualmente y el job
+termina con código 1 al final. Las operaciones son funciones de `Generico.sh` (código leído en la plantilla):
+
+* `ConvertirUNIX` = `dos2unix $ARG1` en sitio (devuelve 1 si el fichero no existe).
+* `CortarEliminarCabecera` (`ARG1` entrada, `ARG2` salida, `ARG3`=`1`, la columna): `sed "1d"` a `<entrada>.tmp`; `cut -f 1 -d ";" <entrada>.tmp >> <salida>` (añade, no trunca); `rm <entrada>.tmp`; `rm <entrada>` (sin `-f`; la entrada desaparece). **Detalle importante:** el separador de `cut` es `;` y la columna es la 1. El fichero que genera el Planificador y la cabecera fija (`CabeceraLegalOpinion.csv`) están separados por **comas**; como las líneas no contienen `;`, `cut` devuelve la línea completa y pasan las 12 columnas. Si algún valor de dato contuviera `;`, la fila se **truncaría** en ese punto sin ningún aviso.
+* `CatFicheros` = `cat $ARG1 > $ARG3; cat $ARG2 >> $ARG3`.
+* `Unix2Dos` = `sed -e 's/$/\r/' <fichero> > <fichero sin extensión>_dos.<extensión>` (conserva el original; el nombre se corta por el primer `.`, así que no debe haber puntos en la ruta; sin fichero devuelve 4).
+* `MoverFichero` = `mv -f $ARG1 $ARG2` y `chmod 664 $ARG2`.
+* `Borrar` = `rm -f $ARG1`.
+
+**Cabecera fija (`CabeceraLegalOpinion.csv`, plantilla de despliegue; separador coma, una línea, finales LF):**
+`ID_LAGR_RDR,ID_LAGR_MNTR,LO_LAGR,PROD_RDR_LAGR,PROD_MENTOR_LAGR,ID_COLL_RDR,LO_COLLATERAL,PROD_RDR_COLL,PROD_MENTOR_COLL,STAR_ID,LO_AGR_FUND,LO_COLL_FUND`, es decir, **los mismos 12 alias que la tabla de §6.1**, en el mismo orden (cierra la parte de cabecera y separador de P-OPLEG-04).
+
+**Resultado, paso a paso:** (1) el CSV del Planificador queda en formato Unix (LF); (2) se le quita la primera línea (la cabecera que escribe el Planificador, si la escribe) y se vuelcan las filas a `_tratado1.csv`; (3) `_tratado2.csv` = cabecera fija + filas; (4) se borra `_tratado1.csv`; (5) se crea `_tratado2_dos.csv` con CRLF; (6) se borra `_tratado2.csv`; (7) `_tratado2_dos.csv` pasa a llamarse `BBVAContracts_UpdtLO.csv`; (8) **el último paso vuelve a convertirlo a Unix (`dos2unix`)**. **Respuesta a P-OPLEG-05:** el fichero final que ve `RDR_LEGALOPINION_FW` y envía `MEKYTL0924` está en formato **Unix (LF)**, no DOS; los pasos 5 a 7 (hacer el DOS) quedan anulados por el paso 8. Si Mentor exigiera CRLF, el envío no lo cumple (a no ser que el `.idx` de `MEKYTL0924` convierta, no visto). Ningún paso del pipeline comprueba que haya filas.
+
+**Comportamiento con entradas anómalas (deducido del código):**
+
+* *Fichero del Planificador con solo cabecera o vacío* (0 filas): `sed "1d"` da vacío; `tratado1` queda vacío; el resultado es el fichero con solo la cabecera fija, y todos los pasos terminan con 0 (cierra H-OPLEG-02 en lo que toca al formateo).
+* *Fichero del Planificador ausente* (el Planificador aún no lo ha escrito, P-OPLEG-02): `ConvertirUNIX` falla (código 1); `CortarEliminarCabecera` falla (`sed` no encuentra la entrada, aunque su redirección crea un `.tmp` vacío; `cut` no tiene datos; y el `rm` final de la entrada, sin `-f`, devuelve ≠ 0, que es el código de la función) pero `>>` crea `tratado1` vacío; los pasos 3 a 8 se ejecutan con normalidad y **crean un `BBVAContracts_UpdtLO.csv` con solo la cabecera fija**. `GSProcess.sh` termina con 1 y `MEKYTL0930` queda NOTOK, por lo que (salvo regla en contrario de Control-M) el filewatcher y el envío no se ejecutan; pero el fichero de solo cabecera se queda en la carpeta.
+* *Fichero a medias* (el Planificador escribe en paralelo): el pipeline lo procesa sin comprobar nada y puede tomar un CSV incompleto sin dar error.
+* *Reejecución*: como `CortarEliminarCabecera` consume su entrada y el paso 7 la recrea, repetir el job sobre el fichero ya formateado lo vuelve a procesar: quita la primera línea (la cabecera fija) y vuelve a anteponerla; es idempotente salvo por el posible `tratado1` residual de una interrupción (se añade con `>>`).
+
+El módulo `legalOpinion` no genera SQL: la consulta la ejecuta el Planificador Genérico (fila 17).
 
 ### 6.3 `LegalOpinionResponse.jar` — validación y auditoría (decompilado con `cfr`, Cadena 2)
 
 Nombre interno real en los logs: `Legal_Opinion_Difusion` (no coincide literalmente con el nombre del
-jar). Pasos de `LegalOpinionResponse.properties` (5): (1) `VariablesGlobales`, con la ruta base
-`/fichtemcomp/<entorno>/descargas/kytl/agreements`; (2) `Java`: `LegalOpinionResponse.jar` (clase `main.main`, servicio
-`MENTOR_Difusion_Service`) con `ConexionBD.jar`, `ojdbc8.jar` y `log4j.jar`, paso que según el documento original «mueve los
-ficheros procesados a `old/`» (P-OPLEG-06); (3) `Property` `GestionAlertas_Legal_Opinion_Response` («alerta de proceso»);
-(4) `Property` `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»); (5) `Script` `Borrar`, que borra
-`Legal_Opinion_Response.xlsx` de `agreements/`. Flujo (`main.main` → `LectorFicheros.leerFichero` → `ProcesadorLEOP.procesarLegalAgreement`):
+jar). **`LegalOpinionResponse.properties` (3ª pasada; literal según la plantilla de despliegue, CRLF, `@@ENV@@` = entorno, valores "de producción según la plantilla" sin verificar en el servidor):**
+
+```
+MOD_EJECUCION=LegalOpinionResponse
+Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/agreements      File=      Servicio=LegalOpinionResponse
+Accion=VariablesGlobales
+NomPaquete1=ConexionBD.jar   NomPaquete2=LegalOpinionResponse.jar   NomClaseJava=main.main   ServicioJava=MENTOR_Difusion_Service
+ArgJava1=2
+PreArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties   ArgJava2=log4jLegalOpinionResponse.properties
+PreArgJava3=/fichtemcomp/@@ENV@@/descargas/kytl/agreements/old        (ArgJava3 vacío)
+PreArgJava4=/fichtemcomp/@@ENV@@/descargas/kytl/agreements            (ArgJava4 vacío)
+Libreria1=ojdbc8.jar   Libreria2=log4j.jar
+Accion=Java
+NomProperty=GestionAlertas  ArgProp1=GestionAlertas_Legal_Opinion_Response   ArgProp2=PROCESOS-Legal_Opinion_Response    Accion=Property
+NomProperty=GestionAlertas  ArgProp1=GestionAlertas_Legal_Opinion_Response1  ArgProp2=PROCESOS-Legal_Opinion_Response1   Accion=Property
+NomScript=Borrar  PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/agreements  ArgScri1=Legal_Opinion_Response.xlsx   Accion=Script
+```
+
+**No hay ninguna clave `Stop*`.** Argumentos de `main.main` (con `/` final añadido por `GSProcess.sh` a las rutas): `args[0]`=`2` (nivel INFO), `args[1]`=`<dat/properties>/log4jLegalOpinionResponse.properties`, `args[2]`=`…/agreements/old/`, `args[3]`=`…/agreements/` (carpeta donde está `loadLegalOpinionLog.csv`). El módulo es una copia del de `MENTOR_Difusion` (mismo `ServicioJava=MENTOR_Difusion_Service`, `main.Main`), cuyo `log4j` sí está en la plantilla, mientras que **`log4jLegalOpinionResponse.properties` no consta en la plantilla** (H-OPLEG-11). Pasos: (1) `VariablesGlobales`; (2) `Java`: `LegalOpinionResponse.jar` con `ConexionBD.jar`, `ojdbc8.jar` y `log4j.jar` (sin `DirJava`: directivas por defecto, `-Dfile.encoding=iso-8859-1`); que el jar mueva algo a `old/` (la ruta se le pasa) sigue sin confirmarse en su código (P-OPLEG-06); (3) `Property` `GestionAlertas_Legal_Opinion_Response`, que sustituye `PROCESOS` por el código de proceso **`Legal_Opinion_Response`**; (4) `Property` `GestionAlertas_Legal_Opinion_Response1`, con el código de proceso **`Legal_Opinion_Response1`**; (5) `Script` `Borrar`, que borra `Legal_Opinion_Response.xlsx` de `agreements/` (`rm -f`; sin fichero termina con 0). Flujo (`main.main` → `LectorFicheros.leerFichero` → `ProcesadorLEOP.procesarLegalAgreement`):
 
 1. Lee `.../agreements/loadLegalOpinionLog.csv`, formato `MENTOR_ID|RDR_ID|LOG` (separador `|`), omite la
    cabecera literal `MENTOR_ID|RDR_ID|LOG`.
@@ -272,14 +313,15 @@ de su funcionamiento, ya analizado en el documento fuente con su código complet
 - Inserta en `FT_T_LAL1` (cabecera, 1 fila) y `FT_T_LLD1` (detalle, N filas por contrapartida/producto),
   generando el log `loadLegalOpinionLog.csv` que consume la Cadena 2.
 - El campo `lastReview` (posición 3 del CSV) se lee pero no se inserta en ninguna columna Oracle.
+- **Módulo de la plantilla (3ª pasada):** `Legal_Opinion_Cargador.properties` (CRLF; no hay `Stop`): `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/agreements`; `ConexionBD.jar` + `Legal_Opinion_Cargador.jar`, clase `main.Main`, `ServicioJava=Legal_Opinion_Cargador_Service`; `args[0]`=`2`, `args[1]`=`<dat/properties>/log4jLegal_Opinion_Cargador.properties` (no consta en la plantilla), `args[2]`=`…/agreements/old/`, `args[3]`=`…/agreements/`; librerías `ojdbc8.jar`, `common-lang3.jar`, `log4j.jar`; sin acciones posteriores. Se lanzaría con `GSProcess.sh Legal_Opinion_Cargador` sobre la misma carpeta `agreements/` donde la cadena 2 espera `loadLegalOpinionLog.csv`. El job que lo ejecuta sigue sin localizarse (retirado como gap por decisión del usuario).
 
 ### 6.5 Alertas de la Cadena 2 (mecanismo común `GestionAlertas`)
 
 La cadena 2 usa el mecanismo común de alertas (`salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`).
 Resumen de lo que ocurre dentro del paso de alertas de `KYTL_RESPONSE_LEGAL_OPINION`, que es una acción
 `Property` de `GSProcess.sh` que instancia la plantilla `GestionAlertas.properties` con el código de proceso de
-Legal Opinion (los nombres citados en el análisis son `GestionAlertas_Legal_Opinion_Response` y `...1`; los códigos
-y su contenido no se han recibido, P-OPLEG-03):
+Legal Opinion (los `.properties` de las dos acciones `Property` son `GestionAlertas_Legal_Opinion_Response` y `...1`, y los **códigos de proceso**
+que sustituyen a `PROCESOS` son `Legal_Opinion_Response` y `Legal_Opinion_Response1`, según la plantilla de despliegue; su configuración en base de datos no se ha recibido, P-OPLEG-03):
 
 1. **Barrido** (`RDR_AlertasBarrido.jar`): lee de `FT_T_TPG1` las incidencias del proceso con `END_TMS` vacío
    y las convierte en mensajes en `FT_T_ALG1`.
@@ -301,7 +343,7 @@ filas nuevas en `FT_T_RLT1` con `MAIN_ENTITY_NME='ERROR_GESTION_ALERTAS'`. Despu
 Procedencia: volcado de la base de workflows de GoldenSource (`AlertasEnvio` v7, `AlertasEnvioExcepciones` v12,
 `Mail` v6) y código de las clases `report.ReportesRDR` y `report.ReporteRDR` del Cocinado. La mecánica genérica de las
 tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que cambia el resultado de este proceso.
-- *Rama del conmutador.* El código de proceso de este informe en `FT_T_REP1` no consta (P-OPLEG-03). `AlertasEnvio` construye, para cada informe pendiente, el asunto `[RDR Reportes] - <código de proceso>` y como cuerpo el texto `txtBody` que deja el nodo del tipo de envío (los scripts de esos nodos no son legibles en el volcado), y llama al subworkflow `AlertasEnvioExcepciones` con `proceso`, `subject` y `body`, usando lo que éste devuelva. Ese subworkflow (versión 12, de 03/07/2026) es un conmutador (`Switch Case`) por código de proceso con solo tres ramas que fijan asunto y cuerpo propios: `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`, más una rama `DEFAULT` que termina sin tocar nada. Ninguna de sus 12 versiones ha tenido una rama para este proceso, y ninguna de las tres existentes corresponde a él: **cae en `DEFAULT` y su correo lleva el asunto `[RDR Reportes] - <código de proceso>` y el cuerpo que genera el tipo de envío, sin texto propio.**
+- *Rama del conmutador.* Los códigos de proceso de esta cadena son `Legal_Opinion_Response` y `Legal_Opinion_Response1` (3ª pasada), sin relación con ninguna de las tres ramas del conmutador. `AlertasEnvio` construye, para cada informe pendiente, el asunto `[RDR Reportes] - <código de proceso>` y como cuerpo el texto `txtBody` que deja el nodo del tipo de envío (los scripts de esos nodos no son legibles en el volcado), y llama al subworkflow `AlertasEnvioExcepciones` con `proceso`, `subject` y `body`, usando lo que éste devuelva. Ese subworkflow (versión 12, de 03/07/2026) es un conmutador (`Switch Case`) por código de proceso con solo tres ramas que fijan asunto y cuerpo propios: `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`, más una rama `DEFAULT` que termina sin tocar nada. Ninguna de sus 12 versiones ha tenido una rama para este proceso, y ninguna de las tres existentes corresponde a él (los códigos `Legal_Opinion_Response` y `Legal_Opinion_Response1` no coinciden con ninguna rama): **cae en `DEFAULT` y su correo lleva el asunto `[RDR Reportes] - <código de proceso>` y el cuerpo que genera el tipo de envío, sin texto propio.**
 - *Qué condiciones debe cumplir el correo para salir.* Para cada proceso con `SEND_PEND='Y'`, el workflow `AlertasEnvio`
   **pone primero `SEND_PEND='N'`** y solo después valida la ruta, el entorno, los destinatarios y las periodicidades. Cada
   destinatario y tipo de envío (`EXCEL`, `WORD`, `TXT`, `DAT`, `CUERPO`) tiene una periodicidad en `FT_T_ALR1` que se compara
@@ -343,6 +385,10 @@ Su única utilidad para este documento es confirmar el modelo de datos: las opin
 y tipo de acuerdo) y `FT_T_LLD1` (detalle por tipo de entidad), con el resultado en un conjunto de clasificaciones `LEGALOPINI`.
 No cambia ningún requisito ni caso de prueba.
 
+### 6.7 Aclaración sobre `nlegales` (3ª pasada)
+
+`nlegales.properties` y `fillingRules_nlegales.csv`, que figuran junto a estos ficheros en la plantilla de despliegue, **no pertenecen a las opiniones legales**: son el módulo de carga de *entidades legales* (`BusinessFeed=Nlegales`, `MessageType=CNL`, fichero `nlegales/nlegales.csv`) que usa `ControlCase` con las reglas de relleno de 12 columnas (`COD_ENTLEGAL`, `COD_CLIEL1`, `DES_ENTLEGAL`, `COD_PAISOALF`, `COD_ESTADOAJ`, `XTI_ESTADO`, `AUD_*`, `TIM_*`) y los eventos `MDX`, `Errores` y `Reporte`. Ninguna cadena de este proceso los invoca; su análisis está en la spec común de `ControlCase` (`salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md`).
+
 ## 7. Especificación de testing
 
 La matriz de `opiniones_legales_casos_prueba.xml` (16 TC: TC-001 a TC-016) cubre los 9 tipos exigidos: `happy_path`
@@ -362,6 +408,8 @@ Cobertura por cadena:
   queda ninguna transición de job sin cubrir.
 
 ## 8. Validaciones de casos de prueba
+
+(3ª pasada: añadido TC-017, fichero ausente al arrancar `MEKYTL0930`, y ajustados TC-001 y TC-003 al formato Unix final y al formateo de solo cabecera.)
 
 | Tipo | Qué garantiza | Casos |
 |---|---|---|
@@ -397,12 +445,17 @@ Cobertura por cadena:
 - **RISK-OPLEG-006:** la extracción de la cadena 1 la hace el Planificador (martes a sábado) y no se sincroniza
   con la cadena (P-OPLEG-01, P-OPLEG-02): posible pérdida de cambios de fin de semana y trabajo sobre un fichero
   ausente o antiguo.
+- **RISK-OPLEG-007 (3ª pasada):** el fichero final de la cadena 1 queda en formato **Unix (LF)**: el último paso de
+  `LegalOpinion.properties` (`ConvertirUNIX`) deshace el `Unix2Dos` anterior (§6.2). Si Mentor exige CRLF, el formato no se cumple.
+- **RISK-OPLEG-008 (3ª pasada):** `CortarEliminarCabecera` usa `cut -f 1 -d ";"`: el pipeline solo conserva las 12 columnas porque el CSV va separado por comas;
+  un `;` dentro de un dato trunca la fila sin aviso (§6.2). Sin `Stop*`, un paso que falla no detiene los siguientes y, con la entrada ausente, se crea igualmente
+  un `BBVAContracts_UpdtLO.csv` con solo la cabecera fija (el job queda NOTOK).
 - **Normas de Rearranque:** documentadas con escalado real a "ANS RDR (BZG03906)" para los jobs principales
   de ambas cadenas.
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso cerrado para las 2 cadenas documentadas, con preguntas abiertas no bloqueantes: P-OPLEG-01, 02, 03 y 05 sin respuesta, y P-OPLEG-04, 06 y 07 resueltas solo en parte (§4).** El CSV de la cadena 1 lo genera el Planificador Genérico (fila 17), no la cadena. Los 2 gaps técnicos sobre los jars Java quedan
+**Proceso cerrado para las 2 cadenas documentadas, con preguntas abiertas no bloqueantes: P-OPLEG-01 sin respuesta, P-OPLEG-05 resuelta (3ª pasada) y P-OPLEG-02, 03, 04, 06 y 07 resueltas solo en parte (§4).** El CSV de la cadena 1 lo genera el Planificador Genérico (fila 17), no la cadena. Los 2 gaps técnicos sobre los jars Java quedan
 resueltos con evidencia real (decompilación con `cfr` de `LegalOpinionResponse.jar`, análisis de una
 muestra real del `.xlsx`), corrigiendo 2 premisas erróneas del documento fuente original (qué genera el
 `.xlsx` y qué tabla escribe cada jar). El gap sobre la localización del job de `Legal_Opinion_Cargador` se

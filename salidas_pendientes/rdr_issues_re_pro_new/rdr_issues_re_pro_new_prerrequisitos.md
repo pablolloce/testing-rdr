@@ -5,9 +5,8 @@
 - No hay fichero de entrada externo: ambos disparadores (`RDR_ISSUES_RE_PRO` a las 20:00h,
   `RDR_ISSUES_RESTO_T` a las 23:00h) generan su propio fichero de partida (`emisiones.xml`,
   `emisiones.resto.xml`) mediante extracción directa a base de datos (`ExtraccionGenericaEMISI`).
-- No hay diccionario de datos disponible para `emisiones.xml`, `emisiones.resto.xml` ni
-  `emisiones_filter.xml` con evidencia documental verificable (ver `rdr_issues_re_pro_new_spec.md`, gap G7 y sección 9); las
-  etiquetas raíz son `<Securities>` y `<Security>` por registro, según el script real del validador.
+- El diccionario de datos de `emisiones.xml`, `emisiones.resto.xml` y `emisiones_filter.xml` es `xsd_emisiones_batch.xsd` (estructura, orden y obligatoriedad de cada campo; todos son texto), según la plantilla de despliegue (ver `rdr_issues_re_pro_new_spec.md`, §6.3.B); las
+  etiquetas raíz son `<Securities>` y `<Security>` por registro, según el script real del validador. La consulta SQL que rellena los campos sigue sin conocerse (P-IRP-01).
 - Los 3 esquemas XSD (`xsd_emisiones_batch.xsd` para `ISSUE`/`ISSUERESTO`, `Baskets_Schema.xsd` para
   `BASKET`, `RDR_XSD_Generico.xsd` para `CPARTY`) deben estar disponibles en
   `/$ENV/kytl/online/multipais/multicanal/dat/properties/` del servidor de ejecución — ruta confirmada con
@@ -15,6 +14,8 @@
   `/$ENV/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` (para resolver el directorio de
   logs) y espacio suficiente en `RUTABASE` para los ficheros de trozos temporales (`*trozo_N.xml`) durante
   el troceado.
+- `.properties` y hojas desplegados en `/$ENV/kytl/online/multipais/multicanal/dat/properties/` (el plan de despliegue sustituye `@@ENV@@` por el entorno): `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` con sus `log4jExtraccionGenericaEMISI_*.properties`, `TransforEmisiones.properties`, `log4jTransformEmisiones.properties` y `Extraccion_Emisiones.xsl`. Jars en `.../jar/`: `ExtraccionGenericaEMISI.jar`, `ConexionBD.jar` y `Transformar_XML.jar`; librerías en `.../lib/` (`ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar`).
+- Para validar con `xmllint` el servidor necesita la utilidad instalada (la usa `RDR_Validacion_XSD.sh`); si falta, el script no puede validar.
 
 ## Configuración e infraestructura
 

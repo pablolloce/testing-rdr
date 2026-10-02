@@ -18,6 +18,7 @@
 | TC-004 | Registros modificados en sábado/domingo, ejecución simulada en lunes |
 | TC-005 | 2 líneas del log, una con `MENTOR_ID` vacío y otra con `RDR_ID` vacío |
 | TC-006 | Fallo simulado de generación en `MEKYTL0930` |
+| TC-017 | `BBVAContracts_UpdtLO.csv` ausente al arrancar `MEKYTL0930` (sin residuos `_tratado1/_tratado2`) |
 | TC-007 | Ausencia de `loadLegalOpinionLog.csv` hasta las 23:00 |
 | TC-008 | 1 línea del log con uno de los 7 mensajes de error reconocidos de Mentor |
 | TC-009 | 1 Collateral activo en `FT_T_LAAN` sin Legal Agreement correspondiente en `FT_T_LAID` |
@@ -76,8 +77,11 @@
 Para TC-016 y las comprobaciones de alertas deben existir en `KYTL_GC`: la fila del informe de Legal Opinion en
 `FT_T_REP1` (`ACTIVE`, con plantilla Excel, query y ruta), al menos un destinatario activo en `FT_T_ALR1`/`FT_T_ALU1`,
 los programas `RDR_AlertasBarrido.jar` y `RDR_AlertasCocinado.jar`, y el workflow `RDR_AlertasEnvio` (que envía
-los informes pendientes de todos los procesos, por lo que la prueba no es aislable). Los `.properties`
-`GestionAlertas_Legal_Opinion_Response` y `...1` no se han recibido (P-OPLEG-03).
+los informes pendientes de todos los procesos, por lo que la prueba no es aislable). `GestionAlertas_Legal_Opinion_Response` y `...1` no son ficheros de la plantilla de despliegue: son los nombres de los temporales que
+`GSProcess.sh` genera a partir de `GestionAlertas.properties` sustituyendo `PROCESOS` por los códigos `Legal_Opinion_Response` y
+`Legal_Opinion_Response1`; la configuración de esos dos códigos en base de datos no se ha recibido (P-OPLEG-03). Configuración necesaria en
+`dat/properties/` (según la plantilla de despliegue): `LegalOpinion.properties`, `LegalOpinionResponse.properties`, `CabeceraLegalOpinion.csv` (con CRLF los `.properties`),
+`GestionAlertas.properties` y `ServerMailConfig.xml` (host y remitente no incluidos en la plantilla); `log4jLegalOpinionResponse.properties` no consta en la plantilla (H-OPLEG-11).
 
 ## Entorno de pruebas
 

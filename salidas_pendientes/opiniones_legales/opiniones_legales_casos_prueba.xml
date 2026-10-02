@@ -17,7 +17,7 @@
       <paso numero="4">MEKYTL0924 envía el fichero a Mentor (pr-mentor.igrupobbva) e historifica localmente.</paso>
       <paso numero="5">MEKYTL0938 historifica una copia comprimida adicional.</paso>
     </pasos>
-    <resultadoEsperado>Los 5 jobs finalizan OK, el fichero BBVAContracts_UpdtLO_yyyymmdd.csv llega a Mentor con los registros esperados, y quedan 2 copias historificadas (local y remota comprimida).</resultadoEsperado>
+    <resultadoEsperado>Los 5 jobs finalizan OK, el fichero BBVAContracts_UpdtLO_yyyymmdd.csv llega a Mentor con la cabecera fija de 12 columnas (ID_LAGR_RDR,...,LO_COLL_FUND, separadas por comas) y los registros esperados, en formato Unix (LF) porque el último paso del pipeline ejecuta dos2unix, y quedan 2 copias historificadas (local y remota comprimida).</resultadoEsperado>
     <tipoValidacion>Monitorización de eventos en Control-M + verificación del fichero en destino</tipoValidacion>
     <criterioAceptacion>Cadena completa OK, fichero presente en Mentor con el contenido esperado del SQL.</criterioAceptacion>
     <posibilidadFallo>Ninguna si existen registros válidos; si no hay ninguno, ver TC-003.</posibilidadFallo>
@@ -57,7 +57,7 @@
       <paso numero="2">Verificar que BBVAContracts_UpdtLO.csv se genera igualmente (con cabecera, sin filas de datos).</paso>
       <paso numero="3">Verificar que el fichero se envía a Mentor sin error.</paso>
     </pasos>
-    <resultadoEsperado>El pipeline de 8 pasos de GSProcess.sh LegalOpinion completa sin error, generando un fichero solo con cabecera, que se envía a Mentor con normalidad.</resultadoEsperado>
+    <resultadoEsperado>El pipeline de 8 pasos de GSProcess.sh LegalOpinion completa sin error (todos los pasos devuelven 0 con una entrada de solo cabecera o vacía), generando un fichero solo con la cabecera fija de 12 columnas, que se envía a Mentor con normalidad.</resultadoEsperado>
     <tipoValidacion>Verificación del contenido del fichero generado y enviado</tipoValidacion>
     <criterioAceptacion>Fichero presente en Mentor con solo la línea de cabecera.</criterioAceptacion>
     <posibilidadFallo>No confirmado con evidencia de ejecución real si el pipeline maneja explícitamente el caso de 0 filas o simplemente no falla por ausencia de líneas de datos.</posibilidadFallo>
@@ -320,6 +320,27 @@
     <tipoValidacion>Monitorización completa de la cadena + verificación de FT_T_RLT1 y del fichero historificado</tipoValidacion>
     <criterioAceptacion>Cadena completa OK, auditoría confirmada en FT_T_RLT1.</criterioAceptacion>
     <posibilidadFallo>Cualquier fallo intermedio (ausencia de fichero) detiene el flujo — ver TC-007.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="negativo">
+    <nombre>Cadena 1, BBVAContracts_UpdtLO.csv ausente al arrancar MEKYTL0930</nombre>
+    <objetivo>Confirmar que, si el Planificador aún no ha escrito el CSV cuando arranca MEKYTL0930, el pipeline de formateo crea un fichero con solo la cabecera fija y el job termina NOTOK (P-OPLEG-02, §6.2).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción). No existe LAGR/MENTOR/BBVAContracts_UpdtLO.csv ni ficheros _tratado1/_tratado2 residuales.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="BBVAContracts_UpdtLO.csv" valor="ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh LegalOpinion (MEKYTL0930).</paso>
+      <paso numero="2">En execute_LegalOpinion_&lt;AAAAMMDD&gt;.log comprobar los errores de los pasos 1 y 2 (dos2unix y CortarEliminarCabecera) y que los pasos 3 a 8 se ejecutan igualmente.</paso>
+      <paso numero="3">Comprobar que existe BBVAContracts_UpdtLO.csv con una sola línea (la cabecera fija), formato Unix, y que no quedan _tratado1/_tratado2.</paso>
+      <paso numero="4">Comprobar que GSProcess.sh termina con código 1 (ESTADO-1-) y el job queda NOTOK.</paso>
+    </pasos>
+    <resultadoEsperado>Se crea BBVAContracts_UpdtLO.csv con solo la cabecera fija; el job termina con código 1; sin regla en contrario de Control-M, RDR_LEGALOPINION_FW y los envíos no se ejecutan, pero el fichero de solo cabecera queda en la carpeta.</resultadoEsperado>
+    <tipoValidacion>Logs de GSProcess.sh/Generico.sh, contenido del fichero y estado del job.</tipoValidacion>
+    <criterioAceptacion>Se confirma que, sin Stop, los pasos 3 a 8 se ejecutan tras el fallo y que el job queda NOTOK.</criterioAceptacion>
+    <posibilidadFallo>Si el job termina con 0, el LegalOpinion.properties o el Generico.sh instalados difieren de la plantilla de despliegue.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

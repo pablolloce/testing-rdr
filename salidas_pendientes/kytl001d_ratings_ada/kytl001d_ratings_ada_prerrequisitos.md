@@ -26,7 +26,7 @@ El proceso se nutre del fichero `RatingsInternos.csv` recibido vía transferenci
 
 ## Configuración
 
-- `CargaRatingsInternos.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`CargaRatingsInternos.jar`+`RDR_AlertasCocinado.jar`, ruta del CSV en `receive/`) para que `GS_CODIGOS_RATINGMEX` funcione (TC-001, TC-004 a TC-009).
+- `CargaRatingsInternos.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`CargaRatingsInternos.jar`+`RDR_AlertasCocinado.jar`, ruta del CSV en `receive/`) para que `GS_CODIGOS_RATINGMEX` funcione (TC-001, TC-004 a TC-009). Contenido según la plantilla de despliegue en la spec §6.1 (sin `Stop*`; copia instalada sin verificar). El fichero `log4jCargaRatingsInternos.properties` (mismo directorio) escribe en `/<env>/kytl/online/multipais/multicanal/logs/CargaRatingsInternos.log`.
 - El procedimiento PL/SQL `CONCINTERN` debe existir y ser invocable en la BD de destino.
 - El workflow `RDR_AlertasEnvio` debe estar configurado con el destinatario/plantilla de correo correspondiente para TC-001, TC-009.
 
