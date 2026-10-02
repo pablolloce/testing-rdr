@@ -258,13 +258,13 @@
       <dato campo="Formato esperado tras PREV" valor="RE|id con * hasta 10|sector|subsector|actividad y BB|id|sector|subsector|actividad, sin cabecera"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el paso Delta de T2 (GSProcess.sh T2_RelValuesTaxonomy) y comprobar si el CSV de trabajo de T2 queda con el formato de 5 columnas sin cabecera (es decir, si ese paso ejecuta T2_Sect_Bloom_Refinit_PREV); anotar el .properties real.</paso>
+      <paso numero="1">Ejecutar el paso Delta de T2 (GSProcess.sh T2_RelValuesTaxonomy), que según la plantilla de despliegue ejecuta T2_Sect_Bloom_Refinit_PREV y después Delta.sh Si, y comprobar que el CSV de trabajo de T2 queda con el formato de 5 columnas sin cabecera y que la primera línea sale en el delta aunque no haya cambiado; anotar si el .properties instalado coincide con la plantilla.</paso>
       <paso numero="2">Ejecutar GSProcess.sh CargaSectorizacionT2 y leer en el log las llamadas «1: T2_RE» / «1: T2_BB» con su descripción.</paso>
       <paso numero="3">Repetir la Carga Core con el CSV bruto sin transformar y anotar el resultado.</paso>
     </pasos>
     <resultadoEsperado>Tras el Delta, el CSV de T2 tiene el formato intermedio; la Carga Core llama al procedimiento con T2_RE o T2_BB y la descripción de T1. Con el fichero bruto, las llamadas serían inconsistentes (columnas desplazadas) y sin error de job.</resultadoEsperado>
     <tipoValidacion>Inspección del fichero de trabajo y del log de log4j.</tipoValidacion>
-    <criterioAceptacion>Se identifica qué paso ejecuta PREV (cierra P-ADA-09) y se confirma el formato intermedio.</criterioAceptacion>
+    <criterioAceptacion>Se confirma que el paso Delta de T2 ejecuta PREV (según la plantilla) y el formato intermedio; la primera línea transformada aparece en el delta cada día.</criterioAceptacion>
     <posibilidadFallo>Que ningún paso ejecute PREV: entonces la carga de T2 no puede funcionar con el fichero de DataX tal cual y habría que revisar la cadena.</posibilidadFallo>
   </casoDePrueba>
 
@@ -286,6 +286,27 @@
     <tipoValidacion>Código de salida, log y consulta SQL.</tipoValidacion>
     <criterioAceptacion>Comportamiento de los tres casos de fichero y de la fila de error confirmado.</criterioAceptacion>
     <posibilidadFallo>Que el entorno de pruebas no permita provocar el error en el procedimiento sin afectar a otros procesos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="borde">
+    <nombre>Pasos Delta: T3 conserva 5 columnas y T2/T1 solo emiten lo nuevo o modificado</nombre>
+    <objetivo>Comprobar el efecto de los tres .properties Delta de la plantilla (T1: Delta.sh Si; T2: PREV y Delta.sh Si; T3: CortarColumnas 3,4,12,13,14 y Delta.sh Si) sobre los CSV de trabajo, y el efecto sobre las descripciones de T1 que lee la Carga Core de T2.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con los .properties Delta de la plantilla, dos días consecutivos de ficheros de DataX de prueba (separador «|», ISO-8859-1) y old/ existente en cada carpeta de tramo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="T3 bruto" valor="fichero con al menos 14 columnas separadas por «|» y cabecera"/>
+      <dato campo="Dia 2" valor="mismo contenido que el día 1 salvo una fila cambiada por tramo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Día 1: ejecutar los tres pasos Delta y comprobar que el CSV de T3 queda con 5 columnas (columnas 3, 4, 12, 13 y 14 del bruto), que el de T2 queda sin cabecera con las filas RE|... y BB|..., y que el de T1 conserva la cabecera.</paso>
+      <paso numero="2">Día 2: repetir y comprobar que cada CSV contiene la cabecera (en T2, la primera línea transformada) y solo las filas nuevas o modificadas, con una línea en blanco tras el primer registro.</paso>
+      <paso numero="3">Con el Delta de T1 ya ejecutado, lanzar la Carga Core de T2 y comprobar en el log de log4j qué descripciones del catálogo de T1 se encuentran (solo las de las filas modificadas, si el CSV de T1 ya es el delta). Repetir lanzando la Carga Core de T2 antes del Delta de T1 y comparar.</paso>
+    </pasos>
+    <resultadoEsperado>Los CSV tienen la forma descrita; el delta del día 2 solo trae lo cambiado; con el T1 reducido por el Delta, las descripciones de los valores no modificados llegan nulas al procedimiento (RISK-ADA-007); con el T1 completo llegan todas.</resultadoEsperado>
+    <tipoValidacion>Inspección de los ficheros de trabajo y de los logs.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de los tres Delta y de la lectura de T1 por T2 documentado para el entorno de pruebas.</criterioAceptacion>
+    <posibilidadFallo>Los .properties instalados pueden diferir de la plantilla; si el JDK por defecto no es el 17, la clase PREV y las cargas fallan al arrancar.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

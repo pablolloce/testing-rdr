@@ -118,7 +118,7 @@ Preguntas abiertas (no hay respuesta en ninguna fuente disponible):**
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-ADA-01 | **Resuelta en parte.** De las 9 claves de `GSProcess.sh` ya se conocen las tres de la Carga Core (`CargaSectorizacionT1/T2/T3`, §6.4): cada una ejecuta una clase del jar `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo del tramo (la de T2 lee además el CSV de T1), y el jar está analizado (§6.5): las tres clases llaman al mismo procedimiento `PRC_CONCILIACION_SECTORIZACION` (P-ADA-08). **Sigue abierto:** el contenido de las 3 claves Delta (`T1_CatalogValuesTaxonomy`/`T2_RelValuesTaxonomy`/`T3_IssuersIssuesCustomer`) y de las 3 de Reporte (`ReporteSectorizacionT1/T2/T3`), qué informe se genera, dónde queda y a quién se envía; el jar no contiene ninguna clase de informe | Es el resultado de negocio del proceso; sin ello no se pueden definir datos de prueba ni resultados esperados de carga/reporte |
+| P-ADA-01 | **Resuelta en parte (3ª pasada).** Las 9 claves de `GSProcess.sh` constan: la Carga Core (§6.4), los tres Delta (`T1_CatalogValuesTaxonomy`, `T2_RelValuesTaxonomy`, `T3_IssuersIssuesCustomer`: `Delta.sh Si`, con `PREV` en T2 y `CortarColumnas` en T3) y los tres informes (`ReporteSectorizacionT<N>`: instancias de `GestionAlertas` con el código `Sectorizacion_T<N>`), todos según la plantilla de despliegue (§6.7). **Sigue abierto:** las tablas que escribe cada clase (cuerpo de `PRC_CONCILIACION_SECTORIZACION`, P-ADA-08) y qué recoge el informe y a quién se envía (configuración en BD de `Sectorizacion_T<N>`) | Es el resultado de negocio del proceso; sin ello no se pueden definir resultados esperados de carga/informe |
 | P-ADA-02 | ¿Qué fecha lleva en su nombre el fichero que DataX deja en `/unload/kytl/datent/datax/`? El `cp` de ingesta busca `<Fichero>_%%$ODATE.csv` (fecha de ejecución), pero `MEKYTL1273/1274/1275` piden `CUTOFF_DATE=ODATE-1` (y `MEKYTL1283` `ODATE-3`) con `--dstParam gf_cutoff_date:YYYYMMDD` | Si el nombre lleva la fecha de corte, el `cp` no lo encontraría y la ingesta fallaría (KO) |
 | P-ADA-03 | Líneas completas del `INFORMACION_HISTORIFICACIONES.IDX` de las claves `MEKYTL1287/1288/1289` y `MEKYTL1293/1294/1295` (operación, si exige fichero, fecha en el nombre de backup) | Define el comportamiento real si falta el fichero y si el original se mueve o se copia |
 | P-ADA-04 | Significado del parámetro `--srcParam "ENTIFIC_ID:HO"` presente en T1/T2 y ausente en T3 | Posible filtro de entidad; afecta a qué datos se reciben |
@@ -126,7 +126,7 @@ Preguntas abiertas (no hay respuesta en ninguna fuente disponible):**
 | P-ADA-06 | Confirmación funcional de que las 2 cadenas son complementarias (lunes / martes-viernes) y de qué ocurre si el lunes es festivo (no se carga nada hasta el martes, que es otra cadena) | Cobertura de calendario |
 | P-ADA-07 | Significado exacto de las siglas ADA y SAA (el nombre `ekytl_ada_saatransfer_1` sugiere "Strategic/Sector Asset Allocation", sin confirmar) | Vocabulario de negocio |
 | P-ADA-08 | **Nueva (02/10/2026).** Cuerpo del procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION` (9 parámetros): qué tablas de GoldenSource escribe o actualiza para cada tipo (`T1`, `T2_RE`, `T2_BB`, `T3`), cómo concilia y qué deja en `FT_T_RLT1` | Es el resultado de negocio de la carga: sin él no se sabe qué cambia en GoldenSource ni se pueden definir resultados esperados sobre datos |
-| P-ADA-09 | **Nueva (02/10/2026).** ¿Qué paso ejecuta la clase `T2_Sect_Bloom_Refinit_PREV` del jar, que transforma el CSV de T2 en el formato intermedio que lee la Carga Core? Ningún `.properties` recibido la invoca; el candidato por exclusión es el paso Delta `T2_RelValuesTaxonomy` | Si ese paso no se ejecuta, la Carga Core de T2 recibe el CSV sin transformar y carga basura o nada (§6.5) |
+| P-ADA-09 | **Resuelta en parte (3ª pasada).** La clase `T2_Sect_Bloom_Refinit_PREV` la ejecuta el paso Delta de T2 (`T2_RelValuesTaxonomy.properties`, §6.7) antes de `Delta.sh`; `log4jCargaSectorizacion.properties` consta en la plantilla. **Sigue sin estar** `ConexionBD.jar` | Su ausencia impide ver cómo obtiene credenciales y conexión |
 
 ## 5. Especificación funcional
 
@@ -398,6 +398,32 @@ Sectorizaciones procedentes de ADA»), compilado el 26/08/2026 con JDK 17 (clase
 - **Registros que se pierden sin aviso**: catálogos distintos de `C162/C164/C039/H000/H001` en T1; filas repetidas de
   T3 (salvo la `ES0182`); líneas cortas (solo log).
 
+### 6.7 Pasos Delta, informes y log según la plantilla de despliegue (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores con `pr` son valores de producción según la plantilla, no una copia verificada
+de producción. La plantilla es la base anterior a la migración a Java 17: su `GSProcess.sh` no tiene clave `JDKV` y todas las acciones `Java` usan el JDK de `credentials.xml`. Todos estos `.properties` son únicos (sin variantes por entorno) y llevan fin de línea CRLF.
+
+**Los tres pasos Delta (`GSProcess.sh T<N>_<Fichero>`).** Todos fijan `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/` y `File=.../T<N>_<Fichero>/T<N>_<Fichero>.csv` (el CSV de trabajo del tramo) y no llevan ninguna clave `Stop*`:
+
+| Clave | Acciones, en orden |
+|---|---|
+| `T1_CatalogValuesTaxonomy` | solo `Delta.sh Si` |
+| `T2_RelValuesTaxonomy` | 1) `Java` `ConexionBD.jar` + `RDR_SectorizacionEmisores.jar`, clase `main.java.sectorizacionemisores.T2_Sect_Bloom_Refinit_PREV` (nivel de log 2, `log4jCargaSectorizacion.properties`, CSV de T1 `T1_CatalogValuesTaxonomy.csv` y CSV de T2 `T2_RelValuesTaxonomy.csv`, etiqueta `T2`); 2) `Delta.sh Si` |
+| `T3_IssuersIssuesCustomer` | 1) `CortarColumnas` sobre `T3_IssuersIssuesCustomer.csv` con separador `\|` y columnas `3,4,12,13,14`; 2) `Delta.sh Si` |
+
+Con ello **P-ADA-09 y H-ADA-02 quedan resueltas**: la clase `PREV` la ejecuta el paso Delta de T2, antes de `Delta.sh`, y reescribe el CSV de T2 en 5 columnas sin cabecera. Consecuencias (deducidas de los scripts y del jar, no probadas en ejecución):
+- **T2:** como `Delta.sh` trata la primera línea como cabecera, la compara y la escribe siempre, **la primera relación transformada sale en el delta todos los días** (y nunca se compara con la referencia); el resto sale solo si es nueva o ha cambiado. La Carga Core (`POST`) lee el resultado sin saltar cabecera, de modo que esa primera línea se carga cada día. La referencia `old/T2_RelValuesTaxonomy.csv` es el fichero ya transformado (5 columnas), no el bruto de DataX. El fichero que historifica `MEKYTL1288`/`MEKYTL1294` es, por tanto, el delta transformado.
+- **T3:** `CortarColumnas` (función de `Generico.sh`) se queda con las columnas 3, 4, 12, 13 y 14 del fichero separado por `|` (cabecera incluida) y las escribe en el propio fichero. Las cinco columnas resultantes son las posiciones 0 a 4 que usa el jar (§6.5): la 4.ª del bruto es el identificador del operativo (posición 1 del jar) y las columnas 12, 13 y 14 del bruto son tipo de sector, de subsector y de actividad (posiciones 2, 3 y 4); la 3.ª del bruto no la usa el jar. Esto completa el layout de T3 (mínimo 14 columnas en el bruto, P-ADA-05); la cabecera se conserva y la salta el jar.
+- **T1:** el Delta solo recorta el fichero a «cabecera + líneas nuevas o modificadas» respecto a la carga anterior.
+- **Todos:** el delta no emite bajas (un registro que deja de venir no se comunica) y deja una línea en blanco tras el primer registro (spec común `comun_delta`). El procedimiento recibe solo lo nuevo o modificado: un mismo contenido día tras día genera cada día muy pocas llamadas.
+- **RISK-ADA-007 (nuevo, deducido):** `CargaSectorizacionT2` toma las descripciones de los valores `RE`/`BB` del CSV de T1 en el momento en que se ejecuta (§6.5). Si el Delta de T1 ya ha recortado ese fichero a «cabecera + modificados» (Control-M no obliga a que el Delta de T1 termine después de la Carga Core de T2), las descripciones solo existirán para los valores de catálogo que cambiaron ese día y el resto irá como nulo al procedimiento; si T2 se ejecuta antes del Delta de T1, ve el T1 completo del día. Qué hace el procedimiento con una descripción nula no se sabe (P-ADA-08). Se suma a la dependencia T1→T2 de RISK-ADA-001.
+
+**Los tres pasos de informe (`GSProcess.sh ReporteSectorizacionT<N>`)** no ejecutan código propio de sectorización: cada fichero tiene una sola acción `Property` que instancia la plantilla genérica `GestionAlertas.properties` (spec común `comun_gestion_alertas` §3.1 y §10.1) con `ArgProp1=GestionAlertas_Sectorizacion_T<N>` y `ArgProp2=PROCESOS-Sectorizacion_T<N>`: `GSProcess.sh` copia la plantilla a un temporal con marca de tiempo, cambia el texto `PROCESOS` por el código de proceso `Sectorizacion_T<N>` y lo ejecuta. El informe es, por tanto, el mecanismo de alertas de RDR para ese código de proceso: Barrido (`RDR_AlertasBarrido.jar`, que revisa en BD las incidencias del proceso), Cocinado (`RDR_AlertasCocinado.jar`, que prepara el informe en Excel) y envío por correo con el workflow `RDR_AlertasEnvio`. Qué incidencias recoge el Barrido para `Sectorizacion_T1/T2/T3` (en particular si lee las filas `ERRORES` que insertan las clases del jar, §6.5) y a quién se envía depende de la configuración en BD (`FT_T_TPG1`, `FT_T_REP1`, destinatarios), que la plantilla no trae. Como en el resto de procesos que usan `Property`, el fallo de lo que ejecuta no se detecta.
+
+**`log4jCargaSectorizacion.properties` (P-ADA-09 en lo que atañe a este fichero).** Logger raíz `info` con un único appender rotativo que escribe en `/@@ENV@@/kytl/online/multipais/multicanal/logs/RDR_SectorizacionEmisores.log` (100000KB, 3 copias) con el patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`; no escribe por consola. Es donde hay que mirar los fallos de fichero de las tres cargas (§6.5, RISK-ADA-003). El jar `ConexionBD.jar` sigue sin estar en el material.
+
+**Carga Core (`CargaSectorizacionT<N>.properties`).** La plantilla coincide con §6.4 en clases, rutas y argumentos (`ArgJava3=---` en T1 y T3; CSV de T1 en T2), pero **no lleva `JDKV=17` en ninguna de las tres** (la plantilla no soporta la clave): el defecto «T2 sin `JDKV=17`» de §6.4 es una diferencia de las copias migradas, no de la plantilla. Con la plantilla, las tres clases (compiladas para Java 17) dependen del JDK por defecto de `credentials.xml`; si ese no es el 17, fallarían las tres, no solo T2 (H-ADA-01, sin cambio en el «necesita»).
+
 ## 7. Especificación de testing
 
 **Estrategia:** con la topología completa confirmada (36 pasos, 2 cadenas), los casos cubren el ciclo
@@ -457,15 +483,14 @@ Referencia de casos por tipo:
   fallo interno (P-ADA-01).
 * **Un lunes festivo no se carga nada** hasta el martes (la cadena 1 no corre lunes), y entonces la cadena 1 pide
   `ODATE-1` (el lunes festivo) en T1/T2/T3.
-* **Defecto probable (§6.4):** `CargaSectorizacionT2.properties` no fija `JDKV=17` (sí lo hacen T1 y T3). Verificar con
-  el `.properties` de producción; de ser así, la carga de T2 falla en un entorno cuyo JDK por defecto sea anterior.
+* **Defecto probable (§6.4), matizado en la 3ª pasada (§6.7):** `CargaSectorizacionT2.properties` de la copia de integración no fija `JDKV=17` (sí lo hacen T1 y T3), pero la plantilla de despliegue no lo fija en ninguno de los tres. Verificar con
+  el `.properties` de producción y con el JDK por defecto; con un JDK anterior al 17 fallarían las tres cargas.
 * **Resuelto en lo que alcanza el jar (GAP-ADA-003):** el código de `RDR_SectorizacionEmisores.jar` está analizado
   (§6.5); queda como pregunta nueva el cuerpo del procedimiento `PRC_CONCILIACION_SECTORIZACION` (P-ADA-08).
 * **RISK-ADA-003 (nuevo, prioridad media-alta, §6.5):** los tres programas de carga salen con código 0 aunque el
   fichero no exista o esté vacío, y los fallos de fichero solo van al log de `log4j`: un tramo puede quedar «en verde» sin
   haber cargado nada, y solo se ve en el log o en que no hay filas nuevas.
-* **RISK-ADA-004 (nuevo, §6.5):** T2 depende de un paso previo (`T2_Sect_Bloom_Refinit_PREV`) que ningún
-  `.properties` recibido ejecuta (P-ADA-09); si ese paso no se ejecuta, la Carga Core de T2 recibe el CSV bruto.
+* **RISK-ADA-004 (nuevo, §6.5; 3ª pasada: confirmado en §6.7):** T2 depende de un paso previo (`T2_Sect_Bloom_Refinit_PREV`) que ejecuta el paso Delta de T2 (`T2_RelValuesTaxonomy.properties`, P-ADA-09); si ese paso falla o no se ejecuta, la Carga Core de T2 recibe el CSV bruto.
 * **RISK-ADA-005 (nuevo, §6.5):** `T3_SectorizacionADA` no espera a los últimos hilos (hasta 10 filas) antes de
   cerrar el job y las conexiones: esas llamadas pueden fallar con conexión cerrada o terminar después del
   cierre del job. T1 y T2 sí esperan.

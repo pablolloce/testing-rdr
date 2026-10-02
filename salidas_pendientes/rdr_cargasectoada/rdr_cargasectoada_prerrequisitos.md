@@ -25,10 +25,10 @@
   de `ConexionBD.jar`, y tablas `FT_T_JBLG` y `FT_T_RLT1` accesibles (las demás tablas destino son P-ADA-08).
 - Jars de la Carga Core en `…/jar`: `RDR_SectorizacionEmisores.jar` (0.0.1-SNAPSHOT, 26/08/2026, Java 17),
   `ConexionBD.jar` (no recibido), `ojdbc8.jar` y `log4j.jar`; fichero `log4jCargaSectorizacion.properties` en
-  `…/dat/properties` (no recibido). El JDK por defecto del entorno debe ser 17 o `JDKV=17` debe estar fijado en
+  `…/dat/properties` (según la plantilla de despliegue, spec §6.7; log `…/logs/RDR_SectorizacionEmisores.log`). El JDK por defecto del entorno debe ser 17 o `JDKV=17` debe estar fijado en
   el `.properties` de T2 (las clases son de Java 17).
-- CSV de DataX con separador `|` (barra vertical): T1 de al menos 6 columnas, T2 bruto de al menos 16, T3 de al menos 5
-  (§6.5). Para T2 hace falta además el paso que ejecuta `T2_Sect_Bloom_Refinit_PREV` (P-ADA-09).
+- CSV de DataX con separador `|` (barra vertical): T1 de al menos 6 columnas, T2 bruto de al menos 16, T3 bruto de al menos 14 (el paso Delta de T3 se queda con las columnas 3, 4, 12, 13 y 14, §6.7)
+  (§6.5). Para T2 hace falta además el paso Delta de T2, que ejecuta `T2_Sect_Bloom_Refinit_PREV` antes de `Delta.sh` (§6.7, P-ADA-09). Los `.properties` Delta (`T1_CatalogValuesTaxonomy`, `T2_RelValuesTaxonomy`, `T3_IssuersIssuesCustomer`) y los de informe (`ReporteSectorizacionT<N>`, instancias de `GestionAlertas`) constan en la plantilla de despliegue (§6.7); copias instaladas sin verificar.
 - Tablas destino de Carga Core (P-ADA-01) accesibles. Las dos cadenas comparten carpetas de trabajo y claves de `GSProcess.sh`: no deben ejecutarse a la vez (en producción nunca coinciden: lunes / martes a viernes); en pruebas, lanzarlas por separado.
 
 ## Roles y permisos
