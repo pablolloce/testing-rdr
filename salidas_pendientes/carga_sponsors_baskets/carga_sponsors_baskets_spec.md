@@ -142,8 +142,8 @@ transcribe en las secciones 5 y 6.
 | P-SPBK-02 | Contenido de las filas activas de `FT_T_PAR1` (`BSKT_PREPROCESS`, `BSKT_SPLIT`, `BSKT_LOAD`, `BSKT_MAX`): por sponsor/índice, nombres de fichero, argumentos de cada script y origen (`DESCARGA`/`SPLIT`). El formato está en §6.2; los valores reales no se han aportado. | Define qué ficheros se esperan y qué cestas se cargan cada día; sin ellos no se pueden preparar datos de prueba reales. |
 | P-SPBK-03 | Líneas del `INFORMACION_HISTORIFICACIONES.IDX` de producción para las claves `MEKYTL0987`-`0994` y `MEKYTL1175` (operación, nombre final `*_yyyymmdd.gz`, valor de «falla si no hay fichero») y `.idx` de `MEGENV0001.sh` para `MEKYTL1176` (protocolo, `FALLA_NO_FICHERO`). La ficha describe el efecto («comprime cada fichero por separado y lo deja en `old/`»), pero no la configuración. | Determina qué ocurre exactamente con un directorio vacío y con un error de compresión o de envío. |
 | P-SPBK-04 | La ficha de `MEKYTL1175` dice «Forzar OK en cualquier caso», pero el export de Control-M de la Cadena 2 no contiene ninguna regla `ON`/`DO` en ningún job (0 apariciones). ¿Está configurado en producción? | Si no lo está, un error en la historificación de `MANUAL` sí quedaría en NOTOK. |
-| P-SPBK-05 | ¿Quién procesa las filas que el workflow inserta en `TABLEALERTGENER` con `PROCESO='CARGA_BASKETS_SPONSORS'`? En las 3 cadenas no hay ningún job de alertas (Barrido/Cocinado/Envío, ver `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`), y no se sabe si existen el informe (`FT_T_REP1`) y los destinatarios (`FT_T_ALU1`/`FT_T_ALR1`) de ese proceso. | Si nadie las consume, ningún error de carga llega por correo a nadie y solo se ven consultando la tabla. |
-| P-SPBK-06 | Nombres con los que están registrados los workflows en GoldenSource: el `.properties` de la Cadena 1 invoca `AutoLoadBasketSponsors` (sin guiones bajos) y el fichero aportado se llama `Auto_Load_Basket_Sponsors.wkf`; el script invoca `RDR_CargaBasketSponsor` y el fichero es `Load_Baskets_Sponsors.wkf`. | Confirma que los workflows analizados son los que realmente se ejecutan. |
+| P-SPBK-05 | **Resuelta en parte.** Las filas son mensajes de alerta ya preparados para el Cocinado (`PROCESADO='N'`, §6.2): el Barrido (que lee `FT_T_TPG1`) no interviene; las recoge `RDR_AlertasCocinado.jar` si algún proceso lo invoca para `CARGA_BASKETS_SPONSORS` o para todos (`PROCESOS`) y existe el informe en `FT_T_REP1`; y el subworkflow `AlertasEnvioExcepciones` tiene un caso propio `CARGA_BASKETS_SPONSORS` que compone el correo diario de conciliación de cestas (según el `.wkf` real, rama de Eduardo; ver la spec común de alertas, §5.2) y que **lee estas mismas filas de `FT_T_ALG1`**, lo que confirma que existen informe y destinatarios y que `TABLEALERTGENER` equivale a `FT_T_ALG1`. **Sigue abierto** qué job concreto dispara el Cocinado/Envío (no hay ninguno en las 3 cadenas). Pregunta original: ¿Quién procesa las filas que el workflow inserta en `TABLEALERTGENER` con `PROCESO='CARGA_BASKETS_SPONSORS'`? En las 3 cadenas no hay ningún job de alertas (Barrido/Cocinado/Envío, ver `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`), y no se sabe si existen el informe (`FT_T_REP1`) y los destinatarios (`FT_T_ALU1`/`FT_T_ALR1`) de ese proceso. | Si nadie las consume, ningún error de carga llega por correo a nadie y solo se ven consultando la tabla. |
+| P-SPBK-06 | **Resuelta.** Según la tabla de eventos de la base de datos de workflows de GoldenSource (volcado `fileloading`): el evento `AutoLoadBasketSponsors` ejecuta el workflow `Auto_Load_Basket_Sponsors`; `RDR_CargaBasketSponsor` ejecuta `Load_Baskets_Sponsors`; `Reload_Baskets_Sponsors_Email` ejecuta el workflow del mismo nombre, y existen además `Reload_Baskets_Sponsors`, `RDR_LoadBasketsAdHoc` (`Load_Baskets_AdHoc`), `RDR_ReceiveBasketsMx3` (`Load_Baskets_Mx3`) y `Configure_Basket_Sponsor`. Los workflows analizados son los que se ejecutan. Pregunta original: nombres con los que están registrados (`AutoLoadBasketSponsors` frente a `Auto_Load_Basket_Sponsors.wkf`; `RDR_CargaBasketSponsor` frente a `Load_Baskets_Sponsors.wkf`). | Confirma que los workflows analizados son los que realmente se ejecutan. |
 | P-SPBK-07 | `AutoLoadBasketSponsors.properties` se recibió con `environment=ei` (integración). ¿Qué valor lleva en producción y cómo se sustituye? (pregunta común P-GSP-01 de `GSProcess.sh`). | Un valor erróneo apuntaría a otro entorno. |
 | P-SPBK-08 | Significado de `L`/`T` en la sintaxis `<código>@L`/`<código>@T` de `RDR_SponsorSplit.sh`, y alcance real de `RDR_CargaBasketSponsorTotal.sh` (¿hay herramientas equivalentes para `Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`? ¿quién las ejecuta?). | Para saber cómo se recarga a mano cada sponsor. |
 | P-SPBK-09 | ¿Quién y con qué procedimiento ejecuta la recarga manual (`RELOAD_BASKETS_SPONSORS`)? ¿Qué usuario ejecuta `MEKYTL1176` (su ficha no lo indica)? | Responsable operativo de la recarga y de la cesión manual. |
@@ -370,6 +370,21 @@ Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de
 5. La publicación real de la cesta se delega a un sub-workflow `Sub_PublishBasket` (`publishAction=UPDATE`);
    al volver, el workflow fija `published=true` **de forma incondicional** (no se comprueba ningún código de
    resultado del sub-workflow) — el único criterio de éxito es que la llamada haya vuelto sin excepción.
+   **`Sub_PublishBasket` analizado** (grupo `Custom/RDR/Publishing/Online`, versión 2, `RELEASED`, `haltOnError=false`;
+   según el volcado de workflows de GoldenSource): recibe `instrIDBasket` y `publishAction`; construye un mapa de
+   cabeceras con la acción, ejecuta la consulta XML `RDR_ME_PushSecuritiesBasketsByIds` (parámetros `BASKET`, `0` y el
+   identificador de la cesta) y envía el XML a la cola EMS `RDR.SECURITIES.PUBLISH` con `Sub_SendMessageToEMSQueue`
+   (workflow común que elige la cola por nombre y la envía por JMS). No devuelve ningún resultado ni comprueba el
+   envío: por eso `published=true` no garantiza que el mensaje llegara a la cola; el ACK/NACK de Murex se
+   comprueba después por otra vía (correo de recarga y `AlertasEnvioExcepciones`).
+   **`Carga MDX` = `Standard File Load`** (grupo `Standard`, versión 5, `RELEASED`, 8.7.1.14, `retries=3`;
+   según el mismo volcado): es el motor estándar de carga de ficheros de GoldenSource. Crea un *job* de Streetlamp,
+   abre el fichero con el *business feed* `Load_Baskets_Sponsors` (tipo de mensaje del mismo nombre, resuelto en la
+   configuración de la plataforma), calcula metadatos y fecha de proceso, y según la agrupación lo ejecuta de forma
+   normal o en ramas paralelas con el subworkflow `Parallel File Load Sub`; si falla la apertura del fichero crea una
+   transacción y notifica un error de infraestructura. El fichero se interpreta con la plantilla `baskets_sponsors.mdx`
+   (recurso de la base de datos de 6.018 bytes, cuyo contenido no está disponible), así que la correspondencia campo a
+   campo con las tablas de cestas sigue sin verse.
 6. **Confirma con código fuente el mecanismo exacto de `:statusCarga`:** en el bloque final (`ACKNACK
    -ISST`), `statusCarga` se declara como variable **local de BeanShell** (`String statusCarga = "ERROR";`),
    y solo se pone a `"OK"` si `published` es verdadero. Esto confirma, con código y no solo con datos, por
@@ -402,7 +417,9 @@ Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de
         (Murex)** o si hubo un NACK, incluyendo cualquier alerta adicional real (excluyendo las de tipo
         `ACKINFO`).
      El envío (`Send Email`, sub-workflow genérico `Mail`) se repite una vez por cada destinatario
-     configurado.
+     configurado. `Mail` está analizado en la spec común de alertas (§5.1): SMTP por el puerto 25 sin
+     autenticación, servidor y remitente leídos de `ServerMailConfig.xml` del entorno (con valores de desarrollo si
+     falta) y sin ninguna gestión de errores, de modo que un fallo de envío no se ve en este workflow.
    * **Disparador confirmado con código:** el bloque `<parameter>` propio de `Load_Baskets_Sponsors.wkf`
      declara `proceso` como parámetro de entrada formal del workflow (`input=true`, `required=false`, valor
      por defecto `CARGA_BASKETS_SPONSORS` en `<variables>`). El `.properties` que `RDR_CargaBasketSponsor.sh`
@@ -511,17 +528,17 @@ Referencia de casos por tipo:
   `Solactive`; no se confirma si existen utilidades equivalentes de recarga masiva para el resto de sponsors
   (`Euronext`/`MSCI`/`SP_DJ`/`FTSE`/`STOXX_DAX`/`MANUAL`), ni quién la ejecuta en la práctica.
 * **El registro en GoldenSource que enlaza** la invocación `executeBbvaEvent.sh fileloading
-  RDR_CargaBasketSponsor` con el nombre interno real del workflow (`Load_Baskets_Sponsors`) — el enlace está
-  confirmado por evidencia cruzada fuerte (mismo XSD, misma sentencia SQL de estado), no por el fichero de
-  configuración mismo.
+  RDR_CargaBasketSponsor` con el workflow `Load_Baskets_Sponsors` — **ya confirmado** con la tabla de eventos de la
+  base de datos de workflows (P-SPBK-06).
 * **El origen técnico exacto (proceso/folder Control-M)** que deposita los ficheros de cada proveedor en
   `.../Sponsors/{sponsor}/` antes de que el workflow los procese. 7 de 9 sponsors confirman en su ficha que
   el fichero es *"el resultante de la extracción de Mentor genérica tras transformación"*; `STOXX` y `BME`
   no lo mencionan explícitamente. El job/folder Control-M concreto que ejecuta esa extracción no está
   identificado.
-* **El job/jar `AlertasBarrido.jar`** (referenciado como `LAST_CHG_USR_ID` en los `INSERT` a
-  `TABLEALERTGENER`) que presumiblemente consume esa tabla — su ubicación y comportamiento no forman parte
-  de esta especificación.
+* **El jar `AlertasBarrido.jar`** (literal escrito en `LAST_CHG_USR_ID` de los `INSERT` a `TABLEALERTGENER`):
+  `RDR_AlertasBarrido.jar` está analizado en la spec común de alertas y **no consume estas filas** (lee `FT_T_TPG1` y
+  escribe `FT_T_ALG1`); las filas de este proceso nacen ya como mensajes `PROCESADO='N'` y las recoge el Cocinado
+  (ver P-SPBK-05). Queda fuera de esta spec qué job lanza el Cocinado.
 * **La identidad de la persona/procedimiento operativo** que en la práctica dispara una recarga manual
   (`RELOAD_BASKETS_SPONSORS`) — el mecanismo técnico que la activa y su contenido de notificación ya están
   confirmados por completo (§6.2, punto 8); solo queda sin confirmar quién la ejecuta en la práctica, un

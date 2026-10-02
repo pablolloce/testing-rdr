@@ -74,23 +74,23 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 |-----|----------|------------|
 | G1 | ¿Qué proceso gestiona el ciclo de vida de `controlSCF.txt` (quién lo crea y cuándo se limpia)? | Confirmado (Q7.1): proceso externo a esta malla, perteneciente a SCF/Investors Plan — R4. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
-| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
-| G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
+| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión). Ver §6.1. **Cerrado también el punto de entrada:** `clientelabdi_altas_response.main.Main`, decompilado del jar real (rama de Eduardo), recibe las rutas y el patrón por argumentos (§6.1). Solo queda sin ver el valor concreto de esos argumentos, que viene del `.properties` de `GSProcess.sh` (P-BCR-02). |
+| G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Resuelto con el jar real decompilado** (clases `main.Main`, `peticiones.Peticiones`, `Peticion`, `Fondo`, `RespuestaCliente`, `jdbc.*` y `leirequest.AltaRegisterLEIRequest` de `Investors_Client_Reg_resp.jar`, rama de Eduardo). Ver §6.2: queda confirmado el flujo de decisión completo, el uso de `selectDuplicateMurexStar` y que `Peticion.procesaPeticion` es quien deja la petición `FILE_DATE` en `ALTA_FONDOS_PEND` (cierra P-BCR-09). |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` aportado en sesión). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
 | G7 | ¿Qué hace `Workflow(RDR_XMLReader)` (tercer paso de R8): cómo procesa el XML multi-fragmento de G6 y qué aplica en GoldenSource? | **Resuelto con `.wkf`/`.gsp` reales** (`XMLReader.wkf`, `DuplicateXMLReader.wkf`, `OTHER.wkf`, `ValidacionOficinas.wkf`, `Basic_Message_Processing.gsp`). Ver §6.6/§6.7/§6.8. Confirma el flujo completo de lectura/split/iteración/detección de duplicados/clasificación por entidad, y un **hallazgo que conecta con G6**: el campo `USER` que este workflow usa para clasificar la entidad (`RFN`/`COMPASS`/`OTHER`) es el mismo que `CSVToXML_Layout.jar` rellena siempre con el literal `FUND_LOADER` (§6.4) — por tanto, para este proceso concreto, la clasificación **siempre** resuelve a `OTHER`; las ramas `RFN`/`COMPASS` son código muerto para esta cadena. Los 3 subworkflows de la rama `OTHER` quedan confirmados en detalle en §6.7. `"Basic Message Processing"` (§6.8) resulta ser el motor genérico de traducción/aplicación de GoldenSource (grupo `Custom/Moca`, no específico de RDR): confirma que la aplicación campo a campo sobre las tablas `FT_T_*` ocurre dentro del motor de traducción/transacciones del propio producto (`Translation`/`ProcessTransaction`, engine `TPS-1`/`TPS-UI`), configurado por plantillas de mapeo internas del producto GoldenSource — ese último nivel de detalle no es alcanzable con artefactos de aplicación custom y no se considera un gap pendiente, sino el límite natural del alcance de este análisis. |
 | G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes. **Actualización:** `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real) ya están analizados (§6.14, §6.15 y la spec común `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`); lo único que sigue sin verse son `ProcesoCLS`, `ReportesRDR` y `AlertasEnvioExcepciones`. |
 | G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. Sin cabos sueltos bloqueantes; quedan como residuales de código no aportado los subworkflows internos `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`. |
 | P-BCR-01 | ¿Qué rige para la planificación: la ficha funcional (un folder, 04:30-23:55, redisparo cada 5 min, FileWatcher sobre `*.txt`) o el export de Control-M (folders `_M` 04:30-11:30 y `_T` 12:30-23:55, jobs cíclicos con `INTERVAL=00001M`, FileWatcher sobre `clientesFondosFX_ACKNACK_*.txt`)? | **Abierta.** Esta spec describe el export (es el artefacto real, modificado el 2026-05-18) y cita la ficha donde difiere. Importa porque entre 11:30 y 12:30 ninguna de las dos mitades corre (un ACKNACK llegado en esa hora esperaría a las 12:30) y porque fija la frecuencia con la que hay que esperar resultados en pruebas. |
-| P-BCR-02 | ¿Es `clientesFondosFX_ACKNACK_*.txt` el mismo fichero de 600 caracteres por línea que lee `clientelaBDI_Altas_response.jar`, o hay otro `.txt` en la misma carpeta? ¿Cuáles son las rutas exactas de entrada, histórico y error de R6 y R7 (`Main.java` no aportado)? | **Abierta.** Importa para saber qué fichero (nombre, formato, tamaño) hay que depositar en pruebas y dónde queda después de procesarse; hoy solo se conoce la ruta `.../ClientelaBDI_Altas/response` por los comandos de `ctmfw`. |
+| P-BCR-02 | ¿Es `clientesFondosFX_ACKNACK_*.txt` el mismo fichero de 600 caracteres por línea que lee `clientelaBDI_Altas_response.jar`, o hay otro `.txt` en la misma carpeta? ¿Cuáles son las rutas exactas de entrada, histórico y error de R6 y R7 (`Main.java` no aportado)? | **Resuelta en parte.** `Main` de R6 toma `args[2]`=ruta de entrada, `args[3]`=ruta de histórico, `args[4]`=ruta de error y `args[5]`=patrón (subcadena que debe contener el nombre del fichero, §6.1); R7 no recibe rutas ni ficheros (§6.2). **Sigue abierto** el valor real de esos argumentos (`clientelaBDI_Altas_response.properties` de producción) y, por tanto, si el patrón coincide con `clientesFondosFX_ACKNACK_*.txt`. Importa para saber qué fichero hay que depositar en pruebas y dónde queda después. |
 | P-BCR-03 | Tras detectar `controlSCF.txt` en el folder `_M`, ¿quién relanza la cadena? Por las condiciones, `SLEEP` borra `FW_OK`, el FW consumió `IN_OK` y `COMPROBAR_CONTROL_ALTA_IP` con código 0 borra `SLEEP_OK`; en `_T` `FW_OK` no se borra y el ciclo se reintenta. | **Abierta.** Si es así, un lock detectado por la mañana podría dejar la parte `_M` parada hasta la siguiente orden diaria sin ningún aviso. Hay que confirmarlo en una ejecución real. |
 | P-BCR-04 | ¿Cuál es la línea de `MEKYTL0985` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (clave@origen@máscara@destino@falla-si-no-hay-fichero@tipo@días@operación)? | **Abierta.** Solo se conoce por la ficha funcional: origen `/fichtemcomp/pr/descargas/kytl/investorsPlan/`, máscara `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`, destino `.../investorsPlan/old/`, nombre `Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz`, "no falla si no hay fichero". Importa para confirmar la operación exacta (comprimir y mover) y el código si no hay fichero (6 si "falla si no hay fichero" vale 0; en cualquier caso Control-M lo deja en OK por `ON NOTOK → OK`). |
-| P-BCR-05 | ¿Qué job o workflow genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/` y con qué contenido? Probablemente el subworkflow `SSIs_Fx_Reporte` (no aportado), pero no está confirmado. | **Abierta.** Importa porque es lo único que archiva el último job y no se sabe qué columnas ni cuándo se escribe. |
+| P-BCR-05 | ¿Qué job o workflow genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/` y con qué contenido? Probablemente el subworkflow `SSIs_Fx_Reporte`, pero no está confirmado. | **Resuelta en parte (descarta la hipótesis).** `SSIs_Fx_Reporte` ya está analizado con el `.wkf` real (§6.19): solo inserta filas en `FT_T_RLT1` y `FT_T_VREQ`, **no escribe ningún fichero**. Ningún workflow ni jar analizado de esta cadena genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`. **Sigue abierto** qué proceso lo deja en `investorsPlan/`. Importa porque es lo único que archiva el último job. |
 | P-BCR-06 | ¿Qué destinatarios, ruta (`RUTA`) y plantilla tienen en `FT_T_REP1`/`FT_T_ALR1`/`FT_T_ALM1` los procesos de alerta `RDR_ALTA_FONDOS`, `RDR_ALTA_FONDOS_ERROR` y `ALERT_IP_SSI`? | **Abierta.** Importa para poder comprobar en pruebas que el correo de alertas llega (el envío es global y silencioso ante datos inválidos, §6.15). |
 | P-BCR-07 | El `RDR_AltaFondos.properties` citado en §6.9 (valores `ArgJava3="G"`, `args[3]="NODCS"`, `ArgProp2=...`) no ha podido recontrastarse con la evidencia disponible al completar esta spec; los `.properties` de R6/R7 no se han aportado y los de alertas aportados llevan rutas literales `/ei/...` (entorno de integración). ¿Los `.properties` desplegados en `pr` son idénticos y quién sustituye `ei` por `pr` (cf. P-GSP-01 en `comun_gsprocess`)? | **Abierta.** Importa porque de ellos dependen el orden de los pasos, si algún paso tiene `Stop=Ok` y las rutas reales de trabajo. |
 | P-BCR-08 | `RDR_AltaFondos_Autocalc_PARTY` decide entre `RDR_AltaSCF_Marca` y `WKF-Autocalculos-Enriquecimiento` según haya en `FT_T_UTD1` una fila `MNEM_OPE` con `LAST_CHG_USR_ID='SCF'`, pero `AltaFondos_CuadreCarga.jar` escribe los atributos `MNEM_*` con usuario `INVESTORSPLAN_FUNDS`. ¿Qué componente escribe `MNEM_OPE` con usuario `SCF` y cuándo? | **Abierta.** Con el código recibido, un fondo del canal Investors Plan nunca entraría por la rama SCF. Importa para saber qué rama de enriquecimiento se debe probar. |
-| P-BCR-09 | ¿Qué componente deja la petición padre `FILE_DATE` en estado `ALTA_FONDOS_PEND` (plural), que es lo que busca `AltaFondos_CuadreCarga.jar`? Ni `AltaFondos_Genera_csv` (que usa `ALTA_FONDO_PEND`, singular, para las hijas) ni los workflows recibidos lo escriben. | **Abierta.** Si nadie lo escribe, el cuadre no encontraría nada y los fondos nunca llegarían a `FUND_LOADED`. Hay que confirmarlo con una ejecución real o con el código de R7/`RDR_XMLReader`. |
-| P-BCR-10 | ¿Se pueden obtener los subworkflows internos de `Global Regulatory Information` y `OperativeRegulatoryInformation` (`Calculate ...`, `... Extraction`, `Auxiliary DFA Data Extraction`, `CreateShortname`)? | **Abierta.** Ahí están las escrituras reales de la clasificación regulatoria del fondo. |
+| P-BCR-09 | ¿Qué componente deja la petición padre `FILE_DATE` en estado `ALTA_FONDOS_PEND` (plural), que es lo que busca `AltaFondos_CuadreCarga.jar`? Ni `AltaFondos_Genera_csv` (que usa `ALTA_FONDO_PEND`, singular, para las hijas) ni los workflows recibidos lo escriben. | **Resuelta.** Lo escribe R7: `Peticion.procesaPeticion` de `Investors_Client_Reg_resp.jar` (§6.2), con `updateVREQDescripByOid(oidPeticion, "ALTA_FONDOS_PEND", ...)` y el texto «X fondos correctos. Y fondos incorrectos.», cuando al menos un fondo de la petición es válido (cada fondo hijo queda en `ALTA_FONDO_PEND`, singular). Si ninguno es válido la petición queda en `ERROR_CLI_REG_PROC`. |
+| P-BCR-10 | ¿Se pueden obtener los subworkflows internos de `Global Regulatory Information` y `OperativeRegulatoryInformation` (`Calculate ...`, `... Extraction`, `Auxiliary DFA Data Extraction`, `CreateShortname`)? | **Resuelta.** Los 23 subworkflows (16 del árbol Global y 7 del Operativo) están analizados con los `.wkf` reales (rama de Eduardo): ver §6.22. |
 
 ## 5. Especificación funcional
 
@@ -215,19 +215,70 @@ código, solo el mismo paquete de utilidades de log).
     solo queda registrado el mensaje del **último** campo que falló, no de los anteriores.
   - Excepción no controlada durante el bucle de `ProcesaFichero.procesar()` → el fichero se mueve a la ruta
     de error (`rutaSendError`) en vez de a histórico.
-- **Gap opcional, no bloqueante (G3):** no se ha aportado `Main.java` (o el punto de entrada real del jar),
-  por lo que las rutas exactas de entrada/histórico/error y el mecanismo de invocación desde
-  `GSProcess.sh clientelaBDI_Altas_response` quedan confirmados solo por el patrón de nombres de las cadenas
-  de log (`ClientelaBDI_Altas/response`, coincidente con R2), no por el fichero de configuración/entrada real.
+- **Punto de entrada `main.Main` (G3 cerrado; decompilado del jar real, rama de Eduardo):**
+  - Argumentos: `args[0]` = nivel de log (1 DEBUG, 2 INFO, 3 ERROR, 4 FATAL), `args[1]` = `log4j.properties`,
+    `args[2]` = ruta de entrada, `args[3]` = ruta de histórico (`old`), `args[4]` = ruta de error, `args[5]` = patrón.
+  - **Procesa todos los ficheros** de la ruta de entrada cuyo nombre **contiene** el patrón (`contains`, no
+    expresión regular ni extensión; el mensaje «no cumple criterios de nomenclatura» es solo eso). Crea un
+    `ProcesaFichero` por fichero y llama a `procesar()`. Un patrón vacío casaría con todo, incluidos
+    subdirectorios (la lista incluye directorios).
+  - Solo valida que existan como carpeta la ruta de entrada y la de histórico (no la de error ni el patrón); si
+    faltan o están vacías, lo trata como «no hay ficheros a procesar» sin fallo. Desde el log no se distingue
+    «carpeta vacía» de «ningún fichero coincide con el patrón».
+  - **Salida 0 ante fallo de arranque:** si falla la configuración (argumentos que faltan, log4j o conexión a base
+    de datos), `main` hace `return` sin `System.exit`: el proceso termina con código 0 sin haber hecho nada
+    (invisible para `GSProcess.sh`, mismo patrón que `AltaFondos_Genera_csv`, §6.10).
+  - El valor real de las rutas y del patrón (P-BCR-02) sale de `clientelaBDI_Altas_response.properties`, que
+    sigue sin aportarse.
+  - **Cautela sobre la procedencia del jar:** el `clientelaBDI_Altas_response.jar` de la rama de Eduardo es una
+    compilación Maven del 16/09/2026 hecha en un ejecutor de integración continua con JDK 17, y sus clases están en el
+    paquete `clientelabdi_altas_response`; no se puede afirmar que sea el artefacto desplegado en producción (la
+    clase de entrada que fije el `.properties` real podría tener otro nombre de paquete). El análisis describe el
+    código de esa compilación.
 
-### 6.2 `Investors_Client_Reg_resp.jar` (R7) — parcialmente confirmado con código fuente real
+### 6.2 `Investors_Client_Reg_resp.jar` (R7) — confirmado por completo con el jar real decompilado
 
 Clases analizadas: `jdbc.QuerysStr`, `jdbc.QueryExec` (versión propia de este jar, con queries distintas de
 las de §6.1 aunque con el mismo nombre de clase) y `leirequest.AltaRegisterLEIRequest`
 (código fuente aportado en sesión). Todos los registros que
 escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es el código fuente real del job.
 
-- **Modelo de datos confirmado (por las queries disponibles, sin la clase orquestadora):** el jar trabaja
+- **Punto de entrada y orquestación (decompilado del jar real, rama de Eduardo; clases `main.Main`,
+  `peticiones.Peticiones`, `Peticion`, `Fondo`, `RespuestaCliente`):**
+  1. `main.Main` solo recibe `args[0]` (nivel de log) y `args[1]` (`log4j.properties`); no hay rutas ni
+     ficheros. Si falla la configuración (log4j o base de datos) hace `return` y el proceso termina con
+     código 0 sin haber hecho nada.
+  2. `Peticiones.procesaPeticiones`: ejecuta `selectPeticionesPosibles` y trata **todas** las peticiones
+     `FILE_DATE`/`NEW_CLIENTS` cuya fecha ya tiene una fila `FIELD_RESP`/`HORA` escrita por R6 (punto de enganche
+     R6→R7). Cualquier excepción se traga sin registrar nada (`catch` vacío).
+  3. `Peticion.procesaPeticion`: pone la petición en `PROCESSING_CLIENTS`; carga sus fondos (`FundLEI` en
+     `NEW_CLIENT`) y procesa cada uno. Al final: **ningún fondo válido** → petición en `ERROR_CLI_REG_PROC`;
+     **al menos uno válido** → petición en **`ALTA_FONDOS_PEND`** con el texto «X fondos correctos. Y fondos
+     incorrectos.» (es el estado que espera `AltaFondos_CuadreCarga`, §6.20, P-BCR-09). Si la petición no tiene
+     fondos, **queda en `PROCESSING_CLIENTS`** sin más cambio. Si hay una excepción no prevista solo se
+     registra (nivel `INFO`) y la petición también queda en `PROCESSING_CLIENTS`.
+  4. `Fondo.procesaFondo`: marca el fondo `PROCESSING_CLIENT`, lee sus atributos `FIELD_RESP` y toma `LEI_CODE`
+     e `IDPETICION` de ahí; localiza la respuesta de BDI de R6 (`selectRespuestaBDI`, mismo `LEI`+`HORA`). Sin
+     respuesta → fondo inválido. `RespuestaCliente.descargaRespuesta` marca error si la petición sigue en
+     `PROCESSING_RESP` o ya está en `ERROR_PROC_RESP`. `analizaRespuesta`: `COD_ACK`=`ACK` válido; `NACK` →
+     inválido con `DESC_ERROR`; otro valor → inválido («Respuesta desconocida. Se esperaba ACK o NACK»).
+  5. **Uso de `selectDuplicateMurexStar`:** si el fondo sigue válido, consulta `FT_T_FRID` por identificadores
+     activos `MUREXID`/`STARID` con `finr_id` = `COD_TES` de la respuesta; si ya existe alguno, el fondo es
+     inválido («el id: COD_TES ya existe como …»).
+  6. Si sigue válido: `agregaAtributos` inserta 9 atributos `FIELD` en `FT_T_UTD1` (`DATA_SRC_ID=
+     'INVESTORS_CLI_REG_RESP'`): `COD_TES`, `COD_STAR`, `COD_MUREX` (los tres con el valor de `COD_TES`: la
+     respuesta no trae otro), `SHORTNME` (`NOMCORTO`+`PLAZAINT`; solo se recorta, a 9 caracteres, si la
+     concatenación supera los 10), `CIFEX` y `PASAPORTE` (ambos `"I"+NOMCORTO`), `BDI_CODE`, `FOLIO_NUM`,
+     `CCLIENT`. Un valor nulo solo escribe una línea de log («No se inserta el atributo…») pero **se intenta
+     insertar igualmente**. Después `requestNewLEIRegister` invoca siempre `AltaRegisterLEIRequest`. Un fallo
+     en cualquier paso deja `validFund=false`.
+  7. Cierre del fondo: inválido → `ERROR_CLI_REG_RESP` con la descripción acumulada; válido → `ALTA_FONDO_PEND`
+     («Respuesta de BDI tratada. Pendiente de alta del fondo en RDR»). El `catch` genérico de `Fondo` sí marca
+     `ERROR_CLI_REG_RESP` (más defensivo que el de `Peticion`).
+  8. **Procedencia del jar:** `Investors_Client_Reg_resp.jar` es una compilación de julio de 2025 con JDK 1.8 y clases
+     sin paquete (`main.Main`, `peticiones.*`), coherente con el patrón de los demás jars de esta cadena; no se ha
+     podido contrastar con el `.properties` ni con el artefacto desplegado.
+- **Modelo de datos confirmado (por las queries del jar):** el jar trabaja
   sobre peticiones de alta de nuevos clientes agrupadas por fecha de fichero
   (`FT_T_VREQ.VND_RQST_XREF_ID_CTXT_TYP='FILE_DATE'`/`STAT_TYP='NEW_CLIENTS'`), cada una con 1+ fondos
   asociados por `FundLEI`/`NEW_CLIENT` (`selectPeticionesPosibles`/`selectFundsPendientes`). Para localizar la
@@ -235,8 +286,8 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
   (`selectRespuestaBDI`, misma combinación `LEI`+`HORA`) — es decir, este jar depende funcionalmente de que
   R6 ya haya procesado la respuesta y dejado sus atributos en `FT_T_UTD1` (`descargaAtributosRespuesta`,
   filtro `UTD_USAGE_TYP='FIELD_RESP'`). También consulta duplicidad de identificadores Murex/Star activos
-  para un código de tesorería (`selectDuplicateMurexStar`, `LISTAGG` sobre `FT_T_FRID`), aunque no se ha
-  confirmado con la clase orquestadora en qué punto del flujo se usa ni qué se hace con el resultado.
+  para un código de tesorería (`selectDuplicateMurexStar`, `LISTAGG` sobre `FT_T_FRID`); su uso (paso 5 de la orquestación anterior) invalida
+  el fondo si ya existe un identificador Murex/Star activo para ese código.
 - **`AltaRegisterLEIRequest` — qué hace en este proceso:** dado un fondo ya identificado (`oidFondo`) y su
   LEI, descarga sus atributos previos de `FT_T_UTD1` (`selectFondosAtributos`), y registra una **nueva
   solicitud downstream** de tipo `LEI_REGISTER` en `FT_T_VREQ` (`insertVREQ_LEIReg_Req`), con 7 atributos en
@@ -259,11 +310,12 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
   con la descripción de la excepción (`updateVREQDescripByOid`). Un fallo en la inserción de un atributo
   individual (`insertaAtributo`) no interrumpe la inserción de los siguientes atributos, solo marca el error
   global — mismo patrón de "solo queda el último error" que en `clientelaBDI_Altas_response.jar` (§6.1).
-- **Gap abierto, no bloqueante (G4):** sin la clase orquestadora de este jar (equivalente a `ProcesaFichero`
-  en §6.1), no se puede confirmar: (a) qué decide que un fondo concreto necesita alta de LEI (¿todos los de
-  `selectFundsPendientes`, o solo un subconjunto según `selectDuplicateMurexStar`/`getStatusVREQ`?); (b) si
-  existe algún otro camino de negocio en este jar aparte de `AltaRegisterLEIRequest`. Pedir esa clase (o el
-  `Main.java` del jar) para cerrar el 100 % del flujo.
+- **G4 cerrado con el jar real:** (a) necesita alta de LEI **todo fondo que llega válido** al final de
+  `Fondo.procesaFondo` (respuesta ACK y sin Murex/Star duplicado); no hay subconjunto adicional; (b) no existe otro
+  camino de negocio aparte de `AltaRegisterLEIRequest`. **Corrección a la lectura previa del orquestador:** la
+  petición `FILE_DATE` en `ALTA_FONDOS_PEND` la escribe este jar, no «nadie» (P-BCR-09). Efecto lateral
+  relevante: cada fondo válido deja una petición nueva `LEI_REGISTER` en estado `PENDING` en `FT_T_VREQ` (la
+  consume otro proceso fuera de esta malla).
 
 ### 6.3 `AltaFondos_Genera_csv.jar` (primer paso de R8) — confirmado con código fuente real
 
@@ -509,6 +561,10 @@ export `XMLReader.wkf` aportado en sesión).
        File`, ni ningún nombre claramente de producción). Puede ser residuo de una configuración de pruebas
        que nunca se renombró, o un nombre de negocio real no evidente — a confirmar con el equipo
        responsable del workflow antes de asumir que es inocuo.
+       Según el volcado de workflows de GoldenSource, el mismo valor aparece en el nodo `File Split Condition` de
+       **todas** las versiones (1 a 7) de `XMLReader` y también en `XMLReaderFXFunds` y `XMLReader_02022017`: es un
+       nombre histórico estable, no un cambio reciente. Ese *business feed* no figura en el catálogo de feeds del
+       volcado (tampoco `XMLReaderBF`), así que sigue sin verse qué configuración aplica.
      - Sin mensajes (`end-of-file`) → cierra el job directamente (`Close Job`) sin procesar nada.
   4. Con mensajes, `For Loop` itera cada uno (`Messages`→`Output`, acumula en `IncrementedObjects`). Por
      cada iteración: `counter++`; `alta = Output.message` (el fragmento `<PARTYSETUP>` de ese mensaje);
@@ -529,17 +585,19 @@ export `XMLReader.wkf` aportado en sesión).
        Oficinas`): las ramas `RFN` y `COMPASS` de este mismo workflow pertenecen a otro/s proceso/s que lo
        reutilizan con un `USER` distinto (coherente con el hallazgo de reutilización genérica de
        `CSVToXML_Layout.jar`, §6.4) y no se ejercitan nunca desde esta cadena.
-  7. Rama `OTHER`/`Validacion Oficinas` (la única real para este proceso): invoca los subworkflows
-     `ValidacionOficinas` y `OTHER` (input `JobId`/`alta`/`errors`, ambos `CallSubWorkflow`) antes de
-     continuar — no se ha aportado el contenido de ninguno de los dos, así que no se puede confirmar qué
-     validan ni qué actualizan en `errors`.
+  7. Rama `OTHER`/`Validacion Oficinas` (la única real para este proceso): invoca `OTHER` y después
+     `ValidacionOficinas` (§6.7), que devuelven el contador `errors`. **Un nodo `Existen errores?` (BeanShell)
+     decide a continuación: `errors>0` → el mensaje se salta por completo** (no se crea transacción, no se
+     aplica y no se ejecuta `Duplicate Delete XMLReader`); `errors=0` → continúa al paso 8. Es el descarte real de
+     la línea de carga. `OTHER` reinicia `errors` a 0 en cada llamada y `ValidacionOficinas` lo incrementa, así que
+     el contador es por mensaje. (Según el `.wkf` real; **corrige** las versiones anteriores de esta spec y del
+     análisis de la rama de Eduardo, que no vieron este nodo y daban el descarte por no confirmado.)
   8. Independientemente de la rama, el mensaje se procesa como transacción real: `Create Transaction`
      (Streetlamp, `correlationId=counter`, `flushImmediate=true`) → `Create Message Object`
-     (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (el nombre
-     sugiere que es este subworkflow, no aportado, el que realmente aplica el alta de la contraparte en
-     GoldenSource) → `Duplicate Delete XMLReader` (mismo patrón de nombre que el chequeo de duplicados del
-     paso 5 — presumiblemente registra el mensaje como ya procesado, para que un reenvío futuro del mismo
-     `alta` sí se detecte como duplicado en el paso 5).
+     (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (motor genérico
+     de GoldenSource que aplica el alta, §6.8) → `Duplicate Delete XMLReader` (§6.7bis). Contra la hipótesis
+     previa, **no registra el mensaje como procesado: borra** de `FT_T_RRM1` la fila que insertó `Duplicate
+     XMLReader` en el paso 5, por lo que `FT_T_RRM1` es un marcador transitorio de «mensaje en curso».
   9. Al agotarse `Messages`, `Close Job` cierra el job de Streetlamp y el workflow termina (`Stop`).
 - **Campos de salida afectados:** no genera fichero; su efecto es la actualización real de GoldenSource vía
   `"Basic Message Processing"` (no confirmado en detalle, gap abierto) para cada mensaje no duplicado.
@@ -555,10 +613,18 @@ export `XMLReader.wkf` aportado en sesión).
 - **Estado del propio workflow:** el `.wkf` exportado declara `<status>DEVELOPMENT</status>` — no se ha
   confirmado si este campo refleja el estado real del ciclo de vida del workflow en el entorno de
   producción o es un valor de metadatos sin relación con el entorno de ejecución real.
-- **Cabo suelto menor, no bloqueante:** `Duplicate Delete XMLReader` no se ha aportado directamente; se
-  infiere por nombre y posición en el flujo (mismo patrón que `Duplicate XMLReader`, §6.7a) que registra el
-  mensaje como ya procesado, sin confirmación directa de su código. El resto de subworkflows de esta rama
-  (`OTHER`, `ValidacionOficinas`, `"Basic Message Processing"`) quedan confirmados en §6.7/§6.8.
+  El volcado de workflows (instantánea anterior) contiene `XMLReader` v7 en `RELEASED`, frente a la v8 `DEVELOPMENT`
+  del export; el de `RDR_AltaFondos_Enriquecimientos` es v3 `RELEASED` (el export es v4 `DEVELOPMENT`) y el de
+  `OperativeRegulatoryInformation` v8 `RELEASED` (el export, v10 `DEVELOPMENT`). Parece que el estado `DEVELOPMENT` lo
+  trae la última modificación, pero qué versión corre en producción no se puede confirmar con este material.
+- **Gap cerrado:** `Duplicate Delete XMLReader` está analizado con el `.wkf` real (§6.7bis); el resto de
+  subworkflows de esta rama (`OTHER`, `ValidacionOficinas`, `"Basic Message Processing"`) en §6.7/§6.8.
+- **Fila de `FT_T_RRM1` que nunca se libera (consecuencia verificada del flujo):** el borrado solo está en la
+  ruta «sin errores» tras `Basic Message Processing`. Si el mensaje se descarta por `errors>0` (Legal Name
+  duplicado u oficina inactiva), o si el procesado se interrumpe, **su fila de `FT_T_RRM1` permanece**; un
+  reenvío posterior con exactamente el mismo contenido (primeros 3.900 caracteres del texto sin etiquetas) se
+  descartaría para siempre como duplicado, sin error. Solo cambia el resultado si cambia el contenido del
+  mensaje o si se borra la fila a mano. No consta ningún proceso de limpieza de `FT_T_RRM1`.
 
 ### 6.7 Subworkflows de la rama `OTHER` de `RDR_XMLReader` — confirmado con `.wkf` real
 
@@ -588,12 +654,15 @@ Tres subworkflows aportados y verificados:
 
 - **Qué hace:** para contrapartes **no subsidiarias** (`Type=="N"`, extraído por XPath de
   `/PARTYSETUP/GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE/SUBSIDIARY_INDICATOR`), comprueba si ya
-  existe otra contraparte cliente activa con el mismo `LEGAL_NAME` (`/PARTYSETUP/GLOBALS/GLOBAL/LEGAL_NAME`)
-  en `FT_T_FINS` cuyo `INST_MNEM` sea local de un cliente activo (subconsulta sobre `FT_T_FIRL`,
-  `FINSRL_TYP='CUSTOMER'`, `REL_TYP='LOCAL'`). Si `Type` es distinto de `"N"` (p. ej. subsidiaria) esta
+  existe otra contraparte activa con el mismo `LEGAL_NAME` (`/PARTYSETUP/GLOBALS/GLOBAL/LEGAL_NAME`):
+  `SELECT INST_LEGAL_NME FROM FT_T_FINS WHERE INST_LEGAL_NME = ? AND DATA_STAT_TYP='ACTIVE' AND INST_MNEM IN
+  (SELECT PRNT_INST_MNEM FROM FT_T_FIRL WHERE DATA_STAT_TYP='ACTIVE' AND FINSRL_TYP='CUSTOMER' AND
+  REL_TYP='LOCAL')`. **Corrección:** el filtro es sobre el mnemónico **padre** (`PRNT_INST_MNEM`, el nivel Global)
+  de relaciones locales de cliente activas, no sobre el mnemónico local. Si `Type` es distinto de `"N"` (p. ej. subsidiaria) esta
   validación **no se aplica** — se asume intencionado (subsidiarias pueden compartir razón social con la
   matriz), a confirmar con negocio si se quiere cerrar del todo.
-- **Qué recibe/produce:** recibe `JobId`, `alta` (XML del mensaje), `User`; produce/incrementa `errors`.
+- **Qué recibe/produce:** recibe `JobId`, `alta` (XML del mensaje), `User`; devuelve `errors` (0 o 1: la rama
+  `Alta` lo reinicia a 0 y solo se suma 1 si hay duplicado).
 - **Campos de salida afectados:** si hay duplicado, `INSERT INTO FT_T_RLT1` con `RLT_OID=(select new_oid from
   dual)`, `RLT_STATUS=0`, `MESSAGE_RLT='Existe otra contrapartida con el mismo Legal Name'`,
   `RLT_PURP_TYP='NACK'`, `DATA_SRC_APP='CARGA_CPARTY'`, `GS_FIELD='Legal Name'`, `GS_VALUE=LegalName`
@@ -602,7 +671,10 @@ Tres subworkflows aportados y verificados:
 - **Qué pasa si falla:** `new_oid` se lee de `select new_oid from dual`, lo que solo funciona si existe un
   sinónimo/función de ese nombre en la base — no verificable con el material disponible; si no existiera,
   `RLT_OID` quedaría nulo. Señalado como suposición razonable, no como hecho confirmado (regla de no inferir
-  sin evidencia).
+  sin evidencia). Dato nuevo del volcado de workflows: `new_oid` aparece en más de 4.500 líneas de
+  sentencias de decenas de workflows (66 usan literalmente `select new_oid from dual`) y es la forma habitual de
+  generar identificadores en toda la plataforma, de modo que es una función o sinónimo estándar de la base de datos
+  de GoldenSource y no un caso aislado; la definición en sí sigue sin verse.
 
 **c) `ValidacionOficinas`** (descripción propia en el `.wkf`: *"Valida las oficinas incluidas en la plantilla
 de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa línea de carga se descarta."*)
@@ -617,13 +689,30 @@ de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa 
   `GS_FIELD='Id Oficina'`, `GS_VALUE=identificador`, `LAST_CHG_USR_ID=User`.
   - **Hallazgo — el nombre del nodo no corresponde a su código:** el nodo que ejecuta tras el `INSERT` se
     llama `"Borrar oficinas del XML"`, pero su script solo hace `errors=errors+1` — **no modifica ni elimina
-    nada del XML**. Pese a la descripción del workflow ("esa línea de carga se descarta"), no hay ninguna
-    instrucción en el material aportado que efectivamente quite la oficina/línea del mensaje antes de
-    aplicarlo; el descarte real, si existe, tendría que ocurrir en `"Basic Message Processing"` (no aportado)
-    usando el contador `errors`, no en este subworkflow.
+    nada del XML**. **El descarte sí existe, pero fuera de este subworkflow:** el nodo `Existen errores?` de
+    `XMLReader` (§6.6, paso 7) salta **todo el mensaje** (no solo la oficina) cuando `errors>0`; el efecto
+    práctico es que una sola oficina inactiva impide el alta de la contraparte completa y deja una fila `NACK` por
+    oficina en `FT_T_RLT1`. (Corrección: la versión anterior daba el descarte por no confirmado.)
   - **Hallazgo (fail-open):** si el parseo inicial del XML (extracción de `<OFFICE>`) lanza una excepción, la
     rama `false` salta directamente a `Stop` **sin validar ninguna oficina y sin registrar ningún error** —
     un XML con formato inesperado no bloquea nada, se trata como si todas las oficinas fueran válidas.
+
+### 6.7bis `Workflow(DuplicateDeleteXMLReader)` — confirmado con `.wkf` real (rama de Eduardo)
+
+`DuplicateDeleteXMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 2, `RELEASED`, `haltOnError=false`). Recibe
+`JobId` y `MensajeTxt` (el texto que devolvió `Duplicate XMLReader`). Dentro de un `Create Job`/`Close Job`
+(`configInfo="Duplicate Delete"`) ejecuta `delete from FT_T_RRM1 where MSG_REQ=q'#<MensajeTxt>#'`. No hay rama de
+error: si el `DELETE` no encuentra fila o falla, el resultado es indistinguible de un éxito.
+
+- **Contrato completo del mecanismo de duplicados:** `Duplicate XMLReader` (6.7a) inserta en `FT_T_RRM1`, con
+  su propia conexión JDBC sin transacción compartida (credenciales leídas de `credentials.xml`), el texto del
+  mensaje sin etiquetas; la restricción de unicidad (Oracle `ORA-00001`) marca `duplicate=true`. Este workflow
+  libera la fila tras un `Basic Message Processing` sin excepción. Ver en §6.6 el efecto de no liberarla.
+- **Detalle sin verificar en ejecución:** en `Duplicate XMLReader` el recorte a 3.900 caracteres se escribe
+  `MensajeTxtAux.subString(0, 3900)` (con S mayúscula, método inexistente en `String`) y está fuera del
+  `try`; si un mensaje ya limpio de etiquetas llega a 3.900 caracteres o más, el script podría fallar en
+  lugar de recortar (en ese caso `duplicate` no se informaría y el mensaje seguiría como no duplicado). Los
+  mensajes de alta de fondo son cortos, así que es un riesgo bajo.
 
 ### 6.8 `"Basic Message Processing"` — motor genérico de aplicación en GoldenSource (confirmado con `.gsp` real)
 
@@ -645,8 +734,14 @@ export `Basic_Message_Processing.gsp` aportado en sesión).
      eventos de publicación interna (`TriggerPublishing`) para los sistemas suscritos a GoldenSource.
   - Existe una rama paralela para `messageArray` (varios mensajes en una sola invocación) con la misma
     lógica de traducción/filtro/aplicación/publicación por cada elemento, más una llamada a un subworkflow
-    `"Store Vendor Data"` (no aportado) cuando el valor de `Severity` no es `50` — el significado exacto de
-    ese valor de severidad no está documentado en este material y no se puede confirmar sin más contexto.
+    `"Store Vendor Data"` cuando el resultado de la transacción (`Severity`) no es `50`. **`Store Vendor Data`
+    analizado** (workflow estándar de GoldenSource, grupo `Standard`, versión 5, `RELEASED`, según el volcado de
+    workflows de la plataforma): según el parámetro `SaveVendorDataType` (`All`/`InputMessage`/
+    `StructuredMessage`, otro valor: no hace nada) y los indicadores `PublishingTranslatedOutput`,
+    `ProcessFilteredMessages` y `CaptureVNRDforAuditability`, ejecuta la actividad estándar `StoreVendorData`, que
+    guarda el mensaje de entrada y/o el estructurado asociado a la transacción para auditoría y devuelve
+    `insert`/`update`/`no-action`; no escribe tablas propias de RDR. El significado numérico de `Severity` (50 =
+    salta el guardado) pertenece al producto y no está documentado en el material.
 - **Qué recibe/produce:** recibe `Message`/`messageArray`, `MessageType`, `TransactionId`, `MessageMetaData`,
   `IsWorkstationMessage`, `ProcessFilteredMessages`, `CheckForDoNotPostFlag`; produce `Severity` (entero, sin
   diccionario de valores confirmado), `Processed` (mensajes ya aplicados, tipo binario) y actualiza
@@ -900,9 +995,12 @@ están en la spec común `salidas_pendientes/comun_gestion_alertas/comun_gestion
   genérico que solo registra en log — no relanzan la excepción ni marcan el proceso como fallido de forma
   visible fuera del propio jar, mismo patrón de fallo silencioso ya visto en otros puntos de esta cadena
   (§6.9/§9). Con `main.Ppal` queda claro el orden (leer informes con destinatarios → leer mensajes → generar
-  documentos → marcar mensajes → marcar `SEND_PEND='Y'`), pero no si el informe se marca pendiente cuando no
-  hay mensajes: depende de `ReportesRDR`, no recibida.
-- **Gap abierto, no bloqueante:** las clases `ProcesoCLS` (Barrido) y `ReportesRDR` (Cocinado).
+  documentos → marcar mensajes → marcar `SEND_PEND='Y'`). Con `ReportesRDR`/`ReporteRDR` (código real, ver la
+  spec común de alertas, §4.2.1): **el informe se marca pendiente (`SEND_PEND='Y'`) aunque no haya mensajes** y
+  los mensajes leídos se marcan siempre como usados, y varias validaciones previas terminan sin generar nada
+  pero con resultado correcto.
+- **Gap abierto, no bloqueante:** quedan `ProcesoCLS` (Barrido) y `DocumentGenerator` (Cocinado, escritura física
+  de cada fichero), no recibidas. `ReportesRDR` y `ReporteRDR` ya están analizadas.
 
 ### 6.15 `Workflow(AlertasEnvio)` — confirmado con `.wkf` real
 
@@ -945,7 +1043,11 @@ discrepancia real o si el motor de GoldenSource lo registra bajo un alias distin
 - **Subworkflow `Mail` (cerrado):** SMTP puerto 25 sin autenticación, servidor y remitente tomados de
   `ServerMailConfig.xml` del entorno (si faltan, usa unos valores de desarrollo escritos en el workflow); no
   gestiona errores. Detalle en la spec común de alertas, §5.1.
-- **Gap abierto, no bloqueante:** `AlertasEnvioExcepciones` (llamado antes de generar el mail final) no aportado.
+- **`AlertasEnvioExcepciones` (cerrado):** analizado con el `.wkf` real en la spec común de alertas (§5.2). Solo
+  personaliza asunto y cuerpo para `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y
+  `REGU_PDTE_LEI_EMISIONES`; los procesos de esta cadena (`RDR_ALTA_FONDOS`, `RDR_ALTA_FONDOS_ERROR`,
+  `ALERT_IP_SSI`) caen en `DEFAULT` y usan el asunto y el cuerpo estándar. Siguen pendientes
+  `ServerMailConfig.xml` y la plantilla de producción.
 
 ### 6.12 `GestionAlertas.properties` — plantilla genérica de alertas (confirmado con `.properties` real)
 
@@ -1067,10 +1169,13 @@ export `RecepcionAlertApiRest.wkf` aportado en sesión).
 - **Qué pasa si falla:** ver arriba — los 2 niveles de fallo (respuesta vacía, error técnico/de negocio
   embebido) se resuelven a `NACK`/`FAILED` sobre la propia `FT_T_VREQ`, sin relanzar ninguna excepción visible
   en este `.wkf`.
-- **Gap abierto, no bloqueante:** el resto de la lógica de deduplicación (`DadaAlta?`, `countExiste`) y el
-  detalle final de cómo se registra cada SDI individual no se ha trazado en su totalidad dado el tamaño del
-  fichero (1979 líneas) — el mecanismo principal (recepción, validación de 2 niveles, extracción de SDIs) sí
-  queda confirmado.
+- **Deduplicación y registro de cada SDI (trazados con el `.wkf` real, rama de Eduardo):** por cada nodo
+  `ssiInformation` extrae su `codOid` por XPath y ejecuta `select count(*) from ft_t_sai1 where trim(alt_id)=<codOid>
+  and DATA_STAT_TYP='ACTIVE' and ID_CTXT_TYP='ALERTID'` (`DadaAlta?`, variable `countExiste`). Si ya existe, la SDI
+  se **descarta sin log ni contador**; si no, genera un `new_oid` e inserta una fila hija en `FT_T_VREQ`
+  (`DATA_SRC_ID='ALERT_IP_SSI'`, `PRNT_VND_RQST_OID` = la petición, `VND_RQST_STAT_TXT` = el XML de esa SDI,
+  `VND_RQST_STAT_TYP` = `Estado`). Son esas filas las que relee `SSIs_Fx_Alta` en modo `Online`. El `UPDATE ...
+  'FAILED'` de la rama de error técnico solo cambia el estado de la petición (no escribe en `FT_T_RLT1`).
 
 ### 6.19 `Workflow(SSIs_Fx_Alta)` — confirmado con `.wkf` real
 
@@ -1094,16 +1199,59 @@ export `SSIs_Fx_Alta.wkf` aportado en sesión).
   subworkflow `SSIs_Fx_Reporte` (no aportado, con `Accion="Alta"`/`Donde` indicando el punto exacto del fallo:
   `"Valida"`, `"Cparty"` o `"Branch"`) y continúa con el siguiente SDI del lote.
 - **Qué recibe/produce:** recibe `Modo`/`RES`/`VREQ_OID`; produce, por cada SDI válido y por cada sucursal
-  resuelta, una invocación de `SSIs_Fx_Exec` (alta real, no aportada); por cada fallo, una invocación de
-  `SSIs_Fx_Reporte` (reporte de error, no aportada).
-- **Campos de salida afectados:** no confirmable más allá de las consultas de lectura — el alta real ocurre
-  dentro de `SSIs_Fx_Exec`, no aportado.
+  resuelta, una invocación de `SSIs_Fx_Exec` (alta real, §6.19bis); por cada fallo, una invocación de
+  `SSIs_Fx_Reporte` (reporte de error, §6.19bis).
+- **Campos de salida afectados:** solo lecturas y las llamadas a los subworkflows; el alta real ocurre dentro de
+  `SSIs_Fx_Exec` → `SSIsData_Fx` → `SSIsCreateNew` (§6.19bis).
 - **Qué pasa si falla:** cada uno de los 3 puntos de validación (XML inválido, combinación acceso/acrónimo no
   única, sin sucursales encontradas) tiene su propia rama `KO` explícita que invoca `SSIs_Fx_Reporte` y
   continúa con el siguiente SDI — no hay fallos silenciosos detectados en este `.wkf`, a diferencia de otros
   puntos de la cadena.
-- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` no aportados — no se
-  puede confirmar el detalle final de qué campos de GoldenSource se actualizan en el alta real de la SDI.
+- **Gap cerrado:** `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` están analizados con sus `.wkf` reales, y
+  también `SSIsData_Fx`, `SSIsCreateNew` y `SSIs_Fx_Difusion` (§6.19bis).
+
+### 6.19bis Subworkflows del alta de SDI: `SSIs_Valida_Fx`, `SSIs_Fx_Exec`, `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`, `SSIs_Fx_Reporte`
+
+Todos con `haltOnError=false` (grupo `Custom/RDR/Alert/InvestorsPlan`, salvo `SSIsCreateNew`, `Custom/RDR/Alert`).
+`SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`: según los `.wkf` reales de la rama de Eduardo; los otros tres,
+según el volcado de workflows de GoldenSource. **Cautela sobre el volcado:** es una instantánea
+anterior a los exports de la rama (p. ej. contiene `XMLReader` v7 `RELEASED` frente a la v8 `DEVELOPMENT` del export), de modo
+que lo leído de él es válido para workflows estables, pero no prueba qué versión corre en producción.
+
+- **`SSIs_Valida_Fx`** (v2, `RELEASED`; recibe el XML `message`, devuelve `Resultado` `OK`/`KO` y `errorText`):
+  extrae por XPath `accessCode`, `acronym`, el BIC del corresponsal, `currency`, `method`, `codOid` y `security`, y
+  cuenta en `FT_T_ISSU` si la divisa está dada de alta (`ISS_TYP='CURRENCY'`, activa). Valida en este orden y corta en
+  la primera que falla: `method` ∈ {`CASH`,`FEDWIRE`}; `Acronym` y `AccessCode` informados; `Security` ∈ {`F/X`,`CSH`};
+  BIC del corresponsal informado; divisa informada; divisa existente en RDR; `CodOid` informado. **Cinco** de los ocho
+  mensajes (método, `Security`, BIC, divisa vacía, divisa inexistente) empiezan por el prefijo `NoCodOid::`
+  (corrección: no son tres), que `SSIs_Fx_Reporte` sí interpreta (más abajo).
+- **`SSIs_Fx_Exec`** (v2, `RELEASED`; recibe `Branchs`, `CountMax`, `alta`, `Type`…): bucle por sucursal. Por cada una:
+  `Create Transaction` (`correlationId` fijo `0`), traducción XSLT del `alta`
+  (`db://resource/RDR/xslt/XMLTransformAlertFxRDR.xslt`), llamada a `SSIsData_Fx`; si falla → `SSIs_Fx_Reporte` con
+  `Donde="Trans"` y la descripción del error, y sigue con la siguiente sucursal. Si es `OK`: lee el identificador
+  `AltSsi[Typ='ALERT']/ID` y llama a `SSIsCreateNew`; después consulta en `FT_T_RLT1` el último mensaje
+  `DATA_SRC_APP='ALERT_MDX_IP'` de ese `codOid`/sucursal (error devuelto por Murex). Si `SSIsCreateNew` fue `OK` **y**
+  no hay mensaje MDX → `SSIs_Fx_Reporte` con `Donde="Alta"` y luego `SSIs_Fx_Difusion` con acción `A`; en otro caso →
+  `SSIs_Fx_Reporte` con `Donde="KO"`. (Corrección a la lectura de la rama de Eduardo: `Trans` es el fallo de
+  `SSIsData_Fx`; el error MDX o el fallo de `SSIsCreateNew` van por `KO`; y el reporte de éxito va antes de la difusión.)
+- **`SSIsData_Fx`** (v2, `RELEASED`): solo lee. Extrae del mensaje los BIC de los participantes (`BENEF`, `CORRESP`,
+  `INTERM1`, `INTERM2`), la contraparte (`PartyId`) y el método de cálculo; consulta en GoldenSource nombre, identificador
+  y nombre corto de cada uno (`FT_T_FRID`/`FT_T_FIID`/`FT_T_FINS`, por acrónimo y access code para el fondo, por BIC para
+  los demás y `FINSID` para la sucursal), valida que existan y **reescribe el mensaje** sustituyendo esos datos
+  (script `Replace`, cuyo texto no se ha podido leer) antes de crear la SDI.
+- **`SSIsCreateNew`** (v4, `RELEASED`): ajusta la fecha de inicio (`SettStartDT`), crea el mensaje con el *business feed*
+  `SetupSSI_FX` (tipo `SSI_FX`) o `PartySetupSSI`, lo aplica con `Basic Message Processing` (§6.8) y lee la severidad
+  de la transacción en `FT_T_TRID`; con éxito devuelve el `ALT_ID` (`FT_T_SAI1`) y el `FINR_INST_MNEM` (`FT_T_SSIS`).
+  Es aquí donde se crea realmente la SDI en GoldenSource.
+- **`SSIs_Fx_Difusion`** (v5, `RELEASED`, 2026-06-02): localiza el OID de la SDI (`FT_T_SSIS`/`FT_T_SAI1`) y la
+  publica con el subworkflow `Publish ESB`; si el resultado no es `OK`, recorre la configuración de segmentos
+  `StandardSettlementInstructions` y la procesa con `ProcessSegments` como vía alternativa.
+- **`SSIs_Fx_Reporte`** (v3, `RELEASED`): según `Donde` (`Valida`, `Cparty`, `Branch`, `Trans`, `Alta`, `KO`) y `Modo`
+  (`Online` → `DATA_SRC_APP='ALERT_IP_SSI'`; `Conciliacion` → `ALERT_CON_SSI`), resuelve acrónimo, access code, `CodOid`
+  y los `FINS_ID` del fondo y la gestora, y construye por concatenación **dos `INSERT`**: una fila de auditoría en
+  `FT_T_RLT1` (`FAILED` o `SUCCESSFUL`, `RLT_PURP_TYP` `ONLINE`/`CONCILIACION`) y una petición en `FT_T_VREQ`. Para
+  `Valida` solo resuelve fondo y gestora si el mensaje contiene `NoCodOid::` (el prefijo indica que no se puede
+  resolver el `CodOid`). **No escribe ningún fichero** (relevante para P-BCR-05).
 
 ### 6.20 `AltaFondos_CuadreCarga.jar` (quinto paso de R8) — confirmado descompilando el jar real
 
@@ -1211,7 +1359,7 @@ Todos con `haltOnError=false`. Versión y estado entre paréntesis.
   control indica `false`, se salta el cálculo. Desde `RDR_AltaFondos_Autocalc_PARTY` se invocan sin
   `predecesor`, así que siempre calculan. El Global decide qué ramas calcular según si existe una oficina
   operativa dependiente de la entidad `0182`. **Las escrituras reales** (tipos EMIR/SFTR/DFA, MiFID…) están
-  en los subworkflows `Calculate ...` y `... Extraction`, que no se han recibido (P-BCR-10).
+  en los subworkflows `Calculate ...` y `... Extraction`, ya analizados en §6.22 (P-BCR-10 cerrado).
 - **`RDR_AltaFondos_ROL`** (evento, workflow v15, `RELEASED`, 2026-04-21; recibe `mnemOperativo`, `vreqOid`):
   rol de **cuenta mandatada**. Lee de la petición `MA_ROL`, `MA_BR` y `MA_AFC` en `FT_T_UTD1`; si `MA_ROL` no
   es `Y`, termina. Si lo es: inserta en `FT_T_FINR` el rol `MANDTACC` del operativo; una fila `FT_T_ENFR`
@@ -1223,14 +1371,100 @@ Todos con `haltOnError=false`. Versión y estado entre paréntesis.
   `MNEM`): crea el nombre corto (`CreateShortname`) y lanza en paralelo la difusión del alta a ESB
   (`RDR_DifusionESB_ENT`), a MGC (`RDR_GapDatos`, tabla `CONTPTSONLINE`, acción `A`) y a OLAP
   (`RDR_Difusion_OLAP`, con los datos de conexión que lee del fichero de credenciales del entorno). Los tres
-  eventos se disparan sin comprobar su resultado.
+  eventos se disparan sin comprobar su resultado. El detalle de `CreateShortname` y de los tres eventos está en
+  §6.23.
+
+### 6.22 Subworkflows de `Global Regulatory Information` y `OperativeRegulatoryInformation` (P-BCR-10 cerrado)
+
+Procedencia: los 23 `.wkf` reales de la rama de Eduardo, todos con `haltOnError=false`, sin ramas de error y con
+grupo `Custom/RDR/Integracion_MGC-GS/Regulatory Information/...`. Verificado contra los ficheros reales: versiones y
+estados, los nodos `Prueba`/`Prueba 2`, los `INSERT` directos a `TABLEALERTGENER`, el uso de `REGULATORY_INFO`, el
+bloque `RRM1` de `Calculate Investment Firm`, las ventanas de 7 y 9 segundos y los binds de `Calculate Corporate
+Relationship`. Las **extracciones** (`... Extraction`) son siempre de solo lectura sobre `FT_T_FRA1`/`FT_T_FIGU`;
+los **cálculos** (`Calculate ...`) escriben, casi todos, en `FT_T_FRA1` (clasificación regulatoria) con el patrón
+común «0 filas → alta; 1 fila igual → nada; distinta → actualizar; inactiva → reactivar» y respetando el interruptor
+`hacerCalculoDR` que reciben del motor. `FT_T_FRA1` enlaza `FT_T_INCL` (catálogo de clasificaciones) y `FT_T_REG1`
+(regulación: `EMIR`, `SFTR`, `DFA`).
+
+**Motor Global (16 subworkflows; lo orquesta `Global Regulatory Information`, v49, `RELEASED`):**
+
+| Subworkflow (versión, estado) | Qué hace / qué escribe |
+|---|---|
+| `USINDEM Extraction` (v5, RELEASED) | Lee la clasificación `INDICYN` ya existente (indicador de persona europea) |
+| `EMIR Extraction` (v5, RELEASED) | Lee `EMIRCAT` existente y el código de institución (`CODINSTI`) traducido a etiqueta de negocio (`EMIRTAG`). Defecto: el nodo `Is NULL` redeclara `String codText` dentro del `else`; el valor de respaldo `"0000"` nunca sale del bloque y la etiqueta queda vacía cuando el código no existe |
+| `Manual EMIR Extraction` / `Manual SFTR Extraction` (v4 / v1, RELEASED) | Leen el override manual (clasificaciones `MANPARTY` / `MANUALSFTR`). El nodo de la versión SFTR conserva el nombre «Manual type under EMIR» (copia sin renombrar) |
+| `Other Regulatory Information Extraction` (v3, RELEASED) | Dos lecturas en paralelo de los indicadores de rol CFTC (`RR_CRD/IRS/FX/COM/EQD`) y SEC (`SEC_CRD/EQD`) |
+| `Calculate Counterparty type under EMIR` (v9, RELEASED) | Calcula la etiqueta EMIR («01»-«05») con un `switch` sobre `etiquetaEmir` y sub-reglas (cámara de compensación, persona europea, código BDI); escribe `FT_T_FRA1` `EMIRCAT`. La alta usa una conexión JDBC manual (credenciales del entorno) dentro de un `BeanShellScript` |
+| `Calculate Counterparty type under SFTR` (v2, **DEVELOPMENT**, 2025-04-12) | Mismo árbol de reglas que el de EMIR (copia, el parámetro se sigue llamando `etiquetaEmir`); no tiene el interruptor `hacerCalculoDR` ni escribe en `FT_T_FRA1`: solo entrega `calculoSFTR` al siguiente |
+| `Calculate Final type under EMIR` (v24, **DEVELOPMENT**) / `... under SFTR` (v19, RELEASED) | Combinan el override manual (gana siempre; en EMIR «09» se reescribe a «03») con el valor calculado y persisten `FINALEM` / `FINALSFTR` en `FT_T_FRA1`. En SFTR hay una rama `inactivar` (valor «05» o vacío). El de EMIR contiene dos nodos literalmente llamados `Prueba` y `Prueba 2` que **insertan filas reales de control** en `FT_T_RLT1` (`CONTROLDR`/`CALCULODR`, «Control del calculo de datos regulatorios») antes de mirar `hacerCalculoDR` |
+| `Calculate EMIR NFC Sector` (v11, **DEVELOPMENT**) / `... SFTR NFC Sector` (v25, RELEASED) | Sector de actividad de contrapartes no financieras a partir del CNAE (`CNAESECT` → letra). Si la sectorización está bloqueada a mano (`FT_T_FIST` `NFCSECCA='Y'`) no calculan. Si no es país `EMIRREGU` o la clasificación final no es «Non FC…», inactivan la sectorización existente (`EMISECNF`/`SFTRSECNFC`). Si falta el CNAE o su parametrización, **insertan una alerta directa en `TABLEALERTGENER`** (`PROCESO` `CALCULO_EMIR_SECT` / `CALCULO_SFTR_SECT`, tipo `CELDAEXCEL`, `LAST_CHG_USR_ID='AlertasBarrido.jar'`), sin pasar por `FT_T_TPG1` |
+| `Calculate Investment Firm` (v17, RELEASED) | Marca `UKFIRM` y `MIFIFIRM` (`Y`/`N`) en `FT_T_FIST` según país regulatorio (`UKREGU`/`EMIRREGU`) y CNAE financiero; el override manual gana. Antes de calcular inserta en `FT_T_RRM1` una clave (workflow + OID + minuto) y, si ya existe, **salta el cálculo** (protección contra doble invocación en el mismo minuto) |
+| `Calculate European Person Indicator` (v9, RELEASED) | Indicador `INDICYN` (`Y`/`N`) en `FT_T_FRA1` bajo regulación EMIR, según la jerarquía de unidades geográficas europeas (`EMIRREGU`) |
+| `Calculate_EMIR_Category` (v7, RELEASED) | Solo para contrapartes de nivel Global y persona física (`INDVDUAL`): fija la categoría EMIR «02» salvo override manual. Usa la tabla `REGULATORY_INFO` donde el resto usa `FT_T_REG1` (probablemente sinónimo/vista, no verificado) |
+| `Calculate_Reporting_Delegation_Model` (v9, RELEASED) | Solo nivel Global: modelo de delegación de reporting SFTR (`SFTRREPDEL`, «02» delegado / «06» no): «02» si es SFTR «Non FC-», y si no, según el indicador de persona europea. Usa `REGULATORY_INFO` |
+| `Calculate Other Regulatory Information` (v8, RELEASED) | Deriva los roles CFTC (`RR_CRD/COM/EQD/FX`) y SEC (`SEC_EQD`) que falten a partir del rol genérico; se archivan bajo regulación DFA |
+
+**Motor Operativo (7 subworkflows; lo orquesta `OperativeRegulatoryInformation`, v10, DEVELOPMENT, última modificación
+2026-09-30):** calcula la parte DFA (Dodd-Frank) y devuelve `WE-COD-CORPREL`, `WE-COD-COMPCOUN` y `WE-COD-FINENTDF`.
+Sube por `FT_T_FIRL` hasta el Global para consultar las filas de control; usa una ventana de **9 s**
+(`sysdate-9/86400`) en la consulta de override y de 7 s en el `UPDATE` de cierre (inconsistencia dentro del mismo
+`.wkf`). El `UPDATE ... FROM FT_T_INCL` de cierre de `RLT_DIF_STAT='FIN'` (también en el Global) lleva una cláusula
+`FROM` que Oracle no admite en un `UPDATE`; si falla, la fila de control queda abierta (no verificado en ejecución).
+
+| Subworkflow (versión, estado) | Qué hace / qué escribe |
+|---|---|
+| `Auxiliary DFA Data Extraction` (v6, RELEASED) | Solo lectura: continente (`MEX`/`EUR` según cuelgue de la entidad `0182`), país de garantía, país de residencia, relación con casa matriz, `ROLIN` y `USPERSON` |
+| `DFA Type Extraction` (v4) / `Corporate Relationship Extraction` (v3) / `COMPCOUN Extraction` (v4), RELEASED | Lecturas de `DFACAT`, `CORPREL` y del país de la matriz (`FT_T_FIGU` `COUNCOMP`) |
+| `Calculate Corporate Relationship` (v15, **DEVELOPMENT**, 2026-10-01) | Autocorrige el `CORPREL` existente contra dos señales (fondo en `FT_T_FIGP`, sucursal en `FT_T_FINS.SUBSIDIARY_IND`) con un `switch` de 8 casos; `CVR` y `SNU` nunca se recalculan. Escribe `FT_T_FRA1` `CORPREL` (regulación DFA) |
+| `Calculate Parent Company Country of Residence` (v7, RELEASED, 2026-04-16) | Calcula `COMPCOUN`: con `CORPREL` = `CON` o `AFL` usa el override manual o fija `"US"`; en otro caso el override o el país de residencia extraído. Persiste en `FT_T_FIGU` (`COUNCOMP`), no en `FT_T_FRA1`. El mensaje de log de una rama dice lo contrario de su condición |
+| `Calculate Counterparty type under DFA` (v14, **DEVELOPMENT**) | Árbol de decisión DFA (US person, `CORPREL`, continente, sucursal, `ROLIN`) que da un código «01»-«19»; escribe `FT_T_FRA1` `DFACAT`. Recalcula el país de residencia dando prioridad a `COMPCOUN` ya calculado |
+
+Notas y **correcciones** respecto al análisis de la rama de Eduardo:
+- **Nombres de bind:** las sentencias de `Calculate Corporate Relationship` (ramas `true` y `reactivar`) y de
+  `Calculate Parent Company Country of Residence` escriben `:contrprtyOperativeOid` / `:contrprtyGlobalOid`, que
+  no coinciden con las variables del workflow (`cntrprtyOperativeOid`). Los parámetros se pasan por posición
+  (`mappedParameters["01"]…`) y el rastro es de nombres sin renombrar; **no se afirma que la rama esté rota**: hay
+  que probar la reactivación de un `CORPREL` inactivo.
+- **Estados:** hay cinco subworkflows en `DEVELOPMENT` en la ruta de producción (`Calculate Counterparty type under
+  SFTR`, `Calculate Final type under EMIR`, `Calculate EMIR NFC Sector`, `Calculate Corporate Relationship`,
+  `Calculate Counterparty type under DFA`) además de `OperativeRegulatoryInformation`. El estado del export no
+  prueba cuál es la versión en ejecución en producción.
+- Ninguno consume los atributos `ADDRESS`/`CITY_DISTR`/`PROVINCE`/`COUNTRY` que lee `WKF-Autocalculos-Enriquecimiento`
+  (§6.21): quedan sin uso en el alta de fondos.
+
+### 6.23 `PartySetupDifusion`: `CreateShortname` y los tres eventos de difusión
+
+**`CreateShortname`** (grupo `Custom/RDR/Publishing/Online`, v7, `RELEASED`; según el `.wkf` real). Recibe `mnem`.
+Pasos: limpia entidades HTML; resuelve el `FINSID` canónico (si no hay, termina sin hacer nada); obtiene el nombre
+legal de la matriz subiendo dos niveles por `FT_T_FIRL` y el estado del operativo (si falta o no está `ACTIVE`, cierra
+la transacción sin crear nada); calcula el nombre corto como `UPPER(canónico) || ` los 10 primeros caracteres del
+nombre legal sin puntuación ni espacios; ejecuta el nodo `Insercion JAVA`, que inserta ese texto en `FT_T_RRM1`
+(`DATA_SRC_ID='RDR_SHT'`) con conexión JDBC propia y, si viola la unicidad, pone `duplicate=true`; si
+`duplicate` es verdadero o nulo omite el alta, y si es falso hace un `INSERT ... WHERE NOT EXISTS` idempotente en
+`FT_T_FRID` con contexto `SHTNMEID`. **Corrección:** la detección de duplicado **sí se usa** (decide si se
+inserta); no está «muerta» como indica el análisis de la rama de Eduardo. Consecuencias: la clave de `FT_T_RRM1` es el
+propio nombre corto, que no se borra nunca, así que un nombre corto repetido (dos entidades con mismo canónico y
+mismos 10 primeros caracteres del nombre legal, o una repetición tras inactivar el identificador) no vuelve a
+crearse y no queda error; la expresión `regexp_replace(..., '(*[[:punct:]])', '')` tiene una sintaxis dudosa para
+Oracle (no verificado si elimina la puntuación).
+
+**Eventos de difusión** (según la tabla de eventos y los workflows del volcado de la base de datos de GoldenSource, instantánea anterior a los exports de la rama; ver la cautela de §6.19bis):
+
+| Evento | Workflow que ejecuta | Qué hace |
+|---|---|---|
+| `RDR_DifusionESB_ENT` | `DifusionESB_ENT` (v4, `RELEASED`) | Espera 3 s, ejecuta la consulta XML `RDR_PushCounterpartiesByIds` (parámetros `'CG'`, `'0'` y el mnemónico) y envía el resultado a la cola EMS `RDR.PARTY.PUBLISH` con `Sub_SendMessageToEMSQueue` |
+| `RDR_GapDatos` | `TypeOfDifusion` (v8, `RELEASED`, grupo `Difusion/SubDifusion`) | Enrutador de difusión a MGC. Obtiene el tipo de relación del mnemónico en `FT_T_FIRL` (si no existe marca `FT_T_RLT1` `RLT_DIF_STAT='NOFIRL'` para `GAP_DATOS`); según nivel llama a `PublishCounterpartyFromGSToMGC` (Global), `PublishLocalCounterpartyFormGSToMGC` (Local) o `PublishOperativeCounterpartyFromGSToMGC` (Operativo, y `DifusionThirdParty` si es tercero). Con `nomTabla='CONTPTSONLINE'` (el valor de esta cadena) toma la ruta de contrapartes en línea; otros valores (`BANXICO`, `PENDING*`, `ALIAS`, `RELACIONES`, `CONCILIACION`…) enrutan a otras difusiones, y cualquier otro a «ninguna etiqueta». Para un operativo activo (`PublishOperativeCounterpartyFromGSToMGC`, v8), si la contraparte no está inactiva obtiene los datos de cliente Global, Local y Operativo (`Sub_GetCntrprty*ClientData`) y llama a `Sub_ComposeSendCopy` (v27), que compone el mensaje, controla longitudes (si no cumple, marca `FT_T_RLT1` `GAP_DATOS` con `KOLONG`; sin oficinas o CAB activos, `NOCABS`), actualiza la caché de contrapartes y lo envía a la cola MQ `MGC-ABACO` con `Sub_SendMessageToMQQueue`, marcando `RLT_DIF_STAT='OK'`. Los workflows `Sub_Get*` y `Sub_CreateACA/CAB` no se detallan aquí |
+| `RDR_Difusion_OLAP` | `Publish_ById` (v7, `RELEASED`, grupo `Publishing/OLAP`) | Escribe en la tabla `cache_counterparties` de la base de datos (conexión JDBC propia con el usuario y la contraseña que le pasa `PartySetupDifusion` como parámetros) un registro por combinación `<id>_<rol>_<sucursal>` con el XML de la consulta `OLAP_CounterpartiesByIdRoleBranch` (`MERGE`; `DELETE` si la acción es `DELETE`). Sin rol informado, recorre recursivamente los roles/sucursales de la contraparte (`OLAP_ConterpartiesByMnem`). Un error SQL solo se registra |
+
+Los tres se lanzan en paralelo y sin comprobar el resultado; la contraseña de base de datos viaja como parámetro de
+un evento interno de GoldenSource (riesgo de exposición en log/parámetros de evento).
 
 ## 7. Especificación de testing
 
 La estrategia cubre las 10 transiciones lineales, el doble control de concurrencia (con sus 2 modos de
 detención silenciosa) y el Soft Failure de la historificación final. El conjunto TC-001 a TC-006 cubre el
 100% de las transiciones documentadas. TC-007 y TC-008 cubren el cuadre de carga de R8 (`AltaFondos_CuadreCarga`,
-§6.20), que decide qué fondos llegan al enriquecimiento, y TC-009 la entrega de las alertas de R8/R9 (§6.14, §6.15).
+§6.20), que decide qué fondos llegan al enriquecimiento, y TC-009 la entrega de las alertas de R8/R9 (§6.14, §6.15). TC-010 cubre el descarte de un mensaje por oficina inactiva y el bloqueo de su reenvío en `FT_T_RRM1` (§6.6, §6.7bis).
 
 Cómo se prueba y cuánto tarda (esperas reales de §6.0): hace falta un entorno de prueba (nunca producción) donde se
 puedan depositar y retirar ficheros en `/fichtemcomp/pr/descargas/kytl/ClientelaBDI_Altas/` y `.../response/`. Un
@@ -1254,6 +1488,7 @@ silenciosa), logs `execute_<MOD>_<AAAAMMDD>.log` de `GSProcess.sh` (`ESTADO-0-`/
 | `happy_path` | El cuadre encuentra el fondo por LEI, guarda los seis atributos `MNEM_*`/`FINSID_*` y deja hija en `FUND_LOADED` y padre en `FONDOS_CUADRE_OK`. | TC-007 |
 | `error_funcional` | LEI sin contrapartida: la hija queda en `FUND_GENERATE_KO`, el padre en `FONDOS_CUADRE_KO` si ninguna cuadra, y no hay alerta. | TC-008 |
 | `e2e` | Una alerta de R8 recorre Barrido, Cocinado y Envío: incidencia cerrada, mensajes procesados, `SEND_PEND` limpio y correo recibido. | TC-009 |
+| `conflicto_integridad` | Un mensaje descartado por oficina inactiva no se aplica y su reenvío idéntico se descarta como duplicado mientras exista su fila de `FT_T_RRM1`. | TC-010 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -1336,9 +1571,12 @@ silenciosa), logs `execute_<MOD>_<AAAAMMDD>.log` de `GSProcess.sh` (`ESTADO-0-`/
 * **Duplicados descartados sin contador ni alerta visible (confirmado por `.wkf` real, §6.6):**
   `Workflow(RDR_XMLReader)` detecta duplicados mensaje a mensaje (subworkflow `Duplicate XMLReader`) y los
   descarta con un solo log, sin incrementar ningún contador de duplicados en las variables globales del
-  workflow ni generar alerta — una alta legítima reenviada tras un fallo parcial anterior podría descartarse
-  silenciosamente en vez de reprocesarse, si el mecanismo de "Duplicate Delete XMLReader" (no aportado) no
-  se ejecutó correctamente en el intento previo.
+  workflow ni generar alerta. **Confirmado con `Duplicate Delete XMLReader` real (§6.7bis):** la fila de
+  `FT_T_RRM1` solo se borra tras un `Basic Message Processing` sin excepción. Un mensaje descartado por
+  `errors>0` (Legal Name duplicado u oficina inactiva) o interrumpido a mitad **conserva su fila**, y su reenvío
+  idéntico se descarta para siempre como duplicado, sin error ni alerta (riesgo alto para el reproceso tras
+  corregir el dato, p. ej. activar la oficina). `CreateShortname` deja además una fila permanente por nombre corto
+  (§6.23).
 * **Nombre de configuración de apariencia de prueba en un flujo de producción (confirmado por `.wkf` real,
   §6.6):** el nodo `File Split Condition` de `Workflow(RDR_XMLReader)` usa `businessFeed="PruebaCompas"` —
   a confirmar con el equipo responsable si es un nombre heredado de pruebas nunca renombrado o un nombre de
@@ -1463,14 +1701,29 @@ silenciosa), logs `execute_<MOD>_<AAAAMMDD>.log` de `GSProcess.sh` (`ESTADO-0-`/
   de los dos (ni `RDR_AltaFondos_ROL`) es idempotente. `OperativeRegulatoryInformation` está en `DEVELOPMENT`
   pero se invoca desde un workflow `RELEASED`.
 
+* **Nuevos con el material de la rama de Eduardo (jars y `.wkf` reales):**
+  - **Peticiones R7 huérfanas (§6.2):** una petición `FILE_DATE` sin fondos pendientes, o con una excepción en
+    `Peticion.procesaPeticion`, queda indefinidamente en `PROCESSING_CLIENTS` y `Peticiones` traga cualquier
+    excepción sin registrar nada; `Main` de R6 y R7 salen con código 0 si falla el arranque.
+  - **Descarte total por oficina inactiva (§6.6, §6.7):** una sola oficina inactiva (o un Legal Name duplicado)
+    impide el alta de toda la contraparte y solo deja `NACK` en `FT_T_RLT1`; no hay alerta.
+  - **Datos regulatorios (§6.22):** 5 subworkflows en `DEVELOPMENT` en la ruta de producción, dos filas de control
+    de depuración (`Prueba`, `Prueba 2`) por cada cálculo EMIR, `UPDATE ... FROM` no válido en Oracle para cerrar el
+    control, conexiones JDBC manuales con credenciales del entorno, y alertas directas a `TABLEALERTGENER` al faltar
+    un CNAE (sin pasar por `FT_T_TPG1`).
+  - **Contraseña de base de datos como parámetro de evento (§6.23):** `PartySetupDifusion` la pasa a
+    `RDR_Difusion_OLAP`.
+  - **Alta de SDI (§6.19bis):** si `SSIsCreateNew` o el mensaje MDX fallan, solo queda una fila de auditoría y la
+    SDI no se difunde; el prefijo `NoCodOid::` condiciona la información que recoge el reporte.
+  - **Cocinado de alertas (spec común de alertas, §4.2.1):** marca el informe pendiente aunque no haya mensajes.
+
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
 (`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
-salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap técnico G4
-(`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
-LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
-decisión completo — señalado como no bloqueante. El gap técnico G5 (`AltaFondos_Genera_csv.jar`, primer paso
+que ahora incluye también el punto de entrada `main.Main` (decompilado del jar real, §6.1). El gap técnico G4
+(`Investors_Client_Reg_resp.jar`) queda **resuelto por completo** con el jar real: orquestación `Main`→`Peticiones`→
+`Peticion`→`Fondo`, uso de `selectDuplicateMurexStar` y escritura de `ALTA_FONDOS_PEND` (§6.2). El gap técnico G5 (`AltaFondos_Genera_csv.jar`, primer paso
 de R8) queda **resuelto por completo, incluida la clase orquestadora real**: `Peticiones`/`Fondo`/`CSVLine`
 confirman el flujo completo (§6.3), y `main.Main` (§6.10) confirma los valores reales de invocación —
 **`args[3]="NODCS"`** (esta ejecución concreta procesa el canal no-DCS; `DigitalCrossSelling` sale de otra
@@ -1524,8 +1777,9 @@ final **no está acotado al proceso que lo disparó**, es un barrido global de t
 todo el sistema. Con esto, **R8 queda funcionalmente resuelto de principio a fin, sin cabos sueltos
 bloqueantes**. Actualización con el material posterior: `main.Main` de `AltaFondos_CuadreCarga.jar` (§6.20),
 `main.Ppal` de ambos jars de alertas (§6.14), el subworkflow `Mail` (§6.15) y los seis subworkflows de
-`RDR_AltaFondos_Autocalc_PARTY` (§6.13, §6.21) ya están analizados; solo quedan sin ver los subworkflows internos
-de cálculo regulatorio (P-BCR-10), `ProcesoCLS`/`ReportesRDR` y `AlertasEnvioExcepciones`.
+`RDR_AltaFondos_Autocalc_PARTY` (§6.13, §6.21) ya están analizados; los subworkflows internos
+de cálculo regulatorio (P-BCR-10) están ya analizados (§6.22) y también `ReportesRDR` y `AlertasEnvioExcepciones` (spec
+común de alertas); solo quedan sin ver `ProcesoCLS` y `DocumentGenerator`.
 
 El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la
 confirmación de nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, pero
@@ -1540,7 +1794,8 @@ real con una validación de 2 niveles (estado de la petición + contenido embebi
 fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
 timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
 variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
-bloqueantes; quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`.
+bloqueantes; `SSIs_Valida_Fx`, `SSIs_Fx_Exec`, `SSIs_Fx_Reporte`, `SSIsData_Fx`, `SSIsCreateNew` y `SSIs_Fx_Difusion` están analizados
+(§6.19bis).
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
 
@@ -1548,4 +1803,4 @@ no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya
 afirmaciones de la ficha funcional: ventana partida en dos con un hueco 11:30-12:30, FileWatcher sobre el patrón
 ACKNACK con espera de 60 minutos, comprobaciones con espera de 5 minutos y lógica invertida para el lock, Run As
 `root` y `sleep 360` para el retardo, y regla `ON NOTOK → OK` que oculta los fallos internos de R6-R10. Quedan
-abiertas como preguntas (no como riesgos nuevos) P-BCR-01 a P-BCR-07 (§4).
+abiertas como preguntas (no como riesgos nuevos) P-BCR-01, 03, 04, 06, 07 y 08 y, en parte, P-BCR-02 y P-BCR-05 (§4); P-BCR-09 y P-BCR-10 quedan resueltas.

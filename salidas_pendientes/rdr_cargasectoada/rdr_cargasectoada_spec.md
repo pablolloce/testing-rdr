@@ -5,7 +5,9 @@
 > técnico, ya combina capturas de Control-M y fichas SSDD de la mayoría de los 36 jobs de las 2 cadenas), más
 > 8 fichas oficiales EX-005-03 aportadas: los 6 jobs DataX de arranque
 > (`MEKYTL1273`/`1274`/`1275`/`1281`/`1282`/`1283`) y los 2 jobs de Historificación del Tramo 1
-> (`MEKYTL1287`/`1293`). Lo esencial de cada ficha está recogido en esta spec (§5 y §6).
+> (`MEKYTL1287`/`1293`). Lo esencial de cada ficha está recogido en esta spec (§5 y §6). Segunda pasada de cierre
+> (02/10/2026): jar `RDR_SectorizacionEmisores.jar` 0.0.1-SNAPSHOT (rama de Eduardo, compilado el 26/08/2026 con JDK 17),
+> descompilado con `cfr` y analizado clase a clase (§6.5 y §6.6).
 >
 > **Estado: sin gaps de evidencia sobre la topología; quedan preguntas abiertas sobre el contenido de los `.properties` y de los ficheros (§4, P-ADA-nn).** Los 6 jobs DataX y los 2 jobs de Historificación del Tramo 1
 > quedan confirmados con ficha oficial real. **2 hallazgos confirmados, no supuestos:** (1) el job de
@@ -80,9 +82,9 @@ anterior, saltando el fin de semana), pero para T1/T2 el lunes se pide ODATE-1 (
 * **Ámbito técnico:** los 2 folders Control-M completos, `KYTL0000-RDR_CARGASECTOADA` (18 pasos) y
   `KYTL0000-RDR_CARGASECTOADA_2` (18 pasos) — 36 pasos en total.
 * **Fuera de alcance:** el contenido de los `.properties` de `GSProcess.sh` de los pasos Delta
-  (`T<N>_<Fichero>`) y Reporte (`ReporteSectorizacionT<N>`) y el detalle interno del jar
-  `RDR_SectorizacionEmisores.jar` (mapeo de campos, tablas que escribe); los `.properties` de la Carga Core
-  `CargaSectorizacionT1/T2/T3` sí se conocen (§6.4); ver P-ADA-01; la confirmación funcional de por qué existen 2 cadenas con calendarios
+  (`T<N>_<Fichero>`) y Reporte (`ReporteSectorizacionT<N>`) y el cuerpo del procedimiento Oracle
+  `PRC_CONCILIACION_SECTORIZACION` (el jar `RDR_SectorizacionEmisores.jar` y los `.properties` de la Carga Core
+  `CargaSectorizacionT1/T2/T3` sí están analizados: §6.4 a §6.6); ver P-ADA-01 y P-ADA-08; la confirmación funcional de por qué existen 2 cadenas con calendarios
   complementarios sobre la misma fuente DataX (§4 GAP-ADA-004).
 
 ## 3. Requisitos detectados
@@ -107,7 +109,7 @@ anterior, saltando el fin de semana), pero para T1/T2 el lunes se pide ODATE-1 (
 |----|-----|------------|
 | GAP-ADA-001 | Los 6 jobs de "Transferencia DataX" (arranque real de cada tramo) no tenían ficha propia en el documento original — solo se citaban como predecesores de otros jobs. | **Resuelto (6/6)** con fichas EX-005-03 reales: `MEKYTL1273`/`1274`/`1275` (Cadena 1, T1/T2/T3) y `MEKYTL1281`/`1282`/`1283` (Cadena 2, T1/T2/T3). Confirman que son jobs `datax-agent` reales (máquina `datax-live`), mismo patrón que el job DataX ya confirmado en `kytl001d_ratings_ada`. |
 | GAP-ADA-002 | ¿Es real que la Historificación del Tramo 1 depende de la Carga Core del Tramo 2, rompiendo la independencia de tramos que el propio documento declara? | **Confirmado como hallazgo real, no error de lectura ni de redacción, ahora con las fichas EX-005-03 originales de `MEKYTL1287` y `MEKYTL1293`** (no solo su transcripción en el documento funcional). Ambas fichas repiten de forma idéntica (campo predecesor + descripción textual del cambio) el mismo hallazgo, mismo día (13/12/2025), en 2 cadenas independientes — descarta un error puntual de transcripción. La verificación en ejecución real (TC-004) sigue siendo útil para confirmar el comportamiento en vivo, pero el diseño documentado ya no admite duda razonable. Ver R9, RISK-ADA-001 (§9). |
-| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource). | **Resuelto en parte.** Los tres `.properties` de la Carga Core están ya analizados (§6.4): cada tramo ejecuta una clase distinta de `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo. **No bloqueante:** sigue sin verse el código del jar (qué tablas escribe y con qué mapeo). |
+| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource). | **Resuelto (02/10/2026) en lo que alcanza el jar.** Los tres `.properties` de la Carga Core están analizados (§6.4) y el jar `RDR_SectorizacionEmisores.jar` está descompilado y descrito (§6.5 y §6.6): lee el CSV, filtra y transforma cada fila y la entrega al procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION` con 9 parámetros; las tres clases usan el mismo procedimiento. **Lo que escribe en GoldenSource el procedimiento no está en el jar**: nueva pregunta P-ADA-08. |
 | GAP-ADA-004 | ¿Por qué existen 2 cadenas tirando del mismo `transferId` de DataX? | **Resuelto por deducción de los calendarios (pendiente de confirmación funcional, P-ADA-06):** `RDR_CARGASECTOADA` corre martes a viernes (`2,3,4,5`) y `RDR_CARGASECTOADA_2` solo lunes (`1`); ambos cambios se fecharon el 10/02/2026. No se solapan nunca, comparten carpetas de trabajo y parámetros de `GSProcess.sh`, por lo que funcionan como un único proceso de lunes a viernes partido en dos folders. (Una interpretación anterior, "cadena de respaldo semanal / en desactivación", queda descartada por esta evidencia.) |
 | GAP-ADA-005 | ¿Piden ambas cadenas el mismo corte de datos (`CUTOFF_DATE`) para el mismo `transferId`? | **Confirmado como hallazgo (no gap de evidencia):** T1/T2 piden `ODATE-1` en las dos cadenas (4 fichas). T3: `MEKYTL1275` (martes-viernes) pide `ODATE-1` y `MEKYTL1283` (lunes) pide `ODATE-3`. Dado que la cadena 2 solo corre los lunes, `ODATE-3` equivale al viernes anterior, lo que encaja con saltar el fin de semana (deducción, P-ADA-02); en T1/T2 el lunes se pide el domingo (`ODATE-1`). Ver RISK-ADA-002 (§9). |
 
@@ -116,13 +118,15 @@ Preguntas abiertas (no hay respuesta en ninguna fuente disponible):**
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-ADA-01 | **Resuelta en parte.** De las 9 claves de `GSProcess.sh` ya se conocen las tres de la Carga Core (`CargaSectorizacionT1/T2/T3`, §6.4): cada una ejecuta una clase del jar `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo del tramo, y la de T2 lee además el CSV de T1. **Sigue abierto:** el contenido de las 3 claves Delta (`T1_CatalogValuesTaxonomy`/`T2_RelValuesTaxonomy`/`T3_IssuersIssuesCustomer`) y de las 3 de Reporte (`ReporteSectorizacionT1/T2/T3`), qué tablas de GoldenSource escribe cada clase de la carga, qué informe se genera, dónde queda y a quién se envía | Es el resultado de negocio del proceso; sin ello no se pueden definir datos de prueba ni resultados esperados de carga/reporte |
+| P-ADA-01 | **Resuelta en parte.** De las 9 claves de `GSProcess.sh` ya se conocen las tres de la Carga Core (`CargaSectorizacionT1/T2/T3`, §6.4): cada una ejecuta una clase del jar `RDR_SectorizacionEmisores.jar` sobre el CSV de trabajo del tramo (la de T2 lee además el CSV de T1), y el jar está analizado (§6.5): las tres clases llaman al mismo procedimiento `PRC_CONCILIACION_SECTORIZACION` (P-ADA-08). **Sigue abierto:** el contenido de las 3 claves Delta (`T1_CatalogValuesTaxonomy`/`T2_RelValuesTaxonomy`/`T3_IssuersIssuesCustomer`) y de las 3 de Reporte (`ReporteSectorizacionT1/T2/T3`), qué informe se genera, dónde queda y a quién se envía; el jar no contiene ninguna clase de informe | Es el resultado de negocio del proceso; sin ello no se pueden definir datos de prueba ni resultados esperados de carga/reporte |
 | P-ADA-02 | ¿Qué fecha lleva en su nombre el fichero que DataX deja en `/unload/kytl/datent/datax/`? El `cp` de ingesta busca `<Fichero>_%%$ODATE.csv` (fecha de ejecución), pero `MEKYTL1273/1274/1275` piden `CUTOFF_DATE=ODATE-1` (y `MEKYTL1283` `ODATE-3`) con `--dstParam gf_cutoff_date:YYYYMMDD` | Si el nombre lleva la fecha de corte, el `cp` no lo encontraría y la ingesta fallaría (KO) |
 | P-ADA-03 | Líneas completas del `INFORMACION_HISTORIFICACIONES.IDX` de las claves `MEKYTL1287/1288/1289` y `MEKYTL1293/1294/1295` (operación, si exige fichero, fecha en el nombre de backup) | Define el comportamiento real si falta el fichero y si el original se mueve o se copia |
 | P-ADA-04 | Significado del parámetro `--srcParam "ENTIFIC_ID:HO"` presente en T1/T2 y ausente en T3 | Posible filtro de entidad; afecta a qué datos se reciben |
-| P-ADA-05 | Formato y columnas de los 3 CSV (`CatalogValuesTaxonomy`, `RelValuesTaxonomy`, `IssuersIssuesCustomer`): cabecera, separador, campos, volumen | Sin ello no se pueden construir ficheros de prueba |
+| P-ADA-05 | Formato y columnas de los 3 CSV (`CatalogValuesTaxonomy`, `RelValuesTaxonomy`, `IssuersIssuesCustomer`): cabecera, separador, campos, volumen | Sin ello no se pueden construir ficheros de prueba. **Resuelta en parte (02/10/2026):** el código del jar fija el separador (barra vertical), la codificación (ISO-8859-1), que la primera línea es cabecera y qué posiciones se usan en cada fichero (§6.5; mínimos de 6, 16 y 5 columnas). **Sigue abierto** el nombre y significado de las demás columnas, el texto de la cabecera y el volumen: no hay muestra del fichero |
 | P-ADA-06 | Confirmación funcional de que las 2 cadenas son complementarias (lunes / martes-viernes) y de qué ocurre si el lunes es festivo (no se carga nada hasta el martes, que es otra cadena) | Cobertura de calendario |
 | P-ADA-07 | Significado exacto de las siglas ADA y SAA (el nombre `ekytl_ada_saatransfer_1` sugiere "Strategic/Sector Asset Allocation", sin confirmar) | Vocabulario de negocio |
+| P-ADA-08 | **Nueva (02/10/2026).** Cuerpo del procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION` (9 parámetros): qué tablas de GoldenSource escribe o actualiza para cada tipo (`T1`, `T2_RE`, `T2_BB`, `T3`), cómo concilia y qué deja en `FT_T_RLT1` | Es el resultado de negocio de la carga: sin él no se sabe qué cambia en GoldenSource ni se pueden definir resultados esperados sobre datos |
+| P-ADA-09 | **Nueva (02/10/2026).** ¿Qué paso ejecuta la clase `T2_Sect_Bloom_Refinit_PREV` del jar, que transforma el CSV de T2 en el formato intermedio que lee la Carga Core? Ningún `.properties` recibido la invoca; el candidato por exclusión es el paso Delta `T2_RelValuesTaxonomy` | Si ese paso no se ejecuta, la Carga Core de T2 recibe el CSV sin transformar y carga basura o nada (§6.5) |
 
 ## 5. Especificación funcional
 
@@ -148,11 +152,13 @@ DataX para el corte pedido; la carpeta de trabajo de cada tramo existe.
 | T3 | `IssuersIssuesCustomer_<F>.csv` | `T3_IssuersIssuesCustomer/T3_IssuersIssuesCustomer.csv` | `T3_IssuersIssuesCustomer/backup/T3_IssuersIssuesCustomer_<F>.csv` | Sectorización ADA (contactos en el inventario DataX común) |
 
 Propietarios: origen `xtkytl1p`/`gtkecs1`; destino de trabajo `xakytl1p`/`gakytl1p`. Los tres pasos de ingesta
-sobrescriben cada día el mismo fichero de trabajo. Columnas y formato de los CSV: P-ADA-05. El inventario común
+sobrescriben cada día el mismo fichero de trabajo. Columnas y formato de los CSV: separador `|` y columnas que
+se usan, en §6.5 (el resto, P-ADA-05). El inventario común
 de recepciones DataX (`salidas_pendientes/comun_datax/comun_datax_spec.md` §5) lista los tres ficheros con el patrón
 `<Nombre>_{gf_cutoff_date}.csv`; la relación entre esa fecha y la `%%$ODATE` del `cp` es la pregunta P-ADA-02.
 
-**Resultado.** Datos cargados en GoldenSource por `CargaSectorizacionT<N>` (tablas: P-ADA-01); fichero del día
+**Resultado.** Datos cargados en GoldenSource por `CargaSectorizacionT<N>`, que llama fila a fila al procedimiento
+Oracle `PRC_CONCILIACION_SECTORIZACION` (§6.5; las tablas que escribe son P-ADA-08); fichero del día
 en `backup/` con la fecha de ejecución (y ya no en la carpeta de trabajo); un reporte consolidado por tramo
 (contenido y destino: P-ADA-01). Los reportes no publican evento final: cierran cada tramo.
 
@@ -270,17 +276,127 @@ Argumentos comunes: `ArgJava1=2` es el nivel de log (INFO) y `ArgJava2` el fiche
 `log4jCargaSectorizacion.properties` de `.../dat/properties`. Lo que se deduce:
 - **Cada tramo lee el CSV de trabajo que dejó el paso de ingesta** (la misma ruta `.../T<N>_<Fichero>/T<N>_<Fichero>.csv`
   a la que copia `MEKYTL1284…1286`), y es la carga real: el paso Delta (`GSProcess.sh T<N>_<Fichero>`) se
-  ejecuta antes y no se ha visto qué hace con ese fichero.
+  ejecuta antes y no se ha visto su `.properties`. Pero el jar (§6.5) deja una pista fuerte para T2: la Carga Core
+  de T2 espera un CSV ya transformado (5 columnas, sin cabecera) que solo genera la clase
+  `T2_Sect_Bloom_Refinit_PREV`; como la Carga Core de T2 no la ejecuta, tiene que ejecutarla un paso anterior del
+  tramo, y el único candidato es el Delta de T2 (P-ADA-09).
 - **El tramo T2 recibe también el CSV del T1** (el catálogo de valores de taxonomía). Esto encaja con el hallazgo
   GAP-ADA-002: la Historificación del Tramo 1 espera a la Carga Core del Tramo 2 porque T2 todavía necesita el
   fichero de T1 (si el backup lo mueve, P-ADA-03). Es una explicación coherente con el código, no una
   confirmación escrita del equipo.
-- Los nombres de clase sugieren el contenido: catálogo de valores con descripciones (T1), sectorización
-  Bloomberg/Refinitiv "POST" (T2) y sectorización ADA de emisores/clientes (T3). No se ha visto el jar.
-- **Defecto probable en T2:** `JDKV=17` está en T1 y T3 pero no en T2. Sin `JDKV=17`, `GSProcess.sh` usa el JDK por
-  defecto (no el 17); si las clases del jar están compiladas para 17 (el hecho de que T1 y T3 lo exijan lo
-  sugiere), T2 fallaría al arrancar con `UnsupportedClassVersionError` en un entorno cuyo JDK por defecto sea
-  anterior. Hay que comprobar el `.properties` de producción y el JDK por defecto.
+- Qué hace cada clase (catálogo de valores con descripciones en T1, sectorización Bloomberg/Refinitiv en T2 y
+  sectorización de emisores/clientes en T3) está ahora descrito con el código del jar en §6.5 y §6.6.
+- **Defecto en T2, ahora con causa confirmada:** `JDKV=17` está en T1 y T3 pero no en T2. Sin `JDKV=17`,
+  `GSProcess.sh` usa el JDK por defecto (no el 17). Las clases del jar están compiladas en formato Java 17
+  (versión de clase 61; el `pom.xml` fija `maven.compiler.target=17` y se construyó con JDK 17.0.20), así que en un
+  entorno cuyo JDK por defecto sea anterior T2 fallará al arrancar con `UnsupportedClassVersionError`. Lo que
+  sigue sin saberse es cuál es el JDK por defecto y si el `.properties` de producción de T2 sí lo fija
+  (H-ADA-01).
+
+### 6.5 El jar `RDR_SectorizacionEmisores.jar` (descompilado, 02/10/2026)
+
+Jar Maven `com.bbva.kytl.sectorizacionemisores:RDR_SectorizacionEmisores:0.0.1-SNAPSHOT` («Proceso carga de
+Sectorizaciones procedentes de ADA»), compilado el 26/08/2026 con JDK 17 (clases en formato Java 17). Depende de
+`ConexionBD` (jar externo con `jdbc.ConDB`: `ObtenerCredenciales` y `ObtenerConexion`, que no está en el material),
+`ojdbc8` y `log4j` 1.2.17. Clases: `T1_Values_Desc_Catalog`, `T2_Sect_Bloom_Refinit_POST`,
+`T2_Sect_Bloom_Refinit_PREV`, `T2_Sect_Bloom_Refinit`, `T3_SectorizacionADA` (paquete
+`main.java.sectorizacionemisores`, el que nombran los `.properties`), `main.java.jdbc.Querys` y
+`main.java.util.{Utilidades,Ficheros,Metodos}` (utilidades que estas clases no usan, salvo `generateJOBID`).
+
+**Estructura común de las cuatro clases con carga** (T1, T2 `POST`, T2 `PREV` y T3):
+1. Exigen al menos 4 argumentos; si faltan, escriben el modo de uso y salen con **código 1**. Argumentos: 0 =
+   nivel de log (`1` DEBUG, `2` INFO, `3` ERROR, `4` FATAL; un valor no numérico provoca excepción y salida con
+   código 1), 1 = fichero de configuración de `log4j`, 2 = (según la clase) fichero de T1, 3 = fichero de
+   trabajo del tramo. El quinto argumento (`T1`/`T2`/`T3`) no se lee. En el nombre del fichero, las cadenas
+   `YYYY`, `MM` y `DD` se sustituyen por la fecha de hoy (los `.properties` recibidos no las usan).
+2. Abren **10 conexiones** a la base de datos (`PREV`, una) con las credenciales del entorno y generan un
+   identificador de job de 16 letras minúsculas. Crean un job en `FT_T_JBLG` (`JOB_STAT_TYP='OPEN'`,
+   `JOB_MSG_TYP` = nombre de la clase: `T1_Values_Desc_Catalog`, `T2_Sect_Bloom_Refinit_POST`,
+   `T2_Sect_Bloom_Refinit_PREV`, `T3_SectorizacionADA`) y lo cierran al terminar (`CLOSED`, hora de fin y duración).
+3. Leen el fichero en ISO-8859-1, separan cada línea por el carácter `|`, y reparten las filas válidas entre las 10
+   conexiones, un hilo por fila (hilo `i mod 10`), esperando a que acaben todos cada 10 filas y al final (en T3 no
+   hay espera final: ver RISK-ADA-005). Cada hilo llama a **`{call PRC_CONCILIACION_SECTORIZACION(?,?,?,?,?,?,?,?,?)}`**
+   con 9 parámetros de texto; las cadenas vacías llegan a Oracle como nulos. El parámetro 1 es el tipo
+   (`T1`, `T2_RE`, `T2_BB`, `T3`) y el 9 el identificador de job.
+4. Si la llamada lanza una excepción, la clase escribe la traza y el mensaje en el log y **inserta una fila de error en
+   `FT_T_RLT1`** (`RLT_PURP_TYP='ERRORES'`, `RLT_DIF_STAT='SECTORIZAC'`, `RLT_DIF_ACC='Error'`,
+   `MESSAGE_RLT='Error al llamar al PL'`, `DATA_SRC_APP` y `LAST_CHG_USR_ID` = el tipo, `MAIN_ENTITY_NME='RDR ID'`,
+   `MAIN_ENTITY_ID` = el identificador de la fila, `RLT_FIELD` = el tipo traducido en T1, `RE|<id>`/`BB|<id>` en T2 y
+   el propio identificador en T3, `RLT_STATUS` nulo) y sigue con la fila siguiente. Solo se registran así los errores que el procedimiento *propaga*; lo que el
+   procedimiento resuelva por dentro no se ve desde Java.
+5. **Todos los fallos de nivel de fichero** (no existe, vacío, sin cabecera, solo cabecera, línea corta, excepción de
+   lectura) **solo se escriben en el log de `log4j`**: la función que debería insertarlos en `FT_T_RLT1` recorre una
+   lista que nunca se rellena (salvo un caso residual de T2), así que no producen ninguna fila. Un fichero
+   inexistente o vacío cierra el job y el programa **termina con código 0**: el `GSProcess.sh` del tramo sale en
+   verde sin haber cargado nada.
+
+**T1 — `T1_Values_Desc_Catalog`** (fichero `T1_CatalogValuesTaxonomy.csv`, mínimo 6 columnas):
+- Si el fichero no existe, está vacío, no tiene cabecera o solo tiene cabecera: log de error, cierra el job y sale.
+- Salta la primera línea. Una línea con menos de 6 campos se descarta con un mensaje de log.
+- Toma tres columnas: posición 0 = identificador del valor de catálogo (`gf_catalog_val_id`), posición 2 =
+  descripción en inglés (`gf_catlg_field_value_en_desc`), posición 3 = identificador de catálogo
+  (`g_catalog_id`). Traduce el catálogo así: `C162` → `SAASECT   `, `C164` → `SAASUBS   `, `C039` → `SAACCT    `
+  (los tres rellenados con espacios hasta 10 caracteres), `H000` → `RE` y `H001` → `BB`. **Cualquier otro
+  identificador de catálogo se descarta en silencio** (sin log ni fila).
+- Llamada: `T1`, identificador, descripción, tipo traducido, cuatro vacíos, job. En caso de error de la llamada, la
+  fila de `FT_T_RLT1` lleva el identificador de la fila y el tipo traducido.
+
+**T2 — dos pasos en dos clases (`PREV` y `POST`)**:
+- **`T2_Sect_Bloom_Refinit_PREV`** (una conexión; solo usa el argumento 3, el CSV de T2) *transforma el fichero de
+  T2 en el sitio*. Lee el CSV bruto de relaciones (mínimo **16** columnas; salta la cabecera): la posición 1 es el
+  identificador de relación, y las posiciones 6 y 7 el valor de catálogo inicial y final. Solo cuenta cinco
+  relaciones: `H288` (valores `RE`), `H030` (valores `BB`), `A533` (de valor a actividad) y `RH08`/`RH07` (de
+  actividad a sector y a subsector). Para cada clave `H288` genera la línea `RE|<clave rellenada con * hasta 10>|<sector>|<subsector>|<actividad>`,
+  y para cada `H030`, `BB|<clave>|<sector>|<subsector>|<actividad>` (actividad = `A533[final]`, sector = `RH08[actividad]`,
+  subsector = `RH07[actividad]`; un valor que falte se escribe como el texto `null`). Después **sobrescribe el CSV de
+  T2 con esas líneas, sin cabecera**. No llama a `PRC_CONCILIACION_SECTORIZACION`.
+- **`T2_Sect_Bloom_Refinit_POST`** (la que ejecuta `CargaSectorizacionT2`; 10 conexiones) lee primero el CSV de T1
+  (argumento 2): salta la cabecera, descarta líneas de menos de 6 campos (y las anota en la lista de errores), y
+  guarda dos mapas por la columna 3 (catálogo): `H000` → mapa de `RE` y `H001` → mapa de `BB`, con clave la columna 0 y
+  valor la columna 2 (la descripción). Si el CSV de T1 no existe solo se registra en el log y **sigue**: las
+  descripciones saldrán nulas; si existe pero está vacío, cierra el job y termina sin leer T2. Después lee el CSV de
+  T2 **ya transformado**, sin saltar cabecera: descarta líneas de menos de 5 campos y, para cada una, llama al
+  procedimiento con: tipo `T2_RE` si el texto `<RE|BB>|<id>` contiene las letras `RE`, `T2_BB` en otro caso; parámetro 2
+  = `RE|<id>` o `BB|<id>`; parámetro 3 = la descripción del mapa de T1 (de `RE` si la columna 0 es `RE`, de `BB`
+  en otro caso) por el identificador; parámetro 4 vacío; 5 = identificador; 6, 7, 8 = sector, subsector, actividad
+  (columnas 2, 3, 4); 9 = job. Si la llamada falla inserta la fila de error con el tipo (en una fila `RE` que falla,
+  **dos filas**, una `T2_RE` y otra `T2_BB`, por un `if` sin `else`).
+- **`T2_Sect_Bloom_Refinit`** (sin sufijo) es la versión de un solo paso (hace en memoria lo que `PREV` y `POST` hacen
+  en dos). Ningún `.properties` recibido la invoca.
+
+**T3 — `T3_SectorizacionADA`** (fichero `T3_IssuersIssuesCustomer.csv`, mínimo 5 columnas):
+- Misma validación de fichero que T1 (inexistente, vacío, sin cabecera, solo cabecera). Salta la cabecera y descarta las
+  líneas de menos de 5 campos.
+- Usa la posición 1 = identificador del operativo (`gf_rdr_operative_id`) y las posiciones 2, 3 y 4 = tipo de sector,
+  de subsector y de actividad. **Descarta** la fila-marcador `X` / `XX` / `X_X` con identificador vacío.
+- **Deduplicación por identificador:** la primera fila de cada identificador se procesa siempre; una fila
+  posterior con el mismo identificador solo se procesa si su sector contiene el texto `ES0182` y todavía no se ha
+  procesado ninguna fila `ES0182` de ese identificador. Es decir, como máximo se procesan dos filas por
+  identificador (la primera y, si no lo era, la primera `ES0182`).
+- Llamada: `T3`, tres vacíos, identificador, sector, subsector, actividad, job. Si falla, la fila de error lleva el
+  identificador del operativo en `MAIN_ENTITY_ID` y en `RLT_FIELD`.
+
+### 6.6 Qué cambia en la operación por lo visto en el jar
+
+- **Un solo procedimiento para los tres tramos**: toda la «carga» es una llamada a `PRC_CONCILIACION_SECTORIZACION`
+  por fila (la conciliación y las tablas afectadas están dentro del procedimiento: P-ADA-08). No hay informe en el
+  jar: los tres `GSProcess.sh ReporteSectorizacionT<N>` no pertenecen a este código (P-ADA-01).
+- **T2 no funciona sin su paso previo** (P-ADA-09): `POST` lee un fichero de 5 columnas sin cabecera; con el fichero
+  bruto del paso de ingesta, sus columnas 2 a 4 serían campos cualesquiera del bruto y las filas con menos de 5
+  campos se descartarían.
+- **Consecuencia probable en la historificación de T2** (deducción, depende de P-ADA-09): si `PREV` se ejecuta en el
+  Delta de T2, sobrescribe el CSV de trabajo, y el backup de `MEKYTL1288`/`MEKYTL1294` guardaría el fichero ya
+  transformado (5 columnas, sin cabecera), no el bruto de DataX.
+- **Orden dentro del tramo T2**: la descripción de cada `RE`/`BB` sale del CSV de T1 vigente cuando se ejecuta
+  `CargaSectorizacionT2`. Es la razón técnica de que la Historificación de T1 espere a la Carga Core de T2
+  (GAP-ADA-002); el riesgo inverso (T2 leyendo un T1 aún en uso por la Carga Core de T1) es de lectura, no de
+  escritura, pero el backup de T1 sí mueve el fichero.
+- **Verde engañoso**: salvo argumentos incorrectos, error de formato del nivel o caída de conexión, el programa sale
+  siempre con código 0, también con fichero inexistente o vacío. El único rastro es el log de `log4j`
+  (`log4jCargaSectorizacion.properties`, no recibido: H-ADA-02) y las filas `ERRORES` de `FT_T_RLT1` de las llamadas
+  que fallan.
+- **Registros que se pierden sin aviso**: catálogos distintos de `C162/C164/C039/H000/H001` en T1; filas repetidas de
+  T3 (salvo la `ES0182`); líneas cortas (solo log).
 
 ## 7. Especificación de testing
 
@@ -298,6 +414,8 @@ Referencia de casos por tipo:
 - `regresion`: TC-008 (criticidad y protocolo de rearranque uniformes en los 36 jobs).
 - `conflicto_integridad`: TC-009 (**verificación de GAP-ADA-005** — el corte de datos de T3 difiere 2 días entre cadenas pese a compartir `transferId`).
 - `conflicto_integridad`: TC-010 (**Carga Core de T2**: lee el CSV de T1 además del suyo y exige el JDK 17 que no fija su `.properties`).
+- `datos_sinteticos`: TC-011 (T1: traducción de catálogos y descarte silencioso), TC-012 (T3: deduplicación por identificador y fila marcador).
+- `error_funcional`: TC-013 (T2: formato intermedio `PREV` → `POST`), TC-014 (código 0 con fichero inexistente o vacío y fallo de la llamada al procedimiento).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -311,6 +429,9 @@ Referencia de casos por tipo:
 | R10 (criticidad/rearranque uniforme) | TC-008 | Confirma que no ha cambiado en revisiones futuras |
 | Topología completa (36 pasos) | TC-007 | Confirma en revisiones futuras que no cambia el número de jobs ni las dependencias |
 | §6.4 (Carga Core T2: CSV de T1 y JDK) | TC-010 | Confirma que T2 arranca con el JDK correcto y que encuentra el CSV de T1 cuando se ejecuta |
+| §6.5 (T1: catálogos y descartes; T3: deduplicación) | TC-011, TC-012 | Confirma qué filas llegan al procedimiento y con qué parámetros |
+| §6.5 (T2: transformación `PREV` previa) | TC-013 | Confirma el formato intermedio que exige la Carga Core de T2 |
+| §6.5 (códigos de salida y filas de error) | TC-014 | Confirma que un fichero ausente no da error de job y que un fallo de la llamada deja fila `ERRORES` |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
@@ -338,7 +459,20 @@ Referencia de casos por tipo:
   `ODATE-1` (el lunes festivo) en T1/T2/T3.
 * **Defecto probable (§6.4):** `CargaSectorizacionT2.properties` no fija `JDKV=17` (sí lo hacen T1 y T3). Verificar con
   el `.properties` de producción; de ser así, la carga de T2 falla en un entorno cuyo JDK por defecto sea anterior.
-* **No bloqueante (GAP-ADA-003):** falta el código del jar `RDR_SectorizacionEmisores.jar` (tablas escritas y mapeo).
+* **Resuelto en lo que alcanza el jar (GAP-ADA-003):** el código de `RDR_SectorizacionEmisores.jar` está analizado
+  (§6.5); queda como pregunta nueva el cuerpo del procedimiento `PRC_CONCILIACION_SECTORIZACION` (P-ADA-08).
+* **RISK-ADA-003 (nuevo, prioridad media-alta, §6.5):** los tres programas de carga salen con código 0 aunque el
+  fichero no exista o esté vacío, y los fallos de fichero solo van al log de `log4j`: un tramo puede quedar «en verde» sin
+  haber cargado nada, y solo se ve en el log o en que no hay filas nuevas.
+* **RISK-ADA-004 (nuevo, §6.5):** T2 depende de un paso previo (`T2_Sect_Bloom_Refinit_PREV`) que ningún
+  `.properties` recibido ejecuta (P-ADA-09); si ese paso no se ejecuta, la Carga Core de T2 recibe el CSV bruto.
+* **RISK-ADA-005 (nuevo, §6.5):** `T3_SectorizacionADA` no espera a los últimos hilos (hasta 10 filas) antes de
+  cerrar el job y las conexiones: esas llamadas pueden fallar con conexión cerrada o terminar después del
+  cierre del job. T1 y T2 sí esperan.
+* **RISK-ADA-006 (nuevo, §6.5):** pérdida silenciosa de datos por diseño: en T1 se descartan los catálogos distintos de
+  `C162/C164/C039/H000/H001`; en T3 se descartan las filas repetidas de un identificador salvo la primera
+  `ES0182`; en T2 el tipo `T2_RE`/`T2_BB` se decide con `contains("RE")` sobre `<tipo>|<id>`, de modo que un
+  identificador `BB` cuyo código contenga las letras `RE` se enviaría como `T2_RE`.
 * **Resuelto por deducción (GAP-ADA-004):** las 2 cadenas son calendarios complementarios (lunes / martes a
   viernes) sobre la misma fuente DataX y las mismas carpetas; pendiente de confirmación funcional (P-ADA-06).
 * **Defecto documental menor, no técnico:** placeholder `DDMMYYYY` sin rellenar en la ficha real de
@@ -357,4 +491,12 @@ documentado como caso de prueba explícito (TC-004) en vez de asumirlo sin verif
 de `MEKYTL1283` revela un segundo hallazgo: pide un corte de datos distinto (`ODATE-3` vs. `ODATE-1`), coherente
 con que esa cadena solo corra los lunes (RISK-ADA-002, GAP-ADA-005, TC-009). El proceso queda con 0 gaps de
 evidencia sobre la topología, 2 hallazgos de diseño pendientes de verificación en vivo y las preguntas abiertas
-P-ADA-01 a P-ADA-07 de §4 (sobre todo el contenido de los `.properties`, que define qué se carga y qué se reporta).
+P-ADA-01 a P-ADA-09 de §4 (sobre todo el contenido de los `.properties` Delta y Reporte y el cuerpo del procedimiento
+`PRC_CONCILIACION_SECTORIZACION`, que definen qué se carga y qué se reporta).
+
+**Segunda pasada de cierre (02/10/2026).** El jar `RDR_SectorizacionEmisores.jar` ya está descompilado y descrito
+(§6.5 y §6.6): GAP-ADA-003 queda resuelto en lo que alcanza el código Java; P-ADA-01 y P-ADA-05 pasan a resueltas en
+parte (formato de los CSV y destino de la carga); aparecen dos preguntas nuevas, P-ADA-08 (cuerpo de
+`PRC_CONCILIACION_SECTORIZACION`) y P-ADA-09 (qué paso ejecuta `T2_Sect_Bloom_Refinit_PREV`), y cuatro riesgos nuevos
+(RISK-ADA-003 a RISK-ADA-006). El defecto probable de T2 (sin `JDKV=17`) pasa a causa confirmada: las clases son
+de Java 17.

@@ -195,13 +195,97 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar GSProcess.sh CargaSectorizacionT2 con ambos ficheros presentes y comprobar en el log que arranca sin UnsupportedClassVersionError y que la clase T2_Sect_Bloom_Refinit_POST procesa los dos ficheros.</paso>
-      <paso numero="2">Repetir sin el CSV de T1 (retirado a mano) y anotar el resultado de la carga de T2.</paso>
+      <paso numero="2">Repetir sin el CSV de T1 (retirado a mano) y anotar el resultado de la carga de T2. Según el código del jar no debe fallar: el log de log4j registra que el fichero de T1 no existe, no se crea ninguna fila de error y T2 se procesa con la descripción (parámetro 3 del procedimiento) nula.</paso>
       <paso numero="3">Ejecutar la cadena completa y comprobar que el backup de T1 (MEKYTL1287) no se ejecuta hasta que acaba GS_CARGASECTO_T2, y qué ocurre con el CSV de T1 después del backup (se mueve o se copia, P-ADA-03).</paso>
     </pasos>
-    <resultadoEsperado>T2 arranca con el JDK adecuado y falla de forma visible si falta el CSV de T1; el backup de T1 no se adelanta a T2.</resultadoEsperado>
+    <resultadoEsperado>T2 arranca con el JDK adecuado; sin el CSV de T1 la carga no falla sino que sigue con descripciones nulas y solo deja una línea en el log (comportamiento a anotar como riesgo); el backup de T1 no se adelanta a T2.</resultadoEsperado>
     <tipoValidacion>Inspección de logs y del sistema de ficheros.</tipoValidacion>
     <criterioAceptacion>Sin error de versión de Java y comportamiento ante la ausencia del CSV de T1 conocido y anotado.</criterioAceptacion>
     <posibilidadFallo>Que el .properties de T2 no fije JDKV=17 y la carga falle al arrancar; que T2 lea el CSV de T1 mientras la Carga Core de T1 aún lo está usando.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>T1: traducción de catálogos y descarte silencioso de catálogos no previstos</nombre>
+    <objetivo>Verificar qué filas del CSV de T1 llegan a PRC_CONCILIACION_SECTORIZACION y con qué tipo, y que el resto se descarta sin rastro.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con log4j en nivel INFO (ArgJava1=2) para ver las líneas «ANTES-D-1» y «DESPUES-D-1».</precondicion>
+      <precondicion>CSV de T1 de prueba con separador «|», cabecera y 7 filas: una por cada catálogo C162, C164, C039, H000 y H001 (posición 3), una con catálogo X999 y una con solo 4 campos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Posiciones usadas" valor="0 = identificador, 2 = descripción, 3 = catálogo; mínimo 6 campos"/>
+      <dato campo="Tipos esperados" valor="SAASECT, SAASUBS, SAACCT (rellenados a 10), RE, BB"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh CargaSectorizacionT1 con ese fichero.</paso>
+      <paso numero="2">Contar en el log las parejas «ANTES-D-1» / «DESPUES-D-1» y leer el campo 4 de cada una.</paso>
+      <paso numero="3">Buscar en el log la fila de 4 campos y la de catálogo X999.</paso>
+      <paso numero="4">Consultar FT_T_JBLG (JOB_MSG_TYP='T1_Values_Desc_Catalog') y FT_T_RLT1 del job.</paso>
+    </pasos>
+    <resultadoEsperado>Cinco llamadas al procedimiento con los tipos SAASECT, SAASUBS, SAACCT, RE y BB; la fila de 4 campos solo deja un mensaje «Ignorando ... debido a longitud» en el log; la fila X999 no deja ningún rastro; el job queda CLOSED y no hay filas ERRORES.</resultadoEsperado>
+    <tipoValidacion>Revisión del log de log4j y consulta SQL.</tipoValidacion>
+    <criterioAceptacion>Exactamente 5 llamadas y ninguna fila de error para los 7 registros de entrada.</criterioAceptacion>
+    <posibilidadFallo>Que el fichero real tenga otro separador o menos de 6 columnas (no hay muestra, P-ADA-05) y todas las filas se descarten con código de salida 0.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="datos_sinteticos">
+    <nombre>T3: deduplicación por identificador y fila marcador</nombre>
+    <objetivo>Verificar la regla de T3: la primera fila de cada identificador se procesa; una posterior solo si su sector contiene ES0182 y no se había procesado ya una ES0182; la fila X/XX/X_X con identificador vacío se descarta.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, log4j en INFO.</precondicion>
+      <precondicion>CSV de T3 de prueba con «|», cabecera y filas (posiciones 1 a 4 = identificador, sector, subsector, actividad): A/S1/SS1/AC1; A/ES0182/SS2/AC2; A/ES0182/SS3/AC3; B/S1/SS1/AC1; B/S2/SS2/AC2; vacío/X/XX/X_X; C/ES0182/SS1/AC1; C/ES0182/SS2/AC2.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Filas esperadas en el procedimiento" valor="A/S1, A/ES0182/SS2, B/S1, C/ES0182/SS1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh CargaSectorizacionT3 con ese fichero.</paso>
+      <paso numero="2">Leer en el log las líneas «1: T3 - 5: ...» con el identificador y el sector de cada llamada.</paso>
+    </pasos>
+    <resultadoEsperado>Cuatro llamadas: A con S1, A con ES0182 (la primera, SS2), B con S1 y C con ES0182 (la primera, SS1). Se descartan A/ES0182/SS3, B/S2, la fila marcador y C/ES0182/SS2.</resultadoEsperado>
+    <tipoValidacion>Revisión del log de log4j.</tipoValidacion>
+    <criterioAceptacion>Las 4 llamadas esperadas y ninguna otra.</criterioAceptacion>
+    <posibilidadFallo>Como T3 no espera a los últimos hilos (RISK-ADA-005), alguna de las últimas llamadas puede no aparecer en el log o fallar por conexión cerrada si el fichero es muy corto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="error_funcional">
+    <nombre>T2: el fichero bruto necesita la transformación previa (PREV) antes de la Carga Core</nombre>
+    <objetivo>Confirmar el formato intermedio que lee T2_Sect_Bloom_Refinit_POST y qué paso lo genera.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con los .properties de los pasos Delta y Carga Core de T2 y de los CSV de T1 y T2.</precondicion>
+      <precondicion>CSV bruto de T2 de prueba con «|», cabecera y al menos 16 columnas, con filas de relación H288, H030, A533, RH08 y RH07 (posición 1 = relación, 6 = valor inicial, 7 = valor final), y CSV de T1 con descripciones H000 y H001.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Formato esperado tras PREV" valor="RE|id con * hasta 10|sector|subsector|actividad y BB|id|sector|subsector|actividad, sin cabecera"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso Delta de T2 (GSProcess.sh T2_RelValuesTaxonomy) y comprobar si el CSV de trabajo de T2 queda con el formato de 5 columnas sin cabecera (es decir, si ese paso ejecuta T2_Sect_Bloom_Refinit_PREV); anotar el .properties real.</paso>
+      <paso numero="2">Ejecutar GSProcess.sh CargaSectorizacionT2 y leer en el log las llamadas «1: T2_RE» / «1: T2_BB» con su descripción.</paso>
+      <paso numero="3">Repetir la Carga Core con el CSV bruto sin transformar y anotar el resultado.</paso>
+    </pasos>
+    <resultadoEsperado>Tras el Delta, el CSV de T2 tiene el formato intermedio; la Carga Core llama al procedimiento con T2_RE o T2_BB y la descripción de T1. Con el fichero bruto, las llamadas serían inconsistentes (columnas desplazadas) y sin error de job.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero de trabajo y del log de log4j.</tipoValidacion>
+    <criterioAceptacion>Se identifica qué paso ejecuta PREV (cierra P-ADA-09) y se confirma el formato intermedio.</criterioAceptacion>
+    <posibilidadFallo>Que ningún paso ejecute PREV: entonces la carga de T2 no puede funcionar con el fichero de DataX tal cual y habría que revisar la cadena.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="error_funcional">
+    <nombre>Código de salida 0 con fichero inexistente o vacío y fila de error si falla la llamada al procedimiento</nombre>
+    <objetivo>Confirmar que los programas de carga de T1/T2/T3 salen con código 0 sin fichero, con fichero vacío o con solo cabecera, y que solo un fallo de la llamada al procedimiento deja una fila ERRORES en FT_T_RLT1.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con permiso para renombrar el procedimiento o provocar un error en él (por ejemplo, quitando el permiso de ejecución al usuario de BD).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Casos de fichero" valor="inexistente, vacío (0 bytes), solo cabecera"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh CargaSectorizacionT1 con el CSV de T1 inexistente; anotar el código de salida del job y el contenido del log.</paso>
+      <paso numero="2">Repetir con el fichero vacío y con solo cabecera.</paso>
+      <paso numero="3">Con un fichero válido de una fila, hacer que falle la llamada al procedimiento y consultar FT_T_RLT1 del job.</paso>
+    </pasos>
+    <resultadoEsperado>Los pasos 1 y 2 terminan con código 0 y dejan solo mensajes en el log (sin filas en FT_T_RLT1); el job FT_T_JBLG queda CLOSED. En el paso 3 hay una fila con RLT_PURP_TYP='ERRORES', MESSAGE_RLT='Error al llamar al PL', DATA_SRC_APP='T1' y el identificador de la fila en MAIN_ENTITY_ID.</resultadoEsperado>
+    <tipoValidacion>Código de salida, log y consulta SQL.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de los tres casos de fichero y de la fila de error confirmado.</criterioAceptacion>
+    <posibilidadFallo>Que el entorno de pruebas no permita provocar el error en el procedimiento sin afectar a otros procesos.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

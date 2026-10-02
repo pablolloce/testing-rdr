@@ -21,6 +21,14 @@
 - Motor genérico `RAMERC0068.sh` operativo para la historificación de los 3 tramos en ambas cadenas
   (`MEKYTL1287`/`MEKYTL1293` para T1, y sus equivalentes T2/T3) — su comportamiento real depende de
   `INFORMACION_HISTORIFICACIONES.IDX`, no aportado en esta ronda (GAP-ADA-003, no bloqueante).
+- Procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION` (9 parámetros) desplegado y ejecutable por el usuario de BD
+  de `ConexionBD.jar`, y tablas `FT_T_JBLG` y `FT_T_RLT1` accesibles (las demás tablas destino son P-ADA-08).
+- Jars de la Carga Core en `…/jar`: `RDR_SectorizacionEmisores.jar` (0.0.1-SNAPSHOT, 26/08/2026, Java 17),
+  `ConexionBD.jar` (no recibido), `ojdbc8.jar` y `log4j.jar`; fichero `log4jCargaSectorizacion.properties` en
+  `…/dat/properties` (no recibido). El JDK por defecto del entorno debe ser 17 o `JDKV=17` debe estar fijado en
+  el `.properties` de T2 (las clases son de Java 17).
+- CSV de DataX con separador `|` (barra vertical): T1 de al menos 6 columnas, T2 bruto de al menos 16, T3 de al menos 5
+  (§6.5). Para T2 hace falta además el paso que ejecuta `T2_Sect_Bloom_Refinit_PREV` (P-ADA-09).
 - Tablas destino de Carga Core (P-ADA-01) accesibles. Las dos cadenas comparten carpetas de trabajo y claves de `GSProcess.sh`: no deben ejecutarse a la vez (en producción nunca coinciden: lunes / martes a viernes); en pruebas, lanzarlas por separado.
 
 ## Roles y permisos

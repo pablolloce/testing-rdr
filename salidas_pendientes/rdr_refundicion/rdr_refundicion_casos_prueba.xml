@@ -253,6 +253,7 @@
     <precondiciones>
       <precondicion>Capacidad de forzar un fallo en jdbc.ejecutarQuery (p. ej. desconexión de base de datos) mientras hay elementos pendientes en Querys.insercionesRLT1.</precondicion>
       <precondicion>Acceso al log de consola/stdout del proceso donde corre ThreadComprobacion, y al fichero InsercionesRLT1.txt.</precondicion>
+      <precondicion>Solo aplicable si el jar que ejecuta la cadena que usa estas clases es la versión antigua sin paquete: el jar Maven RDR_PLSQL.jar de 26/08/2026 no contiene ThreadComprobacion (ConContrato460 ejecuta él mismo las sentencias diferidas). Comprobar primero qué versión está desplegada.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Comportamiento real del código" valor="inserciones.remove(0) ocurre antes de jdbc.ejecutarQuery(...)"/>
@@ -351,6 +352,51 @@
     <tipoValidacion>Consulta de FT_T_UTD1 y FT_T_RLT1.</tipoValidacion>
     <criterioAceptacion>Número de mensajes igual al número de folios activos.</criterioAceptacion>
     <posibilidadFallo>Que las subconsultas de banco u oficina devuelvan más de una fila y se pierda la baja de ese folio sin aviso; que un cliente sin folios deje la baja de Clientela sin enviar y la señal marcada como hecha.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="error_funcional">
+    <nombre>Ciclo de vida de Refundicion_errores.csv y de db_errores.txt (ErroresCSV y MarcaRegErroneo)</nombre>
+    <objetivo>Verificar el nombre, la ubicación y el ciclo de los ficheros que deja Evento(Errores) con Delta=Si: Refundicion_errores.csv (con el anterior movido a old/ al inicio) y db_errores.txt acumulativo, y la llamada a errores_to_file.sh.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con un fichero que genere al menos una excepción de REFUNDICION con fila ERRORES (por ejemplo, un CLIENTEP inexistente) en una ejecución, y ninguna en la siguiente.</precondicion>
+      <precondicion>Acceso al directorio Refundicion/ y a Refundicion/old/, y a los logs de GoldenSource.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea con error" valor="CLIENTED existente; CLIENTEP inexistente"/>
+      <dato campo="Delta" valor="Si (valor real de Refundicion.properties)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena con una línea que provoque «No existe el Clientela destino» y comprobar que se crea Refundicion/Refundicion_errores.csv con la cabecera de 11 columnas y una línea Funcional con MAIN_ENTITY_NME «CLIENTED;CLIENTEP».</paso>
+      <paso numero="2">Comprobar que se crea Refundicion/db_errores.txt con el par «CLIENTED;CLIENTEP» y que el log registra la ejecución de errores_to_file.sh con los tres argumentos (Refundicion, ruta de old/Refundicion.csv y ruta de db_errores.txt).</paso>
+      <paso numero="3">Ejecutar de nuevo la cadena sin errores y comprobar que Refundicion_errores.csv de la primera ejecución se ha movido a Refundicion/old/ y que no hay Refundicion_errores.csv nuevo.</paso>
+      <paso numero="4">Comprobar que db_errores.txt conserva el contenido anterior (no se borra).</paso>
+    </pasos>
+    <resultadoEsperado>Los ficheros se crean, se mueven y se acumulan como se describe; la llamada a errores_to_file.sh consta en el log. Qué hace ese script con el fichero de referencia queda por observar y anotar (P-REF-04).</resultadoEsperado>
+    <tipoValidacion>Inspección del sistema de ficheros y de los logs de GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Nombres, ubicación y ciclo confirmados; efecto de errores_to_file.sh sobre old/Refundicion.csv documentado.</criterioAceptacion>
+    <posibilidadFallo>Si no se encuentra el job CLOSED de la última hora (carga de más de una hora), ErroresCSV no genera nada. Si errores_to_file.sh no existe en el entorno, el paso falla sin detener la cadena.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-019" tipo="error_funcional">
+    <nombre>Interruptor TRACE y cola lógica no definida en Sub_SendMessageToMQQueue</nombre>
+    <objetivo>Verificar que con la cola lógica CLIENTELA en TRACE el mensaje solo se escribe en el log y no se publica, y que un nombre de cola no previsto no se publica ni falla.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con permiso para cambiar FT_T_PAR1 (ACT1_OID='DIFFUSMODE', PARAMETER_CTXT_TYP='MQQUEUE', PAR1_NME='CLIENTELA') y para invocar Sub_SendMessageToMQQueue directamente.</precondicion>
+      <precondicion>Cola MQ de pruebas (o interceptada) para comprobar qué se publica.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="queueName" valor="CLIENTELA, y después NOEXISTE"/>
+      <dato campo="PAR1_VALUE" valor="TRACE, y después PUBLISH"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Con PAR1_VALUE='TRACE', invocar el sub-workflow con queueName=CLIENTELA y un mensaje de prueba; comprobar que el log muestra «queue in TRACE MODE» y el texto, y que la cola no recibe nada.</paso>
+      <paso numero="2">Cambiar a 'PUBLISH' y repetir; comprobar que el mensaje llega a la cola.</paso>
+      <paso numero="3">Invocar con queueName=NOEXISTE; comprobar que el log registra «ADD THE NEW CASE TO THE SWITCH» y que no se publica nada ni termina en error.</paso>
+    </pasos>
+    <resultadoEsperado>TRACE no publica; PUBLISH publica; un nombre no previsto se pierde con un error en el log.</resultadoEsperado>
+    <tipoValidacion>Revisión de log de GoldenSource y de la cola de pruebas.</tipoValidacion>
+    <criterioAceptacion>Comportamiento de las tres ramas confirmado.</criterioAceptacion>
+    <posibilidadFallo>Dejar la cola en TRACE en un entorno real: las altas/bajas 460 se darían por enviadas (filas OK) sin haber salido.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

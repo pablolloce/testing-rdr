@@ -10,8 +10,10 @@
 > - `GestionAlertas_ALERT_IP_SSI.properties` y, de otro proceso, `GestionAlertas_DERIVADOS_REFINITIV.properties`.
 > - Las clases de consultas SQL de los dos programas Java (`QuerysStr` de `RDR_AlertasBarrido.jar` y
 >   de `RDR_AlertasCocinado.jar`, y `QuerysConfig` de este último) y la clase principal `main.Ppal`
->   de cada uno. **No se han recibido** `alertaspck.ProcesoCLS` (Barrido: compone los mensajes),
->   `report.ReportesRDR` (Cocinado: genera los ficheros) ni `jdbc.ConDB` (conexión).
+>   de cada uno. Según el código fuente real (rama de Eduardo) se han recibido también las clases
+>   `report.ReportesRDR` y `report.ReporteRDR` del Cocinado (§4.2) y el subworkflow `AlertasEnvioExcepciones`
+>   (§5.2). **No se han recibido** `alertaspck.ProcesoCLS` (Barrido: compone los mensajes),
+>   `report.DocumentGenerator` (Cocinado: escribe físicamente cada fichero del informe) ni `jdbc.ConDB` (conexión).
 > - El workflow de GoldenSource `AlertasEnvio.wkf` (versión 10, estado `RELEASED`) y el subworkflow
 >   `Mail` (versión 6, `RELEASED`), que es el que envía el correo.
 > - El funcionamiento de `GSProcess.sh` (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`), que explica cómo se
@@ -133,7 +135,7 @@ Argumentos de `main.Ppal` (los dos programas los interpretan igual):
 |---|---|---|
 | `args[0]` | `2` | **Nivel de log**: `1`=DEBUG, `2`=INFO, `3`=ERROR, `4`=FATAL (cualquier otro número, INFO; si no es numérico, la configuración falla y el programa termina sin hacer nada) |
 | `args[1]` | `<dir>/log4jAlertasBarrido.properties` o `...Cocinado.properties` | Fichero de configuración de log4j; ahí se decide dónde escribe su log cada programa |
-| `args[2]` | `PROCESOS` (se sustituye por el código del proceso, §2) | Proceso a tratar. El texto literal `PROCESOS` significa **todos los procesos** (sin filtro); cualquier otro valor filtra por ese `PROCESO`. Si falta, se trata todo. En el Barrido el filtro se aplica en la query de `FT_T_TPG1`; en el Cocinado `Ppal` solo guarda el valor (`ProcesosExtraer`) y se deduce que lo usa `ReportesRDR` (no recibida) para elegir las queries con o sin filtro de §4.2 |
+| `args[2]` | `PROCESOS` (se sustituye por el código del proceso, §2) | Proceso a tratar. El texto literal `PROCESOS` significa **todos los procesos** (sin filtro); cualquier otro valor filtra por ese `PROCESO`. Si falta, se trata todo. En el Barrido el filtro se aplica en la query de `FT_T_TPG1`; en el Cocinado `Ppal` guarda el valor (`ProcesosExtraer`) y `ReportesRDR.extraerReportes` elige con él la query de `FT_T_REP1` con o sin filtro (§4.2, código real) |
 
 Por tanto, ejecutar la plantilla sin instanciarla (sin la sustitución de `GSProcess.sh`) barre y
 cocina las alertas de **todos** los procesos.
@@ -203,13 +205,14 @@ Orden real de `main.Ppal` del Cocinado:
 2. `extraerReportes`: lee de `FT_T_REP1` los informes activos con algún destinatario activo en
    `FT_T_ALR1` (todos, o solo el del proceso recibido, §3).
 3. `descargaMensajesResportes`: lee de `FT_T_ALG1` los mensajes `PROCESADO='N'` de cada informe.
-4. `generaDocumentos`: genera los ficheros del informe (clase `ReportesRDR`, no recibida).
+4. `generaDocumentos`: genera los ficheros del informe (`ReportesRDR`/`ReporteRDR`, §4.2.1; la escritura física de cada fichero está en `DocumentGenerator`, no recibida).
 5. `marcaALG1_Reportes` (mensajes a `PROCESADO='S'`) y `marcaReportesPending` (`SEND_PEND='Y'`).
 6. Cierra la conexión.
 
 El informe se construye con la plantilla Excel (`EXCEL_TEMPLATE`, `EXCEL_SHEET`), la cabecera y la
 query configuradas en `FT_T_REP1`, y se deja en `FT_T_REP1.RUTA` (por eso lleva las librerías Apache
-POI). **Qué fichero se genera lo decide `ReportesRDR`** (no recibida), pero el Envío (§5) deja
+POI). **El nombre y contenido exactos de cada fichero los decide `DocumentGenerator.generaDocumento`** (clase
+no recibida, invocada desde `ReporteRDR`, §4.2.1), pero el Envío (§5) deja
 claro qué espera encontrar en `RUTA`, con `<SH>` = `SHORT_PROCESS` con `YYYYMMDD` sustituido por la
 fecha del día:
 
@@ -222,6 +225,46 @@ fecha del día:
 | `CUERPO` | ninguno | `CUERPO_<SH>.txt` |
 
 `RUTA` puede llevar el texto `$ENV`, que el Envío sustituye por el entorno (`pr`, `pp`, `ei`, `de`).
+
+#### 4.2.1 `report.ReportesRDR` y `report.ReporteRDR` (código fuente real, rama de Eduardo)
+
+`ReportesRDR` es el orquestador (uno por ejecución) y mantiene un `ReporteRDR` por cada fila de `FT_T_REP1`
+extraída. Lo verificado en el código:
+
+- **`extraerReportes`:** ejecuta `query_REP1()` (todos los procesos) si `args[2]` es `PROCESOS`, o
+  `query_REP1_Filtrado(<proceso>)` en otro caso (§4.2). Por cada fila: sustituye `$ENV` de `RUTA` y de
+  `EXCEL_TEMPLATE` por el entorno de `ConDB.env`; si `EXCEL_TEMPLATE` es nulo usa
+  `<RUTA>/Templates/Template_Alertas_Excel.xlsx`; si `EXCEL_SHEET` es nulo usa la hoja `Reporte`; lee la columna
+  `QUERY` (CLOB) y el número de destinatarios de email activos. Si `ConDB.getUbicacionJar()` vale `LOCAL`
+  antepone `C:` a la ruta y a la plantilla (resto de desarrollo en local). El constructor de `ReporteRDR`
+  sustituye `YYYYMMDD` de `SHORT_PROCESS` por la fecha de hoy.
+- **`descargaMensajesReporte` (por informe):** ejecuta tal cual la `QUERY` guardada en `FT_T_REP1` (la query
+  que alimenta cada informe es **configuración de base de datos**, no está en el jar) y espera las columnas
+  `ALG1_OID`, `MENSAJE` y `TIPO`. Reparte las filas en tres listas según `TIPO`: `MENSAJE`, `ESTADISTICA` y
+  `CELDAEXCEL`; una fila con otro `TIPO` cuenta y su `ALG1_OID` se guarda (se marcará como usada) pero no entra
+  en ninguna lista. `descargaTiposEnvio` resuelve los `TIPO_ENVIO` de los destinatarios activos (query de §4.2).
+  Primero se descargan los mensajes de todos los informes y después los tipos de envío de todos.
+- **`generaDocumentos` (por informe), validaciones previas.** Cada una, si se cumple, **no genera nada y
+  devuelve éxito (`true`)**, de modo que `Ppal` anota `OK`: (1) hay `MENSAJE` y `CELDAEXCEL` a la vez;
+  (2) hay `ESTADISTICA` y `CELDAEXCEL` a la vez; (3) el proceso no tiene ningún tipo de envío; (4) único tipo
+  `DAT` y sin mensajes; (5) `FT_T_REP1.TIPO='REPORTEEXCEL'` con un único tipo de envío distinto de `EXCEL`.
+  Con `REPORTEEXCEL` y varios tipos de envío: si alguno es `EXCEL` descarta los demás y genera solo el Excel;
+  si ninguno lo es, no genera nada. Superadas las validaciones, llama a
+  `DocumentGenerator.generaDocumento(tipo_envio, proceso, mensajes, estadisticas, celdas, descripción,
+  short_process, ruta, plantilla, hoja, cabecera, hayEmails)` por cada tipo de envío; si uno falla marca el
+  resultado como fallido pero sigue con los demás.
+- **Marcado final (incondicional):** `marcaUsadosALG` marca `PROCESADO='S'` todos los `ALG1_OID` leídos para el
+  informe (lotes de 990, bien implementados, a diferencia de `marcaUsadosTPG1` del Barrido), y
+  `marcaReportePendiente` pone `FT_T_REP1.SEND_PEND='Y'` en **todos** los informes extraídos, **hayan tenido
+  mensajes o no, y se haya generado fichero o no** (incluidos los casos de validación que no generan nada).
+  La decisión final de enviar queda entonces en el Envío (§5), que exige `BODY_<SH>.txt`.
+- **Salida distinta de 0 (único caso):** `extraerReportes` solo captura `SQLException`; si `RUTA` o
+  `SHORT_PROCESS` llegan nulos desde `FT_T_REP1`, el `NullPointerException` (al aplicar la expresión regular o
+  al evaluar `contains`) sale sin capturar y el Cocinado termina con código distinto de 0.
+- **Cosmética:** varios mensajes de éxito se escriben con nivel `ERROR` en el log.
+
+Pendiente: qué ficheros deja `DocumentGenerator` cuando no hay mensajes (en concreto si escribe
+`BODY_<SH>.txt`), y por tanto si una ejecución sin incidencias produce correo.
 
 ### 4.3 Errores de Barrido y Cocinado
 
@@ -237,7 +280,7 @@ Además, cada paso deja una **fila de traza** en `FT_T_RLT1` con `LAST_CHG_USR_I
 escribe `KO` si falla la lectura de `FT_T_TPG1` o las estadísticas; **el Cocinado escribe `OK`
 sin condición** en cada paso: `Ppal` no comprueba el resultado de ninguno. Si una excepción escapara de
 `ReportesRDR`, saldría sin capturar y el programa terminaría con código distinto de 0 (es el único caso
-posible, §3).
+posible, §3; con el código real, ocurre con `RUTA` o `SHORT_PROCESS` nulos en `FT_T_REP1`, §4.2.1).
 
 **Defecto confirmado en el código recibido del Barrido (falta comprobar que es el desplegado, con la prueba de §7)**: la rutina `marcaUsadosTPG1`
 vacía la lista de identificadores al construir cada lote y después enlaza los parámetros del
@@ -288,7 +331,7 @@ Por cada informe pendiente (bucle sobre `SELECT PROCESO FROM FT_T_REP1 WHERE DAT
      salvo `CUERPO` solo se envía si existe `BODY_<SH>.txt`** (aunque exista el adjunto); si no existe,
      no se envía nada y no se avisa.
    - Asunto por defecto: `[RDR Reportes] - <PROCESO>`; cuerpo: el texto del fichero de cuerpo.
-   - Llama al subworkflow `AlertasEnvioExcepciones` (no recibido) con el proceso, el asunto y el cuerpo,
+   - Llama al subworkflow `AlertasEnvioExcepciones` (§5.2) con el proceso, el asunto y el cuerpo,
      y este devuelve el asunto y el cuerpo definitivos. Es el punto donde un proceso concreto puede
      tener un correo distinto del estándar; no es una gestión de errores.
    - Si la periodicidad contiene `PARCIAL` y el cuerpo dice "No existen datos a enviar", no envía (es
@@ -327,6 +370,33 @@ Detalle menor: el script de validación del correo (`Validate MAIL`) escribe en 
 (`mailOK`) que el workflow no declara; si el intérprete la tratara como error, ese paso fallaría
 siempre. Como el mecanismo se usa en producción, es más probable que no afecte, pero conviene
 comprobar en el log de una ejecución de integración que se llega a `Send Mail`.
+
+### 5.2 Personalización por proceso: subworkflow `AlertasEnvioExcepciones` (`.wkf` real, rama de Eduardo)
+
+Grupo `Custom/RDR/Common`, `RELEASED`, última modificación 2026-07-03 (versión 31 del export), descripción
+propia «Workflow para personalizar el cuerpo y asunto del mensaje», `haltOnError=true`. Parámetros: `proceso`
+(entrada), `body` y `subject` (entrada/salida). `AlertasEnvio` lo invoca una vez por destinatario y tipo de envío
+con `proceso` = el proceso del informe en curso. Un `SwitchCaseSplit` sobre `proceso` tiene tres casos y
+`DEFAULT`; **en `DEFAULT` no hace nada** y el correo sale con el asunto y cuerpo estándar de §5. Solo se
+registran en el log (nivel `ERROR`) y se devuelven `subject` y `body`; el envío lo sigue haciendo `AlertasEnvio`
+con `Mail`. No toca tablas: solo lee, siempre por `jdbc/GSDM-1`.
+
+| `proceso` | Qué calcula | Asunto y cuerpo resultantes |
+|---|---|---|
+| `BATCH_REFINITIV_EMISORES` | Cuenta filas de una `UNION` de 6 bloques: (1) mensajes de `FT_T_ALG1` de ese proceso pendientes (`PROCESADO='N'`) o cocinados hace menos de ~2,4 h (`SYSDATE-0.1`), separando los que contienen «TRBC Activ» (solo se cuentan si el emisor no tiene clasificación ADA `SAACCT`); (2) emisores activos sin país de riesgo; (3) sin subsector (`SAASUBS`); (4) sin REU; (5) sin ratings externos; (6) con ratings externos inactivos | Asunto fijo «Reporte descarga datos emisores Refinitiv»; cuerpo con «Número de líneas: N» |
+| `CARGA_BASKETS_SPONSORS` | Informe de conciliación de la carga diaria de cestas: cruza `FT_T_PAR1` (`BSKT_LOAD` activas = cestas esperadas) con los mensajes `FT_T_ALG1` del proceso ya cocinados hoy (`PROCESADO='S'` y `LAST_CHG_TMS` de hoy; formato `\|fileType\|sponsor\|índice\|tipo de error\|mensaje\|código canónico\|published`, es decir, índice = 4.º campo, código canónico = 7.º, `PUBLISHED` 0/1 = lo que sigue al 7.º `\|`), `FT_T_EMM1` (último *broadcast* `Basket` de `MUREX`/`ESB` posterior a la publicación = NACK) y `FT_T_ISID` (`MUREXID` con `LAST_CHG_USR_ID='ACK'` posterior = ACK). Resultado: total, errores de carga (`PUBLISHED=0`), cargadas (`PUBLISHED=1`), sin información (esperadas sin mensaje), ACK y NACK | Asunto «Reporte Carga Índices Cotizados - Total: T / OK: C / KO Carga: E / Sin Info Carga: M / KO Publicación: (cargadas − ACK)». Cuerpo con los seis totales y tres listas de índices (error de carga, sin información, error de publicación a MX3) |
+| `REGU_PDTE_LEI_EMISIONES` | Cuenta mensajes `LEI…` de `FT_T_ALG1` del proceso `PETICION_REFINITIV_EMISIONES` (no pendientes, últimos 30 días) cuyo LEI no tiene la jerarquía completa Global → Local → Operativo de un emisor `ISSUER` activo no subsidiario | Asunto «Reporte LEIs pendientes de regularizar - Total: N»; cuerpo con ese total |
+
+Defectos y dudas verificados en el propio `.wkf`:
+- **Condición equivocada en `CARGA_BASKETS_SPONSORS`:** el texto «Cestas con error de carga en RDR: …» se
+  añade cuando `cargados > 0` (no cuando `errores > 0`). Si hay errores pero ninguna cesta cargada, la lista de
+  errores de carga no aparece; si hay cargadas y ningún error, aparece la línea con la lista vacía.
+- **Variable no declarada:** los tres scripts escriben en el log `destination`, que no es parámetro del
+  workflow ni se le pasa desde `AlertasEnvio`. En BeanShell una variable no definida suele ser un error de
+  evaluación; con `haltOnError=true` el nodo fallaría y `body`/`subject` no se actualizarían. No se ha podido
+  comprobar en ejecución (por eso se trata como riesgo R13 y no como hecho).
+- **Consecuencia general:** los tres casos dependen de que el Cocinado haya pasado antes (mensajes
+  `PROCESADO='S'`); sin esa ejecución previa el informe de cestas saldría con ceros.
 
 ## 6. Tablas implicadas
 
@@ -374,15 +444,19 @@ Que el job de Control-M termine en verde **no** lo garantiza (§2).
 | R8 | El Envío pone `SEND_PEND='N'` antes de comprobar nada (ruta, periodicidad, fichero de cuerpo) | Medio: un informe no enviado deja de estar pendiente |
 | R9 | Si falta `ServerMailConfig.xml` o su nodo, `Mail` usa un servidor y remitente de desarrollo | Medio: correos de producción por el relé equivocado |
 | R10 | Exit code siempre 0 en Barrido y Cocinado | Alto: ni arreglando `GSProcess.sh` se detectaría un fallo |
+| R11 | El Cocinado marca `SEND_PEND='Y'` y consume los mensajes de todo informe con destinatarios aunque no haya mensajes ni se genere fichero (validaciones de `ReporteRDR` que «salen bien» sin generar nada) | Medio: la ausencia de correo no distingue «sin incidencias» de «informe mal configurado» |
+| R12 | La `QUERY` de cada informe vive en `FT_T_REP1` (CLOB) y nadie la valida: una query errónea solo deja una línea de log y el informe sale vacío | Medio |
+| R13 | `AlertasEnvioExcepciones` usa `destination`, variable no declarada, con `haltOnError=true` | Medio si en ejecución falla: los tres informes personalizados saldrían con el asunto/cuerpo estándar o no saldrían |
+| R14 | Informe de cestas: la lista de errores de carga se condiciona a `cargados > 0` en vez de `errores > 0` | Bajo/medio: errores de carga sin cesta cargada no se listan |
 
 ## 9. Preguntas abiertas
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-ALE-01 | **Resuelta** (en parte). El primer argumento (`2`) es el nivel de log (§3); el tercero es el proceso (`PROCESOS` = todos); ambos programas terminan siempre con código 0 salvo excepción no capturada; el Envío espera los ficheros de §4.2. La resolución procede de `main.Ppal` de los dos jars. **Sigue abierto** qué hace exactamente `ReportesRDR` (nombre real del fichero y qué pasa si no hay mensajes) y `ProcesoCLS` (redacción de los mensajes y qué se trata como error): ver P-ALE-04 | Cerrado en lo esencial; el resto no cambia cómo operar el mecanismo |
+| P-ALE-01 | **Resuelta** (en parte). El primer argumento (`2`) es el nivel de log (§3); el tercero es el proceso (`PROCESOS` = todos); ambos programas terminan siempre con código 0 salvo excepción no capturada; el Envío espera los ficheros de §4.2. La resolución procede de `main.Ppal` de los dos jars. `ReportesRDR`/`ReporteRDR` ya están analizados con el código real (§4.2.1: validaciones, marcado incondicional, query en BD). **Sigue abierto** el nombre y contenido real de cada fichero (`DocumentGenerator`, no recibida) y `ProcesoCLS` (redacción de los mensajes y qué se trata como error): ver P-ALE-04 | Cerrado en lo esencial; el resto no cambia cómo operar el mecanismo |
 | P-ALE-02 | ¿Cuál es el contenido de `GestionAlertas.properties` en producción? | La copia recibida es la de integración, con rutas `ei` escritas a mano |
-| P-ALE-03 | **Resuelta** (en parte). El subworkflow `Mail` ya está analizado (§5.1): envía por SMTP sin autenticación, no gestiona errores y cae a un servidor de desarrollo si falta su configuración. **Sigue abierto** `AlertasEnvioExcepciones`: qué procesos tienen asunto o cuerpo personalizados, y el contenido de `ServerMailConfig.xml` de cada entorno | Sin ello no se sabe qué procesos reciben un correo distinto del estándar |
-| P-ALE-04 | ¿Se pueden obtener las clases `report.ReportesRDR` (Cocinado), `alertaspck.ProcesoCLS` (Barrido) y el `QuerysConfig` del Barrido? ¿Coincide `marcaUsadosTPG1` con el jar desplegado? | Con ellas se cerraría el nombre real del fichero, la redacción de los mensajes y se confirmaría o descartaría el defecto R6 |
+| P-ALE-03 | **Resuelta** (en parte). El subworkflow `Mail` ya está analizado (§5.1): envía por SMTP sin autenticación, no gestiona errores y cae a un servidor de desarrollo si falta su configuración. `AlertasEnvioExcepciones` **resuelto** (§5.2): solo `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES` tienen asunto y cuerpo propios; el resto usa el estándar. **Sigue abierto** el contenido de `ServerMailConfig.xml` de cada entorno | Sin él no se sabe qué servidor y remitente usa cada entorno |
+| P-ALE-04 | **Resuelta en parte.** `report.ReportesRDR` y `report.ReporteRDR` recibidas (§4.2.1). ¿Se pueden obtener `report.DocumentGenerator` (Cocinado), `alertaspck.ProcesoCLS` (Barrido) y el `QuerysConfig` del Barrido? ¿Coincide `marcaUsadosTPG1` con el jar desplegado? | Con ellas se cerraría el nombre real del fichero, la redacción de los mensajes y se confirmaría o descartaría el defecto R6 |
 
 ## 10. Procesos que lo usan
 

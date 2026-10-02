@@ -56,8 +56,8 @@ mutuamente, sin necesidad de pregunta al usuario).
 |-----|----------|------------|
 | G1 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera (QT1) — mismo gap transversal ya resuelto para las otras 2 cadenas afectadas, reutilizado sin re-preguntar — R7. |
 | G2 | ¿Qué reglas exactas aplica `fillingRules_Refundicion.csv` campo a campo sobre `Refundicion.tmp`? | **Resuelto.** Fichero real aportado por el usuario: solo 2 campos, `COD-CCLIEND` (columna 1 = `CLIENTED`, cliente que se cierra, según el código de `Sub_Load`) y `COD-CCLIENP` (`CLIENTEP`, cliente destino). Regla `NULL` (campo **obligatorio**, no valor por defecto) y regla `USAR` (solo caracteres permitidos) en ambos, sin regla de longitud — ver §6.1. |
-| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que marca esos registros para que se reprocesen automáticamente al día siguiente (efecto exacto no verificado, P-REF-04). Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
-| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía por MQ (cola `CLIENTELA`) a un sistema externo vía 2 sub-workflows reales, ambos aportados y confirmados (`SendClientelaRequest`, `BAJA_460_CLI`) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`). El parámetro `Tipologia` que decide la rama (`ALTA`/`BAJA`/`TOTAL`/`OTHER` por defecto) se inyecta dinámicamente desde `GSProcess.sh` (no un `HashMap` Java) y su valor literal real, confirmado con `Refundicion.properties`, es **`TOTAL`** — el pipeline real siempre procesa las 3 señales en un único paso, sin riesgo de no-op. Ver detalle completo en §6.1. `ConContrato460.java`/`ConDB.java` quedan como un mecanismo real pero **de una cadena o proceso distinto, no identificado**, ajeno a este pipeline — sus 2 hallazgos de código (defecto `NUMFOLII`/`NUMFOLIO`, tipo de job `C460`/`CCL`) se mantienen documentados como información confirmada, pero ya no como parte de `RDR_REFUNDICION_new`. |
+| G3 | ¿Qué ocurre con los registros que caen en `Evento(Errores)` de `Refundicion.properties`? | **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El evento invocado como `Errores` en el pipeline es, con nombre interno distinto (mismo patrón de discrepancia de nomenclatura ya visto en `AlertasEnvio`/`RDR_SSIS_Fx_Alert_Online`), el workflow **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico, no exclusivo de Refundición). Vuelca a un CSV de auditoría (`<Servicio>_errores.csv`) los errores funcionales de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y técnicos de `FT_T_TRID` (`CRRNT_SEVERITY_CDE>39`) del job identificado; si el parámetro `Delta` (del propio `.properties` del servicio) es `Si` — **confirmado que lo es para Refundición, R2/§6.1** — además invoca un sub-workflow `MarcaRegErroneo` que, según su nombre y la ficha, marca esos registros para que se reprocesen al día siguiente (**resuelta en parte**: solo escribe `db_errores.txt` y llama a `errores_to_file.sh`, cuyo efecto no se conoce, P-REF-04). Si no se identifica el job en la última hora, el workflow termina sin generar nada. Ver §6.1. |
+| G4 | ¿Cuál es el desglose nodo-a-nodo de `Workflow(RDR_Clientela460)`? | **Resuelto (2026-09-30) con `BajaClientela460.wkf` completo (995→1386 líneas, versión 10, `Custom/RDR/Integracion_MGC-GS/Bajas`).** **Corrige de raíz la hipótesis de rondas anteriores:** `ConContrato460.java`/`ConDB.java` **no son la implementación de este workflow** — `BajaClientela460` no invoca ninguna clase Java, solo nodos nativos GoldenSource (`DBQuery`/`DBStatement`/`CallSubWorkflow`), y no toca en ningún punto `CONC460`, `FT_T_FAB1` ni `mapMnemLocalClientelaID`. En su lugar, drena directamente filas `PENDING` de `FT_T_RLT1` con `RLT_PURP_TYP='PROCESO'` y `RLT_DIF_ACC` en `A460`/`B460`/`B460C` (exactamente las señales que `Sub_Load`/`REFUNDICION` inserta y nunca resuelve por sí solo — cierra en la práctica el riesgo "el 460 nunca se gestiona automáticamente aquí"), las envía por MQ (cola `CLIENTELA`) a un sistema externo vía 2 sub-workflows reales, ambos aportados y confirmados (`SendClientelaRequest`, `BAJA_460_CLI`) y las marca `RLT_DIF_STAT='OK'`. Revela además una **tercera tipología no documentada hasta ahora, `B460C`** (baja a nivel de folio/contrato, vía `SRC_VALUE`, distinta de `B460` a nivel de cliente/`MNEM`). El parámetro `Tipologia` que decide la rama (`ALTA`/`BAJA`/`TOTAL`/`OTHER` por defecto) se inyecta dinámicamente desde `GSProcess.sh` (no un `HashMap` Java) y su valor literal real, confirmado con `Refundicion.properties`, es **`TOTAL`** — el pipeline real siempre procesa las 3 señales en un único paso, sin riesgo de no-op. Ver detalle completo en §6.1. `ConContrato460.java`/`ConDB.java` son un mecanismo real **ajeno a este pipeline y ya identificado: pertenecen a la cadena `RDR_C460`** (jar `RDR_PLSQL.jar`, clase `rdr_plsql.ConContrato460`, paso 5 de `GSProcess.sh Contrato460`; ver `salidas_pendientes/rdr_c460/rdr_c460_spec.md` §6.2). Sus dos supuestos defectos quedan aclarados allí: `NUMFOLIO`→`NUMFOLII` es un cambio de tipo deliberado y el tipo de job `C460`/`CCL` no tiene efecto. |
 
 No se identificaron gaps propios de la dependencia saliente hacia `RDR_CONCILIACION_CLIENTELA_new`: queda
 auto-confirmada por referencia cruzada explícita en el documento fuente (sección de dependencias de ambas
@@ -72,7 +72,7 @@ ya cerrada; G2 queda resuelto (§6.1).
 | P-REF-01 | ¿Qué sistema deposita `Refundicion.csv`, a qué hora, y cuál es su layout oficial (cabecera, significado de cada columna; solo se usan la 1 y la 5)? | Sin él no se pueden construir ficheros de prueba reales ni saber a quién avisar si no llega. |
 | P-REF-02 | ¿Corre la cadena de martes a sábado (como dice la ficha en texto) o los 7 días (calendario `LMXJVSD`)? ¿Hay regla Control-M para el código 7 de `ctmfw` (OK o NOTOK)? | Si no corre domingo-lunes, `RDR_CONCILIACION_CLIENTELA_new` (que depende de ella y es de 7 días) tampoco arranca esos días; con regla 7→OK la cadena quedaría verde sin procesar nada. |
 | P-REF-03 | Claves `.idx` reales de `MEKYTL0107` y `MEKYTL0121` (protocolo, usuario, `FALLA_NO_FICHERO`, historificación). | Confirma la tolerancia a fichero ausente (Soft Failure) más allá de lo que dice la ficha. |
-| P-REF-04 | Contenido del sub-workflow `MarcaRegErroneo` y nombre/ruta exacta del `<Servicio>_errores.csv`. ¿Cómo se "reprocesa al día siguiente" con `Delta=Si`? | La spec previa afirmaba reproceso automático; no está verificado y con `Delta` solo vuelven los registros nuevos/cambiados. |
+| P-REF-04 | Contenido del sub-workflow `MarcaRegErroneo` y nombre/ruta exacta del `<Servicio>_errores.csv`. ¿Cómo se "reprocesa al día siguiente" con `Delta=Si`? | **Resuelta en parte.** El nombre y la ruta (`Refundicion/Refundicion_errores.csv`) y el contenido de `MarcaRegErroneo` están confirmados (§6.1): escribe los identificadores en `db_errores.txt` y llama a `errores_to_file.sh <MessageType> old/<Servicio>.csv db_errores.txt`. **Sigue abierto** qué hace `errores_to_file.sh` (script no recibido): sin él no se sabe si realmente provoca el reproceso del día siguiente; con `Delta` solo vuelven los registros nuevos/cambiados. |
 | P-REF-05 | Definición de negocio de "contrato 460" y destino de la cola MQ `CLIENTELA` (qué sistema responde y cuándo). | El ciclo es asíncrono: nada en esta cadena comprueba la respuesta. |
 
 ## 5. Especificación funcional
@@ -234,6 +234,22 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
   `informeBroker_BDI` en `RDR_CONCILIACION_BDI_new`, y el mismo motor (misma versión, mismo comentario interno)
   usado por `RDR_Reubicacion` en `rdr_reubicacion_new`.
 
+  **Contraste con la base de workflows de GoldenSource (esta ronda).** `PLSQL_Load` (versión 8, grupo
+  `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`) arranca con `Create Job`, que crea el job en `FT_T_JBLG`
+  con `JOB_INPUT_TXT = File` (`.../Refundicion/Refundicion_processed.csv`) y `JOB_MSG_TYP = MessageType`
+  (`Refundicion`); abre el fichero con la definición de feed del `BusinessFeed` (`Refundicion`), que en la tabla de
+  patrones de feeds es `SkipHeaderReadByLine` (salta la cabecera y lee línea a línea), patrón de fichero
+  `Refundicion_processed.csv`, tipo de mensaje `Refundicion`, sin confirmación parcial (`None`), sin
+  *rollback* y guardando solo los mensajes en error; trocea el fichero en bloques (`File Split Condition`), lanza
+  `Sub_Load` por cada mensaje en paralelo, espera a que acabe el bloque (`Synchronize`) y pide el siguiente;
+  al llegar al fin de fichero cierra el job (`Close Job`) y ejecuta `End the FileLoad` (acción final sobre el
+  fichero; el valor de `successAction` del nodo es un blob no legible, y `Refundicion.properties` fija
+  `SuccessAction=LEAVE`). Si `Open File` falla, cierra el job sin procesar nada. Las claves
+  `JOB_INPUT_TXT`/`JOB_MSG_TYP` son exactamente las que usan después `ErroresCSV` (búsqueda del job de la última hora) y
+  la consulta del informe (`JOB_MSG_TYP = 'Refundicion'`). Las versiones de `Sub_Load` (13), `BajaClientela460` (10),
+  `SendClientelaRequest` (8), `BAJA_460_CLI` (5) y `ErroresCSV` (6) de la base coinciden con los `.wkf`
+  analizados en esta spec, así que no hay diferencias de versión entre unos y otros.
+
   **`Sub_Load` (procedimiento PL·SQL `REFUNDICION`, código real completo aportado vía `Sub_Load.wkf`):** para
   cada línea (`CLIENTED`=cliente que se cierra, `CLIENTEP`=cliente destino):
   1. **Validación del cliente de cierre:** busca `CLIENTED` en `FT_T_FIID`/`FT_T_FIRL` (`REL_TYP='LOCAL'`,
@@ -336,9 +352,25 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
     y `Workflow(RDR_Clientela460)` se invocarían igualmente, posiblemente sobre datos parciales/no cargados.
   - **`SendClientelaRequest.wkf` y `BAJA_460_CLI.wkf` aportados (2026-09-30) — desglose nodo a nodo
     completo, ya no falta ningún material sobre G4:**
-    - **Transporte real confirmado: cola MQ `CLIENTELA`** (sub-workflow `Sub_SendMessageToMQQueue`, no
-      aportado, pero el nombre literal de la cola sí queda confirmado) — no HTTP/webservice como se podía
-      suponer.
+    - **Transporte real confirmado: cola MQ `CLIENTELA`** — no HTTP/webservice como se podía suponer. El
+      sub-workflow `Sub_SendMessageToMQQueue` que la publica está ahora analizado con la base de workflows de
+      GoldenSource (versión 20, grupo `Custom/RDR/Common`, `haltOnError=Sí`, último cambio 27/07/2024), y es
+      genérico (lo comparten todos los envíos MQ de RDR). Entradas: `queueName` (nombre lógico de la cola) y
+      `message` (texto). Pasos: (1) escribe en el log de error del workflow una línea con la cola y el mensaje
+      (`Queue: <cola> message: <mensaje>`); (2) fija la fecha y hora de colocación (`yyyyMMdd`, `hhmmss00`);
+      (3) elige la rama por el nombre lógico: `ALTAMIRA`, `BDI`, `CLIENTELA`, `FS` (FircoSoft), `MGC-ABACO` u
+      `OFAC`; cualquier otro nombre solo deja un error en el log («ADD THE NEW CASE TO THE SWITCH, OTHERWISE THE
+      MESSAGE WILL NOT BE SENT») y **el mensaje se pierde sin excepción**; (4) consulta el interruptor
+      `SELECT PAR1_VALUE FROM FT_T_PAR1 WHERE ACT1_OID='DIFFUSMODE' AND PARAMETER_CTXT_TYP='MQQUEUE' AND PAR1_NME=?
+      AND DATA_STAT_TYP='ACTIVE'` con el nombre lógico: `TRACE` escribe el mensaje en el log («queue in TRACE MODE»)
+      y **no lo envía**; `PUBLISH`, cualquier otro valor o ausencia de fila publican (la rama `FS` no consulta el
+      interruptor y publica siempre). La cola `CLIENTELA` publica en la cola JMS `jms/queue/KYTL.TEGC.Q001` con la
+      fábrica `jms/RDR_MQ_CONN_FACT` (la misma cola física que la lógica `BDI`), tipo `MQSTR`, cabeceras
+      `ApplIdentityData`/`PutApplName`=`GOLDENSOURCE` y respuesta a la cola `DYD.TEGC.KYTL.Q001` del gestor
+      `QMDESM01` (constantes del workflow que parecen de un entorno de desarrollo; qué hay detrás de los `jms/...`
+      en producción no consta). En el volcado de la base, las seis colas lógicas están en `PUBLISH` (alta del
+      05/09/2020). Efecto para esta cadena: nada en el pipeline comprueba que el mensaje saliera; la respuesta
+      de Clientela llega por la cola de respuesta y no la espera ningún nodo (ciclo asíncrono, ver más abajo).
     - **`SendClientelaRequest`** (versión 8, `haltOnError=true` — a diferencia de `BajaClientela460`) admite
       `ACCION` en `A460`/`B460`/consulta (`CONS`/`CONS1`; `CONS` pasa antes por `Sub_check_CCLIENIDFISCAL_GS`, que comprueba si el cliente ya
       existe en GoldenSource — ver más abajo —, y `CONS1` salta esa comprobación). Para `A460`/`B460` construye un mensaje
@@ -383,23 +415,24 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
       `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
       simplemente no se marcaría `OK` y se reintentaría al día siguiente.
-* **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: mecanismo real pero de un
-  proceso no identificado, ajeno a esta cadena.** Estas 3 clases, aportadas en rondas anteriores bajo la
-  hipótesis de que implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la
-  evidencia del `.wkf` real (arriba). Se mantiene documentado lo que su código confirma, por si resulta útil
-  para localizar a qué cadena pertenecen realmente: `ConContrato460.java` lee un fichero de 12 columnas,
-  reconcilia clientes activos en GoldenSource contra folios con fecha de cancelación por defecto
-  `"0001-01-01"` (activo), llama al procedimiento Oracle **`CONC460`** (`{call CONC460(?,?,?)}`) para los
-  folios activos, y para los folios cancelados construye (vía `ConDB.getUpdatesFAB1()`, ejecución diferida)
-  un `UPDATE FT_T_FAB1 SET STAT_DEF_ID='NUMFOLII', DATA_STAT_TYP='INACTIVE', ...` — con un probable defecto
-  de escritura (filtra por `'NUMFOLIO'` pero escribe `'NUMFOLII'`) y un posible defecto de tipo de job
-  (`crearJOB` con `"C460"`, `cerrarJOB` con `"CCL"`). `ThreadComprobacion.java` (hilo en segundo plano que
-  drena `Querys.insercionesRLT1`, con 3 hallazgos propios de robustez: conexión JDBC nunca inicializada,
-  *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución) tampoco encaja
-  con `BajaClientela460.wkf` (que no usa colas Java ni hilos, solo SQL nativo del motor de workflows) — su
-  relación real con `ConContrato460`/`ConDB` sigue sin confirmarse, y su cadena de origen sigue sin
-  identificar. Los 4 hallazgos de código siguen siendo válidos como información confirmada, pero ya no se
-  presentan como parte de `RDR_REFUNDICION_new`.
+* **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: ajenos a esta cadena; las dos
+  primeras pertenecen a `RDR_C460`.** Estas clases, aportadas en rondas anteriores bajo la hipótesis de que
+  implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la evidencia del `.wkf` real
+  (arriba). **Ya están identificadas:** el jar Maven `RDR_PLSQL.jar` 1.0.0 (compilado el 26/08/2026) contiene
+  `rdr_plsql.ConContrato460` y `rdr_plsql.jdbc.ConDB` con la misma lógica, y las ejecuta el paso 5 de
+  `GSProcess.sh Contrato460` de la cadena `RDR_C460` (`salidas_pendientes/rdr_c460/rdr_c460_spec.md` §6.2): lee el
+  fichero de 12 columnas de contratos 460, concilia los clientes activos de GoldenSource, llama al procedimiento
+  `CONC460` para los folios activos y desactiva directamente en `FT_T_FAB1` los cancelados. Dos de los hallazgos
+  que aquí se daban por «probables defectos» quedan aclarados: (1) `STAT_DEF_ID` de `NUMFOLIO` a `NUMFOLII` es un
+  cambio de tipo deliberado (el `WHERE` exige `NUMFOLIO`, así que no puede ser una errata) y es lo que impide que
+  `SUB_GET_FOLIO` vuelva a enviar la baja de ese folio; (2) `crearJOB(...,"C460")`/`cerrarJOB(...,"CCL")` no tiene
+  efecto, porque el cierre solo filtra por `JOB_ID`. **Lo que `RDR_C460` y esta cadena comparten es el consumidor:**
+  las señales `A460`/`B460` que deja `ConContrato460` las envía el mismo workflow `BajaClientela460`.
+  `ThreadComprobacion.java` (hilo en segundo plano que drena `Querys.insercionesRLT1`, con 3 hallazgos propios de
+  robustez: conexión JDBC nunca inicializada, *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si
+  falla su ejecución) **no está en el jar de 26/08/2026**: en esa versión `ConContrato460` ejecuta él mismo las
+  sentencias diferidas (`insertarRLT1()` y `updatesFAB1()`, con la conexión 0). Es, por tanto, código de una
+  versión anterior sin paquete; si producción ejecutara esa versión, sus hallazgos seguirían vigentes (ver TC-013).
 * **`Evento(Errores)`:** **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El documento fuente lo
   describe como "Activa el gestor de eventos de error para capturar, clasificar y registrar cualquier
   anomalía ocurrida durante las fases previas". El evento invocado como `Errores` en el pipeline es, con
@@ -407,21 +440,33 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
   `RDR_AlertasEnvio` y `SSIs_Fx_Peticion` ↔ `RDR_SSIS_Fx_Alert_Online`), el workflow GoldenSource
   **`ErroresCSV`** (grupo `Custom/RDR/Integracion_MGC-GS/General/Errores` — motor genérico compartido por
   varios procesos RDR, no exclusivo de Refundición). Su lógica, reconstruida del XML del `.wkf`:
-  1. Construye `Carpeta`/`Filename`/`DummyName` a partir de los parámetros `Ruta`/`Servicio` del workflow y
-     llama al sub-workflow `HistoricizeFiles`.
+  1. Construye `Carpeta = Ruta + Servicio + "/"`, `Filename = Servicio + "_errores.csv"` y
+     `DummyName = "dummy" + Filename` a partir de los parámetros `Ruta`/`Servicio` del workflow (para esta cadena,
+     `/fichtemcomp/<entorno>/descargas/kytl/Refundicion/Refundicion_errores.csv`) y llama al sub-workflow
+     `HistoricizeFiles` (versión 4, grupo `Custom/RDR/Integracion_MGC-GS/General/Reportes`, `haltOnError=No`), que
+     ejecuta, por este orden, `rm -f <Carpeta>old/<fichero>` (borra la copia antigua), `mv -f <Carpeta><fichero>
+     <Carpeta>old` (mueve a `old/` el fichero de la ejecución anterior) y `rm -f <Carpeta>dummy<fichero>` (borra
+     restos del temporal). No comprime ni le pone fecha: en `old/` solo queda el último. Consecuencia: el
+     `Refundicion_errores.csv` de ayer se mueve a `old/` **al principio** de cada ejecución del evento; si hoy no se
+     encuentra job en el paso 2, hoy no habrá `Refundicion_errores.csv` en la carpeta principal (el de ayer ya está en
+     `old/`).
   2. Busca en `FT_T_JBLG` el job `CLOSED` más reciente que case `job_input_txt=File` y `job_msg_typ=MessageType`
      dentro de la última hora. **Si no encuentra ningún job, el workflow termina sin generar nada** (no-op).
   3. Si lo encuentra, consulta `FT_T_RLT1` (errores funcionales, `RLT_PURP_TYP='ERRORES'`, marcados
      `ERROR_TYPE='Funcional'`) y `FT_T_TRID` (errores técnicos, `CRRNT_SEVERITY_CDE>39`, marcados
      `'Tecnico'`) del job identificado, y vuelca ambos a un CSV de auditoría (cabecera fija de 11 columnas:
      `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`),
-     renombrando el fichero temporal (`DummyName`) a su nombre final.
+     renombrando el fichero temporal (`DummyName`) a su nombre final (`mv -f`). Se escribe en `dummy<fichero>`: la
+     cabecera, una línea por error (campos separados por `;`, con la palabra `null` borrada y un `;` final) y,
+     por cada transacción afectada, las líneas de notificación que devuelve el sub-workflow `SubErroresCSV`
+     (versión 4, `haltOnError=No`: lee `FT_T_NTXT`/`FT_T_NTPV` por `TRN_ID` y escribe una línea con `TRN_ID`,
+     `NOTFCN_ID` y `NOTFCN_SHORT_TXT`, el resto de columnas vacías).
   4. Comprueba el parámetro `Delta` (a nivel de workflow, procedente del `.properties` del propio servicio
-     invocador): si `Delta="Si"` invoca el sub-workflow **`MarcaRegErroneo`**, que marca los registros
-     erróneos para que se reprocesen automáticamente al día siguiente; si no, el workflow simplemente
-     termina. **Confirmado que `Refundicion.properties` fija `Delta=Si`** (ver R2/§6.1 más arriba), por lo
+     invocador): si `Delta="Si"` invoca el sub-workflow **`MarcaRegErroneo`** (analizado en esta ronda, ver el último
+     párrafo de este punto: **no marca nada en base de datos**, genera un fichero de identificadores y llama a un
+     script externo); si no, el workflow simplemente termina. **Confirmado que `Refundicion.properties` fija `Delta=Si`** (ver R2/§6.1 más arriba), por lo
      que para este proceso concreto la rama de reprocesamiento automático vía `MarcaRegErroneo` **sí se
-     ejecuta**. Procedencia: `ErroresCSV.wkf` aportado. **Cómo lo lanza `GSProcess.sh`:** `NomEvento=Errores` ejecuta `executeBbvaEvent.sh fileloading RDR_ErroresCSV <credenciales> Refundicion.properties`; este sí devuelve su código real (tiempo agotado = 1), a diferencia de los eventos `Workflow`. El contenido del sub-workflow `MarcaRegErroneo` **no se ha aportado**: que "reprocesa al día siguiente" es la interpretación previa del nombre y de la ficha, no un comportamiento verificado (P-REF-04). Nótese además que con `Delta=Si`, un registro marcado erróneo solo vuelve a procesarse si reaparece como "nuevo/cambiado" respecto al fichero de referencia del `Delta`.
+     ejecuta**. Procedencia: `ErroresCSV.wkf` aportado. **Cómo lo lanza `GSProcess.sh`:** `NomEvento=Errores` ejecuta `executeBbvaEvent.sh fileloading RDR_ErroresCSV <credenciales> Refundicion.properties`; este sí devuelve su código real (tiempo agotado = 1), a diferencia de los eventos `Workflow`. **`MarcaRegErroneo`** (versión 7, grupo `.../General/Errores`, `haltOnError=Sí`; recibe `Carpeta`, `JOB_ID`, `MessageType`, `Ruta`, `Servicio`): (a) consulta `select main_entity_id from ft_t_rlt1 where job_id=? and rlt_purp_typ='ERRORES' and main_entity_id is not null union select main_entity_id from ft_t_trid where job_id=? and crrnt_severity_cde > 39 and main_entity_id is not null`; (b) si no hay filas, termina; (c) concatena los identificadores separados por un espacio y los **añade** al fichero `<Carpeta>db_errores.txt` (`/fichtemcomp/<entorno>/descargas/kytl/Refundicion/db_errores.txt`); (d) ejecuta `sh /<entorno>/kytl/online/multipais/multicanal/scrt/errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt`, es decir, para `Refundicion`: `errores_to_file.sh Refundicion .../Refundicion/old/Refundicion.csv .../Refundicion/db_errores.txt`. Nótese que el segundo argumento es `old/Refundicion.csv`, el **fichero de referencia que usa `Delta.sh`**. Lo que hace `errores_to_file.sh` (el script no está en el material) decide el efecto real; la lectura más probable, no verificada, es que quite o marque en esa referencia las líneas de los identificadores erróneos para que `Delta` las considere «nuevas» en la siguiente ejecución y se reprocesen. Hasta ver el script, «reprocesa al día siguiente» sigue siendo una interpretación (P-REF-04, resuelta en parte). Efectos laterales ya verificados: `db_errores.txt` se acumula (modo añadir) y nadie lo borra ni lo historifica; en las filas `ERRORES` que inserta `REFUNDICION`, `MAIN_ENTITY_ID` vale `CLIENTED;CLIENTEP` (el par de códigos de clientela separados por `;`, con lo que cada identificador de `db_errores.txt` es un par así), y es lo que el script recibiría para localizar la línea en la referencia. Nótese además que con `Delta=Si`, un registro marcado erróneo solo vuelve a procesarse si reaparece como «nuevo/cambiado» respecto al fichero de referencia del `Delta`.
 * **`Java(RDR_Report.jar)`, clase `CreateReport`** (genérico: `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`):
   `CreateReport $CONF/select.properties Refundicion` escribe `<ruta>Refundicion/Reporte_Refundicion.csv`
   (`ruta=/fichtemcomp/<entorno>/descargas/kytl/`): cabecera literal en la primera línea y después una fila por
@@ -458,7 +503,8 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
 | `Refundicion.tmp` | `LimpiarRefundicion` | Cabecera + columnas 1 y 5, ordenado y sin repetidos consecutivos |
 | `Refundicion_processed.csv` / `Refundicion_noprocessed.csv` | `ControlCargaDatos` | Registros válidos / rechazados (se sobrescriben cada día) |
 | `Reporte_Refundicion.csv` / `Reporte_Refundicion_dos.csv` | `RDR_Report` / `Unix2Dos` | Informe (LF) / mismo informe en CRLF (el que se envía) |
-| `<Servicio>_errores.csv` | `Evento(Errores)` (`ErroresCSV`) | Auditoría de errores funcionales (`FT_T_RLT1`, `ERRORES`) y técnicos (`FT_T_TRID`, severidad >39) del job; solo si se encuentra el job `CLOSED` de la última hora; cabecera de 11 columnas `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`. Nombre y directorio exactos no verificados (P-REF-04) |
+| `<Servicio>_errores.csv` | `Evento(Errores)` (`ErroresCSV`) | Auditoría de errores funcionales (`FT_T_RLT1`, `ERRORES`) y técnicos (`FT_T_TRID`, severidad >39) del job; solo si se encuentra el job `CLOSED` de la última hora; cabecera de 11 columnas `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`. Nombre y directorio: `<Ruta><Servicio>/<Servicio>_errores.csv` (para esta cadena, `Refundicion/Refundicion_errores.csv`), confirmados con el workflow; el anterior se mueve a `old/` al inicio del evento |
+| `db_errores.txt` | `MarcaRegErroneo` (`Delta=Si`) | Identificadores (`MAIN_ENTITY_ID`) de los registros con error del job, separados por espacio, añadidos sin límite; lo consume `errores_to_file.sh` (no disponible) |
 | `old/Refundicion.csv`, `old/Refundicion_old.csv`, `old/Refundicion_original.csv` | `Delta` | Referencia del delta (completo del día, anterior, copia) |
 | `old/Refundicion_yyyymmdd.csv` | `MEKYTL0121` | Fichero (delta) del día historificado |
 | `old/Reporte_Refundicion.zip` | `RDR_Report` | Informe del día anterior comprimido (solo el último) |
@@ -497,7 +543,12 @@ los eventos `Workflow` no lo ve `GSProcess.sh` nunca (ver siguiente tabla).
 relanzamiento (≤5 s entre las marcas de fecha de `Refundicion.csv` y `old/Refundicion_old.csv`) y repone el
 mismo delta. Deducido del código de `Sub_Load`: una refundición ya aplicada tiene su cliente de cierre
 inactivo, así que si se vuelve a procesar el mismo par se reportará `No existe el Clientela a Refundir`
-(fila `REPORTES`, sin dañar datos); el efecto sobre las señales 460 ya enviadas no está verificado.
+(fila `REPORTES`, sin dañar datos, y sin crear señales 460 nuevas). **Efecto sobre las señales 460 ya enviadas
+(deducido del código de `BajaClientela460`, no probado en ejecución):** el workflow solo recoge filas
+`RLT_DIF_STAT='PENDING'` y marca `OK` las que envía, así que un relanzamiento **no reenvía** las ya enviadas; las
+que se quedaron `PENDING` (porque el envío falló o porque el mnemónico no tenía `CLIENTELAID` activo en las altas
+`A460`) se envían o se siguen difiriendo en el relanzamiento. Solo habría duplicados si el mensaje saliera por MQ y
+el `UPDATE ... 'OK'` posterior no se llegara a ejecutar.
 
 ## 7. Especificación de testing
 
@@ -533,6 +584,8 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 | `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
 | `error_funcional` | Un fallo en cualquier paso de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)` o `Workflow(RDR_Clientela460)`) no detiene los pasos siguientes, al no existir ninguna clave `Stop=Ok`/`StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en `Refundicion.properties` — el job solo reporta `RC=1` al final. | TC-016 |
 | `happy_path` | `BAJA_460_CLI` (`NIVEL=LOCAL`) envía una baja B460 por cada folio activo del cliente vía `SUB_GET_FOLIO`, y nada si no tiene folios. | TC-017 |
+| `error_funcional` | Ciclo de `Refundicion_errores.csv` (el anterior pasa a `old/` al inicio) y de `db_errores.txt` (acumulativo), y llamada a `errores_to_file.sh`. | TC-018 |
+| `error_funcional` | Interruptor `TRACE`/`PUBLISH` de la cola lógica `CLIENTELA` y pérdida controlada de un nombre de cola no previsto. | TC-019 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -574,18 +627,17 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
   lo anterior — el script internamente no para en el primer fallo, pero el job sí queda marcado como fallido
   frente a Control-M al finalizar.
 * **[Informativo, no forma parte de esta cadena] Hallazgos de código en `ConContrato460.java`/`ConDB.java`/
-  `ThreadComprobacion.java` (§6.1):** confirmados como código real, pero de un proceso/cadena distinto y no
-  identificado (la evidencia de `BajaClientela460.wkf` descarta que implementen `Workflow(RDR_Clientela460)`)
-  — se documentan por si ayudan a localizar su cadena real: probable defecto de escritura en `FT_T_FAB1`
-  (`STAT_DEF_ID='NUMFOLII'` escrito vs. `'NUMFOLIO'` filtrado), posible defecto de tipo de job (`crearJOB`
-  con `"C460"`, `cerrarJOB` con `"CCL"`), y en `ThreadComprobacion`: conexión JDBC nunca inicializada,
-  *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución.
-* **Reprocesamiento automático vía `MarcaRegErroneo` (§6.1, G3):** al estar `Delta=Si` en
+  `ThreadComprobacion.java` (§6.1):** las dos primeras clases pertenecen a la cadena `RDR_C460`
+  (`rdr_c460_spec.md` §6.2) y allí se aclaran los dos supuestos defectos de `FT_T_FAB1` y del tipo de job (no son
+  defectos). `ThreadComprobacion` no está en el jar Maven de 26/08/2026 (código de una versión anterior sin
+  paquete): sus hallazgos de robustez (conexión JDBC nunca inicializada, *busy-loop* sin espera, y pérdida
+  silenciosa de una sentencia SQL si falla su ejecución) solo aplican si producción ejecuta esa versión.
+* **Reprocesamiento vía `MarcaRegErroneo` (§6.1, G3, P-REF-04 resuelta en parte):** al estar `Delta=Si` en
   `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
-  `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) queda marcado para
-  reprocesarse automáticamente al día siguiente — un fallo persistente en el mismo registro podría
-  reintentarse indefinidamente sin una alerta explícita de "reintento agotado" (no se ha aportado evidencia
-  de un límite de reintentos).
+  `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) pasa a `db_errores.txt` y se entrega a
+  `errores_to_file.sh` junto con el fichero de referencia del `Delta`. Si ese script lo hace volver como «nuevo» (no
+  verificado), un fallo persistente en el mismo registro se reintentaría indefinidamente sin una alerta de
+  «reintento agotado» (no hay límite de reintentos en el workflow). Además `db_errores.txt` crece sin límite.
 * **[RIESGO NUEVO, prioridad media, confirmado con código PL·SQL real de `Sub_Load`] Reactivación en bloque
   filtrada solo por `LAST_CHG_USR_ID='BAJA_CPARTY'`:** cuando el cliente destino de una refundición estaba
   inactivo, el procedimiento `REFUNDICION` reactiva cerca de 40 tablas maestras, pero **solo las filas cuya

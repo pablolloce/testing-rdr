@@ -24,6 +24,7 @@
 | TC-007 | Fondo ya cargado en GoldenSource (LEI activo, jerarquía Global/Local/Operativa activa) con su petición en el estado de partida; acceso de lectura a `FT_T_VREQ`/`FT_T_UTD1`. Hay que averiguar antes qué deja el padre en `ALTA_FONDOS_PEND` (P-BCR-09). |
 | TC-008 | Petición de partida igual que TC-007 pero con un LEI inexistente. |
 | TC-009 | Buzón de prueba y acceso de lectura a `FT_T_TPG1`, `FT_T_ALG1`, `FT_T_REP1`, `FT_T_ALR1`, `FT_T_RLT1`. Recordar que el envío es global: otros informes pendientes saldrían en la misma ejecución. |
+| TC-010 | Fondo de prueba cuyo XML lleve una oficina inactiva o inexistente en `FT_T_SUBD`; permiso para consultar y borrar la fila correspondiente de `FT_T_RRM1` y para activar la oficina; lectura de `FT_T_RLT1`. |
 
 ## Entorno de ejecución
 

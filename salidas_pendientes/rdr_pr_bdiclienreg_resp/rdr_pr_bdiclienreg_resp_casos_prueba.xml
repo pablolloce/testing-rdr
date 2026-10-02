@@ -147,7 +147,7 @@
     <resultadoEsperado>Hija en FUND_LOADED, padre en FONDOS_CUADRE_OK, seis atributos nuevos, y el fondo llega a GENERATED_FUND tras el enriquecimiento.</resultadoEsperado>
     <tipoValidacion>Consulta de FT_T_VREQ y FT_T_UTD1.</tipoValidacion>
     <criterioAceptacion>Los seis atributos existen una sola vez por fondo y los estados finales son los indicados.</criterioAceptacion>
-    <posibilidadFallo>Que nadie deje el padre en ALTA_FONDOS_PEND (P-BCR-09): en ese caso el cuadre no encuentra nada y el fondo no avanza.</posibilidadFallo>
+    <posibilidadFallo>Que R7 (Investors_Client_Reg_resp.jar) no haya dejado el padre en ALTA_FONDOS_PEND, porque ningún fondo de la petición resultó válido (el padre queda en ERROR_CLI_REG_PROC) o la petición quedó en PROCESSING_CLIENTS: el cuadre no encuentra nada y el fondo no avanza.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="error_funcional">
@@ -192,6 +192,28 @@
     <tipoValidacion>Consulta de base de datos y buzón de prueba.</tipoValidacion>
     <criterioAceptacion>Todas las tablas coinciden con lo descrito y el correo llega una sola vez.</criterioAceptacion>
     <posibilidadFallo>Que el Barrido no cierre las incidencias (se duplicarían mensajes en la siguiente ejecución) o que Mail falle sin dejar rastro.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="conflicto_integridad">
+    <nombre>Mensaje de alta descartado por oficina inactiva deja bloqueado su reenvío</nombre>
+    <objetivo>Verificar que un mensaje con una oficina inactiva se descarta entero (nodo "Existen errores?" de RDR_XMLReader) y que su reenvío idéntico, una vez activada la oficina, se descarta como duplicado porque la fila de FT_T_RRM1 no se libera.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción. Un fondo de prueba en GENERATED_CSV_LINE cuyo XML (altasmasivas.xml) incluye una oficina (IDENTIFIER y BRANCH) con FT_T_SUBD inactiva o inexistente.</precondicion>
+      <precondicion>Sin fila previa en FT_T_RRM1 para el texto de ese mensaje.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Oficina" valor="combinación IDENTIFIER|BRANCH sin fila ACTIVE en FT_T_SUBD"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar Workflow(RDR_XMLReader) con el fichero y comprobar que se crea una fila NACK en FT_T_RLT1 ("Esta oficina está INACTIVA", DATA_SRC_APP CARGA_CPARTY) y que no se crea transacción ni alta de la contraparte.</paso>
+      <paso numero="2">Comprobar que la fila insertada en FT_T_RRM1 (DATA_SRC_ID XMLRequest) sigue presente.</paso>
+      <paso numero="3">Activar la oficina y reenviar exactamente el mismo mensaje: comprobar si se descarta como duplicado sin error ni alerta.</paso>
+      <paso numero="4">Borrar la fila de FT_T_RRM1 (o cambiar el contenido del mensaje) y reenviar: comprobar que ahora sí se aplica y la fila de FT_T_RRM1 se libera.</paso>
+    </pasos>
+    <resultadoEsperado>El primer envío no aplica nada; el reenvío idéntico se descarta en silencio mientras exista la fila de FT_T_RRM1; tras borrarla, el alta se aplica.</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_RLT1, FT_T_RRM1, FT_T_FINS y logs del workflow.</tipoValidacion>
+    <criterioAceptacion>Coincide con los cuatro pasos; el comportamiento queda documentado aunque se decida corregirlo.</criterioAceptacion>
+    <posibilidadFallo>Que exista un proceso de limpieza de FT_T_RRM1 no documentado, o que el recorte a 3.900 caracteres cambie la clave de duplicado.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
