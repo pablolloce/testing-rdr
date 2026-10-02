@@ -956,16 +956,20 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   Job`, mecanismo de tracking propio del motor, no visto en el resto del audit).
 - **Qué recibe/produce:** recibe `cntrprtyGlobalOid`/`predecesor`; produce `regulatoryGlobalData` (mapa de
   salida consumido por `RDR_AltaFondos_Autocalc_PARTY`, §6.13).
-- **Profundidad real, fuera de alcance práctico de este audit:** este workflow delega, a su vez, en **al
-  menos 10 subworkflows propios más** (`Calculate SFTR NFC Sector`, `Calculate EMIR NFC Sector`, `Calculate
-  Counterparty type under EMIR`/`...under SFTR`, `Calculate Final Counterparty type under EMIR`/`...under
-  SFTR`, `Calculate EMIR Category`, `Calculate IF`, `Calculate Reporting Delegation Model`, `Calculate
-  European Person Indicator`, `Calculate Other Regulatory Information`, `Get Canonical Identifier`),
-  ninguno aportado — un árbol de cálculo regulatorio propio y considerable, coherente con tratarse de un
-  motor compartido con carpeta GoldenSource dedicada. Se documenta aquí al nivel de mecanismo (contrato,
-  override manual, tablas de control) — el detalle campo a campo de cada sub-cálculo queda fuera de alcance
-  práctico de esta auditoría, mismo criterio ya aplicado a otros motores compartidos de profundidad similar
-  (`"Basic Message Processing"`, `RecepcionAlertApiRest`).
+- **Profundidad real — árbol de 16 subworkflows propios, en proceso de cierre uno a uno (ya no "fuera de
+  alcance"):** este workflow delega, a su vez, en 16 subworkflows propios confirmados por nombre real de
+  invocación (extraído directamente del parámetro `name` de cada nodo `CallSubWorkflow`, no de una
+  estimación): `Calculate SFTR NFC Sector`, `Calculate EMIR NFC Sector`, `Calculate Counterparty type under
+  EMIR`, `Calculate Counterparty type under SFTR`, `Calculate Final type under EMIR`, `Calculate Final type
+  under SFTR`, `Calculate_EMIR_Category`, `Calculate Investment Firm`, `Calculate_Reporting_Delegation_Model`,
+  `Calculate European Person Indicator`, `Calculate Other Regulatory Information`, `USINDEM Extraction`,
+  `EMIR Extraction`, `Manual EMIR Extraction`, `Manual SFTR Extraction`, `Other Regulatory Information
+  Extraction` — un árbol de cálculo regulatorio propio y considerable, coherente con tratarse de un motor
+  compartido con carpeta GoldenSource dedicada. **Corrección sobre la estimación previa de esta misma
+  sesión:** `Get Canonical Identifier`, que se había citado como uno de esos ~10 subworkflows, **no lo es**
+  — es una `DBQuery` inline dentro del propio `.wkf` de `OperativeRegulatoryInformation` (§6.13sexies,
+  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 2 de los 16 ya
+  están cerrados con `.wkf` real — ver el listado en el Anexo de §6.13quater más abajo.
 - **[Hallazgo, no confirmado como defecto] SQL de cierre (`UPDATE DR`) con sintaxis dudosa para Oracle:**
   `UPDATE ft_t_rlt1 SET RLT_DIF_STAT = 'FIN' FROM FT_T_INCL WHERE ft_t_rlt1.main_entity_id=? AND
   RLT_PURP_TYP='CONTROLDR' AND GS_VALUE='GLOBAL' AND LAST_CHG_TMS > sysdate - 7/86400` — usa una cláusula
@@ -974,6 +978,37 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   No se puede confirmar sin ejecutarlo si Oracle lo acepta igualmente (ignorando el `FROM`) o si falla en
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
+
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (2 de 16):**
+
+- **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
+  Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
+  una etiqueta base ya calculada en otro punto (`etiquetaEmir`, valores tipo `"NFC / EXENT"`, `"EXENT /
+  FINAN."`, `"PEND. / NFC"`, `"EXENT EXC. REP."`, `"FINANCIAL"`, etc.), con sub-reglas que consultan si la
+  contraparte es cámara de compensación (`rolcrsem`, `FINSRL_TYP='CLRNGHS'`), el "European Person Indicator"
+  y el código BDI. 4 queries en paralelo (`ANDSPLIT`) alimentan el cálculo: `BDI Code Extract`, `Clearing
+  Extract`, `Entity Own Extract` (rol `ENT_OWN` en `FT_T_ENFR`), `Legalent or Individual` (`FT_T_FINR.
+  FINSRL_TYP` de la propia contraparte). Compara el resultado con el valor ya existente en `FT_T_FRA1`
+  (clasificación `EMIRCAT`) y aplica el mismo patrón `out`/`true`/`reactivar`/`false` ya visto en
+  `RDR_AltaFondos_ROL` y compañía. **Hallazgo:** el `INSERT` real (rama `false`, primera alta) no usa el nodo
+  estándar `DBStatement` del motor de workflows — ejecuta una **conexión JDBC manual dentro de un
+  `BeanShellScript`** (`DriverManager.getConnection(urldb, userdb, passdb)`, variables ya resueltas en otro
+  punto del flujo, no literales) para lanzar un `INSERT ... WHERE NOT EXISTS` sobre `FT_T_FRA1` — un patrón
+  de acceso a BBDD distinto y menos auditable que el resto del `.wkf` (sin pool de conexiones del motor,
+  cierre manual en un `finally`).
+- **`Calculate Final type under EMIR`** (mismo grupo, estado `DEVELOPMENT`, v24): calcula el valor **final**
+  de EMIR combinando el manual override (`manualEmir`, con un caso especial: valor `"09"` se reescribe a
+  `"03"`) con el valor ya calculado por `Calculate Counterparty type under EMIR` (`cntrprtyTypeUnderEMIR`) —
+  el manual, si existe, siempre gana. Mismo patrón `out`/`true`/`reactivar`/`false` contra `FT_T_FRA1`
+  (clasificación `FINALEM`), esta vez sí con el nodo `DBStatement` estándar para el `INSERT`. **[Hallazgo]
+  2 nodos llamados literalmente `"Prueba"` y `"Prueba 2"` ejecutan `INSERT` reales e incondicionales en
+  `FT_T_RLT1`, antes incluso de comprobar `hacerCalculoDR`:** ambos insertan una fila de auditoría casi
+  idéntica (`DATA_SRC_APP='CALCULODR'`, `MESSAGE_RLT='Control del calculo de datos regulatorios'`,
+  `GS_FIELD='REL_TYP'`, `GS_VALUE='GLOBAL'`) — `"Prueba"` con el valor EMIR recién calculado (antes de
+  fusionarlo con el manual override) y `"Prueba 2"` con el valor ya fusionado (`finalEmir`) — es decir, se
+  insertan **2 filas de control por cada ejecución**, con nombres de nodo que delatan un origen de
+  depuración/pruebas nunca renombrado ni limpiado, pese a ejecutar de forma real e incondicional sobre una
+  tabla de producción.
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1029,8 +1064,9 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   (`Corporate Relationship Extraction`, `Counterparty type under DFA Extraction`/`DFA Type Extraction`,
   `Parent Company Country of Residence`/`COMPCOUN Extraction`) y, tras un `Synchronize`, 3 subworkflows de
   cálculo encadenados (`Calculate Corporate Relationship`, `Calculate Parent Company Country of Residence`,
-  `Calculate Counterparty type under DFA`) — **ninguno de los 6 aportado**; mismo tratamiento "motor
-  compartido, fuera de alcance práctico" ya aplicado al resto de este árbol regulatorio.
+  `Calculate Counterparty type under DFA`) — 7 subworkflows en total (los 3 de extracción, los 3 de cálculo
+  y la propia `Auxiliary DFA Data Extraction`), **2 de los 7 ya cerrados con `.wkf` real, ver el Anexo más
+  abajo** — ya no se trata como "fuera de alcance", se está cerrando igual que el resto de esta familia.
 - **Qué recibe/produce:** recibe `cntrprtyOperativeOid`/`predecesor` (este último opcional); produce
   `regulatoryOperativeData` (mapa de salida consumido por `RDR_AltaFondos_Autocalc_PARTY`, §6.13).
 - **[Hallazgo] Mismo SQL de cierre con sintaxis dudosa que el motor Global (§6.13quater), reutilizado tal
@@ -1052,6 +1088,34 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
 - **Mismo patrón de estado `DEVELOPMENT` ya visto en otros workflows de esta cadena** (`RDR_XMLReader` §6.6,
   `RDR_AltaFondos_Enriquecimientos` §6.11) pese a estar aparentemente en la ruta real de producción — no
   confirmado si refleja el ciclo de vida real.
+
+**Anexo — subworkflows del árbol Operativo (DFA) confirmados con `.wkf` real (2 de 7):**
+
+- **`Auxiliary DFA Data Extraction`** (grupo `.../Regulatory Information Extraction/Operative Data
+  Extraction`, estado `RELEASED`, v6): 1 query inicial (`Continente`, decide `'MEX'`/`'EUR'` según si la
+  sucursal propietaria de la contraparte cuelga de `EERL.PRNT_ORG_ID='0182'` — código de banco hardcodeado,
+  mismo patrón ya visto en otros puntos de la cadena de Investors Plan) seguida de un `ANDSPLIT` con 4 queries
+  paralelas: `Country of Guarantee Extraction` (`FT_T_FIGU`, propósito `COUNGUAR`), `Country of Residence
+  Extraction` (`FT_T_FIGU`, propósito `RESID_CO`), `Head Office Relationship` (`FT_T_FINS.SUBSIDIARY_IND`),
+  `Rolin` (clasificación industrial `RR_IRS` en `FT_T_FRA1`, resuelta al nivel del abuelo de la jerarquía
+  `FT_T_FIRL`), y `US Person Extraction` (clasificación `USPERSON` en `FT_T_FRA1`, mismo nivel de abuelo,
+  escrita junto a `ROLIN` en el mismo mapa `globalData`). Es puramente de **lectura** — no escribe ninguna
+  tabla GoldenSource, solo empaqueta los 6 resultados (`continente`, `guaranteCountry`, `residenceCountry`,
+  `head`, `rolin`, `globalData["ROLIN"/"USPERSON"]`) como salida para los 3 subworkflows de cálculo.
+- **`Calculate Counterparty type under DFA`** (grupo `.../Data Regulatory Calculation/Operative Data
+  Calculation`, estado `DEVELOPMENT`, v14): contiene la **lógica de negocio real de la clasificación DFA**
+  (Dodd-Frank) — un árbol de decisión que combina `uspersonText` (US Person Y/N), `corprelText` (Corporate
+  Relationship: `CVR`=Covered Prime Brokerage, `SUC`=sucursal, `CON`, `SNU`=caso especial Footnote 513/CFTC
+  Guidance 13-69), `continenteText` (`MEX`/`EUR`), `headText` (sucursal sí/no) y `rolinText`
+  (`SD`/`MS`/`OT`/`NE`/`NEX`), produciendo un código final `"01"` a `"19"`. **Detalle confirmado:**
+  `residenceText` (país de residencia, para decidir si es EE.UU./Puerto Rico) se calcula **2 veces** con
+  fuentes distintas — primero desde `residenceCountry` (extracción cruda), y más adelante se **recalcula**
+  priorizando `calculoCompcoun` (el resultado ya calculado del subworkflow hermano `Calculate Parent Company
+  Country of Residence`, no aportado) si existe, cayendo de nuevo a `residenceCountry` si no — un
+  solapamiento de fuentes de la misma variable dentro del mismo script, no documentado hasta ahora. El
+  `INSERT`/`UPDATE` final sobre `FT_T_FRA1` (clasificación `DFACAT`) sí usa el nodo `DBStatement` estándar
+  (a diferencia de `Calculate Counterparty type under EMIR`, §6.13quater, que usa JDBC manual) — mismo
+  patrón `out`/`true`/`reactivar`/`false` que el resto de la familia `Calculate_*`.
 
 ### 6.13septies `Workflow(PartySetupDifusion)` — confirmado con `.wkf` real, motor compartido
 
@@ -1191,8 +1255,8 @@ discrepancia real o si el motor de GoldenSource lo registra bajo un alias distin
   es `PARCIAL` y el cuerpo indica "No existen datos a enviar", el envío se omite intencionadamente
   (comportamiento esperado, no un fallo). Dado que `Mail` (§6.15bis) traga internamente cualquier excepción de
   envío sin devolver ningún resultado, **ni siquiera un fallo real del SMTP llegaría a registrarse aquí**.
-- **Gap abierto, no bloqueante:** `AlertasEnvioExcepciones` (llamado antes de generar el mail final) sigue sin
-  aportar; `Mail` ya está cerrado, ver §6.15bis.
+- **Sin gaps abiertos:** `AlertasEnvioExcepciones` (llamado antes de generar el mail final) y `Mail` están
+  ambos cerrados con `.wkf` real, ver §6.15bis/§6.15ter.
 
 ### 6.15bis `Workflow(Mail)` — componente compartido, confirmado con `.wkf` real
 
@@ -1225,6 +1289,44 @@ procesos de este audit que lo invocan sin más detalle** (este mismo proceso, `r
   llamante quisiera comprobarlo. Un SMTP caído, una dirección de destino inválida, o un `FileMail` inexistente
   (que ni siquiera se trata como fallo) son todos indistinguibles de un envío correcto desde fuera de este
   workflow.
+
+### 6.15ter `Workflow(AlertasEnvioExcepciones)` — componente compartido, confirmado con `.wkf` real, cierra el gap de §6.15
+
+Workflow analizado: `AlertasEnvioExcepciones` (grupo `Custom/RDR/Common` — mismo grupo que `AlertasEnvio`/
+`Mail` —, estado `RELEASED`, v31, descripción propia del `.wkf`: *"Workflow para personalizar el cuerpo y
+asunto del mensaje"* — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/AlertasEnvioExcepciones.wkf`).
+
+- **Qué hace — corrige la suposición implícita de rondas anteriores:** no es un generador de adjuntos ni un
+  motor de excepciones de envío; es un **personalizador de `body`/`subject`** para 3 procesos concretos,
+  distintos de `RDR_ALTA_FONDOS` y ninguno de ellos parte de R8 — `AlertasEnvio` lo invoca con el `proceso`
+  real como `caseItem` de un `SwitchCaseSplit`, y si no coincide con ninguno de los 3 casos conocidos
+  (rama `DEFAULT`) no hace nada, dejando el `body`/`subject` que ya traía `AlertasEnvio` sin modificar:
+  - **`BATCH_REFINITIV_EMISORES`:** cuenta (`Get Datos Total`) cuántos emisores activos de un conjunto de 6
+    comprobaciones de calidad de datos (sector ADA/TRBC, país de riesgo, subsector, rating externo, rating
+    externo inactivo) siguen pendientes, y genera un asunto/cuerpo fijo con ese total.
+  - **`CARGA_BASKETS_SPONSORS`:** construye un **informe de conciliación de publicación de cestas a MUREX**
+    — cruza `FT_T_PAR1` (parámetros de carga de cestas) con `FT_T_ALG1` (mensajes del día) y `FT_T_EMM1`
+    (eventos de *broadcast* MUREX/ESB) para calcular total/errores de carga/cargadas/sin información/
+    ACK/NACK de publicación, y compone un cuerpo de correo con el detalle de qué cestas fallaron en cada
+    etapa. Mismo patrón de "informe de conciliación por email" ya visto para Broker/SWIFT en
+    `rdr_conciliacion_bdi`, aquí aplicado a cestas cotizadas.
+  - **`REGU_PDTE_LEI_EMISIONES`:** cuenta cuántas peticiones `PETICION_REFINITIV_EMISIONES` de tipo `LEI`
+    llevan pendientes de regularizar (no casadas aún con la jerarquía `FIRL` Operativo→Local→Global completa
+    de un emisor `ISSUER` activo) en los últimos 30 días, y genera un asunto/cuerpo con ese total.
+  - En los 3 casos, el workflow solo **registra** `body`/`subject`/`destination` en el log (`logger.error`)
+    y los deja como variables de salida — el envío real sigue ocurriendo después, de vuelta en `AlertasEnvio`,
+    vía `Mail` (§6.15bis); este workflow no envía nada por sí mismo.
+- **Qué recibe/produce:** recibe `proceso` (discrimina el caso) y, como entrada/salida combinada,
+  `body`/`subject` (los personaliza); no toca ninguna tabla GoldenSource de forma directa, solo lee para
+  componer texto.
+- **Qué pasa si falla:** sin rama de gestión de error visible; `haltOnError=true` a nivel de workflow (a
+  diferencia de la mayoría de esta cadena, que lo declara `false`) — es la primera vez en todo este audit que
+  se ve ese flag en `true`, aunque no se puede confirmar sin ejecutarlo si GoldenSource lo interpreta de forma
+  distinta a nivel de proceso padre.
+- **Nota para otros procesos de este audit:** los casos `CARGA_BASKETS_SPONSORS` y `BATCH_REFINITIV_EMISORES`
+  pertenecen a `carga_sponsors_baskets` y, probablemente, a la familia de procesos de emisores Refinitiv
+  (`descarga_derivados_refinitiv`/`rdr_batch_emisores_refinitiv`) — se deja una referencia cruzada en esos
+  2 `spec.md` señalando este mecanismo, sin duplicar aquí el detalle de negocio de esos procesos.
 
 ### 6.12 `GestionAlertas.properties` — plantilla genérica de alertas (confirmado con `.properties` real)
 
@@ -1611,6 +1713,20 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   **envía el correo igualmente, sin adjunto y sin aviso** (TC-012) — un fallo silencioso más que se suma a
   los ya documentados en esta cadena. La autenticación SMTP tampoco es real (`connect(USER, "")`, contraseña
   vacía): depende por completo de la confianza de red/relay interno.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] 2 nodos llamados `"Prueba"`/`"Prueba 2"` ejecutan
+  `INSERT` reales e incondicionales en `FT_T_RLT1` dentro de `Calculate Final type under EMIR`:** se
+  ejecutan **antes** de comprobar `hacerCalculoDR`, así que insertan su fila de auditoría (`"Control del
+  calculo de datos regulatorios"`) siempre, incluso cuando el resto del workflow decide no recalcular nada
+  — nombres de nodo que delatan un origen de depuración/pruebas nunca renombrado, ejecutando igualmente
+  sobre una tabla de producción en cada llamada.
+* **[Confirmado con `.wkf` real, §6.13quater/§6.13sexies — Anexo] Al menos 2 de los subworkflows
+  `Calculate_*` del motor Regulatory Information ejecutan el `INSERT` final con una conexión JDBC manual
+  dentro de un `BeanShellScript`, en vez del nodo `DBStatement` estándar del motor** (`Calculate
+  Counterparty type under EMIR`, confirmado; mismo patrón de código visible — aunque no confirmado en el
+  `INSERT` final — en `Calculate Final type under EMIR`, que sí reutiliza ese mismo bloque de código): abre
+  su propia `Connection` vía `DriverManager.getConnection(urldb, userdb, passdb)` y la cierra en un
+  `finally` manual, fuera del pool de conexiones y de la auditoría estándar del resto del `.wkf` — un
+  patrón de acceso a BBDD menos uniforme y menos auditable que el resto de esta familia de workflows.
 * **[PRIORIDAD ALTA, confirmado con `main.Ppal` real de `AlertasBarrido`, §6.14] El `INSERT` real en
   `FT_T_ALG1`/`FT_T_RLT1` está desactivado en el código fuente aportado, pero el propio proceso audita el paso
   como `"OK"` igualmente:** las 2 llamadas a `realizaInserciones(...)` que ejecutarían los inserts están
@@ -1728,9 +1844,13 @@ motores regulatorios **compartidos** (carpeta GoldenSource propia, `Custom/RDR/I
 Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR/SFTR/CFTC/SEC/Persona-UE y
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
-delegando a su vez en varios subworkflows propios más, fuera de alcance práctico de este audit, mismo criterio
-que otros motores compartidos ya aceptados como límite natural (`"Basic Message Processing"`,
-`RecepcionAlertApiRest`); `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
+delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
+fuera de alcance**: 4 de los 23 están cerrados con `.wkf` real en esta misma ronda (`Calculate Counterparty
+type under EMIR`/`Calculate Final type under EMIR` del lado Global, `Auxiliary DFA Data Extraction`/
+`Calculate Counterparty type under DFA` del lado Operativo — ver los Anexos de §6.13quater/§6.13sexies), con
+hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e
+incondicionales en `FT_T_RLT1`, y un patrón de conexión JDBC manual dentro de `BeanShellScript` que bypasea
+el nodo estándar `DBStatement` del motor de workflows en al menos uno de ellos; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
 corrección sobre la hipótesis previa — no es un `RaiseEvent`, es un `CallSubWorkflow` real que asigna el rol
 "Mandated Account" (`FT_T_FINR`/`FT_T_ENFR`/`FT_T_FRRL`) condicionado a un flag de `FT_T_UTD1`; y
 `PartySetupDifusion` (§6.13septies, confirmado con `.wkf` real) cierra el sexto y último subworkflow: difusión
@@ -1748,7 +1868,11 @@ descubre un hallazgo propio: el envío final **no está acotado al proceso que l
 global de todo `FT_T_REP1` pendiente en todo el sistema; `Mail` (§6.15bis, confirmado con `.wkf` real) cierra
 el componente de envío SMTP compartido por toda esta cadena (y por `rdr_daily_bbg_req_new`/
 `rdr_conciliacion_bdi`): traga cualquier excepción de envío sin informar a su llamante, lo que explica por
-qué ningún "Send Mail" de todo el audit comprueba su resultado. Con esto, **R8 queda funcionalmente resuelto
+qué ningún "Send Mail" de todo el audit comprueba su resultado; `AlertasEnvioExcepciones` (§6.15ter,
+confirmado con `.wkf` real) cierra el último punto pendiente de esta sub-cadena — corrige la suposición
+implícita de que generaba adjuntos/gestionaba excepciones de envío: en realidad personaliza `body`/`subject`
+para 3 procesos ajenos a R8 (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS`,
+`REGU_PDTE_LEI_EMISIONES`), dejando el envío real en manos de `Mail`. Con esto, **R8 queda funcionalmente resuelto
 de principio a fin, sin cabos sueltos bloqueantes**: solo queda, como residual de código no aportado, la clase
 `report.ReportesRDR` que implementa la lógica interna de `AlertasCocinado`.
 

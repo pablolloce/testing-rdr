@@ -314,7 +314,16 @@ Ambos scripts, a diferencia de `RDR_CargaBasketSponsor.sh`, no tienen lógica de
         (Murex)** o si hubo un NACK, incluyendo cualquier alerta adicional real (excluyendo las de tipo
         `ACKINFO`).
      El envío (`Send Email`, sub-workflow genérico `Mail`) se repite una vez por cada destinatario
-     configurado.
+     configurado. **Nota cruzada (confirmado con `.wkf` real en `rdr_pr_bdiclienreg_resp`):** el caso
+     `CARGA_BASKETS_SPONSORS` (coincide con el valor por defecto de `proceso` de este mismo workflow) está
+     además implementado en `AlertasEnvioExcepciones` — un personalizador de `body`/`subject` compartido
+     (grupo `Custom/RDR/Common`) que, para este `proceso`, construye un informe de conciliación de
+     publicación a MUREX cruzando `FT_T_PAR1`/`FT_T_ALG1`/`FT_T_EMM1` (total/errores/cargados/ACK/NACK) antes
+     de que `AlertasEnvio` dispare el envío real vía `Mail` — ver
+     `salidas/rdr_pr_bdiclienreg_resp/spec.md` §6.15ter. No confirmado si este mecanismo es el mismo "Send
+     Email" citado arriba o una ruta de alertas paralela (`GestionAlertas`/`FT_T_TPG1`, distinta del flujo de
+     `Load_Baskets_Sponsors.wkf` descrito en este documento) — a revisar si hay evidencia adicional de la
+     cadena `GestionAlertas` aplicada a este proceso.
    * **Disparador confirmado con código:** el bloque `<parameter>` propio de `Load_Baskets_Sponsors.wkf`
      declara `proceso` como parámetro de entrada formal del workflow (`input=true`, `required=false`, valor
      por defecto `CARGA_BASKETS_SPONSORS` en `<variables>`). El `.properties` que `RDR_CargaBasketSponsor.sh`

@@ -1,0 +1,974 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">RDR_NFQ_OSI_V7</comment>
+<description id="2">Workflow para personalizar el cuerpo y asunto del mensaje</description>
+<endNode id="3">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="4">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="5">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="6" type="java.util.HashSet">
+<item id="7" type="com.j2fe.workflow.definition.Transition">
+<name id="8">DEFAULT</name>
+<source id="9">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="10">Switch Case</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="11">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="12" type="java.util.HashSet">
+<item id="13" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="14">caseItem</name>
+<stringValue id="15">proceso</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="16" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="17">defaultItem</name>
+<stringValue id="18">DEFAULT</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="19" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="20">nullTransition</name>
+<stringValue id="21">DEFAULT</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="22" type="java.util.HashSet">
+<item id="23" type="com.j2fe.workflow.definition.Transition">
+<name id="24">goto-next</name>
+<source id="25">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="26">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="27">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="28" type="java.util.HashSet">
+</sources>
+<targets id="29" type="java.util.HashSet">
+<item idref="23"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="9"/>
+</item>
+</sources>
+<targets id="30" type="java.util.HashSet">
+<item id="31" type="com.j2fe.workflow.definition.Transition">
+<name id="32">BATCH_REFINITIV_EMISORES</name>
+<source idref="9"/>
+<target id="33">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="34">Get Datos Total</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="35">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="36" type="java.util.HashSet">
+<item id="37" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="38">database</name>
+<stringValue id="39">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="40" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="41">firstColumnsResult[0]</name>
+<stringValue id="42">total</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="43" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="44">querySQL</name>
+<objectValue id="45" type="java.lang.String"><![CDATA[WITH EMISORES_ACTIVOS AS (
+    SELECT DISTINCT FINS.INST_MNEM
+    FROM FT_T_FINS FINS
+    JOIN FT_T_FINR FINR
+         ON FINR.INST_MNEM = FINS.INST_MNEM
+    WHERE FINS.DATA_STAT_TYP = 'ACTIVE'
+      AND FINS.END_TMS IS NULL
+      AND FINR.FINSRL_TYP = 'ISSUER'
+      AND FINR.DATA_STAT_TYP = 'ACTIVE'
+      AND FINR.END_TMS IS NULL
+),
+
+EMISORES_ADA AS (
+    SELECT FIID.FINS_ID
+    FROM FT_T_FRCL FRCL
+    JOIN FT_T_FIID FIID ON FIID.INST_MNEM = FRCL.INST_MNEM
+        AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+        AND FIID.DATA_STAT_TYP = 'ACTIVE'
+        AND FIID.END_TMS IS NULL
+    WHERE FRCL.INDUS_CL_SET_ID = 'SAACCT'
+      AND FRCL.DATA_STAT_TYP = 'ACTIVE'
+      AND FRCL.END_TMS IS NULL
+      AND FRCL.DATA_SRC_ID = 'ADA'
+),
+
+BRANCH_MEXICO AS (
+    SELECT
+        ENFR.INST_MNEM,
+        CASE
+            WHEN COUNT(*) > 0
+             AND COUNT(CASE WHEN ENFR.ORG_ID <> 'MEX' OR ENFR.ORG_ID IS NULL THEN 1 END) = 0
+            THEN 'Y'
+            ELSE 'N'
+        END AS MX_ONLY_BRANCH
+    FROM FT_T_ENFR ENFR
+    WHERE ENFR.DATA_STAT_TYP = 'ACTIVE'
+      AND ENFR.END_TMS IS NULL
+      AND ENFR.FINSRL_TYP = 'ISSUER'
+    GROUP BY ENFR.INST_MNEM
+)
+
+SELECT COUNT(*) AS TOTAL
+FROM (
+    SELECT MENSAJE_1, MENSAJE_2, MENSAJE_4, MENSAJE_5
+    FROM (
+        SELECT 1 B_GROUP,
+               DENSE_RANK() OVER (ORDER BY MENSAJE_1 ASC, MENSAJE_2 ASC, MENSAJE_3 ASC) FILA,
+               MENSAJE_1,
+               MENSAJE_2,
+               MENSAJE_3,
+               MENSAJE_4,
+               MENSAJE_5,
+               ALG1_OID ALG1_OID
+        FROM (
+            SELECT
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1) MENSAJE_1,
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,2)+1,INSTR(mensaje,'|',1,3)-INSTR(mensaje,'|',1,2)-1) MENSAJE_2,
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,3)+1) MENSAJE_3,
+                (
+                    SELECT IRCL.CL_VALUE
+                    FROM FT_T_FIID FIID, FT_T_ISSR ISSR, FT_T_IRCL IRCL
+                    WHERE FIID.FINS_ID = SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1)
+                      AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+                      AND FIID.DATA_STAT_TYP = 'ACTIVE'
+                      AND FIID.END_TMS IS NULL
+                      AND ISSR.FINS_INST_MNEM = FIID.INST_MNEM
+                      AND ISSR.DATA_STAT_TYP = 'ACTIVE'
+                      AND ISSR.END_TMS IS NULL
+                      AND IRCL.INSTR_ISSR_ID (+) = ISSR.INSTR_ISSR_ID
+                      AND IRCL.DATA_STAT_TYP (+) = 'ACTIVE'
+                      AND IRCL.END_TMS (+) IS NULL
+                      AND IRCL.INDUS_CL_SET_ID (+) = 'TPISSU'
+                ) MENSAJE_4,
+                (
+                    SELECT NVL(BM.MX_ONLY_BRANCH, 'N')
+                    FROM FT_T_FIID FIID
+                    LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FIID.INST_MNEM
+                    WHERE FIID.FINS_ID = SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1)
+                      AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+                      AND FIID.DATA_STAT_TYP = 'ACTIVE'
+                      AND FIID.END_TMS IS NULL
+                      AND ROWNUM = 1
+                ) MENSAJE_5,
+                alg1_oid
+            FROM (
+                SELECT MIN(alg1_oid) alg1_oid, mensaje
+                FROM FT_T_ALG1
+                WHERE PROCESO = 'BATCH_REFINITIV_EMISORES'
+                  AND (PROCESADO = 'N' OR (PROCESADO = 'S' AND LAST_CHG_TMS > SYSDATE - 0.1))
+                  AND MENSAJE NOT LIKE '%TRBC Activ%'
+                GROUP BY mensaje
+            )
+
+            UNION
+
+            SELECT
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1) MENSAJE_1,
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,2)+1,INSTR(mensaje,'|',1,3)-INSTR(mensaje,'|',1,2)-1) MENSAJE_2,
+                SUBSTR(mensaje,INSTR(mensaje,'|',1,3)+1) MENSAJE_3,
+                (
+                    SELECT IRCL.CL_VALUE
+                    FROM FT_T_FIID FIID, FT_T_ISSR ISSR, FT_T_IRCL IRCL
+                    WHERE FIID.FINS_ID = SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1)
+                      AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+                      AND FIID.DATA_STAT_TYP = 'ACTIVE'
+                      AND FIID.END_TMS IS NULL
+                      AND ISSR.FINS_INST_MNEM = FIID.INST_MNEM
+                      AND ISSR.DATA_STAT_TYP = 'ACTIVE'
+                      AND ISSR.END_TMS IS NULL
+                      AND IRCL.INSTR_ISSR_ID (+) = ISSR.INSTR_ISSR_ID
+                      AND IRCL.DATA_STAT_TYP (+) = 'ACTIVE'
+                      AND IRCL.END_TMS (+) IS NULL
+                      AND IRCL.INDUS_CL_SET_ID (+) = 'TPISSU'
+                ) MENSAJE_4,
+                (
+                    SELECT NVL(BM.MX_ONLY_BRANCH, 'N')
+                    FROM FT_T_FIID FIID
+                    LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FIID.INST_MNEM
+                    WHERE FIID.FINS_ID = SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1)
+                      AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+                      AND FIID.DATA_STAT_TYP = 'ACTIVE'
+                      AND FIID.END_TMS IS NULL
+                      AND ROWNUM = 1
+                ) MENSAJE_5,
+                alg1_oid
+            FROM (
+                SELECT MIN(alg1_oid) alg1_oid, mensaje
+                FROM FT_T_ALG1
+                WHERE PROCESO = 'BATCH_REFINITIV_EMISORES'
+                  AND (PROCESADO = 'N' OR (PROCESADO = 'S' AND LAST_CHG_TMS > SYSDATE - 0.1))
+                  AND MENSAJE LIKE '%TRBC Activ%'
+                  AND SUBSTR(mensaje,INSTR(mensaje,'|',1,1)+1,INSTR(mensaje,'|',1,2)-INSTR(mensaje,'|',1,1)-1)
+                        NOT IN (SELECT FINS_ID FROM EMISORES_ADA)
+                GROUP BY mensaje
+            )
+        )
+
+        UNION ALL
+
+        SELECT
+            2 B_GROUP,
+            ROWNUM FILA,
+            FIID.FINS_ID AS MENSAJE_1,
+            FRID.FINR_ID AS MENSAJE_2,
+            'Emisor sin pais de riesgo' MENSAJE_3,
+            IRCL.CL_VALUE AS MENSAJE_4,
+            NVL(BM.MX_ONLY_BRANCH, 'N') AS MENSAJE_5,
+            '' AS ALG1_OID
+        FROM EMISORES_ACTIVOS E_A
+        JOIN FT_T_FINS FINS ON FINS.INST_MNEM = E_A.INST_MNEM
+        JOIN FT_T_ISSR ISSR ON ISSR.FINS_INST_MNEM = FINS.INST_MNEM
+            AND ISSR.DATA_STAT_TYP = 'ACTIVE'
+            AND ISSR.END_TMS IS NULL
+        JOIN FT_T_FIID FIID ON ISSR.FINS_INST_MNEM = FIID.INST_MNEM
+            AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+            AND FIID.DATA_STAT_TYP = 'ACTIVE'
+            AND FIID.END_TMS IS NULL
+        LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FINS.INST_MNEM
+        LEFT JOIN FT_T_IRGU IRGU ON IRGU.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+            AND IRGU.ISSR_GU_PURP_TYP = 'RISK'
+            AND IRGU.DATA_STAT_TYP = 'ACTIVE'
+            AND IRGU.END_TMS IS NULL
+        LEFT JOIN FT_T_IRCL IRCL ON IRCL.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+            AND IRCL.INDUS_CL_SET_ID = 'TPISSU'
+            AND IRCL.DATA_STAT_TYP = 'ACTIVE'
+            AND IRCL.END_TMS IS NULL
+        LEFT JOIN FT_T_FRID FRID ON FRID.INST_MNEM = FIID.INST_MNEM
+            AND FRID.FINSRL_ID_CTXT_TYP = 'ORG_ID'
+            AND FRID.FINSRL_TYP = 'ISSUER'
+            AND FRID.END_TMS IS NULL
+            AND FRID.DATA_STAT_TYP = 'ACTIVE'
+        LEFT JOIN FT_T_IRST IRST ON IRST.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+            AND IRST.STAT_DEF_ID = 'SOURCE'
+            AND IRST.DATA_STAT_TYP = 'ACTIVE'
+            AND IRST.END_TMS IS NULL
+        WHERE IRGU.ISSR_GU_PURP_TYP IS NULL
+
+        UNION ALL
+
+        SELECT
+            3 B_GROUP,
+            ROWNUM FILA,
+            FIID.FINS_ID AS MENSAJE_1,
+            FRID.FINR_ID AS MENSAJE_2,
+            'Emisor sin subsector' MENSAJE_3,
+            IRCL.CL_VALUE AS MENSAJE_4,
+            NVL(BM.MX_ONLY_BRANCH, 'N') AS MENSAJE_5,
+            '' ALG1_OID
+        FROM EMISORES_ACTIVOS E_A
+        JOIN FT_T_FINS FINS ON FINS.INST_MNEM = E_A.INST_MNEM
+        JOIN FT_T_ISSR ISSR ON ISSR.FINS_INST_MNEM = FINS.INST_MNEM
+            AND ISSR.DATA_STAT_TYP = 'ACTIVE'
+            AND ISSR.END_TMS IS NULL
+        JOIN FT_T_FIID FIID ON ISSR.FINS_INST_MNEM = FIID.INST_MNEM
+            AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+            AND FIID.DATA_STAT_TYP = 'ACTIVE'
+            AND FIID.END_TMS IS NULL
+        LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FINS.INST_MNEM
+        LEFT JOIN FT_T_FRCL FRCL
+            ON FRCL.INST_MNEM = FIID.INST_MNEM
+            AND FRCL.INDUS_CL_SET_ID = 'SAASUBS'
+            AND FRCL.DATA_STAT_TYP = 'ACTIVE'
+            AND FRCL.END_TMS IS NULL
+        LEFT JOIN FT_T_FRID FRID
+            ON FRID.INST_MNEM = FIID.INST_MNEM
+            AND FRID.FINSRL_ID_CTXT_TYP = 'ORG_ID'
+            AND FRID.FINSRL_TYP = 'ISSUER'
+            AND FRID.DATA_STAT_TYP = 'ACTIVE'
+            AND FRID.END_TMS IS NULL
+        LEFT JOIN FT_T_IRST IRST ON IRST.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+            AND IRST.STAT_DEF_ID = 'SOURCE'
+            AND IRST.DATA_STAT_TYP = 'ACTIVE'
+            AND IRST.END_TMS IS NULL
+        LEFT JOIN FT_T_IRCL IRCL ON IRCL.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+            AND IRCL.INDUS_CL_SET_ID = 'TPISSU'
+            AND IRCL.DATA_STAT_TYP = 'ACTIVE'
+            AND IRCL.END_TMS IS NULL
+        WHERE FRCL.CL_VALUE IS NULL
+
+        UNION ALL
+
+        SELECT
+            4 AS B_GROUP,
+            ROWNUM AS FILA,
+            FIID.FINS_ID AS MENSAJE_1,
+            FRID.FINR_ID AS MENSAJE_2,
+            'Emisor sin REU' AS MENSAJE_3,
+            IRCL.CL_VALUE AS MENSAJE_4,
+            NVL(BM.MX_ONLY_BRANCH, 'N') AS MENSAJE_5,
+            '' AS ALG1_OID
+        FROM EMISORES_ACTIVOS E_A
+        JOIN FT_T_FINS FINS ON FINS.INST_MNEM = E_A.INST_MNEM
+        JOIN FT_T_FIID FIID ON FINS.INST_MNEM = FIID.INST_MNEM
+        JOIN FT_T_ISSR ISSR ON FINS.INST_MNEM = ISSR.FINS_INST_MNEM
+        LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FINS.INST_MNEM
+        LEFT JOIN FT_T_IRCL IRCL ON ISSR.INSTR_ISSR_ID = IRCL.INSTR_ISSR_ID
+          AND IRCL.INDUS_CL_SET_ID='TPISSU'
+          AND IRCL.DATA_STAT_TYP='ACTIVE'
+          AND IRCL.END_TMS IS NULL
+        LEFT JOIN FT_T_FRID FRID ON FINS.INST_MNEM = FRID.INST_MNEM
+          AND FRID.FINSRL_ID_CTXT_TYP='ORG_ID'
+          AND FRID.FINSRL_TYP='ISSUER'
+          AND FRID.DATA_STAT_TYP='ACTIVE'
+          AND FRID.END_TMS IS NULL
+        WHERE FIID.FINS_ID_CTXT_TYP='FINSID'
+          AND FIID.DATA_STAT_TYP='ACTIVE'
+          AND FIID.END_TMS IS NULL
+          AND ISSR.DATA_STAT_TYP='ACTIVE'
+          AND ISSR.END_TMS IS NULL
+          AND FINS.INST_MNEM NOT IN (
+            SELECT FIRT.INST_MNEM
+            FROM FT_T_FIRT FIRT
+            JOIN FT_T_RTNG RTNG ON FIRT.RTNG_SET_OID = RTNG.RTNG_SET_OID
+            WHERE RTNG.RTNG_SET_MNEM IN ('EXT_RTNL', 'EXT_RTN')
+              AND FIRT.DATA_STAT_TYP='ACTIVE'
+              AND FIRT.END_TMS IS NULL
+              AND RTNG.END_TMS IS NULL
+          )
+          AND EXISTS (
+            SELECT 1 FROM FT_T_FINR FINR
+            WHERE FINS.INST_MNEM = FINR.INST_MNEM
+              AND FINR.FINSRL_TYP = 'ISSUER'
+              AND FINR.DATA_STAT_TYP='ACTIVE'
+              AND FINR.END_TMS IS NULL
+          )
+          AND NOT EXISTS (
+            SELECT 1
+            FROM FT_T_FIRT FIRT
+            JOIN FT_T_RTNG RTNG ON FIRT.RTNG_SET_OID = RTNG.RTNG_SET_OID
+            WHERE FIRT.INST_MNEM = FINS.INST_MNEM
+              AND RTNG.RTNG_SET_MNEM IN ('EXT_RTNL', 'EXT_RTN')
+              AND NVL(FIRT.RTNG_CDE, 'N.A') NOT IN ('N.A','N.A.','NR','N.S.','PENDING','RD','SD','WD','WR')
+              AND FIRT.DATA_STAT_TYP='ACTIVE'
+              AND FIRT.END_TMS IS NULL
+              AND RTNG.END_TMS IS NULL
+          )
+
+        UNION ALL
+
+        SELECT
+            5 AS B_GROUP,
+            ROWNUM AS FILA,
+            FIID.FINS_ID AS MENSAJE_1,
+            FRID.FINR_ID AS MENSAJE_2,
+            'Emisor sin ratings externos' AS MENSAJE_3,
+            IRCL.CL_VALUE AS MENSAJE_4,
+            NVL(BM.MX_ONLY_BRANCH, 'N') AS MENSAJE_5,
+            '' AS ALG1_OID
+        FROM EMISORES_ACTIVOS E_A
+        JOIN FT_T_FINS FINS ON FINS.INST_MNEM = E_A.INST_MNEM
+        JOIN FT_T_FIID FIID ON FINS.INST_MNEM = FIID.INST_MNEM
+        JOIN FT_T_ISSR ISSR ON FINS.INST_MNEM = ISSR.FINS_INST_MNEM
+        LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FINS.INST_MNEM
+        LEFT JOIN FT_T_IRCL IRCL ON ISSR.INSTR_ISSR_ID = IRCL.INSTR_ISSR_ID
+          AND IRCL.INDUS_CL_SET_ID='TPISSU'
+          AND IRCL.DATA_STAT_TYP='ACTIVE'
+          AND IRCL.END_TMS IS NULL
+        LEFT JOIN FT_T_FRID FRID ON FINS.INST_MNEM = FRID.INST_MNEM
+          AND FRID.FINSRL_ID_CTXT_TYP='ORG_ID'
+          AND FRID.FINSRL_TYP='ISSUER'
+          AND FRID.DATA_STAT_TYP='ACTIVE'
+          AND FRID.END_TMS IS NULL
+        WHERE FIID.FINS_ID_CTXT_TYP='FINSID'
+          AND FIID.DATA_STAT_TYP='ACTIVE'
+          AND FIID.END_TMS IS NULL
+          AND ISSR.DATA_STAT_TYP='ACTIVE'
+          AND ISSR.END_TMS IS NULL
+          AND NOT EXISTS (
+            SELECT 1
+            FROM FT_T_FIRT FIRT
+            JOIN FT_T_RTNG RTNG ON FIRT.RTNG_SET_OID = RTNG.RTNG_SET_OID
+            WHERE FIRT.INST_MNEM = FINS.INST_MNEM
+              AND RTNG.RTNG_SET_MNEM IN ('MODLOTRT', 'SPRLOTRT', 'FTCHLTRT')
+              AND FIRT.RTNG_CDE NOT IN ('N.A','N.A.','NR','N.S.','PENDING','RD','SD','WD','WR')
+              AND FIRT.DATA_STAT_TYP='ACTIVE'
+              AND FIRT.END_TMS IS NULL
+              AND RTNG.END_TMS IS NULL
+          )
+
+        UNION ALL
+
+        SELECT
+            6 AS B_GROUP,
+            ROWNUM AS FILA,
+            MENSAJE_1,
+            MENSAJE_2,
+            MENSAJE_3,
+            MENSAJE_4,
+            MENSAJE_5,
+            ALG1_OID
+        FROM (
+            SELECT
+                FIID.FINS_ID                 AS MENSAJE_1,
+                FRID.FINR_ID                 AS MENSAJE_2,
+                'Emisor con ratings externos inactivos en RDR' AS MENSAJE_3,
+                IRCL.CL_VALUE                AS MENSAJE_4,
+                NVL(BM.MX_ONLY_BRANCH, 'N')  AS MENSAJE_5,
+                ''                           AS ALG1_OID
+            FROM EMISORES_ACTIVOS E_A
+            JOIN FT_T_FINS FINS ON FINS.INST_MNEM = E_A.INST_MNEM
+            JOIN FT_T_FIID FIID ON FIID.INST_MNEM = FINS.INST_MNEM
+            JOIN FT_T_ISSR ISSR ON ISSR.FINS_INST_MNEM = FINS.INST_MNEM
+            LEFT JOIN BRANCH_MEXICO BM ON BM.INST_MNEM = FINS.INST_MNEM
+            LEFT JOIN FT_T_IRCL IRCL ON IRCL.INSTR_ISSR_ID = ISSR.INSTR_ISSR_ID
+              AND IRCL.INDUS_CL_SET_ID='TPISSU'
+              AND IRCL.DATA_STAT_TYP='ACTIVE'
+              AND IRCL.END_TMS IS NULL
+            LEFT JOIN FT_T_FRID FRID ON FRID.INST_MNEM = FINS.INST_MNEM
+              AND FRID.FINSRL_ID_CTXT_TYP='ORG_ID'
+              AND FRID.FINSRL_TYP='ISSUER'
+              AND FRID.DATA_STAT_TYP='ACTIVE'
+              AND FRID.END_TMS IS NULL
+            WHERE ISSR.DATA_STAT_TYP='ACTIVE'
+              AND ISSR.END_TMS IS NULL
+              AND FIID.FINS_ID_CTXT_TYP = 'FINSID'
+              AND FIID.DATA_STAT_TYP='ACTIVE'
+              AND FIID.END_TMS IS NULL
+              AND EXISTS (
+                  SELECT 1
+                  FROM FT_T_FINR FINR
+                  WHERE FINR.INST_MNEM = FINS.INST_MNEM
+                    AND FINR.FINSRL_TYP = 'ISSUER'
+                    AND FINR.DATA_STAT_TYP='ACTIVE'
+                    AND FINR.END_TMS IS NULL
+              )
+              AND EXISTS (
+                  SELECT 1
+                  FROM FT_T_FIRT FIRT
+                  JOIN FT_T_RTNG RTNG ON RTNG.RTNG_SET_OID = FIRT.RTNG_SET_OID
+                  WHERE FIRT.INST_MNEM = FINS.INST_MNEM
+                    AND RTNG.RTNG_SET_MNEM IN ('MODLOTRT','SPRLOTRT','FTCHLTRT')
+                    AND FIRT.DATA_STAT_TYP = 'INACTIVE'
+                    AND FIRT.END_TMS IS NULL
+                    AND RTNG.END_TMS IS NULL
+                    AND RTNG.DATA_STAT_TYP = 'ACTIVE'
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM FT_T_FIRT FIRT
+                  JOIN FT_T_RTNG RTNG ON RTNG.RTNG_SET_OID = FIRT.RTNG_SET_OID
+                  WHERE FIRT.INST_MNEM = FINS.INST_MNEM
+                    AND RTNG.RTNG_SET_MNEM IN ('MODLOTRT','SPRLOTRT','FTCHLTRT')
+                    AND FIRT.DATA_STAT_TYP = 'ACTIVE'
+                    AND FIRT.END_TMS IS NULL
+                    AND RTNG.END_TMS IS NULL
+                    AND RTNG.DATA_STAT_TYP = 'ACTIVE'
+              )
+        )
+    )
+)
+
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="46" type="java.util.HashSet">
+<item idref="31"/>
+</sources>
+<targets id="47" type="java.util.HashSet">
+<item id="48" type="com.j2fe.workflow.definition.Transition">
+<name id="49">goto-next</name>
+<source idref="33"/>
+<target id="50">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="51">Generar Mail Reporte LEI</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="52">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="53" type="java.util.HashSet">
+<item id="54" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="55">statements</name>
+<stringValue id="56">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Mail variables");
+
+String body ="";
+String subject = "";
+
+subject = "Reporte descarga datos emisores Refinitiv";
+
+body = "Estimado usuario,\r\n\r\n"+
+"Se adjunta el informe del proceso de descarga de datos de emisores de Refinitiv.\r\n\r\n" +
+"Número de líneas: " + total + "\r\n\r\n" +
+"Un saludo.";
+
+
+
+logger.error("destination : " + destination );
+logger.error("subject: " + subject);
+logger.error("body: " + body);
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="57" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="58">["body"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="59">variables["body"]</name>
+<stringValue id="60">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="61" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="62">["subject"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="63">variables["subject"]</name>
+<stringValue id="64">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="65" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="66">variables["total"]</name>
+<stringValue id="67">total</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="68" type="java.util.HashSet">
+<item idref="48"/>
+</sources>
+<targets id="69" type="java.util.HashSet">
+<item id="70" type="com.j2fe.workflow.definition.Transition">
+<name id="71">goto-next</name>
+<source idref="50"/>
+<target idref="3"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="72" type="com.j2fe.workflow.definition.Transition">
+<name id="73">CARGA_BASKETS_SPONSORS</name>
+<source idref="9"/>
+<target id="74">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="75">Get Datos</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="76">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="77" type="java.util.HashSet">
+<item id="78" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="79">database</name>
+<stringValue id="80">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="81" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="82">mappedResult</name>
+<stringValue id="83">reportMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="84" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="85">querySQL</name>
+<objectValue id="86" type="java.lang.String"><![CDATA[SELECT TOTAL,
+SUM(CASE WHEN PUBLISHED='0' THEN 1 ELSE 0 END)  OVER() ERRORES,
+SUM(CASE WHEN PUBLISHED='1' THEN 1 ELSE 0 END)  OVER() CARGADOS,
+SUM(CASE WHEN MENSAJE_INDEX IS NULL THEN 1 ELSE 0 END)  OVER() MISSING,
+SUM(CASE WHEN (ACK>NACK or (NACK is null and ACK is not null)) THEN 1 ELSE 0 END) OVER() ACK,
+SUM(CASE WHEN (NACK>ACK or (ACK is null and NACK is not null)) THEN 1 ELSE 0 END) OVER() NACK,
+TOTAL_INDEX,
+MENSAJE_INDEX,
+PUBLISHED,
+CANONICO,
+CASE WHEN (ACK>NACK or (NACK is null and ACK is not null)) THEN 'ACK' WHEN (NACK>ACK or (ACK is null and NACK is not null)) THEN 'NACK' END ACKNACK
+FROM (
+SELECT TOTAL_PAR1.*,
+MENSAJE.*,
+EMM1.MSG_DESCRIPTION MSG_NACK,
+EMM1.BROADCAST_DATE NACK,
+dense_rank() over(partition by TOTAL_INDEX order by EMM1.BROADCAST_DATE desc) NACK_RANK,
+MUREXID.LAST_CHG_TMS ACK
+FROM 
+(SELECT COUNT(PAR1_OID) OVER () TOTAL, SUBSTR(PAR1_NME,INSTR(PAR1_NME,';',1,1)+1) TOTAL_INDEX 
+FROM FT_T_PAR1 WHERE  PARAMETER_CTXT_TYP = 'BSKT_LOAD' and data_stat_typ='ACTIVE') TOTAL_PAR1,
+(SELECT DISTINCT SUBSTR(MENSAJE,INSTR(MENSAJE,'|', 1, 3)+1,INSTR(MENSAJE,'|', 1, 4)-INSTR(MENSAJE,'|', 1, 3)-1) MENSAJE_INDEX,
+SUBSTR(mensaje,INSTR(mensaje,'|', 1, 7)+1) PUBLISHED,
+SUBSTR(mensaje,INSTR(mensaje,'|', 1, 6)+1,INSTR(mensaje,'|', 1, 7)-INSTR(mensaje,'|', 1, 6)-1) CANONICO,
+MIN(START_TMS) OVER(PARTITION BY SUBSTR(MENSAJE,INSTR(MENSAJE,'|', 1, 3)+1,INSTR(MENSAJE,'|', 1, 4)-INSTR(MENSAJE,'|', 1, 3)-1)) PUBLISHED_TMS
+FROM FT_T_ALG1 WHERE PROCESO = 'CARGA_BASKETS_SPONSORS' and PROCESADO ='S' and last_chg_tms > trunc(sysdate)) MENSAJE, 
+FT_T_EMM1 EMM1, FT_T_ISID RDRID, FT_T_ISID MUREXID
+WHERE TOTAL_INDEX=MENSAJE_INDEX(+)
+AND CANONICO=EMM1.DATA_CDE (+)
+AND PUBLISHED_TMS<=EMM1.BROADCAST_DATE (+)
+AND EMM1.BROADCAST_SYSTEM (+) IN ('MUREX','ESB')
+AND EMM1.DATA_TYP (+) = 'Basket'
+AND CANONICO = RDRID.ISS_ID (+)
+AND RDRID.ID_CTXT_TYP (+) = 'RDR_ID'
+AND RDRID.DATA_STAT_TYP (+) ='ACTIVE'
+AND RDRID.INSTR_ID = MUREXID.INSTR_ID (+)
+AND MUREXID.ID_CTXT_TYP (+)='MUREXID'
+AND MUREXID.DATA_STAT_TYP (+) ='ACTIVE'
+AND MUREXID.LAST_CHG_USR_ID (+)= 'ACK'
+AND PUBLISHED_TMS<=MUREXID.LAST_CHG_TMS (+)
+)
+WHERE NACK_RANK=1]]></objectValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="87" type="java.util.HashSet">
+<item idref="72"/>
+</sources>
+<targets id="88" type="java.util.HashSet">
+<item id="89" type="com.j2fe.workflow.definition.Transition">
+<name id="90">goto-next</name>
+<source idref="74"/>
+<target id="91">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="92">Generar Mail BASKETS SPONSORS</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="93">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="94" type="java.util.HashSet">
+<item id="95" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="96">statements</name>
+<objectValue id="97" type="java.lang.String"><![CDATA[import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Mail variables");
+
+String body ="";
+String subject = "";
+String listaErroresCarga = "";
+String listaErroresPublicacion = "";
+String listaSinInformacion= "";
+String textoErroresCarga = "";
+String textoSinInformacion = "";
+String textoErroresPublicacion = "";
+
+int total = reportMap[0].get("TOTAL");
+int errores = reportMap[0].get("ERRORES");
+int cargados = reportMap[0].get("CARGADOS");
+int missing = reportMap[0].get("MISSING");
+int ack = reportMap[0].get("ACK");
+int nack = reportMap[0].get("NACK");
+int koPublicacion = cargados-ack;
+
+
+subject = "Reporte Carga Índices Cotizados - Total: " +total+ " / OK: " +cargados+ " / KO Carga: " +errores+ " / Sin Info Carga: "+missing+" / KO Publicación: " + koPublicacion;
+
+if (cargados>0 || missing>0 || koPublicacion>0){
+	
+		for (Map resultado : reportMap){
+			if(resultado.get("MENSAJE_INDEX") != null){
+				if (resultado.get("PUBLISHED") != null && resultado.get("PUBLISHED").equals("0")){
+					if (!listaErroresCarga.equals("")){
+							listaErroresCarga=listaErroresCarga+",";
+					}
+					listaErroresCarga=listaErroresCarga+resultado.get("TOTAL_INDEX");
+				}else if (resultado.get("PUBLISHED") != null && resultado.get("PUBLISHED").equals("1")){
+					if(!(resultado.get("ACKNACK") != null && resultado.get("ACKNACK").equals("ACK"))){
+						if (!listaErroresPublicacion.equals("")){
+							listaErroresPublicacion=listaErroresPublicacion+",";
+						}
+						listaErroresPublicacion=listaErroresPublicacion+resultado.get("TOTAL_INDEX");
+					}
+				}
+			}else{
+				if (!listaSinInformacion.equals("")){
+					listaSinInformacion=listaSinInformacion+",";
+				}
+				listaSinInformacion=listaSinInformacion+resultado.get("TOTAL_INDEX");
+			}
+		}
+	
+	if (cargados > 0 ) {
+		textoErroresCarga = "Cestas con error de carga en RDR: " + listaErroresCarga + "\r\n\r\n";
+	}
+	if (missing > 0 ) {
+		textoSinInformacion = "Cestas sin información de carga en RDR (probablemente con error): " + listaSinInformacion + "\r\n\r\n";
+	}
+	if (koPublicacion > 0 ) {
+		textoErroresPublicacion = "Cestas con error de publicación a MX3: " + listaErroresPublicacion + "\r\n\r\n";
+	}
+}
+
+body = "Estimado usuario,\r\n\r\n"+
+"Se adjunta el informe de la carga de índices cotizados.\r\n\r\n" +
+"Total de cestas procesadas: " + total + "\r\n\r\n" +
+"Total de cestas cargadas en RDR: " + cargados + "\r\n\r\n" + 
+"Total de cestas con error de carga en RDR: " + errores + "\r\n\r\n" +
+"Total de cestas sin información de carga (probablemente con error): " + missing + "\r\n\r\n" +
+"Total de cestas publicadas a MX3: " + ack + "\r\n\r\n" + 
+"Total de cestas con error de publicación a MX3: " + koPublicacion + "\r\n\r\n" +
+textoErroresCarga +
+textoSinInformacion +
+textoErroresPublicacion +
+"Un saludo.";
+
+logger.error("destination : " + destination );
+logger.error("subject: " + subject);
+logger.error("body: " + body);
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="98" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="99">["body"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="100">variables["body"]</name>
+<stringValue id="101">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="102" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="103">variables["reportMap"]</name>
+<stringValue id="104">reportMap</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="105" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="106">["subject"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="107">variables["subject"]</name>
+<stringValue id="108">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="109" type="java.util.HashSet">
+<item idref="89"/>
+</sources>
+<targets id="110" type="java.util.HashSet">
+<item id="111" type="com.j2fe.workflow.definition.Transition">
+<name id="112">goto-next</name>
+<source idref="91"/>
+<target idref="3"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="7"/>
+<item id="113" type="com.j2fe.workflow.definition.Transition">
+<name id="114">REGU_PDTE_LEI_EMISIONES</name>
+<source idref="9"/>
+<target id="115">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="116">Get Datos Total</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="117">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="118" type="java.util.HashSet">
+<item id="119" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="120">database</name>
+<stringValue id="121">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="122" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="123">firstColumnsResult[0]</name>
+<stringValue id="124">total</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="125" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="126">querySQL</name>
+<stringValue id="127"><![CDATA[Select count(*)
+from ft_t_alg1 WHERE PROCESO = 'PETICION_REFINITIV_EMISIONES' AND PROCESADO <> 'N' AND last_chg_tms>trunc(sysdate)-30
+AND SUBSTR(mensaje,0,3)='LEI'
+and not exists (select * from ft_t_fiid lei, ft_t_fins finso, ft_t_fins finsl, ft_t_firl firll, ft_t_firl firlo, ft_t_fins finsg, ft_t_finr finro 
+where finsg.inst_mnem = lei.inst_mnem and firll.prnt_inst_mnem = finsg.inst_mnem and finsl.inst_mnem = firll.inst_mnem and firlo.prnt_inst_mnem = finsl.inst_mnem and finso.inst_mnem = firlo.inst_mnem 
+and finro.inst_mnem = finso.inst_mnem and firll.rel_typ='LOCAL' and firlo.rel_typ='OPERATIVE' and lei.FINS_ID_CTXT_TYP='LEIID' and lei.data_stat_typ='ACTIVE' and finsg.data_stat_typ='ACTIVE' and finsl.data_stat_typ='ACTIVE' 
+and finro.finsrl_typ='ISSUER' and finso.data_stat_typ='ACTIVE' and finso.subsidiary_ind='N' and lei.fins_id=SUBSTR(mensaje,5,INSTR(mensaje,'|', 1, 1)-5))]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="128" type="java.util.HashSet">
+<item idref="113"/>
+</sources>
+<targets id="129" type="java.util.HashSet">
+<item id="130" type="com.j2fe.workflow.definition.Transition">
+<name id="131">goto-next</name>
+<source idref="115"/>
+<target id="132">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="133">Generar Mail Reporte LEI</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="134">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="135" type="java.util.HashSet">
+<item id="136" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="137">statements</name>
+<stringValue id="138">import org.apache.log4j.Logger;
+
+Logger logger = Logger.getLogger("AlertasEnvio - Mail variables");
+
+String body ="";
+String subject = "";
+
+subject = "Reporte LEIs pendientes de regularizar - Total: " + total;
+
+body = "Estimado usuario,\r\n\r\n"+
+"Se adjunta el informe de los LEIs pendientes de regularizar de la carga de emisiones\r\n\r\n" +
+"Total por regularizar: " + total + "\r\n\r\n" +
+"Un saludo.";
+
+
+
+logger.error("destination : " + destination );
+logger.error("subject: " + subject);
+logger.error("body: " + body);
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="139" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="140">["body"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="141">variables["body"]</name>
+<stringValue id="142">body</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="143" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="144">["subject"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="145">variables["subject"]</name>
+<stringValue id="146">subject</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="147" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="148">variables["total"]</name>
+<stringValue id="149">total</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="150" type="java.util.HashSet">
+<item idref="130"/>
+</sources>
+<targets id="151" type="java.util.HashSet">
+<item id="152" type="com.j2fe.workflow.definition.Transition">
+<name id="153">goto-next</name>
+<source idref="132"/>
+<target idref="3"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="3"/>
+</item>
+<item idref="111"/>
+<item idref="152"/>
+<item idref="70"/>
+</sources>
+<targets id="154" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="155">Custom/RDR/Common</group>
+<haltOnError>true</haltOnError>
+<lastChangeUser id="156">KYTL_GC</lastChangeUser>
+<lastUpdate id="157">2026-07-03T18:47:04.000+0200</lastUpdate>
+<name id="158">AlertasEnvioExcepciones</name>
+<optimize>true</optimize>
+<parameter id="159" type="java.util.HashMap">
+<entry>
+<key id="160" type="java.lang.String">body</key>
+<value id="161" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="162">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="163">body</description>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="164" type="java.lang.String">proceso</key>
+<value id="165" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="166">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="167" type="java.lang.String">subject</key>
+<value id="168" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="169">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="170">subject</description>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+</parameter>
+<permissions id="171" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="25"/>
+<status>RELEASED</status>
+<variables id="172" type="java.util.HashMap">
+<entry>
+<key id="173" type="java.lang.String">body</key>
+<value id="174" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="175">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="176">body</description>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="177" type="java.lang.String">proceso</key>
+<value id="178" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="179">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="180" type="java.lang.String">subject</key>
+<value id="181" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="182">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<description id="183">subject</description>
+<persistent>true</persistent>
+</value>
+</entry>
+</variables>
+<version>31</version>
+</com.j2fe.workflow.definition.Workflow>

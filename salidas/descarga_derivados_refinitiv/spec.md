@@ -392,6 +392,16 @@ No se ha decompilado en esta ronda el contenido exacto de `RDR_AlertasBarrido.ja
 (motor genérico, ya tratado como tal en otros procesos de este audit), pero la estructura y el parámetro de
 filtrado (`DERIVADOS_REFINITIV`) quedan confirmados con el `.properties` real — ya no es una hipótesis.
 
+**Nota cruzada, no confirmada como el mismo proceso:** `AlertasEnvioExcepciones` (personalizador de
+`body`/`subject` compartido, grupo `Custom/RDR/Common`, confirmado con `.wkf` real en
+`salidas/rdr_pr_bdiclienreg_resp/spec.md` §6.15ter) tiene un caso `BATCH_REFINITIV_EMISORES` que cuenta
+emisores pendientes de 6 comprobaciones de calidad de datos (sector ADA/TRBC, país de riesgo, subsector,
+rating externo) y genera el asunto/cuerpo del correo final. El identificador de proceso no coincide
+literalmente con el `DERIVADOS_REFINITIV` confirmado aquí — no se puede afirmar sin más evidencia si
+`BATCH_REFINITIV_EMISORES` es un alias/variante de este mismo proceso o el identificador de un proceso
+hermano distinto (p. ej. `rdr_batch_emisores_refinitiv`, que no usa este mecanismo en su propio `spec.md`).
+A revisar si llega el `.properties` real de disparo de `AlertasEnvio` para este proceso.
+
 ### 5.5 Comparativa D vs P
 
 | Aspecto | D (Diaria) | P (Semanal) |
