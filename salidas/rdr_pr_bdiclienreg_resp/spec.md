@@ -2118,8 +2118,9 @@ workflows modificados más recientemente de toda esta auditoría —
   real a partir del `ALT_ID` recibido (`FT_T_SAI1`, `DATA_SRC_ID='RDR'`, `ACTIVE`), abre un `Job` hijo
   (`CreateJob`, `configInfo="SSIs_Fx_Difusion"`, `parentJobId=JobID_Padre`) y, con eso, invoca directamente
   el subworkflow `RDR_SSI_Publish_ESB` (`Action`/`ID=SSI_OID`) — toda la lógica real de publicación al ESB
-  vive en ese subworkflow, no aportado ni analizado en esta sesión (nombre sugiere un mecanismo de
-  publicación genérico, no exclusivo de F/X).
+  vive en ese subworkflow, **confirmado con `.wkf` real y analizado en su propio Anexo (ver más abajo,
+  `RDR_SSI_Publish_ESB`)**: es en efecto un mecanismo de publicación genérico (grupo
+  `Custom/RDR/Integracion_ABACO-GS/Difusion_ESB`), no exclusivo de F/X.
 - **[Hallazgo] comentario de negocio (`<comment>`) completamente desalineado con la función real del
   workflow:** declara `"Decomiso_Diccionario_v1"` — un nombre que sugiere un proceso de "decomiso de
   diccionario" sin relación aparente con la difusión de SDIs al ESB; probablemente un vestigio de haber
