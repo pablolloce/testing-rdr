@@ -526,16 +526,15 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
      validan ni qué actualizan en `errors`.
   8. Independientemente de la rama, el mensaje se procesa como transacción real: `Create Transaction`
      (Streetlamp, `correlationId=counter`, `flushImmediate=true`) → `Create Message Object`
-     (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (el nombre
-     sugiere que es este subworkflow, no aportado, el que realmente aplica el alta de la contraparte en
-     GoldenSource) → `Duplicate Delete XMLReader` (**confirmado con `.wkf` real, ver §6.7bis** — no registra
+     (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (confirmado
+     con `.gsp` real en §6.8 — es el motor genérico de aplicación en GoldenSource) → `Duplicate Delete XMLReader` (**confirmado con `.wkf` real, ver §6.7bis** — no registra
      el mensaje como procesado, hace exactamente lo contrario: **borra** de `FT_T_RRM1` la fila que
      `Duplicate XMLReader`, paso 5, insertó al detectar/marcar el mensaje — es decir, `FT_T_RRM1` actúa como
      un marcador transitorio de "mensaje en curso de procesado", no como un histórico permanente de
      duplicados, y este paso lo libera una vez que `"Basic Message Processing"` ha terminado con éxito).
   9. Al agotarse `Messages`, `Close Job` cierra el job de Streetlamp y el workflow termina (`Stop`).
 - **Campos de salida afectados:** no genera fichero; su efecto es la actualización real de GoldenSource vía
-  `"Basic Message Processing"` (no confirmado en detalle, gap abierto) para cada mensaje no duplicado.
+  `"Basic Message Processing"` (confirmado con `.gsp` real, ver §6.8) para cada mensaje no duplicado.
 - **Qué pasa si falla:**
   - Fallo en `Open File`/`File Split Condition` (transición `error`) → va directamente a `Close Job`, sin
     procesar ningún mensaje del fichero — no se ha localizado ninguna alerta específica más allá del cierre
@@ -544,7 +543,8 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
     de "duplicados detectados" en las variables globales.
   - Fallo dentro de `"Basic Message Processing"` (activación `TRANSACTIONAL`) para un mensaje concreto: no
     confirmado si aborta solo ese mensaje (y el bucle continúa con el siguiente) o interrumpe todo el job —
-    depende del comportamiento de ese subworkflow, no aportado.
+    el `.gsp` real (§6.8) no resuelve esta duda, ya que es una propiedad del `CallSubWorkflow` transaccional
+    del llamante, no del propio motor de aplicación.
 - **Estado del propio workflow:** el `.wkf` exportado declara `<status>DEVELOPMENT</status>` — no se ha
   confirmado si este campo refleja el estado real del ciclo de vida del workflow en el entorno de
   producción o es un valor de metadatos sin relación con el entorno de ejecución real.
@@ -633,8 +633,10 @@ de carga. Si alguna está inactiva crea un registro en la tabla FT_T_RLT1 y esa 
     llama `"Borrar oficinas del XML"`, pero su script solo hace `errors=errors+1` — **no modifica ni elimina
     nada del XML**. Pese a la descripción del workflow ("esa línea de carga se descarta"), no hay ninguna
     instrucción en el material aportado que efectivamente quite la oficina/línea del mensaje antes de
-    aplicarlo; el descarte real, si existe, tendría que ocurrir en `"Basic Message Processing"` (no aportado)
-    usando el contador `errors`, no en este subworkflow.
+    aplicarlo; el descarte real, si existe, tendría que ocurrir dentro de `"Basic Message Processing"`
+    (§6.8) usando el contador `errors`, no en este subworkflow — y el `.gsp` real de ese motor genérico no
+    muestra ningún uso explícito de `errors`, así que sigue sin confirmarse si el descarte ocurre realmente
+    en algún punto de la cadena.
   - **Hallazgo (fail-open):** si el parseo inicial del XML (extracción de `<OFFICE>`) lanza una excepción, la
     rama `false` salta directamente a `Stop` **sin validar ninguna oficina y sin registrar ningún error** —
     un XML con formato inesperado no bloquea nada, se trata como si todas las oficinas fueran válidas.
@@ -1393,7 +1395,8 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   `residenceText` (país de residencia, para decidir si es EE.UU./Puerto Rico) se calcula **2 veces** con
   fuentes distintas — primero desde `residenceCountry` (extracción cruda), y más adelante se **recalcula**
   priorizando `calculoCompcoun` (el resultado ya calculado del subworkflow hermano `Calculate Parent Company
-  Country of Residence`, no aportado) si existe, cayendo de nuevo a `residenceCountry` si no — un
+  Country of Residence`, confirmado con `.wkf` real más abajo en este mismo Anexo) si existe, cayendo de
+  nuevo a `residenceCountry` si no — un
   solapamiento de fuentes de la misma variable dentro del mismo script, no documentado hasta ahora. El
   `INSERT`/`UPDATE` final sobre `FT_T_FRA1` (clasificación `DFACAT`) sí usa el nodo `DBStatement` estándar
   (a diferencia de `Calculate Counterparty type under EMIR`, §6.13quater, que usa JDBC manual) — mismo
@@ -1418,9 +1421,10 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   atributo geográfico y no de una clasificación regulatoria. Regla: si `corprelText` (de
   `Corporate Relationship Extraction`, arriba) es `"CON"` (Conduit) o `"AFL"` (Affiliate), usa el override
   manual (`compcoun`) si existe, o por defecto **hardcodea `"US"`**; para cualquier otro valor, usa el
-  override manual si existe o, en su defecto, el país de residencia ya extraído (`residenceCountry`, cuyo
-  subworkflow de extracción no se ha identificado por nombre en este audit — posible candidato a próximo
-  gap). **[Hallazgo] mensaje de log contradictorio:** la rama que se activa cuando `residenceCountry` **ya
+  override manual si existe o, en su defecto, el país de residencia ya extraído (`residenceCountry` —
+  **corrección sobre una nota previa de esta misma sesión: sí está identificado**, es una de las 6 queries
+  en paralelo de `Auxiliary DFA Data Extraction`, ya confirmado con `.wkf` real más arriba, no un gap
+  pendiente). **[Hallazgo] mensaje de log contradictorio:** la rama que se activa cuando `residenceCountry` **ya
   existe** (nodo `"RESIDENCE exists"`, transición `false`) registra literalmente `"No existe el país de
   residencia"` — el mensaje dice justo lo contrario de la condición real que lo dispara (parece una etiqueta
   de log copiada de la rama opuesta sin adaptar). **[Hallazgo] variable de bind con errata en `Update
@@ -1806,16 +1810,17 @@ nombre de evento distinto de su metadato `<name>` interno — patrón que se rep
   `AlertRequestSSIsByFond`, con `Acronym`/`AccessCode` como parámetros) contra un servicio externo/interno
   llamado **"Alert Mirror"** — ejecutado vía `CommandLine` con `waitForEnd=true`/`killTimeout=100`. Tras la
   llamada, relee el estado de esa nueva petición en `FT_T_VREQ` y lo clasifica en 3 casos: `ACK` → OK (invoca
-  los subworkflows `RecepcionAlertApiRest` y `SSIs_Fx_Alta`, ninguno aportado, presumiblemente la
-  confirmación/alta real de la SSI); `NACK` → `KO_Error`; cualquier otro caso (incluida ausencia de respuesta)
-  → `KO_Tiempo`.
+  los subworkflows `RecepcionAlertApiRest` y `SSIs_Fx_Alta`, **ambos confirmados con `.wkf` real más
+  adelante**, §6.18/§6.19 — la confirmación/alta real de la SSI); `NACK` → `KO_Error`; cualquier otro caso
+  (incluida ausencia de respuesta) → `KO_Tiempo`.
 - **Qué recibe/produce:** sin parámetros de entrada declarados (arranca con su propia query sobre
   `FT_T_VREQ`); produce, por cada fondo/mnemónico procesado, una nueva petición en `FT_T_VREQ`
   (`DATA_SRC_ID='ALERT_IP_SSI'`) y la llamada REST real al servicio Alert Mirror.
 - **Campos de salida afectados:** `FT_T_VREQ` (marca en bloque `PETI_SDI_SOLICITADA` sobre las peticiones de
   origen, e inserta una petición nueva por cada mnemónico con `DATA_SRC_ID='ALERT_IP_SSI'`); en caso de
   `NACK`, `FT_T_RLT1` (`RLT_PURP_TYP='ONLINE'`, `DATA_SRC_APP='ALERT_IP_SSI'`, `LAST_CHG_USR_ID=
-  'CARGA_FX_ALERTMIRR'`); el resto (alta real de la SSI) vive en los subworkflows no aportados.
+  'CARGA_FX_ALERTMIRR'`); el resto (alta real de la SSI) vive en `RecepcionAlertApiRest`/`SSIs_Fx_Alta`
+  (confirmados más adelante, §6.18/§6.19).
 - **Qué pasa si falla — hallazgo de asimetría en el registro de rechazos:** si la respuesta de Alert Mirror es
   explícitamente `NACK`, el workflow resuelve los identificadores del fondo/gestora (vía `FT_T_FIGP`/`FT_T_FIID`/
   `FT_T_FRID`) e **inserta un rechazo en `FT_T_RLT1`** (mismo patrón de tabla de rechazo ya visto en `OTHER`/
@@ -1902,7 +1907,8 @@ Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
   `ssiInformation`, una normalización de nombre en el propio código); en modo `Conciliacion`, en cambio, toma
   un único XML recibido directamente como entrada, sin consulta a BBDD — sugiere que este workflow también se
   invoca desde un flujo de conciliación no visto en esta sesión, fuera del alcance de R9. Por cada SDI (XML):
-  valida su estructura (subworkflow `SSIs_Valida_Fx`, no aportado); si es válida, extrae `accessCode`/
+  valida su estructura (subworkflow `SSIs_Valida_Fx`, **confirmado con `.wkf` real** — ver Anexo más abajo);
+  si es válida, extrae `accessCode`/
   `acronym`/`codOid` por XPath y comprueba en `FT_T_FRID`/`FT_T_FIST` que la combinación acceso/acrónimo sea
   única y tenga el flag FX relevante activo; si además ese flag fue puesto específicamente por el proceso
   `FXFUNDS` (`FIST.LAST_CHG_USR_ID='FXFUNDS'`), sigue la rama `"Investors"` (resuelve las sucursales reales del
