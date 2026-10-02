@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="Solicitud y carga de ratings Bloomberg (RDR_DAILY_BBG_REQ_new)">
+
+  <casoDePrueba id="TC-001" tipo="e2e">
+    <nombre>Ciclo diario completo: solicitud → respuesta → carga → historificación</nombre>
+    <objetivo>Confirmar que los 3 jobs (RDR_BBG_REQUEST, RDR_BBG_RESPONSE, MEKYTL0451) se ejecutan en cadena estrictamente secuencial y completan el ciclo diario de principio a fin: selección de emisores, envío de la solicitud, recogida de la respuesta, carga en Oracle, e historificación del fichero de carga.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 1 emisor activo con FT_T_FRID.FINSRL_ID_CTXT_TYP='BBGCID' informado y FT_T_IRST marcando STAT_DEF_ID='SOURCE'/STAT_CHAR_VAL_TXT='Bloomberg' para ese emisor.</precondicion>
+      <precondicion>Conectividad SFTP operativa con Bloomberg en ambos sentidos (envío de .req, recogida de respuesta).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Emisor de prueba" valor="1 FINR_ID con BBGCID activo y fuente de rating Bloomberg activa"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_BBG_REQUEST a las 18:45 y confirmar la generación/envío del fichero BBVARDR_MM_dd_yyyy.req.</paso>
+      <paso numero="2">Ejecutar RDR_BBG_RESPONSE a las 19:05 y confirmar la recogida de la respuesta y la carga de Load_BBG_Ratings.txt en Oracle.</paso>
+      <paso numero="3">Ejecutar MEKYTL0451 y confirmar la historificación a Backup/Load_BBG_Ratings_&lt;fecha&gt;.txt.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs completan en orden, sin intervención manual, con el rating del emisor de prueba cargado en Oracle y el fichero histórico generado.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada end-to-end + inspección de ficheros intermedios y tabla Oracle destino.</tipoValidacion>
+    <criterioAceptacion>Los 3 jobs terminan OK en Control-M; el rating del emisor de prueba queda reflejado en Oracle; el fichero histórico existe con el nombre y contenido esperado.</criterioAceptacion>
+    <posibilidadFallo>Un fallo de conectividad SFTP en cualquiera de los 2 sentidos rompería el ciclo sin que el SQL de negocio tenga ninguna responsabilidad — aislar la causa raíz (transporte vs. negocio) antes de escalar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>El universo de emisores solicitado es exactamente el resultado de la Query 2 de BBG_Batch_Request</nombre>
+    <objetivo>Confirmar que solo se solicitan a Bloomberg los FINR_ID que cumplen las 4 condiciones reales de la Query 2: activos en FT_T_FRID/FT_T_FINS/FT_T_ISSR/FT_T_IRST, rol ISSUER, BBGCID informado, y fuente de rating Bloomberg activa.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 3 emisores de prueba: (a) cumple las 4 condiciones; (b) tiene BBGCID pero su fuente de rating activa NO es Bloomberg; (c) tiene fuente de rating Bloomberg pero sin BBGCID informado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Emisor A (debe aparecer)" valor="BBGCID informado + IRST.STAT_CHAR_VAL_TXT='Bloomberg' activo"/>
+      <dato campo="Emisor B (no debe aparecer)" valor="BBGCID informado, pero fuente de rating activa distinta de Bloomberg"/>
+      <dato campo="Emisor C (no debe aparecer)" valor="fuente de rating Bloomberg activa, pero sin FRID.FINSRL_ID_CTXT_TYP='BBGCID'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar BBG_Batch_Request con los 3 emisores de prueba dados de alta.</paso>
+      <paso numero="2">Inspeccionar el fichero .req generado.</paso>
+      <paso numero="3">Confirmar que solo el Emisor A aparece en el fichero; B y C quedan excluidos.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero de solicitud contiene únicamente los emisores que cumplen las 4 condiciones de la Query 2.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada + inspección del fichero .req generado.</tipoValidacion>
+    <criterioAceptacion>Emisor A presente; Emisores B y C ausentes del fichero.</criterioAceptacion>
+    <posibilidadFallo>Si un emisor sin fuente de rating Bloomberg activa apareciera en la solicitud, se estaría pidiendo a Bloomberg un rating que RDR no va a usar como fuente — ineficiencia o inconsistencia de datos a nivel de negocio.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="borde">
+    <nombre>Desactivar la fuente de rating Bloomberg de un emisor lo excluye de la siguiente solicitud</nombre>
+    <objetivo>Confirmar que, al desactivar FT_T_IRST (STAT_DEF_ID='SOURCE'/STAT_CHAR_VAL_TXT='Bloomberg') para un emisor que antes se solicitaba, ese emisor deja de aparecer en el fichero .req de la siguiente ejecución, sin ningún otro cambio.</objetivo>
+    <precondiciones>
+      <precondicion>1 emisor ya incluido en una solicitud previa (cumple las 4 condiciones de la Query 2).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Emisor de prueba" valor="FINR_ID ya solicitado en un ciclo anterior"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Confirmar que el emisor aparece en el .req del día 1.</paso>
+      <paso numero="2">Desactivar (END_TMS o DATA_STAT_TYP≠'ACTIVE') la fila de FT_T_IRST que marca Bloomberg como fuente para ese emisor.</paso>
+      <paso numero="3">Ejecutar BBG_Batch_Request de nuevo y confirmar que el emisor ya no aparece.</paso>
+    </pasos>
+    <resultadoEsperado>El emisor desaparece de la solicitud en cuanto su fuente de rating Bloomberg se desactiva, sin afectar a otros emisores.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en 2 ciclos consecutivos + inspección de ambos ficheros .req.</tipoValidacion>
+    <criterioAceptacion>Emisor presente en el ciclo 1, ausente en el ciclo 2, resto del universo sin cambios.</criterioAceptacion>
+    <posibilidadFallo>Si el emisor siguiera apareciendo tras la desactivación, indicaría que la Query 2 cachea resultados o que algún otro criterio (no la fuente de rating activa) gobierna la inclusión.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="happy_path">
+    <nombre>Formato real del fichero de solicitud .req</nombre>
+    <objetivo>Confirmar que el fichero generado respeta el formato real confirmado en BBG_Batch_Request: nombre BBVARDR_MM_dd_yyyy.req, cabecera obtenida de FT_T_PAR1 (BBG_BATCH_REQ_HEADER), y una línea por emisor con el formato &lt;FINR_ID&gt;|BB_GLOBAL|.</objetivo>
+    <precondiciones>
+      <precondicion>Al menos 2 emisores en el universo de solicitud del día de prueba.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Cabecera esperada" valor="valor real configurado en FT_T_PAR1 para PARAMETER_CTXT_TYP='BBG_BATCH_REQ_HEADER'"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar BBG_Batch_Request y localizar el fichero generado.</paso>
+      <paso numero="2">Confirmar el nombre del fichero contra el patrón BBVARDR_MM_dd_yyyy.req con la fecha de ejecución real.</paso>
+      <paso numero="3">Confirmar que la primera línea coincide con la cabecera de FT_T_PAR1 y que cada línea siguiente es &lt;FINR_ID&gt;|BB_GLOBAL| sin líneas en blanco finales.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero generado coincide exactamente con el formato real documentado.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del fichero .req generado.</tipoValidacion>
+    <criterioAceptacion>Nombre, cabecera y formato de línea por emisor correctos; sin líneas en blanco al final.</criterioAceptacion>
+    <posibilidadFallo>Un formato de línea incorrecto (p. ej. falta el separador final "|") podría hacer que Bloomberg rechace la solicitud completa o interprete mal el identificador.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="regresion">
+    <nombre>El job de respuesta respeta el retraso deliberado de 5 minutos</nombre>
+    <objetivo>Confirmar que RDR_BBG_RESPONSE está programado y se ejecuta a las 19:05, no a las 19:00 (horario nominal original), dando el margen deliberado para que Bloomberg responda.</objetivo>
+    <precondiciones>
+      <precondicion>Acceso a la definición de planificación real de RDR_BBG_RESPONSE en Control-M.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Horario esperado" valor="19:05 (no 19:00)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Inspeccionar la definición de Control-M de RDR_BBG_RESPONSE.</paso>
+      <paso numero="2">Confirmar el horario de disparo configurado.</paso>
+    </pasos>
+    <resultadoEsperado>El horario configurado es 19:05.</resultadoEsperado>
+    <tipoValidacion>Inspección de la definición real de Control-M.</tipoValidacion>
+    <criterioAceptacion>Horario confirmado en 19:05.</criterioAceptacion>
+    <posibilidadFallo>Si el horario revirtiera a las 19:00 (horario original), se perdería el margen que compensa la latencia real de respuesta de Bloomberg, aumentando la probabilidad de agotar el reintento del TC-006/TC-007.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="borde">
+    <nombre>Reintento de hasta 20 iteraciones mientras el fichero de respuesta no exista</nombre>
+    <objetivo>Confirmar que, si el fichero de respuesta de Bloomberg aún no ha llegado, el workflow reintenta en un Simple For Loop (hasta 20 iteraciones) antes de continuar, y que continúa en cuanto el fichero aparece dentro de ese margen.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de retrasar artificialmente, en entorno de test, la disponibilidad del fichero de respuesta SFTP (p. ej. depositarlo manualmente tras varias iteraciones).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Escenario" valor="fichero de respuesta depositado en la iteración 5 de 20"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar BBG_Batch_Response con el fichero de respuesta ausente al inicio.</paso>
+      <paso numero="2">Depositar el fichero de respuesta tras unas pocas iteraciones del reintento.</paso>
+      <paso numero="3">Confirmar que el workflow detecta el fichero y continúa con el procesado normal.</paso>
+    </pasos>
+    <resultadoEsperado>El workflow espera y reintenta sin fallar mientras no se superen las 20 iteraciones, y continúa en cuanto el fichero está disponible.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test con disponibilidad del fichero retrasada artificialmente.</tipoValidacion>
+    <criterioAceptacion>El workflow no falla antes de que el fichero esté disponible, y continúa el procesado normal tras detectarlo.</criterioAceptacion>
+    <posibilidadFallo>Si el intervalo entre iteraciones fuera demasiado corto para la latencia real de Bloomberg, se agotarían las 20 iteraciones con el fichero aún en camino, aunque Bloomberg sí fuera a responder a tiempo en términos absolutos.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="negativo">
+    <nombre>Agotamiento del reintento sin respuesta de Bloomberg — comportamiento no confirmado</nombre>
+    <objetivo>Confirmar qué ocurre quando se agotan las 20 iteraciones del Simple For Loop sin que el fichero de respuesta haya aparecido: ¿el job falla, continúa con un fichero vacío, o reintenta por otra vía?</objetivo>
+    <precondiciones>
+      <precondicion>Contenido real de Resp_Batch_BBG_sftp.sh y/o del nodo Simple For Loop envolvente en BBG_Batch_Response — NO APORTADO, caso bloqueado por falta de material.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado actual" valor="mecanismo de reintento (hasta 20 iteraciones) confirmado; comportamiento al agotarlo, no confirmado"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Obtener el contenido real del script de recogida SFTP y/o del nodo que envuelve el For Loop.</paso>
+      <paso numero="2">Confirmar si, al agotar las 20 iteraciones, el workflow marca error, continúa sin datos, o aplica otro mecanismo.</paso>
+    </pasos>
+    <resultadoEsperado>Comportamiento real documentado con evidencia, cerrando el gap de §8.1.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del script/nodo real, una vez aportado.</tipoValidacion>
+    <criterioAceptacion>Comportamiento ante agotamiento del reintento confirmado con evidencia.</criterioAceptacion>
+    <posibilidadFallo>Si el workflow continuara silenciosamente sin el fichero de respuesta (en vez de fallar visiblemente), el ciclo podría dar por completada una carga que en realidad no trajo ningún rating nuevo, sin ninguna alerta.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Una línea de respuesta inválida genera alerta de error sin detener el resto del lote</nombre>
+    <objetivo>Confirmar que una línea de la respuesta Bloomberg que BBG_Batch_ProcessFile no pueda procesar correctamente se registra en los ficheros de error (toUser/toANS) y dispara la notificación por correo (Send Mail), sin impedir que el resto de líneas válidas se carguen.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de inyectar, en entorno de test, 1 línea de respuesta con formato/dato inválido entre líneas válidas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea inválida de prueba" valor="1 línea de respuesta con un campo de rating malformado o un FINR_ID no reconocible"/>
+      <dato campo="Líneas de control" valor="2-3 líneas válidas antes y después de la inválida"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar BBG_Batch_Response con un fichero de respuesta de prueba (línea inválida intercalada).</paso>
+      <paso numero="2">Confirmar que la línea inválida aparece en BBG_loadRating_failures_toUser_*.csv/..._toANS_*.csv y que se envía el correo de notificación.</paso>
+      <paso numero="3">Confirmar que las líneas válidas de control sí quedan reflejadas en Load_BBG_Ratings.txt y cargadas en Oracle.</paso>
+    </pasos>
+    <resultadoEsperado>La línea inválida queda registrada como error y notificada; el resto del lote se procesa con normalidad.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada + inspección de los CSV de error + confirmación de correo recibido + inspección de Load_BBG_Ratings.txt.</tipoValidacion>
+    <criterioAceptacion>CSV de error con la línea inválida; correo de notificación enviado; líneas de control cargadas correctamente.</criterioAceptacion>
+    <posibilidadFallo>Si una línea inválida detuviera el procesado de todo el lote, un solo error de formato en la respuesta de Bloomberg bloquearía la actualización de ratings de todos los demás emisores del día.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="happy_path">
+    <nombre>Carga real de Load_BBG_Ratings.txt en Oracle vía el motor genérico "Standard File Load"</nombre>
+    <objetivo>Confirmar que el fichero final Load_BBG_Ratings.txt se carga correctamente en Oracle mediante el motor genérico de GoldenSource, para al menos 1 rating de prueba.</objetivo>
+    <precondiciones>
+      <precondicion>1 rating de prueba en la respuesta Bloomberg, con el FINR_ID correspondiente ya solicitado en el ciclo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rating de prueba" valor="1 emisor con un valor de rating Bloomberg concreto"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el ciclo completo con el rating de prueba en la respuesta.</paso>
+      <paso numero="2">Confirmar la carga en Oracle tras la ejecución del nodo "Call MDX" (Standard File Load).</paso>
+    </pasos>
+    <resultadoEsperado>El rating de prueba queda cargado en Oracle con el valor correcto.</resultadoEsperado>
+    <tipoValidacion>Inspección de la tabla Oracle destino (una vez confirmado el feed, ver TC-013) tras la ejecución.</tipoValidacion>
+    <criterioAceptacion>Rating de prueba presente y correcto en Oracle.</criterioAceptacion>
+    <posibilidadFallo>Sin confirmar el feed/tabla destino exacto (TC-013), este caso no se puede verificar al 100% hasta cerrar ese gap.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="regresion">
+    <nombre>MEKYTL0451 historifica Load_BBG_Ratings.txt vía el motor genérico RAMERC0068.sh</nombre>
+    <objetivo>Confirmar que MEKYTL0451 mueve/renombra Load_BBG_Ratings.txt a Backup/Load_BBG_Ratings_&lt;yyyymmdd&gt;.txt usando el mismo motor genérico RAMERC0068.sh ya confirmado con código real en otros procesos de este audit.</objetivo>
+    <precondiciones>
+      <precondicion>Load_BBG_Ratings.txt presente en la carpeta origen tras una ejecución exitosa de RDR_BBG_RESPONSE.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero de prueba" valor="Load_BBG_Ratings.txt generado en la ejecución del día"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar MEKYTL0451 tras una ejecución exitosa de RDR_BBG_RESPONSE.</paso>
+      <paso numero="2">Confirmar que el fichero original se mueve/renombra a Backup/Load_BBG_Ratings_&lt;fecha&gt;.txt.</paso>
+    </pasos>
+    <resultadoEsperado>El fichero queda historificado con el nombre y en la ruta esperados; no queda copia en la carpeta origen.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del filesystem antes/después de la ejecución.</tipoValidacion>
+    <criterioAceptacion>Fichero histórico presente en Backup/ con el nombre correcto; carpeta origen sin el fichero original.</criterioAceptacion>
+    <posibilidadFallo>Mismo patrón de riesgo ya confirmado en este audit para RAMERC0068.sh: si el valor de FALLASINOFICHS para esta clave no está bien configurado, una ejecución sin fichero origen podría fallar de forma distinta a la esperada (ver TC-011).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="conflicto_integridad">
+    <nombre>Comportamiento de MEKYTL0451 ante ausencia de Load_BBG_Ratings.txt</nombre>
+    <objetivo>Confirmar, con el valor real configurado para la clave MEKYTL0451 en INFORMACION_HISTORIFICACIONES.IDX, si la ausencia del fichero origen produce un fallo real (exit code de error) o se tolera silenciosamente (Soft Failure), aplicando el mecanismo FALLASINOFICHS ya confirmado con código real en otros procesos de este audit.</objetivo>
+    <precondiciones>
+      <precondicion>Valor real de FALLASINOFICHS para la clave MEKYTL0451 en el .IDX de producción — NO APORTADO.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Mecanismo ya confirmado (otros procesos de este audit)" valor="FALLASINOFICHS=0 → fallo real (exit 6); distinto de 0 → tolera la ausencia"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Obtener el valor real de FALLASINOFICHS para la clave MEKYTL0451.</paso>
+      <paso numero="2">En entorno de test, forzar la ausencia de Load_BBG_Ratings.txt y ejecutar MEKYTL0451.</paso>
+      <paso numero="3">Confirmar el comportamiento resultante contra el valor configurado.</paso>
+    </pasos>
+    <resultadoEsperado>El comportamiento observado coincide con el que predice el valor real de FALLASINOFICHS para esta clave.</resultadoEsperado>
+    <tipoValidacion>Inspección del .IDX real + ejecución controlada en entorno de test.</tipoValidacion>
+    <criterioAceptacion>Comportamiento ante fichero ausente confirmado y consistente con el valor de configuración real.</criterioAceptacion>
+    <posibilidadFallo>Si Control-M tolerara (Force-OK/Soft Failure) un fallo real de esta clave sin que nadie lo revise, un día sin ratings cargados podría pasar desapercibido — mismo patrón de riesgo ya señalado en otros procesos de este audit.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="negativo">
+    <nombre>Contenido real del sub-workflow BBG_Batch_ProcessFile</nombre>
+    <objetivo>Confirmar, con el contenido real del sub-workflow BBG_Batch_ProcessFile, cómo transforma y valida exactamente cada línea de la respuesta Bloomberg antes de escribirla en Load_BBG_Ratings.txt.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero real del sub-workflow BBG_Batch_ProcessFile — NO APORTADO, caso bloqueado por falta de material.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado actual" valor="invocación del sub-workflow confirmada (input FileNameMDX/lineResponse/pathResponseFile); lógica interna de transformación/validación no disponible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Inspeccionar el contenido real del sub-workflow una vez aportado.</paso>
+      <paso numero="2">Confirmar las reglas de transformación/validación campo a campo de cada línea de respuesta.</paso>
+    </pasos>
+    <resultadoEsperado>Contenido real del sub-workflow documentado con evidencia, cerrando el gap de §8.2.</resultadoEsperado>
+    <tipoValidacion>Inspección directa del sub-workflow real.</tipoValidacion>
+    <criterioAceptacion>Lógica de transformación/validación campo a campo documentada.</criterioAceptacion>
+    <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="negativo">
+    <nombre>Configuración real del feed de carga final y tabla Oracle destino</nombre>
+    <objetivo>Confirmar, con la configuración de despliegue real del feed (BusinessFeed/MessageType) del nodo "Standard File Load" de BBG_Batch_Response, en qué tabla(s) Oracle quedan cargados los ratings de Bloomberg.</objetivo>
+    <precondiciones>
+      <precondicion>Configuración real de despliegue del feed BusinessFeed/MessageType — NO APORTADA, caso bloqueado por falta de material.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estado actual" valor="mecanismo de carga confirmado (motor genérico Standard File Load); feed concreto y tabla destino no confirmados"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Obtener la configuración de despliegue real del feed.</paso>
+      <paso numero="2">Confirmar la tabla u tablas Oracle de destino de los ratings cargados.</paso>
+    </pasos>
+    <resultadoEsperado>Tabla(s) Oracle destino confirmadas con evidencia, cerrando el gap de §8.2.</resultadoEsperado>
+    <tipoValidacion>Inspección de la configuración de despliegue real del feed.</tipoValidacion>
+    <criterioAceptacion>Tabla(s) Oracle destino documentadas con evidencia.</criterioAceptacion>
+    <posibilidadFallo>No aplica hasta disponer de la evidencia — caso bloqueado por falta de material.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="error_funcional">
+    <nombre>Riesgo heredado: eval sobre variables no saneadas del .IDX en RAMERC0068.sh</nombre>
+    <objetivo>Confirmar, en entorno de test/preproducción, el impacto real de un .IDX corrupto o manipulado sobre la ejecución de MEKYTL0451, dado el riesgo de eval sobre variables no saneadas ya documentado en este audit para RAMERC0068.sh.</objetivo>
+    <precondiciones>
+      <precondicion>Capacidad de desplegar, en entorno de test/preproducción (nunca en producción), una copia de INFORMACION_HISTORIFICACIONES.IDX con un valor manipulado en el campo de filtrado por antigüedad de la clave MEKYTL0451.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Valor de prueba manipulado" valor="un valor del campo de antigüedad que, al pasar por eval, ejecute una expresión no esperada (p. ej. una sustitución de comando)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Desplegar el .IDX manipulado en el entorno de test.</paso>
+      <paso numero="2">Ejecutar MEKYTL0451 y observar el comportamiento del eval sobre ese valor.</paso>
+      <paso numero="3">Confirmar si se ejecuta algo no esperado o si el script falla de forma controlada.</paso>
+    </pasos>
+    <resultadoEsperado>Se confirma el alcance real del riesgo (ejecución no esperada vs. fallo controlado) en un entorno aislado, sin impacto en producción.</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test/preproducción, nunca en producción.</tipoValidacion>
+    <criterioAceptacion>Alcance del riesgo confirmado o descartado con evidencia de ejecución real.</criterioAceptacion>
+    <posibilidadFallo>Si el .IDX de producción llegara a corromperse por cualquier vía (error humano, fallo de otro proceso que lo escribe), el eval podría ejecutar código no previsto con los privilegios del usuario xsramer1 — mismo riesgo transversal ya señalado en otros procesos de este audit que usan RAMERC0068.sh.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>

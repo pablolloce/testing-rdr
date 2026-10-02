@@ -11,9 +11,9 @@
 > - Las clases de consultas SQL de los dos programas Java (`QuerysStr` de `RDR_AlertasBarrido.jar` y
 >   de `RDR_AlertasCocinado.jar`, y `QuerysConfig` de este último) y la clase principal `main.Ppal`
 >   de cada uno. Según el código fuente real (rama de Eduardo) se han recibido también las clases
->   `report.ReportesRDR` y `report.ReporteRDR` del Cocinado (§4.2) y el subworkflow `AlertasEnvioExcepciones`
->   (§5.2). **No se han recibido** `alertaspck.ProcesoCLS` (Barrido: compone los mensajes),
->   `report.DocumentGenerator` (Cocinado: escribe físicamente cada fichero del informe) ni `jdbc.ConDB` (conexión).
+>   `report.ReportesRDR` y `report.ReporteRDR` del Cocinado (§4.2), `report.DocumentGenerator` (Cocinado,
+>   §4.2.2) y el subworkflow `AlertasEnvioExcepciones` (§5.2). **No se han recibido** `alertaspck.ProcesoCLS`
+>   (Barrido: compone los mensajes) ni `jdbc.ConDB` (conexión).
 > - El workflow de GoldenSource `AlertasEnvio.wkf` (versión 10, estado `RELEASED`) y el subworkflow
 >   `Mail` (versión 6, `RELEASED`), que es el que envía el correo.
 > - El funcionamiento de `GSProcess.sh` (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`), que explica cómo se
@@ -255,14 +255,14 @@ Orden real de `main.Ppal` del Cocinado:
 2. `extraerReportes`: lee de `FT_T_REP1` los informes activos con algún destinatario activo en
    `FT_T_ALR1` (todos, o solo el del proceso recibido, §3).
 3. `descargaMensajesResportes`: lee de `FT_T_ALG1` los mensajes `PROCESADO='N'` de cada informe.
-4. `generaDocumentos`: genera los ficheros del informe (`ReportesRDR`/`ReporteRDR`, §4.2.1; la escritura física de cada fichero está en `DocumentGenerator`, no recibida).
+4. `generaDocumentos`: genera los ficheros del informe (`ReportesRDR`/`ReporteRDR`, §4.2.1; la escritura física de cada fichero está en `DocumentGenerator`, §4.2.2, confirmada con código fuente real).
 5. `marcaALG1_Reportes` (mensajes a `PROCESADO='S'`) y `marcaReportesPending` (`SEND_PEND='Y'`).
 6. Cierra la conexión.
 
 El informe se construye con la plantilla Excel (`EXCEL_TEMPLATE`, `EXCEL_SHEET`), la cabecera y la
 query configuradas en `FT_T_REP1`, y se deja en `FT_T_REP1.RUTA` (por eso lleva las librerías Apache
 POI). **El nombre y contenido exactos de cada fichero los decide `DocumentGenerator.generaDocumento`** (clase
-no recibida, invocada desde `ReporteRDR`, §4.2.1), pero el Envío (§5) deja
+confirmada con código fuente real, invocada desde `ReporteRDR`, §4.2.1 — detalle en §4.2.2), pero el Envío (§5) deja
 claro qué espera encontrar en `RUTA`, con `<SH>` = `SHORT_PROCESS` con `YYYYMMDD` sustituido por la
 fecha del día:
 
@@ -313,8 +313,34 @@ extraída. Lo verificado en el código:
   al evaluar `contains`) sale sin capturar y el Cocinado termina con código distinto de 0.
 - **Cosmética:** varios mensajes de éxito se escriben con nivel `ERROR` en el log.
 
-Pendiente: qué ficheros deja `DocumentGenerator` cuando no hay mensajes (en concreto si escribe
-`BODY_<SH>.txt`), y por tanto si una ejecución sin incidencias produce correo.
+#### 4.2.2 `report.DocumentGenerator` (código fuente real, rama de Eduardo)
+
+Clase estática invocada desde `ReporteRDR` (§4.2.1), con el método
+`generaDocumento(tipo_doc, proceso, mensajes, estadisticas, celdas, descripcion, short_process, ruta,
+excelTemplate, excelSheet, cabecera, emailsActivos)`. Despacha por `tipo_doc`:
+
+- **`EXCEL`**: Apache POI `XSSFWorkbook`, escribe sobre la plantilla `excelTemplate` de `FT_T_REP1`
+  (título en fila 5/columna 1, cabecera opcional en fila 9, un mensaje por fila a partir de ahí).
+- **`WORD`**: Apache POI `XWPFDocument` con plantilla **fija** `<ruta>/Templates/Template_Alertas_Word.docx`
+  — a diferencia de Excel (cuya plantilla viene de `FT_T_REP1`), la de Word está hardcodeada.
+- **`CUERPO`/`TXT`/`DAT`**: texto plano; `DAT` genera además un `.ctl` vacío para Datio tras el `.dat`.
+- **Celdas (`CELDAEXCEL`)**: si en vez de `mensajes` hay `celdas` (mensajes `TIPO='CELDAEXCEL'` de
+  `FT_T_ALG1`, formato `"idFila";"idCol";"valor"` separado por `split("\";\"")` — confirma el consumo real
+  de ese formato que produce `Calculate SFTR/EMIR NFC Sector`), **solo el caso `EXCEL` tiene implementación**
+  (`generaExcelPorCeldas`, escribe cada celda en la fila/columna indicada de la plantilla, agrupando filas
+  nuevas por `idFila`). **Si `tipo_doc` no es `EXCEL` con celdas presentes, el método no entra en ninguna
+  rama del `if`/`else if` y devuelve `false` sin ningún log que explique por qué** — un informe configurado
+  con celdas pero con un tipo de envío distinto de Excel fallaría en silencio.
+- **Sin mensajes ni celdas pero con suscriptores de email**: genera un cuerpo de correo "sin datos a enviar"
+  y devuelve éxito (mismo patrón de "éxito sin generar el documento real" ya visto en el resto del mecanismo).
+- **Cuerpo del correo**: para `EXCEL`/`WORD`/`TXT` (no `DAT`) con emails activos, genera además por separado
+  el cuerpo del correo (`generaCuerpoCorreo`) con un resumen de estadísticas o del número de filas — **esto
+  responde a la pregunta pendiente sobre `BODY_<SH>.txt`: sí se escribe, incluso cuando no hubo mensajes**
+  (con el texto "sin datos a enviar"), de modo que una ejecución sin incidencias sí puede producir correo si
+  hay destinatarios activos.
+
+**Cierra H-ALE-01/H-ALE-12.** Sigue sin recibirse `alertaspck.ProcesoCLS` (Barrido) ni `jdbc.ConDB`/`ConexionBD.jar`
+(conexión de ambos jars) — ver P-ALE-01/P-ALE-04, H-ALE-02, H-ALE-03.
 
 ### 4.3 Errores de Barrido y Cocinado
 

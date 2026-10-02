@@ -24,7 +24,18 @@
 > Broker del 23/02/2026 (rama de Eduardo), sub-workflow `Mail` real (rama de Eduardo) y capturas de
 > Control-M del job `MEKYTL0812` (rama de Carlos). Segunda pasada de cierre (02/10/2026): jar Maven `RDR_PLSQL.jar`
 > 1.0.0 y jar `ControlCargaDatos.jar` 1.0.0 (rama de Eduardo, descompilados y contrastados con el código fuente ya
-> analizado) y la base de workflows de GoldenSource (`informeBroker_BDI`, `Mail`).
+> analizado) y la base de workflows de GoldenSource (`informeBroker_BDI`, `Mail`). Reconciliación con
+> `feature/Eduardo` (02/10/2026): se incorporan a `documentos_fuente/evidencia_rdr_conciliacion_bdi/` los
+> ficheros `RDR_PLSQL.jar`, `Reporte_ConciliacionBroker_20260223.xlsx`, `Reporte_ConciliacionBroker_Plantilla.xlsx`
+> y `rdr_report_jar/RDR_Report_disassembly.txt` que faltaban en el árbol de evidencia aunque su análisis ya
+> estaba incorporado en la spec; se confirma por `md5sum` que las copias de `ControlCargaDatos.jar` y
+> `RDR_Report.jar` de esa rama son idénticas byte a byte a las ya presentes en
+> `documentos_fuente/evidencia_carga_conciliacion_plazas_oficinas/`, así que no se duplican. Se añade además
+> la comparación de la ventana temporal de `queryConBDI` con la de `queryConClientela` (§6.8, RS19),
+> cruzada con `salidas_pendientes/rdr_conciliacion_clientela/rdr_conciliacion_clientela_spec.md`. El resto
+> del contenido de `feature/Eduardo:salidas/rdr_conciliacion_bdi/spec.md` (análisis de `ConBDI.java`,
+> `ConDB.java`, `InformeBroker.java`, bytecode de `ControlCase` y de `RDR_Report.jar`) ya estaba reflejado,
+> con frecuencia de forma más avanzada, en esta spec.
 
 ## 1. Resumen ejecutivo
 
@@ -551,6 +562,18 @@ hoy y el informe contiene solo las incidencias de esta ejecución. Consecuencias
 cambios** y los pasos siguientes lo convierten y "transmiten" como si fuera el de hoy (riesgo R2 de la spec
 común). Con una query errónea, el informe queda solo con la cabecera.
 
+**Diferencia de criterio frente a la cadena hermana `ConClientela` (hallazgo de la rama de Eduardo,
+contrastado con `salidas_pendientes/rdr_conciliacion_clientela/rdr_conciliacion_clientela_spec.md` §6.1 y
+§9):** `queryConBDI` acota por el **último job `BDI` cerrado** (`start_tms > inicio del último cierre`,
+`ROWNUM<2`), sin restricción de día calendario; `queryConClientela` usa en cambio
+`trunc(JOB_START_TMS)=trunc(SYSDATE)` sobre los jobs `CCL` cerrados, es decir, solo el job cerrado **hoy**.
+Ningún documento anterior de ninguna de las 2 cadenas señalaba esta diferencia de criterio temporal entre
+ambas queries hermanas del mismo sistema P-021 hasta que se cruzaron ambos análisis. Para `ConBDI` el caso
+TC-011 (relanzamiento el mismo día) ya ejercita el criterio real (ventana por último job cerrado, no por
+día), así que el comportamiento está probado aquí; lo que no está cubierto en ninguna de las 2 cadenas es
+una ejecución o relanzamiento justo a caballo de la medianoche, donde ambos criterios podrían excluir o
+incluir registros de forma distinta entre sí (ver RS19 en §9).
+
 ### 6.9 Conversión a formato Windows: dos veces
 
 **Paso 6 del motor** — función `Unix2Dos` de `Generico.sh` (spec común §4.2) sobre
@@ -858,6 +881,7 @@ dicen en su criterio de aceptación.
 | RS16 | El sub-workflow `Mail` captura cualquier excepción y termina en éxito: un SMTP caído, un `Destination` vacío o inválido, o un `ServerMailConfig.xml` sin la entrada del entorno (se usa el servidor de desarrollo) hacen que el informe Broker no llegue sin ninguna alarma | Medio |
 | RS17 | El informe Broker llega a una única dirección individual (`Destination` de `ConBDI.properties`): si esa persona deja el puesto, nadie lo recibe y nada falla | Medio |
 | RS18 | El `.properties` de producción no usa `JDKV=17` ni los nombres de clase con paquete de los jars recibidos (P-CBD-13): la lógica analizada puede no ser la desplegada | Alto |
+| RS19 | `queryConBDI` acota por el último job `BDI` cerrado (sin restricción de día calendario), mientras que `queryConClientela` de la cadena hermana usa `trunc(JOB_START_TMS)=trunc(SYSDATE)` (solo el job cerrado hoy, §6.8); una ejecución o relanzamiento a caballo de la medianoche podría hacer que ambas cadenas incluyan/excluyan registros de forma distinta entre sí. No hay caso de prueba en ninguna de las 2 cadenas que ejercite ese instante exacto (TC-011 de `ConBDI` sí cubre el relanzamiento el mismo día, pero no el cruce de medianoche) | Bajo |
 
 ## 10. Conclusión y requisitos de cierre
 

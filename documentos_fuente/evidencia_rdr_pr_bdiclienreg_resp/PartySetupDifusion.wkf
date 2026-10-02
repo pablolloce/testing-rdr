@@ -1,0 +1,571 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">Decomiso_Diccionario_v1</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>true</directJoin>
+<name id="9">Synchronize</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.StandardAndJoinHandler</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.workflow.handler.impl.StandardAndJoinHandler</nodeHandlerClass>
+<sources id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Transition">
+<name id="13">goto-next</name>
+<source id="14">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="15">Difusion ESB ENT</name>
+<nodeHandler>com.j2fe.event.RaiseEvent</nodeHandler>
+<nodeHandlerClass id="16">com.j2fe.event.RaiseEvent</nodeHandlerClass>
+<parameters id="17" type="java.util.HashSet">
+<item id="18" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="19">eventName</name>
+<stringValue id="20">RDR_DifusionESB_ENT</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="21" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="22">["MNEM"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="23">parameters["MNEM"]</name>
+<stringValue id="24">MNEM</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="25" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="26">["messageHeaderParties"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="27">parameters["messageHeaderParties"]</name>
+<stringValue id="28">messageHeaderParties</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="29" type="java.util.HashSet">
+<item id="30" type="com.j2fe.workflow.definition.Transition">
+<name id="31">goto-next</name>
+<source id="32">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>true</directJoin>
+<name id="33">Simple Split</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.StandardAndSplitHandler</nodeHandler>
+<nodeHandlerClass id="34">com.j2fe.workflow.handler.impl.StandardAndSplitHandler</nodeHandlerClass>
+<sources id="35" type="java.util.HashSet">
+<item id="36" type="com.j2fe.workflow.definition.Transition">
+<name id="37">goto-next</name>
+<source id="38">
+<activation>TRANSACTIONAL</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="39">SHTNMEID</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="40">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="41" type="java.util.HashSet">
+<item id="42" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="43">["mnem"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="44">input["mnem"]</name>
+<stringValue id="45">MNEM</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="46" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="47">name</name>
+<stringValue id="48">CreateShortname</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="49" type="java.util.HashSet">
+<item id="50" type="com.j2fe.workflow.definition.Transition">
+<name id="51">goto-next</name>
+<source id="52">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="53">Set Header</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="54">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="55" type="java.util.HashSet">
+<item id="56" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="57">statements</name>
+<stringValue id="58">Map messageHeaders = new HashMap();
+messageHeaders.put("Action", action);</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="59" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="60">["action"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="61">variables["action"]</name>
+<stringValue id="62">ACTION</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="63" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="64">variables["messageHeaders"]</name>
+<stringValue id="65">messageHeaderParties</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="66" type="java.util.HashSet">
+<item id="67" type="com.j2fe.workflow.definition.Transition">
+<name id="68">goto-next</name>
+<source id="69">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="70">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="71">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="72" type="java.util.HashSet">
+</sources>
+<targets id="73" type="java.util.HashSet">
+<item idref="67"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="52"/>
+</item>
+</sources>
+<targets id="74" type="java.util.HashSet">
+<item idref="50"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="38"/>
+</item>
+</sources>
+<targets id="75" type="java.util.HashSet">
+<item idref="36"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="32"/>
+</item>
+</sources>
+<targets id="76" type="java.util.HashSet">
+<item idref="30"/>
+<item id="77" type="com.j2fe.workflow.definition.Transition">
+<name id="78">goto-next</name>
+<source idref="32"/>
+<target id="79">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="80">Difusion MGC</name>
+<nodeHandler>com.j2fe.event.RaiseEvent</nodeHandler>
+<nodeHandlerClass id="81">com.j2fe.event.RaiseEvent</nodeHandlerClass>
+<parameters id="82" type="java.util.HashSet">
+<item id="83" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="84">eventName</name>
+<stringValue id="85">RDR_GapDatos</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="86" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="87">["accTabla"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="88">parameters["accTabla"]</name>
+<stringValue id="89">A</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="90" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="91">parameters["ctpdaOid"]</name>
+<stringValue id="92">MNEM</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="93" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="94">["nomTabla"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="95">parameters["nomTabla"]</name>
+<stringValue id="96">CONTPTSONLINE</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="97" type="java.util.HashSet">
+<item idref="77"/>
+</sources>
+<targets id="98" type="java.util.HashSet">
+<item id="99" type="com.j2fe.workflow.definition.Transition">
+<name id="100">goto-next</name>
+<source idref="79"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item id="101" type="com.j2fe.workflow.definition.Transition">
+<name id="102">goto-next</name>
+<source idref="32"/>
+<target id="103">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="104">Retrieve DB credentials</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="105">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="106" type="java.util.HashSet">
+<item id="107" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="108">statements</name>
+<objectValue id="109" type="java.lang.String"><![CDATA[import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.regex.*;
+
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathExpressionException;
+import org.xml.sax.SAXException;
+
+
+		String pathpro = "/pr/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathpre = "/pp/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathint = "/ei/kytl/online/multipais/multicanal/cfg/entorno/";
+		String pathdev = "/de/kytl/online/multipais/multicanal/cfg/entorno/";
+		String path = "";
+		String env = "";
+		File folderpro = new File(pathpro);
+		File folderpre = new File(pathpre);
+		File folderint = new File(pathint);
+		File folderdev = new File(pathdev);
+
+		if (folderpro.exists()){
+			path = pathpro + "credentials.xml";
+			env = "pr";
+		}
+		else if (folderpre.exists()){
+			path = pathpre + "credentials.xml";
+			env = "pp";
+		}
+		else if (folderint.exists()){
+			path = pathint + "credentials.xml";
+			env = "ei";
+		}
+		else if (folderdev.exists()){
+			path = pathdev + "credentials.xml";
+			env = "de";
+		}
+
+		File archivo = null;
+		FileReader fr = null;
+		BufferedReader br = null;
+
+		archivo = new File(path);
+		fr = new FileReader(archivo);
+		br = new BufferedReader(fr);
+
+		// Lectura del fichero
+		String linea;
+		String fich = "";
+		while ((linea = br.readLine()) != null)
+			fich = fich + linea;
+
+		// System.out.println(fich);
+		fr.close();
+
+		String host=null;
+		String host2=null;
+		String port=null;
+		String sid = null;
+		String userdb=null;
+		String passdb=null;
+
+		Pattern patronAux = Pattern.compile("<database>(.*?)</database>");
+		Matcher matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			fich = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<sid>(.*?)</sid>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			sid = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<host>(.*?)</host>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			host = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<host2>(.*?)</host2>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			host2 = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<port>(.*?)</port>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			port = matchAux.group(1);
+		}
+		
+		patronAux = Pattern.compile("<gcuserapp>(.*?)</gcuserapp>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			userdb = matchAux.group(1);
+		}
+
+		patronAux = Pattern.compile("<gcpassapp>(.*?)</gcpassapp>");
+		matchAux = patronAux.matcher(fich);
+		if (matchAux.find()) {
+			passdb = matchAux.group(1);
+		}
+		
+		//String urldb = "jdbc:oracle:thin:@"+host+":"+port+":"+sid;
+		String urldb = null;
+			
+		if ("de".equals(env) || "ei".equals(env)) {
+			urldb = "jdbc:oracle:thin:@" + host + ":" + port + "/" + sid;
+		} else {
+			urldb = "jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)"
+					+ "(ADDRESS = (PROTOCOL = TCP)(HOST =" + host + ")(PORT = " + port + " )) "
+					+ "(ADDRESS = (PROTOCOL = TCP)(HOST =" + host2 + ")(PORT = " + port +"))) "
+					+ "(CONNECT_DATA=(SERVICE_NAME=" +sid + ")))";
+		}
+
+		//System.out.println(urldb);
+		//System.out.println(userdb);
+		//System.out.println(passdb);]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="110" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="111">["passdb"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="112">variables["passdb"]</name>
+<stringValue id="113">passdb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="114" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="115">["urldb"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="116">variables["urldb"]</name>
+<stringValue id="117">urldb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="118" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="119">["userdb"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="120">variables["userdb"]</name>
+<stringValue id="121">userdb</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="122" type="java.util.HashSet">
+<item idref="101"/>
+</sources>
+<targets id="123" type="java.util.HashSet">
+<item id="124" type="com.j2fe.workflow.definition.Transition">
+<name id="125">goto-next</name>
+<source idref="103"/>
+<target id="126">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="127">Obtein action</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="128">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="129" type="java.util.HashSet">
+<item id="130" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="131">statements</name>
+<stringValue id="132">act = header;
+String action = act.get("Action");</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="133" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="134">["action"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="135">variables["action"]</name>
+<stringValue id="136">act</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="137" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="138">variables["header"]</name>
+<stringValue id="139">messageHeaderParties</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="140" type="java.util.HashSet">
+<item idref="124"/>
+</sources>
+<targets id="141" type="java.util.HashSet">
+<item id="142" type="com.j2fe.workflow.definition.Transition">
+<name id="143">goto-next</name>
+<source idref="126"/>
+<target id="144">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="145">Difusion OLAP</name>
+<nodeHandler>com.j2fe.event.RaiseEvent</nodeHandler>
+<nodeHandlerClass id="146">com.j2fe.event.RaiseEvent</nodeHandlerClass>
+<parameters id="147" type="java.util.HashSet">
+<item id="148" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="149">eventName</name>
+<stringValue id="150">RDR_Difusion_OLAP</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="151" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="152">["action"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="153">parameters["action"]</name>
+<stringValue id="154">act</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="155" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="156">["id"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="157">parameters["id"]</name>
+<stringValue id="158">MNEM</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="159" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="160">["passDB"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="161">parameters["passDB"]</name>
+<stringValue id="162">passdb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="163" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="164">["urlDatabase"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="165">parameters["urlDatabase"]</name>
+<stringValue id="166">urldb</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="167" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="168">["userDB"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="169">parameters["userDB"]</name>
+<stringValue id="170">userdb</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="171" type="java.util.HashSet">
+<item idref="142"/>
+</sources>
+<targets id="172" type="java.util.HashSet">
+<item id="173" type="com.j2fe.workflow.definition.Transition">
+<name id="174">goto-next</name>
+<source idref="144"/>
+<target idref="8"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>ANDSPLIT</type>
+</source>
+<target idref="14"/>
+</item>
+</sources>
+<targets id="175" type="java.util.HashSet">
+<item idref="12"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="8"/>
+</item>
+<item idref="99"/>
+<item idref="173"/>
+</sources>
+<targets id="176" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ANDJOIN</type>
+</source>
+<target idref="2"/>
+</item>
+</sources>
+<targets id="177" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="178">Custom/RDR/Online_Setup/Counterparties</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="179">user1</lastChangeUser>
+<lastUpdate id="180">2026-10-01T11:49:22.000+0200</lastUpdate>
+<name id="181">PartySetupDifusion</name>
+<optimize>true</optimize>
+<parameter id="182" type="java.util.HashMap">
+<entry>
+<key id="183" type="java.lang.String">ACTION</key>
+<value id="184" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="185">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="186" type="java.lang.String">MNEM</key>
+<value id="187" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="188">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+</parameter>
+<permissions id="189" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="69"/>
+<status>RELEASED</status>
+<variables id="190" type="java.util.HashMap">
+<entry>
+<key id="191" type="java.lang.String">ACTION</key>
+<value id="192" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="193">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="194" type="java.lang.String">MNEM</key>
+<value id="195" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="196">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>7</version>
+</com.j2fe.workflow.definition.Workflow>
