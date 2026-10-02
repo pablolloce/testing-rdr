@@ -56,6 +56,15 @@ Nunca un fichero llamado solo `spec.md`, `prerrequisitos.md` o `casos_prueba.xml
   con los diez campos exigidos por caso y su tipo (happy_path, negativo, error_funcional, borde,
   duplicidad, conflicto_integridad, datos_sinteticos, regresion, e2e).
 
+## Dos carpetas de salida
+
+- `salidas/` solo contiene specs **completas**: sin preguntas abiertas, sin gaps, sin nada "fuera de
+  alcance" o "no aportado", y con **todo artefacto nombrado analizado** hasta el último nivel
+  (subworkflows, scripts y jars que invocan otros). Entender el proceso no basta.
+- Lo que tenga algún hueco bloqueante vive en `salidas_pendientes/<nombre_proceso>/` (misma
+  estructura y nombres, movido con `git mv`) y se registra en `salidas_pendientes/PENDIENTES.md`
+  (qué falta y qué lo cierra). Al cerrar el último hueco, vuelve a `salidas/` y sale del listado.
+
 ## Criterio de no cierre
 
 No cierres la especificación si:

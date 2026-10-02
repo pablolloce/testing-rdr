@@ -30,13 +30,16 @@ Spec Intake Formatter Agent/
 ├── documentos_fuente/                           <- Documentos técnicos a analizar
 ├── memoria/
 │   └── memoria_spec_intake_formatter.md         <- Memoria persistente entre sesiones
-├── salidas/                                     <- ÚNICA fuente de verdad de los procesos
+├── salidas/                                     <- ÚNICA fuente de verdad: solo procesos COMPLETOS
 │   ├── <nombre_proceso>/                        <- Una carpeta por proceso analizado
-│   │   ├── spec.md                              <- Especificación funcional/técnica/testing
-│   │   ├── prerrequisitos.md                    <- Documento explicativo de prerrequisitos
-│   │   └── casos_prueba.xml                     <- Matriz de casos de prueba en XML
+│   │   ├── <nombre_proceso>_spec.md             <- Especificación funcional/técnica/testing
+│   │   ├── <nombre_proceso>_prerrequisitos.md   <- Documento explicativo de prerrequisitos
+│   │   └── <nombre_proceso>_casos_prueba.xml    <- Matriz de casos de prueba en XML
 │   └── comun_<componente>/                      <- Componente usado por varios procesos
-│       └── spec.md                              <- (script genérico, jar, plataforma...)
+│       └── comun_<componente>_spec.md
+├── salidas_pendientes/                          <- Procesos con algún hueco bloqueante (misma estructura)
+│   ├── PENDIENTES.md                            <- Qué falta en cada uno y qué lo cierra
+│   └── <nombre_proceso>/                        <- Misma estructura que en salidas/
 ├── README.md
 └── ...
 ```

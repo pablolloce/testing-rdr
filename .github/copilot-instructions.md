@@ -22,10 +22,13 @@ cada paso remite a la sección con el detalle completo. No te saltes ni reordene
 4. **Preguntas, sin límite de rondas**: pregunta todo lo de la lista obligatoria y cualquier gap
    adicional. Repite rondas hasta que tu checklist de cierre esté en "sí" para todo. Nunca
    generes con huecos. → §"Rigor analítico e iteración sin límite" y §"Reglas obligatorias" 4.
-5. **Genera la salida** en `salidas/<nombre_proceso>/`, en este orden: `<nombre_proceso>_spec.md`, después
+5. **Genera la salida** en `salidas/<nombre_proceso>/` (o en `salidas_pendientes/<nombre_proceso>/`
+   si va a quedar algún hueco bloqueante, ver §"Dos carpetas"), en este orden: `<nombre_proceso>_spec.md`, después
    `<nombre_proceso>_casos_prueba.xml`, y por último `<nombre_proceso>_prerrequisitos.md` derivado de los casos. → §"Estructura de
    salida esperada".
-6. **Verifica el criterio de cierre** antes de dar nada por terminado. → §"Criterio de cierre".
+6. **Verifica el criterio de cierre** antes de dar nada por terminado. Si queda algún hueco
+   bloqueante, la carpeta va a `salidas_pendientes/` y su entrada a `PENDIENTES.md`; solo lo
+   completo va a `salidas/`. → §"Criterio de cierre" y §"Dos carpetas".
 7. **Actualiza la memoria compartida** con lo aprendido de esta sesión. → §"Memoria única y
    compartida".
 8. **Paso 1 — commit + push a tu rama personal**, tras confirmación del usuario sobre el
@@ -150,7 +153,9 @@ ocupa y de qué partes quedarían fuera, y acordad cómo abordarlo antes de cerr
 
 ## Modo consulta — responder preguntas sobre un proceso ya especificado
 
-Cuando el usuario pregunte algo sobre un proceso que ya tiene carpeta en `salidas/`:
+Cuando el usuario pregunte algo sobre un proceso que ya tiene carpeta en `salidas/` (o en
+`salidas_pendientes/`; en ese caso dile primero que el proceso está pendiente y qué le falta,
+según `PENDIENTES.md`):
 
 1. Responde **solo** con `salidas/<nombre_proceso>/` y las specs `salidas/comun_*` a las que
    remita. No abras `documentos_fuente/`, ni la memoria, ni specs de otros procesos para
@@ -328,6 +333,11 @@ valor se considera conflicto, y qué resultado confirma que la detección funcio
 
 ### 7) Rigor técnico: nombrar un artefacto no es analizarlo
 
+
+**Recorre la cadena de invocaciones hasta el final.** Si un script, workflow o jar analizado
+invoca a otro (subworkflow, `.mod`, `.xsl`, clase, procedimiento almacenado, `.properties`), ese
+otro también tiene que estar aportado y analizado. Un artefacto nombrado sin analizar, a cualquier
+nivel, es un hueco bloqueante que manda la spec a `salidas_pendientes/` (ver §"Dos carpetas").
 La parte técnica debe someterse al **mismo nivel de exigencia que la funcional**. Hoy el error
 típico es inventariar: listar clases Java, `.properties`, SQL, scripts, tablas de configuración,
 librerías y argumentos sin explicar para qué sirven dentro del proceso. Un inventario no es un
@@ -440,6 +450,44 @@ documento:** `<nombre_proceso>_spec.md`, `<nombre_proceso>_prerrequisitos.md` y
 que generes en la carpeta del proceso. Nunca crees ficheros llamados solo `spec.md`,
 `prerrequisitos.md` o `casos_prueba.xml`. Si al retomar un proceso encuentras sus ficheros con ese
 nombre antiguo, renómbralos con `git mv`, que conserva el historial, en vez de crear copias.
+
+### Dos carpetas: `salidas/` solo con specs completas; `salidas_pendientes/` para el resto
+
+`salidas/` contiene **únicamente especificaciones completas**: ni una pregunta abierta, ni un
+gap sin resolver, ni nada declarado "fuera de alcance", "no analizado", "no aportado" o
+"pendiente de confirmar". Todo lo que se ejecuta, entra, sale o decide en el proceso está
+analizado y escrito. Una spec con cualquier hueco de esos **no puede estar en `salidas/`**.
+
+Mientras a un proceso le falte algo, su carpeta completa (`<nombre_proceso>_spec.md`,
+`<nombre_proceso>_prerrequisitos.md`, `<nombre_proceso>_casos_prueba.xml`) vive en
+`salidas_pendientes/<nombre_proceso>/`, con la misma estructura y los mismos nombres. Lo mismo
+vale para las specs de componente común (`salidas_pendientes/comun_<nombre>/`). Se mueve siempre
+con `git mv`, nunca copiando, y se actualizan las referencias que apunten a la ruta antigua.
+
+`salidas_pendientes/PENDIENTES.md` es el **listado de lo que falta**: una entrada por proceso
+pendiente con cada hueco (id `P-…` o `H-…`), qué cierra ese hueco (fichero, query, respuesta
+funcional) y el estado. Cada vez que muevas un proceso a pendientes, cierres un hueco o devuelvas
+un proceso a `salidas/`, actualiza ese listado en el mismo commit.
+
+Cómo decidir si un hueco bloquea (y por tanto el proceso va a pendientes): bloquea si, sin esa
+respuesta, la spec no puede decir con certeza qué hace un paso, qué entra o sale (layout, destino,
+nombre real), cuándo o si corre, cómo saber si fue bien o mal, o si hay una contradicción sin
+resolver entre fuentes o entre la spec y el código, o un caso de prueba cuyo resultado depende de
+la respuesta. **Bloquea también todo artefacto nombrado y no analizado**: que el proceso se
+entienda de principio a fin no basta. Cada fichero, jar, clase, script, workflow, subworkflow, XSL,
+query o `.properties` que la spec nombra tiene que estar analizado por su contenido real (en la
+propia spec o en una spec común), y lo mismo cada subfichero, subworkflow, script o jar que uno de
+ellos invoca, hasta el último nivel. Decir qué hace un workflow sin haber visto su contenido, o
+analizar un workflow sin analizar los subworkflows que llama, es un hueco bloqueante: hay que
+pedirlo todo. No bloquea una duda de detalle que no cambia el comportamiento ni las pruebas
+(significado de una sigla, confirmar algo ya deducido con evidencia sólida, contexto como la
+criticidad o el grupo de soporte, mejoras futuras). En caso de duda, bloquea. Las dudas no
+bloqueantes se dejan en la sección 4 de la spec, marcadas como tales, y no impiden que esté en
+`salidas/`.
+
+Cuando cierres el último hueco bloqueante de un proceso pendiente: vuelve a pasar el criterio de
+cierre completo, devuelve la carpeta a `salidas/` con `git mv` y quita su entrada de
+`PENDIENTES.md`.
 
 ### `<nombre_proceso>_spec.md`
 1. Resumen ejecutivo
@@ -556,6 +604,10 @@ vuelve al usuario y pide la información faltante — nunca entregues una salida
   `documentos_fuente`, `memoria/` y `salidas/` y revisando cada aparición
 - has pasado el **autointerrogatorio** (§"Autosuficiencia de la especificación") hasta una ronda
   sin gaps nuevos: toda pregunta razonable sobre el proceso se responde con la spec
+- **no queda ningún hueco bloqueante** (§"Dos carpetas"): ninguna pregunta abierta, gap, "fuera de
+  alcance", "no aportado" o "pendiente" que impida saber qué hace, qué entra o sale, cuándo corre
+  o cómo saber si fue bien. Si queda alguno, la carpeta va a `salidas_pendientes/` y se registra
+  en `PENDIENTES.md`; nunca a `salidas/`
 
 ## Modo ejecutable — preparar casos para AtSQA Framework
 
@@ -809,7 +861,7 @@ El agente **nunca** sincroniza a `nfq` como continuación automática del paso 1
 únicamente cuando el usuario lo pide explícitamente (p. ej. "mergea esto a nfq"), después de que
 haya podido revisar lo que quedó commiteado en su rama personal. En ese momento:
 1. Haz `fetch` de `nfq`.
-2. Compara el estado actual de `origin/nfq` en `memoria/` y `salidas/` con el punto de partida
+2. Compara el estado actual de `origin/nfq` en `memoria/`, `salidas/` y `salidas_pendientes/` con el punto de partida
    guardado al inicio de la sesión (si ha pasado mucho tiempo, vuelve a comprobar contra el
    `nfq` actual justo antes de fusionar).
 3. Si nadie más los ha tocado → sincroniza directamente.
@@ -823,7 +875,7 @@ haya podido revisar lo que quedó commiteado en su rama personal. En ese momento
      habido o no conflicto.
 5. Solo entonces, con confirmación explícita, sincroniza a `nfq` por ruta explícita —nunca con un
    `merge` de la rama personal completa— y haz commit + push, acotado siempre a `memoria/` y
-   `salidas/`. `documentos_fuente/` nunca se añade ni se sube a `nfq`, bajo ninguna circunstancia,
+   `salidas/` y `salidas_pendientes/`. `documentos_fuente/` nunca se añade ni se sube a `nfq`, bajo ninguna circunstancia,
    aunque esté commiteada en la rama personal.
 6. Si el usuario no confirma, el agente no debe ejecutar el push a `nfq`.
 
