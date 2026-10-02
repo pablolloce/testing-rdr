@@ -98,9 +98,16 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   valor por defecto `NULL` y ambos marcados `USAR` (sin regla posicional ni de exclusión, a diferencia del
   fichero equivalente de `ConBDI`, con 45 campos — ver `salidas/rdr_conciliacion_bdi/spec.md` §6.2).
   Semántica coherente con el propósito de la cadena: unificar el código de cliente de origen
-  (`COD-CCLIENP`, previo) con el de destino (`COD-CCLIEND`) en la refundición de cartera. No documentado
-  el comportamiento ante fallo del propio `ControlCase` (código no aportado); cabo suelto no bloqueante,
-  distinto del gap G2 ya cerrado.
+  (`COD-CCLIENP`, previo) con el de destino (`COD-CCLIEND`) en la refundición de cartera.
+  **Comportamiento de `ControlCase` ante fallo — resuelto con bytecode real (`javap -v -p` sobre
+  `ControlCargaDatos.jar`, el mismo motor compartido con `ConBDI`, ver detalle completo en
+  `salidas/rdr_conciliacion_bdi/spec.md` §6.2):** valida número de campos contra la cabecera y, por campo,
+  la regla indicada (`NULL`/`INTE`/`LONG`/`DOUB`/`NEGA`/`USAR`/`DUPL`, cada una resuelta por
+  `controlcargadatos.util.Metodo`) — para este proceso, ambos campos (`COD-CCLIEND`/`COD-CCLIENP`) solo
+  llevan `NULL`/`USAR`, así que no se aplica aquí ninguna validación de tipo/longitud/duplicado. Las líneas
+  que fallan cualquier regla se separan en un segundo fichero `Refundicion_noprocessed.csv` (no documentado
+  hasta ahora para este proceso), y el fallo completo de carga del fichero sí queda registrado en
+  `$LOG/Refundicion_preprocess_summary.log`.
 * **`Workflow(RDR_Refundicion)` → Motor GoldenSource `PLSQL_Load` → sub-workflow `Sub_Load` (confirmado con
   código PL·SQL real esta ronda):** el evento `RDR_Refundicion.gsp` (paquete GoldenSource 8.7.1.106,
   `ApplicationEvent`/`GenericEvent`) recibe el `HashMap` de variables globales del pipeline y delega en el

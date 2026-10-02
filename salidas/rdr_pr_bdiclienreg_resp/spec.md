@@ -45,7 +45,7 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 |-----|----------|------------|
 | G1 | ¿Qué proceso gestiona el ciclo de vida de `controlSCF.txt` (quién lo crea y cuándo se limpia)? | Confirmado (Q7.1): proceso externo a esta malla, perteneciente a SCF/Investors Plan — R4. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R11. Mismo gap transversal ya resuelto para `RDR_CONCILIACION_CLIENTELA_new` y aplicable también a `RDR_REFUNDICION_new`. |
-| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, aportados y verificados en sesión — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1. Queda abierto, de forma no bloqueante, solo el punto de entrada (`Main.java`, no aportado) que fija las rutas exactas de entrada/histórico/error por configuración. |
+| G3 | ¿Qué hace `clientelaBDI_Altas_response.jar` (R6) sobre el `.txt` de respuesta: qué campos actualiza y qué pasa si falla? | **Resuelto por completo, incluida la clase orquestadora real** (`QuerysStr.java`, `QueryExec.java`, `RespuestaCliente.java`, `ProcesaFichero.java`, y ahora `main.Main` vía `javap` sobre `clientelaBDI_Altas_response.jar` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.1/§6.1bis. Confirma el orden real de argumentos (`args[0]`=nivel de log, `[1]`=`.properties` de log4j, `[2]`=`rutaReceive`, `[3]`=`rutaOld`, `[4]`=`rutaError`, `[5]`=`patron`), que procesa **todos** los ficheros que coinciden (filtro por simple subcadena `contains(patron)`, no un patrón de nomenclatura real pese al texto del log) en un bucle — un `ProcesaFichero` por fichero — y el mismo patrón de fallo silencioso en el arranque (sin `System.exit`) ya visto en `AltaFondos_Genera_csv`/`AltaFondos_CuadreCarga`. |
 | G4 | ¿Qué registro de Investors Plan crea/actualiza `Investors_Client_Reg_resp.jar` (R7), y qué pasa si falla? | **Parcialmente resuelto con código fuente real** (`QuerysStr.java`, `QueryExec.java`, `AltaRegisterLEIRequest.java`, propios de este jar — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/investors_client_reg_resp/`). Ver §6.2. Confirma el modelo de datos completo y la pieza de registro de alta de LEI, pero **no** se ha aportado la clase orquestadora (el "Main" de este jar) que decide, para cada fondo pendiente, cuándo invocar `AltaRegisterLEIRequest` — sin ella no se puede confirmar el flujo de decisión completo (p. ej. el uso exacto de `selectDuplicateMurexStar`). Gap abierto, no bloqueante: pedir esa clase si se quiere el 100% del flujo. |
 | G5 | ¿Qué CSV genera `AltaFondos_Genera_csv.jar` (primer paso de R8): con qué columnas, a partir de qué fondos, y con qué delimitador? | **Resuelto por completo, incluida la clase orquestadora real** (`Main.java`, `CSVLine.java`, `QuerysStr.java`, `QueryExec.java`, `Fondo.java`, `Peticiones.java`, `DateUtil.java`, `FicherosCLS.java` — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/altafondos_genera_csv/`). Ver §6.3/§6.10. `Peticiones` confirma el flujo completo (selección de fondos, mapeo campo a campo, nombre/ruta real del CSV, comportamiento ante 0 fondos válidos); `main.Main` (§6.10) confirma que es la clase real invocada por Control-M, con `args[2]`=carpeta de salida real y **`args[3]="NODCS"`** — esta ejecución concreta de R8 procesa explícitamente el canal **no-DCS**; el canal `DigitalCrossSelling` (§6.3) debe dispararse desde otra ejecución/`.properties` no vista en esta sesión. `Main.java` revela además un **hallazgo de fallo silencioso a nivel de proceso** (ver §9): si falla la configuración inicial (BD/log4j), el método `main` simplemente hace `return` sin `System.exit`, por lo que el proceso Java termina con código de salida `0` (éxito) aunque no se haya generado nada — invisible incluso para el mecanismo de detección de errores de `GSProcess.sh` (§6.9). Sin cabos sueltos pendientes. |
 | G6 | ¿Qué hace `CSVToXML_Layout.jar` (segundo paso de R8): cómo transforma el CSV de G5 en el XML de entrada de `RDR_XMLReader`? | **Resuelto por completo, incluido el hallazgo de prioridad máxima** (`PpalAltas.java`, `Ficheros.java`, `Ficheros2.java`, `GenerarXML_version1.java`, `GenerarXML_version2.java` + `RDR_AltaFondos.properties` real — ver `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/`). Ver §6.4/§6.5/§6.9. Confirma la estructura completa del XML y el hallazgo de que `version1`/`version2` interpretan de forma incompatible las columnas `GL.14.01.*`/`GL.14.02.*` (DFA/SFTR) — **y ahora también qué versión se usa en producción**: `RDR_AltaFondos.properties` fija literalmente `ArgJava3="G"` (`args[2]="G"`), que `PpalAltas.main` resuelve a `GenerarXML_version2` — **la versión correcta**, la que sí interpreta los tríos `(TYPE, CLASSIFICATION, VALUE)` como los produce `Fondo.mapeaCampos()`. El hallazgo pasa de riesgo abierto de prioridad máxima a **confirmado y descartado**: el dato regulatorio DFA/SFTR sale bien etiquetado en esta cadena. También confirma `args[3]="IP"` (canal) y el nombre real del XML generado, `altasmasivas.xml`. |
@@ -128,10 +128,35 @@ código, solo el mismo paquete de utilidades de log).
     solo queda registrado el mensaje del **último** campo que falló, no de los anteriores.
   - Excepción no controlada durante el bucle de `ProcesaFichero.procesar()` → el fichero se mueve a la ruta
     de error (`rutaSendError`) en vez de a histórico.
-- **Gap opcional, no bloqueante (G3):** no se ha aportado `Main.java` (o el punto de entrada real del jar),
-  por lo que las rutas exactas de entrada/histórico/error y el mecanismo de invocación desde
-  `GSProcess.sh clientelaBDI_Altas_response` quedan confirmados solo por el patrón de nombres de las cadenas
-  de log (`ClientelaBDI_Altas/response`, coincidente con R2), no por el fichero de configuración/entrada real.
+- **Sin gaps abiertos — `main.Main` confirmado por bytecode real (`javap -v -p`, sin `.java` fuente ni
+  decompilador disponibles en este entorno), ver §6.1bis.**
+
+### 6.1bis `main.Main` de `clientelaBDI_Altas_response.jar` — confirmado con bytecode real, cierra G3
+
+Clase analizada: `clientelabdi_altas_response.main.Main` (vía `javap -v -p` sobre
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/clientelaBDI_Altas_response.jar` — sin `.java` fuente
+disponible para esta clase, a diferencia de `QuerysStr`/`QueryExec`/`RespuestaCliente`/`ProcesaFichero`).
+
+- **Confirma el orden real de argumentos de invocación:** `args[0]`=nivel de log (`1`-`4`→`DEBUG`/`INFO`/
+  `ERROR`/`FATAL`), `args[1]`=ruta del `.properties` de log4j, `args[2]`=`rutaReceive`, `args[3]`=`rutaOld`,
+  `args[4]`=`rutaError`, `args[5]`=`patron` — resuelve del todo el gap de G3 sobre cómo se fijan estas rutas.
+- **`main()` procesa en bucle *todos* los ficheros que coinciden con `patron`, no solo uno:**
+  `analizaDirectorio()` lista el contenido de `rutaReceive` y filtra por **subcadena simple**
+  (`fileName.contains(patron)`) — pese a que el mensaje de log de los ficheros descartados dice *"no cumple
+  criterios de nomenclatura"*, no hay ningún patrón de nomenclatura real, solo un `contains()`. Por cada
+  fichero que pasa el filtro, instancia un `ProcesaFichero` (mismo constructor ya confirmado en §6.1) y
+  llama a `.procesar()` — confirma que esta clase orquestadora **sí soporta múltiples ficheros por
+  ejecución**, a diferencia de lo que el resto de la sesión había asumido por defecto.
+- **Mismo patrón de fallo silencioso en el arranque ya visto en `AltaFondos_Genera_csv`/
+  `AltaFondos_CuadreCarga` (§6.9bis/§9), ahora confirmado en un tercer jar de esta familia:** si
+  `configuraDByLog()` falla (conexión a BBDD, `PropertyConfigurator.configure`), `main()` hace `return` sin
+  `System.exit` — la JVM termina con código de salida `0` (éxito) sin haber procesado nada, invisible para
+  `GSProcess.sh`.
+- **`analizaDirectorio()` solo valida que `rutaReceive`/`rutaOld` existan como directorio — no valida
+  `rutaError` ni `patron`:** si `rutaReceive`/`rutaOld` son nulos/vacíos o no existen, registra el error y
+  devuelve `null` (tratado igual que "no hay ficheros", sin marcar fallo); si la lista queda vacía tras el
+  filtro por `patron` (todos los ficheros descartados), el comportamiento es el mismo — no hay forma de
+  distinguir desde el log "no había ficheros" de "había ficheros pero ninguno coincidía con el patrón".
 
 ### 6.2 `Investors_Client_Reg_resp.jar` (R7) — parcialmente confirmado con código fuente real
 
@@ -968,7 +993,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   compartido con carpeta GoldenSource dedicada. **Corrección sobre la estimación previa de esta misma
   sesión:** `Get Canonical Identifier`, que se había citado como uno de esos ~10 subworkflows, **no lo es**
   — es una `DBQuery` inline dentro del propio `.wkf` de `OperativeRegulatoryInformation` (§6.13sexies,
-  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 2 de los 16 ya
+  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 5 de los 16 ya
   están cerrados con `.wkf` real — ver el listado en el Anexo de §6.13quater más abajo.
 - **[Hallazgo, no confirmado como defecto] SQL de cierre (`UPDATE DR`) con sintaxis dudosa para Oracle:**
   `UPDATE ft_t_rlt1 SET RLT_DIF_STAT = 'FIN' FROM FT_T_INCL WHERE ft_t_rlt1.main_entity_id=? AND
@@ -979,7 +1004,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
 
-**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (2 de 16):**
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (5 de 16):**
 
 - **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
   Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
@@ -1009,6 +1034,51 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   insertan **2 filas de control por cada ejecución**, con nombres de nodo que delatan un origen de
   depuración/pruebas nunca renombrado ni limpiado, pese a ejecutar de forma real e incondicional sobre una
   tabla de producción.
+- **`Calculate Final type under SFTR`** (mismo grupo, estado `RELEASED`, v19): gemela de `Calculate Final
+  type under SFTR`/EMIR — combina el override manual (`manualSftr`) con el valor ya calculado
+  (`cntrprtyTypeUnderSFTR`, con una reclasificación propia: etiquetas `"01"`/`"02"`→`"01"`,
+  `"03"`/`"09"`→`"02"`, cualquier otra incluida `"04"`→vacío/`NE`). Clasificación `FINALSFTR` en `FT_T_FRA1`,
+  mismo patrón `Insercion JAVA` con JDBC manual en la rama `false` (tercera confirmación de este patrón en la
+  familia `Calculate_*`). **Variante propia:** además de `out`/`true`/`reactivar`/`false`, tiene una quinta
+  rama `inactivar` (cuando el valor calculado es `"05"` o vacío) que **inactiva** la fila existente en vez de
+  actualizarla — con una comprobación previa (`Existe Manual?` sobre `MANUALSFTR`) que decide entre 2 updates
+  de inactivación ligeramente distintos según haya o no un override manual registrado. Un comentario SQL
+  (`--AND END_TMS is null`) deja una condición **comentada/deshabilitada** en el `UPDATE` de la rama
+  `reactivar` — a diferencia de la misma condición, activa, en la rama `true` — inconsistencia menor entre
+  dos ramas que debieran ser simétricas.
+- **`Calculate Investment Firm`** (mismo grupo, estado `RELEASED`, v17): calcula 2 indicadores independientes
+  de "empresa de inversión" — `UKFIRM` (régimen UK) y `MIFIFIRM` (régimen MiFID) — ambos como flag `"Y"`/`"N"`
+  en `FT_T_FIST`. Para cada uno: comprueba si la contraparte (o alguna entidad de su jerarquía Local→
+  Operativo) reside en el grupo de países regulatorio correspondiente (`UKREGU`/`EMIRREGU` vía
+  `FT_T_FIGU`/`FT_T_GUNT`/`FT_T_GUGR`/`FT_T_GUGP`) y si tiene CNAE de los códigos de actividad financiera
+  predefinidos (`6400`/`6410`/`6419`/`6490`/`6492`/`6499`/`6420`/`6422`); si ambas se cumplen, marca `"Y"`;
+  si no, `"N"` — respetando siempre un override manual (`data_src_id='Manual'`) que tiene prioridad. **[Hallazgo
+  — mecanismo de deduplicación/idempotencia por minuto, no visto hasta ahora]** antes de calcular, un nodo
+  `Insercion JAVA RRM1` (con el mismo bloque de código de lectura de `credentials.xml`/conexión JDBC manual ya
+  visto en `Mail`/`PartySetupDifusion`, tercera confirmación de este patrón reutilizado) inserta una fila en
+  **`FT_T_RRM1`** con una clave compuesta por el nombre del workflow + `cntrprtyGlobalOid` + fecha/hora **con
+  precisión de minuto**; si la inserción viola una restricción de unicidad (`errorCode==1`), fija
+  `duplicate=true` y un `SwitchCaseSplit` posterior **salta todo el resto del cálculo** — es decir, si este
+  workflow se invoca 2 veces para la misma contraparte dentro del mismo minuto, la segunda invocación no
+  recalcula nada (protección contra reentrancia/colas con reintentos, a costa de que una segunda invocación
+  legítima en el mismo minuto también se descarte).
+- **`Calculate SFTR NFC Sector`** (mismo grupo, estado `RELEASED`, v25): calcula el sector de actividad SFTR
+  para contrapartidas no financieras (NFC) a partir de su CNAE. Primero comprueba si la sectorización está
+  **bloqueada manualmente** (`FT_T_FIST`, `STAT_DEF_ID='NFCSECCA'`, valor `"Y"`) — si lo está, el workflow
+  **no calcula nada** (gate independiente del `hacerCalculoDR` general). Si no está bloqueada: comprueba si
+  la contraparte reside en el grupo de países `EMIRREGU` (reutilizado también para SFTR, no hay un grupo
+  `SFTRREGU` propio) y si su clasificación `FINALSFTR` es `"Non FC+"`/`"Non FC-"` — si no cumple cualquiera de
+  las 2 condiciones, **inactiva toda la sectorización SFTR existente** (`FT_T_FRA1`, `INDUS_CL_SET_ID=
+  'SFTRSECNFC'`). Si cumple ambas: busca el CNAE de la contraparte, lo traduce a sector de 2 dígitos
+  (`FT_T_INCL`, `CNAESECT`) y de ahí a una letra (`'A'+(nivel-1)`); si no hay CNAE o no está parametrizado en
+  `CNAESECT`, **inserta una alerta directamente en `TABLEALERTGENER`** (`PROCESO='CALCULO_SFTR_SECT'`,
+  `ALD1_OID` de tipo `EXCELROW`, `LAST_CHG_USR_ID='AlertasBarrido.jar'`) — **primera confirmación en este
+  audit de un `INSERT` directo en `TABLEALERTGENER` desde un workflow de cálculo**, en vez de pasar por el
+  ciclo `FT_T_TPG1`→`AlertasBarrido`/`AlertasCocinado` ya documentado en §6.14 — una vía de alerta paralela
+  y distinta. Si el sector se resuelve, gestiona **0/1/más de 1** filas `FT_T_FRA1` activas existentes
+  (`Switch Case` sobre el conteo): con más de una, limpia duplicados dejando solo la correcta; con una,
+  verifica que coincida y la inactiva si no; el caso de 0 filas (alta nueva) no se ha podido trazar por
+  completo dentro del tramo leído del fichero (1626 líneas).
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1727,6 +1797,19 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   su propia `Connection` vía `DriverManager.getConnection(urldb, userdb, passdb)` y la cierra en un
   `finally` manual, fuera del pool de conexiones y de la auditoría estándar del resto del `.wkf` — un
   patrón de acceso a BBDD menos uniforme y menos auditable que el resto de esta familia de workflows.
+  **Confirmado una 3ª vez en `Calculate Final type under SFTR` y una 4ª en `Calculate Investment Firm`** (este
+  último además usa ese mismo bloque de código, ya visto en `Mail`/`PartySetupDifusion`, para leer
+  `credentials.xml` del entorno y construir la URL JDBC manualmente — 3 workflows distintos reutilizando el
+  mismo fragmento de lectura de credenciales).
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate SFTR NFC Sector` inserta alertas directamente
+  en `TABLEALERTGENER`, sin pasar por el ciclo `FT_T_TPG1`→`AlertasBarrido`/`AlertasCocinado`:** es la primera
+  vía de alerta confirmada en este audit que escribe en esa tabla sin intermediación del barrido por lotes de
+  §6.14 — dos mecanismos de alerta paralelos y distintos conviven en la misma familia de procesos.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `Calculate Investment Firm` descarta re-ejecuciones
+  dentro del mismo minuto mediante una restricción de unicidad en `FT_T_RRM1`, no mediante lógica de negocio:**
+  si 2 invocaciones para la misma contraparte caen en el mismo minuto, la segunda se descarta por completo sin
+  recalcular — protección de reentrancia que también podría descartar una invocación legítima si coincide en
+  el tiempo.
 * **[PRIORIDAD ALTA, confirmado con `main.Ppal` real de `AlertasBarrido`, §6.14] El `INSERT` real en
   `FT_T_ALG1`/`FT_T_RLT1` está desactivado en el código fuente aportado, pero el propio proceso audita el paso
   como `"OK"` igualmente:** las 2 llamadas a `realizaInserciones(...)` que ejecutarían los inserts están
@@ -1773,8 +1856,10 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
 ## 10. Conclusión y requisitos de cierre
 
 Los 2 gaps funcionales (G1 y el transversal G2) tienen resolución explícita. El gap técnico G3
-(`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto** con código fuente real,
-salvo el punto de entrada (`Main.java`), señalado como no bloqueante. El gap técnico G4
+(`clientelaBDI_Altas_response.jar`, regla 7 de rigor técnico) queda **resuelto por completo**: con código
+fuente real para la lógica de negocio y, con `main.Main` confirmado por bytecode (§6.1bis), también la clase
+orquestadora — argumentos reales, procesamiento en bucle de todos los ficheros que coincidan por subcadena,
+y el mismo patrón de fallo silencioso en el arranque ya visto en otros jars de esta sesión. El gap técnico G4
 (`Investors_Client_Reg_resp.jar`) queda **parcialmente resuelto**: el modelo de datos y la pieza de alta de
 LEI están confirmados por código real, pero falta la clase orquestadora del jar para cerrar el flujo de
 decisión completo — señalado como no bloqueante. El gap técnico G5 (`AltaFondos_Genera_csv.jar`, primer paso
@@ -1845,12 +1930,15 @@ Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
 delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
-fuera de alcance**: 4 de los 23 están cerrados con `.wkf` real en esta misma ronda (`Calculate Counterparty
-type under EMIR`/`Calculate Final type under EMIR` del lado Global, `Auxiliary DFA Data Extraction`/
-`Calculate Counterparty type under DFA` del lado Operativo — ver los Anexos de §6.13quater/§6.13sexies), con
-hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e
-incondicionales en `FT_T_RLT1`, y un patrón de conexión JDBC manual dentro de `BeanShellScript` que bypasea
-el nodo estándar `DBStatement` del motor de workflows en al menos uno de ellos; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
+fuera de alcance**: 7 de los 23 están cerrados con `.wkf` real entre esta ronda y la anterior
+(`Calculate Counterparty type under EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under
+SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector` del lado Global, `Auxiliary DFA Data
+Extraction`/`Calculate Counterparty type under DFA` del lado Operativo — ver los Anexos de
+§6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando
+`INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión JDBC manual dentro de
+`BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 4 de estos subworkflows; una
+vía de alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14; y un mecanismo de
+deduplicación por minuto vía restricción de unicidad en `FT_T_RRM1`; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
 corrección sobre la hipótesis previa — no es un `RaiseEvent`, es un `CallSubWorkflow` real que asigna el rol
 "Mandated Account" (`FT_T_FINR`/`FT_T_ENFR`/`FT_T_FRRL`) condicionado a un flag de `FT_T_UTD1`; y
 `PartySetupDifusion` (§6.13septies, confirmado con `.wkf` real) cierra el sexto y último subworkflow: difusión

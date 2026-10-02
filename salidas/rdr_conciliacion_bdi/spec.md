@@ -131,14 +131,35 @@ Pasos del pipeline, en orden:
     exactamente **45 campos** (no ~22), y extrae explícitamente por posición campos que en la fila
     `USAR` **no** están marcados — p. ej. `FLD_XTI_TIPOSBIC` en la posición 39 (`XTI-TIPOSBIC`, sin
     marca `USAR` en el fichero de reglas). Esto indica que `ConBDI_processed.csv` conserva las 45
-    columnas originales, y que la marca `USAR` significa otra cosa no confirmada por el material
-    disponible (posiblemente relevante a un paso distinto de `ControlCase`, no a la inclusión/exclusión
-    de columnas en el fichero de salida). Se corrige aquí explícitamente para no dejar una lectura
-    errónea de una ronda anterior sin señalar.
-* **Qué pasa si falla/falta/cambia:** el fichero de reglas no documenta comportamiento ante fallo (p. ej.
-  ausencia de la marca `USAR` en tiempo de ejecución, o cambio de esquema); ese detalle vive en el código
-  de `controlcargadatos.ControlCase` (no aportado) y queda como cabo suelto no bloqueante, distinto del
-  gap G2 ya cerrado.
+    columnas originales.
+  - **Significado real de `USAR`, resuelto con bytecode real de `ControlCase.class` (ver bullet siguiente):**
+    no decide qué columnas salen en el `.csv` — es una de varias **reglas de validación por campo**
+    (`USAR`/`NULL`/`INTE`/`LONG`/`DOUB`/`NEGA`/`POSI`/`DUPL`, cada una resuelta por su propio método
+    `controlcargadatos.util.Metodo.comprobarX()`), y concretamente `USAR` dispara
+    `Metodo.comprobarMascara()` — una validación de **formato/máscara** del valor del campo, distinta de
+    las comprobaciones de nulo (`NULL`→`comprobarNulo`) o de tipo entero (`INTE`→`comprobarInteger`). Los
+    22 campos marcados `USAR` son los que llevan esta validación de máscara; el resto de los 45 se copian
+    igual pero sin ese control de formato.
+* **Qué pasa si falla/falta/cambia — resuelto con bytecode real de `ControlCase.class`
+  (`documentos_fuente/evidencia_rdr_conciliacion_bdi/ControlCargaDatos.jar`, vía `javap -v -p`, sin `.java`
+  fuente ni decompilador disponibles):** `ControlCase` es un motor CSV genérico (`com.csvreader.CsvReader`/
+  `CsvWriter`) compartido por `ConBDI` y `Refundicion` (y presumiblemente otros procesos con su propio
+  `fillingRules_<Proceso>.csv`). Por cada registro: comprueba primero que el número de columnas coincida con
+  la cabecera (si no, descarta la línea con el mensaje *"El registro n°:X :(...) tiene diferentes campos que
+  la cabecera"*); luego aplica, campo a campo, la regla correspondiente de `fillingRules_ConBDI.csv`
+  (`NULL`→valor nulo rechazado con *"El campo X es NULO"*, `INTE`→no numérico con *"El campo X no es
+  INTEGER"*, y variantes equivalentes para longitud/negativos/máscara ya confirmadas en el propio bytecode:
+  `LONG`, `NEGA`, `USAR`, `DOUB`). **Produce 2 ficheros de salida, no solo el ya conocido
+  `ConBDI_processed.csv`:** un segundo fichero `<nombre>_noprocessed.csv` (etiquetado internamente *"FICHERO
+  DE REGISTROS NO PROCESADOS"*) recoge las líneas que fallan cualquier validación — residual no documentado
+  hasta ahora en ningún proceso que use este motor. También soporta una regla `DUPL` de **eliminación de
+  duplicados** sobre los campos marcados con esa etiqueta (log: *"Se han encontrado registros duplicados. Se
+  procede a eliminarlos"*/*"Registros DUPLICADOS eliminados: X"*) — no confirmado si `fillingRules_ConBDI.csv`
+  marca algún campo con `DUPL` (el fichero real aportado solo trae `NULL`/`POSICION(6)`/`USAR`, ver arriba),
+  así que para este proceso concreto la deduplicación probablemente no se activa. El resumen de ejecución
+  (`$LOG/ConBDI_preprocess_summary.log`) sí registra el fallo de carga completo del fichero (*"Fecha y hora
+  de FALLO en la carga del fichero X"*), contra lo que se documentaba antes como "sin comportamiento ante
+  fallo documentado".
 
 ### 6.3 `RDR_Report.jar` (clase `CreateReport`) y `select.properties` (clave `ConBDI`)
 
