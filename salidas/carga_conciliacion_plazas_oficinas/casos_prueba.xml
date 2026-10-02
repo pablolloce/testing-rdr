@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<casosDePrueba proceso="Carga y conciliacion de plazas/oficinas (RDR_CARGA_PLAZAS_TRAD_new + RDR_CONC_OFICINAS_new + RDR_REUBICACION_new)" fecha="2026-10-02" usuario="pablo.llorente">
+
+  <casoDePrueba id="TC-001" tipo="happy_path">
+    <nombre>Encadenamiento completo de RDR_CARGA_PLAZAS_TRAD_new (3 jobs)</nombre>
+    <objetivo>Verificar que los 3 jobs se ejecutan en el orden documentado con fichero de entrada presente.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CARGA_PLAZAS_TRAD_new activa en Control-M, folder KYTL0000-RDR_CARGA_PLAZAS_TRAD_new, servidor MERCADOS-4.</precondicion>
+      <precondicion>Existe TradPlazas.csv en /fichtemcomp/pr/descargas/kytl/TradPlazas/ con al menos 1 registro válido de 8 campos (fillingRules_TradPlazas.csv), con valor informado en CPLAZA, DNOMB1 y DNOMB2 (únicos campos USAR).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (domingo a jueves)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar TradPlazas.csv en la ruta origen a partir de las 05:00 AM.</paso>
+      <paso numero="2">Verificar que KYTL_PLATR_GSPROCESS_FW detecta el fichero y genera el evento RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="3">Verificar que KYTL_PLATR_GSPROCESS termina con RC=0, aplica Delta(No) y carga el fichero completo en GoldenSource (evento MDX).</paso>
+      <paso numero="4">Verificar que MEKYTL0129 historifica el fichero de trabajo tras el OK de KYTL_PLATR_GSPROCESS.</paso>
+    </pasos>
+    <resultadoEsperado>Los 3 jobs terminan en estado OK, en el orden documentado; el fichero queda historificado con máscara de fecha.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + existencia de fichero historificado.</tipoValidacion>
+    <criterioAceptacion>3/3 jobs en OK; fichero historificado presente.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-002" tipo="happy_path">
+    <nombre>Encadenamiento completo de RDR_CONC_OFICINAS_new (4 jobs)</nombre>
+    <objetivo>Verificar que los 4 jobs se ejecutan en el orden documentado con fichero de entrada presente.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_CONC_OFICINAS_new activa en Control-M.</precondicion>
+      <precondicion>Existe oficinas.csv en /fichtemcomp/pr/descargas/kytl/oficinas/ con al menos 1 registro cuyo primer campo (CODCSB) empiece por "0182" y al menos 1 registro que no empiece por "0182" (para poder verificar el filtrado de LimpiarOficinas en TC-009).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="fecha de planificación actual (martes a sábado)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv en la ruta origen a partir de las 00:00 AM.</paso>
+      <paso numero="2">Verificar que KYTL_CONOFI_GSPROCESS_FW detecta el fichero y genera el evento RDR_CONC_OFICINAS_KYTL_CONOFI_GSPROCESS_FW_OK_new.</paso>
+      <paso numero="3">Verificar que KYTL_CONOFI_GSPROCESS termina con RC=0: filtra (LimpiarOficinas), aplica Delta(Si), carga en GoldenSource y genera Reporte_oficinas_dos.csv.</paso>
+      <paso numero="4">Verificar que MEKYTL0242 historifica oficinas.csv tras el OK de KYTL_CONOFI_GSPROCESS.</paso>
+      <paso numero="5">Verificar que MEKYTL0243 ejecuta la solicitud de transmisión XCOM (a DUMMY) tras el OK de MEKYTL0242, y cierra la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 4 jobs terminan en estado OK, en el orden documentado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + contenido de Reporte_oficinas_dos.csv.</tipoValidacion>
+    <criterioAceptacion>4/4 jobs en OK; Reporte_oficinas_dos.csv generado con las columnas FINSID;CSB;OFICINA;MENSAJE.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-003" tipo="happy_path">
+    <nombre>Encadenamiento completo de RDR_REUBICACION_new (6 pasos, Fan-Out+Fan-In)</nombre>
+    <objetivo>Verificar que los 6 pasos se ejecutan en el orden documentado, incluido el Fan-Out de 3 ramas y el Fan-In de 3 ramas.</objetivo>
+    <precondiciones>
+      <precondicion>Cadena RDR_REUBICACION_new activa en Control-M, folder KYTL0000-RDR_REUBICACION_new.</precondicion>
+      <precondicion>Existe Reubicacion.csv en /fichtemcomp/pr/descargas/kytl/Reubicacion/ con al menos 1 registro válido (campos COD-BANCO, COD-OFICO, COD-BANCD, COD-OFICD, todos USAR).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ODATE" valor="domingo de cierre de oficinas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Reubicacion.csv en la ruta origen a partir de las 11:00 AM del domingo de cierre.</paso>
+      <paso numero="2">Verificar que KYTL_REU_GSPROCESS_FW detecta el fichero y dispara en paralelo KYTL_REU_GSPROCESS, MEKYTL0233 y MEKYTL0234.</paso>
+      <paso numero="3">Verificar que KYTL_REU_GSPROCESS recorta el fichero a 4 columnas (LimpiarReubicacion), carga vía workflow RDR_Reubicacion/PLSQL_Load y genera Reporte_Reubicacion_dos.csv.</paso>
+      <paso numero="4">Verificar que MEKYTL0233 transmite Reubicacion.csv a Ippwc501 (staging) con RC=0.</paso>
+      <paso numero="5">Verificar que MEKYTL0234 completa la solicitud de transmisión a DUMMY con RC=0.</paso>
+      <paso numero="6">Verificar que MEKYTL0111 transmite Reporte_Reubicacion_dos.csv tras el OK de KYTL_REU_GSPROCESS.</paso>
+      <paso numero="7">Verificar que MEKYTL0122 dispara solo tras confirmarse MEKYTL0111_OK, MEKYTL0233_OK y MEKYTL0234_OK, historifica Reubicacion.csv y cierra la cadena.</paso>
+    </pasos>
+    <resultadoEsperado>Los 6 pasos (8 ejecuciones de job contando el Fan-Out/Fan-In) terminan en OK, en el orden documentado.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos en Control-M + ficheros generados/historificados.</tipoValidacion>
+    <criterioAceptacion>Todos los jobs en OK; Reubicacion.csv historificado; Reporte_Reubicacion_dos.csv transmitido.</criterioAceptacion>
+    <posibilidadFallo>Ninguna esperada en este escenario.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-004" tipo="negativo">
+    <nombre>Fallo de KYTL_PLATR_GSPROCESS bloquea la historificación en RDR_CARGA_PLAZAS_TRAD_new</nombre>
+    <objetivo>Confirmar que un fallo real en el motor de carga impide la ejecución de MEKYTL0129.</objetivo>
+    <precondiciones>
+      <precondicion>TradPlazas.csv presente y detectado por el filewatcher.</precondicion>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de KYTL_PLATR_GSPROCESS (p. ej. cortando la conectividad a GoldenSource).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conectividad a GoldenSource cortada durante la ejecución de KYTL_PLATR_GSPROCESS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_PLATR_GSPROCESS.</paso>
+      <paso numero="2">Verificar que no se genera el evento RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_OK_new.</paso>
+      <paso numero="3">Verificar que MEKYTL0129 permanece en espera, sin ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0129 no se ejecuta mientras KYTL_PLATR_GSPROCESS no termine en OK.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0129 no ejecutado tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente la historificación por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-005" tipo="negativo">
+    <nombre>Fallo de KYTL_CONOFI_GSPROCESS bloquea el resto de RDR_CONC_OFICINAS_new</nombre>
+    <objetivo>Confirmar que un fallo real en el motor de carga impide la historificación y la transmisión posteriores.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv presente y detectado por el filewatcher.</precondicion>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de KYTL_CONOFI_GSPROCESS.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conectividad a GoldenSource cortada durante la ejecución de KYTL_CONOFI_GSPROCESS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_CONOFI_GSPROCESS.</paso>
+      <paso numero="2">Verificar que no se genera el evento RDR_CONC_OFICINAS_KYTL_CONOFI_GSPROCESS_OK_new.</paso>
+      <paso numero="3">Verificar que MEKYTL0242 permanece en espera, sin ejecutarse.</paso>
+      <paso numero="4">Verificar que MEKYTL0243 permanece en espera, sin ejecutarse.</paso>
+    </pasos>
+    <resultadoEsperado>Ni MEKYTL0242 ni MEKYTL0243 se ejecutan mientras KYTL_CONOFI_GSPROCESS no termine en OK.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado en Control-M.</tipoValidacion>
+    <criterioAceptacion>0 de los 2 jobs posteriores ejecutados tras el fallo.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare igualmente alguno de los 2 jobs por mala configuración de dependencia.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-006" tipo="negativo">
+    <nombre>Fallo de KYTL_REU_GSPROCESS bloquea MEKYTL0111 y el Fan-In de RDR_REUBICACION_new</nombre>
+    <objetivo>Confirmar que un fallo real en el motor de carga impide la transmisión del reporte y bloquea el Fan-In, sin afectar a las 2 ramas independientes del Fan-Out.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv presente y detectado por el filewatcher.</precondicion>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de KYTL_REU_GSPROCESS sin afectar a MEKYTL0233/MEKYTL0234.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Conectividad a GoldenSource cortada durante la ejecución de KYTL_REU_GSPROCESS"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar RC≠0 en KYTL_REU_GSPROCESS, dejando que MEKYTL0233 y MEKYTL0234 se ejecuten con normalidad.</paso>
+      <paso numero="2">Verificar que no se genera el evento RDR_REUBICACION_KYTL_REU_GSPROCESS_OK_new.</paso>
+      <paso numero="3">Verificar que MEKYTL0111 permanece en espera, sin ejecutarse.</paso>
+      <paso numero="4">Verificar que MEKYTL0122 permanece en espera pese a que MEKYTL0233_OK y MEKYTL0234_OK sí se cumplen.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0111 no se ejecuta y MEKYTL0122 no dispara, pese a que 2 de las 3 condiciones del Fan-In sí se cumplen.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0111 no ejecutado; MEKYTL0122 en espera con 2 de 3 condiciones cumplidas.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dispare MEKYTL0122 con solo 2 de las 3 condiciones del Fan-In cumplidas (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-007" tipo="error_funcional">
+    <nombre>Timeout del filewatcher de oficinas: cierre de cadena sin ejecución real</nombre>
+    <objetivo>Confirmar el comportamiento verificado por evidencia real: un timeout (RC=7) de KYTL_CONOFI_GSPROCESS_FW salta directamente al evento de cierre de cadena, sin ejecutar el motor de carga ni la historificación.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de mantener ausente oficinas.csv durante toda la ventana de escucha de KYTL_CONOFI_GSPROCESS_FW.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="oficinas.csv ausente durante los 240 minutos completos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener oficinas.csv ausente durante los 240 minutos de ventana de KYTL_CONOFI_GSPROCESS_FW.</paso>
+      <paso numero="2">Verificar que el job queda en estado OK al agotarse el timeout (RC=7).</paso>
+      <paso numero="3">Verificar que se publica directamente el evento RDR_CONC_OFICINAS_MEKYTL0243_OK_new, sin que KYTL_CONOFI_GSPROCESS, MEKYTL0242 ni MEKYTL0243 se hayan ejecutado realmente.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se marca como cerrada (evento final publicado) sin que se haya ejecutado ningún preprocesado, carga, historificación ni transmisión real — comportamiento confirmado por evidencia real de Control-M, no un fallo de la prueba.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos publicados en Control-M.</tipoValidacion>
+    <criterioAceptacion>Evento de cierre final presente; 0 de los 3 jobs intermedios ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio ya documentado (RISK-PLOFI-002): un consumidor del evento de cierre no puede distinguir si la cadena cargó datos reales o se cerró vacía.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="error_funcional">
+    <nombre>Timeout del filewatcher de Reubicacion: cierre de cadena sin ejecución real</nombre>
+    <objetivo>Confirmar el mismo comportamiento de salto directo (RC=7) que en oficinas, aplicado al Fan-Out/Fan-In de Reubicacion.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de mantener ausente Reubicacion.csv durante toda la ventana de escucha de KYTL_REU_GSPROCESS_FW (780 min).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="Reubicacion.csv ausente durante los 780 minutos completos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Mantener Reubicacion.csv ausente durante los 780 minutos de ventana de KYTL_REU_GSPROCESS_FW.</paso>
+      <paso numero="2">Verificar que el job queda en estado OK al agotarse el timeout (RC=7).</paso>
+      <paso numero="3">Verificar que se publica directamente el evento RDR_REUBICACION_MEKYTL0122_OK_new, sin que ninguno de los 5 jobs restantes se haya ejecutado.</paso>
+    </pasos>
+    <resultadoEsperado>La cadena se marca como cerrada sin ejecución real de ninguna de las 3 ramas del Fan-Out ni del Fan-In — mismo patrón que TC-007.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado y eventos publicados en Control-M.</tipoValidacion>
+    <criterioAceptacion>Evento de cierre final presente; 0 de los 5 jobs restantes ejecutados.</criterioAceptacion>
+    <posibilidadFallo>Mismo riesgo que TC-007, aplicado a la cadena hermana de difusión batch que depende de este evento de cierre (fuera de alcance).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>LimpiarOficinas conserva solo las filas con CODCSB=0182</nombre>
+    <objetivo>Confirmar el filtrado real del script LimpiarOficinas (Generico.sh) sobre oficinas.csv.</objetivo>
+    <precondiciones>
+      <precondicion>oficinas.csv con al menos 1 fila que empiece por "0182;" y al menos 1 fila que no.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="oficinas.csv" valor="Mezcla de filas con CODCSB=0182 y CODCSB distinto de 0182"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_CONOFI_GSPROCESS con el fichero de entrada mixto.</paso>
+      <paso numero="2">Verificar que el oficinas.csv resultante (tras LimpiarOficinas) solo contiene la cabecera y las filas con CODCSB=0182.</paso>
+      <paso numero="3">Verificar que el oficinas.csv original (sin filtrar) queda archivado en old/oficinas_prelimpieza.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Las filas con CODCSB distinto de 0182 no llegan a la carga en GoldenSource ni al reporte.</resultadoEsperado>
+    <tipoValidacion>Comparación de contenido de fichero (antes/después de LimpiarOficinas).</tipoValidacion>
+    <criterioAceptacion>100% de las filas resultantes tienen CODCSB=0182; el original sin filtrar está presente en old/.</criterioAceptacion>
+    <posibilidadFallo>Que el filtro no se aplique correctamente y lleguen filas de otros CODCSB al reporte final.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="borde">
+    <nombre>LimpiarReubicacion recorta a 4 columnas y deduplica</nombre>
+    <objetivo>Confirmar el recorte y deduplicación reales del script LimpiarReubicacion (Generico.sh) sobre Reubicacion.csv.</objetivo>
+    <precondiciones>
+      <precondicion>Reubicacion.csv con al menos 2 filas duplicadas en las columnas 1, 2, 5 y 6 (pudiendo diferir en otras columnas no usadas).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Reubicacion.csv" valor="Filas con columnas 1,2,5,6 repetidas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar KYTL_REU_GSPROCESS con el fichero de entrada con duplicados.</paso>
+      <paso numero="2">Verificar que Reubicacion.tmp (resultado de LimpiarReubicacion) contiene únicamente las columnas 1, 2, 5 y 6 del fichero original.</paso>
+      <paso numero="3">Verificar que las filas duplicadas en esas 4 columnas quedan deduplicadas en Reubicacion.tmp.</paso>
+    </pasos>
+    <resultadoEsperado>Reubicacion.tmp tiene 4 columnas (COD-BANCO, COD-OFICO, COD-BANCD, COD-OFICD) y ninguna fila duplicada.</resultadoEsperado>
+    <tipoValidacion>Comparación de contenido de fichero (antes/después de LimpiarReubicacion).</tipoValidacion>
+    <criterioAceptacion>Reubicacion.tmp con 4 columnas; 0 filas duplicadas.</criterioAceptacion>
+    <posibilidadFallo>Que la deduplicación o el recorte de columnas no se apliquen correctamente antes de ControlCase.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="conflicto_integridad">
+    <nombre>MEKYTL0122 no dispara con solo 2 de las 3 ramas del Fan-In de Reubicacion confirmadas</nombre>
+    <objetivo>Confirmar que el Fan-In exige el AND real de las 3 ramas (MEKYTL0111, MEKYTL0233, MEKYTL0234), no solo 2 de ellas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo selectivo de una sola rama del Fan-In sin afectar a las otras 2.</precondicion>
+      <precondicion>MEKYTL0111 y MEKYTL0233 completados con éxito; MEKYTL0234 forzado a fallar de forma que no llegue a marcarse OK (p. ej. interrumpiendo el job antes de su Acción Si).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Rama forzada a no completar" valor="MEKYTL0234"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Completar MEKYTL0111 y MEKYTL0233 con éxito.</paso>
+      <paso numero="2">Evitar que MEKYTL0234 llegue a publicar su evento OK.</paso>
+      <paso numero="3">Verificar que MEKYTL0122 permanece en espera, sin disparar.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0122 no dispara mientras falte la confirmación de cualquiera de las 3 ramas.</resultadoEsperado>
+    <tipoValidacion>Verificación del panel de condiciones AND en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0122 en espera con 2 de 3 condiciones cumplidas.</criterioAceptacion>
+    <posibilidadFallo>Que Control-M dé por cerrado el Fan-In con solo 2 de las 3 condiciones cumplidas (fallo de configuración a detectar).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="borde">
+    <nombre>Asimetría de soft-failure en el Fan-Out de Reubicacion</nombre>
+    <objetivo>Confirmar que un fallo real de transmisión en MEKYTL0233/MEKYTL0234 se marca OK igualmente (soft-failure), mientras que un fallo real en MEKYTL0111 sí se propaga como fallo.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con capacidad de forzar el fallo de red/destino de forma independiente en MEKYTL0233, MEKYTL0234 y MEKYTL0111.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Simulación" valor="Destino Ippwc501 inaccesible para MEKYTL0233; destino XCOMWPMER inaccesible para MEKYTL0111, en ejecuciones separadas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Forzar un fallo real de transmisión en MEKYTL0233 (destino inaccesible) y verificar que el job queda marcado OK pese al fallo.</paso>
+      <paso numero="2">Repetir el mismo tipo de fallo en MEKYTL0234 y verificar el mismo resultado (marcado OK).</paso>
+      <paso numero="3">En una ejecución separada, forzar un fallo real de transmisión en MEKYTL0111 (destino inaccesible) y verificar que el job queda marcado como fallo real (no OK).</paso>
+      <paso numero="4">Verificar que, en el caso 3, MEKYTL0122 no dispara por la ausencia de MEKYTL0111_OK.</paso>
+    </pasos>
+    <resultadoEsperado>MEKYTL0233 y MEKYTL0234 se marcan OK pese al fallo real (Acción Si configurada); MEKYTL0111 se marca como fallo real al no tener esa protección, bloqueando el Fan-In.</resultadoEsperado>
+    <tipoValidacion>Verificación de estado de job y de la Acción Si configurada en Control-M.</tipoValidacion>
+    <criterioAceptacion>MEKYTL0233/MEKYTL0234 en OK pese al fallo simulado; MEKYTL0111 en fallo real; MEKYTL0122 no disparado en el caso 3.</criterioAceptacion>
+    <posibilidadFallo>Riesgo de negocio ya documentado (RISK-PLOFI-003): un fallo real de transmisión en MEKYTL0233/MEKYTL0234 puede pasar desapercibido en el Fan-In.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>Historificación con máscara de fecha correcta en ejecuciones sucesivas (las 3 cadenas)</nombre>
+    <objetivo>Verificar que los ficheros historificados de las 3 cadenas no colisionan entre ejecuciones consecutivas.</objetivo>
+    <precondiciones>
+      <precondicion>Las 3 cadenas ejecutadas correctamente en 2 ejecuciones consecutivas válidas según su propio calendario (TradPlazas: 2 días domingo-jueves; oficinas: 2 días martes-sábado; Reubicacion: 2 domingos de cierre).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ejecuciones de prueba" valor="2 ejecuciones consecutivas válidas por cadena"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar cada cadena completa en su primera fecha válida y verificar el fichero historificado correspondiente en old/ con la fecha de esa ejecución.</paso>
+      <paso numero="2">Ejecutar cada cadena completa en su segunda fecha válida y verificar que el fichero historificado de la primera ejecución no se sobrescribe.</paso>
+    </pasos>
+    <resultadoEsperado>Cada ejecución genera su propio fichero historificado por cadena, sin colisión ni sobrescritura entre ejecuciones.</resultadoEsperado>
+    <tipoValidacion>Verificación de existencia y nombre de los ficheros en old/ tras ambas ejecuciones, por cadena.</tipoValidacion>
+    <criterioAceptacion>2 ficheros historificados distintos por cadena, ninguno sobrescrito.</criterioAceptacion>
+    <posibilidadFallo>Colisión de nombre si se relanza más de una vez la misma cadena el mismo día.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="e2e">
+    <nombre>Delta=Si en oficinas produce carga incremental real, frente a Delta=No en TradPlazas</nombre>
+    <objetivo>Confirmar el mecanismo real de Delta.sh: oficinas compara contra old/ y carga solo diferencias; TradPlazas recarga el fichero completo en cada ejecución.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba, no producción, con 2 ejecuciones consecutivas disponibles para ambas cadenas.</precondicion>
+      <precondicion>oficinas.csv de la 2ª ejecución con al menos 1 fila añadida y 1 fila eliminada respecto a la 1ª; TradPlazas.csv de la 2ª ejecución con el mismo contenido íntegro que la 1ª.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="oficinas.csv ejecución 2" valor="1 fila nueva + 1 fila eliminada respecto a la ejecución 1"/>
+      <dato campo="TradPlazas.csv ejecución 2" valor="Idéntico a la ejecución 1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena de oficinas 2 veces consecutivas con los ficheros descritos; verificar que la carga en GoldenSource de la 2ª ejecución refleja solo la diferencia (comparación contra old/oficinas.csv vía compare.jar).</paso>
+      <paso numero="2">Ejecutar la cadena de TradPlazas 2 veces consecutivas con ficheros idénticos; verificar que la 2ª ejecución recarga el fichero completo (sin comparación contra old/).</paso>
+    </pasos>
+    <resultadoEsperado>oficinas carga solo las diferencias reales entre ejecuciones; TradPlazas recarga siempre el contenido íntegro, independientemente de si cambió.</resultadoEsperado>
+    <tipoValidacion>Verificación del contenido cargado en GoldenSource (o del fichero de diferencias generado por Delta.sh) en ambas cadenas.</tipoValidacion>
+    <criterioAceptacion>oficinas: solo las filas realmente nuevas/eliminadas se reflejan en la 2ª carga. TradPlazas: la 2ª carga contiene el 100% del fichero, sin comparación.</criterioAceptacion>
+    <posibilidadFallo>Que oficinas recargue el fichero completo en vez de solo la diferencia, o que TradPlazas aplique una comparación no documentada.</posibilidadFallo>
+  </casoDePrueba>
+
+</casosDePrueba>
