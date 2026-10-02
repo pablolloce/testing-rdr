@@ -1314,8 +1314,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 ## rdr_cargasectoada
 
 **Spec:** `salidas_pendientes/rdr_cargasectoada/rdr_cargasectoada_spec.md`  
-**Qué le falta:** Faltan los .properties Delta/Reporte, el jar RDR_SectorizacionEmisores.jar, los .properties de Carga Core de producción, las líneas IDX de las 6 historificaciones, el nombre real del fichero DataX y el layout de los 3 CSV.
+**Qué le falta:** Faltan los .properties Delta/Reporte, los .properties de Carga Core **de producción** (los de integración ya están en evidencia), las líneas IDX de las 6 historificaciones, el nombre real del fichero DataX y el layout de los 3 CSV.
 **2ª pasada:** GAP-ADA-003 cerrado con el jar (compilación 2026). Faltan el PL/SQL del procedimiento, los .properties Delta/Reporte y la versión de producción.
+**3ª pasada (02/10, rama Eduardo):** confirmados por bytecode (javap) los nombres de campo reales de T2/T3 y, con los 3 .properties reales ya en evidencia, que JDKV=17 está en T1 y T3 (ausente solo en T2) — corrige una lectura de Eduardo que daba T3 como única con JDKV=17 explícito.
 
 ### Huecos bloqueantes (10)
 
@@ -1325,8 +1326,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-ADA-02 | abierta | ¿Qué fecha lleva el fichero que DataX deja en /unload/kytl/datent/datax/? El cp busca <Fichero>_%%$ODATE.csv pero DataX pide CUTOFF_DATE=ODATE-1 (T3 lunes: ODATE-3) | Nombre real del fichero en /unload/kytl/datent/datax/ (definición del transferId) |
 | P-ADA-03 | abierta | Líneas completas del IDX de MEKYTL1287/1288/1289 y MEKYTL1293/1294/1295 (operación, exige fichero, fecha del backup) | líneas de las 6 claves en INFORMACION_HISTORIFICACIONES.IDX de producción |
 | P-ADA-04 | abierta | Significado del parámetro --srcParam ENTIFIC_ID:HO presente en T1/T2 y ausente en T3 | definición de los transferId kcatalogvaluestaxonomy_1 y krelvaluestaxonomy_1 |
-| P-ADA-05 | parcial | Formato y columnas de los 3 CSV (cabecera, separador, campos, volumen) **Avance 2ª pasada:** Columnas usadas y mínimos (6, 16 y 5) de los 3 CSV | layout oficial completo |
-| H-ADA-01 | parcial | Los .properties de la Carga Core recibidos son de integración (rutas ei); T2 no fija JDKV=17 (posible UnsupportedClassVersionError) **Avance 2ª pasada:** JDKV=17 ausente en T2: causa confirmada (clases Java 17) | confirmación de qué JDK por defecto tiene producción |
+| P-ADA-05 | parcial | Formato y columnas de los 3 CSV (cabecera, separador, campos, volumen) **Avance 2ª pasada:** Columnas usadas y mínimos (6, 16 y 5) de los 3 CSV. **Avance 3ª pasada:** confirmados por bytecode (javap) los nombres de campo reales de T2/T3 (gf_rdr_id, descrip, g_asset_allocation_sector_type/subsec_type/actvy_type, gf_rdr_operative_id). | layout oficial completo |
+| H-ADA-01 | parcial | Los .properties de la Carga Core recibidos son de integración (rutas ei); T2 no fija JDKV=17 (posible UnsupportedClassVersionError) **Avance 2ª pasada:** JDKV=17 ausente en T2: causa confirmada (clases Java 17). **Avance 3ª pasada:** confirmado con los 3 .properties reales (ya en evidencia): JDKV=17 en T1 y T3, ausente en T2 — no es lectura errónea. | confirmación de qué JDK por defecto tiene producción |
 | H-ADA-02 | parcial | log4jCargaSectorizacion.properties y ConexionBD.jar usados por la Carga Core (invocados por GSProcess.sh) no analizados **Avance 2ª pasada:** T2 depende de T2_Sect_Bloom_Refinit_PREV, que reescribe el CSV a 5 columnas | .properties que invoca la clase PREV (candidato: Delta de T2) |
 | H-ADA-03 | parcial | Pasos Delta (GSProcess.sh T<N>_<Fichero>): no se ha visto qué hacen con el CSV antes de la carga **Avance 2ª pasada:** Cuerpo del procedimiento no está en el jar | PL/SQL de PRC_CONCILIACION_SECTORIZACION |
 | P-ADA-08 | abierta | T3 no espera a los últimos hilos antes de cerrar conexiones; contains("RE") puede clasificar mal identificadores BB | confirmación funcional / prueba en ejecución |

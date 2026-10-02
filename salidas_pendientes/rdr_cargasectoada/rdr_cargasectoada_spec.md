@@ -7,7 +7,13 @@
 > (`MEKYTL1273`/`1274`/`1275`/`1281`/`1282`/`1283`) y los 2 jobs de Historificación del Tramo 1
 > (`MEKYTL1287`/`1293`). Lo esencial de cada ficha está recogido en esta spec (§5 y §6). Segunda pasada de cierre
 > (02/10/2026): jar `RDR_SectorizacionEmisores.jar` 0.0.1-SNAPSHOT (rama de Eduardo, compilado el 26/08/2026 con JDK 17),
-> descompilado con `cfr` y analizado clase a clase (§6.5 y §6.6).
+> descompilado con `cfr` y analizado clase a clase (§6.5 y §6.6). Tercera pasada (03/10/2026, reconciliación con
+> `feature/Eduardo`): se incorporan a `documentos_fuente/evidencia_rdr_cargasectoada/` los 4 ficheros físicos que
+> respaldaban ese análisis y que no se habían llegado a versionar — `RDR_SectorizacionEmisores.jar` y los 3
+> `.properties` reales de la Carga Core (`CargaSectorizacionT1/T2/T3.properties`, entorno de integración) — y se
+> verifica con `javap` sobre ese mismo jar un hallazgo adicional de la rama de Eduardo (nombres de campo reales de
+> T2/T3, §6.5) y se confirma sin ambigüedad, con el contenido literal de los 3 `.properties`, que `JDKV=17` está en
+> T1 y T3 pero no en T2 (§6.4).
 >
 > **Estado: sin gaps de evidencia sobre la topología; quedan preguntas abiertas sobre el contenido de los `.properties` y de los ficheros (§4, P-ADA-nn).** Los 6 jobs DataX y los 2 jobs de Historificación del Tramo 1
 > quedan confirmados con ficha oficial real. **2 hallazgos confirmados, no supuestos:** (1) el job de
@@ -122,7 +128,7 @@ Preguntas abiertas (no hay respuesta en ninguna fuente disponible):**
 | P-ADA-02 | ¿Qué fecha lleva en su nombre el fichero que DataX deja en `/unload/kytl/datent/datax/`? El `cp` de ingesta busca `<Fichero>_%%$ODATE.csv` (fecha de ejecución), pero `MEKYTL1273/1274/1275` piden `CUTOFF_DATE=ODATE-1` (y `MEKYTL1283` `ODATE-3`) con `--dstParam gf_cutoff_date:YYYYMMDD` | Si el nombre lleva la fecha de corte, el `cp` no lo encontraría y la ingesta fallaría (KO) |
 | P-ADA-03 | Líneas completas del `INFORMACION_HISTORIFICACIONES.IDX` de las claves `MEKYTL1287/1288/1289` y `MEKYTL1293/1294/1295` (operación, si exige fichero, fecha en el nombre de backup) | Define el comportamiento real si falta el fichero y si el original se mueve o se copia |
 | P-ADA-04 | Significado del parámetro `--srcParam "ENTIFIC_ID:HO"` presente en T1/T2 y ausente en T3 | Posible filtro de entidad; afecta a qué datos se reciben |
-| P-ADA-05 | Formato y columnas de los 3 CSV (`CatalogValuesTaxonomy`, `RelValuesTaxonomy`, `IssuersIssuesCustomer`): cabecera, separador, campos, volumen | Sin ello no se pueden construir ficheros de prueba. **Resuelta en parte (02/10/2026):** el código del jar fija el separador (barra vertical), la codificación (ISO-8859-1), que la primera línea es cabecera y qué posiciones se usan en cada fichero (§6.5; mínimos de 6, 16 y 5 columnas). **Sigue abierto** el nombre y significado de las demás columnas, el texto de la cabecera y el volumen: no hay muestra del fichero |
+| P-ADA-05 | Formato y columnas de los 3 CSV (`CatalogValuesTaxonomy`, `RelValuesTaxonomy`, `IssuersIssuesCustomer`): cabecera, separador, campos, volumen | Sin ello no se pueden construir ficheros de prueba. **Resuelta en parte (02/10/2026):** el código del jar fija el separador (barra vertical), la codificación (ISO-8859-1), que la primera línea es cabecera y qué posiciones se usan en cada fichero (§6.5; mínimos de 6, 16 y 5 columnas). **Avance 3ª pasada (03/10/2026):** confirmados por bytecode (`javap`) los nombres de campo de destino de T2 y T3 (`gf_rdr_id`, `descrip`, `g_asset_allocation_sector_type`/`subsec_type`/`actvy_type`, `gf_rdr_operative_id`), ver §6.5. **Sigue abierto** el nombre y significado de las demás columnas, el texto de la cabecera y el volumen: no hay muestra del fichero |
 | P-ADA-06 | Confirmación funcional de que las 2 cadenas son complementarias (lunes / martes-viernes) y de qué ocurre si el lunes es festivo (no se carga nada hasta el martes, que es otra cadena) | Cobertura de calendario |
 | P-ADA-07 | Significado exacto de las siglas ADA y SAA (el nombre `ekytl_ada_saatransfer_1` sugiere "Strategic/Sector Asset Allocation", sin confirmar) | Vocabulario de negocio |
 | P-ADA-08 | **Nueva (02/10/2026).** Cuerpo del procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION` (9 parámetros): qué tablas de GoldenSource escribe o actualiza para cada tipo (`T1`, `T2_RE`, `T2_BB`, `T3`), cómo concilia y qué deja en `FT_T_RLT1` | Es el resultado de negocio de la carga: sin él no se sabe qué cambia en GoldenSource ni se pueden definir resultados esperados sobre datos |
@@ -291,7 +297,10 @@ Argumentos comunes: `ArgJava1=2` es el nivel de log (INFO) y `ArgJava2` el fiche
   (versión de clase 61; el `pom.xml` fija `maven.compiler.target=17` y se construyó con JDK 17.0.20), así que en un
   entorno cuyo JDK por defecto sea anterior T2 fallará al arrancar con `UnsupportedClassVersionError`. Lo que
   sigue sin saberse es cuál es el JDK por defecto y si el `.properties` de producción de T2 sí lo fija
-  (H-ADA-01).
+  (H-ADA-01). **Confirmado ahora con los 3 ficheros reales** (`documentos_fuente/evidencia_rdr_cargasectoada/CargaSectorizacionT1.properties`,
+  `CargaSectorizacionT2.properties`, `CargaSectorizacionT3.properties`, de entorno de integración, incorporados en
+  esta ronda): `T1.properties` y `T3.properties` tienen literalmente `JDKV=17`; `T2.properties` no tiene esa clave
+  en ningún punto del fichero — no es una omisión de lectura, es así en el fichero real.
 
 ### 6.5 El jar `RDR_SectorizacionEmisores.jar` (descompilado, 02/10/2026)
 
@@ -363,6 +372,14 @@ Sectorizaciones procedentes de ADA»), compilado el 26/08/2026 con JDK 17 (clase
   **dos filas**, una `T2_RE` y otra `T2_BB`, por un `if` sin `else`).
 - **`T2_Sect_Bloom_Refinit`** (sin sufijo) es la versión de un solo paso (hace en memoria lo que `PREV` y `POST` hacen
   en dos). Ningún `.properties` recibido la invoca.
+- **Nombres de campo reales confirmados (03/10/2026, bytecode de `T2_Sect_Bloom_Refinit_POST`, pool de constantes
+  vía `javap`):** antes de llamar al procedimiento, `POST` arma por fila un `HashMap` con claves literales:
+  `gf_rdr_id` (el identificador, columna 1 del CSV ya transformado), `SAA` (valor = tipo `RE`/`BB` concatenado con el
+  identificador), `descrip` (la descripción tomada del mapa de T1 correspondiente), `g_asset_allocation_sector_type`,
+  `g_asset_allocation_subsec_type` y `g_asset_allocation_actvy_type` (columnas 2, 3 y 4). Son los mismos nombres de
+  campo, con el prefijo `g_asset_allocation_*`, que aparecen también en el bytecode de `T3_SectorizacionADA` (ver más
+  abajo) — confirma que ambos tramos alimentan el mismo modelo de datos de "asset allocation" en GoldenSource, aporte
+  más allá de lo ya documentado por posición de columna.
 
 **T3 — `T3_SectorizacionADA`** (fichero `T3_IssuersIssuesCustomer.csv`, mínimo 5 columnas):
 - Misma validación de fichero que T1 (inexistente, vacío, sin cabecera, solo cabecera). Salta la cabecera y descarta las
@@ -375,6 +392,11 @@ Sectorizaciones procedentes de ADA»), compilado el 26/08/2026 con JDK 17 (clase
   identificador (la primera y, si no lo era, la primera `ES0182`).
 - Llamada: `T3`, tres vacíos, identificador, sector, subsector, actividad, job. Si falla, la fila de error lleva el
   identificador del operativo en `MAIN_ENTITY_ID` y en `RLT_FIELD`.
+- **Nombres de campo reales confirmados (03/10/2026, bytecode vía `javap`):** el pool de constantes de la clase
+  incluye literalmente `gf_rdr_operative_id` (el identificador del operativo) y los mismos tres campos de T2 —
+  `g_asset_allocation_sector_type`, `g_asset_allocation_subsec_type`, `g_asset_allocation_actvy_type` — para sector,
+  subsector y actividad. Mismo modelo de datos de destino que T2 (ver §6.5 T2), pese a ser tramos "paralelos e
+  independientes" por diseño declarado.
 
 ### 6.6 Qué cambia en la operación por lo visto en el jar
 
@@ -500,3 +522,22 @@ parte (formato de los CSV y destino de la carga); aparecen dos preguntas nuevas,
 `PRC_CONCILIACION_SECTORIZACION`) y P-ADA-09 (qué paso ejecuta `T2_Sect_Bloom_Refinit_PREV`), y cuatro riesgos nuevos
 (RISK-ADA-003 a RISK-ADA-006). El defecto probable de T2 (sin `JDKV=17`) pasa a causa confirmada: las clases son
 de Java 17.
+
+**Tercera pasada — reconciliación con `feature/Eduardo` (03/10/2026).** Esa rama había llegado, por su propia vía
+(bytecode vía `javap`, sin decompilador), a las mismas conclusiones centrales que esta spec (mismo procedimiento
+Oracle único, mismo hallazgo de acoplamiento T1↔T2 en la Carga Core de T2, mismas 2 sub-rutas Bloomberg/Refinitiv de
+T2), lo que corrobora de forma independiente el análisis ya recogido en §6.5/§6.6. Su aportación neta tras comparar
+ambas versiones con detalle: (1) los 4 ficheros físicos que respaldaban ese análisis (`RDR_SectorizacionEmisores.jar`
+y los 3 `.properties` reales de la Carga Core) no estaban versionados en esta rama y se incorporan ahora a
+`documentos_fuente/evidencia_rdr_cargasectoada/`; (2) con ese jar ya disponible, se verifica con `javap` un detalle
+que esta spec no tenía: los nombres de campo reales que arman las clases de T2 y T3 antes de llamar al procedimiento
+(`gf_rdr_id`, `descrip`, `g_asset_allocation_sector_type`/`subsec_type`/`actvy_type`, `gf_rdr_operative_id` — nueva
+información en §6.5, avance de P-ADA-01/P-ADA-05); (3) con los 3 `.properties` reales ya en el repositorio se
+confirma sin ambigüedad el hallazgo de `JDKV=17` (presente en T1/T3, ausente en T2, §6.4/H-ADA-01). **Discrepancia
+puntual detectada y descartada:** el texto de `feature/Eduardo` sobre GAP-ADA-003 da a entender que únicamente
+`T3_SectorizacionADA.properties` fija `JDKV=17` ("T3, único que fija JDKV=17 explícito"); el contenido literal de los
+3 `.properties` ahora en evidencia contradice esa lectura y confirma la de esta spec: `JDKV=17` está en **T1 y T3**,
+no solo en T3 — no se trata de una discrepancia sin resolver, queda zanjada con el fichero real. No se ha encontrado
+en `feature/Eduardo` ningún hallazgo adicional sobre volcados de base de datos de GoldenSource para este proceso (esa
+rama no usó esa fuente aquí); tampoco contenía casos de prueba (`casos_prueba.xml`) ni `_prerrequisitos.md` propios
+para este proceso, por lo que esos dos ficheros de esta ronda permanecen sin cambios de fondo.
