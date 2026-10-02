@@ -25,11 +25,14 @@
   - `Cuenta_Emisiones.sh` en la misma ruta (según Control-M) — genera y lee de
     `/fichtemcomp/$ENV/descargas/kytl/issues/Cuenta_Registros/`.
   - `RAMERC0068.sh` en `/pr/pl/scrt/` (Cadena 6, historificación de `dictionaryMarkets.csv`).
-- Ficheros `.properties` desplegados en el `CONF` de `GSProcess.sh`: `planifGenerico.properties`,
-  `ProcesoDeFusion.properties`, `EnvioReporteEmisiones.properties`, `selectivePublishEmisiones.properties`.
+- Ficheros `.properties` desplegados en el `CONF` de `GSProcess.sh` (el plan de despliegue sustituye `@@ENV@@` por el entorno y instala la variante `.de|.ei|.pp|.pr` como `X.properties`): `planifGenerico.properties` y `planificador.properties`,
+  `ProcesoDeFusion.properties` y `log4jFusionMex.properties`, `EnvioReporteEmisiones.properties` (clave `Destination` rellenada por entorno), `selectivePublishEmisiones.properties`, los cinco de la Cadena 5 (`RDR_CrearIndices_Emisiones`, `RDR_Emisiones_PLSQL_INAC`, `RDR_Emisiones_PLSQL_INCR`, `RDR_Borrado_Emisiones`, `RDR_BorrarIndices_Emisiones`) con sus `log4j*.properties`, y, para el origen de los datos de la Cadena 1, `ExtraccionGenericaEMISI_ALL|RESTO.properties`, `TransforEmisiones.properties`, `Extraccion_Emisiones.xsl` y `xsd_emisiones_batch.xsd`.
+- Directorios de la Cadena 1: `/fichtemcomp/<env>/descargas/kytl/issues/Cuenta_Registros/` y su subdirectorio `Log/` (sin `Log/` el script no falla pero pierde su log).
+- `credentials.xml` con la sección `<database>` (`sid`, `gcuser`, `gcpass`, `host`, `host2`, `port`) para que `traducir_creden` regenere `planificador.properties` antes de cada ejecución de las Cadenas 2 y 3.
+- `ServerMailConfig.xml` con un bloque `<server id="<env>">` que lleve `host` y `user` (remitente) del servidor de correo, leído por el workflow `Mail` (host y cuenta no están en la plantilla).
 - Evento `SendMailReport` dado de alta en el motor de Workflows y accesible vía `executeBbvaEvent.sh fileloading`. En el volcado de la BD de workflows arranca el workflow `Mail` (servidor SMTP y remitente en `ServerMailConfig.xml`), no el workflow `SendMailReport` (grupo `Custom/RDR/Reports/Load`, sesión `email/MailSession`); anotar cuál arranca en el entorno de prueba (spec §6.7). Evento `RDR_SelectivePublish` (workflow `SelectivePublish`) dado de alta para la Cadena 7.
-- JDK 64-bit para `GSProcess.sh`; **JDK 17 específicamente** para los 5 sub-procesos de la Cadena 5
-  (`RDR_Procesar_Emisiones.sh`).
+- JDK 64-bit para `GSProcess.sh` (el de `<javahome>` en `credentials.xml`). La spec original pedía **JDK 17** para los 5 sub-procesos de la Cadena 5
+  (`RDR_Procesar_Emisiones.sh`); la plantilla de despliegue (base anterior a la migración a Java 17) no lo fija: la migración está en curso y las copias migradas llevan `JDKV=17` en `GSProcess.sh` y clases con paquete.
 - Conectividad y permisos de escritura a `/fichtemcomp/$ENV/descargas/kytl/issues/Historificacion/` (Cadena 5) y
   a `/fichtemcomp/pr/descargas/kytl/markets/Backup/` (Cadena 6).
 - Recurso cuantitativo `MAX-LPRDR501` dado de alta en Control-M (usado por prácticamente todos los jobs de las 7
@@ -45,8 +48,7 @@
 - Usuario `xpctma1`: ejecución de `RDR_MARKETS_EXTRAC_FW` (filewatcher nativo, Cadena 6).
 - Usuario `DUMMYUSR`: ejecución del dummy de inicio de la Cadena 6 (`RDR_MARKETS_EXT_IN`).
 - Grupo de soporte responsable único para las 7 cadenas: ANS RDR (`BZG03906`, `ans_rdr.es@bbva.com`).
-- Destinatarios fijados en el workflow `SendMailReport` (válidos solo si el evento `SendMailReport` arranca ese
-  workflow y no `Mail`; ver DEF-EMIS-001, en revisión): `rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas).
+- Destinatarios: si el evento `SendMailReport` arranca el workflow `Mail` (lo esperable según la plantilla), los fija la clave `Destination` de `EnvioReporteEmisiones.properties` del entorno (una dirección en `pr`, tres en `pp`, vacío en `de` y `ei` en la plantilla; direcciones no incluidas). Si arrancara el workflow `SendMailReport`, serían los fijados en él: `rdr_factory@bbva.com` y tres buzones individuales (direcciones personales omitidas). Ver DEF-EMIS-001, descartado según la plantilla y pendiente de verificar en producción.
 
 
 ## Flujos previos que deben haberse completado

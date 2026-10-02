@@ -26,8 +26,8 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones enviadas, estado `LEI_REG
 
 ## Configuración
 
-- `LEI_Register_response.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`LEI_Register_response.jar`, clase `main.Main`, 7 argumentos: log, rutas `receive`/`old`/`error`, patrón `LEIsReg_`, ruta `Alertas`) para que `GSPROC_REG_LEIS_RESP` funcione (TC-001 a TC-009).
-- `LEI_Register_alertas.properties` debe existir, parametrizado con `NomProperty=GestionAlertas`, `ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER`, `ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER`, para que `GSPROC_REG_LEIS_ALERTAS` dispare correctamente la alerta (TC-009).
+- `LEI_Register_response.properties` debe existir con el contenido de §6.2 de la spec (según la plantilla de despliegue: jars `ConexionBD.jar`+`LEI_Register_response.jar`, clase `main.Main`, 7 argumentos: log, rutas `receive`/`old`/`error`, patrón `LEIsReg_`, ruta `Alertas`; sin `Stop`; CRLF) para que `GSPROC_REG_LEIS_RESP` funcione (TC-001 a TC-009). `log4jLEI_Register.properties` en el mismo directorio y `<env>/kytl/online/multipais/multicanal/logs/` escribible.
+- `LEI_Register_alertas.properties` debe existir (§6.5), parametrizado con `NomProperty=GestionAlertas`, `ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER`, `ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER` y `Script Borrar` sobre `Alertas/*.err`, y la plantilla `GestionAlertas.properties` en el mismo directorio, para que `GSPROC_REG_LEIS_ALERTAS` dispare correctamente la alerta (TC-009). Además `ServerMailConfig.xml` con el `server` del entorno (host y buzón no incluidos en la plantilla).
 - La Gestión de alertas debe tener configurado el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` y un destinatario de pruebas en `FT_T_ALR1`/`FT_T_ALU1` (TC-009). Esa configuración no se ha recibido (P-LEIR-06). La notificación se verifica en base de datos (`FT_T_REP1.SEND_PEND` vuelve a `N`, `FT_T_ALR1.LAST_SEND_TMS` se actualiza), porque el job termina en verde aunque falle.
 - TC-004 y los ficheros de prueba en general necesitan las posiciones de los campos de la línea de 259 caracteres (P-LEIR-03).
 

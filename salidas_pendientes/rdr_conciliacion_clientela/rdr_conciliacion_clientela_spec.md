@@ -63,16 +63,16 @@ llegó `Refundicion.csv`), esta cadena no arranca.
 | G1 | ¿La detención por ausencia de `ConClientela.csv` genera alerta o es un fallo silencioso? | Confirmado: genera alerta (email + ticket Remedy) — R2. |
 | G2 (transversal) | ¿Qué significa la criticidad de cadena múltiple "W / S / C"? | Confirmado como placeholder de cabecera con interpretación funcional confirmada — R6. Aplicable también a `RDR_PR_BDICLIENREG_RESP_new` y `RDR_REFUNDICION_new`. |
 | G3 | ¿Existe, como en `ConBDI`, un fichero `.properties.de` de despliegue (`ConClientela.properties.de` o similar) que documente los parámetros globales (`MOD_EJECUCION`, `Ruta`, `File`, `Servicio`, `SuccessAction`, flags `Delta/Preprocesado/Workflow`) del motor `ConClientela`? | **Resuelto.** El usuario aportó `ConClientela.properties`, el fichero real de despliegue (no citado en el documento fuente original, pero funcionalmente equivalente al `.properties.de` de `ConBDI`): confirma los 6 parámetros globales y el pipeline completo de 6 pasos — ver §6. Confirma además que **no existe flag `Workflow=`** en esta cadena, a diferencia de `ConBDI` (coherente con que `ConClientela` no dispara ningún workflow/email final). |
-| G4 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` en esta cadena, y qué reglas aplica el preprocesado de `ControlCargaDatos.jar`/`javacsv.jar` sobre `ConClientela.csv`? | **Resuelto en el límite de lo alcanzable desde código Java (2026-09-28), con la versión completa real de `ConDB.java`.** `executeCONCLI_Hilos` llama al procedimiento almacenado Oracle **`CONCLI2`** (29 parámetros: 28 campos + `FLD_JOB_ID`) — confirma el ancho real del fichero procesado (97 campos), toda la orquestación, y 2 reglas de negocio no documentadas hasta ahora: protección de "Cuentas Gestionadas" (con las tablas exactas: `FT_T_FRRL`/`FT_T_FINR`, rol `MANDTACC`) que bloquea la conciliación completa de un cliente si tiene LEI distinto y cuenta gestionada activa, y una validación de consistencia de LEI entre clientes agrupados por identificador canónico (inserta en **`FT_T_VREQ`**, no en `FT_T_RLT1` — corrección sobre la lectura inicial). **Único cabo suelto no bloqueante:** el contenido de `fillingRules_ConClientela.csv` (no aportado) y el cuerpo interno del procedimiento `CONCLI2` en Oracle — ver §6.2. |
+| G4 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` en esta cadena, y qué reglas aplica el preprocesado de `ControlCargaDatos.jar`/`javacsv.jar` sobre `ConClientela.csv`? | **Resuelto en el límite de lo alcanzable desde código Java (2026-09-28), con la versión completa real de `ConDB.java`; 3ª pasada: el `fillingRules_ConClientela.csv` ya consta (§6.3), falta el cuerpo de `CONCLI2`.** `executeCONCLI_Hilos` llama al procedimiento almacenado Oracle **`CONCLI2`** (29 parámetros: 28 campos + `FLD_JOB_ID`) — confirma el ancho real del fichero procesado (97 campos), toda la orquestación, y 2 reglas de negocio no documentadas hasta ahora: protección de "Cuentas Gestionadas" (con las tablas exactas: `FT_T_FRRL`/`FT_T_FINR`, rol `MANDTACC`) que bloquea la conciliación completa de un cliente si tiene LEI distinto y cuenta gestionada activa, y una validación de consistencia de LEI entre clientes agrupados por identificador canónico (inserta en **`FT_T_VREQ`**, no en `FT_T_RLT1` — corrección sobre la lectura inicial). **Único cabo suelto no bloqueante:** el contenido de `fillingRules_ConClientela.csv` (no aportado) y el cuerpo interno del procedimiento `CONCLI2` en Oracle — ver §6.2. |
 
 **Preguntas pendientes (no resolubles con las fuentes; no se inventa la respuesta):**
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-CCL-01 | ¿Qué sistema/equipo deposita `ConClientela.csv`, a qué hora, y cuál es el layout oficial de sus 97 columnas (cabecera, significado, formato del campo LEI con su carácter inicial)? | Sin él no se pueden preparar datos de prueba reales ni saber a quién avisar si no llega. |
+| P-CCL-01 | ¿Qué sistema/equipo deposita `ConClientela.csv`, a qué hora, y cuál es el layout oficial de sus 97 columnas (cabecera, significado, formato del campo LEI con su carácter inicial)? | Sin él no se pueden preparar datos de prueba reales ni saber a quién avisar si no llega. **Resuelta en parte (3ª pasada):** los nombres y el orden de las 97 columnas constan en la cabecera de `fillingRules_ConClientela.csv` de la plantilla de despliegue (§6.3). Siguen sin constar el significado oficial, los formatos, el sistema origen y la hora. |
 | P-CCL-02 | ¿Cómo está el calendario de `KYTL_REF_GSPROCESS`? La ficha de Refundición dice "martes a sábado" y a la vez `LMXJVSD` (7 días). Si no corre un día, esta cadena (7 días) tampoco arranca. ¿Tiene Control-M alguna regla para el código 7 del `ctmfw` (¿OK o NOTOK?)? | Determina si hay días sin conciliación y si la ausencia de fichero deja la malla en rojo o en verde. |
-| P-CCL-03 | Contenido de `fillingRules_ConClientela.csv` y cuerpo del procedimiento Oracle `CONCLI2`. | Define qué registros se rechazan y qué se actualiza exactamente en GS. |
-| P-CCL-04 | ¿Qué job/cadena ejecuta la clave `ConClientela/ReporteLEI` (informe `Reporte_LEI.csv`) y a quién se envía? | Es el informe de LEI de esta misma conciliación, pero no figura en ninguno de los 4 jobs. **Resuelta en parte (02/10/2026):** en GoldenSource existe el evento `RDR_Reporte_LEI_C460` (descripción «Informe de modificaciones en los contratos 460») que arranca el workflow `envioReporteMail` (versión 4), con una variante `LEI` y otra `C460` (dos consultas `Select1`/`Select2` y un `Destination` que le llegan por el `.properties` del llamador, y envío por el sub-workflow `Mail`). Es el único mecanismo de envío por correo de un informe de LEI hallado, pero ni `ConClientela.properties` ni ningún otro `.properties` recibido lo invoca, y los scripts que fijan asunto, adjunto y destinatarios son blobs no legibles. **Sigue abierto** quién lo lanza, con qué `Destination` y si el adjunto es `Reporte_LEI.csv` |
+| P-CCL-03 | Contenido de `fillingRules_ConClientela.csv` y cuerpo del procedimiento Oracle `CONCLI2`. | Define qué registros se rechazan y qué se actualiza exactamente en GS. **Resuelta en parte (3ª pasada):** `fillingRules_ConClientela.csv` ya consta, según la plantilla de despliegue (§6.3): `NULL`+`POSICION(9)` en el código de cliente, `USAR` en 25 columnas, sin `DUPL`. Sigue abierto el cuerpo de `CONCLI2` (Oracle). |
+| P-CCL-04 | ¿Qué job/cadena ejecuta la clave `ConClientela/ReporteLEI` (informe `Reporte_LEI.csv`) y a quién se envía? | Es el informe de LEI de esta misma conciliación, pero no figura en ninguno de los 4 jobs. **Resuelta en parte (02/10/2026):** en GoldenSource existe el evento `RDR_Reporte_LEI_C460` (descripción «Informe de modificaciones en los contratos 460») que arranca el workflow `envioReporteMail` (versión 4), con una variante `LEI` y otra `C460` (dos consultas `Select1`/`Select2` y un `Destination` que le llegan por el `.properties` del llamador, y envío por el sub-workflow `Mail`). Es el único mecanismo de envío por correo de un informe de LEI hallado, pero ni `ConClientela.properties` ni ningún otro `.properties` recibido lo invoca, y los scripts que fijan asunto, adjunto y destinatarios son blobs no legibles. **Sigue abierto** quién lo lanza, con qué `Destination` y si el adjunto es `Reporte_LEI.csv` **3ª pasada:** la plantilla de despliegue trae el módulo `EnvioReporteMail` (§6.3), que ejecuta la clave `ConClientela/ReporteLEI`, genera `Reporte_LEI.csv`, lo envía con `RDR_Envio_Reportes.jar` y lanza el evento `RDR_Reporte_LEI_C460`; los destinatarios no vienen en la plantilla y sigue sin constar qué job lanza el módulo. |
 | P-CCL-05 | Configuración (`.idx`) real de las claves `MEKYTL0131` y `MEKYTL0130` (protocolo, usuario de transmisión, `FALLA_NO_FICHERO`, historificación en `RUTA_HISTORIFICACION`). | Confirma la tolerancia a fichero ausente y el comportamiento si el destino rechaza el fichero. |
 
 ## 5. Especificación funcional
@@ -408,11 +408,53 @@ la definición oficial del fichero de Clientela no está en las fuentes, P-CCL-0
   negocio y el nombre/firma exacta del procedimiento que carga en GoldenSource ya quedan completamente
   documentados.
 
+### 6.3 Plantilla de despliegue de la UUAA KYTL: `ConClientela.properties`, `fillingRules_ConClientela.csv` y layout de columnas (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue
+`CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; son «valores de producción según la plantilla», no una copia verificada de producción.
+La plantilla es la base **anterior a la migración a Java 17** (migración en curso: la plantilla `develop` sigue en la versión sin paquete).
+
+**`ConClientela.properties` (H-CCL-01, H-CCL-05).** Fichero único (sin variantes por entorno, CRLF). Contrastado línea a línea con la copia de integración del apartado
+«`ConClientela.properties` literal», **solo difiere en**: las rutas (`@@ENV@@` en lugar de `ei`), la ausencia de `JDKV=17` en las tres acciones `Java`, y los nombres de clase sin
+paquete (`ControlCase`, `ConClientela`, `CreateReport`). Las 7 acciones (`VariablesGlobales`, `Delta No`, `QuitarNulos`, `ControlCase`, `ConClientela`, `CreateReport`, `Unix2Dos`),
+`Delta=No`, `Preprocesado=Si` y la ausencia de `Stop*` coinciden. Corrección de lectura: la copia de integración es la versión **ya migrada a Java 17** (con paquetes); lo que despliega
+la plantilla es la versión anterior. Qué hay instalado hoy en el servidor de producción no está verificado.
+
+**`fillingRules_ConClientela.csv` (P-CCL-03, G4).** Contenido: cabecera de **97 columnas** y 3 filas de reglas, todas con 97 celdas:
+- Fila 1: `NULL` solo en la tercera columna (`DBC-COD-CCLIEN`): el código de cliente es obligatorio.
+- Fila 2: `POSICION(9)` solo en `DBC-COD-CCLIEN`: exactamente 9 caracteres.
+- Fila 3: `USAR` (solo caracteres permitidos; vacío es válido) en 25 columnas: `DBC-COD-CCLIEN`, `DBC-XTI-TIPERSO`, `DBC-XTI-CTIPCL1`, `DBC-COD-DOCUM25`, `DBC-COD-CDNOMB`, `DBC-DES-DENOMB`, `DBC-COD-CTPVIA`,
+  `DBC-DES-CCALLE`, `DBC-QNU-CNUVIA`, `DBC-DES-CRESTO`, `DBC-DES-DPLAZA`, `DBC-DES-DPROVI`, `DBC-COD-CDIPOS`, `DBC-COD-CDIPEX`, `DBC-COD-CPAIS`, `DBC-COD-CCNO`, `DBC-COD-CNAE5`, `DBC-COD-TIPINS`,
+  `DBC-COD-CLPANA`, `DBC-FEC-FNACIF`, `DBC-COD-FORSOCI`, `DBC-XTI-CVIP`, `DBC-COD-IDIOMA`, `DBC-COD-OFIPPAL` y `DBC-COD-LEI`. Son **25 de las 28 columnas que lee `ConClientela`** (§6.2): quedan sin regla solo las tres de
+  exportación de retenciones (`DBC-XSN-EMPEXRET`, `DBC-FEC-INIEXRET`, `DBC-FEC-EMPEXRET`); de las 69 restantes (por ejemplo `DBC-FEC-FALTAF` o `DBC-FEC-FMODIFIC`) ninguna lleva regla (son columnas que `CONCLI2` no recibe).
+- Sin `DUPL`: no hay eliminación de duplicados; sin `INTEGER`/`LONGITUD`: ningún campo se valida por tipo ni por longitud salvo el código de cliente.
+Semántica de las reglas: spec común `comun_controlcargadatos` §4 (`ControlCase` mira los 4 primeros caracteres y aplica las reglas por posición). Efectos: un registro con `DBC-COD-CCLIEN` vacío o de longitud
+distinta de 9, o con un carácter no permitido en cualquiera de esas 24 columnas (incluidos el nombre `DBC-DES-DENOMB` y la dirección, y el LEI), va a `ConClientela_noprocessed.csv` y **no llega a `CONCLI2`**; un
+fichero en UTF-8 con vocales acentuadas (salvo `á`/`ú` por casualidad) o `ñ` en nombre o dirección rechaza el registro (`ControlCargaDatos` lee ISO-8859-1).
+**Anomalía en la cabecera de reglas:** la columna 80 (posición 79 base 0) se llama literalmente `,DBC-XTI-RAI` (con una coma delante). `ControlCase` casa por nombre las columnas de la cabecera de
+entrada con las de la cabecera de reglas: si `ConClientela.csv` trae `DBC-XTI-RAI` sin coma, esa columna no se encuentra y, como hay columnas posteriores que sí se encuentran, el programa escribe
+`Cabeceras incorrectas` en el log y no genera un `_processed.csv` completo (queda el del día anterior o uno a medias). Si el fichero de Clientela trae también la coma (lo más probable si la cabecera de
+reglas se copió de un fichero real), coincide y no pasa nada. No se puede decidir sin una cabecera real (H-CCL-13). Esa columna no lleva reglas.
+
+**Layout de `ConClientela.csv` (P-CCL-01, parcial).** Los nombres de las 97 columnas, en orden (posición base 0, la misma que usa `ConClientela.java`), son los de la cabecera de reglas
+(el asterisco marca el nombre con la coma delante): 0=DBC-COD-PAIS; 1=DBC-COD-BANCSB; 2=DBC-COD-CCLIEN; 3=DBC-XTI-TIPERSO; 4=DBC-FEC-FALTAF; 5=DBC-FEC-FMODIFIC; 6=DBC-XTI-CTIPCL1; 7=DBC-COD-DOCUM25; 8=DBC-XTI-CTIPCL2; 9=DBC-XTI-XFODNI; 10=DBC-XSN-FOTOC; 11=DBC-COD-CDNOMB; 12=DBC-DES-DENOMB; 13=DBC-XTI-CDOMIC; 14=DBC-COD-CTPVIA; 15=DBC-DES-CCALLE; 16=DBC-QNU-CNUVIA; 17=DBC-DES-CRESTO; 18=DBC-DES-DPLAZA; 19=DBC-DES-DPROVI; 20=DBC-COD-CDIPOS; 21=DBC-COD-PROVFI; 22=DBC-COD-CDIPEX; 23=DBC-COD-CPAIS; 24=DBC-DES-MAIL; 25=DBC-COD-QTFNOP; 26=DBC-COD-QTFNOT; 27=DBC-COD-CCNO; 28=DBC-COD-CNAE5; 29=DBC-COD-CCLOCU; 30=DBC-COD-CPERSO; 31=DBC-COD-TIPINS; 32=DBC-COD-CRITINS; 33=DBC-COD-CSECLI; 34=DBC-COD-SOCCON; 35=DBC-COD-CCLEMP; 36=DBC-COD-BGEMPL; 37=DBC-COD-CTRATA; 38=DBC-COD-CECIVI; 39=DBC-COD-CSEXOF; 40=DBC-COD-CREGMA; 41=DBC-DES-DLUGNA; 42=DBC-DES-DPRONA; 43=DBC-COD-CPLAZA; 44=DBC-COD-CLPANA; 45=DBC-FEC-FNACIF; 46=DBC-FEC-FREPLF; 47=DBC-COD-CLPAND; 48=DBC-COD-CFORMA; 49=DBC-COD-SECTOR; 50=DBC-COD-SUBSECTR; 51=DBC-COD-FORSOCI; 52=DBC-XSN-FORSOCI; 53=DBC-XTI-CVIP; 54=DBC-XTI-CONFI; 55=DBC-XTI-CTECOM; 56=DBC-XSN-CLERROR; 57=DBC-XTI-PERFILA; 58=DBC-XTI-BLOQUEO; 59=DBC-XTI-REFUNDIC; 60=DBC-XSN-FIC; 61=DBC-XSN-CON; 62=DBC-XSN-DIC; 63=DBC-XSN-DCC; 64=DBC-XSN-NRC; 65=DBC-XSN-ILC; 66=DBC-XSN-DAC; 67=DBC-XSN-FOR; 68=DBC-XTI-FIRMAD; 69=DBC-XSN-PROACM; 70=DBC-COD-CCLTSE; 71=DBC-COD-SIDEBE; 72=DBC-COD-GRUPORIE; 73=DBC-COD-SWIFT; 74=DBC-XSN-FINACT; 75=DBC-XTI-MORABBVA; 76=DBC-XTI-MORAGRUP; 77=DBC-XTI-ASNE; 78=DBC-XTI-INDJUD; 79=DBC-XTI-RAI*; 80=DBC-XTI-CABA; 81=DBC-XTI-FINANZA; 82=DBC-COD-IDIOMCOR; 83=DBC-COD-IDIOMA; 84=DBC-COD-TIPINUCR; 85=DBC-DES-SITCONC; 86=DBC-XSN-EMPEXRET; 87=DBC-FEC-INIEXRET; 88=DBC-FEC-EMPEXRET; 89=DBC-COD-CGESTO; 90=DBC-COD-COFIGE; 91=DBC-COD-VIALTA; 92=DBC-XTI-VIALTA; 93=DBC-AUD-USUARIO; 94=DBC-AUD-TIMESTAM; 95=DBC-COD-OFIPPAL; 96=DBC-COD-LEI. Los 28 campos que usa `ConClientela` (§6.2) coinciden exactamente con estos nombres en sus posiciones (2=`DBC-COD-CCLIEN`, 3=`DBC-XTI-TIPERSO`, 6=`DBC-XTI-CTIPCL1`,
+7=`DBC-COD-DOCUM25`, 11=`DBC-COD-CDNOMB`, 12=`DBC-DES-DENOMB`, 14=`DBC-COD-CTPVIA`, 15=`DBC-DES-CCALLE`, 16=`DBC-QNU-CNUVIA`, 17=`DBC-DES-CRESTO`, 18=`DBC-DES-DPLAZA`, 19=`DBC-DES-DPROVI`, 20=`DBC-COD-CDIPOS`,
+22=`DBC-COD-CDIPEX`, 23=`DBC-COD-CPAIS`, 27=`DBC-COD-CCNO`, 28=`DBC-COD-CNAE5`, 31=`DBC-COD-TIPINS`, 44=`DBC-COD-CLPANA`, 45=`DBC-FEC-FNACIF`, 51=`DBC-COD-FORSOCI`, 53=`DBC-XTI-CVIP`,
+83=`DBC-COD-IDIOMA`, 86=`DBC-XSN-EMPEXRET`, 87=`DBC-FEC-INIEXRET`, 88=`DBC-FEC-EMPEXRET`, 95=`DBC-COD-OFIPPAL`, 96=`DBC-COD-LEI`), lo que confirma que la cabecera de reglas describe el fichero real de 97 columnas. Siguen sin constar el significado
+oficial de cada columna, los formatos (fechas, LEI con su carácter inicial), el sistema que lo deposita, la hora y el volumen.
+
+**Informe LEI (P-CCL-04).** La clave `ConClientela/ReporteLEI` de `select.properties` (las tres líneas coinciden literalmente con las transcritas en §6.1) la ejecuta el segundo paso del módulo
+`EnvioReporteMail` de la plantilla (`CreateReport ... select.properties ConClientela/ReporteLEI`, servicio `Reporte_LEI`), que después lo envía con `RDR_Envio_Reportes.jar` (clase `Envio_Reportes`, etiqueta `ReporteConCli`, entrada
+`ConClientela/ReporteLEI/Reporte_LEI.csv`, salida `ConClientela/ReporteLEI/Reporte_LEI`) y lanza el evento `RDR_Reporte_LEI_C460` (workflow `envioReporteMail`). La consulta `Select2` de ese módulo es la misma
+consulta de `ConClientela/ReporteLEI`. El módulo es independiente de la cadena `RDR_CONCILIACION_CLIENTELA_new` (ver la spec de `rdr_c460` §6.6 para el detalle de la cadena del módulo).
+Destinatarios: no incluidos en la plantilla (enmascarados en la variante `pr`; vacíos en `de`, `ei` y `pp`, es decir, solo producción envía). Siguen sin constar el job de Control-M que lanza `EnvioReporteMail` y el
+contenido de la plantilla de correo y del jar de envío.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 4 transiciones lineales, el comportamiento ante ausencia de fichero (con alerta,
 R2) y la tolerancia a fallo (Soft Failure) de los 2 últimos jobs. El conjunto TC-001 a TC-006 cubre el 100%
-de las transiciones documentadas.
+de las transiciones documentadas. TC-007 (3ª pasada) cubre las reglas de validación de `fillingRules_ConClientela.csv`.
 
 ## 8. Validaciones de casos de prueba
 
@@ -424,6 +466,7 @@ de las transiciones documentadas.
 | `error_funcional` | `MEKYTL0131` no falla si el reporte no existe (Soft Failure). | TC-004 |
 | `error_funcional` | `MEKYTL0130` no falla si `ConClientela.csv` no existe (Soft Failure). | TC-005 |
 | `e2e` | Ciclo completo diario, incluida la dependencia externa. | TC-006 |
+| `borde` | Reglas de `fillingRules_ConClientela.csv`: código de cliente obligatorio de 9 caracteres, caracteres no permitidos y cabecera de reglas con coma en `DBC-XTI-RAI`. | TC-007 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -447,6 +490,7 @@ de las transiciones documentadas.
   clientes presentes en GoldenSource pero ausentes del fichero, y de líneas con formato inválido, se
   calcula pero el bloque que la registraría en `FT_T_RLT1` está enteramente comentado — mismo hallazgo
   de prioridad alta que en la cadena hermana.
+* **[Nuevo, 3ª pasada] Cabecera de reglas con una coma de más en la columna 80 (`,DBC-XTI-RAI`, §6.3):** si el fichero de Clientela no la trae igual, `ControlCase` devuelve `Cabeceras incorrectas` y no actualiza `ConClientela_processed.csv`; el job seguiría en verde y `ConClientela` volvería a leer el procesado del día anterior (H-CCL-13).
 * **Gaps técnicos (regla 7):** G3 (pipeline de despliegue `ConClientela.properties`) queda **resuelto**
   con el fichero real aportado (§6). **G4 queda resuelto en el límite de lo alcanzable desde código Java**
   con la versión completa de `ConDB.java` (§6.2): confirma el procedimiento `CONCLI2` (29 parámetros), las
@@ -464,7 +508,7 @@ fuente real de `ConClientela.java` y la versión completa de `ConDB.java` (§6.2
 el ancho real del fichero procesado (97 campos), el procedimiento `CONCLI2` (29 parámetros) y 2 reglas de
 negocio no documentadas hasta ahora (protección de "Cuentas Gestionadas", con sus tablas exactas
 `FT_T_FRRL`/`FT_T_FINR`, y consistencia de LEI por grupo canónico, que corrige inserta en `FT_T_VREQ` y no
-en `FT_T_RLT1`) quedan cerradas. Solo el contenido de `fillingRules_ConClientela.csv` y el cuerpo interno
-del procedimiento `CONCLI2` en Oracle quedan como cabo suelto no bloqueante. También queda documentada,
+en `FT_T_RLT1`) quedan cerradas. Con la 3ª pasada (plantilla de despliegue, §6.3) el contenido de `fillingRules_ConClientela.csv` y los nombres de las 97 columnas ya constan;
+solo el cuerpo interno del procedimiento `CONCLI2` en Oracle queda como cabo suelto, y aparece una duda nueva sobre la coma de `,DBC-XTI-RAI` (H-CCL-13). También queda documentada,
 como riesgo abierto, la diferencia de ventana temporal entre `queryConClientela` y `queryConBDI` (§6.1,
 §9) y el hueco de cobertura de testing asociado en ambas cadenas.

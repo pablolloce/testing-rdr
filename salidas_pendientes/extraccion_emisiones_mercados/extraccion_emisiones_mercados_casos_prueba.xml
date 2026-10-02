@@ -97,7 +97,7 @@
       <paso numero="3">Inspeccionar el asunto, el nombre del fichero adjunto y la lista de destinatarios recibidos.</paso>
       <paso numero="4">Consultar en la consola de GoldenSource qué workflow ha arrancado el evento SendMailReport (Mail o SendMailReport) y si la instancia terminó con error por falta de parámetros (Destination, Subject, Mail).</paso>
     </pasos>
-    <resultadoEsperado>Se registra el asunto, el adjunto y los destinatarios reales y el workflow que ha arrancado. Si arranca SendMailReport, el correo llega con asunto "Informe diario carga contrapartidas" y adjunto "Report.csv" (DEF-EMIS-001 confirmado). Si arranca Mail, el correo lleva lo que fije EnvioReporteEmisiones.properties (DEF-EMIS-001 descartado), o no llega ninguno si faltan parámetros obligatorios, con el job en OK en todos los casos (R14).</resultadoEsperado>
+    <resultadoEsperado>Se registra el asunto, el adjunto y los destinatarios reales y el workflow que ha arrancado. Con el EnvioReporteEmisiones.properties de la plantilla de despliegue (Subject "Reporte cuenta Emisiones - Emisores.", NameFile "Emisiones_Emisores_Por_Destino.csv", FileMail en Cuenta_Registros/) se espera que arranque Mail y que el correo lleve ese asunto y ese adjunto (spec §6.8.A); en de y ei la plantilla deja Destination vacío. Si arranca SendMailReport, el correo llega con asunto "Informe diario carga contrapartidas" y adjunto "Report.csv" (DEF-EMIS-001 confirmado). Si arranca Mail, el correo lleva lo que fije EnvioReporteEmisiones.properties (DEF-EMIS-001 descartado), o no llega ninguno si faltan parámetros obligatorios, con el job en OK en todos los casos (R14).</resultadoEsperado>
     <tipoValidacion>Inspección directa del correo real recibido (asunto + nombre de adjunto).</tipoValidacion>
     <criterioAceptacion>El correo real y el workflow que lo envía quedan documentados, y DEF-EMIS-001 se confirma o se descarta con ese dato.</criterioAceptacion>
     <posibilidadFallo>Si el correo sale con un asunto de otro proceso, los destinatarios pueden ignorarlo o filtrarlo; si no sale ninguno, el job de Control-M sigue en OK y solo se nota por ausencia.</posibilidadFallo>
@@ -196,7 +196,7 @@
       <paso numero="2">Verificar la ejecución secuencial de los 5 pasos (crear índices, inactivar, historificar incremental, borrar &gt;40 días, borrar índices).</paso>
       <paso numero="3">Verificar el código de salida final del script.</paso>
     </pasos>
-    <resultadoEsperado>Los 5 pasos se ejecutan en orden y sin error; el script termina con exit 0.</resultadoEsperado>
+    <resultadoEsperado>Los 5 pasos se ejecutan en orden y sin error; el script termina con exit 0. Según el código de la plantilla, la última línea que imprime en pantalla es el texto "ERROR: FIN Script" (texto engañoso, no es un error); en el log borrado_emisiones_YYYY-MM-DD.log figuran "Arranque" y "found." de los 5 pasos.</resultadoEsperado>
     <tipoValidacion>Log borrado_emisiones_YYYY-MM-DD.log sin errores + exit code del job.</tipoValidacion>
     <criterioAceptacion>Exit 0, log sin la cadena "error", los 5 pasos ejecutados.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
@@ -227,13 +227,13 @@
     <objetivo>Confirmar que la detección de la cadena "error" en el log del paso 3 (no solo el exit code) detiene la ejecución de los pasos siguientes.</objetivo>
     <precondiciones>
       <precondicion>Pasos 1 y 2 ejecutan correctamente.</precondicion>
-      <precondicion>Condición forzada para que el log del paso 3 (RDR_Emisiones_PLSQL_INCR) contenga la cadena "error" aunque el exit code sea 0.</precondicion>
+      <precondicion>Condición forzada para que contenga la cadena "error" el fichero /fichtemcomp/&lt;env&gt;/descargas/kytl/issues/RDR_Procesar_Emisiones_YYYY-MM-DD.log (es el que el script examina tras cada paso; no es borrado_emisiones_YYYY-MM-DD.log ni nada que la plantilla escriba por sí sola), con el exit code del paso en 0.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="log_paso_3" valor="contiene la cadena 'error' (simulado)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Forzar que el log del paso 3 contenga "error".</paso>
+      <paso numero="1">Crear RDR_Procesar_Emisiones_YYYY-MM-DD.log con la cadena "error" antes de que termine el paso 3 (sin ese fichero, la comprobación no detecta nada; ver TC-017).</paso>
       <paso numero="2">Ejecutar KYTL_HISTORIFICACION_EMISIONES.</paso>
       <paso numero="3">Verificar el código de salida del script y si los pasos 4 y 5 llegaron a ejecutarse.</paso>
     </pasos>
@@ -324,6 +324,48 @@
     <tipoValidacion>Revisión de prerrequisitos (Espera a Eventos) de todos los jobs de ambas cadenas en Control-M.</tipoValidacion>
     <criterioAceptacion>Sin dependencias cruzadas reales entre ambas cadenas pese al naming compartido.</criterioAceptacion>
     <posibilidadFallo>Riesgo documental/operativo: un operador podría confundir ambos eventos en monitorización manual por el nombre compartido, aunque no haya riesgo técnico de colisión de flujo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="borde">
+    <nombre>Cadena 5 — La cadena "error" en el log del propio script no detiene los pasos (RISK-EMIS-002)</nombre>
+    <objetivo>Confirmar que, según el código de RDR_Procesar_Emisiones.sh de la plantilla, la detección por contenido no actúa sobre borrado_emisiones_YYYY-MM-DD.log y que solo el código de salida de cada GSProcess.sh detiene la cadena.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (nunca producción) con los cinco .properties de la Cadena 5 y jars simulados que permitan elegir el código de salida.</precondicion>
+      <precondicion>No existe RDR_Procesar_Emisiones_YYYY-MM-DD.log en /fichtemcomp/&lt;env&gt;/descargas/kytl/issues/ (salvo que el comando del job de Control-M redirija la salida a él: comprobarlo antes).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="paso 3" valor="el jar escribe la palabra error en su salida pero devuelve exit 0"/>
+      <dato campo="paso 3 (variante)" valor="el jar devuelve exit 1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar RDR_Procesar_Emisiones.sh con el paso 3 simulado con salida que contiene "error" y exit 0.</paso>
+      <paso numero="2">Comprobar si se ejecutan los pasos 4 y 5 y el código final.</paso>
+      <paso numero="3">Repetir con el paso 3 devolviendo exit 1 y comprobar el código final (254) y que los pasos 4 y 5 no se ejecutan.</paso>
+    </pasos>
+    <resultadoEsperado>Con exit 0 y "error" en la salida, los pasos 4 y 5 se ejecutan y el script termina con exit 0 (texto final "ERROR: FIN Script"). Con exit 1, el script escribe "ERROR: Proceso GSProcess.sh RDR_Emisiones_PLSQL_INCR" (el nombre del paso 3 en la plantilla) y sale con exit -2 (254 en Control-M) sin ejecutar los pasos 4 y 5.</resultadoEsperado>
+    <tipoValidacion>Código de salida del script + log borrado_emisiones_YYYY-MM-DD.log + ausencia/presencia de arranque de los pasos 4 y 5.</tipoValidacion>
+    <criterioAceptacion>El comportamiento coincide con el descrito en la spec §6.8.D; cualquier diferencia indica que el script instalado no es el de la plantilla.</criterioAceptacion>
+    <posibilidadFallo>Si el script instalado sí se detiene con la palabra error, la copia instalada difiere de la plantilla y hay que actualizar la spec (§1.4, §6.8.D, RISK-EMIS-002).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="regresion">
+    <nombre>Cadena 1 — La columna EQINDEX del informe diario sale a 0 porque la hoja XSL elimina esos registros (RISK-EMIS-003)</nombre>
+    <objetivo>Verificar si la fuente SHS que cuenta Cuenta_Emisiones.sh puede contener registros EQINDEX, dado que Extraccion_Emisiones.xsl descarta los de tipo FUTURES, OPTIONS, WARRANTS y EQINDEX al generar emisiones_filter.xml.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con un emisiones.resto.xml que incluya al menos un registro de cada tipo: COMMON, EQINDEX, FUTURES, OPTIONS y WARRANTS, y uno repetido (mismo Instrmt/ID).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="emisiones.resto.xml" valor="registros de tipo COMMON, EQINDEX, FUTURES, OPTIONS, WARRANTS y un duplicado por Instrmt/ID, un registro por línea"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh TransforEmisiones y abrir SHS/emisiones_filter.xml.</paso>
+      <paso numero="2">Comprimir el resultado como SHS/Backup/SHS_KSHS_RTV_AAAAMMDD_0001.XML.gz y ejecutar Cuenta_Emisiones.sh.</paso>
+      <paso numero="3">Comparar la columna EQINDEX de Cuenta_Registros_MMYYYY.csv con los registros EQINDEX del fichero de entrada.</paso>
+    </pasos>
+    <resultadoEsperado>emisiones_filter.xml contiene solo el registro COMMON (una vez), sin EQINDEX, FUTURES, OPTIONS ni WARRANTS ni duplicados; la columna EQINDEX del informe vale 0 aunque la entrada tuviera un registro EQINDEX.</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros intermedios y del CSV de salida.</tipoValidacion>
+    <criterioAceptacion>EQINDEX = 0 y COMMON = 1 en la línea del día; los demás tipos de SHS coinciden con los de la hoja.</criterioAceptacion>
+    <posibilidadFallo>Si el entorno tuviera otra versión de la hoja XSL o del script, la columna EQINDEX podría tener valor; en ese caso se actualiza la spec (§6.8.F, RISK-EMIS-003).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

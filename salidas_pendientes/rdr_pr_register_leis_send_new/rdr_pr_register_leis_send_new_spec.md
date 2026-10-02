@@ -8,7 +8,13 @@ LEI (envío + respuesta)", parte 1, construido con 5 capturas de Control-M, las 
 y el código Java del proyecto `lei_register_request` (`Main.java`, `GenerateLEISFile.java`, `Peticion.java`,
 `QuerysStr.java`, `QueryExec.java`); capturas de Control-M (Resumen/General/Programación); el código real de la
 función `ConvertirUNIXValidaFichero` de `Generico.sh`; respuestas del usuario en sesión. **Ni el `.properties`
-ni el código Java están en el repositorio**: lo que se dice de ellos procede del documento y de la sesión.
+ni el código Java están en el repositorio**: lo que se dice del código Java procede del documento y de la sesión.
+**3ª pasada de cierre:** según la plantilla de despliegue (repositorio `estaticos`, rama develop) se han leído
+`LEI_Register_request.properties` y `log4jLEI_Register.properties` (literal en §6.2), y el código de `GSProcess.sh` y de
+`Generico.sh` (`Borrar`/`ConvertirUNIXValidaFichero`) para la expansión del comodín (§6.4). `@@ENV@@` es un marcador que el
+plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores son los "de producción según la plantilla", no una
+copia verificada de producción. La plantilla es la base anterior a la migración a Java 17 (migración en curso, `GSProcess.sh`
+sin clave `JDKV`). El jar `LEI_Register_request.jar` y `ConexionBD.jar` no vienen en la plantilla.
 
 ## 1. Resumen ejecutivo
 
@@ -78,11 +84,13 @@ tratamiento de la respuesta (cadena `RDR_PR_REGISTER_LEIS_RESP_new`).
 
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-LEIS-01 | ¿Se puede incorporar el contenido literal de `LEI_Register_request.properties` (valores de `ArgJava*`, `PreArgScri1`/`ArgScri1` del `Script`, y si hay `Stop`)? | Sin `Stop`, `ConvertirUNIXValidaFichero` se ejecuta aunque el Java falle; con `Stop=Ok`, no. Decide el estado final de la cadena ante fallos |
+| P-LEIS-01 | **Resuelta (3ª pasada):** literal en §6.2; no hay ninguna clave `Stop`. (Pregunta original:) ¿Se puede incorporar el contenido literal de `LEI_Register_request.properties` (valores de `ArgJava*`, `PreArgScri1`/`ArgScri1` del `Script`, y si hay `Stop`)? | Sin `Stop`, `ConvertirUNIXValidaFichero` se ejecuta aunque el Java falle; con `Stop=Ok`, no. Decide el estado final de la cadena ante fallos |
 | P-LEIS-02 | **Resuelta en parte (02/10/2026).** ¿Con qué código termina `main.Main` si falla la conexión a base de datos o la escritura del fichero? ¿Escribe el fichero con finales de línea CRLF? Hay un jar hermano de la misma plantilla, `Investors_Client_Reg_resp.jar`, cuyo `Main.main` es un `void` sin `System.exit`: si falla la configuración del log o de la conexión escribe el error y hace `return`, y las excepciones de tratamiento se capturan y solo se anotan, de modo que **termina siempre con 0** (§6.2); es una analogía, no el código de este jar. **Sigue pendiente** confirmarlo en `LEI_Register_request.jar` y los finales de línea. | Si siempre termina con 0, un fallo del Java no se ve en Control-M; y decide si `dos2unix` cambia algo |
 | P-LEIS-03 | **Resuelta en parte.** Resuelto: formato de `INICVIG`/`FINVIG` (`yyyy-MM-dd`), significado de `PERSCTPN` (código `CCLIENT` del cliente en Clientela) y de `FILLER` (un espacio) y origen de cada atributo (§6.3), según el código de `AltaRegisterLEIRequest`, la clase que crea las peticiones y sus atributos (proceso `rdr_pr_bdiclienreg_resp`). **Sigue pendiente:** el SQL literal de `selectClientesAltaPending()` y `selectAtributos()` (código del jar `LEI_Register_request.jar`, que no se tiene) | Para poder construir datos de prueba y verificar la línea campo a campo |
 | P-LEIS-04 | ¿Cuál es el `.idx` de la clave `MEKYTL0927` (sentido, protocolo, `FICHERO_ORIGEN`, `FALLA_NO_FICHERO`, `RUTA_HISTORIFICACION`)? | R9 (no fallar sin fichero) depende de `FALLA_NO_FICHERO`; y si la máscara es `LEIsReg_*.req`, un `.req` antiguo que se quedara en `send/` se enviaría otra vez |
 | P-LEIS-05 | ¿Cuál es la línea de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL1014`? En concreto el campo 5 (falla si no hay fichero) | Si vale `0` o está vacío, los días sin fichero `MEKYTL1014` termina con código 6 (NOTOK), en contra de R6 |
+| H-LEIS-10 | **Resuelta (3ª pasada):** `log4jLEI_Register.properties` leído (§6.2). | Contenido y ruta del log |
+| H-LEIS-11 | **Resuelta (3ª pasada):** expansión del comodín `LEIsReg_*.req` analizada con `GSProcess.sh`/`Generico.sh` (§6.4): solo se convierte el primer fichero. | Qué pasa con varios `.req` en `send/` |
 
 ## 5. Especificación funcional
 
@@ -125,16 +133,45 @@ Relanzamientos automáticos: 0 en todos. Ante error: aviso manual a ANS RDR.
 
 ### 6.2 `GS_REGISTERLEISEND` — `LEI_Register_request.properties`
 
-Contenido descrito (literal no incorporado, P-LEIS-01), en este orden:
-1. `Accion=VariablesGlobales`.
-2. `Accion=Java`: `ConexionBD.jar` + `LEI_Register_request.jar`, clase `main.Main`; argumentos: nivel de log,
-   `log4jLEI_Register.properties` y ruta + patrón de salida `.../Clientela_LEI/LEI_register/send/LEIsReg_YYYYMMDDHHMMSS.req`.
-   `GSProcess.sh` lo ejecuta con `-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF`
-   salvo que el `.properties` traiga directivas `DirJava`.
-3. `Accion=Script`: `NomScript=ConvertirUNIXValidaFichero` sobre `.../send/LEIsReg_*.req`, es decir
-   `$SCRIPT/Generico.sh ConvertirUNIXValidaFichero /fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/LEIsReg_*.req`.
+Contenido literal (según la plantilla de despliegue; finales de línea CRLF; `@@ENV@@` = entorno), en este orden:
 
-Si un paso devuelve ≠ 0 y no hay `Stop`, el siguiente se ejecuta igualmente y `GSProcess.sh` termina al
+```
+MOD_EJECUCION=LEI_Register_request
+Ruta=
+File=
+Servicio=LEI_Register_request
+Accion=VariablesGlobales
+NomPaquete1=ConexionBD.jar
+NomPaquete2=LEI_Register_request.jar
+NomClaseJava=main.Main
+ServicioJava=LEI_Register_request
+ArgJava1=2
+PreArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties
+ArgJava2=log4jLEI_Register.properties
+PreArgJava3=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/send
+ArgJava3=LEIsReg_YYYYMMDDHHMMSS.req
+Libreria1=ojdbc8.jar
+Libreria2=log4j.jar
+Accion=Java
+NomScript=ConvertirUNIXValidaFichero
+PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/send
+ArgScri1=LEIsReg_*.req
+Accion=Script
+```
+
+**No hay ninguna clave `Stop`** (ni `StopJav`/`StopScr`): `GSProcess.sh` nunca interrumpe esta cadena; el `Script` se ejecuta aunque el `Java` falle,
+y el job termina con 1 si algún subproceso devolvió ≠ 0 (cierra P-LEIS-01). Qué hace cada acción:
+1. `Accion=VariablesGlobales`: `Ruta` y `File` vacíos; `Servicio=LEI_Register_request`.
+2. `Accion=Java`: `GSProcess.sh` añade `/` a cada `PreArgJava*` y construye
+   `<javahome>/bin/java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<dat/properties> -cp <jar>/ConexionBD.jar:<jar>/LEI_Register_request.jar:<lib>/ojdbc8.jar:<lib>/log4j.jar main.Main 2 <dat/properties>/log4jLEI_Register.properties <fichtemcomp>/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/LEIsReg_YYYYMMDDHHMMSS.req`
+   (no hay `DirJava*`, así que van las directivas por defecto). Argumentos de `main.Main`: (1) nivel de log `2` (INFO),
+   (2) ruta del `log4j`, (3) patrón de salida, en el que el Java sustituye `YYYYMMDDHHMMSS` por la fecha y hora del sistema.
+   La plantilla no tiene `JDKV` (migración a Java 17 en curso; en las copias migradas la línea `JDKV=17` precede a `NomPaquete1`).
+3. `Accion=Script`: `NomScript=ConvertirUNIXValidaFichero` sobre `.../send/LEIsReg_*.req`, es decir
+   `$SCRIPT/Generico.sh ConvertirUNIXValidaFichero /fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/send/LEIsReg_*.req`
+   (con el comodín expandido por el shell de `GSProcess.sh`, §6.4).
+
+Si un paso devuelve ≠ 0 (no hay `Stop`), el siguiente se ejecuta igualmente y `GSProcess.sh` termina al
 final con código 1 (`ESTADO-1-` en `execute_LEI_Register_request_<AAAAMMDD>.log`). Correcto: `ESTADO-0-`.
 
 **Tablas y consultas (`jdbc.QuerysStr`)**:
@@ -151,7 +188,12 @@ u otro campo. En el jar hermano `Investors_Client_Reg_resp.jar` (misma plantilla
 `VND_RQST_OID` (identificador de la petición), `VND_RQST_STAT_TYP` (estado), `VND_RQST_XREF_ID` (LEI),
 `LAST_CHG_TMS`, `LAST_CHG_USR_ID`. SQL literal: P-LEIS-03.
 
-**Log:** el de `log4jLEI_Register.properties` (ruta no documentada) traza petición a petición.
+**Log (`log4jLEI_Register.properties`, leído en la plantilla):** `log4j.rootLogger=info, R`; un único appender `R`
+(`RollingFileAppender`) escribe en `/<env>/kytl/online/multipais/multicanal/logs/LEI_Register.log`, 5000 KB por fichero y 3
+copias (`MaxBackupIndex=3`), con el patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`. Es el **mismo** fichero de log
+que usa la cadena de respuesta (`LEI_Register_response`), así que las trazas de ambas se mezclan. Existe un appender
+`stdout` definido pero no enlazado al `rootLogger`. El nivel `info` del `log4j` es independiente del argumento `2` que recibe `main.Main`.
+Traza petición a petición según el documento. Además de ese log, `GSProcess.sh` deja `execute_LEI_Register_request_<AAAAMMDD>.log` en la carpeta `<logs>` de `credentials.xml`.
 
 **Qué crea las peticiones que lee este jar (código del jar hermano `Investors_Client_Reg_resp.jar`, rama de Eduardo).** La clase `AltaRegisterLEIRequest` inserta en `FT_T_VREQ` una fila con contexto `LEI_REGISTER`, `VND_RQST_XREF_ID` = LEI, estado `PENDING` y `LAST_CHG_USR_ID='INVESTORS_CLIENTREG_RESP'`, y siete filas en `FT_T_UTD1` (`UTD_USAGE_TYP='FIELD'`, `DATA_SRC_ID='INVESTORSPLAN_FUNDS'`, `UTD_EXT_ID` = oid de la petición): `PAIS='ES'`, `ENTIDAD` = atributo `ENTR_OWN` del fondo, `PERSCTPN` = `CCLIENT`, `DOCUMPS` = `LEI_CODE`, `INICVIG` = `FT_T_LEI1.REGISTRATION_DATE`, `FINVIG` = `FT_T_LEI1.NEXT_RENEWAL_DATE` (ambas `yyyy-MM-dd`, solo filas `ACTIVE`) y `FILLER` = un espacio. Las comillas simples de los atributos se duplican. Si el LEI no tiene fila `ACTIVE` en `FT_T_LEI1`, la lectura de las fechas falla antes de insertar y no se crea la petición (el fondo queda en `ERROR_CLI_REG_RESP` en ese proceso). Los fallos SQL de los `INSERT` se capturan dentro de `QuerysStr` y solo se imprimen, así que puede crearse una petición `PENDING` con atributos ausentes; este jar la enviará a `ERROR_SEND_REG_LEI` (R4). Es lo que ya recoge §6.3 sobre el origen de cada campo.
 
@@ -195,9 +237,15 @@ function ConvertirUNIXValidaFichero(){
 - Hay fichero → escribe `File <ruta> found` y convierte en sitio (CRLF → LF). El código de salida es el de
   `dos2unix`: si falla, `GSProcess.sh` lo cuenta como subproceso fallido y el job termina NOTOK.
 - No hay fichero → escribe `File <ruta> not found` y termina con 0 (caso R6).
-- El patrón `LEIsReg_*.req` va sin comillas: si hubiera varios `.req` en `send/` (por ejemplo, uno de un día
-  en que falló el envío), el resultado depende de cómo se expanda el comodín al pasar por `GSProcess.sh` y
-  `Generico.sh`; no se ha analizado ese caso.
+- **Expansión del comodín (cierra H-LEIS-11, según el código de la plantilla).** `GSProcess.sh` lanza
+  `$SCRIPT/Generico.sh $NombreScript $PreArgS1$ArgScri1 …` con las variables **sin comillas**, así que es el shell de
+  `GSProcess.sh` quien expande `LEIsReg_*.req` antes de llamar a `Generico.sh`. `Generico.sh` asigna `ARG1`…`ARG5` a los
+  argumentos 2 a 6 (el 1.º es el nombre de la función) y `ConvertirUNIXValidaFichero` solo usa `ARG1`. Resultado:
+  *sin ningún `.req`* el comodín queda literal, `ls` falla, escribe "not found" y termina con 0; *con un `.req`* se
+  convierte ese; *con varios* (por ejemplo, uno antiguo de un envío fallido y el de hoy) **solo se convierte el
+  primero por orden alfabético** (el más antiguo, porque el nombre lleva la fecha), `ls $ARG1` y `dos2unix` actúan solo sobre él,
+  y el resto queda sin convertir (si el Java escribe CRLF, lo enviado de hoy lo mandaría con CRLF). Esto se suma al riesgo
+  de reenvío de ficheros antiguos (§9). Con más de 5 ficheros, los sobrantes llegan como parámetros posicionales pero `Generico.sh` no los asigna a ningún `ARG`.
 
 ### 6.5 `MEKYTL0927` — envío (`MEGENV0001.sh`)
 
@@ -220,7 +268,7 @@ Línea del IDX no recibida (P-LEIS-05).
 | Ejecutable | Lo invoca | ¿Recibido? | Dónde está analizado |
 |------------|-----------|------------|----------------------|
 | `GSProcess.sh` | `GS_REGISTERLEISEND` | Sí | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; uso en §6.2 |
-| `LEI_Register_request.properties` | `GSProcess.sh` | Descrito; literal no | §6.2; P-LEIS-01 |
+| `LEI_Register_request.properties` y `log4jLEI_Register.properties` | `GSProcess.sh` / `main.Main` | Sí (plantilla de despliegue) | §6.2 (P-LEIS-01 y H-LEIS-10 resueltas) |
 | `LEI_Register_request.jar` (`main.Main`, `GenerateLEISFile`, `Peticion`, `QuerysStr`, `QueryExec`), `ConexionBD.jar` | Acción `Java` | Código analizado en sesión; no está en el repositorio | §5, §6.2, §6.3; P-LEIS-02/03 |
 | `Generico.sh ConvertirUNIXValidaFichero` | Acción `Script` | Sí | §6.4; `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md` |
 | `MEGENV0001.sh` (`.idx` `MEKYTL0927`) | `MEKYTL0927` | Script sí; `.idx` no | `salidas_pendientes/comun_megenv0001/comun_megenv0001_spec.md`; P-LEIS-04 |
@@ -267,7 +315,8 @@ completo. Los resultados de TC-002 para `MEKYTL0927`/`MEKYTL1014` quedan condici
 - **Fallo de `dos2unix` tras marcar estados:** el job queda NOTOK, pero las peticiones ya están en
   `LEI_REG_LINE_SENT` y el fichero sigue en `send/`; si no se relanza, no se envía.
 - **Reenvío de ficheros antiguos:** si un `.req` se queda en `send/` (envío fallido), el siguiente envío con
-  máscara `LEIsReg_*.req` lo mandaría de nuevo junto al nuevo (depende del `.idx`, P-LEIS-04).
+  máscara `LEIsReg_*.req` lo mandaría de nuevo junto al nuevo (depende del `.idx`, P-LEIS-04). Además solo el primero se
+  convierte a formato Unix (§6.4).
 - **Sin control de duplicidad de contenido:** dos peticiones con los mismos datos generan dos líneas.
 - **Criticidad distinta por job:** `GS_REGISTERLEISEND` es C y los otros dos W (dato real, no defecto).
 - **Días sin fichero y `MEKYTL1014`:** si su línea del IDX obliga a que haya fichero, ese día queda NOTOK
@@ -275,7 +324,8 @@ completo. Los resultados de TC-002 para `MEKYTL0927`/`MEKYTL1014` quedan condici
 
 ## 10. Conclusión y requisitos de cierre
 
-La cadena queda descrita con su lógica, formato de fichero y comportamiento ante fallos. Se ha corregido la
-interpretación de `ConvertirUNIXValidaFichero`. **No está cerrada**: faltan el literal del `.properties`
-(P-LEIS-01), el comportamiento de salida del Java (P-LEIS-02), los formatos de campo y el SQL literal
-(P-LEIS-03) y la configuración de `MEKYTL0927` y `MEKYTL1014` (P-LEIS-04, P-LEIS-05).
+La cadena queda descrita con su lógica, formato de fichero, `.properties` literal, `log4j` y comportamiento ante fallos. Se
+ha corregido la interpretación de `ConvertirUNIXValidaFichero` y se ha analizado la expansión del comodín (solo se
+convierte el primer `.req`). **No está cerrada**: faltan el comportamiento de salida del Java (P-LEIS-02), el SQL literal
+(P-LEIS-03) y la configuración de `MEKYTL0927` y `MEKYTL1014` (P-LEIS-04, P-LEIS-05), además de los módulos de
+`MEGENV0001.sh`, la versión de `RAMERC0068.sh` y el código del jar (H-LEIS-08/09/13/14).

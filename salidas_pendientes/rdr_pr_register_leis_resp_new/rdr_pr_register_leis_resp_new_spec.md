@@ -7,7 +7,13 @@ LEI (envío + respuesta)", parte 2, construido con 5 capturas de Control-M, el d
 SSDD de los 5 pasos, `LEI_Register_response.properties`, `LEI_Register_alertas.properties` y el código Java del
 proyecto `lei_register_response` (`Main.java`, `ProcesaFichero.java`, `RespuestaClientela.java`, `QuerysStr.java`,
 `QueryExec.java`); capturas de Control-M (Resumen/General/Programación/Prerrequisitos); respuestas del usuario
-en sesión. **Ni los `.properties` ni el código Java están en el repositorio.**
+en sesión. **El código Java no está en el repositorio.**
+**3ª pasada de cierre:** según la plantilla de despliegue (repositorio `estaticos`, rama develop) se han leído
+`LEI_Register_response.properties`, `LEI_Register_alertas.properties`, `log4jLEI_Register.properties`,
+`GestionAlertas.properties`, `ServerMailConfig.xml` (con host y buzón enmascarados) y el código de `GSProcess.sh` y
+`Generico.sh` (`Borrar`). `@@ENV@@` es un marcador que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores son
+los "de producción según la plantilla", no una copia verificada de producción. La plantilla es la base anterior a la migración
+a Java 17 (migración en curso: `GSProcess.sh` sin clave `JDKV`).
 
 ## 1. Resumen ejecutivo
 
@@ -84,10 +90,12 @@ configuración de conexión a base de datos.
 | P-LEIR-01 | ¿Qué días exactos corre la cadena? La ficha dice "L-V-S-D". | Si son todos los días o no decide cuándo se procesa la respuesta a las peticiones enviadas a las 00:30 de cada día |
 | P-LEIR-02 | ¿Cómo está definida la ciclicidad (cada 10 minutos desde el inicio o desde el fin) y qué regla tienen los dos filewatchers ante el código 7 (tiempo agotado)? ¿Hay regla "7 → OK"? | Con una espera máxima de 60 minutos por ejecución, la ventana 04:30-05:30 cabe en una sola espera; y sin regla "7 → OK" el filewatcher quedaría NOTOK los días sin fichero, en contra de R2 |
 | P-LEIR-03 | **Resuelta en parte (02/10/2026).** ¿Cuáles son las posiciones de cada campo en la línea de 259 caracteres (`RespuestaClientela.segmentaMensaje`)? Se deduce que las posiciones 1-60 repiten el formato del fichero enviado y que el bloque de error ocupa el resto (§6.2); **sigue pendiente** el reparto por campo del bloque de error (`TIPERROR`, `CODERROR`, `MODULO_ERR`, `PARRAF_ERR`, `TABLA_ERR`, `ACCESS_ERR`, `SQLERR`, `DESC_ERROR`). | Sin ellas no se puede construir un fichero de prueba campo a campo |
-| P-LEIR-04 | ¿Cuál es el literal de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` (argumentos, `Stop`) y el patrón exacto del comando `ctmfw` de `REG_LEIS_RESP_FILE_FW` (`LEIsReg_*` o `LEIsReg_*.txt`, §6.1)? | Para documentar rutas exactas y comportamiento ante fallos |
+| P-LEIR-04 | **Resuelta en parte (3ª pasada):** literales de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` en §6.2 y §6.5 (sin ninguna clave `Stop`). **Sigue pendiente** el patrón exacto del comando `ctmfw` de `REG_LEIS_RESP_FILE_FW` (`LEIsReg_*` o `LEIsReg_*.txt`, §6.1), que está en Control-M. | Para documentar rutas exactas y comportamiento ante fallos |
 | P-LEIR-05 | **Resuelta en parte (02/10/2026).** ¿Con qué código termina `main.Main` si falla la conexión, si no existen las rutas `receive`/`old`/`Alertas` o si hay una excepción en un fichero? Los dos jars hermanos de la misma plantilla terminan siempre con 0 (§6.2); **sigue pendiente** confirmarlo en el jar real. | Decide si `GSPROC_REG_LEIS_RESP` queda NOTOK en esos casos |
 | P-LEIR-06 | **Resuelta en parte (02/10/2026).** ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? Resuelto: qué exige el Cocinado a la consulta, asunto y cuerpo genéricos del correo (rama `DEFAULT`) y reglas de periodicidad (bloque «Correo de alertas» de §6.5); **sigue pendiente** el contenido de las filas. ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes |
 | P-LEIR-07 | Si dos peticiones `LEI_REG_LINE_SENT` tienen el mismo LEI, ¿cuál devuelve `identificaCliente`? | Decide qué petición recibe la respuesta |
+| H-LEIR-13 | **Resuelta (3ª pasada):** `log4jLEI_Register.properties` leído (§6.2). | Log del jar de respuesta |
+| H-LEIR-15 | **Resuelta en parte (3ª pasada):** `GestionAlertas.properties` (plantilla genérica) y estructura de `ServerMailConfig.xml` leídos (§6.5); host y buzón de envío vienen enmascarados. Falta verificar la copia instalada en producción. | Configuración de la Gestión de alertas y del correo |
 
 ## 5. Especificación funcional
 
@@ -146,11 +154,46 @@ real del `ctmfw` no llevara `.txt`, el filewatcher se dispararía también con f
 
 ### 6.2 `GSPROC_REG_LEIS_RESP` — `LEI_Register_response.properties` y Java
 
-Contenido descrito (literal pendiente, P-LEIR-04): `Accion=VariablesGlobales` y `Accion=Java` con
-`ConexionBD.jar` + `LEI_Register_response.jar`, clase `main.Main`, 7 argumentos: (1) nivel de log (`1` DEBUG,
-`2` INFO, `3` ERROR, `4` FATAL), (2) `log4jLEI_Register.properties`, (3) ruta `receive`, (4) ruta `old`, (5) ruta
-`error`, (6) patrón `LEIsReg_`, (7) ruta `Alertas`. Las rutas son subdirectorios de
-`/fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/`.
+Contenido literal de `LEI_Register_response.properties` (según la plantilla de despliegue; finales de línea CRLF; `@@ENV@@` = entorno):
+
+```
+MOD_EJECUCION=LEI_Register_response
+Ruta=
+File=
+Servicio=LEI_Register_response
+Accion=VariablesGlobales
+NomPaquete1=ConexionBD.jar
+NomPaquete2=LEI_Register_response.jar
+NomClaseJava=main.Main
+ServicioJava=LEI_Register_response
+ArgJava1=2
+PreArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties
+ArgJava2=log4jLEI_Register.properties
+PreArgJava3=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/receive
+ArgJava3=
+PreArgJava4=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/old
+ArgJava4=
+PreArgJava5=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/error
+ArgJava5=
+ArgJava6=LEIsReg_
+PreArgJava7=/fichtemcomp/@@ENV@@/descargas/kytl/Clientela_LEI/LEI_register/Alertas
+ArgJava7=
+Libreria1=ojdbc8.jar
+Libreria2=log4j.jar
+Accion=Java
+```
+
+**No hay ninguna clave `Stop`** (ni `StopJav`): `GSProcess.sh` no interrumpe nada; el job queda en 1 solo si el Java devuelve ≠ 0.
+`GSProcess.sh` añade `/` a cada `PreArgJava*`, de modo que `main.Main` recibe siete argumentos: (1) nivel de log `2` (INFO), (2) la ruta
+de `log4jLEI_Register.properties`, (3) `…/receive/`, (4) `…/old/`, (5) `…/error/` (las tres rutas terminadas en `/`), (6) el patrón `LEIsReg_` y (7)
+`…/Alertas/`. Comando: `<javahome>/bin/java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<dat/properties> -cp <jar>/ConexionBD.jar:<jar>/LEI_Register_response.jar:<lib>/ojdbc8.jar:<lib>/log4j.jar main.Main …`.
+La plantilla no tiene `JDKV` (migración a Java 17 en curso). Las rutas son subdirectorios de
+`/fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/`. El nivel `1` DEBUG, `2` INFO, `3` ERROR, `4` FATAL es el del argumento.
+
+`log4jLEI_Register.properties` (compartido con la cadena de envío): `rootLogger=info, R`; appender `R` (`RollingFileAppender`) en
+`/<env>/kytl/online/multipais/multicanal/logs/LEI_Register.log`, 5000 KB y 3 copias, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`
+(el mismo fichero que usa `LEI_Register_request`; un `stdout` definido sin enlazar). Además `GSProcess.sh` deja
+`execute_LEI_Register_response_<AAAAMMDD>.log` en `<logs>` de `credentials.xml`.
 
 Clases (según el documento):
 - `main.Main`: valida argumentos, configura log y conexión (`jdbc.ConDB`); `analizaDirectorio` valida rutas y
@@ -215,9 +258,39 @@ queda huérfana.
 
 ### 6.5 `GSPROC_REG_LEIS_ALERTAS` — `LEI_Register_alertas.properties`
 
-Contenido descrito: `Accion=VariablesGlobales`; acción `Property` con `NomProperty=GestionAlertas`,
-`ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER`, `ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER`; y
-`Accion=Script` con `NomScript=Borrar` sobre `.../Clientela_LEI/LEI_register/Alertas/*.err`.
+Contenido literal de `LEI_Register_alertas.properties` (según la plantilla de despliegue; CRLF):
+
+```
+MOD_EJECUCION=LEI_Register
+Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/
+File=
+Servicio=LEI_Register
+Accion=VariablesGlobales
+NomProperty=GestionAlertas
+ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER
+ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER
+Accion=Property
+NomScript=Borrar
+PreArgScri1=$FILES
+ArgScri1=Clientela_LEI/LEI_register/Alertas/*.err
+Accion=Script
+```
+
+Tampoco tiene `Stop`. Orden: (1) acción `Property` con `NomProperty=GestionAlertas`, `ArgProp1=GestionAlertas_RDR_ERROR_LEI_REGISTER`,
+`ArgProp2=PROCESOS-RDR_ERROR_LEI_REGISTER`; (2) `Script` `Borrar` con `PreArgScri1=$FILES` (`/fichtemcomp/<env>/descargas/kytl`), es decir
+`Generico.sh Borrar /fichtemcomp/<env>/descargas/kytl/Clientela_LEI/LEI_register/Alertas/*.err`.
+
+La plantilla `GestionAlertas.properties` (genérica, según la plantilla de despliegue) contiene: `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/GestionAlertas`;
+Java `main.Ppal` de `ConexionBD.jar` + `RDR_AlertasBarrido.jar` con `ArgJava1=2`, `log4jAlertasBarrido.properties` y `ArgJava3=PROCESOS`;
+Java `main.Ppal` de `ConexionBD.jar` + `RDR_AlertasCocinado.jar` con los mismos argumentos (`log4jAlertasCocinado.properties`) y las
+librerías de Apache POI 3.17; y el evento `Workflow` `RDR_AlertasEnvio`. `GSProcess.sh` (acción `Property`) copia esa plantilla a
+`GestionAlertas_RDR_ERROR_LEI_REGISTER_<AAAAMMDDHHMMSS>.properties`, sustituye `PROCESOS` por `RDR_ERROR_LEI_REGISTER` y el nombre de la plantilla por el del
+temporal, lanza `GSProcess.sh` con ese temporal y lo borra; el código que evalúa es el del `rm`, no el de la ejecución anidada.
+
+**`Borrar` y el comodín (según el código de `GSProcess.sh` y `Generico.sh`).** El shell de `GSProcess.sh` expande `Alertas/*.err` antes de llamar
+a `Generico.sh` (las variables van sin comillas). `Borrar` ejecuta `rm -f $ARG1`: **solo borra el primer `.err`** por orden alfabético; con
+ningún `.err` el comodín queda literal y `rm -f` termina con 0. Como el jar escribe siempre `errores.err`, lo normal es un único fichero y no
+importa; si alguien deja otro `.err` (por ejemplo para probar), queda sin borrar y el filewatcher `REG_LEIS_RESP_ALERTAS_FW` se disparará de nuevo en la siguiente ventana.
 
 Qué ejecuta (genérico en la spec común de Gestión de alertas):
 1. Copia la plantilla `GestionAlertas.properties` a un temporal y sustituye `PROCESOS` por
@@ -226,7 +299,7 @@ Qué ejecuta (genérico en la spec común de Gestión de alertas):
    mensajes de `FT_T_ALG1`.
 3. Cocinado: prepara el informe configurado en `FT_T_REP1` para ese proceso y marca `SEND_PEND='Y'`.
 4. `RDR_AlertasEnvio`: envía todos los informes pendientes (de cualquier proceso).
-5. `Generico.sh Borrar <ruta>/*.err` → `rm -f`, que siempre termina con 0.
+5. `Generico.sh Borrar <ruta>/*.err` → `rm -f $ARG1`, que siempre termina con 0 y solo borra el primer `.err` (arriba).
 
 Consecuencias en este proceso: `GSPROC_REG_LEIS_ALERTAS` termina en verde aunque falle cualquiera de las tres
 etapas (acción `Property`); los `.err` se borran aunque la alerta no haya salido; qué contiene el correo y
@@ -246,7 +319,7 @@ tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que ca
   destinatario) en lugar de `body`, así que nunca detecta un cuerpo vacío. Consecuencia: si el correo no sale por periodicidad,
   falta de fichero o fallo del envío, `SEND_PEND` ya está a `'N'` y el informe **no se reintenta** en la siguiente ejecución del
   envío (los mensajes de `FT_T_ALG1` ya se marcaron como usados al cocinar).
-- *Envío.* El subworkflow `Mail` lee `ServerMailConfig.xml` (en `/<env>/kytl/online/multipais/multicanal/dat/properties/`,
+- *Envío.* El subworkflow `Mail` lee `ServerMailConfig.xml` (según la plantilla de despliegue, una raíz `root` con un `server id="de|ei|pp|pr"` por entorno y las etiquetas `host` y `user`, cuyos valores vienen enmascarados y no se copian aquí; en `/<env>/kytl/online/multipais/multicanal/dat/properties/`,
   nodo `/root/server[@id=<env>]`, etiquetas `host` y `user`; si no puede leerlo usa un servidor de desarrollo escrito en el
   propio workflow), compone el mensaje con el cuerpo en texto y el adjunto solo si el fichero existe, y lo envía por SMTP (puerto 25)
   a los destinatarios separados por `;`. Cualquier excepción se captura y solo se imprime: el workflow termina bien, se escribe
@@ -268,7 +341,7 @@ tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que ca
 |------------|-----------|------------|----------------------|
 | `ctmfw` | Filewatchers | Utilidad de BMC | `salidas/comun_ctmfw/comun_ctmfw_spec.md`; parámetros en §6.1 |
 | `GSProcess.sh` | Jobs `GSPROC_*` | Sí | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` |
-| `LEI_Register_response.properties`, `LEI_Register_alertas.properties` | `GSProcess.sh` | Descritos; literal no | §6.2, §6.5; P-LEIR-04 |
+| `LEI_Register_response.properties`, `LEI_Register_alertas.properties`, `log4jLEI_Register.properties`, `GestionAlertas.properties` | `GSProcess.sh` / `main.Main` | Sí (plantilla de despliegue) | §6.2, §6.5 (P-LEIR-04 resuelta en parte; H-LEIR-13 resuelta) |
 | `LEI_Register_response.jar`, `ConexionBD.jar` | Acción `Java` | Código analizado en sesión; no en el repositorio | §6.2; P-LEIR-03/05 |
 | Gestión de alertas (`RDR_AlertasBarrido.jar`, `RDR_AlertasCocinado.jar`, `RDR_AlertasEnvio`) | Acción `Property` | Genéricos sí; configuración del proceso no | `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`; P-LEIR-06 |
 | `Generico.sh Borrar` | Acción `Script` | Sí | `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md` |
@@ -311,6 +384,7 @@ los filewatchers quedan condicionados a P-LEIR-02 y P-LEIR-06.
 - **LEI repetido en el fichero:** gana la primera línea; las siguientes se pierden sin aviso más que en el log.
 - **Respuestas repartidas o tardías:** generan `NO_RESPONSE` falsos y respuestas huérfanas (§6.4).
 - **Respuestas huérfanas:** un LEI sin petición solo deja traza en el log de la aplicación.
+- **`Borrar` solo borra el primer `.err`:** con varios ficheros en `Alertas/` el resto sobrevive y vuelve a disparar el filewatcher (§6.5).
 - **Alertas que no llegan al job:** `GSPROC_REG_LEIS_ALERTAS` siempre termina en verde y borra el `.err`; el
   envío es global (puede salir con otro proceso).
 - **Filewatchers y código 7:** sin regla "7 → OK", un día sin fichero o sin incidencias deja el filewatcher en
@@ -321,8 +395,7 @@ los filewatchers quedan condicionados a P-LEIR-02 y P-LEIR-06.
 
 ## 10. Conclusión y requisitos de cierre
 
-La cadena queda descrita con su lógica, sus consultas y el comportamiento verificado de los componentes
-comunes, y se han corregido la lectura de los parámetros de `ctmfw`, el efecto de las líneas repetidas y el
-tratamiento de fallos de la alerta. **No está cerrada**: quedan P-LEIR-01 a P-LEIR-07 (días, regla del código 7,
-posiciones del fichero, literales de los `.properties`, códigos de salida del Java, configuración de la alerta y
-peticiones con LEI repetido).
+La cadena queda descrita con su lógica, sus consultas, los `.properties` y el `log4j` literales y el comportamiento verificado de los
+componentes comunes, y se han corregido la lectura de los parámetros de `ctmfw`, el efecto de las líneas repetidas y el
+tratamiento de fallos de la alerta. **No está cerrada**: quedan P-LEIR-01 a P-LEIR-07 (días, regla del código 7 y patrón del `ctmfw`,
+posiciones del fichero, códigos de salida del Java, configuración de la alerta en base de datos y peticiones con LEI repetido).

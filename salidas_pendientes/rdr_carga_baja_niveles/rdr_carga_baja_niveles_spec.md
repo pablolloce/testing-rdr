@@ -51,7 +51,7 @@ Al finalizar el primer job, activa además un evento hacia una cadena externa (`
 | P-BNI-02 | ¿Qué columnas y qué consulta usa el evento `RDR_Reporte` para `Reporte_bajaniveles.csv`, y qué produce `RDR_ErroresCSV`? | **Resuelta en parte (2ª pasada de cierre).** `RDR_Reporte` → workflow `GenerateReports`, rama `bajaniveles` → `Reporte_bajaniveles.csv` en `bajaniveles/` (con filas: CSV con cabecera; sin filas: una línea `La select no devuelve valores`). `RDR_ErroresCSV` → `ErroresCSV`: con `File` y `MessageType` vacíos no encuentra job y **no escribe fichero** (deducido). Siguen sin constar la SELECT y la cabecera del informe: están en el script de 27.736 bytes del nodo `Initialize Variables` de `GenerateReports`, que no viene en el volcado |
 | P-BNI-03 | Línea de `MEKYTL0351` y `MEKYTL0945` en el IDX de historificación de producción (operación, campo "falla si no hay fichero") | Pendiente. Determina si un reporte ausente rompe la cadena |
 | P-BNI-04 | Configuración `MEKYTL0352.idx` (protocolo, `FALLA_NO_FICHERO`, destino real) | Pendiente. Aclara qué significa "A DUMMY" y qué pasa si falta `Reporte_bajaniveles_dos.csv` |
-| P-BNI-05 | ¿Cómo se resuelve `@@ENV@@` en `Ruta` si `GSProcess.sh` sustituye `$ENV`? | Pendiente. Si no se sustituyera, la ruta de los reportes sería otra |
+| P-BNI-05 | ¿Cómo se resuelve `@@ENV@@` en `Ruta` si `GSProcess.sh` sustituye `$ENV`? | **Resuelta (3ª pasada).** `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` al instalar el fichero (según la plantilla de despliegue); `GSProcess.sh` solo sustituye `$ENV` y `$CONF`. En el servidor `bajaniveles.properties` lleva ya `pr` y la ruta de los reportes es `/fichtemcomp/pr/descargas/kytl/bajaniveles/` |
 | G5 (transversal) | ¿Aplica el patrón "sin integridad/concurrencia" por defecto a esta cadena y al resto de P-021? | Confirmado: sí, por defecto, salvo evidencia explícita en contrario en una cadena concreta (ver R9). |
 
 ## 5. Especificación funcional
@@ -88,7 +88,7 @@ Cadena correcta = 4 jobs en OK, las dos condiciones del job 1 publicadas (la int
   | Parámetro | Valor | Qué hace |
   |---|---|---|
   | `MOD_EJECUCION` | `bajaniveles` | Nombre del módulo; se pasa al workflow |
-  | `Ruta` | `/fichtemcomp/@@ENV@@/descargas/kytl/` | Directorio base; `@@ENV@@` se sustituye por el entorno (`pr`). **Aviso:** `GSProcess.sh` sustituye `$ENV`, no `@@ENV@@` (pregunta abierta P-GSP-01 de la spec común): cómo se resuelve aquí no está confirmado (P-BNI-05) |
+  | `Ruta` | `/fichtemcomp/@@ENV@@/descargas/kytl/` | Directorio base; `@@ENV@@` lo sustituye por el entorno (`pr`) el plan de despliegue al instalar el fichero (P-BNI-05, resuelta); `GSProcess.sh` solo sustituye `$ENV` y `$CONF`, no `@@ENV@@` |
   | `File` | (vacío) | No hay fichero de entrada: el proceso trabaja solo sobre la base de datos |
   | `Servicio` | `bajaniveles` | Nombre del servicio |
   | `BusinessFeed`, `MessageType` | (vacíos) | No es una carga de fichero externo |
@@ -150,6 +150,19 @@ Cadena correcta = 4 jobs en OK, las dos condiciones del job 1 publicadas (la int
 * **Dependencia saliente real:** evento externo desde `KYTL_BNIVEL_GSPROCESS` hacia `RDR_BAJAS_CPARTY_IN`
   (cadena `RDR_BAJAS_CPARTY_new`, fuera de alcance en su implementación interna).
 
+### 6.1 Contraste con la plantilla de despliegue de la UUAA KYTL (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores con `pr` son valores de producción según la plantilla,
+no una copia verificada de producción. La plantilla es la base anterior a la migración a Java 17; este proceso no usa ningún jar propio (solo eventos de GoldenSource y `Unix2Dos`), así que no le afecta.
+
+- **`bajaniveles.properties` de la plantilla coincide con el fichero descrito en §6:** fichero único (sin variantes por entorno, CRLF) con `MOD_EJECUCION=bajaniveles`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, `File=`, `Servicio=bajaniveles`, `BusinessFeed=`, `SuccessAction=LEAVE`, `MessageType=`,
+  `Delta=No`, `Preprocesado=No`, `MDX=No`, `Workflow=Si`, `Errores=Si`, `Reporte=Si` y las cuatro acciones `Evento Workflow RDR_BajaCpartiesGL`, `Evento Errores`, `Evento Reporte` y `Script Unix2Dos` sobre `bajaniveles/Reporte_bajaniveles.csv`. **No hay ninguna clave `Stop*`**
+  (confirma la lectura de §6). `GSProcess.sh` ignora las banderas `Delta`, `Preprocesado`, `MDX`, `Workflow`, `Errores` y `Reporte`; el orden y el contenido de las acciones lo fija el propio fichero.
+- **`select.properties` de la plantilla no tiene ninguna clave `bajaniveles`** (ni `querybajaniveles`, ni cabecera, ni `fileName`): confirma que el informe no sale de `RDR_Report.jar` sino de `GenerateReports` (P-BNI-02 sigue abierta: la consulta está en un script del workflow que el volcado no incluye).
+- **`errores_to_file.sh`:** con `File` y `MessageType` vacíos `ErroresCSV` no encuentra el job (§6) y por tanto no llama a `MarcaRegErroneo`; además la bandera `Delta` es `No`. El script no interviene en este proceso.
+- **Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de la revisión de la mañana comprueba «Carga Niveles CIB» buscando en el directorio de logs un fichero `*niveles*` con la fecha del día (el `execute_bajaniveles_<AAAAMMDD>.log`
+  de `GSProcess.sh`); solo prueba que `GSProcess.sh bajaniveles` se ejecutó, no que el workflow `BajaCpartiesGL` haya terminado bien.
+
 ## 7. Especificación de testing
 
 La estrategia combina pruebas de orquestación Control-M (encadenamiento lineal de 4 jobs) con la
@@ -190,4 +203,4 @@ bifurcaciones — más el efecto de la dependencia saliente hacia la cadena exte
 ## 10. Conclusión y requisitos de cierre
 
 Los 5 gaps (G1-G4 y la transversal G5) tienen resolución explícita, con distinción honesta entre evidencia
-verificable y contenido descartado por no encontrarse en el repositorio. Los gaps G1-G5 están resueltos; quedan abiertas las preguntas P-BNI-01 a P-BNI-05 (predicados SQL y trazas de `Sub_BajaCpartiesGL`, SELECT y cabecera del evento `RDR_Reporte`, líneas IDX de `MEKYTL0351`/`MEKYTL0945`/`MEKYTL0352` y resolución de `@@ENV@@`), que no están en ninguna fuente.
+verificable y contenido descartado por no encontrarse en el repositorio. Los gaps G1-G5 están resueltos; quedan abiertas las preguntas P-BNI-01 a P-BNI-04 (predicados SQL y trazas de `Sub_BajaCpartiesGL`, SELECT y cabecera del evento `RDR_Reporte`, y líneas IDX de `MEKYTL0351`/`MEKYTL0945`/`MEKYTL0352`), que no están en ninguna fuente; P-BNI-05 (resolución de `@@ENV@@`) quedó resuelta en la 3ª pasada con la plantilla de despliegue (§6.1).

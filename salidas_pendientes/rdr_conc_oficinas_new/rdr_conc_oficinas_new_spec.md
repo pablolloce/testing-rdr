@@ -67,7 +67,7 @@ Paso 4  MEKYTL0243                 MEGENV0001.sh: Reporte_oficinas_dos.csv → X
   es **incremental** (`Delta Si`), lo que se carga en GoldenSource es el fichero **ya validado**
   (`oficinas_processed.csv`) y **ninguna acción lleva `Stop`**, así que un fallo intermedio no detiene las
   siguientes. El evento `Errores` también está analizado (§6.4.5). Lo que sigue sin conocerse es el mapeo interno de la
-  carga MDX (P-CONOFI-03) y el script `errores_to_file.sh` (H-CONOFI-19).
+  carga MDX (P-CONOFI-03); el script `errores_to_file.sh` ya está analizado (H-CONOFI-19 cerrada, §6.4.5 bis).
 - Si `oficinas.csv` llega vacío (0 bytes), `ControlCargaDatos.jar` no regenera `oficinas_processed.csv` y **la
   carga MDX vuelve a cargar el fichero validado del día anterior** (§6.4.3, RISK-CONOFI-014).
 
@@ -129,7 +129,7 @@ el resto de claves es idéntico a la copia de integración, §6.4.6).
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-CONOFI-03 (resuelta en parte) | Del feed `Oficina` y del workflow estándar ya se conoce la configuración (§6.4.4). Falta el texto del recurso `db://resource/RDR/mapping/Oficinas/oficinas.mdx` (mapeo de campos de `oficinas.csv` a tablas de GoldenSource) y qué pieza escribe en `FT_T_RLT1` las filas `DATA_SRC_APP='OFICINAS'` con `RLT_STATUS='3'` que lee el informe; qué significa `RLT_STATUS='3'` | Sin ello no se puede decir qué columnas de qué tablas cambian ni qué es exactamente una "discrepancia" del informe |
-| H-CONOFI-19 | Script `errores_to_file.sh` (`/<env>/kytl/online/multipais/multicanal/scrt/`) que `MarcaRegErroneo` invoca con el tipo de mensaje, `old/oficinas.csv` y `db_errores.txt`: no recibido, no se sabe cómo "marca" los registros erróneos | Sin él no se puede decir qué cambia en la referencia de `Delta.sh` ni cuáles registros reentran al día siguiente |
+| H-CONOFI-19 | **Resuelta (3ª pasada).** Script `errores_to_file.sh` que `MarcaRegErroneo` invoca con el tipo de mensaje, `old/oficinas.csv` y `db_errores.txt`: analizado en §6.4.5 bis (antepone `ERROR-` a la línea `CODCSB-CODOFI` de la referencia; si el identificador no aparece, a todas las líneas) | Con él se sabe qué cambia en la referencia de `Delta.sh` y qué registros reentran al día siguiente |
 | H-CONOFI-18 | Definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` (253 bytes) del feed `Oficina`: por su nombre salta la primera línea de `oficinas_processed.csv` (la fila de nombres de columna), pero el XML no está en el volcado | Si no la saltara, la cabecera se cargaría como una oficina |
 | P-CONOFI-06 | ¿Qué días marca el calendario `RDR_FEST_HOST`? | Decide qué días de martes a sábado no se ejecuta la cadena |
 | P-CONOFI-07 | Línea real de `MEKYTL0242` en el IDX y configuración de `MEKYTL0243` (protocolo, `FALLA_NO_FICHERO`, destino): el usuario indicó que no pueden obtenerse. ¿Hay otra vía (captura, extracto) para confirmar que el IDX tiene el campo 5 distinto de `0` y que `MEKYTL0243` usa `FALLA_NO_FICHERO=NO` o `PROTOCOLO=NOENVIO`? | Sin ello, el comportamiento "que no falle" de las fichas es una intención de diseño no verificada (§6.5, §6.6) |
@@ -371,8 +371,8 @@ Cosas que el fichero deja claras:
   nombre: sin efecto conocido. `Errores=No` no toca el contador interno `Errores` de `GSProcess.sh`, porque esa clave no se
   evalúa en la acción `VariablesGlobales`.
 - **Marcador `@@ENV@@`**: `Ruta` y `File` lo llevan y `GSProcess.sh` solo sustituye `$ENV` (pregunta general P-GSP-01 de
-  la spec común). Indicio de que lo sustituye el despliegue: la copia de integración de `select.properties` es idéntica a
-  la plantilla salvo que donde la plantilla dice `@@ENV@@` la copia dice `ei`.
+  la spec común). Resuelto en la 3ª pasada: lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr` al instalar el fichero (la copia de integración de `select.properties` es idéntica a
+  la plantilla salvo que donde la plantilla dice `@@ENV@@` la copia dice `ei`).
 - **Java sin paquete y sin `JDKV`**: `NomClaseJava=ControlCase` y `CreateReport` (sin `controlcargadatos.` ni `rdr_report.`) y
   ningún `JDKV=17`. Los jars analizados tienen la clase dentro de un paquete y están compilados para JDK 17; producción usa
   otra versión (H-CONOFI-17, §9).
@@ -630,17 +630,25 @@ completo. Definición recuperada del volcado de workflows de GoldenSource (consu
      `ei`, `de`). Según la descripción del propio parámetro `Delta`, esto "marca los registros erróneos en el archivo para que al
      día siguiente pasen al proceso": el fichero que recibe es `old/oficinas.csv`, la **referencia de `Delta.sh`**, y la identidad
      de los registros erróneos; al modificar la referencia, esos registros dejan de ser idénticos a ella y vuelven a salir en el
-     delta de mañana. Cómo los marca `errores_to_file.sh` no se puede decir: el script no está en el material (H-CONOFI-19).
+     delta de mañana. Cómo los marca `errores_to_file.sh`: ver el apartado siguiente (§6.4.5 bis), con el script de la plantilla de despliegue.
      Si `Delta` no fuera `Si`, el workflow terminaría tras renombrar el fichero.
 - **Qué produce**: `oficinas/oficinas_errores.csv` (errores funcionales, técnicos y textos de notificación del último job `OFC`)
-  con la del día anterior en `oficinas/old/oficinas_errores.csv`; `oficinas/db_errores.txt` (acumulativo si nadie lo borra); y la
-  modificación de `old/oficinas.csv` por `errores_to_file.sh`. No modifica `FT_T_RLT1` ni las tablas de oficinas.
+  con la del día anterior en `oficinas/old/oficinas_errores.csv`; `oficinas/db_errores.txt` (transitorio: lo borra `errores_to_file.sh` al terminar); y la
+  marca `ERROR-` en las líneas de `old/oficinas.csv` (§6.4.5 bis). No modifica `FT_T_RLT1` ni las tablas de oficinas.
 - **Si falla**: `ErroresCSV` no tiene reintentos y `haltOnError=N`; `MarcaRegErroneo` tiene `haltOnError=Y`. `GSProcess.sh` sí
   evalúa el código de `executeBbvaEvent.sh` en la rama `Errores`, pero ese código depende de lo que devuelva
   `raiseEvent.sh --querystatus` ante un workflow fallido (P-EBE-01, H-CONOFI-15). Dado que el workflow solo mira el job de la
   última hora, **si la carga MDX tardó más de una hora en cerrarse, o si el evento se relanza más de una hora después, no se
   genera el fichero de errores —y el de la ejecución anterior ya se ha movido a `old/`—, ni se marcan los registros
   erróneos** (RISK-CONOFI-012). El fichero de errores no tiene consumidor en esta cadena (ningún job lo envía ni lo lee).
+
+#### 6.4.5 bis `errores_to_file.sh` con el tipo `OFC` (según la plantilla de despliegue; cierra H-CONOFI-19)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). El script se invoca con `$1=OFC` (`MessageType`), `$2=.../oficinas/old/oficinas.csv` (la referencia de `Delta.sh`) y `$3=.../oficinas/db_errores.txt`. Rama `OFC`:
+1. Genera en el directorio de trabajo del proceso un `temp.txt` con las columnas 1 y 3 de `$2` unidas por `-` (`cut -f 1,3 -d ";"` y `;`→`-`), es decir `CODCSB-CODOFI` (por ejemplo `0182-1234`), cabecera incluida.
+2. Lee `$3` como lista de palabras (separadas por espacios en blanco) y, por cada identificador, busca con `grep -n` (subcadena, no anclada) el número de línea en `temp.txt` y **antepone `ERROR-` al principio de esa línea de `$2`** (`sed -i`). Borra `temp.txt` y, al final, `db_errores.txt` (`rm -rf $3`).
+3. Efecto: la línea de la oficina queda como `ERROR-0182;...` en `old/oficinas.csv`; como `Delta.sh` compara línea completa, mañana la línea normal que llega ya no está en la referencia y vuelve a salir en el delta, es decir, **se reprocesa**.
+Casos que el script no controla (deducidos del código): (a) si el identificador **no aparece** en `temp.txt`, la variable de línea queda vacía y el `sed` se ejecuta sin dirección, de modo que **antepone `ERROR-` a todas las líneas de la referencia** y mañana el delta es el fichero completo; esto ocurre, por ejemplo, con un `MAIN_ENTITY_ID` de otra forma que `CODCSB-CODOFI`, algo que no se puede descartar (la carga MDX no está disponible, P-CONOFI-03); (b) si el identificador coincide con varias líneas (subcadena), el `sed` falla y no marca ninguna; (c) la comprobación `[ NUM_PARAMETROS > 1 ]` está mal escrita (redirige a un fichero `1` y es siempre cierta), por lo que cada ejecución deja un fichero vacío `1` en el directorio de trabajo; (d) el script no devuelve código de error propio. Corrección: la spec afirmaba que `db_errores.txt` crece sin límite; lo borra el script al terminar.
 
 #### 6.4.6 `Java(RDR_Report.jar)` — informe `Reporte_oficinas.csv`
 
@@ -766,7 +774,7 @@ Suponiendo carga incremental (`Delta Si`) y un día normal:
 | `old/oficinas_yyyymmdd.csv` | `MEKYTL0242` | Delta del día (lo que se cargó) | Uno por día; ningún job lo purga |
 | `oficinas_processed.csv`, `oficinas_noprocessed.csv` | `ControlCargaDatos.jar` (§6.4.3) | Válidos (es lo que carga el evento MDX) y rechazados | Se sobrescriben; si la entrada llega vacía, `oficinas_processed.csv` del día anterior permanece |
 | `oficinas_errores.csv` (y `dummyoficinas_errores.csv` mientras se escribe) | Workflow `ErroresCSV` (§6.4.5) | Errores funcionales y técnicos del último job `OFC` | Cada ejecución mueve el anterior a `old/oficinas_errores.csv` (solo se conserva uno) |
-| `db_errores.txt` | `MarcaRegErroneo` (§6.4.5) | Identificadores de las entidades erróneas | Se añade en cada ejecución; ningún paso conocido lo borra |
+| `db_errores.txt` | `MarcaRegErroneo` (§6.4.5) | Identificadores de las entidades erróneas | Se añade en cada ejecución y lo borra `errores_to_file.sh` al terminar (§6.4.5 bis) |
 | `Reporte_oficinas.csv` | `RDR_Report.jar` | Informe de hoy | Se sustituye cada día |
 | `old/Reporte_oficinas.zip` | `RDR_Report.jar` | Informe del día anterior | Solo la última versión |
 | `Reporte_oficinas_dos.csv` | `Unix2Dos` | Informe de hoy en CRLF | Se sobrescribe |
@@ -799,10 +807,28 @@ Ningún paso de la cadena purga `old/`: los `oficinas_yyyymmdd.csv` se acumulan.
 | `executeBbvaEvent.sh` / `raiseEvent.sh` | `GSProcess.sh` | Sí / no | §6.4.4; `comun_executebbvaevent` |
 | Carga MDX `Oficina`/`OFC` (`StandardFileLoad`) | `executeBbvaEvent.sh` | Feed y workflow sí; `oficinas.mdx` **no** | §6.4.4; P-CONOFI-03 |
 | Workflow `RDR_ErroresCSV` (`ErroresCSV`, `SubErroresCSV`, `HistoricizeFiles`, `MarcaRegErroneo`) | `executeBbvaEvent.sh` | Sí (volcado de workflows) | §6.4.5 |
-| `errores_to_file.sh` | `MarcaRegErroneo` | **No** | §6.4.5; H-CONOFI-19 |
+| `errores_to_file.sh` | `MarcaRegErroneo` | Sí (plantilla de despliegue) | §6.4.5 bis |
 | `RDR_Report.jar` + `select.properties` | `GSProcess.sh` | Sí (integración y plantilla `@@ENV@@`) | §6.4.6; `comun_rdr_report` |
 | `RAMERC0068.sh` + línea IDX `MEKYTL0242` | Job `MEKYTL0242` | Script sí; línea **no** | §6.5; P-CONOFI-07 |
 | `MEGENV0001.sh` + `MEKYTL0243.idx` | Job `MEKYTL0243` | Script sí (sin sus módulos); configuración **no** | §6.6; P-CONOFI-07 |
+
+### 6.10 Módulos de la plantilla de despliegue relacionados con oficinas (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`); `@@ENV@@` lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr`; los valores `.pr` son valores de
+producción según la plantilla, no una copia verificada de producción. **Contraste:** `oficinas.properties` de la plantilla es **idéntico** (0 diferencias) al transcrito en §6.3.1, y las tres líneas de la clave
+`oficinas` de `select.properties` y las 134 columnas con 13/11/85 reglas `NULL`/`POSICION`/`USAR` de `fillingRules_oficinas.csv` coinciden con §6.4.3 y §6.4.6: no hay información adicional de esos tres ficheros.
+
+Existen además tres módulos de `GSProcess.sh` en la plantilla que tratan el **cierre de oficinas** y que **no forman parte de esta cadena** (ninguno de los jobs de §6.1 los lanza, y la cadena no usa el directorio
+`CierreOficinas`):
+
+| Módulo (`GSProcess.sh <módulo>`) | Qué ejecuta | Observaciones |
+|---|---|---|
+| `SimulacionCierreOficinas` | `SimulacionCierreOficinas.jar`, clase `main.Main` (servicio `RDR_SimulacionCierreOficinas`), argumentos `2` (nivel de log), `log4jRDR_SimulacionCierreOficinas.properties` y el entorno; librerías `log4j.jar` y `ojdbc8.jar` | Usa BD (Oracle). Log rotativo `.../logs/SimulacionCierreOficinas.log` (100 MB x 3). El jar no está en la plantilla: qué simula no consta |
+| `ReporteSimulacionCierreOficinas` | `ConexionBD.jar` + `ReporteSimulacionCierreOficinas.jar`, clase `main.Main`, directorio de trabajo `/fichtemcomp/@@ENV@@/descargas/kytl/CierreOficinas/Simulacion`, nivel de log `2`, `log4jRDR_ReporteSimulacionCierreOficinas.properties` y el entorno; librerías `poi-*-3.17`, `xmlbeans`, `ojdbc8`, `log4j`, `common-lang3`, `commons-collections4` | Por las librerías POI, genera un Excel; el nombre `InformeSimulacionCierreOficinas.xlsx` consta en el módulo de envío. Log `.../logs/ReporteSimulacionCierreOficinas.log` |
+| `EnvioReporteSimulacion` (`EnvioReporteSimulacion.properties` y `.properties.{de,ei,pp,pr}`; los sin sufijo y `.pr` solo difieren en la ruta fija `pr`/`@@ENV@@`) | Evento `Workflow` `SendMailReport` con `Destination`, `FileMail=/fichtemcomp/<env>/descargas/kytl/CierreOficinas/Simulacion/InformeSimulacionCierreOficinas.xlsx`, `NameFile=InformeSimulacionCierreOficinas.xlsx`, `Subject=Reporte Simulacion Cierre de Oficinas` y un texto de cuerpo | `Destination` está enmascarado en la variante `pr` (destinatarios no incluidos en la plantilla) y vacío en `de`, `ei` y `pp`: fuera de producción no hay destinatario. El workflow `SendMailReport` está descrito en la spec de `extraccion_emisiones_mercados` |
+
+Cadena probable (deducida de las rutas y nombres, no confirmada): simulación → informe Excel → correo. No consta qué job de Control-M las lanza, ni con qué periodicidad, ni si guarda relación con las oficinas de esta cadena;
+quedan como artefactos relacionados sin analizar a fondo (los jars no están en la plantilla).
 
 ## 7. Especificación de testing
 
@@ -858,7 +884,7 @@ Ningún paso de la cadena purga `old/`: los `oficinas_yyyymmdd.csv` se acumulan.
 | R9, R10 | TC-006, TC-007, TC-001 | Transmisión "A DUMMY" y evento de fin |
 | R12 | TC-004 | Escalado a ANS RDR |
 | R13 | TC-014, TC-015, TC-001 | Validación con `fillingRules_oficinas.csv` y fichero que se carga |
-| R14 | TC-016, TC-001 | Fichero de errores, ventana de una hora y marca de registros erróneos (la marca depende de `errores_to_file.sh`, H-CONOFI-19) |
+| R14 | TC-016, TC-001 | Fichero de errores, ventana de una hora y marca de registros erróneos (la marca la hace `errores_to_file.sh`, §6.4.5 bis) |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -876,7 +902,7 @@ Ningún paso de la cadena purga `old/`: los `oficinas_yyyymmdd.csv` se acumulan.
 | RISK-CONOFI-010 | Si la configuración real de `MEKYTL0242`/`MEKYTL0243` no es tolerante (campo 5 = `0` o `FALLA_NO_FICHERO=SI`), la ausencia del fichero para la cadena, contra lo que pide la ficha | Medio, sin confirmar (P-CONOFI-07) |
 | RISK-CONOFI-011 | `old/oficinas_yyyymmdd.csv` se acumula sin purga | Bajo |
 | RISK-CONOFI-012 | El workflow `ErroresCSV` solo considera el job de carga `OFC` iniciado en la última hora: si la carga tarda más, o el evento se relanza más tarde, no se genera el fichero de errores (y el anterior ya se ha movido a `old/`) ni se marcan los registros erróneos, y un registro que falló no vuelve a entrar al día siguiente | Medio |
-| RISK-CONOFI-017 | `db_errores.txt` se escribe en modo añadir y nada conocido lo vacía; si `errores_to_file.sh` no lo trunca, crece indefinidamente y se reutiliza para marcar | Bajo, sin confirmar (H-CONOFI-19) |
+| RISK-CONOFI-017 | Corregido: `errores_to_file.sh` borra `db_errores.txt` al terminar, así que no crece. Riesgo nuevo en su lugar (RISK-CONOFI-018): un identificador que no aparece en la referencia hace que el script marque con `ERROR-` **todas** las líneas de `old/oficinas.csv` y el delta de mañana sea el fichero completo (§6.4.5 bis) | Medio |
 | RISK-CONOFI-013 | `fillingRules_oficinas.csv` no limita el banco ni la longitud de la mayoría de campos y no tiene `DUPL`: la validación solo detecta vacíos en 13 columnas, longitudes exactas en 11 y caracteres no permitidos en 85 | Medio |
 | RISK-CONOFI-014 | Con `oficinas.csv` vacío (o ausente) `ControlCargaDatos.jar` no regenera `oficinas_processed.csv` y la carga MDX vuelve a cargar el del día anterior, sin ningún aviso (el programa termina con 0) | Medio: recarga de datos antiguos |
 | RISK-CONOFI-016 | Un registro rechazado por `fillingRules_oficinas.csv` queda en la referencia de `Delta.sh` y no vuelve a salir en el delta hasta que cambie: la oficina no se carga y nadie lo reintenta | Medio |
@@ -901,6 +927,6 @@ Con el material del 02/10/2026 quedan resueltos `oficinas.properties` (carga inc
 producción; el workflow de errores (`RDR_ErroresCSV`) queda analizado con sus consultas y scripts.
 
 **Para cerrar la especificación faltan** el mapeo de la carga MDX (`oficinas.mdx`, P-CONOFI-03, sin el que no se puede
-decir qué cambia en GoldenSource campo a campo), el script `errores_to_file.sh` (H-CONOFI-19), el contenido del calendario
+decir qué cambia en GoldenSource campo a campo), el contenido del calendario
 `RDR_FEST_HOST` (P-CONOFI-06), las configuraciones de `MEKYTL0242`/`MEKYTL0243` (P-CONOFI-07) y las versiones de
 producción de los jars y scripts comunes (H-CONOFI-11 a 17).

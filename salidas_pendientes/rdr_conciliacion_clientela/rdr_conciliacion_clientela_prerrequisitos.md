@@ -1,6 +1,6 @@
 # Prerrequisitos — RDR_CONCILIACION_CLIENTELA_new (5/8, sistema P-021)
 
-> Derivado de `rdr_conciliacion_clientela_casos_prueba.xml` (TC-001 a TC-006).
+> Derivado de `rdr_conciliacion_clientela_casos_prueba.xml` (TC-001 a TC-007).
 
 ## Orígenes de datos
 
@@ -19,6 +19,7 @@
 | TC-003 | `ConClientela.csv` presente pero `KYTL_REF_GSPROCESS` deliberadamente no ejecutado, para verificar el bloqueo. |
 | TC-004 | `Reporte_ConClientela_dos.csv` eliminable justo antes de `MEKYTL0131`. |
 | TC-005 | `ConClientela.csv` eliminable justo antes de `MEKYTL0130`. |
+| TC-007 | `ConClientela.csv` de pruebas de 97 columnas (nombres en la spec §6.3), con registros de código de cliente de 9 y 10 caracteres y vacío, y dos variantes de cabecera (`,DBC-XTI-RAI` y `DBC-XTI-RAI`) |
 
 ## Entorno de ejecución
 
@@ -38,7 +39,7 @@
 - Recurso cuantitativo `MAX-LPRDR501` (tope 100) con al menos 4 unidades libres a lo largo de la cadena
   (cada job consume 1).
 - Ficheros de configuración en `/<entorno>/kytl/online/multipais/multicanal/dat/properties/`:
-  `fillingRules_ConClientela.csv` y `select.properties` (clave `ConClientela`, ver spec §6.1); y
+  `fillingRules_ConClientela.csv` (contenido según la plantilla de despliegue, spec §6.3; copia instalada sin verificar) y `select.properties` (claves `ConClientela` y `ConClientela/ReporteLEI`, ver spec §6.1 y §6.3); y
   `ConClientela.properties` de `GSProcess.sh` (spec §6). Directorio `ConClientela/old/` existente y con
   escritura (lo necesitan `Delta` y la historificación).
 - Jars en `…/jar`: `ControlCargaDatos.jar` 1.0.0 (24/08/2026, `controlcargadatos.ControlCase`), `RDR_PLSQL.jar` 1.0.0
@@ -66,7 +67,7 @@
 
 ## Entorno de pruebas
 
-- Ninguno de los 6 casos se ejecuta contra producción.
+- Ninguno de los 7 casos se ejecuta contra producción.
 - **Pendiente de definir con el usuario:** mecanismo para controlar de forma determinista la finalización
   de `KYTL_REF_GSPROCESS` en el entorno de pruebas (TC-003, TC-006), y para eliminar ficheros intermedios
   en el instante preciso que exigen TC-004 y TC-005.

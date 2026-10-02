@@ -13,6 +13,13 @@
 >   procede de ese análisis.
 > - El `.properties` real `planifGenerico.properties` (incluido en ese documento), analizado con
 >   el funcionamiento de `GSProcess.sh` y `Generico.sh` (ver sus specs de componente).
+>
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop): `planifGenerico.properties`, `salesWarehouse_RDR.properties`, `planificador.properties`
+> (con credenciales enmascaradas), los scripts `parseClob_ThirdParties.sh` y `parseClob_ExtraccionContingencia.sh`, la función
+> `traducir_creden` de `Generico.sh` y los `salesWarehouse*.properties` que consumen varios de los ficheros del inventario. **No trae el
+> código del motor** (`ProjectMain.jar`) ni queries ni filas de las tablas: las preguntas P-PLA-01 a P-PLA-09 siguen sin cerrarse.
+> Los valores son «de la plantilla» (el plan de despliegue sustituye `@@ENV@@` por `de`, `ei`, `pp` o `pr`), no una copia verificada de producción.
 
 ## 1. Qué es y para qué sirve
 
@@ -104,6 +111,13 @@ Como no hay ningún `Stop`, **si `traducir_creden` falla el Java se ejecuta igua
 Los marcadores `@@ENV@@` no los sustituye `GSProcess.sh` (solo sustituye `$ENV`); ver la
 pregunta P-GSP-01 de la spec de `GSProcess.sh`.
 
+**Aclaración con la plantilla de despliegue.** Según la plantilla (repositorio `estaticos`, rama develop), `planifGenerico.properties`
+es idéntico al contenido de §2.1 con `@@ENV@@` donde el análisis tenía el entorno, y **el marcador lo sustituye el plan de despliegue
+`CIR_RDRDO_DE_EI_PP_PR_GLOBAL` al instalar el fichero** (por `de`, `ei`, `pp` o `pr`), no `GSProcess.sh` en ejecución. Existe además
+`salesWarehouse_RDR.properties`, **byte a byte igual** a `planifGenerico.properties` (`MOD_EJECUCION=salesWarehouse_RDR`): son dos nombres
+de módulo para el mismo motor, así que `GSProcess.sh salesWarehouse_RDR` y `GSProcess.sh planifGenerico` ejecutan lo mismo. Ninguno
+lleva `JDKV` ni `Stop`: el motor corre con el Java por defecto de `GSProcess.sh`.
+
 ### 2.2 `planificador.properties` (generado; contenido real con la contraseña omitida)
 
 ```
@@ -123,6 +137,20 @@ error no tiene a dónde conmutar**.
 
 Base de datos: Oracle, servicio `BKYTL003`, host `LDORA605`, puerto `1525`, esquema/usuario
 `KYTL_GC`. El documento no dice de qué entorno es este fichero (P-PLA-01).
+
+**Cómo se genera según la plantilla.** La plantilla de despliegue trae `planificador.properties` solo como esqueleto, con las cuatro
+claves (`jdbc.driverClassName=oracle.jdbc.driver.OracleDriver`, `jdbc.url`, `jdbc.username`, `jdbc.password`) y valores enmascarados. El
+contenido real lo escribe `traducir_creden` (`Generico.sh`) en cada ejecución a partir de la sección `<database>` de `credentials.xml`
+(`sid`, `gcuser`, `gcpass`, `host`, `host2`, `port`):
+- En **`pr` y `pp`** escribe `jdbc:oracle:thin:@(DESCRIPTION=(FAILOVER=ON)(ADDRESS_LIST=(LOAD_BALANCE=OFF)(ADDRESS=...host...)(ADDRESS=...host2...))(CONNECT_DATA=(SERVICE_NAME=<sid>)))`.
+- En **`ei` y `de`** (y en cualquier otro) escribe la forma simple `jdbc:oracle:thin:@<host>:<port>/<sid>` (con `host2` sin usar).
+- **El entorno que decide la forma lo deduce de las tres primeras letras del `hostname`** (`lp`=`pr`, `lw`=`pp`, `li`=`ei`, `ld`=`de`;
+  si no coincide, termina con `exit -2`), mientras que la ruta de `credentials.xml` usa el entorno recibido en `ArgScri2`. La función
+  **trunca el fichero y escribe primero la línea del driver y solo después** llama a esa detección: con un nombre de máquina fuera de
+  convención el fichero queda con la única línea `jdbc.driverClassName=...` y el motor no puede conectar (sin `Stop`, el Java se
+  ejecuta igualmente).
+- Si `credentials.xml` no existe, imprime `ERROR: Fichero ... no existe` y ejecuta **`exit` sin código, es decir, con estado 0**: `GSProcess.sh`
+  lo da por bueno y el Java arranca con el `planificador.properties` de la ejecución anterior.
 
 Además, el código del módulo `ProjectDAO` trae sus propios ficheros de conexión por entorno:
 `database_de.properties`, `database_pp.properties` y `database_pr.properties`. **El de producción
@@ -162,13 +190,47 @@ está vacío (0 bytes).** No se sabe si el motor usa estos ficheros o solo `plan
 |---|---|
 | `PAR1_OID` | Identificador del parámetro |
 | `ACT1_OID` | Extracción a la que pertenece |
-| `PARAMETER_CTXT_TYP` | Tipo (`ROOT_TAG` en todos los observados: etiqueta raíz de un XML) |
+| `PARAMETER_CTXT_TYP` | Tipo. En el inventario actual todos son `ROOT_TAG` (etiqueta raíz de un XML). Los scripts `parseClob_*.sh` de la plantilla (§3.4) crean además un segundo tipo, `PARAMETER`, con el nombre del marcador en `PAR1_NME` (`:fecha_actual`) y su valor en `PAR1_VALUE` |
 | `PAR1_NME` | Texto que se busca en la query (p. ej. `<Portfolios>`) |
 | `PAR1_VALUE` | Texto que lo complementa (p. ej. `</Portfolios>`) |
 | `PAR1_VALUE_CLOB` | Alternativa CLOB para valores largos (vacía en los observados) |
 | `DATA_STAT_TYP` | Si es `INACTIVE`, ese parámetro no se sustituye, pero **la extracción se ejecuta igualmente** |
 | `DATA_SRC_ID`, `LAST_CHG_USR_ID` | Auditoría (`RDR` en los observados) |
 | `START_TMS`, `END_TMS` | Vigencia |
+
+### 3.4 Cómo se dan de alta extracciones: `parseClob_*.sh` (plantilla de despliegue)
+
+La plantilla de despliegue (repositorio `estaticos`, rama develop) incluye dos scripts que **generan, sin ejecutarlo, el SQL de alta** de
+una extracción del Planificador: `parseClob_ThirdParties.sh` y `parseClob_ExtraccionContingencia.sh`. Son idénticos salvo el
+nombre de la extracción y su etiqueta raíz. Uso: `parseClob_X.sh <fichero con la query> <fichero .sql de salida>`; con otro número de
+argumentos imprime `Bad parameters. Usage ...` y termina con `exit` sin código (estado 0). Qué hace:
+
+1. Vacía el fichero de salida y escribe `ALTER SESSION SET CURRENT_SCHEMA=KYTL_GC;` y un bloque PL/SQL anónimo.
+2. Convierte **cada línea de la query** en una variable `varN varchar2(32000):=q'#<línea>#'` y en un `CLOB` (`TO_CLOB(varN || chr(13) || chr(10))`), y
+   los concatena con `DBMS_LOB.APPEND` en un CLOB `c`. Limitaciones: una línea de más de 32.000 bytes o que contenga `#` rompe el SQL generado;
+   los saltos de línea de la query quedan como CRLF.
+3. Inserta una fila en `ACTIONS_TO_EXECUTE` (= `FT_T_ATE1`) con `ELEMENT_ID_CTXT_TYP='QUERY'`, `ACTION_NME` fijo, `CLOB_VALUE=c`, `URL_OUTPUT_FILE`
+   fijo (con el entorno `pr` escrito a mano), `LAST_CHG_USR_ID='BBVA:CUSTOMER'`, `DATA_SRC_ID='RDR'`, `DATA_STAT_TYP='ACTIVE'` y
+   `START_TMS`/`END_TMS` ambos a `sysdate`.
+4. Inserta dos filas en `QUERY_PLANIFICATIONS` (= `FT_T_QPF1`): `QPF1_DAY='01234'` a las `22:00:00` y `QPF1_DAY='56'` a las `03:00:00`, `ACTIVE`, `END_TMS` nulo.
+5. Inserta en `PARAMETERS_TO_USE` (= `FT_T_PAR1`) la etiqueta raíz (`ROOT_TAG`) y el parámetro `PARAMETER` `:fecha_actual` con valor `to_char(sysdate,'YYYYMMDD')`.
+
+| Script | `ACTION_NME` | `URL_OUTPUT_FILE` | `ROOT_TAG` |
+|---|---|---|---|
+| `parseClob_ExtraccionContingencia.sh` | `ExtraccionContingencia.sql` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/ExtraccionContingencia.xml` | `<GLOBALS>` … `</GLOBALS>` |
+| `parseClob_ThirdParties.sh` | `ThirdParties.sql` | `/fichtemcomp/pr/descargas/kytl/extracciongenerica/ThirdParties.xml` (con «P» mayúscula) | `<OPERATIVES>` … `</OPERATIVES>` |
+
+**Qué significan para el motor.** Son coherentes con la mecánica de §4 (sustitución de texto con los parámetros de `FT_T_PAR1`): el motor
+sustituiría el texto `:fecha_actual` de la query por el valor guardado en `PAR1_VALUE` (no se ha visto que calcule la fecha él), así que ese valor
+tiene que refrescarse antes de cada ciclo. Eso es lo que hace
+`ACTUALIZAR_FECHA_PAR1.sh` (`UPDATE ... parameters_to_use SET par1_value = to_char(sysdate,'YYYYMMDD') WHERE parameter_ctxt_typ='PARAMETER' AND par1_nme=':fecha_actual'
+AND act1_oid IN (SELECT act1_oid FROM ACTIONS_TO_EXECUTE WHERE action_nme IN ('ExtraccionContingencia.sql','ThirdParties.sql'))`; lo ejecutan los jobs
+`MEKYTL0336/0337/0341` de las cadenas de contrapartidas). Son las definiciones históricas de las dos extracciones origen de la cadena de
+contrapartidas por el Planificador (22:00 de domingo a jueves y 03:00 los días 5 y 6 con la numeración de §3.2). **Esas dos extracciones no figuran en el inventario de §5**
+(que tiene 17 scripts y ninguno se llama así); hoy esos ficheros los generan los jars de extracción genérica
+(`ExtraccionGenericaCPTY.jar` y `ExtraccionGenericaOtherEntities.jar`), por lo que el refresco de `:fecha_actual` solo tendría efecto si esas filas siguieran `ACTIVE` y programadas. No
+se ha podido comprobar en base de datos (P-PLA-01, H-PLA-02). Las tablas `ACTIONS_TO_EXECUTE`, `QUERY_PLANIFICATIONS` y `PARAMETERS_TO_USE` son los nombres
+largos de `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1` en el esquema `KYTL_GC`.
 
 ## 4. Funcionamiento del motor (según el análisis del código Java)
 
@@ -309,7 +371,7 @@ documento; cada spec de proceso que use una de ellas debe incluir su query o dec
 | R4 | "Ya ejecutada hoy" compara solo la fecha: las extracciones con varias horas al día (filas 2-4 y 11-13) podrían ejecutarse solo la primera vez, según si la comprobación es por extracción o por fila de calendario (pregunta P-PLA-02) | Alto para esas extracciones |
 | R5 | Un parámetro `INACTIVE` deja el marcador sin sustituir en la query | Medio |
 | R6 | Errores solo en el log del motor; ni reintentos ni marca en base de datos | Medio |
-| R7 | Si `traducir_creden` falla, el Java usa la conexión de la ejecución anterior | Bajo |
+| R7 | Si falta `credentials.xml`, `traducir_creden` sale con estado 0 sin escribir y el Java usa la conexión de la ejecución anterior; si el nombre de la máquina no empieza por `lp`/`lw`/`li`/`ld`, deja el fichero solo con la línea del driver y el motor no conecta | Bajo/medio |
 | R8 | Las dos direcciones de la conexión son el mismo host: la conmutación por error no aporta nada | Bajo (operativo) |
 | R9 | Límite de 20.000 filas en XML sin paginación explícita; no se sabe si trunca o falla | Medio |
 | R10 | Paginación por `ROWNUM`: cada página de 1.000 filas relanza la query. Si la query no tiene un `ORDER BY` que identifique cada fila de forma única, Oracle no garantiza el mismo orden en cada página y **puede repetir unas filas y perder otras**. Además, con tablas grandes, cada página recorre el resultado desde el principio | Alto si las queries no tienen `ORDER BY` único (no se ha recibido ninguna, §5) |
@@ -340,6 +402,12 @@ planificador genérico no se programa dentro de GoldenSource sino desde fuera (e
 `RDR_SW_PLANIFICADOR_new` sigue siendo P-PLA-03). Lo único que toca `FT_T_ATE1`/`FT_T_PAR1` en el
 volcado es un workflow de otro proceso que lee un parámetro `ESPERA_STAR` de `FT_T_PAR1`, sin relación con
 este motor.
+
+**Tercera pasada de cierre (plantilla de despliegue): ninguna pregunta de P-PLA-01 a P-PLA-09 queda cerrada.** La plantilla no trae el
+motor, ni las queries, ni las capturas de `FT_T_ATE1`/`FT_T_QPF1`. Sí se incorporan: el mecanismo exacto de generación de
+`planificador.properties` y de cada forma de URL por entorno (§2.2), el alias `salesWarehouse_RDR.properties`, el tipo de parámetro
+`PARAMETER` y el alta de extracciones con `parseClob_*.sh` (§3.4), y los consumidores de §8. La pregunta P-PLA-06 (si el motor lee
+`database_<entorno>.properties`) sigue dependiendo del código de `ProjectDAO`.
 
 ## 7.1 Cómo probarlo
 
@@ -386,3 +454,10 @@ fichero del inventario (comprobado por nombre de fichero):
 
 Además, `extraccion_emisiones_mercados` y `rdr_dictionary_index_y_weekly` mencionan la ejecución
 `planifGenerico`.
+
+**Consumidores adicionales según la plantilla de despliegue** (la tabla anterior decía «Ninguna spec del repositorio» para las filas 1-4 y 10-13): los
+`.properties` `salesWarehouse.properties` y `salesWarehouse_on.properties` toman `FICHERO_RDR.csv`/`FICHERO_RDR_ON.csv` y
+`FICHERO_RDR_COB.csv`/`FICHERO_RDR_COB_ON.csv` de `/fichtemcomp/<env>/descargas/kytl/salesWarehouse/` (`MoverFichero` a `.txt`, `ConvertirUNIX`, `Eliminar_fila`
+de la cabecera, `Cortar` columnas `1-97`, unión con `FICHERO_MIFID.txt` mediante el jar `RDR_salesWarehouse.jar` clase `join3`, `Ordenar`,
+`CatFicheros`, `Concatenar`, `eliminarLineasDuplicada` y `Unix2Dos`) y generan `FICHERO_SW_ORDEN.txt` y `FICHERO_TELEMACO_CAT.txt`;
+`salesWarehouseF5.properties` hace algo equivalente con `RDR_NormativosFV.csv`. Ese flujo (SalesWarehouse/Telemaco) no tiene spec en el repositorio.

@@ -76,8 +76,8 @@ P-CIB-10); el resto de cadenas de P-021. Los workflows de GoldenSource de los ev
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-CIB-01 | ¿Se puede obtener `clientes.properties` completo (el que ejecuta `GSProcess.sh clientes`)? | **Parcial.** Se conoce el mapeo MDX que carga el fichero (`clientes.mdx`: diseño de entrada de 12 campos, delimitador `;`, recorte de espacios en ambos extremos y tabla de traducción de `COD_TIPOCLI`, §6.3.1). **Sigue pendiente** lo propio del `.properties`: con qué argumento se llama a `Delta.sh` (`Si` o no), qué ficheros pasa a `ControlCargaDatos.jar`, qué fichero carga el evento MDX (el original o `clientes_processed.csv`; el feed `clientes` de GoldenSource declara `clientes_processed.csv`, §6.3.2, lo que apunta a la salida de la validación), qué `BusinessFeed`/`MessageType` usa (la ficha dice "clientes / CLX" y el feed `clientes` tiene tipo de mensaje `CLX`), los valores de `Ruta`, `Servicio`, `File` y `Delta` que pasa a los eventos de errores y reporte, y si alguna acción lleva `Stop=Ok`. Sin ello no se sabe si los registros rechazados por la validación se cargan igualmente. |
-| P-CIB-02 | ¿Se puede obtener `fillingRules_clientes.csv` completo (cabecera y filas de reglas)? | Solo se conocen los nombres de las 12 columnas. Las reglas (`NULL`, `USAR`, `POSICION(n)`, `DUPL`…) deciden qué registros se rechazan y si hay control de duplicados. Es también la pregunta P-CCD-01 de la spec común. |
+| P-CIB-01 | ¿Se puede obtener `clientes.properties` completo (el que ejecuta `GSProcess.sh clientes`)? | **Resuelta en parte (3ª pasada).** La plantilla de despliegue (repositorio `estaticos`, rama `develop`) trae el fichero completo (§6.3.3): `Delta=No` y `Delta.sh No`; `ControlCargaDatos` sobre `clientes/clientes.csv` con log `clientes_preprocess_summary.log` y reglas `fillingRules_clientes.csv`; el evento MDX carga `clientes/clientes_processed.csv` con `BusinessFeed=clientes` y `MessageType=CLX`; `Ruta`/`Servicio`/`File` de los eventos de errores y reporte; ninguna clave `Stop`. **Sigue pendiente** verificar que lo instalado en producción coincide con la plantilla. Antes de la 3ª pasada: se conocía el mapeo MDX (§6.3.1) pero no esta parte. | Sin ello no se sabría si los registros rechazados por la validación se cargan igualmente: con la plantilla, el MDX lee solo `clientes_processed.csv`. |
+| P-CIB-02 | ¿Se puede obtener `fillingRules_clientes.csv` completo (cabecera y filas de reglas)? | **Resuelta en parte (3ª pasada).** Contenido completo según la plantilla de despliegue (§6.3.3): cabecera de las 12 columnas; `NULL` en `COD_CCLIEN` y `COD_TIPOCLI`; `POSITION(9)` en `COD_CCLIEN` y `POSITION(1)` en `COD_TIPOCLI` (longitud exacta); `USAR` en las 12 columnas; **sin `DUPL`** (no hay control de duplicados). Falta verificar la copia instalada en producción. | Las reglas deciden qué registros se rechazan. Es también la pregunta P-CCD-01 de la spec común. |
 | P-CIB-03 | ¿Qué sistema deposita `clientes.csv`, a qué hora, con cabecera o sin ella, en qué codificación y con qué volumen normal? | Es la entrada del proceso. `ControlCargaDatos.jar` exige que la primera línea sea la cabecera con los nombres de `fillingRules_clientes.csv` en el mismo orden, y rechaza vocales acentuadas y `ñ` si el fichero viene en UTF-8 (ver su spec, §4.3). |
 | P-CIB-04 | **Resuelta en parte (02/10/2026).** ¿Qué hace el evento `RDR_Reporte` con `clientes.properties` (workflow, query, columnas y nombre del fichero que genera)? ¿Es correcto que genera `Reporte_clientes.csv` y que `Unix2Dos` lo convierte en `Reporte_clientes_dos.csv`? Resuelto: workflow `GenerateReports`, fichero `Reporte_clientes.csv` en `<Ruta>clientes/`, formato, cabecera fija y comportamiento sin filas (§6.3.2); la conversión de `Unix2Dos` queda confirmada por el nombre. **Sigue pendiente:** el texto de la consulta (elemento 8 de la lista de consultas del nodo `Initialize Variables` de `GenerateReports`, objeto binario no recuperable) y, con ella, las columnas. | Es el fichero que se envía a los dos destinos; hoy no hay diccionario de sus columnas. El usuario lo atribuyó al "motor MDX", lo que no cuadra con el código de `GSProcess.sh` (G3). |
 | P-CIB-05 | ¿Cuál es el contenido de `MEKYTL0147.idx` y `MEKYTL0148.idx` (protocolo, máquinas, rutas, `FICHERO_ORIGEN` con su renombrado a `Reporte_clientes_<yyyymmdd>.csv`/`CLIEXCLU_<yyyymmdd>.txt`, `FALLA_NO_FICHERO`, historificación local)? ¿La ruta de `MVP00G219` es `\\S00371F2\DATOS TRANSMI\MVP00G219\` (con espacio, como dice la ficha) o `\\S00371F2\DATOS\TRANSMI\MVP00G219\`? | Decide qué se envía, con qué nombre (la fecha `yyyymmdd`, de qué día) y qué pasa si falta el reporte. |
@@ -158,22 +158,22 @@ sin crecer) para darlo por completo, espera máxima 240 minutos (hasta las 08:00
 
 Funcionamiento genérico del motor: `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`. Con el módulo
 `clientes`, el motor busca `/pr/kytl/online/multipais/multicanal/dat/properties/clientes.properties`
-(no recibido, P-CIB-01) y prepara, entre otras, estas variables (solo si existen los ficheros):
+(contenido según la plantilla de despliegue, §6.3.3) y prepara, entre otras, estas variables (solo si existen los ficheros):
 `FILE_CARGA=/fichtemcomp/pr/descargas/kytl/clientes/clientes.csv`,
 `FILE_RULES=$CONF/fillingRules_clientes.csv` y
 `PREPROCESS_LOG_SUMMARY=$LOG/clientes_preprocess_summary.log`. Las acciones, en el orden de la ficha:
 
 | Orden | Acción en el `.properties` | Qué ejecuta | Qué hace en este proceso | Si falla |
 |---|---|---|---|---|
-| 1 | `Script` con `NomScript=Delta` | `$SCRIPT/Delta.sh <ArgScri1>` | Con `Si`: compara `clientes.csv` con `old/clientes.csv` (la carga anterior) y deja en `clientes.csv` solo la cabecera y los registros nuevos o modificados; las bajas **no** salen. Con otro valor: copia `clientes.csv` a `old/clientes.csv` y la carga es completa. Valor real no visto. Detalle en `salidas_pendientes/comun_delta/comun_delta_spec.md` | En modo `Si` siempre devuelve 0: un fallo de comparación no se ve en el job; solo en el log (`Proceso delta finalizado de manera incorrecta`) |
-| 2 | `Java` con `ControlCargaDatos.jar` y `javacsv.jar` | `java ... controlcargadatos.ControlCase <entrada> <log> <reglas>` | Valida cada registro contra `fillingRules_clientes.csv` y genera `clientes_processed.csv` (válidos) y `clientes_noprocessed.csv` (rechazados, con el motivo) en el directorio de entrada. No transforma datos (solo quita espacios al principio y al final). Argumentos reales no vistos. Detalle en `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md` | **Siempre termina con 0**, aunque rechace todo o falten ficheros. Los rechazos solo se ven en el log de resumen y en `_noprocessed.csv` |
-| 3 | `Evento` con `NomEvento=MDX` | `executeBbvaEvent.sh fileloading StandardFileLoad <credentials.xml> clientes.properties` | Carga en GoldenSource con el workflow estándar `Standard File Load` y el feed `clientes` (tipo de mensaje `CLX`, mapeo `clientes.mdx`, patrón `clientes_processed.csv`, salta la primera línea; §6.3.2). Qué fichero recibe exactamente lo fija el `.properties` | El job ve el fallo si `executeBbvaEvent.sh` devuelve 1 (fallo al lanzar, fichero de evento inexistente o tiempo agotado). Si el workflow termina con error, depende de P-EBE-01 de `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
+| 1 | `Script` con `NomScript=Delta` | `$SCRIPT/Delta.sh <ArgScri1>` | Con `Si`: compara `clientes.csv` con `old/clientes.csv` (la carga anterior) y deja en `clientes.csv` solo la cabecera y los registros nuevos o modificados; las bajas **no** salen. Con otro valor: copia `clientes.csv` a `old/clientes.csv` y la carga es completa. **Valor real según la plantilla de despliegue: `No`** (`ArgScri1=No`, y `Delta=No` en las variables): carga completa cada día, sin delta (§6.3.3). Detalle en `salidas_pendientes/comun_delta/comun_delta_spec.md` | Con `No`, `Delta.sh` devuelve el código del `cp` (1 si falta `clientes.csv`, que cuenta como error del job); en modo `Si` siempre devuelve 0: un fallo de comparación no se ve en el job; solo en el log |
+| 2 | `Java` con `ControlCargaDatos.jar` y `javacsv.jar` | `java ... controlcargadatos.ControlCase <entrada> <log> <reglas>` | Valida cada registro contra `fillingRules_clientes.csv` y genera `clientes_processed.csv` (válidos) y `clientes_noprocessed.csv` (rechazados, con el motivo) en el directorio de entrada. No transforma datos (solo quita espacios al principio y al final). Argumentos reales según la plantilla (§6.3.3): entrada `clientes/clientes.csv`, log `$LOG/clientes_preprocess_summary.log`, reglas `$CONF/fillingRules_clientes.csv`, etiqueta `PreprocessedClientesCIB`. Detalle en `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md` | **Siempre termina con 0**, aunque rechace todo o falten ficheros. Los rechazos solo se ven en el log de resumen y en `_noprocessed.csv` |
+| 3 | `Evento` con `NomEvento=MDX` | `executeBbvaEvent.sh fileloading StandardFileLoad <credentials.xml> clientes.properties` | Carga en GoldenSource con el workflow estándar `Standard File Load` y el feed `clientes` (tipo de mensaje `CLX`, mapeo `clientes.mdx`, patrón `clientes_processed.csv`, salta la primera línea; §6.3.2). El fichero lo fija el `.properties` (`File=.../clientes/clientes_processed.csv` según la plantilla, §6.3.3) | El job ve el fallo si `executeBbvaEvent.sh` devuelve 1 (fallo al lanzar, fichero de evento inexistente o tiempo agotado). Si el workflow termina con error, depende de P-EBE-01 de `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
 | 4 | `Evento` con `NomEvento=Errores` | `executeBbvaEvent.sh fileloading RDR_ErroresCSV ... clientes.properties` | Workflow `ErroresCSV`: genera `<Ruta>clientes/clientes_errores.csv` con los errores funcionales y técnicos del job de carga de la última hora; sin job reciente no escribe nada (§6.3.2) | Igual que el anterior |
 | 5 | `Evento` con `NomEvento=Reporte` | `executeBbvaEvent.sh fileloading RDR_Reporte ... clientes.properties` | Workflow `GenerateReports`, rama `clientes`: genera `Reporte_clientes.csv` (§6.3.2), el que `Unix2Dos` (paso 6) convierte en `Reporte_clientes_dos.csv`. **No es `RDR_Report.jar`**: este proceso no tiene clave en `select.properties` | Igual que el anterior |
 | 6 | `Script` con `NomScript=Unix2Dos` | `$SCRIPT/Generico.sh Unix2Dos <fichero>` | Crea `<nombre>_dos.<ext>` con CRLF y deja el original: de `Reporte_clientes.csv` sale `Reporte_clientes_dos.csv`, que es lo que se envía | Código 2 sin argumento, 4 si no existe el fichero, 1 si falla el `sed` |
 
 Consecuencias que hay que conocer:
-- **Sin `Stop=Ok`** (no se sabe si lo lleva), un fallo intermedio no detiene las acciones siguientes;
+- **Sin `Stop=Ok`** (la plantilla no lleva ninguna clave `Stop*`, §6.3.3), un fallo intermedio no detiene las acciones siguientes;
   el job termina con 1 al final si alguna devolvió distinto de 0.
 - Si `Reporte` no genera fichero, `Unix2Dos` termina con 4 y el job queda en error; los envíos no
   arrancan.
@@ -256,7 +256,7 @@ directorio que `clientes.csv`):
    copia histórica, que se sobrescribe cada día. Lo hace **antes** de comprobar nada.
 2. Busca el job de la carga: `select JOB_ID from (select JOB_ID from ft_t_jblg where job_input_txt=? and job_stat_typ='CLOSED' and job_msg_typ=? and job_start_tms >= sysdate-(1/24) and job_start_tms < sysdate order by job_start_tms desc) where rownum < 2`, con `File` y `MessageType`. Solo ve cargas **cerradas en la última hora**. Si no hay ninguna, termina sin escribir fichero (ese día no hay `clientes_errores.csv`).
 3. Si la hay, escribe una cabecera `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;` y una línea por error, con `;` como separador y `;` también al final; el texto `null` se borra de todos los campos (incluido dentro de un valor). Los errores son de dos tipos: `Funcional` (filas de `ft_t_rlt1` del job con `RLT_PURP_TYP='ERRORES'`) y `Tecnico` (transacciones de `ft_t_trid` del job con severidad superior a 39). Un subworkflow añade el texto de la notificación de cada transacción (`ft_t_ntxt`). El fichero se escribe con un nombre provisional (`dummyclientes_errores.csv`) y se renombra al terminar.
-4. Si `Delta` vale `Si` (valor del `.properties`, no visto) ejecuta además `MarcaRegErroneo`: escribe en `db_errores.txt` los identificadores de las entidades con error y lanza `errores_to_file.sh <MessageType> <Ruta>clientes/old/clientes.csv <Ruta>clientes/db_errores.txt` (script no recibido). Por nombre y argumentos, su finalidad es sacar esos registros de la copia anterior `old/clientes.csv` para que el siguiente `Delta.sh` los vuelva a tratar como nuevos. Si `Delta` no vale `Si`, no hace nada más.
+4. Si `Delta` vale `Si` ejecuta además `MarcaRegErroneo` (**con la plantilla, `Delta=No`: esta rama no se ejecuta en este proceso y `errores_to_file.sh` nunca se invoca**; H-CIB-07, §6.3.3): escribe en `db_errores.txt` los identificadores de las entidades con error y lanza `errores_to_file.sh <MessageType> <Ruta>clientes/old/clientes.csv <Ruta>clientes/db_errores.txt` (script analizado en §6.3.3). Su finalidad es marcar esos registros en la copia anterior `old/clientes.csv` para que el siguiente `Delta.sh` los vuelva a tratar como nuevos. Si `Delta` no vale `Si` (caso de la plantilla), no hace nada más.
 
 **Acción 5, evento `RDR_Reporte` → workflow `GenerateReports`.** Recibe `Servicio` y `Ruta`. Un conmutador sobre `Servicio`
 elige la rama (`clientes`, `OFAC`, `LOPD`, `cedro`, `nlegales`, `informeMIFID`, etc.; cualquier otro valor termina sin hacer nada). La rama `clientes`:
@@ -314,6 +314,66 @@ histórico de ese día.
 | `MEGENV0001.sh` y sus `.idx` `MEKYTL0147`/`MEKYTL0148` | Jobs 3 y 4 | Script sí; `.idx` **no** | Spec común; gap P-CIB-05 |
 | `RAMERC0068.sh` y sus líneas IDX `MEKYTL0136`/`MEKYTL0939` | Jobs 5 y 6 | Script sí; líneas **no** | Spec común; gap P-CIB-06 |
 
+#### 6.3.3 `clientes.properties` y `fillingRules_clientes.csv` según la plantilla de despliegue (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue
+`CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; es un único fichero sin variantes por entorno (CRLF). Lo que sigue son «valores
+de producción según la plantilla», no una copia verificada de producción, y la plantilla es la base **anterior a la migración a Java 17** (sin `JDKV`, clase
+`ControlCase` sin paquete): migración en curso, la plantilla `develop` sigue en la versión sin paquete.
+
+Variables globales (acción 1 del fichero): `MOD_EJECUCION=clientes`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`,
+`File=/fichtemcomp/@@ENV@@/descargas/kytl/clientes/clientes_processed.csv`, `Servicio=clientes`, `BusinessFeed=clientes`, `SuccessAction=LEAVE`,
+`MessageType=CLX`, `Delta=No`, `Preprocesado=Si`, `MDX=Si`, `Errores=Si`, `Reporte=Si`, `Difusion=No`. `GSProcess.sh` solo interpreta
+`MOD_EJECUCION`, `BusinessFeed`, `SuccessAction`, `MessageType`, `Ruta`, `File`, `Servicio` y las claves `Tipo*`/`Paginacion`/`Stop`; los indicadores
+`Delta`, `Preprocesado`, `MDX`, `Errores`, `Reporte` y `Difusion` no gobiernan el orden de las acciones (que lo fija el propio fichero): los lee, en su caso, el workflow
+que recibe el `.properties` (`Delta` sí lo lee `ErroresCSV`, §6.3.2). Ninguna acción lleva `Stop*`.
+
+| # | Acción en la plantilla | Parámetros |
+|---|---|---|
+| 1 | `Script` `Delta` | `ArgScri1=No`: copia `clientes/clientes.csv` a `clientes/old/clientes.csv` (carga completa, sin comparación) |
+| 2 | `Java` `ControlCargaDatos.jar` + `javacsv.jar`, clase `ControlCase`, etiqueta `PreprocessedClientesCIB` | arg1 `$FILES/clientes/clientes.csv`; arg2 `$LOG/clientes_preprocess_summary.log`; arg3 `$CONF/fillingRules_clientes.csv`; librerías `ojdbc8.jar`, `common-lang3.jar`, `log4j.jar` |
+| 3 | `Evento` `MDX` | `StandardFileLoad` con `File=.../clientes/clientes_processed.csv`, feed `clientes`, tipo `CLX`, `SuccessAction=LEAVE`: carga **la salida de la validación**, no `clientes.csv` |
+| 4 | `Evento` `Errores` | `RDR_ErroresCSV`: `Ruta`+`Servicio` → `clientes/clientes_errores.csv`; con `Delta=No` no invoca `MarcaRegErroneo` |
+| 5 | `Evento` `Reporte` | `RDR_Reporte` (`GenerateReports`, rama `clientes` por `Servicio=clientes`) → `clientes/Reporte_clientes.csv` |
+| 6 | `Script` `Unix2Dos` | `$FILES/clientes/Reporte_clientes.csv` → `Reporte_clientes_dos.csv` |
+
+Resuelve P-CIB-01 salvo la verificación en producción: el MDX carga `clientes_processed.csv` (confirma el patrón del feed), con lo que un registro
+rechazado por la validación **no se carga**; el fichero que se valida es el que deja `Delta.sh No` (el completo); y sin `Stop` un paso fallido no detiene los demás.
+Consecuencia de `Delta=No`: no hay referencia delta que mantener, `old/clientes.csv` es siempre la copia del día, y las bajas no se pierden por el delta (aunque tampoco se
+emiten: el proceso solo carga altas/cambios del fichero).
+
+**`fillingRules_clientes.csv`** (contenido completo, plantilla):
+
+```
+COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO
+NULL;;;;;;;;;;NULL;
+POSITION(9);;;;;;;;;;POSITION(1);
+USAR;USAR;USAR;USAR;USAR;USAR;USAR;USAR;USAR;USAR;USAR;USAR
+```
+
+Con la semántica de `ControlCase` (solo cuentan los 4 primeros caracteres de la regla, así que `POSITION(n)` actúa como `POSICION(n)`: longitud **exacta** `n`):
+
+| Columna | Reglas | Efecto |
+|---|---|---|
+| `COD_CCLIEN` | `NULL`, `POSITION(9)`, `USAR` | Obligatorio, de 9 caracteres exactos y con caracteres permitidos |
+| `COD_TIPOCLI` | `NULL`, `POSITION(1)`, `USAR` | Obligatorio y de exactamente 1 carácter. **No se valida que sea `C` o `E`**: cualquier otra letra pasa la validación y llega al mapeo (P-CIB-10) |
+| resto de columnas (10) | `USAR` | Solo caracteres permitidos; vacío es válido (`COD_NIF`, `COD_BDI`, `DES_NOMCLI`… no son obligatorios) |
+
+No hay regla `DUPL`: no se eliminan duplicados. Las 12 columnas llevan `USAR`, de modo que un fichero en UTF-8 con vocales acentuadas (salvo `á` y `ú` por
+casualidad) o `ñ` en nombres (`DES_NOMCLI`, `DES_CNAE5`) rechaza el registro entero. El orden y los nombres de columna coinciden con los 12 campos de entrada del mapeo (§6.3.1).
+Falta verificar que la copia instalada en producción es idéntica (P-CIB-02).
+
+**`errores_to_file.sh` (H-CIB-07).** Con `Delta=No`, `ErroresCSV` no invoca `MarcaRegErroneo`, así que este proceso **no ejecuta nunca el script**. Si algún día se pasara a
+`Delta=Si`, el script (plantilla) recibiría `MessageType=CLX`, que **no tiene rama en su `case`** (solo reconoce `PLZ`, `OFC`, `OFA`, `Refundicion`, `CargaLEI`, `mifid_class`,
+`Disputes_disclosure`, `ISDA12` e `ISDA13`): no marcaría ninguna línea de `old/clientes.csv` y solo borraría `db_errores.txt`. Es decir, el reproceso de erróneos no existe para este
+proceso en ningún caso. Detalle del script en la spec de `rdr_refundicion` §6.3.
+
+**Ficheros de la plantilla relacionados que no son esta cadena.** `clientesmifid.properties` (módulo `clientesmifid`: `CortarEliminarCabecera` quita la cabecera de
+`mifidcec/clientesmifid.csv`, se queda con la columna 1, la añade a `clientesmifid.txt` y borra el origen) pertenece al circuito MIFID (`mifidcec`), no a `RDR_CLIENTES_CIB_new`. `ClientesExclusivos.properties` (módulo
+`ClientesExclusivos`: quita la cabecera de `cliexclu/CLIEXCLU.csv`, la pasa a formato UNIX, corta la primera columna, limpia finales, la convierte a DOS y la deja como
+`cliexclu/CLIEXCLU.txt`) comparte nombre funcional con el fichero `CLIEXCLU_<yyyymmdd>.txt` que envía `MEKYTL0148`, pero ningún paso de esta cadena lo invoca ni usa el directorio `cliexclu`; no hay
+evidencia de relación y no se incorpora al alcance (a confirmar con quien conozca el job que lo lanza).
+
 ## 7. Especificación de testing
 
 Estrategia: un caso por transición del grafo y por regla de control (file watcher, Fan-Out, Fan-In
@@ -326,17 +386,15 @@ doble), más un end-to-end. Los casos están en `rdr_clientes_cib_casos_prueba.x
 - TC-007 (regresión) comprueba que los históricos de días distintos no se pisan.
 - TC-008 (e2e) recorre el flujo completo.
 - TC-009 (datos sintéticos) comprueba el formato de `Reporte_clientes.csv` y de `clientes_errores.csv`, y el día en que la consulta del reporte no devuelve filas (RK10, RK11).
+- TC-010 (borde) comprueba las reglas de `fillingRules_clientes.csv` de la plantilla: obligatoriedad y longitud de `COD_CCLIEN` y `COD_TIPOCLI`, caracteres no permitidos y ausencia de control de duplicados (§6.3.3).
 
 Confirmaciones:
 - **Ejecutables tal cual**: cada caso tiene entorno, datos, pasos y resultado verificable. TC-002, TC-005 y
   TC-006 necesitan un mecanismo para forzar el fallo de un job (P-CIB-09); hasta tenerlo se verifican por
   lectura de la definición de la cadena.
 - **Cobertura**: la suma de casos cubre las 7 transiciones y las 3 condiciones de control del grafo. **No
-  están cubiertos** (y no se pueden definir sin la configuración): la validación campo a campo de
-  `ControlCargaDatos.jar` y su control de duplicados (P-CIB-02), el comportamiento de `Delta.sh` en este
-  proceso (P-CIB-01) y el contenido (las columnas) del reporte (P-CIB-04); el formato del reporte y el caso de
-  consulta sin filas sí se cubren en TC-009. Cuando se reciban, hay que añadir casos de
-  `negativo`, `duplicidad` y `datos_sinteticos` sobre `clientes.csv`.
+  están cubiertos**: el contenido (las columnas) del reporte (P-CIB-04); el formato del reporte y el caso de
+  consulta sin filas sí se cubren en TC-009. La validación campo a campo de `ControlCargaDatos.jar` y la ausencia de control de duplicados se cubren con TC-010 (reglas de la plantilla, pendiente de verificar la copia instalada, P-CIB-02), y `Delta=No` queda reflejado en TC-007 (sin referencia delta).
 
 ## 8. Validaciones de casos de prueba
 
@@ -351,6 +409,7 @@ Confirmaciones:
 | `regresion` | Históricos de días distintos sin colisión | R5 | TC-007 |
 | `e2e` | Flujo completo | R1-R7 | TC-008 |
 | `datos_sinteticos` | Formato del reporte y del fichero de errores; reporte sin filas | R3, R4 (§6.3.2) | TC-009 |
+| `borde` | Reglas de validación de `fillingRules_clientes.csv` (§6.3.3) | R7 | TC-010 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -367,10 +426,10 @@ Confirmaciones:
 | RK9 | Históricos sin compresión ni purga documentada. | Bajo |
 | RK10 | Un día sin filas en la consulta del reporte genera `Reporte_clientes.csv` con la única línea `La select no devuelve valores`; se convierte, se envía a los dos destinos y se historifica como si fuera un reporte válido (§6.3.2). | Medio |
 | RK11 | `clientes_errores.csv` solo se genera si hay un job de carga cerrado en la última hora; si la carga tarda más o `File`/`MessageType` no coinciden con `job_input_txt`/`job_msg_typ`, no hay fichero de errores y nadie lo nota. Tampoco lo consume ningún job de la cadena. | Medio |
-| RK12 | `Delta=Si` más `MarcaRegErroneo` depende de un script (`errores_to_file.sh`) que se invoca por `sh` sin comprobar su resultado: un fallo no impide el resto del evento. | Bajo |
+| RK12 | `Delta=Si` más `MarcaRegErroneo` depende de un script (`errores_to_file.sh`) que se invoca por `sh` sin comprobar su resultado: un fallo no impide el resto del evento. Con la plantilla (`Delta=No`) no aplica a este proceso. | Bajo |
 
 **Duplicidades:** el único control posible es la regla `DUPL` de `fillingRules_clientes.csv`, que conserva
-la última aparición de cada clave; no se sabe si está configurada (P-CIB-02). `Delta.sh` no elimina
+la última aparición de cada clave; **la plantilla no la configura** (§6.3.3), así que no hay control de duplicados. `Delta.sh` no elimina
 duplicados: una línea repetida que no estaba en la carga anterior sale tantas veces como aparezca.
 
 ## 10. Conclusión y requisitos de cierre
@@ -382,6 +441,8 @@ G1 y G2 están cerrados con evidencia (captura de Control-M y respuesta del usua
 los nombres de columna de la entrada y corregido en cuanto al origen del reporte, que no es la carga MDX
 sino el evento `RDR_Reporte`. La spec describe la orquestación completa, la semántica real del file
 watcher, lo que hace cada componente en este proceso y qué ve (y qué no ve) el job cuando algo falla.
+
+Revisión 3ª pasada (02/10/2026, plantilla de despliegue): `clientes.properties` y `fillingRules_clientes.csv` están analizados (§6.3.3); `Delta=No`, la carga lee `clientes_processed.csv`, no hay control de duplicados ni `Stop`, y `errores_to_file.sh` no se ejecuta en este proceso (H-CIB-07 cerrada). P-CIB-01 y P-CIB-02 quedan resueltas en parte (falta verificar lo instalado en producción).
 
 Tras la pasada de cierre (01/10/2026) se conoce el mapeo MDX de entrada (§6.3.1: 12 campos, delimitador,
 recorte y traducción `C`/`E` de `COD_TIPOCLI`), con lo que P-CIB-01 queda parcial. Para cerrarla al 100 %

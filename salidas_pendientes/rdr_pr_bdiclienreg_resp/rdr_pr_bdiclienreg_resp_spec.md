@@ -82,15 +82,19 @@ los ficheros de respuesta `.txt`; y el consumo de las alertas SSIS una vez despa
 | G8 | ¿Qué es `GSProcess.sh` (el script que Control-M invoca en R6/R7/R8/R9), y qué son realmente `Script(Historificar)`/`Script(MoverFicheros)` del resto de R8? | **Resuelto por completo, incluida la cadena de alertas de punta a punta** (`GSProcess.sh`, `Generico.sh`, `RDR_AltaFondos.properties`, `GestionAlertas.properties`, `QuerysStr`/`QuerysConfig` de `AlertasBarrido`/`AlertasCocinado`, `AlertasEnvio.wkf`). Ver §6.9/§6.12/§6.14/§6.15. `GSProcess.sh` es un **motor genérico transversal** (R6-R9) y `Script(Historificar)`/`Script(MoverFicheros)` son funciones reales de `Generico.sh`. `RDR_AltaFondos.properties` confirma el orden y argumentos reales de todo R8, incluido `Property(GestionAlertas)` disparado **2 veces** (variante `_ERROR` y normal). Con el código real de `RDR_AlertasBarrido.jar`/`RDR_AlertasCocinado.jar` (§6.14) se confirma la tabla de origen real de las alertas — **`FT_T_TPG1`** (no `FT_T_RLT1` como se había hipotetizado) — y el mecanismo completo: Barrido cierra `TPG1`/crea filas en `FT_T_ALG1`, Cocinado las marca procesadas y activa `FT_T_REP1.SEND_PEND='Y'`. Con `AlertasEnvio.wkf` real (§6.15) se descubre un **hallazgo importante que matiza lo ya documentado**: a diferencia de Barrido/Cocinado (sí acotados al identificador de proceso vía el placeholder `PROCESOS`), el envío final **no está acotado a un proceso — es un barrido global** de todo `FT_T_REP1` con `SEND_PEND='Y'`, sin importar qué invocación de `GestionAlertas` lo disparó. Confirma también el **hallazgo transversal** de fallo silencioso salvo `Stop=Ok` — ver §9. Sin cabos sueltos bloqueantes. **Actualización:** `main.Ppal` de ambos jars de alertas y el subworkflow `Mail` (envío SMTP real) ya están analizados (§6.14, §6.15 y la spec común `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`); lo único que sigue sin verse son `ProcesoCLS`, `ReportesRDR` y `AlertasEnvioExcepciones`. |
 | G9 | ¿Qué hace `Workflow(RDR_SSIS_Fx_Alert_Online)` (R9): cómo dispara las alertas online de SSIs de los fondos dados de alta en R8? | **Resuelto por completo, incluida la confirmación de nomenclatura** (`SSIs_Fx_Peticion.wkf`, `SSIs_Fx_Alta.wkf`, `RecepcionAlertApiRest.wkf`, `GestionAlertas_ALERT_IP_SSI.properties`). Ver §6.16/§6.17/§6.18/§6.19. **`GestionAlertas_ALERT_IP_SSI.properties` (el `.properties` real que Control-M invoca para R9) confirma que `NomWorkflow=RDR_SSIS_Fx_Alert_Online`** — es decir, el workflow aportado como `SSIs_Fx_Peticion.wkf` **sí es el mismo objeto**, solo que registrado/invocado bajo un nombre de evento distinto de su metadato `<name>` interno (mismo patrón que `AlertasEnvio`/`RDR_AlertasEnvio`, ya no una duda abierta sino un patrón confirmado 2 veces en esta sesión). El mismo `.properties` confirma también el identificador de proceso real para el paso final `Property(GestionAlertas)` de R9: **`ArgProp2=PROCESOS-ALERT_IP_SSI`** — el placeholder `PROCESOS` (§6.12) se sustituye aquí por `ALERT_IP_SSI`, una sola vez (no x2 como en R8). Confirma el flujo completo: marca en bloque `PETI_SDI_SOLICITADA`, por cada fondo busca sus mnemónicos con flag FX relevante (`FT_T_FIST.STAT_DEF_ID='FXRELF'`), lanza una petición REST síncrona (`API_REST.jar`, servicio `AlertRequestSSIsByFond`) contra "Alert Mirror`, y en la rama `ACK` invoca `RecepcionAlertApiRest` (componente compartido, grupo `Custom/RDR/Online_Setup/Alert`, no exclusivo de Investors Plan) para interpretar la respuesta real y `SSIs_Fx_Alta` para validar y ejecutar el alta de cada SDI recuperada. Sin cabos sueltos bloqueantes; quedan como residuales de código no aportado los subworkflows internos `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`. |
 | P-BCR-01 | ¿Qué rige para la planificación: la ficha funcional (un folder, 04:30-23:55, redisparo cada 5 min, FileWatcher sobre `*.txt`) o el export de Control-M (folders `_M` 04:30-11:30 y `_T` 12:30-23:55, jobs cíclicos con `INTERVAL=00001M`, FileWatcher sobre `clientesFondosFX_ACKNACK_*.txt`)? | **Abierta.** Esta spec describe el export (es el artefacto real, modificado el 2026-05-18) y cita la ficha donde difiere. Importa porque entre 11:30 y 12:30 ninguna de las dos mitades corre (un ACKNACK llegado en esa hora esperaría a las 12:30) y porque fija la frecuencia con la que hay que esperar resultados en pruebas. |
-| P-BCR-02 | ¿Es `clientesFondosFX_ACKNACK_*.txt` el mismo fichero de 600 caracteres por línea que lee `clientelaBDI_Altas_response.jar`, o hay otro `.txt` en la misma carpeta? ¿Cuáles son las rutas exactas de entrada, histórico y error de R6 y R7 (`Main.java` no aportado)? | **Resuelta en parte.** `Main` de R6 toma `args[2]`=ruta de entrada, `args[3]`=ruta de histórico, `args[4]`=ruta de error y `args[5]`=patrón (subcadena que debe contener el nombre del fichero, §6.1); R7 no recibe rutas ni ficheros (§6.2). **Sigue abierto** el valor real de esos argumentos (`clientelaBDI_Altas_response.properties` de producción) y, por tanto, si el patrón coincide con `clientesFondosFX_ACKNACK_*.txt`. Importa para saber qué fichero hay que depositar en pruebas y dónde queda después. |
+| P-BCR-02 | ¿Es `clientesFondosFX_ACKNACK_*.txt` el mismo fichero de 600 caracteres por línea que lee `clientelaBDI_Altas_response.jar`, o hay otro `.txt` en la misma carpeta? ¿Cuáles son las rutas exactas de entrada, histórico y error de R6 y R7 (`Main.java` no aportado)? | **Resuelta en parte.** `Main` de R6 toma `args[2]`=ruta de entrada, `args[3]`=ruta de histórico, `args[4]`=ruta de error y `args[5]`=patrón (subcadena que debe contener el nombre del fichero, §6.1); R7 no recibe rutas ni ficheros (§6.2). **Resuelta en parte en la 3ª pasada (plantilla de despliegue):** el `.properties` de R6 pasa `args[2]`=`/fichtemcomp/<env>/descargas/kytl/ClientelaBDI_Altas/response/`, `args[3]`=`…/old/`, `args[4]`=`…/error/` y `args[5]`=`clientesFondosFX_ACKNACK` (§6.1): el patrón (subcadena) coincide con el del filewatcher, así que R6 trata el mismo `clientesFondosFX_ACKNACK_*.txt` que espera `ctmfw`. **Sigue abierto** comprobar que lo instalado en el servidor es idéntico a la plantilla. Importa para saber qué fichero hay que depositar en pruebas y dónde queda después. |
 | P-BCR-03 | Tras detectar `controlSCF.txt` en el folder `_M`, ¿quién relanza la cadena? Por las condiciones, `SLEEP` borra `FW_OK`, el FW consumió `IN_OK` y `COMPROBAR_CONTROL_ALTA_IP` con código 0 borra `SLEEP_OK`; en `_T` `FW_OK` no se borra y el ciclo se reintenta. | **Abierta.** Si es así, un lock detectado por la mañana podría dejar la parte `_M` parada hasta la siguiente orden diaria sin ningún aviso. Hay que confirmarlo en una ejecución real. |
 | P-BCR-04 | ¿Cuál es la línea de `MEKYTL0985` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (clave@origen@máscara@destino@falla-si-no-hay-fichero@tipo@días@operación)? | **Abierta.** Solo se conoce por la ficha funcional: origen `/fichtemcomp/pr/descargas/kytl/investorsPlan/`, máscara `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`, destino `.../investorsPlan/old/`, nombre `Reporte_SSI_ONLINE_INVESTORSPLAN_DDMMYYYYHHMM.gz`, "no falla si no hay fichero". Importa para confirmar la operación exacta (comprimir y mover) y el código si no hay fichero (6 si "falla si no hay fichero" vale 0; en cualquier caso Control-M lo deja en OK por `ON NOTOK → OK`). |
 | P-BCR-05 | ¿Qué job o workflow genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*` en `/fichtemcomp/pr/descargas/kytl/investorsPlan/` y con qué contenido? Probablemente el subworkflow `SSIs_Fx_Reporte`, pero no está confirmado. | **Resuelta en parte (descarta la hipótesis).** `SSIs_Fx_Reporte` ya está analizado con el `.wkf` real (§6.19): solo inserta filas en `FT_T_RLT1` y `FT_T_VREQ`, **no escribe ningún fichero**. Ningún workflow ni jar analizado de esta cadena genera `Reporte_SSI_ONLINE_INVESTORSPLAN*.*`. **Sigue abierto** qué proceso lo deja en `investorsPlan/`. Importa porque es lo único que archiva el último job. |
 | P-BCR-06 | ¿Qué destinatarios, ruta (`RUTA`) y plantilla tienen en `FT_T_REP1`/`FT_T_ALR1`/`FT_T_ALM1` los procesos de alerta `RDR_ALTA_FONDOS`, `RDR_ALTA_FONDOS_ERROR` y `ALERT_IP_SSI`? | **Abierta.** Importa para poder comprobar en pruebas que el correo de alertas llega (el envío es global y silencioso ante datos inválidos, §6.15). |
-| P-BCR-07 | El `RDR_AltaFondos.properties` citado en §6.9 (valores `ArgJava3="G"`, `args[3]="NODCS"`, `ArgProp2=...`) no ha podido recontrastarse con la evidencia disponible al completar esta spec; los `.properties` de R6/R7 no se han aportado y los de alertas aportados llevan rutas literales `/ei/...` (entorno de integración). ¿Los `.properties` desplegados en `pr` son idénticos y quién sustituye `ei` por `pr` (cf. P-GSP-01 en `comun_gsprocess`)? | **Abierta.** Importa porque de ellos dependen el orden de los pasos, si algún paso tiene `Stop=Ok` y las rutas reales de trabajo. |
+| P-BCR-07 | El `RDR_AltaFondos.properties` citado en §6.9 (valores `ArgJava3="G"`, `args[3]="NODCS"`, `ArgProp2=...`) no ha podido recontrastarse con la evidencia disponible al completar esta spec; los `.properties` de R6/R7 no se han aportado y los de alertas aportados llevan rutas literales `/ei/...` (entorno de integración). ¿Los `.properties` desplegados en `pr` son idénticos y quién sustituye `ei` por `pr` (cf. P-GSP-01 en `comun_gsprocess`)? | **Resuelta en parte (3ª pasada).** Según la plantilla de despliegue (repositorio `estaticos`, rama develop; `@@ENV@@` lo sustituye el plan por `de`, `ei`, `pp` o `pr`): `RDR_AltaFondos.properties` (R8) coincide con §6.9, `clientelaBDI_Altas_response.properties` (R6) y `Investors_Client_Reg_resp.properties` (R7) se describen en §6.1, §6.2 y §6.24, y **ninguno tiene `Stop`**; las rutas `/ei/` de las copias de alertas eran de integración, la plantilla usa `@@ENV@@`. **Sigue abierto** verificar los instalados en `pr`. |
 | P-BCR-08 | `RDR_AltaFondos_Autocalc_PARTY` decide entre `RDR_AltaSCF_Marca` y `WKF-Autocalculos-Enriquecimiento` según haya en `FT_T_UTD1` una fila `MNEM_OPE` con `LAST_CHG_USR_ID='SCF'`, pero `AltaFondos_CuadreCarga.jar` escribe los atributos `MNEM_*` con usuario `INVESTORSPLAN_FUNDS`. ¿Qué componente escribe `MNEM_OPE` con usuario `SCF` y cuándo? | **Abierta.** Con el código recibido, un fondo del canal Investors Plan nunca entraría por la rama SCF. Importa para saber qué rama de enriquecimiento se debe probar. |
 | P-BCR-09 | ¿Qué componente deja la petición padre `FILE_DATE` en estado `ALTA_FONDOS_PEND` (plural), que es lo que busca `AltaFondos_CuadreCarga.jar`? Ni `AltaFondos_Genera_csv` (que usa `ALTA_FONDO_PEND`, singular, para las hijas) ni los workflows recibidos lo escriben. | **Resuelta.** Lo escribe R7: `Peticion.procesaPeticion` de `Investors_Client_Reg_resp.jar` (§6.2), con `updateVREQDescripByOid(oidPeticion, "ALTA_FONDOS_PEND", ...)` y el texto «X fondos correctos. Y fondos incorrectos.», cuando al menos un fondo de la petición es válido (cada fondo hijo queda en `ALTA_FONDO_PEND`, singular). Si ninguno es válido la petición queda en `ERROR_CLI_REG_PROC`. |
 | P-BCR-10 | ¿Se pueden obtener los subworkflows internos de `Global Regulatory Information` y `OperativeRegulatoryInformation` (`Calculate ...`, `... Extraction`, `Auxiliary DFA Data Extraction`, `CreateShortname`)? | **Resuelta.** Los 23 subworkflows (16 del árbol Global y 7 del Operativo) están analizados con los `.wkf` reales (rama de Eduardo): ver §6.22. |
+| H-BCR-08 | Argumentos, rutas y `Stop` de `clientelaBDI_Altas_response.properties` e `Investors_Client_Reg_resp.properties`. | **Resuelta en parte (3ª pasada):** literales según la plantilla en §6.1 (R6: rutas, patrón, `DirJava1=-Xmx16G`, sin `Stop`) y §6.2/§6.24 (R7: nivel de log y `log4jAlertFX.properties`, sin rutas ni `Stop`). Falta verificar lo instalado en el servidor. |
+| H-BCR-09 | Canal `DigitalCrossSelling`: ¿qué ejecución/`.properties` lo lanza? | **Abierta (3ª pasada).** En la plantilla de despliegue el único `.properties` que invoca `AltaFondos_Genera_csv` es `RDR_AltaFondos.properties`, con `ArgJava4=NODCS`; ninguna otra ejecución pasa `DCS`. |
+| H-BCR-25 | Contenido de los `log4j*.properties` de la cadena. | **Resuelta (3ª pasada):** §6.24 (`log4jClientelaBDI_Altas`, `log4jAlertFX`, `log4jAltaFondos`, `log4jAlertasBarrido`, `log4jAlertasCocinado`). |
+| H-BCR-28 | `GestionAlertas.properties` y `ServerMailConfig.xml` de producción. | **Resuelta en parte (3ª pasada):** la plantilla genérica `GestionAlertas.properties` coincide con §6.12 y `ServerMailConfig.xml` tiene un `server` por entorno con `host` y `user`, enmascarados en la plantilla (§6.24). Falta verificar los instalados y los valores reales. |
 
 ## 5. Especificación funcional
 
@@ -228,8 +232,34 @@ código, solo el mismo paquete de utilidades de log).
   - **Salida 0 ante fallo de arranque:** si falla la configuración (argumentos que faltan, log4j o conexión a base
     de datos), `main` hace `return` sin `System.exit`: el proceso termina con código 0 sin haber hecho nada
     (invisible para `GSProcess.sh`, mismo patrón que `AltaFondos_Genera_csv`, §6.10).
-  - El valor real de las rutas y del patrón (P-BCR-02) sale de `clientelaBDI_Altas_response.properties`, que
-    sigue sin aportarse.
+  - **Valores reales de los argumentos (`clientelaBDI_Altas_response.properties`, según la plantilla de despliegue; CRLF; `@@ENV@@` = entorno; cierra en parte P-BCR-02 y H-BCR-08):**
+
+    ```
+    MOD_EJECUCION=clientelaBDI_Altas_response      Servicio=clientelaBDI_Altas_response   (Ruta= y File= vacíos)
+    Accion=VariablesGlobales
+    NomPaquete1=ConexionBD.jar   NomPaquete2=clientelaBDI_Altas_response.jar   NomClaseJava=main.Main
+    ServicioJava=clientelaBDI_Altas_response
+    ArgJava1=2                                       -> args[0]: nivel de log INFO
+    PreArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties
+    ArgJava2=log4jClientelaBDI_Altas.properties      -> args[1]
+    PreArgJava3=/fichtemcomp/@@ENV@@/descargas/kytl/ClientelaBDI_Altas/response   (ArgJava3 vacío)  -> args[2]: entrada
+    PreArgJava4=/fichtemcomp/@@ENV@@/descargas/kytl/ClientelaBDI_Altas/old        (ArgJava4 vacío)  -> args[3]: histórico
+    PreArgJava5=/fichtemcomp/@@ENV@@/descargas/kytl/ClientelaBDI_Altas/error      (ArgJava5 vacío)  -> args[4]: error
+    ArgJava6=clientesFondosFX_ACKNACK                -> args[5]: patrón (subcadena del nombre)
+    Libreria1=ojdbc8.jar   Libreria2=log4j.jar
+    DirJava1=-Xmx16G
+    Accion=Java
+    ```
+
+    `GSProcess.sh` añade `/` a cada `PreArgJava*`, de modo que las tres rutas llegan con `/` final. No hay ninguna clave `Stop`. **Matiz de la JVM:** `DirJava1=-Xmx16G`
+    activa las "directivas personalizadas" de `GSProcess.sh`, que **sustituyen** a las por defecto: el comando es
+    `<javahome>/bin/java -Xmx16G -cp <jar>/ConexionBD.jar:<jar>/clientelaBDI_Altas_response.jar:<lib>/ojdbc8.jar:<lib>/log4j.jar main.Main …`,
+    sin `-Dfile.encoding=iso-8859-1`, sin `-DENV` y sin `-DpropertiesPath` (los otros jars de la cadena sí los llevan). El juego de
+    caracteres con que se lee el fichero de 600 caracteres es, por tanto, el de la JVM/locale del usuario `xakytl1p`. La plantilla no tiene
+    `JDKV` (migración a Java 17 en curso). El patrón `clientesFondosFX_ACKNACK` es subcadena del patrón `clientesFondosFX_ACKNACK_*.txt` del
+    filewatcher `RDR_PR_BDICLIENREG_RESP_FW`, así que R6 procesa el mismo fichero que éste espera (el `ctmfw` exige además la extensión `.txt`; R6 acepta cualquier nombre que
+    contenga el patrón en `response/`). Existen en la plantilla variantes `clientelaBDI_Altas_responseSCF.properties` y `…SCFF.properties` con los **mismos**
+    argumentos pero otro jar (`clientelaBDI_Altas_responseSCF.jar`); ningún job de esta cadena las lanza (`GS_BDICLIENTREG` usa `clientelaBDI_Altas_response`).
   - **Cautela sobre la procedencia del jar:** el `clientelaBDI_Altas_response.jar` de la rama de Eduardo es una
     compilación Maven del 16/09/2026 hecha en un ejecutor de integración continua con JDK 17, y sus clases están en el
     paquete `clientelabdi_altas_response`; no se puede afirmar que sea el artefacto desplegado en producción (la
@@ -246,7 +276,10 @@ escribe usan `DATA_SRC_ID='INVESTORS_CLIENTREG_RESP'`, confirmando que este es e
 - **Punto de entrada y orquestación (decompilado del jar real, rama de Eduardo; clases `main.Main`,
   `peticiones.Peticiones`, `Peticion`, `Fondo`, `RespuestaCliente`):**
   1. `main.Main` solo recibe `args[0]` (nivel de log) y `args[1]` (`log4j.properties`); no hay rutas ni
-     ficheros. Si falla la configuración (log4j o base de datos) hace `return` y el proceso termina con
+     ficheros. Según la plantilla de despliegue, `Investors_Client_Reg_resp.properties` pasa `ArgJava1=2` y
+     `PreArgJava2`+`ArgJava2` = `<dat/properties>/log4jAlertFX.properties` (el `log4j` compartido con la alerta online de FX, no el de ClientelaBDI);
+     jars `ConexionBD.jar` + `Investors_Client_Reg_resp.jar`, clase `main.Main`, librerías `ojdbc8.jar` y `log4j.jar` (declaradas como
+     `Libreria1` y `Libreria3`), sin `DirJava` (directivas por defecto, con `-Dfile.encoding=iso-8859-1`) y **sin `Stop`**. Si falla la configuración (log4j o base de datos) hace `return` y el proceso termina con
      código 0 sin haber hecho nada.
   2. `Peticiones.procesaPeticiones`: ejecuta `selectPeticionesPosibles` y trata **todas** las peticiones
      `FILE_DATE`/`NEW_CLIENTS` cuya fecha ya tiene una fila `FIELD_RESP`/`HORA` escrita por R6 (punto de enganche
@@ -857,9 +890,13 @@ clientelaBDI_Altas_response`, `GSProcess.sh Investors_Client_Reg_resp`, `GSProce
   la cadena no avanza a R9. Los fallos de `Evento`/`Workflow` y de `Property` ni siquiera llegan a `$Errores` (ver
   los hallazgos de los puntos 3 y 4). Claves de parada: `StopJav`, `StopScr`, `StopEve`, `StopProp` en la línea del
   paso o `Stop` en la línea `Accion=Variables` global; solo el valor `Ok` detiene todo el proceso con `exit 1`.
-  Mismo mecanismo (motor compartido) en R6, R7 y R9; de sus `.properties`, solo se ha aportado el de R9
-  (`GestionAlertas_ALERT_IP_SSI.properties`, §6.17: sin ninguna clave `Stop`), así que R6 y R7 podrían tener
-  `Stop=Ok` en alguna línea (P-BCR-07).
+  Mismo mecanismo (motor compartido) en R6, R7 y R9; según la plantilla de despliegue, ni los `.properties` de R6 y R7
+  (§6.1, §6.2) ni el de R9 (§6.17) llevan ninguna clave `Stop`, de modo que ninguno de los cuatro módulos corta nunca la cadena de
+  subprocesos (P-BCR-07, resuelta en parte: falta verificar lo instalado). Según la misma plantilla, `RDR_AltaFondos.properties`
+  coincide con la receta de R8 de esta sección y agrupa **tres bloques** con sus propias claves `MOD_EJECUCION` y `Servicio`
+  (`RDR_AltaFondos`, `CSVToXML_Layout`, `AltaFondos_CuadreCarga`) y dos `Ruta`/`File` (el segundo bloque fija
+  `File=…/AltaFondos/csv/altasmasivas.xml`); como los eventos reciben el `.properties` completo, un lector que se quede con la última
+  aparición de una clave vería `Servicio=AltaFondos_CuadreCarga`.
 - **Cerrado:** el código de `main.Main` de `AltaFondos_CuadreCarga.jar` se ha obtenido descompilando el jar
   (§6.20): confirma el mismo patrón de `AltaFondos_Genera_csv` (nivel de log + `.properties` de log4j, y
   `return` sin `System.exit` si falla la configuración, es decir código de salida 0).
@@ -1131,7 +1168,8 @@ con `ArgProp1=GestionAlertas_ALERT_IP_SSI`/`ArgProp2=PROCESOS-ALERT_IP_SSI` — 
 proceso real sustituido en la plantilla genérica (§6.12) para R9 es **`ALERT_IP_SSI`**, invocado una sola vez
 (no x2 como en R8, coherente con la tabla de R9 en §3: un solo `Property(GestionAlertas)`). No contiene ningún
 paso `Accion=Java` propio — a diferencia de `RDR_AltaFondos.properties` (R8), este `.properties` de R9 se
-limita a orquestar el workflow y el paso final de alertas, sin invocar jars directamente.
+limita a orquestar el workflow y el paso final de alertas, sin invocar jars directamente. La plantilla de despliegue lo confirma literalmente
+(`Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, `Servicio=SSIsAlertFxOnline`, sin `Stop`); las rutas `/ei/` de la copia anterior eran de integración.
 
 ### 6.18 `Workflow(RecepcionAlertApiRest)` — componente compartido, confirmado con `.wkf` real
 
@@ -1458,6 +1496,30 @@ Oracle (no verificado si elimina la puntuación).
 
 Los tres se lanzan en paralelo y sin comprobar el resultado; la contraseña de base de datos viaja como parámetro de
 un evento interno de GoldenSource (riesgo de exposición en log/parámetros de evento).
+
+### 6.24 Ficheros de la plantilla de despliegue relacionados con esta cadena (3ª pasada de cierre)
+
+Procedencia: plantilla de despliegue (repositorio `estaticos`, rama develop). `@@ENV@@` es un marcador que el plan sustituye por
+`de`, `ei`, `pp` o `pr`; los valores no son una copia verificada de producción; hosts y buzones vienen enmascarados y no se copian.
+
+**Registros de log (todos con `rootLogger=info, R`, `RollingFileAppender`, 3 copias y patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`; cierra H-BCR-25 salvo el contenido de los jars):**
+
+| `log4j*.properties` | Lo usa | Fichero de log (`/<env>/kytl/online/multipais/multicanal/logs/`) | Tamaño por fichero |
+|---|---|---|---|
+| `log4jClientelaBDI_Altas.properties` | R6 (`clientelaBDI_Altas_response.jar`; también el jar de petición hermano) | `ClientelaBDI_Altas.log` | 100000 KB |
+| `log4jAlertFX.properties` | R7 (`Investors_Client_Reg_resp.jar`) | `AlertFX.log` (compartido con la alerta online de FX) | 15000 KB |
+| `log4jAltaFondos.properties` | R8 (`AltaFondos_Genera_csv.jar` y `AltaFondos_CuadreCarga.jar`) | `AltaFondos.log` | 15000 KB |
+| `log4jAlertasBarrido.properties` | Barrido de alertas | `AlertasBarrido.log` | 100000 KB |
+| `log4jAlertasCocinado.properties` | Cocinado de alertas | `AlertasCocinado.log` | 100000 KB |
+
+**`ServerMailConfig.xml`** (lo lee el subworkflow `Mail`, §6.15): raíz `root` con un `server id="de|ei|pp|pr"` por entorno y las etiquetas `host` y `user`; la plantilla trae ambos valores enmascarados, de modo que el servidor SMTP y el remitente reales no constan.
+
+**Módulos hermanos en la plantilla (fuera de las 10 jobs de esta cadena, solo contexto):**
+
+* `clientelaBDI_Altas_request.properties`: jar `clientelaBDI_Altas_request.jar` (`main.Main`, no incluido en la plantilla) con `ArgJava1=2`, `log4jClientelaBDI_Altas.properties` y fichero de salida `/fichtemcomp/@@ENV@@/descargas/kytl/ClientelaBDI_Altas/send/BDIClien_Altas_YYYYMMDDHHMMSS.req`. Es la mitad de ida de este mismo ciclo (genera lo que R6 contesta); la cadena que lo lanza no es esta.
+* `Investors_csv_recep.properties` (módulo `InvestorsPlanCSVFunds`): secuencia de pasos `Java Investors_csv_PreProcess.jar` (`main.java.Ppal`, entrada `investorsPlan/input`, patrón `fondosNEW_YYYYMMDDHHmmSS.csv`, `SubAccounts/input`) → `Java RDR_CargadorSubaccounts.jar` → `Evento Workflow RDR_Subaccounts` → `Java Investors_csv_process.jar` (`main.Main`, carpetas `investorsPlan/{input,old,send,errors}`) → `Property clientelaBDI_Altas_request` → cinco `Property GestionAlertas` (`VALIDACIONES_ALTA_FONDOS`, `WARNINGS_ALTA_FONDOS`, `REG_FONDOS_ALTA_FONDOS`, `SOLICITUD_ALTA_FONDOS`, `CARGADOR_ROLES_SUBACCOUNTS`). Los jars no están en la plantilla; por el nombre de la carpeta de entrada y por encadenar `clientelaBDI_Altas_request`, es el punto de entrada anterior a esta cadena (hipótesis: no se ha visto qué escribe cada jar).
+* `InvestorsPlan_Alertas.properties` (módulo `InvestorsPlanAlertas`): tres `Property GestionAlertas` con los procesos `Inventario_Gestoras_Alert_Mirror`, `Inventario_Peticiones_Gestoras_Alert_Mirror` e `Inventario_Errores_Peticiones_Gestoras_Alert_Mirror` (inventarios del servicio externo Alert Mirror; no los lanza esta cadena).
+* `ConBDI.properties.{de,ei,pp,pr}` (conciliación BDI) llevan `ControlCase`, `CreateReport` y `RDR_PLSQL.jar` sin paquete, y no forman parte de esta cadena; su análisis es de la conciliación (`rdr_conciliacion_bdi`) y de las specs comunes.
 
 ## 7. Especificación de testing
 
@@ -1798,6 +1860,8 @@ bloqueantes; `SSIs_Valida_Fx`, `SSIs_Fx_Exec`, `SSIs_Fx_Reporte`, `SSIsData_Fx`,
 (§6.19bis).
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
+**3ª pasada de cierre:** los `.properties` y `log4j` de la plantilla de despliegue se resumen en §6.1, §6.2, §6.9, §6.17 y §6.24; R6 usa
+directivas de JVM personalizadas (`-Xmx16G`, sin `file.encoding`, `ENV` ni `propertiesPath`); ninguno de los cuatro módulos de la cadena tiene `Stop`.
 
 **Cierre sobre la planificación real (Control-M).** El export de los folders `_M`/`_T` (§6.0) matiza varias
 afirmaciones de la ficha funcional: ventana partida en dos con un hueco 11:30-12:30, FileWatcher sobre el patrón

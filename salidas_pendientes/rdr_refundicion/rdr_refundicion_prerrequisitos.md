@@ -31,7 +31,7 @@
 | TC-014 | Filas `PENDING` en `FT_T_RLT1` para A460/B460/B460C simultáneamente; acceso a logs de `GSProcess.sh` para confirmar `Tipologia=TOTAL` en la ejecución real. |
 | TC-015 | Filas `PENDING` en `FT_T_RLT1` para los 3 `RLT_DIF_ACC` (`A460`, `B460`, `B460C`); capacidad de invocar el workflow fijando `Tipologia` a `ALTA`/`BAJA`/`TOTAL` en 3 ejecuciones separadas; observación de la cola MQ `CLIENTELA` y de `FT_T_UTD1`. |
 | TC-016 | Capacidad de forzar un fallo controlado en un paso intermedio de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)`); acceso a `LOG_GENERICO`/`LOG_DIA` de `GSProcess.sh`. |
-| TC-018 | Línea con un `CLIENTEP` inexistente en una ejecución y ninguna en la siguiente; `Delta=Si`; acceso a `Refundicion/`, `Refundicion/old/` y a los logs; el script `errores_to_file.sh` instalado en el entorno de pruebas (no recibido) |
+| TC-018 | Línea con un `CLIENTEP` inexistente en una ejecución y ninguna en la siguiente; `Delta=Si`; acceso a `Refundicion/`, `Refundicion/old/` y a los logs; el script `errores_to_file.sh` instalado en el entorno de pruebas (según la plantilla de despliegue, analizado en la spec §6.3) |
 | TC-019 | Permiso para cambiar `FT_T_PAR1` (`DIFFUSMODE`/`MQQUEUE`/`CLIENTELA`) y para invocar `Sub_SendMessageToMQQueue`; cola MQ de pruebas o interceptada |
 | TC-017 | Cola MQ `CLIENTELA` de pruebas (o interceptada); dos clientes locales con `FT_T_RLT1` `PENDING`/`B460`, uno con dos folios `NUMFOLIO` activos en oficinas distintas y otro sin folios. |
 
@@ -110,5 +110,5 @@
   producción, y a qué cadena pertenecen realmente `ConContrato460.java`/`ConDB.java` — código confirmado,
   pero ya se sabe que no es parte de `RDR_REFUNDICION_new`.
 - `Sub_SendMessageToMQQueue`, `Sub_check_CCLIENIDFISCAL_GS`, `SUB_GET_FOLIO`, `HistoricizeFiles`, `MarcaRegErroneo`
-  y `SubErroresCSV` están analizados (spec §6.1). Queda fuera, sin material, el script `errores_to_file.sh`
-  (llamado por `MarcaRegErroneo`).
+  y `SubErroresCSV` están analizados (spec §6.1). El script `errores_to_file.sh` (llamado por `MarcaRegErroneo`) está
+  analizado en la spec §6.3 según la plantilla de despliegue.

@@ -45,8 +45,9 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
   Infraestructura de Contratos (IC), sistema externo a RDR — no cambia el comportamiento testeable de
   esta cadena, que solo consume el fichero una vez depositado.
 - `fillingRules_CN460.csv` (el fichero de reglas, en `/pr/kytl/online/multipais/multicanal/dat/properties/`):
-  no se obtuvo, así que se desconoce qué columnas son obligatorias, de qué longitud, numéricas o
-  clave de duplicados (P-C460-01). Lo que sí se sabe del programa `ControlCargaDatos.jar`
+  **Corrección (3ª pasada):** el contenido ya se conoce según la plantilla de despliegue y está analizado en §6.10 (`CCLIEN`
+  obligatorio, de 9 caracteres exactos y con caracteres permitidos; `FOLIO` con caracteres permitidos; sin clave de duplicados). Queda por
+  verificar que lo instalado en producción coincide (P-C460-01). Lo que se sabe del programa `ControlCargaDatos.jar`
   (clase `controlcargadatos.ControlCase`, ver `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md`):
   **valida, no transforma**. Lee `CN460_ConCabecera.csv` registro a registro y separa en
   `CN460_ConCabecera_processed.csv` (válidos, con la cabecera y los campos sin espacios en los extremos) y
@@ -66,10 +67,11 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
   implementación, por decisión explícita del usuario (no es relevante para esta especificación si hay o
   no un defecto en ese aspecto).
 - La tercera consulta de informe hallada en `select.properties` (clave `Contratos460`, sin `/Reportes`,
-  que generaría `Reportes_Errores_Contratos460.csv` filtrando `data_src_app='EC460'`): no aparece
+  que genera `Reportes_Errores_Contratos460.csv` filtrando `data_src_app='EC460'`): no aparece
   invocada en ningún punto del `.properties` real de `GSProcess.sh Contrato460` (que solo llama 2 veces a
-  `CreateReport`), por lo que no se incluye como salida de esta cadena. Se deja constancia del hallazgo
-  por si en el futuro se confirma que sí pertenece a este proceso.
+  `CreateReport`), por lo que no se incluye como salida de esta cadena. **Corrección (3ª pasada):** sí la invoca otro módulo,
+  `EnvioReporteMail` (plantilla de despliegue, §6.6): primer paso `CreateReport ... select.properties Contratos460`, y el fichero
+  generado es el que adjunta el correo. Pertenece, pues, al circuito de correo y no al pipeline de 11 pasos.
 
 ## 3. Requisitos detectados
 
@@ -77,7 +79,7 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
   el procesamiento.
 - Transformar el fichero de datos añadiéndole cabecera con 12 campos fijos.
 - Controlar duplicados sobre las filas de contrato activo antes de la carga.
-- Preprocesar/validar el fichero contra reglas de relleno (`fillingRules_CN460.csv`, fuera de alcance).
+- Preprocesar/validar el fichero contra reglas de relleno (`fillingRules_CN460.csv`, analizado en §6.10): `CCLIEN` obligatorio y de 9 caracteres, caracteres permitidos en `CCLIEN` y `FOLIO`.
 - Conciliar cada registro del fichero contra el universo de clientes activos de GoldenSource
   (relación `Cparty`/`Operative` activa con la organización BBVA `0182`).
 - Para cada registro activo (no cancelado) y con `CCLIEN` real (≠ `000000000`): delegar la carga/
@@ -106,13 +108,16 @@ Los gaps anteriores están resueltos. Preguntas pendientes y su estado tras la p
 
 | Id | Pregunta | Por qué importa | Estado |
 |---|---|---|---|
-| P-C460-01 | Contenido de `fillingRules_CN460.csv` (reglas por columna de las 12 columnas) | Decide qué filas llegan a `ConContrato460` y cuáles se rechazan a `_noprocessed.csv`; sin él no se pueden preparar datos de rechazo | Abierta |
+| P-C460-01 | Contenido de `fillingRules_CN460.csv` (reglas por columna de las 12 columnas) | Decide qué filas llegan a `ConContrato460` y cuáles se rechazan a `_noprocessed.csv`; sin él no se pueden preparar datos de rechazo | **Resuelta en parte** — contenido literal y efecto de cada regla según la plantilla de despliegue (§6.10): `CCLIEN` `NULL`+`POSICION(9)`+`USAR`, `FOLIO` `USAR`. Falta verificar que lo instalado en producción es idéntico |
 | P-C460-02 | Comandos `ctmfw` exactos de `FW_C460_RDR`/`FW_C460_RDR_2` (tamaño mínimo, intervalos, mediciones, tiempo máximo), calendario, hora y reglas `ON` (¿existe "7 → OK"?) de cada job | Define qué pasa cuando el fichero no llega (TC-006) y cuándo se da por completo | **Resuelta** — la ficha de Control-M (documento original del proceso, rama de Miguel) trae `CREATE 0 60 10 5 15` en ambos (espera máxima 15 min) y la regla `ON` "código de retorno 7 → OK" en ambos; calendario `LMXJVSD`, `RDR_C460_IN` tras las 07:00. Ver §5.1 |
-| P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica | Abierta (la ficha original de `MEKYTL0611` repite la ruta con espacio, sin aclararlo) |
-| P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` | **Resuelta en parte** — renombrado y máscaras conocidos por las fichas originales (§5.3); sigue abierto el campo "falla si no hay fichero" y la operación literal del IDX |
-| P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline | Abierta |
+| P-C460-03 | ¿`Reportes/Gestion Huerfanos/` (ficha de `MEKYTL0611`) y `Reportes/GestionHuerfanos/` (donde escribe `RDR_Report.jar`) son el mismo directorio? | Si no, `MEKYTL0611` falla y `RDR_C460_OUT` no se publica | Abierta (la ficha original de `MEKYTL0611` repite la ruta con espacio, sin aclararlo). La plantilla de despliegue confirma el lado del informe: la clave de `select.properties` y el argumento del paso 10 son `Contratos460/Reportes/GestionHuerfanos` (sin espacio); el lado del IDX no está en la plantilla |
+| P-C460-04 | Líneas del IDX de historificación de `MEKYTL0609`, `0610`, `0611` y `0642` (operación, renombrado, falla si no hay fichero) | Determina si un fichero ausente rompe la cascada y el nombre final en `old/` | **Resuelta en parte** — renombrado y máscaras conocidos por las fichas originales (§5.3); sigue abierto el campo "falla si no hay fichero" y la operación literal del IDX. Dato nuevo de `Duplicados.sh` (§6.9): `CN460_ConCabecera.csv_REPES` solo existe los días con claves repetidas, así que el campo importa de verdad para `MEKYTL0642` (TC-019) |
+| P-C460-05 | ¿El `.properties` de `Contrato460` lleva literalmente `Stop=OK` o `Stop=Ok`? | `GSProcess.sh` solo activa la parada con `Ok`; con `OK` un paso fallido no detiene el pipeline | **Resuelta** — la plantilla de despliegue lleva `Stop=OK` (coincide con la copia aportada por el usuario) y su `GSProcess.sh` compara con `Ok`: no hay parada global (§6.9) |
 | P-C460-07 | Código y comportamiento de `CONC460` y de los workflows `RDR_BajaContratos460`/`RDR_BajaCodTesBDIGesC460` | Parte de la carga y de las bajas queda sin verificar | **Resuelta en parte** — los dos workflows están analizados (§6.8): `RDR_BajaContratos460` arranca `BajaClientela460` y `RDR_BajaCodTesBDIGesC460` arranca `BajaCodTesBDIGesC460`; ambos drenan señales `PENDING` de `FT_T_RLT1` y las envían por MQ. **Sigue abierto** el cuerpo del procedimiento Oracle `CONC460` (único artefacto sin código) |
-| P-C460-08 | ¿Quién lanza el workflow de correo `envioReporteMail` (evento `RDR_Reporte_LEI_C460`, «Informe de modificaciones en los contratos 460») y qué adjunta? | Define si `Reportes_Contratos460.csv` se envía por correo y a quién | **Resuelta en parte** — el evento y el workflow existen en GoldenSource (§6.6) y no los lanza ningún paso del `.properties` de `Contrato460`; sus scripts BeanShell no están disponibles |
+| P-C460-08 | ¿Quién lanza el workflow de correo `envioReporteMail` (evento `RDR_Reporte_LEI_C460`, «Informe de modificaciones en los contratos 460») y qué adjunta? | Define si `Reportes_Contratos460.csv` se envía por correo y a quién | **Resuelta en parte** — el evento y el workflow existen en GoldenSource (§6.6) y no los lanza ningún paso del `.properties` de `Contrato460`; lo lanza el último paso del módulo `EnvioReporteMail` (plantilla de despliegue, §6.6) y lo que adjunta es `Reportes_Errores_Contratos460.csv` (clave `Contratos460`, `EC460`), no `Reportes_Contratos460.csv`. Siguen sin constar los destinatarios (no incluidos en la plantilla), el job que lanza `EnvioReporteMail`, la plantilla `Reportes_Errores_Contratos460` y los scripts del workflow |
+| H-C460-08 | Contenido de `log4jGestionCpartyC460.properties` (argumento 2 de `RDR_GestionCpartyC460.jar`) | Dónde y cómo registra el barrido de higiene | **Resuelta** — fichero de la plantilla de despliegue analizado en §6.11 (log rotativo `GestionCpartyC460.log`, 100 MB x 3, nivel `info`, sin consola) |
+| H-C460-02 | ¿Qué proceso envía por correo `Reportes_Contratos460.csv`? | Define destinatarios y adjuntos | **Resuelta en parte** — ver P-C460-08: lo lanza el módulo `EnvioReporteMail` y adjunta `Reportes_Errores_Contratos460.csv`, no `Reportes_Contratos460.csv`; faltan destinatarios y job (§6.6) |
+| P-C460-07 (3ª pasada) | `CONC460` y señales `B460C` | Ver P-C460-07 | Sigue **parcial**: `CONC460` no existe como `.sql`/script en la plantilla de despliegue (su carpeta `sql/` solo trae utilidades de mantenimiento) |
 
 ## 5. Especificación funcional
 
@@ -203,7 +208,9 @@ renombrado (0610, 0611, 0642) tratan un único fichero por ejecución; `MEKYTL06
 todos los `CN460_F*_*.csv` que haya con su nombre original. Ninguna ficha historifica `CN460.csv`, `CN460_ORI.csv`,
 `CN460_ConCabecera_processed.csv` ni `_noprocessed.csv`: esos ficheros permanecen en `Contratos460/` hasta
 que los sobrescriba la siguiente ejecución (IC para `CN460.csv`; el propio pipeline para los demás). Sigue sin constar la operación exacta del IDX (la
-ficha dice "Mover a") ni el campo "falla si no hay fichero" (P-C460-04). Si falla uno de los cuatro (códigos de `RAMERC0068.sh`: 2 clave ausente, 4/5 directorio
+ficha dice "Mover a") ni el campo "falla si no hay fichero" (P-C460-04); como `CN460_ConCabecera.csv_REPES` solo se crea los días con
+claves repetidas (§6.9), si el IDX de `MEKYTL0642` exige fichero la cascada se cortaría justo antes de `RDR_C460_OUT` los días sin repetidos
+(TC-019). Si falla uno de los cuatro (códigos de `RAMERC0068.sh`: 2 clave ausente, 4/5 directorio
 origen/destino inexistente, 6 sin fichero si el IDX lo exige, 7 error al mover) la cascada se detiene y
 `RDR_C460_OUT` no se publica; los ficheros ya movidos no se reponen. **Discrepancia a aclarar (P-C460-03):**
 `MEKYTL0611` toma el origen en `Reportes/Gestion Huerfanos/` (con espacio) mientras que `RDR_Report.jar`
@@ -245,9 +252,10 @@ MOD_EJECUCION=Contrato460 | Servicio=Contrato460 | BusinessFeed=Contrato460 | Ti
 
 **Cómo falla cada paso (código de `GSProcess.sh`, ver `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §7):**
 `Stop=OK` aparece en la cabecera del `.properties`, pero el código de `GSProcess.sh` compara el valor
-contra la cadena exacta `Ok`: si el fichero lleva realmente `OK` en mayúsculas, **la parada global no se
-activa** y un paso fallido no detiene los siguientes (P-C460-05). Con `Stop=Ok` real, una acción con código
-distinto de 0 terminaría el job con código 1 inmediatamente. En cualquier caso: `ControlCargaDatos.jar` y
+contra la cadena exacta `Ok`: como el fichero lleva realmente `OK` en mayúsculas (confirmado por la plantilla de despliegue, §6.9),
+**la parada global no se activa** y un paso fallido no detiene los siguientes (P-C460-05, resuelta): se ejecutan siempre los 11 pasos y
+`GSProcess.sh` acaba con código 1 si alguno falló. (Con `Stop=Ok` una acción con código distinto de 0 habría terminado el job con código 1
+inmediatamente.) En cualquier caso: `ControlCargaDatos.jar` y
 `RDR_Report.jar` terminan siempre con 0 (no se detecta su fallo; si no hay fichero de entrada el
 `_processed.csv` del día anterior sigue ahí y `ConContrato460` lo vuelve a leer, porque ningún paso del
 pipeline lo borra: solo se borra `CN460_ConCabecera.csv`, paso 11); un workflow fallido
@@ -269,7 +277,8 @@ implementación de la clave no se documenta más allá de esto — por decisión
 relevante para esta especificación si el mecanismo de deduplicación tiene o no un defecto de
 implementación.
 
-Además `Duplicados.sh` deja `CN460_ConCabecera.csv_REPES`, el fichero que historifica `MEKYTL0642`.
+Además `Duplicados.sh` deja `CN460_ConCabecera.csv_REPES`, el fichero que historifica `MEKYTL0642`, **solo los días en que hay alguna
+clave repetida** (ver §6.9).
 
 ### 6.2 `ConContrato460` (`RDR_PLSQL.jar`, clase `rdr_plsql.ConContrato460`)
 
@@ -393,7 +402,7 @@ fileNameContratos460/Reportes/GestionHuerfanos=Reportes_GestionHuerfanos.csv
 Filtra exactamente `data_src_app='GESTION_CPARTY_C460'`: es la salida literal de `insertarRLT1Huerfanos` de
 `GestionCpartyC460.jar` (§6.3).
 
-**Clave `Contratos460`** (no invocada por el `.properties` real; ver §2): genera
+**Clave `Contratos460`** (no invocada por el `.properties` real de `Contrato460`, sí por el módulo `EnvioReporteMail`, §6.6): genera
 `Reportes_Errores_Contratos460.csv`.
 ```
 queryContratos460=SELECT nombre, canonico, nvl(identificador_fiscal,' ') identificador_fiscal, foliordr, folioic, mensaje FROM (SELECT LISTAGG(t.inst_nme, ' | ') WITHIN GROUP(ORDER BY 1) AS nombre, LISTAGG(t.finsid, ' | ') WITHIN GROUP(ORDER BY 1) AS canonico, nvl(t.idfiscal,' ') identificador_fiscal, nvl(t.gs_value,' ') foliordr, nvl(t.src_value,' ') folioic, nvl(t.message_rlt,' ') mensaje FROM (SELECT DISTINCT fins.inst_nme, fiid2.fins_id finsid, rlt1.gs_value, rlt1.src_value, rlt1.message_rlt, nvl((select t1.idfiscal from (select fiid3.fins_id idfiscal, decode(fiid3.fins_id_ctxt_typ, 'N.I.F.', 'A', 'C.I.F.', 'B', 'CIFEX', 'C', 'D.N.I', 'D', 'FECNAC', 'E', 'TARJRES', 'F', 'PASAP', 'G', 'OTROS', 'H', 'EMPNORES', 'I', 'CODCLI', 'J', 'IBEI', 'K', 'HOMOCLAV', 'L', 'RFC', 'M', 'CURP', 'N', 'TAXID', 'O', 'Not_Def') orden, fiid3.inst_mnem from ft_t_fiid fiid3 where fiid3.data_stat_typ = 'ACTIVE' and fiid3.fins_id_ctxt_typ IN ('N.I.F.', 'HOMOCLAV', 'RFC', 'C.I.F.', 'FECNAC', 'CURP', 'CODCLI', 'D.N.I', 'CIFEX', 'EMPNORES', 'Not_Def', 'OTROS', 'PASAP', 'TARJRES', 'TAXID') order by orden) t1 where t1.inst_mnem = fiid2.inst_mnem and rownum=1), 'NA') idfiscal FROM ft_t_rlt1 rlt1, ft_t_fiid fiid, ft_t_fins fins, ft_t_fiid fiid2, ft_t_firl firl WHERE fiid.fins_id = rlt1.main_entity_id AND fiid.inst_mnem = fiid2.inst_mnem AND fiid.inst_mnem = fins.inst_mnem and firl.inst_mnem = fins.inst_mnem and firl.rel_typ = 'LOCAL' and firl.finsrl_typ = 'CUSTOMER' and firl.data_stat_typ = 'ACTIVE' AND rlt1.data_src_app = 'EC460' AND fiid.fins_id_ctxt_typ = 'CLIENTELAID' AND   fiid2.fins_id_ctxt_typ = 'FINSID'  AND   fiid2.data_stat_typ = 'ACTIVE' AND   fiid.data_stat_typ = 'ACTIVE' AND   fins.data_stat_typ = 'ACTIVE' AND   trunc(rlt1.start_tms) = trunc(SYSDATE)) t GROUP BY  t.gs_value, t.src_value, t.message_rlt, t.idfiscal)
@@ -443,6 +452,27 @@ ninguna planificación del motor que lo dispare. Conclusión: existe un envío p
 modificaciones en los contratos 460», pero no se puede afirmar que `Reportes_Contratos460.csv` salga por esa vía
 ni quién lo recibe; el `Reportes_Contratos460.csv` de §6.4 solo sale por correo si algo externo a los 11 pasos
 (un job de Control-M no documentado) lanza `RDR_Reporte_LEI_C460`.
+
+**Quién lo lanza y qué adjunta (3ª pasada, según la plantilla de despliegue).** Existe un módulo propio de `GSProcess.sh`, `EnvioReporteMail`
+(`EnvioReporteMail.properties.{de,ei,pp,pr}`; la variante `Aux` es una versión antigua con consultas más simples y una sola lista de adjuntos),
+que **sí** lanza el evento: su última acción es `Evento Workflow RDR_Reporte_LEI_C460`. Cadena del módulo `EnvioReporteMail`
+(`Servicio=Contratos460`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`):
+1. `RDR_Report.jar`/`CreateReport` con la clave `Contratos460` de `select.properties` → `Contratos460/Reportes_Errores_Contratos460.csv`
+   (consulta sobre `data_src_app='EC460'` del día: nombre, canónico, identificador fiscal, folio RDR, folio IC y mensaje, §6.4).
+2. `RDR_Report.jar`/`CreateReport` con la clave `ConClientela/ReporteLEI` → `ConClientela/ReporteLEI/Reporte_LEI.csv` (informe homólogo de LEI).
+3. `RDR_Envio_Reportes.jar`, clase `Envio_Reportes`, cuatro argumentos: el CSV de errores de C460, la plantilla `Templates/Reportes_Errores_Contratos460`,
+   el `log4jErroresReporteLEIC460.properties` y la etiqueta `ReporteC460`, más la ruta de salida sin extensión (`Contratos460/Reportes_Errores_Contratos460`).
+4. La misma clase para el informe LEI (`ReporteConCli`; salida `ConClientela/ReporteLEI/Reporte_LEI`).
+5. El evento `RDR_Reporte_LEI_C460` → workflow `envioReporteMail`, al que `GSProcess.sh` pasa el propio `EnvioReporteMail.properties`: de ahí salen
+   `Destination` (destinatarios), `Select1` (la misma consulta de errores `EC460`) y `Select2` (informe LEI: filas `REPORTES` de `CLIENTELA` del día
+   cuyo mensaje contiene `LEI` y no `Inserta`/`Actualiza`, unidas a las peticiones de `FT_T_VREQ` del servicio `CLIENTELA` posteriores al primer job
+   `CCL` cerrado del día) que corresponden a las dos variantes «C460» y «LEI» del workflow.
+Respuesta a P-C460-08: lo que el correo lleva es el informe de errores `Reportes_Errores_Contratos460.csv` (`EC460`) y el informe LEI, **no**
+`Reportes_Contratos460.csv`. Las variantes por entorno solo se diferencian en `Destination`: la plantilla de producción lo trae enmascarado
+(destinatarios no incluidos) y las de `de`, `ei` y `pp` lo traen vacío, es decir, **fuera de producción el módulo no envía a nadie**. Quedan
+sin constar: el job de Control-M que lanza `EnvioReporteMail`, los destinatarios reales, `RDR_Envio_Reportes.jar` y la carpeta `dat/Templates`
+(no incluidos en la plantilla), los scripts BeanShell del workflow y quién genera las filas `EC460` (solo se sabe que no lo hace ninguna clase Java analizada;
+el candidato es `CONC460`). `Contrato460.properties` y `EnvioReporteMail.properties` son, por tanto, dos módulos independientes.
 
 ### 6.7 La cola `...AGREEMENT.PUBLISH` del documento fuente (contrastado con la base de workflows)
 
@@ -539,10 +569,94 @@ consumidor y no se ha contrastado con el código de esa fase.
 - Los dos workflows leen siempre `FT_T_RLT1` completo, no solo lo de la ejecución actual: arrastran también señales
   `PENDING` de días anteriores.
 
+### 6.9 Plantilla de despliegue de la UUAA KYTL (contraste del 02/10/2026)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). **Reglas de lectura:** `@@ENV@@` es un marcador que el
+plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los ficheros `X.properties.pr/.pp/.ei/.de` son
+las variantes por entorno (el plan instala la del entorno como `X.properties`); los valores `.pr` son «valores de producción según la
+plantilla», no una copia verificada de producción. Las contraseñas y los hosts no vienen en la plantilla (enmascarados). La plantilla
+es la base **anterior a la migración a Java 17**: `GSProcess.sh` sin clave `JDKV` y clases sin paquete (`ControlCase`, `CreateReport`);
+las copias de las ramas con la migración llevan `JDKV=17` y `controlcargadatos.ControlCase`/`rdr_report.CreateReport`. Migración a
+Java 17 en curso: la plantilla `develop` sigue en la versión sin paquete. Puede haber diferencias entre la plantilla y lo instalado
+en un entorno; ante una evidencia de entorno contradictoria mandan, para ese entorno, el fichero instalado y su evidencia.
+
+| Fichero de la plantilla | Qué aporta |
+|---|---|
+| `Contrato460.properties` (único, sin variantes por entorno; fin de línea CRLF) | Coincide paso a paso con el pipeline de §6.1 (12 acciones: `VariablesGlobales` + 11). Literal `Stop=OK` en la acción de variables; ningún paso lleva `StopJav`/`StopScr`/`StopEve`. Rutas: todo con `@@ENV@@` (`/fichtemcomp/@@ENV@@/descargas/kytl/Contratos460`, `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties`). |
+| `fillingRules_CN460.csv` | Reglas de preprocesado de §6.10. |
+| `log4jGestionCpartyC460.properties` | Log de `GestionCpartyC460.jar`, §6.11. |
+| `Contrato460_SoloPubli.properties` | Variante «solo publicar»: `VariablesGlobales` (mismo `Servicio`/`Tipologia=TOTAL`, **sin** `Stop`) y solo los dos eventos `RDR_BajaContratos460` y `RDR_BajaCodTesBDIGesC460`. Sirve para reenviar por MQ las señales `PENDING` sin tocar el fichero ni recalcular nada. En el material no consta qué job la lanza (ninguno de los 9 jobs de la cadena). |
+| `EnvioReporteMail.properties.{de,ei,pp,pr}`, `EnvioReporteMailAux.properties.*`, `log4jErroresReporteLEIC460.properties` | Módulo de correo que lanza el evento `RDR_Reporte_LEI_C460`; ver §6.6 (bloque «Quién lo lanza»). |
+| `select.properties` (claves `Contratos460/Reportes`, `Contratos460/Reportes/GestionHuerfanos` y `Contratos460`) | Las tres líneas de cada clave (query, cabecera, fileName) coinciden literalmente con las transcritas en §6.4. `ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`. |
+| `GSProcess.sh`, `Generico.sh`, `Duplicados.sh` | Lo que se describe en §6.1 se ha contrastado con ellos (ver el párrafo siguiente). |
+
+**Contraste de §6.1 con `GSProcess.sh`, `Generico.sh` y `Duplicados.sh` de la plantilla.**
+- `GSProcess.sh` lee cada línea del `.properties` y le quita **el último carácter** del valor (por eso los ficheros van en CRLF) y solo
+  activa la parada global cuando `Stop` vale exactamente `Ok` (con `StopJav`/`StopScr`/`StopEve`/`StopProp` en su acción). El literal
+  `Stop=OK` de la plantilla **no cumple esa comparación**: ningún paso fallido detiene el pipeline, se ejecutan siempre los 11 pasos, el
+  contador de errores sube y `GSProcess.sh` termina al final con `ESTADO-1-` (código 1) si algún paso falló. Esto cierra P-C460-05
+  (coincide con la copia aportada por el usuario, que también llevaba `OK`).
+- Para las acciones `Evento` de tipo `Workflow` (pasos 7 y 8) `GSProcess.sh` lanza `executeBbvaEvent.sh fileloading <workflow>
+  <credenciales> Contrato460.properties` y, justo después, borra el `.properties` temporal que acaba de generar; el código de retorno que
+  evalúa a continuación es el de ese `rm -f`, no el del evento. Por eso un workflow fallido nunca se cuenta como error (explica la
+  afirmación de §6.1).
+- Todas las acciones `Java` se lanzan con `-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<entorno> -DpropertiesPath=<dat/properties>` (sin
+  `JDKV`, en la plantilla), con el classpath formado por los jars de `jar/` y las librerías de `lib/`.
+- El entorno se deduce del nombre de la máquina (`lp*`=pr, `lw*`=pp, `li*`=ei, `ld*`=de). Las rutas `$FILES`, `$CONF`, `$LOG` se
+  resuelven a `/fichtemcomp/<env>/descargas/kytl`, `/<env>/kytl/online/multipais/multicanal/dat/properties` y el directorio de logs de
+  `credentials.xml` (no incluido en la plantilla).
+- Paso 2 (`C460`, función de `Generico.sh`): copia `CN460.csv` a `CN460_ConCabecera.csv` (`cp -f`, permisos 666), inserta la cabecera como
+  línea 1 con `sed` y convierte el separador `¬` de la cabecera en `;`. El paso 1 (`CopiarFichero`) usa `cp -f` y `chmod 664`.
+  El paso 3 invoca `Duplicados.sh <ruta>/CN460_ConCabecera.csv` mediante la función `LanzaScriptBash` de `Generico.sh`.
+- `Duplicados.sh` (plantilla): convierte la entrada a formato UNIX, quita nulos, espacios finales y líneas vacías; separa las filas cuya
+  columna 9 (`F_CANCELACION`) es `0001-01-01` de las demás; las demás (y la cabecera, que no vale `0001-01-01`) pasan intactas; de las
+  centinela deja **una fila por clave `F_CANCELACION;CCLIEN`**; guarda en `CN460_ConCabecera.csv_REPES` todas las filas centinela cuya clave
+  aparece más de una vez; machaca la entrada con el resultado y la reconvierte a formato DOS (CRLF). **El fichero `_REPES` solo existe
+  los días en que hay alguna clave repetida** (se borra al empezar y solo se crea si hay repetidas), de modo que `MEKYTL0642` puede
+  encontrarse sin fichero que mover (ver P-C460-04 y TC-019). Sigue vigente la decisión del usuario: no se evalúa el detalle de la
+  deduplicación.
+- `Borrar` (paso 11) hace `rm -f` del `CN460_ConCabecera.csv`.
+
+### 6.10 Reglas de preprocesado: `fillingRules_CN460.csv` (según la plantilla de despliegue)
+
+Contenido literal (cabecera de 12 columnas y 3 filas de reglas):
+
+```
+PAIS;ENTIDAD;IUC;B;O;C;FOLIO;SITUACION;F_CANCELACION;CCLIEN;TIPO_INTERV;NUM_ORDEN
+;;;;;;;;;NULL;;
+;;;;;;;;;POSICION(9);;
+;;;;;;USAR;;;USAR;;
+```
+
+Aplicando la semántica real de `ControlCase` (spec común `comun_controlcargadatos`, §4; las reglas se leen por posición de columna):
+
+| Columna | Reglas | Efecto |
+|---|---|---|
+| `CCLIEN` (10) | `NULL`, `POSICION(9)`, `USAR` | Obligatorio; longitud exacta de **9** caracteres (el centinela `000000000` la cumple); solo caracteres permitidos. Mensajes de rechazo: `El campo CCLIEN es NULO` / `El campo CCLIEN no tiene la longitud correcta` / `Registro <n> con algún caracter no valido`. |
+| `FOLIO` (7) | `USAR` | Solo caracteres permitidos; vacío es válido. |
+| resto (`PAIS`, `ENTIDAD`, `IUC`, `B`, `O`, `C`, `SITUACION`, `F_CANCELACION`, `TIPO_INTERV`, `NUM_ORDEN`) | ninguna | No se valida (`F_CANCELACION` no se comprueba como fecha). |
+
+No hay regla `DUPL`: este paso **no elimina duplicados** (de eso se ocupa `Duplicados.sh`, paso 3). Consecuencias para las pruebas: un
+`CCLIEN` con 8 o 10 cifras, vacío, o un `FOLIO`/`CCLIEN` con un carácter no permitido (por ejemplo `<`, o una `é` en un fichero UTF-8)
+va a `CN460_ConCabecera_noprocessed.csv` y **nunca llega a `ConContrato460`**; el recuento aparece en `Contratos460_preprocess_summary.log`.
+Ese log y los dos CSV se escriben en `/fichtemcomp/<env>/descargas/kytl/Contratos460/` (en este proceso el argumento 2 del paso 4 apunta a
+la carpeta `Contratos460`, a diferencia de otros procesos que lo escriben en el directorio de logs).
+Este fichero es una única versión, común a todos los entornos; «instalado en producción» no está verificado (necesita un `diff` con
+`/pr/kytl/online/multipais/multicanal/dat/properties/fillingRules_CN460.csv`).
+
+### 6.11 `log4jGestionCpartyC460.properties` (según la plantilla de despliegue)
+
+Fichero que recibe `GestionCpartyC460.jar` como argumento 2 (el argumento 1 `2` es el nivel y el 3, `PRO`, el entorno). Contenido efectivo:
+logger raíz `info` con un único appender `R` (`RollingFileAppender`) que escribe en
+`/@@ENV@@/kytl/online/multipais/multicanal/logs/GestionCpartyC460.log`, tamaño máximo 100000KB (unos 100 MB) y 3 copias de
+rotación, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`. El appender `stdout` (consola) se declara pero no se asocia al
+logger raíz, así que **no sale nada por consola**; las líneas de rutas de ejemplo (Windows y GoldenSource 8114) están comentadas. Para ver qué
+desactivó o marcó el barrido de higiene hay que mirar ese log (ruta en el servidor de cada entorno) y las filas de `FT_T_RLT1`.
+
 ## 7. Especificación de testing
 
-La matriz de `rdr_c460_casos_prueba.xml` (17 TC: TC-001 a TC-017) cubre los 9 tipos exigidos:
-`happy_path` (TC-001, TC-002), `borde` (TC-003, TC-004, TC-005), `negativo` (TC-006, TC-015),
+La matriz de `rdr_c460_casos_prueba.xml` (19 TC: TC-001 a TC-019) cubre los 9 tipos exigidos:
+`happy_path` (TC-001, TC-002), `borde` (TC-003, TC-004, TC-005, TC-018), `negativo` (TC-006, TC-015, TC-019),
 `error_funcional` (TC-007, TC-008, TC-016), `duplicidad` (TC-009), `conflicto_integridad` (TC-010, TC-011, TC-017),
 `datos_sinteticos` (TC-012), `regresion` (TC-013), `e2e` (TC-014).
 
@@ -567,8 +681,8 @@ vez de ejecución directa, según el criterio de la regla 5.
 | Tipo | Qué garantiza | Casos |
 |---|---|---|
 | `happy_path` | El flujo normal (contrato activo reconciliado, cadena completa sin incidencias) funciona | TC-001, TC-002 |
-| `borde` | Filas inválidas, el centinela `000000000` y el desfase de calendario fin de semana se manejan sin romper el job | TC-003, TC-004, TC-005 |
-| `negativo` | Ausencia de fichero (los filewatchers dan OK al agotar 15 min) y fichero vacío no corrompen el universo de conciliación y quedan trazados | TC-006, TC-015 |
+| `borde` | Filas inválidas, el centinela `000000000`, los rechazos de `fillingRules_CN460.csv` (`CCLIEN` vacío o ≠9 caracteres, caracteres no permitidos) y el desfase de calendario fin de semana se manejan sin romper el job | TC-003, TC-004, TC-005, TC-018 |
+| `negativo` | Ausencia de fichero (los filewatchers dan OK al agotar 15 min), fichero vacío y ausencia del fichero `_REPES` en días sin repetidos no corrompen el universo de conciliación ni cortan la cascada sin traza | TC-006, TC-015, TC-019 |
 | `error_funcional` | Las 2 ramas de`F_CANCELACION` (activo/cancelado) y el "no concilia" siguen su camino correcto; las señales `PENDING` de alta/baja se envían por MQ y pasan a `OK` | TC-007, TC-008, TC-016 |
 | `duplicidad` | El control de duplicados se ejecuta y el pipeline continúa sin fallar | TC-009 |
 | `conflicto_integridad` | Las relaciones de contrapartida que pierden conexión BBVA, y los nodos huérfanos de jerarquía, se detectan y desactivan; la baja de códigos BDI se envía y marca | TC-010, TC-011, TC-017 |
@@ -620,13 +734,13 @@ vez de ejecución directa, según el criterio de la regla 5.
 
 ## 10. Conclusión y requisitos de cierre
 
-**Proceso documentado; quedan abiertas las preguntas P-C460-01, P-C460-03 y P-C460-05 de §4 (P-C460-04, P-C460-07 y P-C460-08 resueltas en parte; P-C460-02 resuelta). De P-C460-07 solo falta el cuerpo de `CONC460`; los dos workflows de baja están analizados (§6.8).** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
+**Proceso documentado; tras la 3ª pasada (plantilla de despliegue) quedan abiertas la verificación de P-C460-01 (contenido de `fillingRules_CN460.csv` conocido, falta confirmar la copia instalada) y P-C460-03 (ruta de Huérfanos en el IDX de `MEKYTL0611`); P-C460-04, P-C460-07 y P-C460-08 siguen resueltas en parte; P-C460-02 y P-C460-05 resueltas. De P-C460-07 solo falta el cuerpo de `CONC460`; los dos workflows de baja están analizados (§6.8).** Los 6 gaps identificados (GAP-C460-001 a 006) quedan resueltos con evidencia real:
 `.properties` de `GSProcess.sh`, 2 jars decompilados (`RDR_PLSQL.jar`, `RDR_GestionCpartyC460.jar`),
 `select.properties`, `Duplicados.sh`, captura real de la Planificación de Control-M, y confirmación de
 negocio de la wiki del proceso. La relación nominal con el dominio
 `LAGR` queda descartada a nivel técnico con evidencia de código (ausencia total de `FT_T_LAGR`).
 
 Quedan fuera de alcance, declarados como tales: el procedimiento PL/SQL `CONC460`, el origen de los ficheros
-de entrada, el contenido de `fillingRules_CN460.csv` (P-C460-01), los sistemas que consumen los mensajes MQ y
+de entrada, los sistemas que consumen los mensajes MQ y
 el detalle de implementación de `Duplicados.sh`. Los 2 workflows de baja y la publicación en cola MQ están
 analizados en §6.8 y §6.7 (la cola `AGREEMENT.PUBLISH` del documento fuente no es la de esta cadena).

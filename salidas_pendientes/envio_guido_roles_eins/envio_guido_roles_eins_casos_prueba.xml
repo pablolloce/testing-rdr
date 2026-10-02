@@ -115,7 +115,7 @@
 
   <casoDePrueba id="TC-006" tipo="borde">
     <nombre>GUIDO_IMPORT.csv sin ninguna fila de aplicación KYTL</nombre>
-    <objetivo>Confirmar el riesgo RISK-GUIDO-002: si el filtro egrep no encuentra coincidencias, el fichero queda vacío y el evento GoldenSource se dispara igual (sin control de error entre pasos).</objetivo>
+    <objetivo>Confirmar el riesgo RISK-GUIDO-002 corregido: si el filtro egrep no encuentra coincidencias, devuelve 1, la cadena &amp;&amp; se corta antes del cat, el fichero queda sin filtrar (no se vacía) y el evento GoldenSource se dispara igual (sin control de error entre pasos).</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba con GUIDO_IMPORT.csv sintético modificable.</precondicion>
     </precondiciones>
@@ -128,9 +128,9 @@
       <paso numero="3">Verificar el contenido de GUIDO_IMPORT.csv tras la ejecución.</paso>
       <paso numero="4">Verificar si el evento GoldenSource UserRoleFileProcessing se ejecuta igualmente.</paso>
     </pasos>
-    <resultadoEsperado>GUIDO_IMPORT.csv queda vacío (0 bytes de datos) tras el filtrado; el evento executeBbvaEvent.sh se ejecuta igualmente al no estar encadenado con &amp;&amp; a la limpieza previa. El workflow UserRoleFileProcessing no procesa ningún usuario, escribe en su log «GUIDO File Processing Error: No user details found in incoming file OR None of the user data was processed successfully», no ejecuta las dos sentencias de baja (los usuarios y relaciones existentes no se dan de baja) y aun así regenera, en modo append, OFP_RDR.csv y OFP_ROLES_RDR.csv con el estado actual de RDR.</resultadoEsperado>
+    <resultadoEsperado>GUIDO_IMPORT.csv conserva todas sus filas (sin líneas vacías ni espacios), porque egrep sin coincidencias devuelve 1 y corta la cadena &amp;&amp; antes de sobrescribir el fichero; users/.guido_tmp queda vacío. El evento executeBbvaEvent.sh se ejecuta igualmente al no estar encadenado con &amp;&amp; a la limpieza previa y carga las filas de otras aplicaciones, calculando las bajas contra ellas. Si el fichero estuviera realmente vacío (0 bytes, caso distinto), el workflow no procesaría ningún usuario, escribiría «GUIDO File Processing Error: No user details found in incoming file OR None of the user data was processed successfully», no ejecutaría las bajas y regeneraría igualmente, en modo append, OFP_RDR.csv y OFP_ROLES_RDR.csv con el estado actual de RDR.</resultadoEsperado>
     <tipoValidacion>Inspección del fichero tras la limpieza + verificación de la ejecución del evento GoldenSource (log de executeBbvaEvent.sh).</tipoValidacion>
-    <criterioAceptacion>Se confirma que el evento se dispara sin control de error, documentando RISK-GUIDO-002 como comportamiento actual, no como validación superada.</criterioAceptacion>
+    <criterioAceptacion>Se confirma que el evento se dispara sin control de error y si el fichero queda vacío o sin filtrar, documentando RISK-GUIDO-002 como comportamiento actual, no como validación superada. Si el fichero queda vacío, el guidoLoad.sh instalado no es el de la plantilla de despliegue.</criterioAceptacion>
     <posibilidadFallo>Riesgo real: GoldenSource procesa una carga vacía sin que RDR lo detecte como anomalía, y los ficheros OFP se generan igualmente (con duplicados si ya existían, RISK-GUIDO-003). Si el log no muestra el mensaje de error, las bajas se habrían ejecutado y hay que revisar ft_t_ausr y ft_t_aurp.</posibilidadFallo>
   </casoDePrueba>
 

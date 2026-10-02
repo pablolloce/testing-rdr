@@ -5,6 +5,14 @@
 > el flujo SAIT — excluido de esta salida, ver sección 2), 45 capturas reales de Control-M
 > (GAP-GUIDO-002/003/005/006/007), código fuente real de `guidoLoad.sh` (GAP-GUIDO-001).
 >
+> **3ª pasada de cierre (plantilla de despliegue).** Según la plantilla de despliegue (repositorio `estaticos`, rama develop)
+> se han leído enteros `UserRoleFileProcessing.properties`, `guidoLoad.sh` y `Audit_Guido.sh`. `@@ENV@@` es un marcador que el plan
+> de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores son "de producción según la plantilla", no una copia verificada
+> de producción. La plantilla es la base anterior a la migración a Java 17 (migración en curso: `GSProcess.sh` sin `JDKV`; estos
+> scripts no usan Java propio). Resultados: valores reales de `fileDirectory`, `filePatternString`, `successAction` y
+> `outputFileDirectory` (sección 6), corrección del comportamiento de `guidoLoad.sh` sin filas KYTL (RISK-GUIDO-002) y nueva
+> sección 6 sobre `Audit_Guido.sh`.
+>
 > **Este documento cubre únicamente el flujo de distribución de roles GUIDO → EINS.** El flujo de
 > extracción SAIT (contratos), descrito en el mismo documento original, se deja fuera de esta
 > especificación: no se dispone de evidencia real para ninguno de sus gaps (GAP-SAIT-001 a 007).
@@ -49,8 +57,17 @@ La cadena `RDR_GUIDO_PR_new` combina un pipeline de **carga** de usuarios/roles 
 |----|----------|-----------------|
 | P-GUIDO-01 | ¿A qué hora arranca realmente `RDR_GUIDO_PASO`/`RDR_GUIDO_FW1` (hora mínima y máxima del job en Control-M)? Los filewatchers esperan como máximo 120 min, pero la franja citada es 01:00–06:00 (5 h). | Determina a qué hora termina por tiempo agotado cada filewatcher y hasta cuándo se puede depositar `GUIDO_IMPORT.csv`. |
 | P-GUIDO-02 | **Resuelta en parte.** ¿Qué sistema/proceso deposita `GUIDO_IMPORT.csv` en `users/`, a qué hora y con qué columnas? (solo se sabe que las filas de RDR llevan `,KYTL,` o `,kytl,`). Sobre qué lo retira: ningún job de Control-M lo mueve ni lo borra, pero el workflow de GoldenSource aplica `successAction` al fichero ya cargado (defecto `MOVE` a `/tmp/done`, que el `.properties` del evento puede cambiar), con lo que lo normal es que GoldenSource lo retire de `users/` al terminar la carga. **Sigue pendiente:** el sistema productor y su hora, las columnas (las define el mapeo `UserRoleMaintenance.mdx`, que no se ha recibido) y el valor real de `successAction`/`outputFileDirectory` en `UserRoleFileProcessing.properties`. | Si el fichero del día anterior permanece en la ruta, `FW1` podría darlo por recibido sin que haya llegado el nuevo. |
+| P-GUIDO-05 | **No bloqueante (3ª pasada).** ¿Qué job de Control-M ejecuta `Audit_Guido.sh` y con qué periodicidad? | Decide cuánto tiempo permanecen `OFP_*.csv` en `users/backup/` antes de pasar a `Guido_Export_OFP_<fecha>.tar.gz` |
 | P-GUIDO-03 | Contenido del `.idx` de backup de `MEKYTL1061` (`/pr/pl/envioweb/idx/bck/`): valor de `FALLA_NO_FICHERO`. | Con `SI`, la ausencia de `OFP_ROLES_RDR.csv` da código 60 en `MEGENV0001.sh` (enmascarado luego por el soft-failure); con `NO`, el job termina con 0 sin enviar nada. |
 | P-GUIDO-04 | **Resuelta en parte.** ¿Qué SQL/reglas aplica el evento `UserRoleFileProcessing` para construir `OFP_ROLES_RDR.csv`, y es normal que el fichero repita 21–22 veces el mismo bloque de 201 combinaciones (4341 líneas)? Resuelto: reglas y flujo completos (sección 6); el fichero se escribe con `append=true` sin vaciarlo antes, lo que permite repeticiones si el evento se ejecuta más de una vez sobre un fichero no enviado. **Sigue pendiente:** el texto de la consulta de `Sub_ActiveRoleActivityOFP` v4 y confirmar si la repetición de la muestra viene del modo `append` o de la propia consulta. | Es la única forma de saber si el fichero de roles que recibe EINS es correcto (ver GAP-GUIDO-004). |
+
+**Avance de la 3ª pasada de cierre (plantilla de despliegue):**
+
+* **P-GUIDO-02 — resuelta en parte.** `UserRoleFileProcessing.properties` fija `successAction:MOVE` y `outputFileDirectory:…/users/backup`: tras cargar, GoldenSource **mueve `GUIDO_IMPORT.csv` a `users/backup/`**, de modo que el fichero del día anterior no permanece en `users/` si la carga llega a ejecutarse (sección 6). Sigue pendiente el sistema productor, su hora y las columnas (mapeo `UserRoleMaintenance.mdx`).
+* **H-GUIDO-06 — resuelta en parte.** Literal del `.properties` en la sección 6; falta verificar que lo instalado en `pr` es igual.
+* **GAP-GUIDO-001, P-GUIDO-04 y H-GUIDO-07 siguen abiertos** para la consulta de `Sub_ActiveRoleActivityOFP`: la plantilla no trae esa consulta ni el mapeo `.mdx`.
+* **RISK-GUIDO-002 corregido** (riesgo 2 de la sección 9): sin filas KYTL el fichero **no se vacía**, se queda sin filtrar.
+* **Nuevo (no bloqueante):** `Audit_Guido.sh` (sección 6) archiva los `OFP_*.csv` de `users/backup/`; no se sabe qué job de Control-M lo lanza (P-GUIDO-05).
 
 **Qué ocurre si un filewatcher no encuentra su fichero (consecuencia del soft-failure genérico):** `ctmfw` termina con código 7 tras 120 min; la regla «código ≠ 0 → Marcar como OK» pone el job en verde y libera al siguiente. Con `FW1` sin `GUIDO_IMPORT.csv`: pasa a `RDR_GUIDO_CHMOD`, que falla de verdad (`chown`/`chmod` sobre un fichero inexistente; no tiene soft-failure) y la cadena se detiene ahí con KO real. Con `FW3` sin `OFP_ROLES_RDR.csv`: pasa a `MEKYTL1061`, que ejecuta `MEGENV0001.sh` sin fichero que enviar; el resultado depende de P-GUIDO-03 y, en cualquier caso, el job queda en verde (soft-failure) sin haber enviado nada.
 
@@ -98,6 +115,15 @@ FILE=/fichtemcomp/$env/descargas/kytl/users/GUIDO_IMPORT.csv \
 ```
 Ver riesgos 1 y 2 en la sección 9 sobre este bloque.
 
+**Lectura del script real (3ª pasada, `scrt/guidoLoad.sh` de la plantilla de despliegue; sin argumentos):** empieza con `cd` al directorio del script; el entorno es el primero que exista de
+`/fichtemcomp/de|ei|pp|pr/descargas/kytl` (en ese orden; no usa `hostname`). La limpieza es una sola línea con cuatro pasos encadenados con `&&`:
+`sed -i '/^$/d'` (quita líneas vacías) → `sed -i 's/ //g'` (quita **todos** los espacios) → `egrep '(,KYTL,|,kytl,)' … > users/.guido_tmp` (solo filas cuya columna de
+aplicación esté delimitada por comas) → `cat users/.guido_tmp > GUIDO_IMPORT.csv`. Los efectos laterales: el oculto `users/.guido_tmp` **no se borra** nunca (se sobrescribe cada día) y el
+filtro exige las comas a ambos lados, por lo que una fila con `KYTL` como primer o último campo no pasa. **`egrep` devuelve 1 cuando no hay ninguna coincidencia, lo que corta la cadena `&&` antes del `cat`:
+`GUIDO_IMPORT.csv` conserva todas las filas (sin líneas vacías ni espacios) y el evento las carga igualmente**; no se vacía (corrección del riesgo 2). La línea del evento va aparte y su código de salida es el
+código de salida del script: lo que devuelva `executeBbvaEvent.sh`, y `RDR_GUIDO_LOAD` no tiene soft-failure, así que un código distinto de 0 detiene la cadena; un workflow que termina sin cargar
+(`Another workflow is already running`) devuelve 0.
+
 **Evento `UserRoleFileProcessing` (workflow de GoldenSource).** Procedencia: volcado de la base de workflows de
 GoldenSource (workflow `UserRoleFileProcessing`, versión 15, grupo `Custom/RDR/Fileloading/Users`, última
 modificación 05/11/2022, comentario `OFP_ROLES_RDR_v2`, `haltOnError=Y`) y de sus cinco subworkflows. Los textos SQL
@@ -106,8 +132,21 @@ booleanos), que el volcado guarda como objeto binario no recuperable (se marcan)
 
 *Entrada.* El evento no define parámetros propios. `executeBbvaEvent.sh` lo lanza con 3 argumentos, así que usa como
 fichero de entrada `UserRoleFileProcessing.properties`, en el directorio `properties` de `credentials.xml`. Ese fichero
-**no se ha visto** y es el que da valor real a las variables del workflow (la ruta donde está `GUIDO_IMPORT.csv` no
-puede ser la de por defecto). Valores por defecto del workflow:
+(según la plantilla de despliegue; `dat/properties/UserRoleFileProcessing.properties`, formato `clave:valor`, finales de línea LF; `@@ENV@@` = entorno) es
+el que da valor real a las variables del workflow:
+
+```
+fileDirectory:/fichtemcomp/@@ENV@@/descargas/kytl/users/
+filePatternString:GUIDO_IMPORT.csv
+outputFileDirectory:/fichtemcomp/@@ENV@@/descargas/kytl/users/backup
+reportDirectory:/fichtemcomp/@@ENV@@/descargas/kytl/users/backup
+successAction:MOVE
+```
+
+No redefine `businessFeed` ni `messageType` (quedan `UserRoles` y `Users`). Consecuencias: el workflow busca `GUIDO_IMPORT.csv` en `users/` (no en `/tmp`);
+**tras cargarlo lo mueve a `users/backup/GUIDO_IMPORT.csv`** (mismo nombre; qué ocurre si ya hay uno del día anterior depende de la actividad de movimiento de GoldenSource, no visible) — por eso, tras una
+carga completada, el siguiente `FW1` espera un fichero nuevo y no ve el de ayer; si el workflow termina antes de cargar (otro workflow en ejecución, véase más abajo) el fichero se queda en `users/`; y `reportDirectory` apunta a `backup`, pero el volcado muestra que
+no interviene en la ruta de salida de los `OFP_*.csv`, que se escriben en `users/`. Valores por defecto del workflow:
 
 | Variable | Defecto | Para qué sirve |
 |---|---|---|
@@ -169,6 +208,8 @@ puede ser la de por defecto). Valores por defecto del workflow:
   `rol,módulo,nivel_acceso`.
 - La ruta `/tmp` de `reportDirectory` se pasa a los subworkflows pero no interviene en la ruta de salida.
 
+**`Audit_Guido.sh` (3ª pasada; `scrt/Audit_Guido.sh` de la plantilla de despliegue; Oficina Técnica de RDR, 26/10/2019; sin argumentos).** La cabecera dice "cuenta registros en ficheros según condiciones definidas", pero el código **no cuenta nada**: (1) `checkEnviroment` calcula el entorno por `hostname` (`lp*`→`pr`, `lw*`→`pp`, `li*`→`ei`, `ld*`→`de`; si no encaja, `exit -2`) y el usuario esperado (`xakytl1p`, `xakytl1w`, `xakytl1i`, `xakytl1d`); (2) `userExecution` exige que `whoami` coincida con ese usuario (si no, `exit -1`); (3) `guidoAudit` hace `cd /fichtemcomp/<env>/descargas/kytl/users/backup` y ejecuta `tar -czvf Guido_Export_OFP_<AAAA-MM-DD>.tar.gz OFP_ROLES_RDR.csv OFP_RDR.csv --remove-files`. Es decir, **archiva y borra de `backup/` los dos `OFP_*.csv` que `MEGENV0001.sh` historifica allí** tras `MEKYTL1061` y `MEKYTL1057`. Si falta uno de los dos, `tar` avisa ("Cannot stat"), archiva el otro y termina con código 2 (solo borra lo que archivó). No toca `users/` ni `GUIDO_IMPORT.csv`. No hay ningún job conocido de la cadena que lo lance ni ninguna referencia en el resto de la plantilla salvo informes de monitorización (P-GUIDO-05).
+
 **Envío (`MEKYTL1061`, evidencia real de Salida):**
 ```
 RUTA LOCAL          : /fichtemcomp/pr/descargas/kytl/users/
@@ -223,14 +264,14 @@ Referencia de casos por tipo:
 ## 9. Riesgos, defectos y gaps abiertos
 
 1. **RISK-GUIDO-001 — `sed -i 's/ //g'` en `guidoLoad.sh` elimina todos los espacios del fichero**, no solo los de alrededor (trim). Cualquier campo de `GUIDO_IMPORT.csv` con espacios legítimos (p. ej. un nombre de usuario) queda corrompido antes de cargarse en GoldenSource.
-2. **RISK-GUIDO-002 — la invocación del evento GoldenSource no está protegida ante fallo de la limpieza previa.** Las 4 operaciones de limpieza están encadenadas con `&&`, pero la línea `executeBbvaEvent.sh ...` es una sentencia independiente: si la limpieza falla a mitad (p. ej. `GUIDO_IMPORT.csv` no existe, o `egrep` no encuentra ninguna fila KYTL y deja el fichero vacío), el evento de carga GoldenSource se dispara igualmente, sin ningún control de error entre pasos.
+2. **RISK-GUIDO-002 — la invocación del evento GoldenSource no está protegida ante fallo de la limpieza previa (corregido en la 3ª pasada).** Las 4 operaciones de limpieza están encadenadas con `&&`, pero la línea `executeBbvaEvent.sh ...` es una sentencia independiente: si la limpieza falla a mitad, el evento de carga GoldenSource se dispara igualmente, sin ningún control de error entre pasos. **Corrección:** la versión anterior decía que, si `egrep` no encuentra ninguna fila KYTL, el fichero "queda vacío". Según el script real, `egrep` sin coincidencias devuelve 1, corta la cadena `&&` antes del `cat` y el fichero **queda sin filtrar** (con todas las filas, también las de otras aplicaciones, sin líneas vacías ni espacios): el evento carga entonces filas que no son de KYTL y las bajas se calculan contra ellas. Con un fichero inexistente, `sed` falla, el evento se lanza igualmente y el workflow escribe `No user details found…`.
 3. **DEF-GUIDO-001 — soft-failure genérico en `MEKYTL1061` enmascara cualquier fallo real de envío.** A diferencia de otros procesos RDR (donde el soft-failure está acotado a un código de retorno específico), aquí "código ≠ 0 → Marcar como OK" cubre **cualquier** fallo de `MEGENV0001.sh` (conexión Connect:Direct caída, fichero no encontrado, error de historificación, etc.). Un fallo real de negocio (EINS no recibe el fichero de roles) podría no generar ninguna señal de KO visible en Control-M — solo el correo de alerta (si se emite en ese código de error concreto). Riesgo de gobierno a evaluar con ANS RDR, análogo a DEF-BASK-001 de Cesión de Cestas a Abaco.
 4. **GAP-GUIDO-004 — resuelto con muestra real (2026-09-28).** Estructura confirmada: `rol,módulo,nivel_acceso` (26 roles × 22 módulos, `editable`/`read-only`), clave de negocio (rol, módulo). **Hallazgo pendiente de confirmar:** la muestra real aportada (4341 líneas) contiene solo 201 combinaciones distintas, repetidas consecutivamente unas 21-22 veces — no se puede determinar sin más contexto si es el comportamiento real de producción (lo que sería un hallazgo relevante de duplicación masiva no documentado hasta ahora) o un artefacto de cómo se obtuvo esta muestra concreta. Hoy se conoce un mecanismo que lo explica (RISK-GUIDO-003).
 5. **Predecesor de `RDR_GUIDO_PASO` no confirmado** (menor, no bloqueante): no se ha visto qué dispara el arranque diario de la cadena más allá del método "User Daily específico" (`PLAN_1200`).
-6. **RISK-GUIDO-003 — los ficheros `OFP_RDR.csv` y `OFP_ROLES_RDR.csv` se escriben en modo `append` sin vaciarlos antes.** Ni el workflow ni `guidoLoad.sh` los borran; solo los retira el `mv` de `MEGENV0001.sh` tras un envío correcto (el de `OFP_RDR.csv` lo hace `MEKYTL1057`). Si el evento se ejecuta otra vez antes de eso (relanzamiento de `RDR_GUIDO_LOAD`, un `MEKYTL1061` que falla enmascarado por el soft-failure y deja el fichero en `users/`, ejecuciones de días sucesivos), el fichero acumula copias y EINS recibe el rol repetido tantas veces. Es una causa posible, no confirmada, de la repetición de la muestra real.
+6. **RISK-GUIDO-003 — los ficheros `OFP_RDR.csv` y `OFP_ROLES_RDR.csv` se escriben en modo `append` sin vaciarlos antes.** (Con `successAction:MOVE` de la plantilla, un relanzamiento de `RDR_GUIDO_LOAD` el mismo día ya no encuentra `GUIDO_IMPORT.csv`, pero los `OFP_*.csv` se vuelven a añadir igualmente.) Ni el workflow ni `guidoLoad.sh` los borran; solo los retira el `mv` de `MEGENV0001.sh` tras un envío correcto (el de `OFP_RDR.csv` lo hace `MEKYTL1057`). Si el evento se ejecuta otra vez antes de eso (relanzamiento de `RDR_GUIDO_LOAD`, un `MEKYTL1061` que falla enmascarado por el soft-failure y deja el fichero en `users/`, ejecuciones de días sucesivos), el fichero acumula copias y EINS recibe el rol repetido tantas veces. Es una causa posible, no confirmada, de la repetición de la muestra real.
 7. **RISK-GUIDO-004 — bajas masivas con un `GUIDO_IMPORT.csv` incompleto.** Las bajas del workflow dan fin a todo usuario o relación que no esté en la carga. La única protección es que haya al menos una transacción sin error. `FW1` da el fichero por completo tras 3 mediciones iguales cada 10 s (unos 30 s sin crecer), y `guidoLoad.sh` filtra a las filas KYTL: un fichero cortado o con pocas filas KYTL da de baja al resto, incluidos los usuarios creados a mano en GoldenSource. Con el fichero vacío no hay bajas, pero los `OFP` se regeneran igualmente (TC-006).
 8. **El workflow termina sin error si ya hay otro en ejecución** (`Another workflow is already running`): `executeBbvaEvent.sh` lo ve como evento terminado, `FW3` espera `OFP_ROLES_RDR.csv` y, si no aparece, el soft-failure lo deja pasar a `MEKYTL1061` sin fichero.
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación se cierra con evidencia real verificada (45 capturas de Control-M, código fuente completo de `guidoLoad.sh`, captura real de la Salida de `MEKYTL1061`, y una muestra real de `OFP_ROLES_RDR.csv`) para la mecánica técnica completa del flujo: topología, disparadores, envío, historificación, comportamiento real de soft-failure y estructura de datos del fichero distribuido. **GAP-GUIDO-004 queda resuelto** (delimitador, columnas y clave de negocio confirmados), con un hallazgo pendiente de confirmar y no forzado: la muestra real contiene una duplicación masiva de bloques completos (201 combinaciones únicas repetidas ~21-22 veces en 4341 líneas), cuyo origen (comportamiento real de producción vs. artefacto de la captura) no se puede determinar sin más contexto. Quedan además dos riesgos de código (**RISK-GUIDO-001**, **RISK-GUIDO-002**) y un defecto de gobierno (**DEF-GUIDO-001**) registrados formalmente. El flujo SAIT del documento original queda fuera de esta especificación en su totalidad, pendiente de una ronda de evidencia propia. **Revisión 2026-10-02:** el workflow de GoldenSource `UserRoleFileProcessing` ya no es una caja negra (sección 6); siguen abiertos el texto de la consulta de `OFP_ROLES_RDR.csv`, `UserRoleFileProcessing.properties`, el mapeo `UserRoleMaintenance.mdx` y los puntos P-GUIDO-01 a P-GUIDO-03.
+La especificación se cierra con evidencia real verificada (45 capturas de Control-M, código fuente completo de `guidoLoad.sh`, captura real de la Salida de `MEKYTL1061`, y una muestra real de `OFP_ROLES_RDR.csv`) para la mecánica técnica completa del flujo: topología, disparadores, envío, historificación, comportamiento real de soft-failure y estructura de datos del fichero distribuido. **GAP-GUIDO-004 queda resuelto** (delimitador, columnas y clave de negocio confirmados), con un hallazgo pendiente de confirmar y no forzado: la muestra real contiene una duplicación masiva de bloques completos (201 combinaciones únicas repetidas ~21-22 veces en 4341 líneas), cuyo origen (comportamiento real de producción vs. artefacto de la captura) no se puede determinar sin más contexto. Quedan además dos riesgos de código (**RISK-GUIDO-001**, **RISK-GUIDO-002**) y un defecto de gobierno (**DEF-GUIDO-001**) registrados formalmente. El flujo SAIT del documento original queda fuera de esta especificación en su totalidad, pendiente de una ronda de evidencia propia. **Revisión 2026-10-02:** el workflow de GoldenSource `UserRoleFileProcessing` ya no es una caja negra (sección 6); siguen abiertos el texto de la consulta de `OFP_ROLES_RDR.csv`, el mapeo `UserRoleMaintenance.mdx` y los puntos P-GUIDO-01 a P-GUIDO-03. **3ª pasada:** `UserRoleFileProcessing.properties` (según la plantilla de despliegue: `successAction:MOVE` a `users/backup`) y el código real de `guidoLoad.sh` y `Audit_Guido.sh` están incorporados; el filtro de `guidoLoad.sh` no vacía el fichero sin filas KYTL (lo deja sin filtrar). Falta verificar en el servidor que lo instalado coincide con la plantilla.

@@ -43,7 +43,7 @@
     <pasos>
       <paso numero="1">Ejecutar la cadena con ese XML.</paso>
       <paso numero="2">Consultar FT_T_TRID para el JOB_ID de la carga con CRRNT_SEVERITY_CDE &gt; 39.</paso>
-      <paso numero="3">Comprobar que /fichtemcomp/&lt;env&gt;/descargas/kytl/LEI/LEI_errores.csv (cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;…;NOTFCN_SHORT_TXT;) contiene el registro erróneo como Funcional o Tecnico, que el del día anterior está en LEI/old/ y que, por traer LEI.properties Delta=Si, se ha escrito LEI/db_errores.txt (MarcaRegErroneo).</paso>
+      <paso numero="3">Comprobar que /fichtemcomp/&lt;env&gt;/descargas/kytl/LEI/LEI_errores.csv (cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;…;NOTFCN_SHORT_TXT;) contiene el registro erróneo como Funcional o Tecnico, que el del día anterior está en LEI/old/ y que, por traer LEI.properties Delta=Si, MarcaRegErroneo ha escrito LEI/db_errores.txt y errores_to_file.sh lo ha borrado al terminar (no debe quedar en disco) tras anteponer ERROR- a la línea de ese LEI en LEI/old/LEI.csv.</paso>
       <paso numero="4">Comprobar que los registros válidos están cargados en GoldenSource.</paso>
     </pasos>
     <resultadoEsperado>El registro erróneo aparece en FT_T_TRID con severidad mayor que 39 y en el fichero de errores; los registros válidos quedan cargados.</resultadoEsperado>
@@ -111,14 +111,14 @@
     <pasos>
       <paso numero="1">Ejecutar RDRKYTL001.</paso>
       <paso numero="2">Comprobar en el log que el evento MDX y RDR_Report.jar se ejecutan antes de Comprobar_fichero_LEI.sh.</paso>
-      <paso numero="3">Comprobar que, tras la comprobación, LEI.csv tiene el contenido de old/LEI_old.csv.</paso>
+      <paso numero="3">Comprobar que, tras la comprobación, old/LEI.csv y old/LEI_original.csv tienen el contenido que tenía old/LEI_old.csv (referencia del delta repuesta) y que el LEI.csv de la raíz de LEI/ sigue con solo la cabecera.</paso>
       <paso numero="4">Comprobar que se lanza GSProcess.sh aviso_LEI (log execute_aviso_LEI_&lt;AAAAMMDD&gt;.log).</paso>
       <paso numero="5">Comprobar quién recibe el correo, con qué asunto y qué adjunto.</paso>
     </pasos>
-    <resultadoEsperado>LEI.csv queda igual a old/LEI_old.csv y se lanza el aviso. Destinatarios, asunto y adjunto: los que defina aviso_LEI/SendMailReport (P-LEI-07); con la versión 16 recibida del workflow serían los cuatro destinatarios fijos, asunto "Informe diario carga contrapartidas" y adjunto Report.csv.</resultadoEsperado>
+    <resultadoEsperado>old/LEI.csv y old/LEI_original.csv quedan iguales a la antigua old/LEI_old.csv y se lanza el aviso con el LEI.csv de la raíz (solo cabecera) como adjunto. Destinatarios, asunto y adjunto: según aviso_LEI.properties (asunto "Reporte error carga de LEIs.", nombre de adjunto LEI.csv) si el SendMailReport desplegado los lee (P-LEI-07); con la versión 16 recibida del workflow serían los cuatro destinatarios fijos, asunto "Informe diario carga contrapartidas" y adjunto Report.csv.</resultadoEsperado>
     <tipoValidacion>Ficheros, logs de GSProcess.sh y buzones de prueba.</tipoValidacion>
     <criterioAceptacion>Pasos 2 a 4 cumplidos. El paso 5 se acepta comparándolo con la respuesta a P-LEI-07.</criterioAceptacion>
-    <posibilidadFallo>Si no se restaura o no se avisa, el comportamiento del script difiere del documentado (P-LEI-01).</posibilidadFallo>
+    <posibilidadFallo>Si no se repone la referencia o no se avisa, el despliegue difiere de la plantilla de despliegue leída (Comprobar_fichero_LEI.sh).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="regresion">
@@ -158,9 +158,9 @@
       <paso numero="4">Comprobar el contenido de LEI/old/LEI.csv después de la ejecución.</paso>
       <paso numero="5">Ejecutar al día siguiente con un fichero GLEIF normal y contar las líneas del delta.</paso>
     </pasos>
-    <resultadoEsperado>El recuento de GoldenSource no baja (el delta no comunica bajas; si baja, es efecto del layout MDX, P-LEI-03). Reporte_LEI.csv se genera con las filas de FT_T_RLT1 del último job CargaLEI cerrado. LEI/old/LEI.csv queda solo con la cabecera, salvo que el script lo restaure (P-LEI-01); en ese caso, el delta del día siguiente contiene el fichero completo de GLEIF.</resultadoEsperado>
+    <resultadoEsperado>El recuento de GoldenSource no baja (el delta no comunica bajas; si baja, es efecto del layout MDX, P-LEI-03). Reporte_LEI.csv se genera con las filas de FT_T_RLT1 del último job CargaLEI cerrado. LEI/old/LEI.csv queda con el contenido de la referencia anterior (la repone Comprobar_fichero_LEI.sh desde old/LEI_old.csv); el delta del día siguiente contiene solo las diferencias normales y no el fichero completo de GLEIF.</resultadoEsperado>
     <tipoValidacion>Consultas a GoldenSource y comparación de ficheros.</tipoValidacion>
-    <criterioAceptacion>Resultado de cada paso registrado. No ejecutar en producción: el paso 5 provoca una recarga completa.</criterioAceptacion>
+    <criterioAceptacion>Resultado de cada paso registrado. No ejecutar en producción. Si en el paso 4 la referencia no se ha repuesto (cadena detenida antes del paso 6 o fallo de permisos en old/), el paso 5 provocaría una recarga completa.</criterioAceptacion>
     <posibilidadFallo>Si el recuento baja o el informe enviado contiene datos erróneos, elevar como incidencia para mover la comprobación antes de la carga.</posibilidadFallo>
   </casoDePrueba>
 
@@ -196,33 +196,34 @@
     <pasos>
       <paso numero="1">Ejecutar RDRKYTL001.</paso>
       <paso numero="2">Comprobar en el log "Proceso delta finalizado correctamente 0 registros diferentes".</paso>
-      <paso numero="3">Comprobar que Comprobar_fichero_LEI.sh restaura LEI.csv y lanza aviso_LEI.</paso>
+      <paso numero="3">Comprobar que Comprobar_fichero_LEI.sh repone old/LEI.csv desde old/LEI_old.csv y lanza aviso_LEI.</paso>
     </pasos>
-    <resultadoEsperado>El delta da 0 registros, LEI.csv queda con 1 línea y se dispara la restauración y el aviso aunque no hay error.</resultadoEsperado>
+    <resultadoEsperado>El delta da 0 registros, LEI.csv queda con 1 línea y se dispara la reposición de la referencia y el aviso aunque no hay error.</resultadoEsperado>
     <tipoValidacion>Logs y ficheros.</tipoValidacion>
     <criterioAceptacion>Se confirma (o se descarta) el falso aviso.</criterioAceptacion>
-    <posibilidadFallo>Si no se dispara el aviso, el script no cuenta líneas como dice el documento (P-LEI-01).</posibilidadFallo>
+    <posibilidadFallo>Si no se dispara el aviso, el script instalado difiere de la plantilla de despliegue (cuenta las líneas con wc -l y exige al menos 2).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="error_funcional">
-    <nombre>Fallo de descarga con Stop=Ok</nombre>
-    <objetivo>Confirmar que, si gleif.sh termina con código distinto de 0, GSProcess.sh se detiene sin ejecutar carga, informe, comprobación ni evento Errores.</objetivo>
+    <nombre>Fallo de descarga: no hay parada, el aviso es la única señal</nombre>
+    <objetivo>Confirmar que un fallo de descarga (URL o proxy inaccesible, fichero del día no publicado) no hace terminar gleif.sh ni LEI.sh con código distinto de 0 (la comprobación de $? se evalúa tras un echo) y que la cadena sigue hasta el aviso (RISK-LEI-008).</objetivo>
     <precondiciones>
-      <precondicion>Entorno de pruebas sin acceso a leidata.gleif.org (o proxy que responde error).</precondicion>
+      <precondicion>Entorno de pruebas sin acceso a leidata.gleif.org (o proxy que responde error o simulador que devuelve 404).</precondicion>
+      <precondicion>LEI/LEI.csv del día anterior presente y LEI/old/LEI.csv con datos.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Descarga" valor="URL inaccesible"/>
+      <dato campo="Descarga" valor="URL inaccesible o 404"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar RDRKYTL001.</paso>
-      <paso numero="2">Anotar el código de salida de gleif.sh en el log.</paso>
-      <paso numero="3">Si es distinto de 0: comprobar "Proceso GSProcess.sh finalizado de forma incorrecta debido a" en execute_LEI_&lt;AAAAMMDD&gt;.log, código de salida 1 y ausencia de ejecución de LEI.sh y siguientes.</paso>
-      <paso numero="4">Si es 0: comprobar qué contiene LEI.csv y seguir el TC-005.</paso>
+      <paso numero="2">En gleif_download_&lt;AAAAMMDD&gt;.log comprobar el error de wget y de unzip, y que el log no contiene "ERROR- Error en la descarga" ni "Error en la descompresión".</paso>
+      <paso numero="3">Comprobar en execute_LEI_&lt;AAAAMMDD&gt;.log que los subprocesos gleif.sh y LEI.sh figuran como "finalizado de forma correcta" y que no hay parada por Stop.</paso>
+      <paso numero="4">Comprobar que LEI.csv conserva el contenido del día anterior hasta el delta, que el delta queda en 0 registros y que se ejecutan el evento MDX, el informe y la comprobación (TC-005).</paso>
     </pasos>
-    <resultadoEsperado>Con código ≠ 0 de gleif.sh: RDRKYTL001 termina con código 1, sin ESTADO-1- en el log, y no se ejecuta ningún paso posterior. Con código 0: se comporta como el TC-005.</resultadoEsperado>
-    <tipoValidacion>Logs de GSProcess.sh y estado de Control-M.</tipoValidacion>
-    <criterioAceptacion>El código real de gleif.sh queda registrado y cierra parte de P-LEI-01.</criterioAceptacion>
-    <posibilidadFallo>Que MEKYTL0349 o INFORME_GLEIF se ejecuten tras un NOTOK de RDRKYTL001 depende de Control-M (P-LEI-08).</posibilidadFallo>
+    <resultadoEsperado>gleif.sh y LEI.sh terminan con 0; RDRKYTL001 queda en verde; la cadena llega al aviso de Comprobar_fichero_LEI.sh. Solo si el nombre de la máquina no permite calcular el entorno terminarían con código 254 y GSProcess.sh se detendría con código 1.</resultadoEsperado>
+    <tipoValidacion>Logs de gleif.sh y de GSProcess.sh y estado de Control-M.</tipoValidacion>
+    <criterioAceptacion>Se confirma que ningún fallo de descarga produce código distinto de 0; si lo produce, el script instalado difiere de la plantilla de despliegue leída.</criterioAceptacion>
+    <posibilidadFallo>Que MEKYTL0349 o INFORME_GLEIF se ejecuten tras un RDRKYTL001 en verde es el comportamiento normal de Control-M (P-LEI-08).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-011" tipo="datos_sinteticos">
@@ -270,6 +271,28 @@
     <tipoValidacion>Consulta a FT_T_JBLG, ficheros de la carpeta LEI y log de GSProcess.sh.</tipoValidacion>
     <criterioAceptacion>Comportamiento coincidente con el descrito; si se genera el fichero con más de una hora, la ventana de ErroresCSV no es la de la versión del volcado y la spec debe corregirse.</criterioAceptacion>
     <posibilidadFallo>Que la versión de ErroresCSV en producción sea otra (el volcado es de 2022) o que JOB_INPUT_TXT no coincida con el valor de File y el fichero no se genere en ningún caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="regresion">
+    <nombre>Marca ERROR- de la referencia del delta con Delta=Si</nombre>
+    <objetivo>Confirmar que errores_to_file.sh (rama CargaLEI) antepone ERROR- a las líneas de LEI/old/LEI.csv de los registros erróneos y que estos reentran en el delta del día siguiente (§6.6, RISK-LEI-009).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción). Las del TC-002 (un registro erróneo y registros válidos).</precondicion>
+      <precondicion>El LEI erróneo aparece una sola vez en LEI/old/LEI.csv tras el delta del día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Registro erróneo" valor="un LEI de la carga con error de severidad mayor que 39"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena como en el TC-002 y copiar LEI/old/LEI.csv.</paso>
+      <paso numero="2">Comprobar que solo la línea del LEI erróneo empieza por ERROR- y que db_errores.txt ya no existe.</paso>
+      <paso numero="3">Ejecutar al día siguiente con un fichero de GLEIF en el que ese LEI no cambia y comprobar que sale otra vez en el delta (LEI.csv).</paso>
+      <paso numero="4">Repetir forzando un identificador de db_errores.txt que no esté en old/LEI.csv y comprobar si todas las líneas de la referencia pasan a empezar por ERROR- (RISK-LEI-009).</paso>
+    </pasos>
+    <resultadoEsperado>Solo se marca la línea del LEI erróneo y reentra en el delta del día siguiente; con un identificador ausente de la referencia se marcarían todas las líneas y el delta sería el fichero completo.</resultadoEsperado>
+    <tipoValidacion>Comparación de ficheros old/LEI.csv antes y después, y del delta del día siguiente.</tipoValidacion>
+    <criterioAceptacion>Los pasos 2 y 3 coinciden; el paso 4 se ejecuta solo en un entorno de pruebas y documenta el defecto si se confirma.</criterioAceptacion>
+    <posibilidadFallo>Que la ruta o los argumentos con que MarcaRegErroneo invoca errores_to_file.sh difieran de los deducidos (el texto del comando no viene en el volcado de workflows).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

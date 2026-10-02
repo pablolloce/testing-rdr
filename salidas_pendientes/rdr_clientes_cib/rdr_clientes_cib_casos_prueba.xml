@@ -194,4 +194,33 @@
     <posibilidadFallo>Las columnas reales del reporte dependen de una consulta que no se ha visto (P-CIB-04): el caso no valida su contenido, solo el formato. Si el job de carga tarda más de una hora en cerrarse, clientes_errores.csv no se genera (RK11).</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-010" tipo="borde">
+    <nombre>Reglas de fillingRules_clientes.csv: obligatoriedad, longitud, caracteres y duplicados</nombre>
+    <objetivo>Comprobar que ControlCargaDatos.jar aplica las reglas de la plantilla (COD_CCLIEN NULL+POSITION(9)+USAR; COD_TIPOCLI NULL+POSITION(1)+USAR; USAR en las 12 columnas; sin DUPL) y que solo clientes_processed.csv llega a la carga MDX.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción, con el fillingRules_clientes.csv de la plantilla de despliegue y Delta=No en clientes.properties.</precondicion>
+      <precondicion>clientes.csv en ISO-8859-1 con la cabecera de 12 columnas y 7 registros de 12 campos.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="valido_C" valor="123456789;A1234567B;123456;Empresa Uno SA;0182;0001;C01;F01;6201;Programacion;C;resto"/>
+      <dato campo="CCLIEN_8_caracteres" valor="12345678;A1234567B;123456;Empresa Dos SA;0182;0001;C01;F01;6201;Programacion;C;resto"/>
+      <dato campo="CCLIEN_vacio" valor=";A1234567B;123456;Empresa Tres SA;0182;0001;C01;F01;6201;Programacion;E;resto"/>
+      <dato campo="TIPOCLI_2_caracteres" valor="123456780;A1234567B;123456;Empresa Cuatro SA;0182;0001;C01;F01;6201;Programacion;CE;resto"/>
+      <dato campo="TIPOCLI_X_inesperado" valor="123456781;A1234567B;123456;Empresa Cinco SA;0182;0001;C01;F01;6201;Programacion;X;resto"/>
+      <dato campo="caracter_no_permitido" valor="123456782;A1234567B;123456;Empresa &lt;Seis&gt;;0182;0001;C01;F01;6201;Programacion;E;resto"/>
+      <dato campo="duplicado" valor="registro valido_C repetido tal cual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar solo la acción de ControlCargaDatos de GSProcess.sh clientes (o la cadena hasta KYTL_CLI_GSPROCESS) con ese fichero.</paso>
+      <paso numero="2">Revisar clientes_noprocessed.csv: deben aparecer los registros de CCLIEN de 8 caracteres, CCLIEN vacío, COD_TIPOCLI de 2 caracteres y carácter no permitido, cada uno con su motivo (longitud, NULO o carácter no válido).</paso>
+      <paso numero="3">Revisar clientes_processed.csv: deben estar la cabecera, valido_C (dos veces, sin control de duplicados) y el registro con COD_TIPOCLI=X.</paso>
+      <paso numero="4">Comprobar en el log clientes_preprocess_summary.log los recuentos de cargados y no cargados.</paso>
+      <paso numero="5">Tras la carga MDX, comprobar que solo se han intentado cargar los registros de clientes_processed.csv y qué hace el mapeo con COD_TIPOCLI=X (P-CIB-10).</paso>
+    </pasos>
+    <resultadoEsperado>4 registros rechazados con su motivo; 3 líneas de datos en clientes_processed.csv (valido_C duplicado y el de tipo X); el job de validación termina con 0.</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros de salida, del log de resumen y de la carga en GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Los recuentos del log coinciden con los dos CSV y ningún rechazado llega a GoldenSource.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero llega en UTF-8 con vocales acentuadas o ñ, se rechazan por la regla USAR. El fillingRules instalado en producción no está verificado frente a la plantilla (P-CIB-02). El tratamiento de COD_TIPOCLI distinto de C/E en el mapeo sigue sin conocerse (P-CIB-10).</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

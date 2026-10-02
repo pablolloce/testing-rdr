@@ -9,7 +9,7 @@
       <precondicion>CN460_ConCabecera_processed.csv contiene una fila para ese mismo ClientelaID/folio con F_CANCELACION='0001-01-01'.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="CCLIEN" valor="1234567890"/>
+      <dato campo="CCLIEN" valor="123456789"/>
       <dato campo="FOLIO" valor="998877"/>
       <dato campo="F_CANCELACION" valor="0001-01-01"/>
     </datosEmpleados>
@@ -53,7 +53,7 @@
       <precondicion>CN460_ConCabecera.csv contiene al menos una fila con 11 o 13 campos separados por ";" en vez de 12 (la rechaza ControlCargaDatos.jar antes de ConContrato460; para probar solo la segunda barrera se ejecuta ConContrato460 directamente sobre un _processed.csv con esa fila).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fila_invalida" valor="ES;0182;IUC123;B;O;C;998877;SIT;0001-01-01;1234567890"/>
+      <dato campo="fila_invalida" valor="ES;0182;IUC123;B;O;C;998877;SIT;0001-01-01;123456789"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar el pipeline (o ConContrato460 sobre el _processed.csv) con la fila inválida incluida y comprobar que aparece en CN460_ConCabecera_noprocessed.csv con el texto "tiene diferentes campos que la cabecera".</paso>
@@ -137,7 +137,7 @@
       <precondicion>CN460_ConCabecera_processed.csv contiene una fila para ese ClientelaID/folio con F_CANCELACION='2026-09-15' (fecha real).</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="CCLIEN" valor="2233445566"/>
+      <dato campo="CCLIEN" valor="223344556"/>
       <dato campo="FOLIO" valor="112233"/>
       <dato campo="F_CANCELACION" valor="2026-09-15"/>
     </datosEmpleados>
@@ -160,7 +160,7 @@
       <precondicion>CN460_ConCabecera_processed.csv no contiene ninguna fila para ese ClientelaID.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="CCLIEN_ausente" valor="3344556677"/>
+      <dato campo="CCLIEN_ausente" valor="334455667"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar ConContrato460 sobre el fichero sin la fila de ese cliente.</paso>
@@ -180,8 +180,8 @@
       <precondicion>CN460_ConCabecera.csv contiene 2 filas idénticas en CCLIEN y F_CANCELACION='0001-01-01', con distinto FOLIO.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fila_1" valor="ES;0182;IUC1;B;O;C;100001;SIT;0001-01-01;4455667788;TI;1"/>
-      <dato campo="fila_2" valor="ES;0182;IUC1;B;O;C;100002;SIT;0001-01-01;4455667788;TI;2"/>
+      <dato campo="fila_1" valor="ES;0182;IUC1;B;O;C;100001;SIT;0001-01-01;445566778;TI;1"/>
+      <dato campo="fila_2" valor="ES;0182;IUC1;B;O;C;100002;SIT;0001-01-01;445566778;TI;2"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Lanzar Duplicados.sh sobre el fichero con las 2 filas duplicadas por cliente.</paso>
@@ -242,9 +242,9 @@
       <precondicion>Entorno de prueba con capacidad de insertar filas sintéticas en el fichero de entrada y datos de referencia controlados en GoldenSource.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="fila_sintetica_1_coincidente" valor="CCLIEN=5566778899;FOLIO=real_coincidente;F_CANCELACION=0001-01-01"/>
-      <dato campo="fila_sintetica_2_discrepante" valor="CCLIEN=6677889900;FOLIO=distinto_al_real;F_CANCELACION=0001-01-01"/>
-      <dato campo="fila_sintetica_3_cancelada" valor="CCLIEN=7788990011;FOLIO=real;F_CANCELACION=2026-08-01"/>
+      <dato campo="fila_sintetica_1_coincidente" valor="CCLIEN=556677889;FOLIO=real_coincidente;F_CANCELACION=0001-01-01"/>
+      <dato campo="fila_sintetica_2_discrepante" valor="CCLIEN=667788990;FOLIO=distinto_al_real;F_CANCELACION=0001-01-01"/>
+      <dato campo="fila_sintetica_3_cancelada" valor="CCLIEN=778899001;FOLIO=real;F_CANCELACION=2026-08-01"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Cargar las 3 filas sintéticas en el fichero de entrada de prueba.</paso>
@@ -370,6 +370,53 @@
     <tipoValidacion>Revisión de log + consulta SQL sobre FT_T_RLT1 y FT_T_UTD1</tipoValidacion>
     <criterioAceptacion>Fila marcada OK, auditoría creada y un solo mensaje por código.</criterioAceptacion>
     <posibilidadFallo>Si hay dos filas PENDING con el mismo código BDI se emitirán dos mensajes iguales (la consulta no deduplica). Qué fase de GestionCpartyC460 deja las filas B460BDI no está contrastado con el código.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="borde">
+    <nombre>Rechazo por las reglas de fillingRules_CN460.csv (CCLIEN y caracteres no permitidos)</nombre>
+    <objetivo>Confirmar que el paso de preprocesado (ControlCargaDatos.jar, ControlCase) aplica las reglas de la plantilla (CCLIEN NULL + POSICION(9) + USAR; FOLIO USAR) y que los registros rechazados no llegan a ConContrato460.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba aislado con el fillingRules_CN460.csv de la plantilla de despliegue (cabecera de 12 columnas y 3 filas de reglas).</precondicion>
+      <precondicion>CN460_ConCabecera.csv de prueba con 1 registro válido y 4 registros inválidos (12 campos cada uno).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="valido" valor="ES;0182;IUC1;B;O;C;100001;SIT;0001-01-01;445566778;TI;1"/>
+      <dato campo="CCLIEN_vacio" valor="ES;0182;IUC1;B;O;C;100002;SIT;0001-01-01;;TI;2"/>
+      <dato campo="CCLIEN_8_caracteres" valor="ES;0182;IUC1;B;O;C;100003;SIT;0001-01-01;44556677;TI;3"/>
+      <dato campo="CCLIEN_10_caracteres" valor="ES;0182;IUC1;B;O;C;100004;SIT;0001-01-01;4455667788;TI;4"/>
+      <dato campo="FOLIO_con_caracter_no_permitido" valor="ES;0182;IUC1;B;O;C;1000&lt;5;SIT;0001-01-01;445566779;TI;5"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar solo el paso 4 del pipeline (ControlCase con CN460_ConCabecera.csv y fillingRules_CN460.csv) o el pipeline completo con ese fichero.</paso>
+      <paso numero="2">Abrir CN460_ConCabecera_noprocessed.csv y comprobar que contiene 4 registros con los mensajes "El campo CCLIEN es NULO", "El campo CCLIEN no tiene la longitud correcta" (los dos de 8 y 10 caracteres) y "Registro &lt;n&gt; con algún caracter no valido".</paso>
+      <paso numero="3">Abrir CN460_ConCabecera_processed.csv y comprobar que solo contiene la cabecera y el registro válido.</paso>
+      <paso numero="4">Revisar Contratos460_preprocess_summary.log (carpeta Contratos460) y comparar los recuentos de cargados y no cargados.</paso>
+    </pasos>
+    <resultadoEsperado>Solo el registro válido llega a _processed.csv y es el único que consume ConContrato460; los otros 4 salen en _noprocessed.csv con su motivo y el log refleja 1 cargado y 4 no cargados. El job no falla (ControlCase termina siempre con 0).</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros de salida y del log de resumen</tipoValidacion>
+    <criterioAceptacion>Los recuentos del log coinciden con el contenido de los dos CSV y ningún registro rechazado genera actividad en BBDD.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero de entrada llega en UTF-8, las vocales acentuadas o la ñ en FOLIO/CCLIEN se rechazan por la regla USAR. El contenido instalado en producción de fillingRules_CN460.csv no está verificado frente a la plantilla (P-C460-01): comparar antes de dar el caso por válido.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-019" tipo="negativo">
+    <nombre>Día sin claves repetidas: no existe CN460_ConCabecera.csv_REPES para MEKYTL0642</nombre>
+    <objetivo>Comprobar cómo se comporta la cascada de historificación cuando Duplicados.sh no deja el fichero CN460_ConCabecera.csv_REPES (solo se crea si hay alguna clave F_CANCELACION;CCLIEN repetida entre las filas con 0001-01-01).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba aislado con el IDX de MEKYTL0642 igual al de producción (necesario para la comprobación; no está en el material).</precondicion>
+      <precondicion>Ejecución de RDRKYTL001 con un fichero sin claves repetidas y sin CN460_ConCabecera.csv_REPES residual en Contratos460.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="filas" valor="2 filas con 0001-01-01 y CCLIEN distintos (445566778 y 445566779)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena hasta MEKYTL0611 y comprobar que CN460_ConCabecera.csv_REPES no existe.</paso>
+      <paso numero="2">Ejecutar MEKYTL0642 (RAMERC0068.sh) y anotar su código de retorno y su salida.</paso>
+      <paso numero="3">Comprobar si se emite RDR_C460_new_MEKYTL0642_OK y si RDR_C460_OUT se publica.</paso>
+    </pasos>
+    <resultadoEsperado>Se documenta el comportamiento real: si el IDX no exige fichero, MEKYTL0642 acaba OK sin mover nada; si lo exige, RAMERC0068.sh devuelve el código 6 y la cadena se queda sin RDR_C460_OUT_OK ese día.</resultadoEsperado>
+    <tipoValidacion>Ejecución en entorno aislado y revisión del código de retorno</tipoValidacion>
+    <criterioAceptacion>El comportamiento observado queda registrado y coincide con el campo «falla si no hay fichero» del IDX (cierra P-C460-04).</criterioAceptacion>
+    <posibilidadFallo>El contenido de los IDX de MEKYTL0609, 0610, 0611 y 0642 sigue sin constar en el material: el resultado esperado depende de él.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

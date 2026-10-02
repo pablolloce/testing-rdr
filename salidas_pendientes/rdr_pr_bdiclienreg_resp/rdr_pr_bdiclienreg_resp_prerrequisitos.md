@@ -26,6 +26,10 @@
 | TC-009 | Buzón de prueba y acceso de lectura a `FT_T_TPG1`, `FT_T_ALG1`, `FT_T_REP1`, `FT_T_ALR1`, `FT_T_RLT1`. Recordar que el envío es global: otros informes pendientes saldrían en la misma ejecución. |
 | TC-010 | Fondo de prueba cuyo XML lleve una oficina inactiva o inexistente en `FT_T_SUBD`; permiso para consultar y borrar la fila correspondiente de `FT_T_RRM1` y para activar la oficina; lectura de `FT_T_RLT1`. |
 
+## Configuración (según la plantilla de despliegue)
+
+`clientelaBDI_Altas_response.properties` (R6), `Investors_Client_Reg_resp.properties` (R7), `RDR_AltaFondos.properties` (R8) y `GestionAlertas_ALERT_IP_SSI.properties` (R9) en `/<env>/kytl/online/multipais/multicanal/dat/properties/` con CRLF y sin `Stop`; plantilla `GestionAlertas.properties`; `log4jClientelaBDI_Altas.properties`, `log4jAlertFX.properties`, `log4jAltaFondos.properties`, `log4jAlertasBarrido.properties` y `log4jAlertasCocinado.properties`; carpeta de logs escribible; `ServerMailConfig.xml` con el `server` del entorno (valores no incluidos en la plantilla). Directorios `ClientelaBDI_Altas/{response,old,error}` existentes (R6 exige que existan `response` y `old`).
+
 ## Entorno de ejecución
 
 | Elemento | Detalle |

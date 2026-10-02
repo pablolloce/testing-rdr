@@ -356,7 +356,7 @@
 
   <casoDePrueba id="TC-018" tipo="error_funcional">
     <nombre>Ciclo de vida de Refundicion_errores.csv y de db_errores.txt (ErroresCSV y MarcaRegErroneo)</nombre>
-    <objetivo>Verificar el nombre, la ubicación y el ciclo de los ficheros que deja Evento(Errores) con Delta=Si: Refundicion_errores.csv (con el anterior movido a old/ al inicio) y db_errores.txt acumulativo, y la llamada a errores_to_file.sh.</objetivo>
+    <objetivo>Verificar el nombre, la ubicación y el ciclo de los ficheros que deja Evento(Errores) con Delta=Si: Refundicion_errores.csv (con el anterior movido a old/ al inicio) y db_errores.txt transitorio, y la marca ERROR- que errores_to_file.sh antepone a la línea de old/Refundicion.csv.</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba, no producción, con un fichero que genere al menos una excepción de REFUNDICION con fila ERRORES (por ejemplo, un CLIENTEP inexistente) en una ejecución, y ninguna en la siguiente.</precondicion>
       <precondicion>Acceso al directorio Refundicion/ y a Refundicion/old/, y a los logs de GoldenSource.</precondicion>
@@ -367,14 +367,14 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar la cadena con una línea que provoque «No existe el Clientela destino» y comprobar que se crea Refundicion/Refundicion_errores.csv con la cabecera de 11 columnas y una línea Funcional con MAIN_ENTITY_NME «CLIENTED;CLIENTEP».</paso>
-      <paso numero="2">Comprobar que se crea Refundicion/db_errores.txt con el par «CLIENTED;CLIENTEP» y que el log registra la ejecución de errores_to_file.sh con los tres argumentos (Refundicion, ruta de old/Refundicion.csv y ruta de db_errores.txt).</paso>
+      <paso numero="2">Comprobar en el log la ejecución de errores_to_file.sh con los tres argumentos (Refundicion, ruta de old/Refundicion.csv y ruta de db_errores.txt) y que la línea de old/Refundicion.csv cuyas columnas 1 y 5 son «CLIENTED;CLIENTEP» empieza ahora por «ERROR-». db_errores.txt ya no existe (el script lo borra); si se consulta antes de que termine, contiene el par.</paso>
       <paso numero="3">Ejecutar de nuevo la cadena sin errores y comprobar que Refundicion_errores.csv de la primera ejecución se ha movido a Refundicion/old/ y que no hay Refundicion_errores.csv nuevo.</paso>
-      <paso numero="4">Comprobar que db_errores.txt conserva el contenido anterior (no se borra).</paso>
+      <paso numero="4">Con el fichero de la ejecución siguiente que repita esa línea, comprobar que Delta la trata como nueva (aparece en Refundicion/Refundicion.csv tras el delta) y se reprocesa; comprobar también que no ha quedado un fichero «1» vacío nuevo en el directorio de trabajo del servidor de aplicaciones (efecto lateral del script).</paso>
     </pasos>
-    <resultadoEsperado>Los ficheros se crean, se mueven y se acumulan como se describe; la llamada a errores_to_file.sh consta en el log. Qué hace ese script con el fichero de referencia queda por observar y anotar (P-REF-04).</resultadoEsperado>
+    <resultadoEsperado>Los ficheros se crean y se mueven como se describe; la línea errónea queda marcada con ERROR- en old/Refundicion.csv, db_errores.txt desaparece y la refundición se reprocesa al día siguiente si el origen la repite.</resultadoEsperado>
     <tipoValidacion>Inspección del sistema de ficheros y de los logs de GoldenSource.</tipoValidacion>
-    <criterioAceptacion>Nombres, ubicación y ciclo confirmados; efecto de errores_to_file.sh sobre old/Refundicion.csv documentado.</criterioAceptacion>
-    <posibilidadFallo>Si no se encuentra el job CLOSED de la última hora (carga de más de una hora), ErroresCSV no genera nada. Si errores_to_file.sh no existe en el entorno, el paso falla sin detener la cadena.</posibilidadFallo>
+    <criterioAceptacion>Nombres, ubicación y ciclo confirmados; la marca ERROR- aparece solo en las líneas del par erróneo.</criterioAceptacion>
+    <posibilidadFallo>Si no se encuentra el job CLOSED de la última hora (carga de más de una hora), ErroresCSV no genera nada. Si errores_to_file.sh no existe en el entorno, el paso falla sin detener la cadena. Como la búsqueda es por subcadena, un par cuyo texto aparezca en las columnas 1 y 5 de otra línea marcaría también esa línea.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-019" tipo="error_funcional">

@@ -603,6 +603,23 @@ NOTOK → OK**, cualquiera de ellos publica igualmente `RDR_REUBICACION_MEKYTL01
 | `MEGENV0001.sh` + `.idx` de 3 claves | `MEKYTL0233/0234/0111` | Script sí (sin módulos); `.idx` **no** | §6.5; P-REUB-08 |
 | `RAMERC0068.sh` + línea IDX `MEKYTL0122` | `MEKYTL0122` | Script sí; línea **no** | §6.6; P-REUB-08 |
 
+### 6.10 Contraste con la plantilla de despliegue de la UUAA KYTL y módulos vecinos (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores
+con `pr` son valores de producción según la plantilla, no una copia verificada de producción. La plantilla es la base anterior a la migración a Java 17 (en curso: `develop` sigue en la versión sin paquete ni `JDKV`).
+
+- **Los ficheros de configuración de la cadena coinciden exactamente con lo ya analizado.** `Reubicacion.properties` de la plantilla es **idéntico** (0 diferencias) al transcrito en §6.3.1 (único fichero, CRLF, sin variantes por
+  entorno; 6 acciones; `ControlCase` y `CreateReport` sin paquete y sin `JDKV`; sin ninguna clave `Stop*`), `fillingRules_Reubicacion.csv` (`COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD`, `NULL` en las columnas 2 y 4, `USAR` en las cuatro) coincide con §6.4.2,
+  las tres líneas de la clave `Reubicacion` de `select.properties` coinciden literalmente con §6.4.4 y la función `LimpiarReubicacion` de `Generico.sh` es la de §6.4.1. Esto confirma que la «copia de la rama de Carlos» es la
+  plantilla de despliegue, es decir, la versión previa a Java 17 que se instala en cada entorno; no hay variantes `.pr`/`.pp`/`.ei`/`.de` de estos ficheros. Lo instalado hoy en el servidor de producción sigue sin estar
+  verificado (H-REUB-07, H-REUB-08).
+- **`Reubicacion_SSIS.properties` y `Reubicacion_SSIS_FILTER.properties` no son esta cadena.** Son dos módulos de `GSProcess.sh` de la plantilla que lanzan el jar `RDR_cuentaBajaAlta.jar` (clase `CuentaBajaAlta`, servicio
+  `CuentaBajaAlta`) sobre `/fichtemcomp/<env>/descargas/kytl/reubicacionSSIS/CAMBIOCUENTA.txt` (nivel de log `2`; librerías de BD, `dom4j`, `jxl` y `poi`, es decir, lectura/escritura de Excel). El primero continúa con las
+  variables `Servicio=reubicacionSSIS`, `BusinessFeed=Reubicacion_SSIS`, `MessageType=Reubicacion_SSIS`, `File=.../reubicacionSSIS/CAMBIOCUENTA.txt`, `Workflow=Si` y el evento `Workflow` `RDR_Reubi_SSIS`; el `_FILTER` solo lanza el jar.
+  Por el nombre de fichero tratan un **cambio de cuenta** (baja/alta) distinto de la reubicación de oficinas; ni los 7 jobs de §6.1 ni `Reubicacion.properties` los invocan, y el jar y el workflow `RDR_Reubi_SSIS` no están en el material.
+  Quedan como artefactos vecinos sin analizar.
+- No hay información de la plantilla sobre el calendario `RDR_CIERREOFI` (P-REUB-05), los `.idx` de `MEKYTL0111`/`0233`/`0234`, la línea IDX de `MEKYTL0122`, `SkipHeaderReadByLine.xml` ni los módulos `SF_MEGENV0001_*.mod`.
+
 ## 7. Especificación de testing
 
 **Estrategia.** En un entorno de pruebas con la cadena desplegada y un día marcado en `RDR_CIERREOFI`, se

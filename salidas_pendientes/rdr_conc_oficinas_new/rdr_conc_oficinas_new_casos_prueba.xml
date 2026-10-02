@@ -350,15 +350,16 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Con la carga terminada hace menos de una hora, comprobar que existe oficinas/oficinas_errores.csv con la cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT; y al menos una línea de tipo Funcional.</paso>
-      <paso numero="2">Comprobar que oficinas/db_errores.txt contiene el identificador de la entidad errónea y que se ha ejecutado errores_to_file.sh (log de la salida del job KYTL_CONOFI_GSPROCESS).</paso>
-      <paso numero="3">Comprobar que no existe dummyoficinas_errores.csv.</paso>
-      <paso numero="4">Esperar a que el job de carga tenga más de una hora (o ajustar su fecha de inicio en el entorno de pruebas) y relanzar solo el evento RDR_ErroresCSV con el mismo oficinas.properties.</paso>
-      <paso numero="5">Comprobar que el oficinas_errores.csv del paso 1 está ahora en oficinas/old/oficinas_errores.csv, que no hay un oficinas_errores.csv nuevo y que no se ha vuelto a ejecutar errores_to_file.sh.</paso>
+      <paso numero="2">Comprobar en el log de la salida del job KYTL_CONOFI_GSPROCESS que se ha ejecutado errores_to_file.sh con OFC, la ruta de old/oficinas.csv y la de db_errores.txt, y que db_errores.txt ya no existe al terminar (lo borra el script).</paso>
+      <paso numero="3">Comparar old/oficinas.csv con la copia de seguridad: la línea de la oficina errónea (CODCSB-CODOFI igual al MAIN_ENTITY_ID) debe empezar por ERROR-; si el identificador no tuviera esa forma, TODAS las líneas empezarían por ERROR- y el delta del día siguiente sería el fichero completo.</paso>
+      <paso numero="4">Comprobar que no existe dummyoficinas_errores.csv.</paso>
+      <paso numero="5">Esperar a que el job de carga tenga más de una hora (o ajustar su fecha de inicio en el entorno de pruebas) y relanzar solo el evento RDR_ErroresCSV con el mismo oficinas.properties.</paso>
+      <paso numero="6">Comprobar que el oficinas_errores.csv del paso 1 está ahora en oficinas/old/oficinas_errores.csv, que no hay un oficinas_errores.csv nuevo y que no se ha vuelto a ejecutar errores_to_file.sh.</paso>
     </pasos>
-    <resultadoEsperado>Dentro de la hora se genera el fichero de errores y se marcan los registros erróneos; pasada la hora el fichero anterior se mueve a old/ y no se genera ninguno nuevo ni se marca nada.</resultadoEsperado>
+    <resultadoEsperado>Dentro de la hora se genera el fichero de errores y se marcan con el prefijo ERROR- los registros erróneos en old/oficinas.csv; pasada la hora el fichero anterior se mueve a old/ y no se genera ninguno nuevo ni se marca nada.</resultadoEsperado>
     <tipoValidacion>Ficheros + consulta a FT_T_JBLG/FT_T_RLT1 + salida del job.</tipoValidacion>
     <criterioAceptacion>Se cumplen los pasos 1 a 5. No ejecutar en producción.</criterioAceptacion>
-    <posibilidadFallo>Qué cambia exactamente errores_to_file.sh en old/oficinas.csv no se puede comprobar contra la spec (H-CONOFI-19): anotar el antes y el después.</posibilidadFallo>
+    <posibilidadFallo>Según el script de la plantilla (spec 6.4.5 bis) un identificador que no aparezca en la referencia marca todas las líneas, y uno que coincida con varias líneas no marca ninguna: anotar el antes y el después y el formato real de MAIN_ENTITY_ID. El script instalado en el servidor no está verificado frente a la plantilla.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

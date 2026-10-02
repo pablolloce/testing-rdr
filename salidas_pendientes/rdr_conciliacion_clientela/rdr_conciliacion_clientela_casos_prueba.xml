@@ -124,4 +124,29 @@
     <posibilidadFallo>Cualquier fallo intermedio impide alcanzar el cierre dentro de la ventana diaria.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-007" tipo="borde">
+    <nombre>Reglas de fillingRules_ConClientela.csv: código de cliente, caracteres no permitidos y cabecera</nombre>
+    <objetivo>Comprobar que ControlCargaDatos.jar aplica las reglas de la plantilla (DBC-COD-CCLIEN NULL+POSICION(9)+USAR; USAR en otras 24 columnas; sin DUPL) y averiguar cómo se comporta con la cabecera de reglas que lleva una coma en DBC-XTI-RAI.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción, con el fillingRules_ConClientela.csv de la plantilla de despliegue.</precondicion>
+      <precondicion>Un ConClientela.csv de pruebas en ISO-8859-1 con la cabecera de 97 columnas y 5 registros de 97 campos; la columna 80 se llama ,DBC-XTI-RAI (con coma) en una variante del fichero y DBC-XTI-RAI en otra.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="valido" valor="código de cliente de 9 caracteres y el resto de campos sin caracteres especiales"/>
+      <dato campo="CCLIEN_vacio" valor="DBC-COD-CCLIEN vacío"/>
+      <dato campo="CCLIEN_10_caracteres" valor="DBC-COD-CCLIEN con 10 caracteres"/>
+      <dato campo="caracter_no_permitido" valor="DBC-DES-DENOMB con el carácter &lt;"/>
+      <dato campo="duplicado" valor="registro valido repetido tal cual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar ControlCargaDatos (paso 3 de GSProcess.sh ConClientela) con la variante cuya columna 80 es ,DBC-XTI-RAI y revisar ConClientela_noprocessed.csv y el log de resumen.</paso>
+      <paso numero="2">Comprobar que los registros con código de cliente vacío o de 10 caracteres y el del carácter no permitido están en _noprocessed.csv con su motivo, y que ConClientela_processed.csv contiene el válido dos veces (sin control de duplicados).</paso>
+      <paso numero="3">Repetir con la variante cuya columna 80 es DBC-XTI-RAI (sin coma) y anotar si el log muestra Cabeceras incorrectas y qué queda en ConClientela_processed.csv.</paso>
+    </pasos>
+    <resultadoEsperado>Con la cabecera idéntica a la de reglas: 3 registros rechazados y 2 válidos (el válido duplicado). Con DBC-XTI-RAI sin coma: se documenta el comportamiento real (previsto: Cabeceras incorrectas y sin procesado nuevo).</resultadoEsperado>
+    <tipoValidacion>Inspección de los CSV de salida y del log de resumen.</tipoValidacion>
+    <criterioAceptacion>Los recuentos del log coinciden con los ficheros y el comportamiento con la coma queda anotado para cerrar H-CCL-13.</criterioAceptacion>
+    <posibilidadFallo>Con ficheros en UTF-8, acentos y ñ rechazan registros por la regla USAR. El fillingRules instalado en producción no está verificado frente a la plantilla.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

@@ -18,6 +18,14 @@
 >   `Mail` (versión 6, `RELEASED`), que es el que envía el correo.
 > - El funcionamiento de `GSProcess.sh` (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`), que explica cómo se
 >   instancia la plantilla para cada proceso.
+>
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop). Aporta `GestionAlertas.properties` y sus ocho variantes por proceso,
+> `log4jAlertasBarrido.properties`, `log4jAlertasCocinado.properties`, la estructura de `ServerMailConfig.xml` y
+> `Plantilla_ReportMail.properties`. Es la base que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` instala en cada
+> entorno sustituyendo el marcador `@@ENV@@` por `de`, `ei`, `pp` o `pr`: **no es una copia verificada de ningún entorno**
+> y es anterior a la migración a Java 17. Los hallazgos están en §3.1, §4.4, §5.1, §5.3 y §10. Host y credenciales de
+> correo vienen enmascarados en la plantilla y no se reproducen.
 
 ## 1. Qué es y para qué sirve
 
@@ -148,13 +156,55 @@ excepciones (SQL, mensajes, marcado) se capturan y se registran. En la práctica
 una excepción no capturada de la JVM. Por tanto, aunque se corrigiera el defecto R2 de
 `GSProcess.sh`, el Barrido y el Cocinado seguirían sin señalar el error: la única forma de saber
 si han funcionado es mirar la base de datos (§7).
-- Las rutas contienen `ei` escrito a mano, porque la copia recibida es la de integración. La de
-  producción no se ha visto (pregunta P-ALE-02).
+- Las rutas contienen `ei` escrito a mano, porque la copia recibida es la de integración. Según la
+  plantilla de despliegue (repositorio `estaticos`, rama develop) el mismo contenido lleva `@@ENV@@` en lugar de `ei`
+  (§3.1); la copia instalada en producción no se ha verificado en el servidor (pregunta P-ALE-02).
 - El workflow se invoca como `RDR_AlertasEnvio`, aunque el `.wkf` se llama internamente
   `AlertasEnvio`. Es el mismo objeto: GoldenSource lo registra con otro nombre de evento.
 - Otros procesos usan solo parte de la cadena: por ejemplo, la recepción de Altamira Colombia
   ejecuta únicamente el Cocinado (`RDR_AlertasCocinado.jar`) y después el workflow `RDR_AlertasEnvio`,
   sin Barrido (no consta de dónde salen sus mensajes de `FT_T_ALG1`).
+
+### 3.1 La plantilla de despliegue y sus variantes por proceso
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), `GestionAlertas.properties` es **idéntica,
+línea a línea, al contenido de §3** salvo que `Ruta` y `PreArgJava2` llevan el marcador `@@ENV@@` donde la copia de
+integración tenía `ei`. No existen variantes `GestionAlertas.properties.pr/.pp/.ei/.de`: el plan de despliegue instala el
+mismo fichero en los cuatro entornos y sustituye el marcador. No hay diferencias de comportamiento entre la
+plantilla y la copia de integración: mismos jars (`ConexionBD.jar`, `RDR_AlertasBarrido.jar`, `RDR_AlertasCocinado.jar`),
+misma clase `main.Ppal`, mismo nivel de log (`2`), mismas librerías (el Cocinado con Apache POI 3.17) y sin acción `Stop`.
+Los valores de producción que da la plantilla son, por tanto, los de §3 con `pr` en lugar de `ei`. Que lo instalado en el
+servidor coincida con la plantilla no se ha comprobado (P-ALE-02). La plantilla no lleva `JDKV`: estos dos programas usan
+el Java por defecto de `GSProcess.sh`. Mientras la migración a Java 17 siga en curso, la plantilla develop manda como base
+y las copias de las ramas migradas pueden añadir `JDKV=17`.
+
+El resto de ficheros `GestionAlertas*.properties` de la plantilla son **instancias de la plantilla genérica** o variantes
+propias. En las que usan `Property`, `ArgProp1` es la base del nombre del temporal (`GestionAlertas_<CÓDIGO>`) y `ArgProp2`
+(`PROCESOS-<CÓDIGO>`) indica qué texto se sustituye por qué código (§2).
+
+| Fichero de la plantilla | Qué ejecuta | Código(s) de proceso que pasa a Barrido y Cocinado |
+|---|---|---|
+| `GestionAlertas.properties` | Plantilla genérica: Barrido, Cocinado y Envío (§3) | `PROCESOS` (todos), mientras no la sustituya un `Property` |
+| `GestionAlertas_DERIVADOS_REFINITIV.properties` | `VariablesGlobales` (`MOD_EJECUCION=AlertasDerivadosRefinitiv`) y un `Property` | `DERIVADOS_REFINITIV` |
+| `GestionAlertas_BASKETS_SPONSORS.properties` | Un `Property` | `CARGA_BASKETS_SPONSORS` |
+| `GestionAlertas_ALERT_IP_SSI.properties` | Primero el workflow `RDR_SSIS_Fx_Alert_Online` (acción `Evento`) y después un `Property` | `ALERT_IP_SSI` |
+| `GestionAlertas_ALERT_CALYPSO_SSI.properties` | Un `Property`, sin workflow previo (`MOD_EJECUCION=SSIsAlertFxCalypso`) | `ALERT_CALYPSO_SSI` |
+| `GestionAlertasMIFIR.properties` | Dos `Property` seguidos | `MIFIR_Derivados`, `MIFIR_No_Derivados` |
+| `GestionAlertasAOSRDR.properties` | Nueve `Property` seguidos | `MIFIR_Derivados`, `MIFIR_No_Derivados`, `CARGA_ONLINE_BLOOMBERG`, `CARGA_CESTA_o_INDICE`, `CALCULO_EMIR_SECT`, `PETICION_REFINITIV_EMISIONES`, `REGU_PDTE_LEI_EMISIONES`, `PETICION_REFINITIV_IDENTIFICADORES`, `BATCH_REFINITIV_EMISORES` |
+| `GestionAlertasEVERISRDR.properties` | Dos `Property` seguidos con **la misma línea repetida** | `VALIDACION_CARGA_ONLINE_BLOOMBERG` dos veces |
+| `GestionAlertas_AltaBajaIndicesTraducciones.properties` | **No usa `Property`**: lleva su propia copia de las tres acciones (Barrido, Cocinado y Envío) con `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/input/` y nombres de servicio propios (`GestionAlertas_AltaBajaIndicesTraducc_BarridoAlertas`, `GestionAlertas_AltaBajaIndicesTraducciones_cocinado`) | `AltaBajaIndicesTraducciones` (código fijo, sin sustitución) |
+
+Observaciones que se desprenden de la tabla:
+- **Cada `Property` ejecuta la cadena completa**, incluido el Envío global (§5). `GestionAlertasAOSRDR.properties`
+  lanza por tanto nueve veces Barrido, Cocinado y Envío; cada Envío manda además lo que dejaran pendiente los demás procesos.
+- **`GestionAlertasEVERISRDR.properties` repite el mismo código** (`VALIDACION_CARGA_ONLINE_BLOOMBERG`). La segunda pasada
+  no encuentra incidencias nuevas (el Barrido ya las cerró, salvo el defecto de §4.3) y el Envío repite sin efecto salvo
+  que el Cocinado hubiera dejado el informe de nuevo en `SEND_PEND='Y'` (§4.2.1: lo marca siempre). Es redundancia, no un
+  fallo funcional, pero conviene eliminar la línea duplicada.
+- `GestionAlertasAOSRDR.properties` confirma códigos de proceso que `AlertasEnvioExcepciones` (§5.2) personaliza:
+  `BATCH_REFINITIV_EMISORES`, `REGU_PDTE_LEI_EMISIONES` y `PETICION_REFINITIV_EMISIONES` (este último es el que lee el informe
+  de LEI pendientes); `CARGA_BASKETS_SPONSORS` sale de su propio fichero.
+- Ninguna variante lleva `Stop`: se mantiene el comportamiento de §2 (el fallo de lo que ejecuta un `Property` no se detecta).
 
 ## 4. Etapas 1 y 2: Barrido y Cocinado (queries reales)
 
@@ -298,6 +348,29 @@ El `prepareStatement("1")` posterior fallaría al enlazar parámetros, `generaEs
 el Barrido anotaría `KO` en esa traza tras insertar solo la primera línea de estadística. Es otra razón para
 comprobar el jar desplegado (P-ALE-04).
 
+### 4.4 Dónde escribe su log cada programa (log4j de la plantilla)
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), `log4jAlertasBarrido.properties` y
+`log4jAlertasCocinado.properties` son iguales salvo el nombre del fichero de log:
+
+| Clave | Valor |
+|---|---|
+| `log4j.rootLogger` | `info, R` |
+| Appender `R` | `RollingFileAppender`, fichero `/<env>/kytl/online/multipais/multicanal/logs/AlertasBarrido.log` (Barrido) o `.../AlertasCocinado.log` (Cocinado) |
+| Tamaño y rotación | `MaxFileSize=100000KB` (unos 100 MB) y `MaxBackupIndex=3` (tres copias rotadas) |
+| Formato | `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n` |
+| `stdout` | Se declara (`ConsoleAppender`) pero **no** se asocia al `rootLogger`: el log4j no escribe en consola |
+
+Consecuencias para operar y probar:
+- Hay **un único log por programa y por entorno**, compartido por todos los procesos y todas las invocaciones. El código de
+  proceso solo aparece dentro de los mensajes, así que para depurar un proceso hay que filtrar por él.
+- El nivel `info` del `rootLogger` coincide con el `2` (INFO) que pasan las plantillas (§3): no se escribe DEBUG.
+- El log va a la carpeta de la aplicación (`/<env>/kytl/.../logs/`), no a la compartida `/fichtemcomp`, y no lo rota ningún
+  trabajo externo: lo rota log4j al llegar a 100 MB. Con tres copias de ese tamaño se conserva poco histórico si muchos procesos
+  invocan las alertas el mismo día.
+- Las líneas comentadas que apuntan a una ruta local de desarrollo (Windows) son restos y no tienen efecto.
+- Si la carpeta `logs/` no existe o no es escribible, log4j no escribe y el programa sigue (el error se ve solo en consola).
+
 ## 5. Etapa 3: el envío (`AlertasEnvio`) es global
 
 El workflow **no recibe ningún parámetro**. Al arrancar consulta en `FT_T_REP1` **todos** los
@@ -359,6 +432,14 @@ por `KYTL_GC`). Parámetros: `Destination`, `Mail` (cuerpo) y `Subject` obligato
    remitente y contraseña vacía). El campo `Destination` se separa por `;` y todos van como
    destinatarios `TO` de un mismo mensaje. El adjunto se añade solo si el fichero existe.
 
+**`ServerMailConfig.xml` en la plantilla de despliegue.** La plantilla (repositorio `estaticos`, rama develop) trae el
+fichero con la estructura exacta que lee `Mail`: raíz `<root>` y cuatro nodos `<server id="de">`, `<server id="ei">`,
+`<server id="pp">` y `<server id="pr">`, cada uno con un hijo `<host>` (servidor SMTP) y un hijo `<user>` (remitente).
+El host y el remitente están enmascarados en la plantilla (host y credencial no incluidos en la plantilla), por lo que **qué servidor
+y qué remitente usa cada entorno sigue sin conocerse**. Sí queda confirmado que el fichero se despliega con los cuatro nodos: el
+caso «falta el nodo y se usa el relé de desarrollo» (R9) solo se daría si el fichero instalado difiere de la plantilla o no se
+ha desplegado.
+
 **Gestión de errores: ninguna.** El envío está dentro de un `try/catch` que solo hace
 `printStackTrace`; `haltOnError=false` y sin reintentos. `Mail` termina siempre con éxito, el
 workflow `AlertasEnvio` no lo comprueba y actualiza `LAST_SEND_TMS` igualmente. Un SMTP caído, una
@@ -397,6 +478,24 @@ Defectos y dudas verificados en el propio `.wkf`:
   comprobar en ejecución (por eso se trata como riesgo R13 y no como hecho).
 - **Consecuencia general:** los tres casos dependen de que el Cocinado haya pasado antes (mensajes
   `PROCESADO='S'`); sin esa ejecución previa el informe de cestas saldría con ceros.
+
+### 5.3 `Plantilla_ReportMail.properties`: otro mecanismo de correo, ajeno a esta cadena
+
+La plantilla de despliegue contiene también `Plantilla_ReportMail.properties`, que **no forma parte** de Barrido → Cocinado
+→ Envío y no hay que confundir con él. Es una plantilla de `GSProcess.sh` para un envío de correo de informes distinto:
+
+| Acción | Contenido |
+|---|---|
+| `VariablesGlobales` | `MOD_EJECUCION=PlantillaMails`, `Servicio=PlantillaMails`, `Tipo=_ReportType_`, `Entorno=@@ENV@@` |
+| `Java` | Jar `RDR_ReportMail.jar`, clase `main/ReportMail`, servicio Java `Email`; argumentos `_NivelLOG_`, `$CONF/_LOG_` y `_ReportType_`; librerías Apache POI 4.1.2, commons-*, log4j, ojdbc8, dom4j y xmlbeans 3.1.0 |
+| `Evento` | Workflow `ComposeEmail` |
+
+Los marcadores `_NivelLOG_`, `_LOG_` y `_ReportType_` los sustituye el `Property` que la invoca. Lo usan ocho ficheros de la
+plantilla (`ConBDI.properties.*`, `DQ_Contacts`, `DatosEconomicos`, `RC_Contacts`, `SCIsDuplicidades`, `SDIsDuplicidades` y `bajas`) con
+`ArgProp2=_NivelLOG_-2`, `ArgProp3=_LOG_-log4jReportMail.properties` y `ArgProp4=_ReportType_-<TIPO>` (por ejemplo
+`SDISDUPLICIDADES`); su log4j (`log4jReportMail.properties`) escribe en `/<env>/kytl/online/multipais/multicanal/logs/ReportMail.log`.
+No se ha recibido el código de `RDR_ReportMail.jar` ni el workflow `ComposeEmail`; se documenta aquí solo para delimitar el
+alcance de la gestión de alertas. El proceso que la instancia (conciliación BDI y otros) debe describirla en su spec.
 
 ## 6. Tablas implicadas
 
@@ -454,9 +553,16 @@ Que el job de Control-M termine en verde **no** lo garantiza (§2).
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-ALE-01 | **Resuelta** (en parte). El primer argumento (`2`) es el nivel de log (§3); el tercero es el proceso (`PROCESOS` = todos); ambos programas terminan siempre con código 0 salvo excepción no capturada; el Envío espera los ficheros de §4.2. La resolución procede de `main.Ppal` de los dos jars. `ReportesRDR`/`ReporteRDR` ya están analizados con el código real (§4.2.1: validaciones, marcado incondicional, query en BD). **Sigue abierto** el nombre y contenido real de cada fichero (`DocumentGenerator`, no recibida) y `ProcesoCLS` (redacción de los mensajes y qué se trata como error): ver P-ALE-04 | Cerrado en lo esencial; el resto no cambia cómo operar el mecanismo |
-| P-ALE-02 | ¿Cuál es el contenido de `GestionAlertas.properties` en producción? | La copia recibida es la de integración, con rutas `ei` escritas a mano |
-| P-ALE-03 | **Resuelta** (en parte). El subworkflow `Mail` ya está analizado (§5.1): envía por SMTP sin autenticación, no gestiona errores y cae a un servidor de desarrollo si falta su configuración. `AlertasEnvioExcepciones` **resuelto** (§5.2): solo `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES` tienen asunto y cuerpo propios; el resto usa el estándar. **Sigue abierto** el contenido de `ServerMailConfig.xml` de cada entorno | Sin él no se sabe qué servidor y remitente usa cada entorno |
+| P-ALE-02 | **Resuelta en parte.** Según la plantilla de despliegue (repositorio `estaticos`, rama develop) el contenido es el de §3 con `@@ENV@@` en lugar de `ei` y sin variantes por entorno (§3.1), y la plantilla incluye sus ocho variantes por proceso. **Sigue abierta** la verificación de que lo instalado en `pr` coincide con la plantilla. ¿Cuál es el contenido de `GestionAlertas.properties` en producción? | La plantilla no es una copia verificada de producción |
+| P-ALE-03 | **Resuelta** (en parte). El subworkflow `Mail` ya está analizado (§5.1): envía por SMTP sin autenticación, no gestiona errores y cae a un servidor de desarrollo si falta su configuración. `AlertasEnvioExcepciones` **resuelto** (§5.2): solo `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES` tienen asunto y cuerpo propios; el resto usa el estándar. **Sigue abierto** el contenido de `ServerMailConfig.xml` de cada entorno: la plantilla confirma la estructura (cuatro nodos `de`/`ei`/`pp`/`pr` con `host` y `user`, §5.1) pero host y remitente están enmascarados | Sin ellos no se sabe qué servidor y remitente usa cada entorno |
 | P-ALE-04 | **Resuelta en parte.** `report.ReportesRDR` y `report.ReporteRDR` recibidas (§4.2.1). ¿Se pueden obtener `report.DocumentGenerator` (Cocinado), `alertaspck.ProcesoCLS` (Barrido) y el `QuerysConfig` del Barrido? ¿Coincide `marcaUsadosTPG1` con el jar desplegado? | Con ellas se cerraría el nombre real del fichero, la redacción de los mensajes y se confirmaría o descartaría el defecto R6 |
+
+**Tercera pasada de cierre (plantilla de despliegue).** Resueltos: dónde escribe su log cada programa (§4.4) y el contenido de las
+variantes `GestionAlertas*.properties` (§3.1). Parciales: P-ALE-02 (contenido de producción) y P-ALE-03 (valores de
+`ServerMailConfig.xml`). Siguen abiertos, porque la plantilla no trae código Java ni workflows: `report.DocumentGenerator`,
+`alertaspck.ProcesoCLS`, `jdbc.ConDB`, `ConexionBD.jar`, `QuerysConfig` del Barrido, el jar desplegado del Barrido
+(P-ALE-04, defectos de §4.3) y el comportamiento de `Mail` ante `mailOK` (§5.1). No cambia ningún comportamiento descrito
+en el resto de la spec; la única corrección es que `GestionAlertasEVERISRDR.properties` ejecuta dos veces el mismo código (§3.1).
 
 ## 10. Procesos que lo usan
 
@@ -466,3 +572,35 @@ qué incidencias escribe en `FT_T_TPG1`. Usan este mecanismo: `carga_sponsors_ba
 `kytl_bcbs_sector_asset_allocation`, `opiniones_legales`, `rdr_cargalei_new`,
 `rdr_pr_bdiclienreg_resp` (`ALERT_IP_SSI` y otros), `rdr_pr_register_leis_resp_new` y
 `recepcion_altamira_colombia`.
+
+### 10.1 Inventario según la plantilla de despliegue
+
+La plantilla de despliegue (repositorio `estaticos`, rama develop) contiene 44 ficheros `.properties` fuera de las variantes
+de §3.1 que invocan este mecanismo. Hay dos formas:
+
+**a) Instancian la plantilla con `Property`** (`GestionAlertas_<CÓDIGO>`), código de proceso entre paréntesis:
+`CargadorRolesSubaccounts` (`CARGADOR_ROLES_SUBACCOUNTS`), `DQ_Contacts` (`REPORTE_DATIO_1021`), `RC_Contacts`
+(`REPORTE_DATIO_1018`), `SCIsDuplicidades` (`REPORTE_DATIO_84263`), `SDIsDuplicidades` (`REPORTE_DATIO_1327`), `GOBIERNO_OSI`
+(`EMISIONES_INDEX_FUNDS_ETF`, `EMISORES_REU`), `InvestorsPlan_Alertas` (`GESTORAS_ALERTMIRROR`,
+`GESTORAS_PETICIONES_ALERTMIRROR`, `GESTORAS_ERRORES_ALERTMIRROR`), `Investors_csv_recep` (`VALIDACIONES_ALTA_FONDOS`,
+`WARNINGS_ALTA_FONDOS`, `REG_FONDOS_ALTA_FONDOS`, `SOLICITUD_ALTA_FONDOS`, `CARGADOR_ROLES_SUBACCOUNTS`), `RDR_AltaFondos`
+(`RDR_ALTA_FONDOS_ERROR`, `RDR_ALTA_FONDOS`), `LEI_Register_alertas` (`RDR_ERROR_LEI_REGISTER`), `LegalOpinionResponse`
+(`Legal_Opinion_Response`, `Legal_Opinion_Response1`), `MENTOR_Difusion` (`AckNacks_carga_Mentor`),
+`RDR_CTMAA_Colombia_Report` (`CTMAA_COLOMBIA`), `RDR_CargadorThirdparties_Publish` (`RDR_CargadorThirdparties_Alta`,
+`RDR_CargadorThirdparties_Alta_Publish`), `RDR_Certificados_Publish` (`RDR_Tax_Certificates_Expiration_Report`),
+`ReporteSectorizacionT1/T2/T3` (`Sectorizacion_T1/T2/T3`), `Reporte_GLEIF_Entity_Status`, `SSIsAlertFx` (`ALERT_CON_SSI`),
+`SSIs_AutoCarga` (`AltaBajaSDIs`), `SSIs_AutoCargaReporte` (`DifusionSDIsBaja`), `SSIs_AutoCargaReporteMEX`
+(`AltaBajaMEXSDIs`), `SSIs_AutoDifuReporte` (`DifusionSDIs`), `SSIs_AutoDifuReporteMEX` (`DifusionMEXSDIs`),
+`SSIs_AutoDifuReporteMEX_bajas` (`DifusionMEXSDIsBaja`) y `mifidcec` (`MIFID_CEC`).
+
+**b) Llevan los jars directamente en su propio `.properties`** (Barrido + Cocinado + workflow `RDR_AlertasEnvio`, con
+código fijo en `ArgJava3`): `RDR_CargadorContactos` (`RDR_CargadorContactos_Alta/Baja/Mod`), `RDR_CargadorContactos_Publish`
+(`RDR_CargaCNTC_Abaco`), `RDR_CargadorSCIS` (`RDR_CargadorSCIs_Alta/Baja/Mod`), `RDR_CargadorSCIs_Publish`
+(`..._Publish`), `RDR_CargadorSCISMEX_Publish` (seis códigos `RDR_CargadorSCIs_*_MEX`), `RDR_CargadorSCFF_PostCarga`
+(`RDR_CargadorSCFF_Altas`), `RDR_CargadorSCFF_Altas_Publish`, `RDR_CargadorSCFF_Bajas`, `RDR_CargadorSCFF_Bajas_Publish`,
+`CalypsoFiltersKLYO` y `CalypsoFiltersKRFN` (`CALYPSO_FILTERS_KLYO/KRFN`). **Solo Cocinado + Envío, sin Barrido** (los
+mensajes de `FT_T_ALG1` los deja otro programa): `AltamiraMexicoConciliacion`, `ExtraccionAltamiraReceive`
+(`AltamiraColombiaConciliacion`), `CargaRatingsInternos`, `RDR_AuditMex`, `RDR_AuditSSI` y `SectorAssetAllocation_Report`
+(`SECTOR_ASSET_ALLOCATION`).
+
+Esta lista es la de la plantilla, no la de producción: una cadena de Control-M puede no ejecutar alguno de ellos.

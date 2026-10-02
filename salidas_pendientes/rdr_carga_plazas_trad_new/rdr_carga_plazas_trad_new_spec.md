@@ -57,9 +57,8 @@ la cadena sin excepciones conocidas.
   "plazas" (localidades), confirmado por la ficha EX-005-03 y por el contenido real de `TradPlazas.csv` (ver
   §5). Incluye 2 dependencias cruzadas de negocio confirmadas por texto pero no por Control-M — ver R7.
 * **Ámbito técnico:** la cadena Control-M `RDR_CARGA_PLAZAS_TRAD_new` completa (3 pasos, topología lineal).
-* **Fuera de alcance** (detalle completo en §9.2): el contenido interno del pipeline de `GSProcess.sh` para
-  `PARM1=TradPlazas` (no hay evidencia equivalente a `LimpiarOficinas`/`Delta.sh`/`ControlCargaDatos.jar`
-  específica de esta clave); el significado funcional exacto de los campos `CCPPOS`/`CCOMUN` de
+* **Fuera de alcance** (detalle completo en §9.2): el pipeline de `GSProcess.sh` para
+  `PARM1=TradPlazas` ya consta según la plantilla de despliegue (§6.3; falta verificar lo instalado en producción); el significado funcional exacto de los campos `CCPPOS`/`CCOMUN` de
   `TradPlazas.csv`; los días que marca el calendario `RDR_FEST_HOST_PREV` y el significado de su sufijo; y la confirmación operativa
   real de las 2 dependencias cruzadas descritas en la ficha del filewatcher (predecesor `RDR_CARGA_PLAZAS`,
   sucesor "Carga de nombres legales en RDR"), que no tienen ningún `INCOND`/`OUTCOND` cruzado en el Control-M
@@ -85,12 +84,13 @@ P-TPL-06 (comando `/pp/` frente a `/pr/`) queda **resuelta el 02/10/2026** con l
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-TPL-01 (resuelta en parte) | Contenido de `TradPlazas.properties` (acciones de `GSProcess.sh` para `TradPlazas`: ¿`Delta.sh`? ¿`ControlCargaDatos.jar` con qué `fillingRules`? ¿carga MDX/evento de GoldenSource, qué entidad/tabla? ¿`RDR_Report.jar` y con qué fichero de informe?). Del destino de la carga ya hay un indicio en la definición del feed `Plaza` (§6.2); el `.properties` sigue sin recibirse | Sin él no se puede decir qué se valida, qué se carga, dónde queda el resultado ni cómo se ve un rechazo; TC-001 y TC-004 solo pueden comprobar el estado del job |
-| P-TPL-02 | ¿Hay algún `Stop…=Ok` en ese `.properties`? | Decide si un fallo intermedio corta la carga o si el resto de acciones se ejecuta igualmente |
+| P-TPL-01 (resuelta en parte, 3ª pasada) | Contenido de `TradPlazas.properties`. **Según la plantilla de despliegue (§6.3):** `Delta.sh No` → `ControlCase` con `fillingRules_TradPlazas.csv` → carga MDX de `TradPlazas_processed.csv` (feed `Plaza`, tipo `PLZTRAD`); sin informe ni evento `Errores`. Falta verificar lo instalado en producción (la ficha EX-005-03 habla de «reporte», que la plantilla no tiene) | Sin la verificación no se sabe si producción añade un paso de informe; TC-001 y TC-004 siguen comprobando el estado del job |
+| P-TPL-02 (resuelta en parte, 3ª pasada) | ¿Hay algún `Stop…=Ok` en ese `.properties`? **La plantilla no lleva ninguna clave `Stop*`** (§6.3): un fallo intermedio no corta la carga; falta verificar lo instalado en producción | Decide si un fallo intermedio corta la carga o si el resto de acciones se ejecuta igualmente |
 | P-TPL-03 | Línea de `MEKYTL0129` en `INFORMACION_HISTORIFICACIONES.IDX` de producción (operación mover/copiar, campo 5 "falla si no hay fichero", tipo de selección) | Determina si el job falla cuando no hay `TradPlazas.csv` y si el fichero desaparece de origen |
 | P-TPL-04 | ¿Quién genera/deposita `TradPlazas.csv` y por qué mecanismo (¿lo deja `RDR_CARGA_PLAZAS`?) | Define el prerrequisito real de la prueba y la hora esperada de llegada |
 | P-TPL-05 (resuelta en parte) | Significado de `CCPPOS`, `CCOMUN`, `PLZBAN` y del calendario `RDR_FEST_HOST_PREV`. De cómo actúa el calendario sobre los jobs ya se sabe lo que muestra la consola (§6.1: solo se ordenan los días marcados, directiva "Deshabilitar Ejecutar", sin desplazamiento); falta qué días marca el calendario y qué significa `_PREV` | Necesario para interpretar el fichero y saber en qué días festivos no se ejecuta |
 | H-TPL-07 | Texto del mapeo `db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx` (2.385 bytes) del tipo de mensaje `PLZTRAD` del feed `Plaza`: qué campos de `TradPlazas.csv` van a qué tablas de GoldenSource (§6.2) | Sin él no se puede decir qué entidad y tablas actualiza la carga |
+| H-TPL-02 (parcial, 3ª pasada) | Cadena `RDR_CARGA_PLAZAS` (predecesor de negocio): la plantilla trae el módulo `plazas` de `GSProcess.sh` (`Delta.sh Si`, carga MDX `PLZ`, evento `Errores` y `CtpdaModifPlaza.jar`, §6.3), que parece su pipeline; falta el export de Control-M de `RDR_CARGA_PLAZAS` y el jar | Confirmar la dependencia de negocio y quién deposita `TradPlazas.csv` (P-TPL-04) |
 
 ## 5. Especificación funcional
 
@@ -233,6 +233,43 @@ cadena cargaría ese fichero con el tipo de mensaje `PLZTRAD`; y el tipo `PLZ` d
 deja la cadena predecesora `RDR_CARGA_PLAZAS` (H-TPL-02), lo que daría sentido a la dependencia de negocio R7. El texto de los
 mapeos MDX no está en el volcado: qué campos de `TradPlazas.csv` van a qué tablas sigue sin conocerse.
 
+### 6.3 Pipeline real de `GSProcess.sh TradPlazas` y módulos vecinos, según la plantilla de despliegue (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores
+con `pr` son valores de producción según la plantilla, no una copia verificada de producción. La plantilla es la base anterior a la migración a Java 17 (en curso: sin `JDKV` y con la clase sin paquete).
+
+**`TradPlazas.properties`** (fichero único, CRLF, sin variantes por entorno). Variables globales: `MOD_EJECUCION=TradPlazas`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, `File=.../TradPlazas/TradPlazas_processed.csv`,
+`Servicio=TradPlazas`, `BusinessFeed=Plaza`, `SuccessAction=LEAVE`, `MessageType=PLZTRAD`, `Delta=No`, `Preprocesado=Si`, `MDX=Si`, `Errores=No`, `Reporte=No`. Acciones, en orden (solo 3):
+
+| # | Acción | Parámetros / efecto |
+|---|---|---|
+| 1 | `Script` `Delta` | `ArgScri1=No`: copia `TradPlazas/TradPlazas.csv` a `TradPlazas/old/TradPlazas.csv` (carga completa, sin delta; devuelve el código del `cp`: falla si no existe `old/`) |
+| 2 | `Java` `ControlCargaDatos.jar` + `javacsv.jar`, clase `ControlCase` (etiqueta `PreprocessedTradPlazas`) | arg1 `$FILES/TradPlazas/TradPlazas.csv`; arg2 `$LOG/TradPlazas_preprocess_summary.log`; arg3 `$CONF/fillingRules_TradPlazas.csv`; librerías `ojdbc8`, `common-lang3`, `log4j`. Deja `TradPlazas_processed.csv` y `TradPlazas_noprocessed.csv` en `TradPlazas/` |
+| 3 | `Evento` `MDX` | `StandardFileLoad` con `File=.../TradPlazas/TradPlazas_processed.csv`, feed `Plaza`, tipo `PLZTRAD` (mapeo `TraduccionPlazas.mdx`, §6.2) |
+
+Consecuencias: (1) la **inferencia de §6.2 queda confirmada**: la carga lee `TradPlazas_processed.csv`, es decir, lo que supera la validación, con el tipo `PLZTRAD`; (2) **no hay ninguna clave `Stop*`** (P-TPL-02): un fallo en cualquier paso no detiene los
+siguientes y el job acaba con código 1 al final si alguno falló; (3) **Corrección:** la ficha EX-005-03 dice que el proceso «preprocesa, carga y genera un reporte», pero la plantilla **no tiene ningún paso de informe** (`Reporte=No`, ni `RDR_Report.jar`, ni
+`Unix2Dos`, ni evento `Errores`) ni clave `TradPlazas` en `select.properties`: en la plantilla no se genera informe; si producción lo generara (la ficha lo sugiere) el `.properties` instalado sería distinto del de la plantilla, y para producción
+mandaría lo instalado; (4) tras la carga no queda ningún fichero de resultado: lo único que ve el operador es el log de `GSProcess.sh`, el log de resumen de la validación y el estado de los jobs.
+
+**`fillingRules_TradPlazas.csv`** (contenido completo): cabecera `CPLAZA;CCPPOS;CCOMUN;CCDPOS;DNOMB1;DNOMB2;DNOMB3;PLZBAN` (las 8 columnas de §5.1, mismo orden) y dos filas de reglas: `NULL` solo en `CPLAZA`; `USAR` en `CPLAZA`, `DNOMB1` y `DNOMB2`.
+Semántica (spec común `comun_controlcargadatos`): `CPLAZA` obligatorio y con caracteres permitidos; los nombres `DNOMB1` y `DNOMB2` solo con caracteres permitidos (la `Ñ` y los acentos pasan, porque se normalizan antes de comprobar; `<`, `>`, `^` o comillas
+tipográficas no); `CCPPOS`, `CCOMUN`, `CCDPOS`, `DNOMB3` y `PLZBAN` sin regla. No hay longitudes ni `DUPL`: **no se eliminan duplicados y una longitud errónea de `CPLAZA` no se detecta**. El fichero real es de ancho fijo con relleno de espacios y `ControlCase` quita los espacios
+de los extremos de cada campo, de modo que `_processed.csv` lleva los campos recortados. Las filas casi vacías de §5.1 (por ejemplo `000001002; ;  ;     ;...`) tienen `CPLAZA` informado y **pasan la validación**. Una fila con distinto número de campos que la cabecera se rechaza.
+El fichero debe llegar en ISO-8859-1 (como el real); en UTF-8 los registros con acentos o `ñ` en `DNOMB1`/`DNOMB2` se rechazan.
+
+**Traductor y módulo `plazas` (cadena `RDR_CARGA_PLAZAS`, predecesor de negocio; H-TPL-02, parcial).** La plantilla trae un módulo `plazas` de `GSProcess.sh` que corresponde al otro tipo del mismo feed `Plaza`:
+`plazas.properties` (`Ruta`, `File=.../plazas/plazas.csv`, `BusinessFeed=Plaza`, `MessageType=PLZ`, `Delta=Si`, `Preprocesado=No`, `MDX=Si`, `Errores=Si`, `Reporte=No`) ejecuta `Delta.sh Si`, carga MDX (`PLZ`), evento `Errores`
+(con `Delta=Si` lanza `MarcaRegErroneo` y `errores_to_file.sh` con el tipo `PLZ`, que marca con `ERROR-` la línea de `old/plazas.csv` cuya primera columna contiene el identificador) y por último `ConexionBD.jar` + `CtpdaModifPlaza.jar`, clase `Ppal` (nivel de log `2`,
+`log4jPlazas.properties`, log rotativo `/<env>/kytl/online/multipais/multicanal/logs/plazas.log`, 100 MB x 3), jar que no está en la plantilla (por el nombre, modifica contrapartidas de plaza). `PlazaSFLoad.properties` contiene solo
+`File=.../plazas/SX.DXAPL110.DXF2001.PLAZASIN.csv`, `BusinessFeed=Plaza`, `SuccessAction=LEAVE`, `MessageType=PLZ` (variables de una carga estándar del fichero con nombre de origen `SX.DXAPL110.DXF2001.PLAZASIN`). `fillingRules_plazas.csv` (8 columnas internacionales:
+`COD_PLAZAINT`, `DES_PLAZAINT`, `DES_PLINTVER`, `COD_PAISBBV`, `DES_PANOMCOM`, `DES_PANOMABR`, `AUD_FMOPLZIN`, `AUD_USUPLZIN`; todas `NULL`; `COD_PLAZAINT` `LONG(3)`; `COD_PAISBBV` `POSICION(4)` e `INTEGER`) **no la referencia ningún `.properties` de la plantilla**,
+ni siquiera `plazas.properties` (con `Preprocesado=No`), así que no se aplica en esa cadena. `TraductorPlazas.csv` (42 líneas `NOMBRE;CÓDIGO`, por ejemplo `NEW YORK;NYC`, `LONDON;LON`, `MADRID;MAD`) tampoco está referenciado por ningún `.properties` ni script de la plantilla: lo consumiría algún jar
+(probablemente `CtpdaModifPlaza.jar`, que recibe `-DpropertiesPath` con ese directorio), sin confirmar. Ni `plazas` ni sus ficheros intervienen en `RDR_CARGA_PLAZAS_TRAD_new`; solo dan una idea de qué carga el predecesor. El export de Control-M de `RDR_CARGA_PLAZAS` y la forma de generar `TradPlazas.csv` siguen sin constar (P-TPL-04).
+
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana busca, en el resultado de la consulta periódica de cargas, una línea del día para el directorio `*/TradPlazas/` (texto «Carga Tradplazas», se comprueba también los lunes) y, de lunes a viernes, `*/plazas/` («Carga Plazas»);
+sirve para saber si la carga de ayer se registró.
+
 ## 7. Especificación de testing
 
 **Estrategia:** con la topología, los parámetros técnicos y el significado funcional básico ya confirmados con
@@ -246,6 +283,7 @@ cruzadas de negocio descritas solo por texto (R7).
 - `error_funcional`: TC-004 (paso 2 falla realmente — confirmar que, sin `<ON STMT>`, el fallo se refleja como KO real en Control-M, sin ningún Force-OK).
 - `error_funcional`: TC-005 (paso 3 falla realmente — mismo objetivo que TC-004, sobre `MEKYTL0129`).
 - `regresion`: TC-006 (topología completa de 3 pasos y consumo del recurso `MAX-LPRDR501`, compartido con `RDR_CONC_OFICINAS_new`/`RDR_REUBICACION_new`).
+- `borde`: TC-008 (reglas de `fillingRules_TradPlazas.csv`: `CPLAZA` obligatorio, caracteres no permitidos en `DNOMB1`/`DNOMB2`, relleno de espacios y ausencia de control de duplicados, §6.3).
 - `regresion`: TC-007 (**confirmar en ejecución real que `MEKYTL0129` genera `TradPlazas_yyyymmdd.csv` en `old/`, tal como confirma la ficha EX-005-03** — cierra la antigua inferencia por analogía).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
@@ -257,6 +295,7 @@ cruzadas de negocio descritas solo por texto (R7).
 | R3 (carga vía GSProcess.sh, sin tolerancia) | TC-001, TC-004 | Confirma el ciclo funcional y el comportamiento estricto ante fallo |
 | R4 (historificación, sin tolerancia, ruta confirmada) | TC-001, TC-005, TC-007 | Confirma el comportamiento estricto ante fallo y la ruta real de destino |
 | R5 (recurso compartido) | TC-006 | Confirma el consumo de `MAX-LPRDR501` compartido con las 2 cadenas hermanas |
+| R3 (validación previa a la carga, §6.3) | TC-008 | Confirma las reglas de `fillingRules_TradPlazas.csv` y que solo `TradPlazas_processed.csv` llega a GoldenSource |
 
 ## 9. Riesgos, decisiones documentadas y fuera de alcance
 
@@ -268,8 +307,8 @@ cruzadas de negocio descritas solo por texto (R7).
   seguro** que sus 2 cadenas hermanas (donde varios pasos toleran fallos reales sin que Control-M lo refleje),
   pero también significa que no hay ningún colchón operativo ante una incidencia puntual y transitoria (p. ej.
   el fichero llega vacío un día): con `MAXRERUN=0`, cualquier fallo real exige intervención manual completa.
-* **RISK-CARGATRAD-002 [no bloqueante]:** el contenido interno del pipeline de `GSProcess.sh` para
-  `PARM1=TradPlazas` no está confirmado — a diferencia de `oficinas`, no se ha aportado un equivalente de
+* **RISK-CARGATRAD-002 [no bloqueante; 3ª pasada: el pipeline de la plantilla consta en §6.3, falta verificar producción]:** el contenido interno del pipeline de `GSProcess.sh` para
+  `PARM1=TradPlazas` no estaba confirmado — a diferencia de `oficinas`, no se ha aportado un equivalente de
   `LimpiarOficinas`/`Delta.sh`/`ControlCargaDatos.jar` específico de esta clave. No se puede asumir que el
   pipeline interno sea idéntico al de `oficinas` solo por compartir el motor `GSProcess.sh`.
 * **RISK-CARGATRAD-003 [resuelto, sin riesgo]:** las 3 fichas EX-005-03 aportadas esta ronda confirman

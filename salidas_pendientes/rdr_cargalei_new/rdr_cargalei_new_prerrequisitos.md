@@ -10,7 +10,7 @@ entorno de pruebas.
 |--------|--------------|-------|
 | `https://leidata.gleif.org/api/v1/concatenated-files/lei2/<YYYYMMDD>/zip` (vía proxy) o un simulador que sirva un ZIP preparado | `gleif.sh` → `LEI.sh` → `LEI.csv` | TC-001 a TC-007, TC-009, TC-010 |
 | `FT_T_RLT1`, `FT_T_JBLG` | Contenido de `Reporte_LEI.csv` | TC-001, TC-004, TC-011 |
-| `FT_T_TRID` | Errores de la carga | TC-001, TC-002 |
+| `FT_T_TRID` | Errores de la carga | TC-001, TC-002, TC-013 |
 | Configuración de Gestión de alertas del proceso `Reporte_GLEIF_Entity_Status` (`FT_T_REP1`, `FT_T_ALR1`, `FT_T_ALU1`, `FT_T_ALM1`) | Informe Excel | TC-001, TC-004 |
 
 ## Datos mínimos por caso
@@ -24,7 +24,8 @@ entorno de pruebas.
 | TC-005, TC-007 | XML sin `lei:LEIRecord`; referencia `old/LEI.csv` con datos y copia de seguridad de ella |
 | TC-006 | XML con 120.000 `lei:LEIRecord` distintos |
 | TC-009 | Fichero de hoy idéntico a `old/LEI.csv` |
-| TC-010 | Proxy o URL inaccesible |
+| TC-010 | Proxy o URL inaccesible (o simulador que devuelva 404); `LEI/LEI.csv` del día anterior y `old/LEI.csv` con datos |
+| TC-013 | Como TC-002; el LEI erróneo aparece una sola vez en `old/LEI.csv` |
 | TC-011 | Filas sintéticas A, B, C, D en `FT_T_RLT1` y un job `CargaLEI` cerrado en `FT_T_JBLG` |
 
 ## Entorno de ejecución
@@ -32,7 +33,8 @@ entorno de pruebas.
 | Elemento | Detalle | Usuario / privilegio |
 |----------|---------|----------------------|
 | `GSProcess.sh`, `Generico.sh`, `Delta.sh` | `/<env>/kytl/online/multipais/multicanal/scrt/` | Usuario de ejecución de `RDRKYTL001` (no consta, P-LEI-08) |
-| `gleif.sh`, `LEI.sh`, `Comprobar_fichero_LEI.sh` | Mismo directorio `scrt/` | Ídem |
+| `gleif.sh`, `LEI.sh`, `Comprobar_fichero_LEI.sh`, `errores_to_file.sh` | Mismo directorio `scrt/` (según la plantilla de despliegue, repositorio `estaticos`, rama develop) | Ídem; `LEI.sh` necesita `xsltproc`, `gawk`, `unzip` y `wget` en el `PATH` |
+| `GLEIF_traductor_New.xsl` | `…/multicanal/dat/properties/` | Lectura para el usuario de ejecución |
 | `RDR_Report.jar`, `compare.jar`, `RDRCommon.jar` y librerías | `.../multicanal/jar` y `.../multicanal/lib` | — |
 | `executeBbvaEvent.sh` y servidor GoldenSource con el feed `CargaLEI` (definición `SkipHeaderReadByLineUTF8.xml` y mapeo `cargaLEI.mdx`) y los workflows `Standard File Load`, `ErroresCSV`, `SubErroresCSV`, `MarcaRegErroneo` y `HistoricizeFiles` | `/usr/local/<env>/goldensource_87/...` | — |
 | `MEGENV0001.sh` (`.idx` de `MEKYTL0349`), `RAMERC0068.sh` (IDX de `MEKYTL0944`, `MEKYTL1237`) | `/<env>/pl/...` | Usuario de los jobs (no consta) |
@@ -44,7 +46,8 @@ entorno de pruebas.
   recibido, P-LEI-09). Debe tener finales de línea CRLF.
 - `select.properties` con la clave `LEI` (§6.4) y `ruta` terminada en `/`.
 - `credentials.xml` del entorno con `<logs>`, `<javahome17>`, proxy y base de datos.
-- `aviso_LEI.properties` y `SendMailReport.wkf` (TC-005): su contenido real es la pregunta P-LEI-07.
+- `aviso_LEI.properties` (la variante del entorno instalada como `aviso_LEI.properties`; con `Destination` rellenado en `pr` según la plantilla de despliegue) y `SendMailReport.wkf` (TC-005): qué versión del workflow está desplegada y si lee `Destination`, `Subject`, `Mail`, `NameFile` y `FileMail` es la pregunta P-LEI-07 (resuelta en parte).
+- `credentials.xml` con el bloque `proxyvip` (host, puerto, usuario y contraseña ofuscada con la clave del script) para `gleif.sh`; host y credenciales no vienen en la plantilla de despliegue.
 
 ## Sistema de ficheros
 
@@ -65,5 +68,5 @@ TC-008 se necesita la cadena completa.
 
 - Destinatario de pruebas en `FT_T_ALR1` para `Reporte_GLEIF_Entity_Status` y un destino XCOM de pruebas para
   `MEKYTL0349`; sin ellos, TC-001 se acepta en "fichero preparado" (ver su criterio).
-- Código de los scripts propios (P-LEI-01) para fijar los resultados de TC-005, TC-009 y TC-010 sin
-  observación previa.
+- Resultados de TC-005, TC-009 y TC-010 fijados con el código de los scripts propios según la plantilla de
+  despliegue (P-LEI-01 resuelta); queda comprobar que lo instalado en el servidor coincide con la plantilla.

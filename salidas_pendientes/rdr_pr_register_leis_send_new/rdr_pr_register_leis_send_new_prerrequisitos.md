@@ -17,6 +17,7 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones de registro LEI, estado y
 | TC-007 | 3 peticiones PENDING sintéticas con datos de negocio idénticos y OID distintos |
 | TC-008 | 1 petición PENDING completa y un entorno de test donde forzar que `dos2unix` termine con error sobre el `.req` generado |
 | TC-009 | 1 petición PENDING limpia (sin conflictos) que cumpla el flujo completo |
+| TC-010 | Dos ficheros `LEIsReg_*.req` con fecha distinta en `send/` (el antiguo con CRLF) |
 
 ## Entorno de ejecución
 
@@ -26,7 +27,7 @@ El proceso lee y escribe sobre `FT_T_VREQ` (peticiones de registro LEI, estado y
 
 ## Configuración
 
-- `LEI_Register_request.properties` debe existir y estar correctamente parametrizado (jars `ConexionBD.jar`+`LEI_Register_request.jar`, clase `main.Main`, ruta de salida `.../send/LEIsReg_YYYYMMDDHHMMSS.req`) para que `GS_REGISTERLEISEND` dispare correctamente las 3 acciones (VariablesGlobales, Java, Script) (TC-001 a TC-009).
+- `LEI_Register_request.properties` debe existir con el contenido de §6.2 de la spec (según la plantilla de despliegue: jars `ConexionBD.jar`+`LEI_Register_request.jar`, clase `main.Main`, ruta de salida `.../send/LEIsReg_YYYYMMDDHHMMSS.req`, sin `Stop`, con finales de línea CRLF) para que `GS_REGISTERLEISEND` dispare correctamente las 3 acciones (VariablesGlobales, Java, Script) (TC-001 a TC-010). `log4jLEI_Register.properties` en el mismo directorio, con el directorio `/<env>/kytl/online/multipais/multicanal/logs/` escribible.
 - `Generico.sh` (función `ConvertirUNIXValidaFichero`, código en §6.4 de la spec) debe estar desplegado en `/<env>/kytl/online/multipais/multicanal/scrt/` y `dos2unix` disponible en el `PATH` de `xakytl1p` (TC-001, TC-008).
 - Para TC-002 hay que conocer `FALLA_NO_FICHERO` del `.idx` de `MEKYTL0927` y el campo 5 de la línea IDX de `MEKYTL1014` (preguntas P-LEIS-04 y P-LEIS-05 de la spec).
 - El fichero `idx/{CLAVE}.idx` de `MEKYTL0927` debe existir y apuntar correctamente al destino mainframe (`vdrcdexp-anycast.igrupobbva`, patrón `EBPEMFD.FTEXD05X.LEIRDR.ALTA`) para TC-001, TC-009; TC-006 exige poder invalidarlo temporalmente en entorno de test.

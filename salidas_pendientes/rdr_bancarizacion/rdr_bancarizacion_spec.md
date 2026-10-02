@@ -75,7 +75,7 @@ Filtro de la query: contrapartes activas (`DATA_STAT_TYP='ACTIVE'`) con relació
 
 - **Servidor de generación y envío 1/2:** `pr-rdr.igrupobbva` (`MERCADOS-4`).
 - **Servidor de envío a Ábaco:** IP de servicio `22.0.195.136`, balanceada en `LPRDR503`/`LPRDR504`.
-- **`KYTL_BANC_GSPROCESS`:** Run As `xakytl1p`, ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh bancarizacion` (consume 1 unidad del recurso cuantitativo `MAX-LPRDR501`, tope global 100, como cada uno de los 4 jobs) → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`. Al terminar bien publica `RDR_BANCARIZACION_KYTL_BANC_GSPROCESS_OK_new`, el único disparador de los 3 envíos. `GSProcess.sh` es el orquestador genérico de la plataforma (genérico: `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`); su fichero `bancarizacion.properties` **no se ha aportado**, así que se desconocen sus claves exactas (P-BAN-01); lo que sigue sale de la ficha del job y de `select.properties`.
+- **`KYTL_BANC_GSPROCESS`:** Run As `xakytl1p`, ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh bancarizacion` (consume 1 unidad del recurso cuantitativo `MAX-LPRDR501`, tope global 100, como cada uno de los 4 jobs) → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`. Al terminar bien publica `RDR_BANCARIZACION_KYTL_BANC_GSPROCESS_OK_new`, el único disparador de los 3 envíos. `GSProcess.sh` es el orquestador genérico de la plataforma (genérico: `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`); su fichero `bancarizacion.properties` consta según la plantilla de despliegue (§6.2, P-BAN-01 resuelta en parte): 2 acciones, `CreateReport` y `Unix2Dos`, sin claves `Stop*`; lo que sigue sale de la ficha del job, de `select.properties` y de ese `.properties`.
 - **`MEKYTL0157`, `MEKYTL0158`, `MEKYTL0436`:** Run As `xsramer1`, todos vía `MEGENV0001.sh`, disparados en paralelo por el mismo evento `RDR_BANCARIZACION_KYTL_BANC_GSPROCESS_OK_new`, sin dependencia entre ellos.
 - **Programación:** Martes a Sábado (`MXJVS`, es decir martes, miércoles, jueves, viernes y sábado), tras las 00:30 AM. User Daily de carga automático; Site Standard `KYTL0000_SS_PR_HR` (política restrictiva) y `KYTL0000_SS_PR_HI` (informativa); máquina de ejecución `pr-rdr.igrupobbva` (servidor Control-M `MERCADOS-4`). Niveles de criticidad: W = aviso al día siguiente, S = aviso al día siguiente incluso si es festivo, C = aviso inmediato.
 - **Gestión de errores:** máximo de relanzamientos 0 (sin reintento automático); criticidad C (aviso inmediato) confirmada para `MEKYTL0157`, W asumida para `MEKYTL0158`/`MEKYTL0436` (no verificada individualmente); alerta a ANS RDR.
@@ -133,7 +133,7 @@ cabecera si la query falla a mitad). Como `Unix2Dos` vuelve a convertir lo que h
 OK y los 3 jobs de envío **entregan el listado desactualizado de ayer como si fuera el de hoy**. La única forma de
 detectarlo es mirar la fecha del fichero, el log de `RDR_Report` o el recuento de registros (≈98.905 en la muestra).
 Solo si nunca hubo informe previo, `Unix2Dos` falla (código 4, `ESTADO-4`), el job queda en NOTOK y no se
-disparan los 3 envíos. Sin ninguna clave `Stop*=Ok` conocida (P-BAN-01), un fallo de `RDR_Report` no se contaría de
+disparan los 3 envíos. Sin ninguna clave `Stop*` (la plantilla de despliegue no la lleva, §6.2), un fallo de `RDR_Report` no se contaría de
 todos modos, y uno de `Unix2Dos` se cuenta pero no impide terminar.
 
 **Cómo saber si fue bien o mal:** (a) Control-M: `KYTL_BANC_GSPROCESS` y los 3 envíos en OK y el evento
@@ -169,10 +169,28 @@ instituciones y entidades legales).
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-BAN-01 | ¿Cuál es el contenido real de `bancarizacion.properties` de `GSProcess.sh` (argumentos exactos de `CreateReport`, claves `Stop*`)? | Fija si un fallo de `Unix2Dos` detiene algo y confirma la clave usada. |
+| P-BAN-01 (resuelta en parte, 3ª pasada) | ¿Cuál es el contenido real de `bancarizacion.properties` de `GSProcess.sh` (argumentos exactos de `CreateReport`, claves `Stop*`)? **Según la plantilla de despliegue (§6.2):** `CreateReport` con `$CONF/select.properties` y la clave `bancarizacion`, `Unix2Dos` sobre `bancarizacion/ListadoClientesBancarizacion.txt` y ninguna clave `Stop*`. Falta verificar lo instalado en producción | Fija si un fallo de `Unix2Dos` detiene algo (no) y confirma la clave usada (`bancarizacion`). |
 | P-BAN-02 | Líneas `.idx` reales de `MEKYTL0157`, `MEKYTL0158` y `MEKYTL0436` (protocolo, usuario, `FALLA_NO_FICHERO`, `TIPO_ENVIO`, historificación). | Determina si la ausencia del fichero rompe el job y cómo se cumple la regla de no historificar el origen de `MEKYTL0436`. |
 | P-BAN-03 | ¿Qué consume cada receptor (`MVP00G215`, `MVP00G200`, `MVP00G004`) y qué espera si el fichero llega desactualizado o con otro nombre? | Impacto real de un fallo silencioso de `RDR_Report`. |
 | P-BAN-04 | ¿Hay algún control (recuento mínimo, fecha) que detecte un listado desactualizado antes del envío? | Hoy no consta ninguno. |
+
+### 6.2 `bancarizacion.properties` según la plantilla de despliegue (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores con `pr` son valores de producción según la plantilla,
+no una copia verificada de producción. La plantilla es la base anterior a la migración a Java 17 (en curso): clase `CreateReport` **sin paquete** y sin `JDKV` (la ficha y §6.1 nombran `rdr_report.CreateReport`, que es la versión migrada).
+
+Fichero único (sin variantes por entorno, CRLF). Variables globales: `MOD_EJECUCION=bancarizacion`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, `Servicio=bancarizacion`, `SuccessAction=LEAVE`, `Reporte=Si` (sin `File`, `BusinessFeed`, `MessageType` ni `Delta`: no carga nada en GoldenSource). Acciones:
+
+| # | Acción | Parámetros |
+|---|---|---|
+| 1 | `Java` `RDR_Report.jar`, clase `CreateReport` (etiqueta `Reportbancarizacion`) | arg1 `$CONF/select.properties`, arg2 `bancarizacion`; librerías `ojdbc8.jar`, `common-lang3.jar`, `log4j.jar` |
+| 2 | `Script` `Unix2Dos` | `$FILES/bancarizacion/ListadoClientesBancarizacion.txt` |
+
+Ninguna clave `Stop*`: si falla un paso se ejecuta el siguiente y el job acaba con código 1 al final (un fallo de `RDR_Report.jar` no se cuenta nunca, siempre sale con 0). Las tres líneas de la clave `bancarizacion` de `select.properties` de la plantilla
+(query, cabecera y `fileName`) coinciden literalmente con las de §6.1; la línea `ruta` es `/fichtemcomp/@@ENV@@/descargas/kytl/`.
+
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana comprueba «Carga Bancarización» buscando un fichero `*carizacion*` en el directorio de logs de `GSProcess.sh`
+con la fecha del día (es decir, el `execute_bancarizacion_<AAAAMMDD>.log`), lo que solo demuestra que `GSProcess.sh bancarizacion` se ejecutó, no que el listado esté actualizado.
 
 ## 7. Especificación de testing
 

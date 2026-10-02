@@ -17,6 +17,12 @@
 > - Invocaciones reales: `ExtraccionGenericaCONT.properties`, `ExtraccionGenericaTHIRDPARTIES.properties`
 >   y `ExtraccionGenericaCPTY.properties`, todas copias del entorno de integración (rutas `/ei/`).
 > - Captura del estado de `FT_T_ATE1` para `ExtraccionCONT.sql`.
+>
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop). Aporta los 12 `ExtraccionGenerica*.properties` (todos los tipos),
+> `ExtraccionDUCOMASTERDATA.properties` y todos los `log4jExtraccionGenerica*.properties`. El plan de despliegue sustituye
+> `@@ENV@@` por `de`, `ei`, `pp` o `pr`; los valores son «valores de la plantilla», no una copia verificada de producción, y la
+> plantilla es anterior a la migración a Java 17 (§2.5). No trae código Java: los huecos sobre clases y jars siguen abiertos.
 
 ## 1. Qué es y para qué sirve
 
@@ -34,8 +40,8 @@ Planificador Genérico**, aunque comparte la tabla `FT_T_ATE1`: ver
 |---|---|---|---|
 | `ExtraccionGenericaOtherEntities.jar` | `extracciongenericaotherentities.Ppal` | **Dos queries**: una lista de entidades y una query de detalle por entidad, en paralelo | Sí, salvo el hilo de trabajo |
 | `ExtraccionGenericaUnificada.jar` | `com.bbva.kytl.extraccion.Principal` | **Una sola query** que devuelve todas las líneas del fichero | Sí |
-| `ExtraccionGenericaCPTY.jar` | `extracciongenericacpty.Ppal` | Probablemente como `OtherEntities` (mismos argumentos), sin confirmar | No |
-| `ExtraccionGenericaEMISI.jar` | `Ppal` | Desconocido | No |
+| `ExtraccionGenericaCPTY.jar` | `extracciongenericacpty.Ppal` (en la plantilla, `Ppal` sin paquete) | Su `.properties` tiene exactamente los mismos 7 argumentos y librerías que `OtherEntities` (§2.5); el algoritmo se presume igual, sin confirmar | No |
+| `ExtraccionGenericaEMISI.jar` | `Ppal` | Mismos 7 argumentos que `OtherEntities`, más `ConexionBD.jar` en el classpath, con ficheros de salida `emisiones.xml` / `emisiones.resto.xml` (§2.5); algoritmo desconocido | No |
 
 ## 2. `ExtraccionGenericaOtherEntities.jar`
 
@@ -75,8 +81,10 @@ Accion=Java
 ### 2.2 Tipos de extracción
 
 El código reconoce estos tipos. En la tabla figura el nombre de la constante del código. El texto
-literal que hay que pasar como argumento 6 solo se ha visto en `CONT`, `THIRDPARTIES` y `BASKETS`,
-porque `Constants.java` no se ha recibido.
+literal que hay que pasar como argumento 6 es el que traen los `.properties` de la plantilla (§2.5):
+`SSIS`, `SCIS`, `CONT`, `CONTR`, `BASKETS`, `CONTRBBVA`, `THIRDPARTIES`, `DUCOCPTY` y `DOMI` (`CPARTY`, `ALL` y `RESTO`
+son de los jars `CPTY` y `EMISI`). `Constants.java` sigue sin recibirse: se conoce el literal que usan los jobs, no el resto
+de sus constantes.
 
 | Tipo (constante) | Query de lista (`ACTION_NME`) | Columna de la lista | Query de detalle (`ACTION_NME`) | Columna de detalle | Formato | Cabecera/etiqueta (`FT_T_PAR1`) | Subcarpeta destino |
 |---|---|---|---|---|---|---|---|
@@ -141,6 +149,70 @@ Mensajes del log útiles para verificar: `******** INICIO PROCESO EXTRACCION GEN
 | La subcarpeta de destino no existe o el movimiento falla | `Error: No se ha podido renombrar el fichero.`: **el temporal se queda** y la siguiente ejecución añade su contenido detrás (R3) | **0** |
 | Tipo desconocido | No hace nada (R1) | **0** |
 
+### 2.5 Los `.properties` de cada tipo según la plantilla de despliegue
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), los 12 `ExtraccionGenerica<TIPO>.properties`
+siguen todos el patrón de §2.1: acciones `VariablesGlobales` y `Java` (y, en cuatro tipos, una acción `Script` posterior),
+`ArgJava1=2`, `ArgJava3=20` hilos, `ArgJava7=/@@ENV@@/kytl/online/multipais/multicanal/cfg/entorno` y las mismas siete librerías
+(`ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`, `commons-pool-1.5.4`). Ninguno
+lleva claves `Stop*` (un fallo del Java no impide las acciones `Script` siguientes). El plan de despliegue sustituye
+`@@ENV@@`; los valores que se muestran son los de la plantilla.
+
+| Fichero | Jar | Tipo (`ArgJava6`) | Directorio (`ArgJava4`) | Temporal (`ArgJava5`) | Log4j (`ArgJava2`) |
+|---|---|---|---|---|---|
+| `ExtraccionGenericaCONT.properties` | `ExtraccionGenericaOtherEntities.jar` | `CONT` | `/fichtemcomp/@@ENV@@/descargas/kytl/extracciongenerica` | `ExtraccionContingenciaCONT.xml.tmp` | `log4jExtraccionGenericaCON.properties` |
+| `ExtraccionGenericaSSIs.properties` | ídem | `SSIS` | ídem | `ExtraccionContingenciaSSIs.xml.tmp` | `log4jExtraccionGenericaSSIs.properties` |
+| `ExtraccionGenericaSCIs.properties` | ídem | `SCIS` | ídem | `ExtraccionContingenciaSCIs.xml.tmp` | `log4jExtraccionGenericaSCIs.properties` |
+| `ExtraccionGenericaCONTR.properties` | ídem | `CONTR` | ídem | `ExtraccionContingenciaCONTR.xml.tmp` | `log4jExtraccionGenericaCONTR.properties` |
+| `ExtraccionGenericaCONTRBBVA.properties` | ídem | `CONTRBBVA` | ídem | `ExtraccionContingenciaCONTRBBVA.xml.tmp` | `log4jExtraccionGenericaCONTRBBVA.properties` |
+| `ExtraccionGenericaTHIRDPARTIES.properties` | ídem | `THIRDPARTIES` | ídem | `Thirdparties.xml.tmp` (p minúscula) | `log4jExtraccionGenericaTHIRDPARTIES.properties` |
+| `ExtraccionGenericaDUCOCPTY.properties` | ídem | `DUCOCPTY` | ídem | `DUCOCPTY.csv.tmp` | `log4jExtraccionGenericaDUCOCPTY.properties` |
+| `ExtraccionGenericaDOMI.properties` | ídem | `DOMI` | ídem | `DOMI.csv.tmp` | `log4jExtraccionGenericaDOMI.properties` |
+| `ExtraccionGenericaBASKETS.properties` | ídem | `BASKETS` | `/fichtemcomp/@@ENV@@/descargas/kytl/issues` | `Baskets.xml.tmp` | `log4jExtraccionGenericaBASKETS.properties` |
+| `ExtraccionGenericaCPTY.properties` | `ExtraccionGenericaCPTY.jar` | `CPARTY` | `/fichtemcomp/@@ENV@@/descargas/kytl/extracciongenerica` | `ExtraccionContingencia.xml.tmp` | `log4jExtraccionGenericaCPTY.properties` |
+| `ExtraccionGenericaEMISI_ALL.properties` | `ConexionBD.jar` + `ExtraccionGenericaEMISI.jar` | `ALL` | `/fichtemcomp/@@ENV@@/descargas/kytl/issues/ReportingEngine/` | `emisiones.xml` (sin `.tmp`) | `log4jExtraccionGenericaEMISI_ALL.properties` |
+| `ExtraccionGenericaEMISI_RESTO.properties` | ídem | `RESTO` | ídem | `emisiones.resto.xml` (sin `.tmp`) | `log4jExtraccionGenericaEMISI_RESTO.properties` |
+
+(`Servicio` y `MOD_EJECUCION` de cada fichero son su nombre sin extensión, salvo los dos `EMISI`, que usan `ExtraccionGenericaEMISI`.
+`ServicioJava` es `<nombre>_log`. El prefijo `PreArgJava2` es `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties` y
+`PreArgJava5` repite el directorio `ArgJava4`.)
+
+**Acciones `Script` que la plantilla añade tras el Java** (las ejecuta `Generico.sh`; ver
+`salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`):
+
+| Tipo | Acción | Efecto |
+|---|---|---|
+| `CONT` | `XSLT_TO_XML` con `sait.xsl` | `xsltproc sait.xsl CONT/ExtraccionContingenciaCONT.xml > CONT/SAIT/RDR_contactosSAIT.xml` (filtro de México, ver la spec de contactos) |
+| `CONTR` | `CopiarFichero` | Copia `extracciongenerica/CONTR/ExtraccionContingenciaCONTR.xml` a `/fichtemcomp/@@ENV@@/descargas/kytl/BANCOMER/BANCOMERContracts.xml` (`cp -f` y `chmod 664`) |
+| `CONTRBBVA` | `CopiarFichero` | Copia `extracciongenerica/CONTRBBVA/ExtraccionContingenciaCONTRBBVA.xml` a `/fichtemcomp/@@ENV@@/descargas/kytl/LAGR/BBVAContracts.xml` |
+| `DOMI` | `eliminarLineasDuplicadaCabecera` | Sobre `extracciongenerica/CONT/DominiosContactosRDR.csv`: guarda la primera línea (cabecera), ordena el resto y elimina duplicados **sin distinguir mayúsculas** (`sort` + `uniq -i`) usando `DominiosContactosRDR_tmp1.csv` y `_tmp2.csv`, borra los temporales y reinserta la cabecera. Al ordenar, el fichero final queda ordenado por la línea completa |
+| `SSIS`, `SCIS`, `THIRDPARTIES`, `DUCOCPTY`, `BASKETS`, `CPARTY`, `EMISI` | (ninguna) | El fichero queda tal como lo publica el Java |
+
+Los dos tipos de la fila `EMISI` escriben en `issues/ReportingEngine/` los ficheros `emisiones.xml` y `emisiones.resto.xml` que
+valida después `RDR_Validacion_XSD.sh` (tipos `ISSUE` y `ISSUERESTO`) contra `xsd_emisiones_batch.xsd`, con raíz `Securities` y registro
+`Security`. La extracción `BASKETS` publica en `issues/Baskets/` el fichero que valida `RDR_Validacion_XSD.sh` (tipo `BASKET`) contra
+`Baskets_Schema.xsd`, buscando `baskets.xml` en minúsculas; el nombre real lo decide `URL_OUTPUT_FILE`, que no se conoce (§2.3).
+
+**Corrección y regla de lectura (migración a Java 17).** Esta spec daba como clase `extracciongenericaotherentities.Ppal` y `JDKV=17`
+(copia de integración). La plantilla develop trae `NomClaseJava=Ppal` (**sin paquete**) y **sin `JDKV`**, tanto en `OtherEntities`
+como en `CPTY` y `EMISI`. Es la base anterior a la migración a Java 17, que está en curso: las ramas migradas empaquetan las clases
+(`extracciongenericaotherentities.Ppal`, `extracciongenericacpty.Ppal`) y llevan `JDKV=17`. Para cada entorno manda lo que tenga
+instalado: en integración, la copia con paquete y `JDKV=17` (evidencia de entorno recibida); en el resto, la plantilla hasta que se
+migre. No cambia ningún argumento ni el algoritmo.
+
+### 2.6 Dónde escribe su log cada extracción (log4j de la plantilla)
+
+Según la plantilla de despliegue, los doce `log4jExtraccionGenerica<TIPO>.properties` (`BASKETS`, `CON`, `CONTR`, `CONTRBBVA`, `CPTY`, `DOMI`,
+`DUCOCPTY`, `EMISI_ALL`, `EMISI_RESTO`, `SCIs`, `SSIs`, `THIRDPARTIES`) son **iguales entre sí salvo el nombre del fichero**:
+`rootLogger=info, R`, un `RollingFileAppender` en `/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenerica<TIPO>.log`
+(para contactos, `ExtraccionGenericaCON.log`: el nombre sin `T` es correcto), `MaxFileSize=100000KB` (unos 100 MB), `MaxBackupIndex=3` y
+patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`. El `stdout` se declara pero no se asocia al `rootLogger`.
+Consecuencias: hay **un log por tipo y entorno**, propio de cada extracción; el nivel `info` coincide con el `2` del argumento 1; los
+mensajes de §2.3 (`Cantidad de <tipo> a tratar`, `FIN EXTRACCION GENERICA DE <tipo>`) se buscan en ese fichero; un tipo desconocido
+(R1) deja `FIN EXTRACCION GENERICA DE <tipo>` y nada más. La salida estándar del Java (una línea por identificador) no va a este log, sino a la salida
+del job. También hay `log4jExtraccionesDominios.properties` (log `ExtraccionDominios.log`), que ningún `.properties` de extracción de esta
+tabla referencia. La variante `Unificada` usa otro fichero (§3.4).
+
 ## 3. `ExtraccionGenericaUnificada.jar`
 
 ### 3.1 Invocación
@@ -188,6 +260,16 @@ el error es al escribir, borra el temporal. Si es en el renombrado final, el tem
 la siguiente ejecución lo sobrescribe, porque esta variante no añade. Es la variante que mejor
 informa de los fallos.
 
+### 3.4 Configuración de la plantilla para `DUCOMASTERDATA`
+
+Según la plantilla de despliegue, `ExtraccionDUCOMASTERDATA.properties` declara: `ExtraccionGenericaUnificada.jar`, clase
+`com.bbva.kytl.extraccion.Principal` (con paquete ya en la plantilla), `ServicioJava=ExtraccionDUCOMASTERDATA_log`, `ArgJava1=2`,
+`ArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties/log4jExtraccionDUCOMASTERDATA.properties` (ruta completa, sin
+`PreArgJava2`), `ArgJava3=DUCOMASTERDATA`, `ArgJava4=/fichtemcomp/@@ENV@@/descargas/kytl/extracciongenerica/DUCOMASTERDATA`,
+`ArgJava5=/@@ENV@@/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` y las mismas siete librerías. No lleva `JDKV` ni
+`Stop*`. Su log4j es distinto del resto: `rootLogger=INFO, file`, `RollingFileAppender` en `.../logs/ExtraccionDUCOMASTERDATA.log` de
+**10 MB**, 3 copias, codificación UTF-8.
+
 ## 4. Diferencias entre variantes que importan al probar
 
 | Aspecto | `OtherEntities` | `Unificada` |
@@ -231,6 +313,13 @@ para deducir cómo se conecta este jar; el `Ppal` de la variante Unificada impor
 `Constants` pero tampoco trae su código. Tampoco hay filas `HEADER` de `FT_T_PAR1` (el único volcado de
 `FT_T_PAR1` que trae son 37 parámetros de otros procesos: `AUDITMEX`, `EMSQUEUE`, `MQQUEUE`, `UNIQUENESS`…), así que
 P-EXG-02 sigue abierta.
+
+**Tercera pasada de cierre (plantilla de despliegue).** Cerrado: el contenido de los `log4jExtraccionGenerica*.properties` (§2.6, antes
+sin analizar). Parcialmente avanzado: los literales de los tipos de extracción (los fijan los `.properties`, §2.5) y la forma de
+invocación de `CPTY` y `EMISI` (mismos siete argumentos que `OtherEntities`; `EMISI` añade `ConexionBD.jar` y escribe `emisiones*.xml` sin
+`.tmp`, §2.5). **Siguen abiertos**, porque la plantilla no trae código Java: `MyThreadCpty`, `Constants`, `ConDB`, `ConfigCredentials`
+(P-EXG-01), el algoritmo de `ExtraccionGenericaCPTY.jar` y de `ExtraccionGenericaEMISI.jar` y, con ellos, si las cabeceras `HEADER` acaban en
+salto de línea (P-EXG-02). Tampoco se reciben las filas de `FT_T_ATE1`/`FT_T_PAR1`.
 
 ## 7. Procesos que lo usan
 

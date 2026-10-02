@@ -11,14 +11,14 @@
 |---|---|---|
 | `clientes.csv` en `/fichtemcomp/<env>/descargas/kytl/clientes/` (productor no documentado, P-CIB-03) | `KYTL_CLI_GSPROCESS_FW` y `KYTL_CLI_GSPROCESS` | TC-001, TC-002, TC-003 (por su ausencia), TC-005, TC-006, TC-007, TC-008 |
 | GoldenSource del entorno de pruebas (carga MDX con el mapeo `clientes.mdx` de la spec §6.3.1 y eventos `RDR_ErroresCSV`, `RDR_Reporte`) | Carga de clientes y generación del reporte | TC-001, TC-002, TC-004, TC-007, TC-008 |
-| `fillingRules_clientes.csv` en `/<env>/kytl/online/multipais/multicanal/dat/properties/` (no recibido, P-CIB-02) | Validación de `ControlCargaDatos.jar` | TC-001, TC-008 (preparación de datos) |
-| Si `Delta.sh` trabaja en modo `Si` (P-CIB-01): `old/clientes.csv` de la carga anterior | Comparación del delta | TC-007 (segundo día) |
+| `fillingRules_clientes.csv` en `/<env>/kytl/online/multipais/multicanal/dat/properties/` (contenido según la plantilla de despliegue, spec §6.3.3; copia instalada sin verificar, P-CIB-02) | Validación de `ControlCargaDatos.jar`: `COD_CCLIEN` de 9 caracteres, `COD_TIPOCLI` de 1, `USAR` en todas, sin `DUPL` | TC-001, TC-008 (preparación de datos), TC-010 |
+| Con la plantilla `Delta.sh` trabaja en modo `No` (copia `clientes.csv` a `old/clientes.csv`); solo en modo `Si` haría falta `old/clientes.csv` de la carga anterior | Comparación del delta (no aplica con `Delta=No`) | TC-007 (segundo día) |
 
 ## Datos mínimos
 
 | Caso(s) | Qué hace falta |
 |---|---|
-| TC-001, TC-008 | `clientes.csv` con una primera línea de cabecera `COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO` y al menos 2 registros de 12 campos separados por `;` (uno con `COD_TIPOCLI=C` y otro con `E`, los dos valores que traduce el mapeo), sin vocales acentuadas ni `ñ`, sin comillas ni `;` dentro de los valores (el mapeo no define comillas) (hasta conocer la codificación y las reglas, P-CIB-02/P-CIB-03). La cabecera es necesaria porque `ControlCargaDatos.jar` compara la primera línea con la del fichero de reglas. |
+| TC-001, TC-008 | `clientes.csv` con una primera línea de cabecera `COD_CCLIEN;COD_NIF;COD_BDI;DES_NOMCLI;COD_BANCO;COD_OFICINA;COD_CONTRATO;COD_CFOLIO;COD_CNAE5;DES_CNAE5;COD_TIPOCLI;DES_RESTO` y al menos 2 registros de 12 campos separados por `;` (uno con `COD_TIPOCLI=C` y otro con `E`, los dos valores que traduce el mapeo), sin vocales acentuadas ni `ñ`, sin comillas ni `;` dentro de los valores (el mapeo no define comillas) con `COD_CCLIEN` de exactamente 9 caracteres y `COD_TIPOCLI` de 1 (reglas de la plantilla, P-CIB-02; codificación aún sin confirmar, P-CIB-03). La cabecera es necesaria porque `ControlCargaDatos.jar` compara la primera línea con la del fichero de reglas. |
 | TC-002 | Igual que TC-001 más un modo de hacer fallar `KYTL_CLI_GSPROCESS` (por ejemplo, retirar en pruebas `clientes.properties` o el permiso de lectura sobre él: `GSProcess.sh` termina con 1 si no existe el `.properties`). |
 | TC-003 | Ningún `clientes.csv` en el directorio durante los 240 minutos de espera. |
 | TC-004 | Una ejecución completa con acceso a los dos ficheros de destino del mismo día. |
@@ -43,10 +43,10 @@
 |---|---|---|
 | Parámetros `ctmfw` de `KYTL_CLI_GSPROCESS_FW`: `CREATE 0 60 10 5 240` | Cualquier tamaño (incluso vacío); búsqueda cada 60 s; tamaño medido cada 10 s; 5 mediciones iguales para darlo por completo; espera máxima 240 minutos (fija la duración de TC-003). | TC-001, TC-003 |
 | Acciones del job `KYTL_CLI_GSPROCESS_FW` (captura) | Código 0 → evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new`; código 7 → evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO` y marcar OK | TC-003 |
-| `clientes.properties` (no recibido, P-CIB-01) | Argumentos de `Delta.sh` y de `ControlCargaDatos.jar`, fichero que carga el MDX, `Stop` | TC-001, TC-002, TC-007 |
-| `fillingRules_clientes.csv` (no recibido, P-CIB-02) | Reglas por columna | TC-001, TC-008 |
+| `clientes.properties` (según la plantilla de despliegue, spec §6.3.3; copia instalada sin verificar, P-CIB-01) | `Delta.sh No`, argumentos de `ControlCargaDatos.jar`, MDX sobre `clientes_processed.csv`, sin `Stop` | TC-001, TC-002, TC-007 |
+| `fillingRules_clientes.csv` (plantilla, P-CIB-02) | Reglas por columna | TC-001, TC-008, TC-010 |
 | Feed `clientes` de GoldenSource (spec §6.3.2) | Patrón `clientes_processed.csv`, lectura `SkipHeaderReadByLine.xml`, tipo de mensaje `CLX`, mapeo `clientes.mdx`, `ROLLBACK_ON_ERROR=N`; workflows `Standard File Load`, `ErroresCSV`, `MarcaRegErroneo`, `SubErroresCSV`, `GenerateReports`, `Sub_GenerateReports`, `Sub_DevelopReport` y `HistoricizeFiles` en estado RELEASED | TC-001, TC-009 |
-| Parámetros de los eventos `RDR_ErroresCSV` y `RDR_Reporte` en `clientes.properties` (no recibido, P-CIB-01) | `Ruta` (directorio base, p. ej. `/fichtemcomp/pr/descargas/kytl/`), `Servicio=clientes`, `File`, `MessageType=CLX` y `Delta`; con `Delta=Si` hace falta además `errores_to_file.sh` en `/<env>/kytl/online/multipais/multicanal/scrt/` | TC-009 |
+| Parámetros de los eventos `RDR_ErroresCSV` y `RDR_Reporte` en `clientes.properties` (plantilla, spec §6.3.3) | `Ruta=/fichtemcomp/<env>/descargas/kytl/`, `Servicio=clientes`, `File=.../clientes/clientes_processed.csv`, `MessageType=CLX` y `Delta=No` (con `Delta=No` no se ejecuta `MarcaRegErroneo` ni `errores_to_file.sh`) | TC-009 |
 | `.idx` de `MEKYTL0147` y `MEKYTL0148` (no recibidos, P-CIB-05) | Renombrado `Reporte_clientes_<yyyymmdd>.csv` / `CLIEXCLU_<yyyymmdd>.txt`, rutas, `FALLA_NO_FICHERO` | TC-004 |
 | Líneas IDX de `MEKYTL0136` y `MEKYTL0939` (no recibidas, P-CIB-06) | Renombrado con `_yyyymmdd`, operación, campo 5 | TC-001, TC-007 |
 
@@ -54,7 +54,7 @@
 
 | Ruta | Uso | Entorno |
 |---|---|---|
-| `/fichtemcomp/pr/descargas/kytl/clientes/` | Entrada `clientes.csv`; salidas intermedias (`clientes_processed.csv`, `clientes_noprocessed.csv`, `Reporte_clientes.csv`, `clientes_errores.csv`, y `db_errores.txt` si `Delta=Si`) y `Reporte_clientes_dos.csv` | Producción (referencia) |
+| `/fichtemcomp/pr/descargas/kytl/clientes/` | Entrada `clientes.csv`; salidas intermedias (`clientes_processed.csv`, `clientes_noprocessed.csv`, `Reporte_clientes.csv`, `clientes_errores.csv`, y `db_errores.txt` solo si `Delta=Si`, que no es el caso de la plantilla) y `Reporte_clientes_dos.csv` | Producción (referencia) |
 | `/fichtemcomp/pr/descargas/kytl/clientes/old/` | Históricos `clientes_<yyyymmdd>.csv` y `Reporte_clientes_dos_<yyyymmdd>.csv`; referencia del delta `clientes.csv` (y `_old.csv`, `_original.csv`) si `Delta.sh` trabaja en modo `Si`. Sin compresión ni purga documentada | Producción (referencia) |
 | `\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\` en `XCOMWPMER` | Destino de `MEKYTL0147` | Producción (referencia) |
 | `\\S00371F2\DATOS TRANSMI\MVP00G219\` en `XCOMWPMER` (ruta literal de la ficha, P-CIB-05) | Destino de `MEKYTL0148` | Producción (referencia) |

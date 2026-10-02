@@ -9,6 +9,11 @@
 > eventos y workflows `SelectivePublish`, `Mail`, `SendMailReport` y `Email Exceptions`) y consulta de publicación
 > `RDR_ME_PushSecuritiesByIds`; ver §6.7. **Revisa DEF-EMIS-001 (el correo de la Cadena 1) y desarrolla la Cadena 7.**
 >
+> Pasada de cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`): scripts
+> `Cuenta_Emisiones.sh` y `RDR_Procesar_Emisiones.sh`, los `.properties` de las cadenas 1, 2/3, 4, 5 y 7, la extracción y la
+> transformación de emisiones, `Extraccion_Emisiones.xsl` y `xsd_emisiones_batch.xsd`; ver §6.8. **Descarta en la plantilla el
+> defecto DEF-EMIS-001 y corrige la detección de errores de la Cadena 5.**
+>
 > **Decisión explícita del usuario sobre granularidad:** el documento fuente declara en su propia introducción
 > cubrir solo 4 cadenas ("emisiones vigentes, emisiones vencidas, datos de mercados y publicación selectiva"),
 > pero su cuerpo documenta realmente **7 cadenas completas**, incluyendo 2 que el propio documento dice que
@@ -109,6 +114,8 @@ reales (parámetros `CONSTANT recipients[0..3]`): `rdr_factory@bbva.com` y tres 
 Remitente `moca.users.es@bbva.com`.
 
 **Revisión en la pasada de cierre 2 (§6.7):** en la tabla de eventos de la base de datos de workflows de GoldenSource, el evento `SendMailReport` arranca el workflow `Mail`, no el workflow `SendMailReport` analizado arriba. Mientras no se tenga `EnvioReporteEmisiones.properties` y la definición del evento en producción, **DEF-EMIS-001 no está confirmado** y los destinatarios, el asunto y el adjunto reales son los que fije ese `.properties`.
+
+**Cierre 3 (§6.8):** la plantilla de despliegue trae `EnvioReporteEmisiones.properties` con las claves `Destination`, `FileMail`, `Mail`, `NameFile` y `Subject` (asunto `Reporte cuenta Emisiones - Emisores.`, adjunto `Emisiones_Emisores_Por_Destino.csv`), que son justo los parámetros del workflow `Mail`; con ese fichero el correo sale con el asunto y el adjunto de la ficha funcional y **DEF-EMIS-001 no se da en la plantilla**. Falta verificar en el servidor de producción el `.properties` instalado y el workflow que arranca el evento (H-EMI-11, parcial).
 
 ### 1.2 Cadenas 2 y 3 — Extracción de emisiones vigentes y vencidas
 
@@ -217,6 +224,8 @@ sub-procesos usa Workflows** — todos son exclusivamente Java contra BBDD. Cont
 falla (exit≠0) **o** su log contiene la cadena "error" (no solo el exit code), el script completo sale con
 `exit -2` inmediatamente y **no ejecuta ninguno de los pasos siguientes** — no hay reintento ni continuación
 parcial. Log real: `/fichtemcomp/$ENV/descargas/kytl/issues/borrado_emisiones_YYYY-MM-DD.log`.
+
+**Corrección (cierre 3, §6.8):** con el código de `RDR_Procesar_Emisiones.sh` de la plantilla, el criterio "su log contiene la cadena error" no se aplica sobre el log de esta cadena (`borrado_emisiones_<fecha>.log`) sino sobre otro fichero, `RDR_Procesar_Emisiones_<fecha>.log`, que ni el script ni `GSProcess.sh` escriben. Mientras ese fichero no exista, la comprobación nunca detecta nada y **el único criterio efectivo es el código de salida de cada `GSProcess.sh`** (distinto de 0 → `exit -2`). La salida normal termina con el texto engañoso `ERROR: FIN Script` y `exit 0`. Las clases de los pasos 1 y 5 en la plantilla son `main.crearIndices` (ambos); los nombres con paquete que figuran arriba son los de las copias migradas a Java 17.
 
 ### 1.5 Cadena 6 — `RDR_MARKETS_EXTRACCION_new`
 
@@ -451,10 +460,27 @@ lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) está descrita en
 |---|---|---|
 | P-EMI-01 | Días reales de ejecución de las cadenas 3 y 6 en Control-M: se documenta "Avanzado (1,2,3,4,0)" para ambas, y para las cadenas 2 y 4 se da (1,2,3,4,5) con lecturas funcionales distintas (L-V frente a M-S). ¿Qué día de la semana es cada número? | El Planificador solo genera `dictionaryMarkets.csv` de martes a sábado; si la cadena 6 corre en un día sin extracción, espera 60 minutos en vano (y queda en verde) |
 | P-EMI-02 | ¿Qué extracción de emisiones (y a qué fichero) ejecuta `planifGenerico` en las cadenas 2 y 3 (09:25 y 14:25-18:40)? No hay ninguna de emisiones en el inventario de extracciones activas | Sin esto no se puede especificar el resultado de dos de las siete cadenas |
-| P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
+| P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores **Resuelta en parte (cierre 3, 02/10/2026):** la plantilla trae `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` (argumentos del jar, fichero de salida, log; §6.8); sigue sin recibirse el jar, es decir, la consulta, la diferencia real entre `ALL` y `RESTO` y su comportamiento ante errores. | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
 | P-EMI-04 | Columnas y consumidores de `dictionaryMarkets.csv` (y línea `IDX` de `RAMERC0068.sh` para `MEKYTL0857`: ¿mueve o copia el fichero?) | Define el contenido a validar y quién se ve afectado si no se genera |
 | P-EMI-05 | Nombre real del backup de RE: `emisiones_ddmmyyyy.xml.tar.gz` (ficha de `MEKYTL0536`) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh`) | Si difieren, el conteo RE del informe diario sale siempre a 0 sin error |
-| P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` | **Resuelta en parte (cierre 2, 02/10/2026).** El workflow `RDR_SelectivePublish` (evento -> `SelectivePublish` v13) está analizado en §6.7: qué lee, qué publica y dónde. **Siguen abiertos** los cuatro jars, de los que no hay código. Hoy los jars son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
+| P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` **Cierre 3 (02/10/2026):** la plantilla aporta los `.properties` literales de los cuatro jars (argumentos, librerías, logs; §6.8); siguen sin recibirse los jars ni los procedimientos PL/SQL. | **Resuelta en parte (cierre 2, 02/10/2026).** El workflow `RDR_SelectivePublish` (evento -> `SelectivePublish` v13) está analizado en §6.7: qué lee, qué publica y dónde. **Siguen abiertos** los cuatro jars, de los que no hay código. Hoy los jars son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
+
+### 4.3 Cierre 3 (02/10/2026): estado de los huecos con la plantilla de despliegue
+
+Procedencia: según la plantilla de despliegue (repositorio `estaticos`, rama `develop`); los valores `.pr` son valores de producción según la plantilla, no una copia verificada del servidor. Detalle en §6.8.
+
+| Id | Estado | Qué aporta la plantilla / qué falta |
+|---|---|---|
+| H-EMI-05 | Resuelta | Contenido literal de los `.properties` de las 5 acciones de la Cadena 5, de `ProcesoDeFusion.properties` y de `selectivePublishEmisiones.properties` (§6.8.C, §6.8.D, §6.8.E) |
+| H-EMI-06 | Resuelta | Código completo de `RDR_Procesar_Emisiones.sh` y criterios reales de error: solo el código de salida de cada paso (§6.8.D) |
+| H-EMI-08 | Resuelta | `traducir_creden` es una función de `Generico.sh` que escribe `planificador.properties` desde `credentials.xml`; la plantilla de `planificador.properties` solo trae marcadores (§6.8.B) |
+| H-EMI-11 | Resuelta en parte | `EnvioReporteEmisiones.properties.<env>` de la plantilla (§6.8.A). Falta verificar en producción el fichero instalado, los destinatarios reales (direcciones no incluidas) y qué workflow arranca el evento `SendMailReport` |
+| P-EMI-03 | Resuelta en parte | `.properties` de `ExtraccionGenericaEMISI` (§6.8.F); falta el jar |
+| P-EMI-06 | Resuelta en parte | `.properties` de los jars de las cadenas 4 y 5; faltan los jars |
+| P-EMI-04, H-EMI-03 | Abierta | La plantilla no trae `DictionaryMarkets.sql` (su carpeta `sql/` no la contiene) ni el layout de `dictionaryMarkets.csv`; solo un `publish/dictionaryMarkets.xml` que es otra cosa (§6.8.G) |
+| H-EMI-04 | Abierta | Los procedimientos `HIST_INACTIVADOR_EMISIONES` e `INCR_HISTORIFICACION_EMISIONES` no están en la plantilla |
+| H-EMI-07 | Abierta | `raiseEvent.sh` no está en la plantilla (solo `BBGexecuteBbvaEvent.sh`, que lo invoca) |
+| P-EMI-01, P-EMI-02, P-EMI-05, H-EMI-01, H-EMI-02 | Abierta | Dependen de Control-M, de las filas `FT_T_ATE1`/`FT_T_QPF1` o del IDX de `RAMERC0068.sh`; la plantilla no aporta nada |
 
 ## 5. Especificación funcional
 
@@ -628,6 +654,92 @@ El XML que se publica por emisión (`SecuritiesResp`) lleva `ReqID`, `ReqRslt` y
 
 **Quién escribe las marcas `SELPUSH`.** Ningún otro workflow del volcado ni `rdrRules.jar` contienen `SELPUSH` ni `IS_PUBLISH`: las marcas que alimentan esta cadena las crea otro componente (hipótesis: las cargas o los jars de fusión de la Cadena 5), no `SelectivePublish`. Si nadie las crea, la cadena termina siempre sin publicar nada y en OK.
 
+### 6.8 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`)
+
+**Cómo leer este apartado.** La plantilla no es la copia de un entorno. El marcador `@@ENV@@` lo sustituye el plan de despliegue por `de`, `ei`, `pp` o `pr`; los ficheros `X.properties.pr`/`.pp`/`.ei`/`.de` son variantes por entorno y el plan instala la del entorno como `X.properties`. Lo que sigue son, por tanto, "valores de producción según la plantilla", no una copia verificada de producción. Los hosts, las contraseñas y las direcciones de correo personales no están en la plantilla (aparecen enmascarados). La plantilla es la base **anterior a la migración a Java 17**: `GSProcess.sh` sin clave `JDKV` (elige el Java de `<javahome>` en `credentials.xml`) y clases sin paquete; las copias migradas llevan `JDKV=17` y clases con paquete. **Corrección:** donde esta spec dice "JDK 17 específicamente" para la Cadena 5, la plantilla no lo fija; la migración a Java 17 está en curso y la plantilla `develop` sigue en la versión sin paquete (`main.crearIndices` en vez de `crearindices_emisiones.crearIndices`/`rdr.crearindices_emisiones.crearIndices`).
+
+Cómo ejecuta `GSProcess.sh` (plantilla) los `.properties` que siguen: lee línea a línea, acumula las claves y dispara la acción al llegar a `Accion=Java|Script|Evento|Property`. La acción Java construye `java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<dat/properties> -cp <jar>/NomPaquete1:<jar>/NomPaquete2:<lib>/Libreria1:... <NomClaseJava> <ArgJava1..>` con `<jar>` = `/<env>/kytl/online/multipais/multicanal/jar` y `<lib>` = `.../lib`; si el Java devuelve distinto de 0 suma un error y `GSProcess.sh` acaba con 1. La acción `Evento` de tipo `Workflow` evalúa el código de un `rm -f` posterior y no el del workflow (R14 de la spec común).
+
+#### 6.8.A Cadena 1: `Cuenta_Emisiones.sh` y `EnvioReporteEmisiones.properties`
+
+`Cuenta_Emisiones.sh` (plantilla, 310 líneas, autor ANS RDR, 09/04/2019) coincide con la lógica de §1.1 y añade estos detalles:
+- El entorno sale del prefijo de `hostname` (`lp`→`pr`, `lw`→`pp`, `li`→`ei`, `ld`→`de`); con otro prefijo escribe `ERROR: No es posible calcular el entorno de ejecucion` y sale con `exit -2` (254 en Control-M). No comprueba el usuario.
+- **Log propio:** `/fichtemcomp/<env>/descargas/kytl/issues/Cuenta_Registros/Log/Cuenta_Registros_<DDMMYYYY>.log`, recreado en cada ejecución (la primera escritura es `>`). Si el directorio `Log/` no existe, las escrituras fallan sin detener el script.
+- Cabecera de `Cuenta_Registros_<MMYYYY>.csv`: `FECHA ;RE TOTAL ;RE OPCIONES ;RE FUTUROS ;RE WARRANTS ;RE RESTO ;COMMON ;EQINDEX ;ETF ;FUND ;RECEIPTS ;RIGHTS ;UNIT ;REALESTA`; la de `Registros_Por_Destino_<MMYYYY>.csv`: `FECHA ;REPORTING ENGINE ;CARE ;SMARTDATA ;SHS ;RIMS ;MENTOR ;PRIIPS-MODELITY`. Cada línea se añade con `>>` y la fecha en formato `DDMMYYYY`.
+- **Qué cuenta en cada fuente.** RE y SHS (`zcat ... | grep`): líneas con `<Security>` (total) y con `<Typ>OPTIONS|FUTURES|WARRANTS</Typ>` (RE) o `<Typ>COMMON|EQINDEX|ETF|FUND|RECEIPTS|RIGHTS|UNIT|REALESTA</Typ>` (SHS); "RE RESTO" = líneas que contienen `<Security>` y no contienen las marcas de tipo de opciones, futuros ni warrants. Todos estos recuentos son de **líneas**: equivalen a registros solo si cada `<Security>…</Security>` va en una línea (la hoja de §6.8.F emite un registro por línea; el formato de `emisiones.xml` no se conoce). RIMS, MENTOR y PRIIPS **cuentan líneas del fichero** (`cat ... | wc -l`), no registros `<Security>`; si el CSV de MENTOR/PRIIPS lleva cabecera, esta se cuenta. Si un fichero no existe, esa fuente vale 0 y no hay error. Para RIMS la máscara `Issues_RV_<AAAA>_<MM>_<DD>_*.xml` puede coincidir con varios ficheros del día y se suman todas sus líneas.
+- Reparto por destino: REPORTING ENGINE = CARE = SMARTDATA = total RE − opciones − futuros (los warrants cuentan como RE); SHS, RIMS, MENTOR y PRIIPS = su recuento. Los tres ficheros de salida están en `/fichtemcomp/<env>/descargas/kytl/issues/Cuenta_Registros/`.
+- **Código de salida:** 0 siempre, salvo `exit -2` por entorno no reconocido (o 1 si la última escritura del log falla por falta del directorio `Log/`). Nada de lo anterior hace fallar el job.
+- Hallazgo (hipótesis hasta verificarlo en producción): `Extraccion_Emisiones.xsl` (§6.8.F) elimina los registros `EQINDEX` del fichero que se historifica como `SHS_KSHS_RTV_AAAAMMDD_0001.XML.gz`, que es el que cuenta la columna `EQINDEX` de SHS; con la plantilla, esa columna sale siempre a 0 (riesgo RISK-EMIS-003, TC-018).
+- Los comentarios del script conservan los cuatro ficheros antiguos de RE (`emisiones.venc.futyopc.xml`, `emisiones.no.venc.opc.xml`, `emisiones.resto.xml`, `emisiones.no.venc.fut.xml`), sustituidos hoy por el único `emisiones_<DDMMYYYY>.xml.gz`; el script `unionEmisiones.sh` (§6.8.G) es de esa etapa.
+
+`EnvioReporteEmisiones.properties.<env>` (la acción de `ENVIO_REPORTE_EMISIONES`). Las cuatro variantes coinciden salvo `Destination`:
+
+| Clave | Valor |
+|---|---|
+| `Destination` | `pr`: una dirección; `pp`: tres direcciones separadas por `;`; `de` y `ei`: vacío (direcciones no incluidas en la plantilla) |
+| `FileMail` | `/fichtemcomp/<env>/descargas/kytl/issues/Cuenta_Registros/Emisiones_Emisores_Por_Destino.csv` |
+| `Mail` | `Reporte que contiene el numero de registros enviados a los distintos destinos. Tanto para ficheros de emisores como de emisiones.` |
+| `NameFile` | `Emisiones_Emisores_Por_Destino.csv` |
+| `Subject` | `Reporte cuenta Emisiones - Emisores.` |
+| Acción | `NomEvento=Workflow`, `NomWorkflow=SendMailReport` (nombre del **evento**), `Accion=Evento` |
+
+Esas cinco claves son los parámetros de entrada del workflow `Mail` (§6.7): `Destination`, `Subject`, `Mail`, `FileMail`, `NameFile`. Los `SendMailReport.properties.<env>` de la plantilla (otro proceso: informe de cargas) usan los mismos cinco nombres con `Subject=Informe de Cargas`, `NameFile=Report.csv` y `FileMail=/fichtemcomp/<env>/descargas/kytl/reports/Report.csv`, de modo que todos los `.properties` que lanzan el evento `SendMailReport` están escritos para `Mail` y ninguno para el workflow `SendMailReport` de parámetros fijos. Consecuencia para DEF-EMIS-001: **según la plantilla el correo lleva el asunto y el adjunto de la ficha funcional y el defecto no existe**; el asunto/adjunto fijos ("Informe diario carga contrapartidas"/"Report.csv") solo saldrían si en un entorno concreto el evento arrancara el workflow `SendMailReport`. Para cada entorno manda lo instalado: la plantilla describe la intención del despliegue y el volcado de workflows (de entorno no identificado) la confirma, pero ninguno prueba lo que corre en producción. Destinatarios: en `de` y `ei` la plantilla deja `Destination` vacío (se supone que se rellena en cada entorno o que allí no se envía correo; el comportamiento de `Mail` con destinatario vacío no se conoce); en `pr` va a una única dirección (no incluida) y en `pp` a tres. El fallo de `Mail` no llega al job (R14): un SMTP caído o un destinatario no válido deja el job en OK sin correo.
+
+`ServerMailConfig.xml` (leído por `Mail`) tiene, en la plantilla, la estructura `<root><server id="de|ei|pp|pr"><host>…</host><user>…</user></server>…</root>`: un bloque por entorno con el host SMTP y la cuenta remitente; host y cuenta están enmascarados en la plantilla (host/credencial no incluidos).
+
+#### 6.8.B Cadenas 2 y 3: `planifGenerico.properties`, `traducir_creden` y `planificador.properties`
+
+`planifGenerico.properties` es idéntico a `salesWarehouse_RDR.properties` (su `MOD_EJECUCION` es `salesWarehouse_RDR`, resto de una copia). Dos acciones:
+1. `Accion=Script`: `NomScript=traducir_creden`, `PreArgScri1=/<env>/kytl/online/multipais/multicanal/dat/properties` y `ArgScri1=planificador.properties` (ruta completa del fichero a generar), `ArgScri2=<env>`. `GSProcess.sh` lo lanza como `Generico.sh traducir_creden <ruta>/planificador.properties <env>`. La función `traducir_creden` de `Generico.sh` lee de `/<env>/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` la sección `<database>` (`sid`, `gcuser`, `gcpass`, `host`, `host2`, `port`) y **sobrescribe** `planificador.properties` con cuatro líneas: `jdbc.driverClassName=oracle.jdbc.driver.OracleDriver`, `jdbc.url=…`, `jdbc.username` y `jdbc.password`. En `pr` y `pp` la URL es un descriptor con dos hosts en conmutación (`FAILOVER=ON`, `LOAD_BALANCE=OFF`, `SERVICE_NAME=<sid>`); en `ei` y `de`, `jdbc:oracle:thin:@<host>:<port>/<sid>`. Si falta `credentials.xml`, la función escribe un error y hace `exit` sin código (estado 0): `GSProcess.sh` continúa con el `planificador.properties` anterior. La plantilla de `planificador.properties` solo trae marcadores (`<CADENA_CONEXION_BBDD>`, `<USUARIO_BBDD>`, contraseña enmascarada).
+2. `Accion=Java`: `NomPaquete1=ProjectMain.jar`, clase `com.bbva.project.main.process.ProjectRunnableProcess`, `ServicioJava=Project_Main`, librería `ojdbc8.jar`, sin argumentos; el motor lee `planificador.properties` de `-DpropertiesPath` (el directorio `dat/properties`).
+
+Ni `GSProcess.sh` ni estos `.properties` indican qué extracción ejecuta cada franja horaria: eso lo decide la tabla de configuración de la base de datos del Planificador (P-EMI-02 sigue abierta). La plantilla tampoco contiene `ProjectMain.jar`.
+
+#### 6.8.C Cadena 4: `ProcesoDeFusion.properties` (literal)
+
+`NomPaquete1=ConexionBD.jar`, `NomPaquete2=ProcesoFusion.jar`, `NomClaseJava=proceso.ProcesoDeFusion`, `ServicioJava=ProcesoDeFusion`, `ArgJava1=2`, `PreArgJava2=/<env>/kytl/online/multipais/multicanal/dat/properties/` y `ArgJava2=log4jFusionMex.properties`, librerías `ojdbc8.jar`, `log4j.jar` y `commons-logging-1.2.jar`. El log de la fusión es `/<env>/kytl/online/multipais/multicanal/logs/FusionMex.log` (log4j, nivel `info`, rotación de 100000 KB con 3 copias). No lleva `Stop`. El jar no está en la plantilla.
+
+#### 6.8.D Cadena 5: `RDR_Procesar_Emisiones.sh` y los cinco `.properties`
+
+Código (216 líneas), entero:
+1. `checkEnviroment`: entorno por prefijo del `hostname` (como arriba); otro prefijo → `exit -2`. No comprueba el usuario.
+2. `fecha=$(date +%Y-%m-%d)`. Si existe y no está vacío `/fichtemcomp/<env>/descargas/kytl/issues/borrado_emisiones_<fecha>.log`, lo borra y lo reabre con `[hora] - Arranque script`. Es el log de la cadena y recibe la salida estándar de los cinco `GSProcess.sh`.
+3. Para cada paso: comprueba que existe `dat/properties/<X>.properties` (si no, `ERROR: No se encuentra el <X>.properties` y `exit -2`), escribe `<X>.properties found.` y `Arranque <X>` en el log y ejecuta `./GSProcess.sh <X> >> borrado_emisiones_<fecha>.log` desde `scrt/`.
+4. Si `GSProcess.sh` devuelve distinto de 0 → `ERROR: Proceso GSProcess.sh <X>` y `exit -2` (254). Si devuelve 0, ejecuta `grep` sobre **`/fichtemcomp/<env>/descargas/kytl/issues/RDR_Procesar_Emisiones_<fecha>.log`** (no sobre el log del script) y vuelca el resultado en `RDR_Procesar_Emisiones_TMP_<fecha>.log`: en el paso 1 busca el texto exacto `Ha ocurrido un error en la crea` (sensible a mayúsculas) y en los pasos 2 a 5 `error` sin distinguir mayúsculas. Si el resultado no está vacío borra el temporal y sale con `exit -2`.
+5. **Ese fichero `RDR_Procesar_Emisiones_<fecha>.log` no lo escribe nada de la plantilla** (ni el script ni `GSProcess.sh`, que escribe en `<logs>/execute_<módulo>_<AAAAMMDD>.log`); solo existiría si el comando del job de Control-M redirigiera la salida a él, algo que las fuentes no dicen. Sin él, `grep` falla, el temporal queda vacío y la comprobación pasa siempre. **Efecto:** la regla "o su log contiene error" de §1.4 y TC-012 no se cumple con la plantilla; lo que detiene la cadena es únicamente el código de salida de cada `GSProcess.sh`. Y como los jars pueden capturar sus excepciones y salir con 0 (jars no recibidos), un paso fallido puede no detener los siguientes (riesgo RISK-EMIS-002).
+6. Al terminar el paso 5 sin error escribe en pantalla `ERROR: FIN Script` (texto engañoso) y sale con `exit 0`; la línea `Proceso terminado correctamente` que figura al final del script es inalcanzable.
+
+Los cinco `.properties` (sin clave `Stop`; todos con librerías `ojdbc8.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `log4j.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar`, `commons-io-2.5.jar` y, según el caso, `xdb.jar`/`xml.jar`):
+
+| Paso | `.properties` | Jar(es) y clase | Argumentos | Log |
+|---|---|---|---|---|
+| 1 | `RDR_CrearIndices_Emisiones` | `RDR_CrearIndices_Emisiones.jar` + `ConexionBD.jar`, `main.crearIndices` | 1; `log4jRDR_CreacionIndices_Emisiones.properties`; `/fichtemcomp/<env>/descargas/kytl/issues/Historificacion/`; `/<env>/kytl/online/multipais/multicanal/cfg/entorno/`; **1** (crear) | `RDR_CreacionIndices_Emisiones.log` |
+| 2 | `RDR_Emisiones_PLSQL_INAC` | `RDR_Emisiones_PLSQL.jar`, `main.Historificacion` | 1; `log4jRDR_Emisiones_PLSQL.properties`; procedimiento `HIST_INACTIVADOR_EMISIONES`; carpeta `cfg/entorno/` | `RDR_Emisiones_PLSQL.log` (solo nivel `error`) |
+| 3 | `RDR_Emisiones_PLSQL_INCR` | idem | 1; idem; procedimiento `INCR_HISTORIFICACION_EMISIONES`; `cfg/entorno/` | idem |
+| 4 | `RDR_Borrado_Emisiones` | `RDR_Borrado_Emisiones.jar`, `main.BorradoEmisiones` | 1; `log4jRDR_Borrado_Emisiones.properties`; **40** (días); `cfg/entorno/`; `/fichtemcomp/<env>/descargas/kytl/issues/Historificacion` | `RDR_BorradoEmisiones.log` (200000 KB) |
+| 5 | `RDR_BorrarIndices_Emisiones` | igual que el paso 1 (mismo jar y clase) | idéntico al paso 1 salvo el último argumento, **2** (borrar) | usa el log de creación (`log4jRDR_CreacionIndices_Emisiones.properties`); `log4jRDR_BorradoIndices_Emisiones.properties` existe pero ningún `.properties` lo usa |
+
+El primer argumento (1 o 2) y el del directorio `Historificacion/` no tienen significado verificable sin los jars. El quinto `.properties` conserva `MOD_EJECUCION=RDR_CrearIndices_Emisiones` (copia del primero), sin efecto en la ejecución. La plantilla incluye además `RDR_Emisiones_PLSQL_ELI.properties` (procedimiento `ELI_HISTORIFICACION_EMISIONES`, primer argumento 2 y carpeta `Historificacion`), que **este script no ejecuta**; no consta qué job lo lanza. Los cinco logs de los jars están en `/<env>/kytl/online/multipais/multicanal/logs/`.
+
+#### 6.8.E Cadena 7: `selectivePublishEmisiones.properties` y `selectivePublish.properties`
+
+`selectivePublishEmisiones.properties`: `MOD_EJECUCION=selectivePublish`, `NomEvento=Workflow`, `NomWorkflow=RDR_SelectivePublish` (nombre del evento), `Accion=Evento` y, **después** de esa acción, `filterName=IS_PUBLISH`. Como `GSProcess.sh` solo acumula las claves anteriores a cada `Accion=`, esa línea final no la usa el script: la lee el workflow, porque el evento recibe el `.properties` completo. `selectivePublish.properties` es idéntico con `filterName=` vacío: lanzado así publicaría todas las entidades pendientes (acuerdos, confirmaciones, índices, etc.; §6.7). Esta cadena usa el primero, es decir, solo emisiones. Para contraste, la plantilla trae `publish/securities.xml`, una petición `RaiseRDR_EntityFullPublishingAsynchron` de **carga inicial masiva** de valores (consulta `RDR_AllSecuritiesPaginated`, tipo de mensaje `SECURES`, cola `RDR.SECURITIES.INITIALLOAD`, páginas de 100, límite 9999999, sin pausa entre mensajes), distinta de la cola `RDR.SECURITIES.PUBLISH` de la publicación selectiva.
+
+#### 6.8.F Extracción y transformación de emisiones (cadena `RDR_ISSUES_RE_PRO_new`) que alimenta a la Cadena 1
+
+- `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` (idénticos salvo tres valores): jar `ExtraccionGenericaEMISI.jar` + `ConexionBD.jar`, clase `Ppal`, servicio `ExtraccionGenericaEMISI_log`; argumentos: `2`; `<dat/properties>/log4jExtraccionGenericaEMISI_ALL|RESTO.properties`; `20`; `/fichtemcomp/<env>/descargas/kytl/issues/ReportingEngine/` (directorio de salida); `<mismo directorio>/emisiones.xml` (`ALL`) o `emisiones.resto.xml` (`RESTO`); modo `ALL` o `RESTO`; `/<env>/kytl/online/multipais/multicanal/cfg/entorno` (credenciales). Librerías `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar`. Logs: `.../logs/ExtraccionGenericaEMISI_ALL.log` y `..._RESTO.log` (nivel `info`, 100000 KB × 3). La consulta, la diferencia efectiva entre los modos y el comportamiento ante errores quedan en el jar (no recibido).
+- `TransforEmisiones.properties`: `Transformar_XML.jar`, clase `ppal.Transformar`, `ServicioJava=TransformarEmisiones`, argumentos: entrada `<FILES>/issues/ReportingEngine/emisiones.resto.xml`; hoja `<dat/properties>/Extraccion_Emisiones.xsl`; salida `<FILES>/issues/SHS/emisiones_filter.xml`; `3`; `<dat/properties>/log4jTransformEmisiones.properties` (log `.../logs/TransforEmisiones.log`), donde `<FILES>` = `/fichtemcomp/<env>/descargas/kytl`. **Confirma la vinculación cadena↔hoja** (la que G7 de `rdr_issues_re_pro_new` daba por no confirmada).
+- `Extraccion_Emisiones.xsl` (XSLT 1.0, 964 bytes): copia el documento (plantilla de identidad) y, para cada `Security`, (a) descarta los duplicados por `Instrmt/ID` (se queda el primero de cada identificador) y (b) conserva solo los que **no** son de tipo `FUTURES`, `OPTIONS`, `WARRANTS` ni `EQINDEX` (parámetros `tipo01..04`), añadiendo un salto de línea tras cada registro. Es lo que convierte `emisiones.resto.xml` en `emisiones_filter.xml`.
+- `xsd_emisiones_batch.xsd` (15.785 bytes): esquema contra el que valida `RDR_Validacion_XSD.sh` los dos ficheros (`Securities` → `Security`+, cada uno con `ID`, `Typ`, `Name`, `LstChngTm`, `Instrmt` obligatorio y bloques opcionales `ExchGrp`, `RegulatedMarket`, `SecClsfnGrp`, `InstrmtExt`, `Undly` e `Issuer`). El detalle campo a campo, con los comentarios del propio esquema, está en la spec de `rdr_issues_re_pro_new`.
+- Material anterior: `ValidatorEmisiones.properties` (jar `EmisionesValidation.jar`, clase `main.Validate`, argumentos: directorio `ReportingEngine/` y el XSD) es un validador en Java que ninguna acción de la plantilla invoca; la cadena actual valida con `RDR_Validacion_XSD.sh`.
+
+#### 6.8.G Otros ficheros de la plantilla relacionados con emisiones y mercados (sin conexión demostrada con las 7 cadenas)
+
+- `publish/dictionaryMarkets.xml`: petición de carga inicial masiva de la entidad `DictionaryMarkets` (consulta `RDR_AllDictionaryPaginatedMarket`, mensaje `UDICT2`, cola `RDR.DICTIONARY.INITIALLOAD`, páginas de 100). No es el CSV `dictionaryMarkets.csv` de la Cadena 6; no aporta sus columnas.
+- `EmisionesDerivadosListados.properties`: tabla de 202 líneas `Sector;TipoDeValor;Subtipo <0|1>` (sectores `Comdty` 125, `Index` 55, `Curncy` 14, `Equity` 8; indicador `1` en 45 líneas y `0` en 157; p. ej. `Equity;SINGLESTOCKFUTURE;STOCKFUTURE 1`). Ningún script ni `.properties` de la plantilla la lee; por la forma parece una lista de tipos de derivado listado aceptados, pero no se puede confirmar.
+- `unionEmisiones.sh` (35 líneas, sin consumidor en la plantilla): recibe 8 rutas (la quinta es el destino), hace copia de seguridad en `Backup/` de las otras siete, les quita la declaración y las etiquetas `Securities`, las concatena en la primera y la mueve a la quinta ruta; es de la etapa de los cuatro ficheros de RE.
+- `Load_Issues_Warrants.sh` y `Load_Issues_Warrants_Java.sh`: cargan warrants desde `/fichtemcomp/<env>/descargas/kytl/issues/warrants/` (el segundo convierte antes los `.xlsx` de `received/` a `.csv` con `es.bbva.kytl.rdr_me_wa.convertir2` de `RDR_ME_Load_Warrants.jar` y llama al primero); por cada `.csv` ejecutan el evento `Load_Issues_Warrants`, lo copian a `backup/` si el evento termina con 0 y lo borran; máximo 21 iteraciones. `publish_issueRV.sh` lanza el evento `ME_CIB_IssuesRV` poniendo `Date=<mm/dd/aaaa>` (hoy, o el tercer argumento) en `ME_CIB_IssuesRV.properties` (`fileDirectory=/fichtemcomp/<env>/descargas/kytl/issues/`). `load_issuRV.sh` lanza dos eventos, cuyos nombres son sus dos primeros argumentos, tras sustituir `$ENV` en sus `.properties`. `StandardFileLoadIssuesRV.properties` carga `DESCARGA_RIMS.DAT` (feed `ME_CIB-IssuesRV`, tipo `issuesRV`, bloque 1, una rama) y `StandardFileLoadIssuesRVWarrants.properties` carga `WARRANTS.DAT` (tipo `issuesRVWarrants`). `RDR_IssuesRTCE.properties` define directorios `issues/` y `issues/backup` y una lista de columnas especiales de fecha. Ninguno de ellos escribe los ficheros `Issues_RV_*.xml` que cuenta la Cadena 1; la relación con la fuente RIMS no está demostrada.
+
 ## 7. Especificación de testing
 
 **Estrategia:** un caso por cada escenario documentado en el propio documento fuente (sección "Datos de Entrada
@@ -636,12 +748,13 @@ casos completos están en `extraccion_emisiones_mercados_casos_prueba.xml`.
 
 Referencia de casos por tipo:
 - `happy_path`: TC-001, TC-006, TC-008, TC-009, TC-010, TC-013, TC-015.
-- `borde`: TC-002.
+- `borde`: TC-002, TC-017.
 - `negativo`: TC-003, TC-014.
 - `duplicidad`: TC-004.
 - `error_funcional`: TC-005, TC-011, TC-012.
 - `regresion`: TC-007.
 - `conflicto_integridad`: TC-016.
+- `regresion` (cierre 3): TC-018 (columna EQINDEX del informe).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -657,6 +770,8 @@ Referencia de casos por tipo:
 | R5 (Cadena 6) | TC-013, TC-014 | Filewatcher + historificación OK, y soft-failure acotado ante timeout |
 | R6 (Cadena 7) | TC-015 | Publicación selectiva OK |
 | GAP-EMIS-004 (anomalía naming) | TC-016 | Confirma el naming "BASKETS" sin colisión funcional |
+| RISK-EMIS-002 (cierre 3) | TC-017 | La detección de errores de la Cadena 5 solo actúa por el código de salida de cada paso |
+| RISK-EMIS-003 (cierre 3) | TC-018 | La columna EQINDEX del informe sale a 0 porque la hoja XSL elimina esos registros |
 
 ## 9. Riesgos, defectos y gaps abiertos
 
@@ -682,6 +797,10 @@ Referencia de casos por tipo:
    Confirmado real, no bloqueante, pero a tener en cuenta para no confundir monitorización cruzada entre ambas
    cadenas.
 
+6. **RISK-EMIS-002 — la Cadena 5 no detecta por el log los errores que dice detectar (cierre 3, §6.8.D).** La comprobación de la cadena "error" se hace sobre `RDR_Procesar_Emisiones_<fecha>.log`, que nada de la plantilla escribe: solo el código de salida de cada `GSProcess.sh` detiene la cadena. Si un jar captura la excepción y sale con 0 (jars no recibidos), los pasos siguientes se ejecutan igualmente, incluido el borrado de emisiones con más de 40 días. Riesgo medio.
+7. **RISK-EMIS-003 — columna EQINDEX del informe diario siempre a 0 (cierre 3, §6.8.A y §6.8.F).** `Extraccion_Emisiones.xsl` elimina los registros `EQINDEX` del fichero que alimenta la fuente SHS que cuenta `Cuenta_Emisiones.sh`. Riesgo bajo (dato informativo erróneo), sin verificar en producción.
+8. **Corrección sobre DEF-EMIS-001 (cierre 3, §6.8.A).** Con `EnvioReporteEmisiones.properties` de la plantilla, el correo lleva el asunto y el adjunto de la ficha funcional; el defecto solo existiría si el evento arrancara el workflow `SendMailReport` de parámetros fijos. Pendiente de verificar en producción (H-EMI-11).
+
 Los 8 gaps documentales de la sección 4.1 (GAP-EMIS-001 a 008, sin el 005) se resolvieron con evidencia real; quedan abiertas las preguntas P-EMI-01 a P-EMI-06 de la sección 4.2.
 
 ## 10. Conclusión
@@ -697,3 +816,5 @@ entre cadenas (Cadena 6 / Cesión de Cestas a Abaco), sin que ninguna de las dos
 especificación.
 
 **Pasada de cierre 2 (02/10/2026).** Con el volcado de la BD de workflows de GoldenSource: el workflow de la Cadena 7 queda descrito (§6.7) y el correo de la Cadena 1 pasa a ser un hueco abierto, porque el evento `SendMailReport` arranca el workflow `Mail` y no el que se había analizado (H-EMI-11). Siguen abiertos P-EMI-01 a P-EMI-05, los cuatro jars de P-EMI-06 y los puntos que dependen de Control-M, `.properties` y scripts de producción.
+
+**Pasada de cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`, base anterior a la migración a Java 17): se leen entero `Cuenta_Emisiones.sh` y `RDR_Procesar_Emisiones.sh`, los `.properties` de las cadenas 1, 2/3, 4, 5 y 7 (H-EMI-05, H-EMI-06 y H-EMI-08 cerrados), la extracción/transformación de emisiones y sus dos ficheros de esquema, y se corrige la detección de errores de la Cadena 5 (RISK-EMIS-002). DEF-EMIS-001 no se da según la plantilla (H-EMI-11, en parte). Siguen abiertos los jars, los procedimientos PL/SQL, `DictionaryMarkets.sql`, `raiseEvent.sh`, el IDX y todo lo que depende de Control-M.

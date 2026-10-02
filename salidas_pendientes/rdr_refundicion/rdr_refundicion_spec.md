@@ -72,8 +72,11 @@ ya cerrada; G2 queda resuelto (§6.1).
 | P-REF-01 | ¿Qué sistema deposita `Refundicion.csv`, a qué hora, y cuál es su layout oficial (cabecera, significado de cada columna; solo se usan la 1 y la 5)? | Sin él no se pueden construir ficheros de prueba reales ni saber a quién avisar si no llega. |
 | P-REF-02 | ¿Corre la cadena de martes a sábado (como dice la ficha en texto) o los 7 días (calendario `LMXJVSD`)? ¿Hay regla Control-M para el código 7 de `ctmfw` (OK o NOTOK)? | Si no corre domingo-lunes, `RDR_CONCILIACION_CLIENTELA_new` (que depende de ella y es de 7 días) tampoco arranca esos días; con regla 7→OK la cadena quedaría verde sin procesar nada. |
 | P-REF-03 | Claves `.idx` reales de `MEKYTL0107` y `MEKYTL0121` (protocolo, usuario, `FALLA_NO_FICHERO`, historificación). | Confirma la tolerancia a fichero ausente (Soft Failure) más allá de lo que dice la ficha. |
-| P-REF-04 | Contenido del sub-workflow `MarcaRegErroneo` y nombre/ruta exacta del `<Servicio>_errores.csv`. ¿Cómo se "reprocesa al día siguiente" con `Delta=Si`? | **Resuelta en parte.** El nombre y la ruta (`Refundicion/Refundicion_errores.csv`) y el contenido de `MarcaRegErroneo` están confirmados (§6.1): escribe los identificadores en `db_errores.txt` y llama a `errores_to_file.sh <MessageType> old/<Servicio>.csv db_errores.txt`. **Sigue abierto** qué hace `errores_to_file.sh` (script no recibido): sin él no se sabe si realmente provoca el reproceso del día siguiente; con `Delta` solo vuelven los registros nuevos/cambiados. |
+| P-REF-04 | Contenido del sub-workflow `MarcaRegErroneo` y nombre/ruta exacta del `<Servicio>_errores.csv`. ¿Cómo se "reprocesa al día siguiente" con `Delta=Si`? | **Resuelta (3ª pasada).** El nombre y la ruta (`Refundicion/Refundicion_errores.csv`) y el contenido de `MarcaRegErroneo` están confirmados (§6.1): escribe los identificadores en `db_errores.txt` y llama a `errores_to_file.sh <MessageType> old/<Servicio>.csv db_errores.txt`. Con el script de la plantilla de despliegue (§6.3) el mecanismo queda cerrado: para `Refundicion` antepone `ERROR-` a las líneas de `old/Refundicion.csv` cuyas columnas 1 y 5 contienen el par `CLIENTED;CLIENTEP`; al no coincidir ya con la línea de mañana, `Delta` la trata como nueva y se reprocesa (si el sistema origen la sigue enviando). Después el script borra `db_errores.txt`. |
 | P-REF-05 | Definición de negocio de "contrato 460" y destino de la cola MQ `CLIENTELA` (qué sistema responde y cuándo). | El ciclo es asíncrono: nada en esta cadena comprueba la respuesta. |
+| H-REF-07 | `Refundicion.properties` de producción (el aportado es copia de integración, rutas `ei`) | Saber qué ejecuta producción | **Resuelta en parte** — la plantilla de despliegue lleva el mismo pipeline con `@@ENV@@`, sin `JDKV=17` y con clases sin paquete (§6.3); falta confirmar lo instalado en el servidor |
+| H-REF-08 | Versión de producción de `ControlCargaDatos.jar` | La plantilla invoca la clase sin paquete (`ControlCase`), como producción | **Parcial** — el jar no está en la plantilla; falta el jar instalado (P-CCD-04) |
+| H-REF-09 | `RDR_Report.jar` y `select.properties` de producción | Informe de §6.1 | **Resuelta en parte** — `select.properties` (clave `Refundicion`) de la plantilla es idéntico al de §6.1; falta el jar |
 
 ## 5. Especificación funcional
 
@@ -106,8 +109,8 @@ El job `KYTL_REF_GSPROCESS` ejecuta `GSProcess.sh Refundicion`. `GSProcess.sh` e
 plataforma: lee `Refundicion.properties` y ejecuta, una tras otra, las acciones que contiene (genérico:
 `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`).
 
-**`Refundicion.properties` literal** (fichero real aportado; copia del entorno de integración `ei`, en producción
-el segmento es `pr`). Sin ninguna clave `Stop*=Ok`:
+**`Refundicion.properties` literal** (fichero real aportado; copia del entorno de integración `ei`, ya migrada a Java 17 —
+la plantilla de despliegue lleva las mismas acciones sin `JDKV` ni paquetes, §6.3; en producción el segmento es `pr`). Sin ninguna clave `Stop*=Ok`:
 
 ```
 MOD_EJECUCION=Refundicion
@@ -466,7 +469,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
      párrafo de este punto: **no marca nada en base de datos**, genera un fichero de identificadores y llama a un
      script externo); si no, el workflow simplemente termina. **Confirmado que `Refundicion.properties` fija `Delta=Si`** (ver R2/§6.1 más arriba), por lo
      que para este proceso concreto la rama de reprocesamiento automático vía `MarcaRegErroneo` **sí se
-     ejecuta**. Procedencia: `ErroresCSV.wkf` aportado. **Cómo lo lanza `GSProcess.sh`:** `NomEvento=Errores` ejecuta `executeBbvaEvent.sh fileloading RDR_ErroresCSV <credenciales> Refundicion.properties`; este sí devuelve su código real (tiempo agotado = 1), a diferencia de los eventos `Workflow`. **`MarcaRegErroneo`** (versión 7, grupo `.../General/Errores`, `haltOnError=Sí`; recibe `Carpeta`, `JOB_ID`, `MessageType`, `Ruta`, `Servicio`): (a) consulta `select main_entity_id from ft_t_rlt1 where job_id=? and rlt_purp_typ='ERRORES' and main_entity_id is not null union select main_entity_id from ft_t_trid where job_id=? and crrnt_severity_cde > 39 and main_entity_id is not null`; (b) si no hay filas, termina; (c) concatena los identificadores separados por un espacio y los **añade** al fichero `<Carpeta>db_errores.txt` (`/fichtemcomp/<entorno>/descargas/kytl/Refundicion/db_errores.txt`); (d) ejecuta `sh /<entorno>/kytl/online/multipais/multicanal/scrt/errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt`, es decir, para `Refundicion`: `errores_to_file.sh Refundicion .../Refundicion/old/Refundicion.csv .../Refundicion/db_errores.txt`. Nótese que el segundo argumento es `old/Refundicion.csv`, el **fichero de referencia que usa `Delta.sh`**. Lo que hace `errores_to_file.sh` (el script no está en el material) decide el efecto real; la lectura más probable, no verificada, es que quite o marque en esa referencia las líneas de los identificadores erróneos para que `Delta` las considere «nuevas» en la siguiente ejecución y se reprocesen. Hasta ver el script, «reprocesa al día siguiente» sigue siendo una interpretación (P-REF-04, resuelta en parte). Efectos laterales ya verificados: `db_errores.txt` se acumula (modo añadir) y nadie lo borra ni lo historifica; en las filas `ERRORES` que inserta `REFUNDICION`, `MAIN_ENTITY_ID` vale `CLIENTED;CLIENTEP` (el par de códigos de clientela separados por `;`, con lo que cada identificador de `db_errores.txt` es un par así), y es lo que el script recibiría para localizar la línea en la referencia. Nótese además que con `Delta=Si`, un registro marcado erróneo solo vuelve a procesarse si reaparece como «nuevo/cambiado» respecto al fichero de referencia del `Delta`.
+     ejecuta**. Procedencia: `ErroresCSV.wkf` aportado. **Cómo lo lanza `GSProcess.sh`:** `NomEvento=Errores` ejecuta `executeBbvaEvent.sh fileloading RDR_ErroresCSV <credenciales> Refundicion.properties`; este sí devuelve su código real (tiempo agotado = 1), a diferencia de los eventos `Workflow`. **`MarcaRegErroneo`** (versión 7, grupo `.../General/Errores`, `haltOnError=Sí`; recibe `Carpeta`, `JOB_ID`, `MessageType`, `Ruta`, `Servicio`): (a) consulta `select main_entity_id from ft_t_rlt1 where job_id=? and rlt_purp_typ='ERRORES' and main_entity_id is not null union select main_entity_id from ft_t_trid where job_id=? and crrnt_severity_cde > 39 and main_entity_id is not null`; (b) si no hay filas, termina; (c) concatena los identificadores separados por un espacio y los **añade** al fichero `<Carpeta>db_errores.txt` (`/fichtemcomp/<entorno>/descargas/kytl/Refundicion/db_errores.txt`); (d) ejecuta `sh /<entorno>/kytl/online/multipais/multicanal/scrt/errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt`, es decir, para `Refundicion`: `errores_to_file.sh Refundicion .../Refundicion/old/Refundicion.csv .../Refundicion/db_errores.txt`. Nótese que el segundo argumento es `old/Refundicion.csv`, el **fichero de referencia que usa `Delta.sh`**. **`errores_to_file.sh` (3ª pasada, script de la plantilla de despliegue; ver §6.3):** para el tipo `Refundicion` lee los identificadores de `db_errores.txt` (separados por espacios en blanco), y por cada uno busca en `old/Refundicion.csv` las líneas cuyas columnas 1 y 5 (`cut -f 1,5 -d ";"`) contienen ese texto y **antepone `ERROR-` al principio de cada línea encontrada**; al terminar borra `db_errores.txt` (`rm -rf`). Es el mecanismo del «reprocesamiento al día siguiente»: como `Delta` compara línea completa, la línea `ERROR-...` de la referencia ya no coincide con la del fichero de mañana, que se trata como nueva y se vuelve a cargar (solo si el sistema origen la sigue enviando). **Corrección:** esta spec afirmaba que `db_errores.txt` se acumulaba sin límite y nadie lo borraba; el script lo borra al terminar cada invocación (el fichero solo existe de forma transitoria; si el script no se ejecuta, sí se acumula). Efectos laterales ya verificados: en las filas `ERRORES` que inserta `REFUNDICION`, `MAIN_ENTITY_ID` vale `CLIENTED;CLIENTEP` (el par de códigos de clientela separados por `;`, con lo que cada identificador de `db_errores.txt` es un par así), y es lo que el script recibiría para localizar la línea en la referencia. Nótese además que con `Delta=Si`, un registro marcado erróneo solo vuelve a procesarse si reaparece como «nuevo/cambiado» respecto al fichero de referencia del `Delta`.
 * **`Java(RDR_Report.jar)`, clase `CreateReport`** (genérico: `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`):
   `CreateReport $CONF/select.properties Refundicion` escribe `<ruta>Refundicion/Reporte_Refundicion.csv`
   (`ruta=/fichtemcomp/<entorno>/descargas/kytl/`): cabecera literal en la primera línea y después una fila por
@@ -504,7 +507,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
 | `Refundicion_processed.csv` / `Refundicion_noprocessed.csv` | `ControlCargaDatos` | Registros válidos / rechazados (se sobrescriben cada día) |
 | `Reporte_Refundicion.csv` / `Reporte_Refundicion_dos.csv` | `RDR_Report` / `Unix2Dos` | Informe (LF) / mismo informe en CRLF (el que se envía) |
 | `<Servicio>_errores.csv` | `Evento(Errores)` (`ErroresCSV`) | Auditoría de errores funcionales (`FT_T_RLT1`, `ERRORES`) y técnicos (`FT_T_TRID`, severidad >39) del job; solo si se encuentra el job `CLOSED` de la última hora; cabecera de 11 columnas `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`. Nombre y directorio: `<Ruta><Servicio>/<Servicio>_errores.csv` (para esta cadena, `Refundicion/Refundicion_errores.csv`), confirmados con el workflow; el anterior se mueve a `old/` al inicio del evento |
-| `db_errores.txt` | `MarcaRegErroneo` (`Delta=Si`) | Identificadores (`MAIN_ENTITY_ID`) de los registros con error del job, separados por espacio, añadidos sin límite; lo consume `errores_to_file.sh` (no disponible) |
+| `db_errores.txt` | `MarcaRegErroneo` (`Delta=Si`) | Identificadores (`MAIN_ENTITY_ID`, para Refundición el par `CLIENTED;CLIENTEP`) de los registros con error del job, separados por espacio; lo consume `errores_to_file.sh` (§6.3), que lo **borra** al terminar |
 | `old/Refundicion.csv`, `old/Refundicion_old.csv`, `old/Refundicion_original.csv` | `Delta` | Referencia del delta (completo del día, anterior, copia) |
 | `old/Refundicion_yyyymmdd.csv` | `MEKYTL0121` | Fichero (delta) del día historificado |
 | `old/Reporte_Refundicion.zip` | `RDR_Report` | Informe del día anterior comprimido (solo el último) |
@@ -550,6 +553,35 @@ que se quedaron `PENDING` (porque el envío falló o porque el mnemónico no ten
 `A460`) se envían o se siguen difiriendo en el relanzamiento. Solo habría duplicados si el mensaje saliera por MQ y
 el `UPDATE ... 'OK'` posterior no se llegara a ejecutar.
 
+### 6.3 Contraste con la plantilla de despliegue de la UUAA KYTL (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue
+`CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores que aparecen con `pr` son «valores de producción según la plantilla», no una
+copia verificada de producción. La plantilla es la base **anterior a la migración a Java 17** (migración en curso: la plantilla `develop` sigue en la versión sin paquete).
+
+* **`Refundicion.properties` (H-REF-07).** Es un único fichero (sin variantes por entorno, CRLF). Contrastado línea a línea con la copia de
+  integración transcrita en §6.1, **solo difiere en tres cosas**: (1) las rutas `Ruta` y `File` llevan `@@ENV@@` en lugar de `ei`; (2) no
+  lleva la clave `JDKV=17` en las dos acciones `Java`; (3) las clases son `ControlCase` y `CreateReport` sin paquete, en lugar de
+  `controlcargadatos.ControlCase` y `rdr_report.CreateReport`. Todo lo demás (los 9 pasos, `Delta=Si`, `Tipologia=TOTAL`, los dos workflows,
+  `NomEvento=Errores`, los argumentos de `ControlCargaDatos`: `$FILES` `Refundicion/Refundicion.tmp`, `$LOG` `Refundicion_preprocess_summary.log`, `$CONF`
+  `fillingRules_Refundicion.csv`) es idéntico y sigue sin ninguna clave `Stop*`. Corrección de lectura: la copia de integración de §6.1 es la
+  versión **ya migrada a Java 17**; lo que despliega hoy la plantilla (y, en principio, producción) es la versión sin `JDKV` y sin paquetes.
+  Qué hay instalado en el servidor de producción no está verificado.
+* **`fillingRules_Refundicion.csv`:** idéntico al transcrito en §6.1 (`COD-CCLIEND;COD-CCLIENP`, `NULL;NULL`, `USAR;USAR`).
+* **`select.properties`, clave `Refundicion`:** las tres líneas (query, cabecera y `fileName`) coinciden literalmente con las de §6.1; la `ruta` es
+  `/fichtemcomp/@@ENV@@/descargas/kytl/` (H-REF-09 solo en lo que respecta a `select.properties`; `RDR_Report.jar` no está en la plantilla).
+* **`Delta.sh`, `Generico.sh` (`LimpiarRefundicion`, `Unix2Dos`) y `GSProcess.sh`:** el comportamiento descrito en §6.1 coincide con los scripts de
+  la plantilla (`LimpiarRefundicion`: ordena por los caracteres 21-47, `cut -f 1,5`, `uniq`; `Unix2Dos`: añade `\r` con `sed` y sale con 4 si falta el
+  origen). `GSProcess.sh` ejecuta los `Workflow` con el código de retorno del `rm -f` del `.properties` temporal, de modo que su fallo no se detecta.
+* **`errores_to_file.sh` (P-REF-04).** Parámetros: `$1` tipo de mensaje (`MessageType`), `$2` fichero de referencia (`old/<Servicio>.csv`) y `$3` fichero de
+  identificadores (`db_errores.txt`). Lee `$3` en un array separado por espacios en blanco. Para `Refundicion`, por cada identificador obtiene con
+  `cut -f 1,5 -d ";" $2 | grep -n <id>` los números de línea de `$2` donde aparece (admite varias) y a cada una le antepone `ERROR-` con `sed -i`. Termina
+  con `rm -rf $3`. Otros tipos que reconoce (no usados por esta cadena): `PLZ`, `OFC`, `OFA`, `CargaLEI`, `mifid_class`, `Disputes_disclosure`, `ISDA12`, `ISDA13`
+  (marcan la línea cuya primera columna, o las columnas 1-3 en `OFC` y la 3 en `OFA`, contiene el identificador). Un tipo no reconocido no marca nada,
+  pero igualmente borra `$3`. Peculiaridades del código: la comprobación `[ NUM_PARAMETROS > 1 ]` está mal escrita (es una redirección a un
+  fichero llamado `1` y la condición es siempre cierta), por lo que cada ejecución deja un fichero vacío `1` en el directorio de trabajo del proceso que
+  lo lanza; no devuelve ningún código de error propio.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 4 transiciones lineales, el Fan-Out real hacia la cadena externa, la tolerancia a
@@ -584,7 +616,7 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 | `happy_path` | `BajaClientela460` consume correctamente las 3 tipologías reales (`ALTA`/`BAJA`/`TOTAL`) sobre filas `PENDING` de A460/B460/B460C, marcándolas `OK` tras invocar el sub-workflow externo correspondiente (MQ `CLIENTELA`), auditando en `FT_T_UTD1`. | TC-015 |
 | `error_funcional` | Un fallo en cualquier paso de `KYTL_REF_GSPROCESS` (p. ej. `Java(ControlCargaDatos.jar)` o `Workflow(RDR_Clientela460)`) no detiene los pasos siguientes, al no existir ninguna clave `Stop=Ok`/`StopEve=Ok`/`StopJav=Ok`/`StopScr=Ok` en `Refundicion.properties` — el job solo reporta `RC=1` al final. | TC-016 |
 | `happy_path` | `BAJA_460_CLI` (`NIVEL=LOCAL`) envía una baja B460 por cada folio activo del cliente vía `SUB_GET_FOLIO`, y nada si no tiene folios. | TC-017 |
-| `error_funcional` | Ciclo de `Refundicion_errores.csv` (el anterior pasa a `old/` al inicio) y de `db_errores.txt` (acumulativo), y llamada a `errores_to_file.sh`. | TC-018 |
+| `error_funcional` | Ciclo de `Refundicion_errores.csv` (el anterior pasa a `old/` al inicio) y de `db_errores.txt` (transitorio: lo borra `errores_to_file.sh`), y marca `ERROR-` en `old/Refundicion.csv`. | TC-018 |
 | `error_funcional` | Interruptor `TRACE`/`PUBLISH` de la cola lógica `CLIENTELA` y pérdida controlada de un nombre de cola no previsto. | TC-019 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
@@ -635,9 +667,12 @@ confirmado que en producción siempre se ejecuta `TOTAL`) y la ausencia de parad
 * **Reprocesamiento vía `MarcaRegErroneo` (§6.1, G3, P-REF-04 resuelta en parte):** al estar `Delta=Si` en
   `Refundicion.properties`, todo registro que `ErroresCSV` identifique como funcional (`FT_T_RLT1`,
   `RLT_PURP_TYP='ERRORES'`) o técnico (`FT_T_TRID`, `CRRNT_SEVERITY_CDE>39`) pasa a `db_errores.txt` y se entrega a
-  `errores_to_file.sh` junto con el fichero de referencia del `Delta`. Si ese script lo hace volver como «nuevo» (no
-  verificado), un fallo persistente en el mismo registro se reintentaría indefinidamente sin una alerta de
-  «reintento agotado» (no hay límite de reintentos en el workflow). Además `db_errores.txt` crece sin límite.
+  `errores_to_file.sh` junto con el fichero de referencia del `Delta`. El script lo marca con `ERROR-` en la
+  referencia (§6.3), de modo que vuelve como «nuevo» mientras el origen lo siga enviando: un fallo persistente en el
+  mismo registro se reintentaría indefinidamente sin una alerta de «reintento agotado» (no hay límite de reintentos
+  en el workflow). **Corrección:** `db_errores.txt` no crece sin límite, el script lo borra. Riesgo adicional del
+  script: la búsqueda es por subcadena sin anclar, así que un identificador puede marcar también otras líneas cuyas
+  columnas 1 y 5 lo contengan.
 * **[RIESGO NUEVO, prioridad media, confirmado con código PL·SQL real de `Sub_Load`] Reactivación en bloque
   filtrada solo por `LAST_CHG_USR_ID='BAJA_CPARTY'`:** cuando el cliente destino de una refundición estaba
   inactivo, el procedimiento `REFUNDICION` reactiva cerca de 40 tablas maestras, pero **solo las filas cuya

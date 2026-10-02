@@ -141,4 +141,30 @@
   </casoDePrueba>
 
 
+  <casoDePrueba id="TC-008" tipo="borde">
+    <nombre>Reglas de fillingRules_TradPlazas.csv: CPLAZA obligatorio, caracteres y duplicados</nombre>
+    <objetivo>Comprobar que la validación previa a la carga (ControlCargaDatos.jar, paso 2 de GSProcess.sh TradPlazas) aplica las reglas de la plantilla (CPLAZA NULL+USAR; DNOMB1 y DNOMB2 USAR; sin longitudes ni DUPL) y que solo TradPlazas_processed.csv llega a la carga MDX.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción, con el fillingRules_TradPlazas.csv de la plantilla de despliegue y la carga MDX apuntada a un GoldenSource de pruebas.</precondicion>
+      <precondicion>TradPlazas.csv de pruebas en ISO-8859-1, con la cabecera real de 8 campos y relleno de espacios, y 5 filas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="valida" valor="010010000;C;A ;01240;ALEGRIA-DULANTZI (relleno a 30);(50 espacios);(50 espacios); "/>
+      <dato campo="CPLAZA_vacio" valor="CPLAZA solo con espacios y el resto informado"/>
+      <dato campo="DNOMB1_con_caracter_no_permitido" valor="DNOMB1 con el carácter &lt;"/>
+      <dato campo="DNOMB1_con_enie" valor="DNOMB1 con la palabra MUÑOZ en ISO-8859-1"/>
+      <dato campo="duplicada" valor="la fila valida repetida tal cual"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el paso de ControlCargaDatos de GSProcess.sh TradPlazas (o la cadena hasta KYTL_PLATR_GSPROCESS) con ese fichero.</paso>
+      <paso numero="2">Revisar TradPlazas_noprocessed.csv: deben estar la fila con CPLAZA vacío (campo NULO) y la del carácter no permitido.</paso>
+      <paso numero="3">Revisar TradPlazas_processed.csv: deben estar la fila válida dos veces (sin control de duplicados) y la de MUÑOZ, con los campos sin los espacios de los extremos.</paso>
+      <paso numero="4">Comprobar en TradPlazas_preprocess_summary.log los recuentos y, tras la carga MDX, que solo se han intentado cargar las filas de TradPlazas_processed.csv.</paso>
+    </pasos>
+    <resultadoEsperado>2 filas rechazadas con su motivo y 3 aceptadas (la válida duplicada y la de la Ñ); el paso termina con código 0 y la carga MDX recibe solo las aceptadas.</resultadoEsperado>
+    <tipoValidacion>Inspección de los CSV de salida y del log de resumen, y de la carga en GoldenSource de pruebas.</tipoValidacion>
+    <criterioAceptacion>Los recuentos del log coinciden con los dos CSV y ninguna fila rechazada llega a GoldenSource.</criterioAceptacion>
+    <posibilidadFallo>Si el fichero llegara en UTF-8, MUÑOZ se rechazaría. Lo que hace el mapeo TraduccionPlazas.mdx con las filas casi vacías no se conoce (H-TPL-07). El fillingRules instalado en producción no está verificado frente a la plantilla.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

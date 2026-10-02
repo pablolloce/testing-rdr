@@ -180,7 +180,7 @@
     <resultadoEsperado>GSProcess.sh termina con código 1 (job NOTOK); el log muestra "found" y el subproceso incorrecto; la petición ya quedó en LEI_REG_LINE_SENT y el fichero sigue en send/ sin enviar.</resultadoEsperado>
     <tipoValidacion>Ejecución controlada en entorno de pruebas, log y código de salida.</tipoValidacion>
     <criterioAceptacion>Los cinco pasos se cumplen. Caso destructivo para el entorno: no ejecutar en producción.</criterioAceptacion>
-    <posibilidadFallo>Si GSProcess.sh terminara con 0, el .properties tendría una configuración distinta de la descrita (P-LEIS-01) o Generico.sh no sería la versión analizada.</posibilidadFallo>
+    <posibilidadFallo>Si GSProcess.sh terminara con 0, el .properties instalado diferiría del de la plantilla de despliegue (sin Stop, §6.2) o Generico.sh no sería la versión analizada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="e2e">
@@ -204,6 +204,27 @@
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 4 jobs) + inspección de BBDD y filesystem</tipoValidacion>
     <criterioAceptacion>Los 4 jobs terminan "Ended OK"; E2E-1 en LEI_REG_LINE_SENT; el fichero existe historificado en old/.</criterioAceptacion>
     <posibilidadFallo>Cualquier fallo puntual de red/protocolo en el envío al mainframe haría fallar MEKYTL0927 sin afectar la generación previa, pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="borde">
+    <nombre>Varios .req en send/: solo se convierte el primero</nombre>
+    <objetivo>Confirmar que, con más de un fichero LEIsReg_*.req en send/, ConvertirUNIXValidaFichero convierte únicamente el primero por orden alfabético porque GSProcess.sh expande el comodín antes de llamar a Generico.sh (§6.4).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción).</precondicion>
+      <precondicion>send/ contiene un LEIsReg_*.req antiguo con finales de línea CRLF y la ejecución genera otro más reciente (también CRLF si el Java los escribe así).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ficheros en send/" valor="dos ficheros LEIsReg_*.req con fecha distinta en el nombre"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GS_REGISTERLEISEND (GSProcess.sh LEI_Register_request).</paso>
+      <paso numero="2">En execute_LEI_Register_request_&lt;AAAAMMDD&gt;.log comprobar el "-SCRIPT:" con los dos nombres de fichero y que el log de Generico muestra "File &lt;primero&gt; found".</paso>
+      <paso numero="3">Comprobar con file o cat -A cuál de los dos ficheros tiene finales de línea Unix.</paso>
+    </pasos>
+    <resultadoEsperado>Solo el primer fichero por orden alfabético (el más antiguo) queda en formato Unix; el segundo conserva sus finales de línea originales. El job termina con 0.</resultadoEsperado>
+    <tipoValidacion>Log de GSProcess.sh/Generico.sh y comprobación de los ficheros.</tipoValidacion>
+    <criterioAceptacion>Se confirma o se descarta que el segundo fichero queda sin convertir.</criterioAceptacion>
+    <posibilidadFallo>Si ambos quedan convertidos, el Generico.sh instalado no es el de la plantilla de despliegue.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
