@@ -6,7 +6,11 @@
 > Base del análisis: código fuente íntegro del script (145 líneas, bash, cabecera "User:e024001,
 > 21/03/2013"), obtenido de la evidencia del proceso `extracciones_adhoc_ctpdas_fircosoft_sire`.
 > Llama a `raiseEvent.sh`, la herramienta de línea de comandos de GoldenSource, **cuyo código no
-> se ha recibido** (ver §7).
+> se ha recibido** (ver §7). La plantilla de despliegue (repositorio `estaticos`, rama develop) no contiene
+> `executeBbvaEvent.sh` (vive en el directorio de GoldenSource) ni `raiseEvent.sh`, pero sí una variante del
+> primero (`BBGexecuteBbvaEvent.sh`), dos scripts de parada de eventos en vuelo y `publish.sh`, que usa
+> `raiseEvent.sh --querystatus` de forma parecida; se describen en §8.1 y aportan una pista sobre los códigos de
+> `--querystatus` (§7).
 
 ## 1. Qué es y para qué sirve
 
@@ -109,7 +113,8 @@ la salida del job.
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-EBE-01 | ¿Qué devuelve `raiseEvent.sh --querystatus` cuando el workflow ha **terminado con error**: 0, o distinto de 0? | Si devuelve 0, un workflow fallido se da por correcto y el proceso sigue. Si devuelve distinto de 0, el script sigue esperando hasta agotar el tiempo y entonces falla con `Exceeded timeout`, lo que retrasa el fallo y lo etiqueta mal. Sin el código de `raiseEvent.sh` o una prueba no se puede saber |
+| P-EBE-01 | **Parcial (ver la pista de `publish.sh` bajo la tabla).** ¿Qué devuelve `raiseEvent.sh --querystatus` cuando el workflow ha **terminado con error**: 0, o distinto de 0? | Si devuelve 0, un workflow fallido se da por correcto y el proceso sigue. Si devuelve distinto de 0, el script sigue esperando hasta agotar el tiempo y entonces falla con `Exceeded timeout`, lo que retrasa el fallo y lo etiqueta mal. Sin el código de `raiseEvent.sh` o una prueba no se puede saber |
+| H-EBE-01 | **Abierta, avance parcial.** `raiseEvent.sh` (herramienta de línea de comandos de GoldenSource) se invoca pero su código no se ha recibido. Avance (plantilla de despliegue): está en `/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/` (un nivel por encima de `scripts/`); `BBGexecuteBbvaEvent.sh` y `publish.sh` hacen `cd` ahí y lo llaman como `./raiseEvent.sh --domain <dominio> --server JBoss --url <url> --user <usuario> --password <clave> ...`; se conocen las opciones `--fulltrace`, `--input <fichero>`, `--async`, `--verbose` y `--querystatus <id> "<evento>"`; en la salida de la llamada asíncrona el identificador sale tras el texto `WorkFlow ID : ` (16 caracteres). Sigue sin conocerse su código | Código de `raiseEvent.sh` |
 | P-EBE-02 | ¿Cuál es el valor de `<timeout>` en `credentials.xml` de cada entorno? | Fija cuánto espera cada evento antes de darse por fallido |
 
 **Comprobación con el volcado de workflows de GoldenSource (segunda pasada de cierre): sin cambios en
@@ -123,7 +128,21 @@ fallar el workflow**, de modo que lo que responda `--querystatus` ante un workfl
 importaría ante un fallo duro dentro de un nodo. El código de `raiseEvent.sh` o una prueba con un
 workflow que falle siguen siendo necesarios.
 
+**Pista nueva sobre P-EBE-01 (plantilla de despliegue, `scrt/publish.sh`).** Este script, que lanza el evento `RDR_EntityFullPublishing` por servicio web (`curl` a `http://<máquina>:30501/fileloading/webservice/Events?name=...` o `:30601/publishing/...`) y obtiene el identificador de `<flowResultId>`, espera con el mismo bucle de `--querystatus` cada 5 segundos pero **termina cuando el código es 0 o 7**: `while [ $returnCode -ne 0 ] && [ $returnCode -ne 7 ]`. Es decir, quien escribió ese script trata el **7 como un estado final distinto del 0**. El código de `raiseEvent.sh` no está, así que no se puede afirmar qué significa el 7 (lo razonable es "terminado con error u otro estado final", pero **no está confirmado**). Si fuera así, `executeBbvaEvent.sh`, que solo sale con 0, seguiría consultando hasta agotar el tiempo y fallaría con `Exceeded timeout` en lugar de detectar el fallo del workflow. Además, el bucle de `publish.sh` calcula `timeout` pero **no lo comprueba**, de modo que si el estado nunca llega a 0 ni a 7 espera indefinidamente.
+
+Con esto P-EBE-01 pasa a **parcial**: se sabe que existe al menos un código final distinto de 0 (el 7) y falta confirmar que corresponde a un workflow fallido y qué devuelve la consulta para uno que acaba con error.
+
 ## 8. Procesos que lo usan
 
 Todos los que tienen una acción `Evento` en su `.properties` de `GSProcess.sh` (cargas MDX,
 workflows, reportes y ficheros de errores). Cada spec de proceso indica qué eventos lanza.
+
+### 8.1 Piezas relacionadas de la plantilla de despliegue
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop):
+
+**`scrt/BBGexecuteBbvaEvent.sh` (variante para cargas grandes de Bloomberg, 09/01/2020).** Mismos parámetros (`{fileloading|publishing} <Evento> <credentials.xml> [fichero]`), mismas credenciales, misma detección de entorno por directorios, mismo `sed -i` del `$ENV` (salvo `Bloomberg_Response`) y la misma llamada `raiseEvent.sh ... --async --verbose` más el bucle de `--querystatus` cada 5 segundos con el mensaje `Raise Event Error:Exceeded timeout`. Diferencias respecto a lo descrito arriba: (1) divide `<timeout>` entre **2** (la división entre 5 está comentada) en lugar de entre 5, de modo que espera hasta `timeout/2` consultas de 5 segundos, es decir **2,5 veces `<timeout>` segundos**; (2) escribe en la salida el valor de `<timeout>` rodeado de guiones y el nuevo valor tras dividir; (3) se mueve a `.../CommandLineTools` con `cd` explícito. Ningún `.properties` de la plantilla lo invoca (lo lanzaría Control-M o un script externo). Su código de salida es el del último comando del bucle (0 cuando acaba el bucle porque la consulta devuelve 0).
+
+**`scrt/script_kill_BbvaEvent.sh` y `scrt/script_kill_raiseEvent.sh` (parada de eventos en vuelo, 20/01/2018).** Mismo diseño. Se lanzan a mano como `bash script_kill_<...>.sh {fileloading|publishing} /<env>/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`. Comprueban que el usuario que los ejecuta es la cuenta de aplicación del entorno (para `BbvaEvent`, la de KYTL de cada entorno; para `raiseEvent`, otra cuenta de aplicación distinta), deducen el entorno por directorios y buscan con `ps -fea | grep` los procesos `executeBbvaEvent.sh` (el primero) o `raiseEvent.sh` (el segundo). Para cada PID: guarda la línea del proceso en `.../Reinicios_wf_job/kill.<...>.txt`, mira si el padre es un `GSProcess.sh` (con `ps -P`) y, si lo es, hace `kill -9` del **padre** (el `GSProcess.sh`) y luego `kill -9` del hijo. Si no hay procesos, escribe un texto de aviso en los ficheros `IDs_<...>.txt` y `kill.<...>.txt`. Los ficheros de trabajo están en `/fichtemcomp/<env>/descargas/kytl/Reinicios_wf_job/` y los de la ejecución anterior pasan a `.old`. Matan el proceso del cliente, **no cancelan el workflow en GoldenSource**: el evento ya lanzado de forma asíncrona puede seguir ejecutándose en el servidor. Defectos observados: (a) la búsqueda `grep -ai <PID>` casa con cualquier proceso cuya línea contenga esos dígitos, no solo con el PID; (b) en `script_kill_BbvaEvent.sh` el comando `mv $FICHEROKILL $FICHEROKILL_$dt_$dh.txt` usa variables sin definir (`FICHEROKILL_`, `dt_`) y deja el fichero en el directorio del script con nombre `HH:MM:SS.txt` (comprobado); (c) `kill -9 <PID> /tmp` pasa un operando de más (su error se descarta); (d) en `script_kill_raiseEvent.sh` la búsqueda `grep raiseEvent.sh` casa también con el propio script (`script_kill_raiseEvent.sh`), que puede acabar matándose a sí mismo; (e) el aviso final `finalizado kill...\n` no interpreta el `\n`.
+
+**`scrt/publish.sh`:** ver la pista sobre `--querystatus` en §7.

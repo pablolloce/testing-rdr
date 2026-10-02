@@ -5,9 +5,13 @@
 > `.properties` se invoca, qué acciones contiene ese `.properties` y qué pasa en ese proceso si
 > falla— está en la spec de cada proceso.
 >
-> Base del análisis: código fuente íntegro del script (960 líneas, bash). Se han recibido tres
-> copias de distintos procesos y las tres son idénticas byte a byte (md5
-> `f3ed3dccb27ce916c9b95b51cb6a4091`), así que hay una única versión. Lo que ejecutan en GoldenSource los eventos de la acción `Evento` (`StandardFileLoad`, `RDR_Reporte`,
+> Base del análisis: código fuente íntegro del script en **dos versiones**. (a) La copia de las ramas
+> de Eduardo (960 líneas, bash; tres copias de distintos procesos idénticas byte a byte, md5
+> `f3ed3dccb27ce916c9b95b51cb6a4091`), que ya lleva la clave `JDKV` de la migración a Java 17 y a la que
+> corresponde el texto principal de esta spec. (b) La de la **plantilla de despliegue** (repositorio
+> `estaticos`, rama develop; 950 líneas), que es la base anterior a la migración y **no tiene `JDKV`**. Las
+> diferencias entre ambas son cinco y están en §1.1; donde el comportamiento cambia, el texto lo indica.
+> Lo que ejecutan en GoldenSource los eventos de la acción `Evento` (`StandardFileLoad`, `RDR_Reporte`,
 > `RDR_ErroresCSV`) se ha reconstruido del volcado de la base de workflows (§6.5.1). Las piezas a las que llama
 > tienen su propia spec de componente: `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`,
 > `salidas_pendientes/comun_delta/comun_delta_spec.md` y `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`.
@@ -30,6 +34,46 @@ hace el job lo dice `X.properties`, no `GSProcess.sh`.
   (este último añadió la acción "Property").
 - Lo lanza Control-M. El usuario de sistema lo fija cada job; en las fichas de los procesos de
   este repositorio es habitualmente `xakytl1p`.
+
+### 1.1 Dos versiones del script: plantilla de despliegue (sin `JDKV`) y copia migrada (con `JDKV`)
+
+**Procedencia.** Según la plantilla de despliegue (repositorio `estaticos`, rama develop), `GSProcess.sh` tiene
+950 líneas y **no conoce la clave `JDKV`**; las copias de las ramas de Eduardo (960 líneas) sí la llevan. La
+**migración a Java 17 está en curso** y la plantilla develop sigue en la versión sin paquete: en ella las clases
+se invocan sin paquete (`ControlCase`, `CreateReport`, `ConBDI`, `ConClientela`; 17 invocaciones de `ControlCase`
+y 43 de `CreateReport` en sus `.properties`, ninguna con `JDKV`), mientras que las copias migradas usan
+`controlcargadatos.ControlCase`, `rdr_report.CreateReport`, `rdr_plsql.ConClientela` y `JDKV=17`.
+
+> **Corrección.** Las secciones 4 y 6.4 de versiones anteriores de esta spec describían solo la copia migrada
+> (`<javahome17>`, clave `JDKV`, `JAVA64=<javahome>/bin/`). En la plantilla develop `<javahome17>` no se lee y el
+> JDK sale siempre de `<javahome>`. Lo que sigue es el diff completo entre las dos versiones (el resto del
+> fichero es idéntico).
+
+| # | Punto | Plantilla develop (950 líneas, sin `JDKV`) | Copia migrada (960 líneas, con `JDKV`) |
+|---|---|---|---|
+| 1 | Cálculo del JDK | En `exportvariables` toma `<javahome>` y deriva `JAVA64`: `VAR` = los 4 primeros componentes de la ruta + `/`; `VAR2` = el 5.º componente hasta el primer `_`; `JAVA64` = `VAR` + el **último** directorio de `VAR` cuyo nombre contiene `VAR2` y no contiene `32` + `/bin/`. Con un `javahome` del tipo `/usr/local/<env>/jdk1.8.0_NNN` elige el último `jdk1.8.0*` instalado (otros scripts de la plantilla fijan `/usr/local/<env>/jdk1.8.0_152`) | Lo calcula en cada llamada a la acción `Java` y `JAVA64` = `<JAVA>/bin/` sin `ls` |
+| 2 | Etiqueta `<javahome17>` | No se lee | Se lee solo si `JDKV` vale `17` |
+| 3 | Clave `JDKV` del bloque `Java` | **No reconocida: se ignora** (ver más abajo) | Comparación exacta con `17`; se escribe `-JDKV:` en `LOG_GENERICO`; `limpiarJava` la reinicia entre bloques |
+| 4 | `export PATH=$PATH:$JAVA/bin` en `exportvariables` | `JAVA` = `<javahome>`, así que el JDK se añade al **final** del `PATH` (un `java` anterior en el `PATH` del usuario gana). Lo heredan `Delta.sh` y los scripts que llaman a `java` sin ruta | `JAVA` aún está vacía en ese punto: añade solo `/bin`. Los scripts hijos no reciben ningún JDK por `PATH` |
+| 5 | Traza de depuración | No existe | Escribe `CLASE <nombre>` en la salida estándar al leer cada clave `NomClase…` |
+
+**Qué pasa con una clave `JDKV` desconocida en la versión antigua.** Comprobado leyendo el código y ejecutando la
+función `Control` de la plantilla sobre un `.properties` con `JDKV=17`: la clave entra en los vectores de claves y
+valores, pero ninguna comparación del bloque `Java` coincide con ella (`Libr`, `PreA`, `ArgJ`, `DirJ`, `NomP`,
+`StopJav`, `NomC`, `Serv` sobre los primeros caracteres), así que **se ignora sin error y sin traza en el log**. El bloque se
+ejecuta con el JDK de `<javahome>`. Consecuencias según la combinación:
+
+| `GSProcess.sh` | `.properties` y jar | Resultado |
+|---|---|---|
+| Plantilla (sin `JDKV`) | Migrados (`JDKV=17`, clase con paquete, jar compilado con JDK 17) | La JVM de `<javahome>` es la que haya configurado el entorno; si es Java 8 (el valor que usan los demás scripts de la plantilla), falla con `UnsupportedClassVersionError` y devuelve 1: el subproceso cuenta como fallido y, con `Stop=Ok`/`StopJava=Ok`, aborta el módulo. Si `<javahome>` ya apuntara a un JDK 17 o superior, funcionaría por casualidad. No es un fallo silencioso |
+| Migrada (con `JDKV`) | Antiguos (sin `JDKV`, clase sin paquete) | Usa `<javahome>`; funciona mientras el jar siga siendo el antiguo. Con el jar migrado, `ClassNotFoundException` (código 1) |
+| Cualquiera | Mezcla de jar y `.properties` de versiones distintas | `ClassNotFoundException` o `UnsupportedClassVersionError`, siempre con código 1 |
+
+**Qué versión corre en cada entorno.** No hay evidencia directa. Los `.properties` de integración recibidos llevan
+`JDKV=17` (copia migrada); los de la plantilla, incluida la variante `.pr` de `ConBDI`, no lo llevan. Para
+confirmarlo en un servidor basta contar líneas (950 o 960) o `grep -c JDKV` sobre `scrt/GSProcess.sh`. Como el
+`.properties` y el jar tienen que ir juntos, la versión del script es parte de la comprobación de cualquier
+despliegue de la migración.
 
 ## 2. Cómo se invoca
 
@@ -81,7 +125,7 @@ Todas se exportan, así que las ven los Java, `Generico.sh`, `Delta.sh` y los ev
 | `JAR` | `/<env>/kytl/online/multipais/multicanal/jar` |
 | `LIB_PATH` | `/<env>/kytl/online/multipais/multicanal/lib` |
 | `CREDENTIALS` | `$CFG/entorno/credentials.xml` |
-| `RAISEEVENT` | `/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts` (donde vive `executeBbvaEvent.sh`) |
+| `RAISEEVENT` | `/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts` (donde vive `executeBbvaEvent.sh`). La herramienta `raiseEvent.sh` que esta invoca está un nivel por encima, en `.../CommandLineTools/` (según `publish.sh` y `BBGexecuteBbvaEvent.sh` de la plantilla, que hacen `cd` a ese directorio antes de ejecutar `./raiseEvent.sh`) |
 | `LOG_CONCILIACION` | `/fichtemcomp/<env>/descargas/kytl/conciliacion`, **solo si ese directorio existe** |
 | `LOG` | Contenido de la etiqueta `<logs>` dentro de `<environment>` de `credentials.xml` |
 | `LOG_GENERICO` | `$LOG/execute_<MOD_EJECUCION>_<AAAAMMDD>.log` |
@@ -95,8 +139,8 @@ Todas se exportan, así que las ven los Java, `Generico.sh`, `Delta.sh` y los ev
 | `FILE_RULES` | `$CONF/fillingRules_<MOD_EJECUCION>.csv`, **solo si existe** |
 | `Errores` | Contador de subprocesos fallidos; empieza en 0 |
 
-**Etiquetas de `credentials.xml` que lee este script** (dentro de `<environment>`): `<logs>`,
-`<javahome>` y `<javahome17>`. El fichero contiene además credenciales de base de datos y de
+**Etiquetas de `credentials.xml` que lee este script** (dentro de `<environment>`): `<logs>` y `<javahome>`
+en ambas versiones; `<javahome17>` solo la copia migrada (§1.1). El fichero contiene además credenciales de base de datos y de
 GoldenSource que leen otros scripts (ver specs de `executeBbvaEvent.sh` y `Generico.sh`). Sus
 valores reales no se documentan en este repositorio.
 
@@ -116,11 +160,19 @@ Consecuencias:
 - Afecta a **todos** los ficheros del directorio, no solo al del módulo que se ejecuta.
 - Si un fallo interrumpe un `sed -i` a mitad, el fichero puede quedar dañado, y lo comparten
   todos los procesos.
-- **Marcador `@@ENV@@`**: el `.properties` real de `cortarFicheroCestasAbaco` contiene rutas
+- **Marcador `@@ENV@@`**: el `.properties` de `cortarFicheroCestasAbaco` contiene rutas
   como `/fichtemcomp/@@ENV@@/descargas/...`. `GSProcess.sh` **no sustituye `@@ENV@@`**, solo
-  `$ENV`. Ningún script del repositorio lo sustituye. Lo más probable es que lo haga el proceso
-  de despliegue al instalar el fichero, pero **no está confirmado** (pregunta abierta P-GSP-01,
-  §11).
+  `$ENV`. **Resuelto con la plantilla de despliegue (repositorio `estaticos`, rama develop):** el marcador
+  `@@ENV@@` lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` (declarado en `ci.yml` y en el
+  `Jenkinsfile_MIXTO` del repositorio) por `de`, `ei`, `pp` o `pr` al instalar. Lo respaldan los datos de la
+  plantilla: 482 ficheros contienen `@@ENV@@` y **ninguno** de `dat/properties` contiene el literal `$ENV`, de modo
+  que `sustituirENV` es en la práctica un no-op con la plantilla (solo actuaría sobre ficheros antiguos o
+  editados a mano). Los ficheros `X.properties.pr/.pp/.ei/.de` (por ejemplo `ConBDI`, `EnvioReporteMail`,
+  `EnvioReporteMailAux`, `informeMIFID`, `ME_BBG_SEND_EMAIL`, `ReporteInfCierre`, `SendMailReport`, `aviso_LEI`,
+  `Load_Issues_Warrants`, `RDR_BBG_Response`, `services`) son las variantes por entorno: el plan instala la del
+  entorno como `X.properties`. Comprobación en el servidor: `grep -rl '@@ENV@@' /<env>/kytl/online/multipais/multicanal/dat/properties`
+  no debe devolver ficheros. `sustituirCONF` sí tiene trabajo: 29 ficheros de la plantilla usan el literal `$CONF`
+  (por ejemplo `PreArgJava1=$CONF`) y el script los reescribe en sitio la primera vez.
 
 ## 6. El fichero `.properties`: formato y acciones
 
@@ -235,11 +287,12 @@ Ejecuta un programa Java. Claves:
 | `ArgJava1` … `ArgJava10` | Argumentos. Un argumento vacío se convierte en un espacio |
 | `PreArgJava1` … `PreArgJava10` | Prefijo de ruta del argumento del mismo número (igual que en `Script`) |
 | `DirJava1` … `DirJava10` | Directivas de la JVM. En el `.properties` el `=` se escribe `&equal;` |
-| `JDKV` | Si vale `17`, se usa el JDK de la etiqueta `<javahome17>`; si no, el de `<javahome>` |
+| `JDKV` | **Solo en la copia migrada.** Si vale `17`, se usa el JDK de la etiqueta `<javahome17>`; si no, el de `<javahome>`. La plantilla develop no la reconoce y la ignora sin aviso (§1.1) |
 | `Servicio…` | Nombre del servicio, solo para el log |
 | `StopJava` | `Ok` → si falla, se detiene todo el proceso |
 
-Comando que ejecuta, **sin directivas**:
+Comando que ejecuta, **sin directivas** (en la plantilla develop `<javahome>/bin/java` es `JAVA64`, calculado
+como se explica en §1.1, punto 1):
 
 ```
 <javahome>/bin/java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF \
@@ -281,7 +334,7 @@ Comando según `NomEvento` (todos desde el directorio `$RAISEEVENT`):
 | `Workflow` | `./executeBbvaEvent.sh fileloading <NomWorkflow> $CREDENTIALS <MOD_EJECUCION>.properties` |
 | `Reporte` | `./executeBbvaEvent.sh fileloading RDR_Reporte $CREDENTIALS <MOD_EJECUCION>.properties`. Qué hace el workflow: §6.5.1 |
 | `Errores` | `./executeBbvaEvent.sh fileloading RDR_ErroresCSV $CREDENTIALS <MOD_EJECUCION>.properties`. Qué hace el workflow: §6.5.1 |
-| otro | `./executeBbvaEvent.sh $ARG_EVENTO $CREDENTIALS <MOD_EJECUCION>.properties`. `ARG_EVENTO` no se define en ningún sitio, así que el comando queda sin tipo de evento y `executeBbvaEvent.sh` lo rechaza por número de parámetros (riesgo R7) |
+| otro | `./executeBbvaEvent.sh $ARG_EVENTO $CREDENTIALS <MOD_EJECUCION>.properties`. `ARG_EVENTO` no se define en ningún sitio, así que el comando queda sin tipo de evento y `executeBbvaEvent.sh` lo rechaza por número de parámetros (riesgo R7). En la plantilla de despliegue ningún `.properties` usa un tipo distinto de `MDX`, `Workflow`, `Reporte` o `Errores` (`Workflow` 134 acciones, `MDX` 44, `Errores` 19 y `Reporte` 8), así que esta rama no se ejecuta |
 
 **El fichero temporal del workflow no se usa** (riesgo R5). Para `NomEvento=Workflow`, el script
 crea `$CONF/<NomWorkflow>_.properties` con estas líneas (valores de la acción `Variables`):
@@ -345,6 +398,8 @@ Descripción del evento en el catálogo: "ejecutará WorkFlow de Reporte de Info
 | `LOPD` | `LOPDReport.csv` | no identificable |
 | `OFAC`, `OFAC2` | varios (bucle `For Each Split` sobre `mapSelects`: cada elemento trae `FileName`, `Header` y `Select`) | por elemento |
 
+**Qué módulos de la plantilla lanzan la acción `Reporte`** (según la plantilla de despliegue, repositorio `estaticos`, rama develop): solo ocho `.properties`, con estos `Servicio`: `LOPD` (`LOPD.properties`), `OFAC` (`OFAC.properties`, `MessageType=OFA`), `bajaniveles`, `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR`, `clientes` y `nlegales`. Los demás servicios del `Switch Case` (`bajas`, `cedro`, `informeMIFID`, `OFAC2`) no los lanza ninguna acción `Reporte` de la plantilla; en particular `informeMIFID.properties` lanza el **mismo** evento por la acción `Workflow` (`NomWorkflow=RDR_Reporte`), por lo que su fallo tampoco se detecta (riesgo R14). Las SELECT del array siguen sin estar disponibles (H-GSP-06). Ojo: las claves de `select.properties` (que usa `RDR_Report.jar`, ver `comun_rdr_report`) no son las de este workflow, aunque coincida algún nombre (`cedro` genera `Reporte_cedro.csv` en ambos).
+
 Los 12 nodos `Reportes` comparten nombre, por lo que el volcado no permite asignar con seguridad cada cabecera a su rama salvo la de `informeMIFID` (por coincidir sus columnas con las del informe). Aparecen además las cabeceras `FINSID;Legal Name;Level;Current Data Status;Message` (dos veces), `Reporte Cedro` y `Reporte Clientes Exclusivos`.
 
 4. `Sub_GenerateReports` v5 (entradas `Ruta`, `Servicio`, `Select`, `FileName`, `Header`): la carpeta de trabajo es `Carpeta = Ruta + Servicio + "/"` (por ejemplo `/fichtemcomp/pr/descargas/kytl/bajaniveles/`). Ejecuta la SELECT contra `jdbc/GSDM-1` (con un límite de filas cuyo valor no consta en el volcado). **Con filas:** llama a `Sub_DevelopReport`. **Sin filas:** historifica el fichero anterior y escribe el fichero con **una sola línea, el texto `La select no devuelve valores` (sin cabecera)**. Un informe vacío es, por tanto, un fichero con ese texto, no un fichero ausente.
@@ -366,7 +421,41 @@ Genera `<Ruta><Servicio>/<Servicio>_errores.csv` (por ejemplo `LEI/LEI_errores.c
 7. Al final `mv -f <Carpeta>dummy… <Carpeta><Servicio>_errores.csv`. Si no hubo ninguna fila de error el fichero provisional no existe y no se crea `<Servicio>_errores.csv`: **sin fichero = sin errores** (el workflow no evalúa el código de retorno del `mv`: la actividad `CommandLine` solo falla si no puede arrancar el proceso).
 8. `Delta?`: si el parámetro `Delta` vale `Si` (clave del `.properties`; no tiene que ver con la acción `Script Delta` de `GSProcess.sh`), llama a `MarcaRegErroneo`. Con cualquier otro valor o sin él, termina.
 
-`MarcaRegErroneo` v7 (único de estos workflows con `haltOnError=Y`): selecciona los `MAIN_ENTITY_ID` de `FT_T_RLT1` del job con `RLT_PURP_TYP='ERRORES'`; por cada uno escribe una línea en `db_errores.txt` (en `Carpeta`) y ejecuta un comando de shell (`errores_to_file`) cuyo texto y script no están en el volcado. Según la descripción del propio parámetro `Delta` en el workflow, sirve para marcar los registros erróneos en el fichero de entrada de modo que **al día siguiente vuelvan a pasar por el proceso** en la comparación diferencial.
+`MarcaRegErroneo` v7 (único de estos workflows con `haltOnError=Y`): selecciona los `MAIN_ENTITY_ID` de `FT_T_RLT1` del job con `RLT_PURP_TYP='ERRORES'`; por cada uno escribe una línea en `db_errores.txt` (en `Carpeta`) y ejecuta un comando de shell (`errores_to_file`) cuyo texto no está en el volcado; el script `errores_to_file.sh` sí está en la plantilla de despliegue y se analiza en §6.5.2 (la invocación `sh .../errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt` la documentan las specs de los procesos que la usan, a partir del propio workflow). Según la descripción del propio parámetro `Delta` en el workflow, sirve para marcar los registros erróneos en el fichero de entrada de modo que **al día siguiente vuelvan a pasar por el proceso** en la comparación diferencial.
+
+#### 6.5.2 `errores_to_file.sh`: cómo "marca" los registros erróneos el evento `Errores` con `Delta=Si`
+
+**Procedencia.** Script de la plantilla de despliegue (repositorio `estaticos`, rama develop, `scrt/errores_to_file.sh`, 98 líneas, autor NFOQUE, 07/07/2014). Se ha leído entero y se ha ejecutado en un entorno de prueba con ficheros sintéticos para confirmar los comportamientos de abajo.
+
+**Entradas.** `$1` = tipo de mensaje (el `MessageType` del módulo); `$2` = fichero a marcar (según los procesos, la **referencia** del `Delta.sh`, `old/<Servicio>.csv`, no el fichero de carga); `$3` = fichero de identificadores (`db_errores.txt`, los `MAIN_ENTITY_ID` separados por espacios que escribe `MarcaRegErroneo`).
+
+**Qué hace.** Lee todos los identificadores de `$3` (separados por espacios o saltos de línea) y, para cada uno, localiza en `$2` la línea que lo contiene y le **antepone el texto `ERROR-`** (`sed -i "<n>s,^,ERROR-,"`). Como `$2` es la referencia de `Delta.sh`, esa línea deja de ser idéntica a la que traerá el fichero completo del día siguiente: `Compare` la considera nueva y vuelve a salir en el delta, es decir, el registro erróneo **se reprocesa al día siguiente**. La línea con `ERROR-` queda en `old/` hasta que `Delta.sh` rote la referencia con el fichero completo del día. Al final ejecuta siempre `rm -rf $3`: borra el fichero de identificadores (así `db_errores.txt` no crece indefinidamente si el script se ejecuta) y devuelve siempre **código 0**.
+
+**Casos por `MessageType`** (el `case` distingue mayúsculas; cualquier otro valor no hace nada, salvo borrar `$3`):
+
+| `$1` | Cómo localiza la línea | Módulos de la plantilla con ese `MessageType` y `Delta` |
+|---|---|---|
+| `PLZ` | Columna 1 (`;`) de `$2` contiene el identificador | `plazas` (`Delta=Si`) |
+| `OFC` | Construye `temp.txt` (en el directorio actual) con las columnas 1 y 3 unidas por `-` (`CODCSB-CODOFI`) y busca ahí; marca la línea del mismo número en `$2`. Borra `temp.txt` | `oficinas` (`Delta=Si`) |
+| `OFA` | Columna 3 | `OFAC` (`Delta=No`: `MarcaRegErroneo` no se llama) |
+| `Refundicion` | Columnas 1 y 5 (`cut -f1,5`); recorre **todas** las coincidencias | `Refundicion` (`Delta=Si`) |
+| `CargaLEI` | Columna 1 | `LEI` (`Delta=Si`) |
+| `mifid_class` | Columna 1 | `mifidcec` (`Delta=Si`) |
+| `Disputes_disclosure` | Columna 1 (el `case` lo repite dos veces; la segunda rama es inalcanzable) | `PortRec` (sin `Delta`: no llama a `MarcaRegErroneo`) |
+| `ISDA12`, `ISDA13` | Columna 1 | `ISDA12` (sin `Delta`); `ISDA13.properties` usa `MessageType=ISDAMarch13`, que no coincide con el caso `ISDA13` |
+
+Resultado: con la plantilla, el script solo se ejecuta de verdad en `plazas`, `oficinas`, `Refundicion`, `LEI`, `mifidcec` y `cargafechasGTR` (los seis con `Delta=Si` y evento `Errores`); de ellos `cargafechasGTR` (`MessageType=GTR`) **no tiene caso en el `case`**, de modo que no marca nada.
+
+**Comportamientos observados (defectos del script).**
+1. **La condición es siempre cierta y crea un fichero.** La línea `if [ NUM_PARAMETROS > 1 ]` no lleva `$` y `>` es una redirección: ejecuta `[ NUM_PARAMETROS ]` (cierto) y crea o trunca un fichero vacío llamado `1` en el directorio actual. No hay comprobación real del número de identificadores.
+2. **Un identificador sin coincidencia marca todo el fichero.** Si `grep -n` no encuentra el identificador, `NL` queda vacío y `sed -i "s,^,ERROR-,"` se aplica a **todas** las líneas de `$2` (casos `PLZ`, `OFC`, `OFA`, `CargaLEI`, `mifid_class`, `Disputes_disclosure`, `ISDA12`, `ISDA13`; no ocurre en `Refundicion`, que recorre un vector). Eso hace que al día siguiente todo el fichero salga como cambiado (carga completa), y con `MessageType` vacío o sin caso no marca nada.
+3. **Varias coincidencias no marcan ninguna.** Si el identificador aparece en más de una línea (la búsqueda es por subcadena, sin `-w` ni `-F`: `A001` coincide con `A0011`), `NL` contiene varios números separados por saltos de línea, `sed` falla con `unknown command` y no se marca ninguna línea (solo `Refundicion` marca todas las coincidencias).
+4. **Búsqueda por subcadena y como expresión regular.** El identificador se usa como patrón de `grep`; puede marcar líneas ajenas, incluida la cabecera si el texto coincide.
+5. **No comprueba nada de `$2`.** Si el fichero no existe, `cut` y `sed` escriben su error por la salida de error y el script termina igualmente con código 0.
+6. **Necesita `bash`** (vectores y `declare`); los procesos lo invocan con `sh`, que en un servidor donde `sh` no sea `bash` fallaría por sintaxis (deducción, no probado).
+7. **Ejecución como el workflow:** no escribe nada en `LOG_GENERICO` ni en ningún log; la única traza es su salida de error en el log del servidor de GoldenSource.
+
+**Efecto para quien diagnostique:** un registro erróneo con `Delta=Si` solo se reprocesa de verdad si su identificador aparece **exactamente una vez** como subcadena en el fichero de referencia; en otro caso se marca todo (efecto 2) o nada (efecto 3).
 
 **D. Qué falta (no está en el volcado)**
 
@@ -374,8 +463,8 @@ Genera `<Ruta><Servicio>/<Servicio>_errores.csv` (por ejemplo `LEI/LEI_errores.c
 |---|---|
 | `GenerateReports`, nodo `Initialize Variables` | Texto del script (27.736 bytes): las SELECT de todos los informes |
 | `Sub_DevelopReport`, nodo `Prepare Line`; `Sub_GenReportHost`, nodo `Formateo Query` | Cómo se formatea cada línea (separador) |
-| `HistoricizeFiles`, nodo `Prepare commands` | Los comandos de limpieza (`rmCommand`, `rmOldCommand`: qué borra y con qué antigüedad) |
-| `MarcaRegErroneo`, nodo `Variables` y script `errores_to_file` | Qué hace exactamente el marcado |
+| `HistoricizeFiles`, nodo `Prepare commands` | Los comandos de limpieza (`rmCommand`, `rmOldCommand`: qué borra y con qué antigüedad). La plantilla de despliegue no los contiene |
+| `MarcaRegErroneo`, nodo `Variables` | El texto exacto del comando que lanza `errores_to_file.sh` (el script ya se conoce: §6.5.2; los argumentos los documentan los procesos que lo usan) |
 | `ErroresCSV`/`SubErroresCSV` | SELECT de `NTXT` de `SubErroresCSV` (sale cortada) |
 
 ### 6.6 Acción `Property` (`Accion=Prop…`)
@@ -480,14 +569,19 @@ Todos verificados leyendo el código. Ninguno se ha corregido.
 | R12 | Las claves de `Variables`, `Script` y `Java` se evalúan con `eval` | Bajo: los `.properties` son ficheros controlados, pero se ejecuta su contenido |
 | R13 | Directivas Java (`DirJavaN`) eliminan por completo las opciones por defecto, incluida la codificación ISO-8859-1 | Medio: un `.properties` con directivas que no repita `-Dfile.encoding` cambia la codificación de los ficheros que genere |
 | R14 | En `Evento` con `NomEvento=Workflow` se evalúa el código del `rm -f` posterior, no el del workflow | Alto: un workflow fallido deja el job en verde aunque haya `StopEve=Ok` |
+| R15 | `errores_to_file.sh` (§6.5.2): sin coincidencia marca todas las líneas de la referencia, con varias no marca ninguna, crea un fichero `1` y siempre devuelve 0 | Medio-alto: el reproceso de errores con `Delta=Si` no es fiable |
+| R16 | La plantilla develop ignora `JDKV` (§1.1): un `.properties` o jar migrados a Java 17 ejecutados con el `GSProcess.sh` antiguo usan el JDK de `<javahome>` y pueden fallar con `UnsupportedClassVersionError` | Medio: fallo visible (código 1), pero solo si el JDK configurado es anterior a 17 |
+| R17 | `executeGSProcess3.sh` (motor antiguo, §12.1) termina siempre con `ESTADO-0-` y código 0 aunque falle el jar, la carga o el informe | Alto para los módulos que aún lo usan (`ratings*`, `ret*`, `alias`, `items`, `conciliacion*`) |
 
 ## 11. Preguntas abiertas
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-GSP-01 | ¿Quién sustituye el marcador `@@ENV@@` de los `.properties` (por ejemplo el de `cortarFicheroCestasAbaco`)? ¿El proceso de despliegue? | `GSProcess.sh` solo sustituye `$ENV`. Si nadie sustituye `@@ENV@@`, las rutas de esos `.properties` no existen y las acciones fallarían |
-| H-GSP-06 | ¿Cuáles son las SELECT de `GenerateReports` (array `arrayStringSelects`) para cada `Servicio`? | El script del nodo `Initialize Variables` (27.736 bytes) no está en el volcado. Sin él, el contenido de cada informe (`Reporte_bajaniveles.csv`, `Reporte_informeMIFID.csv`…) solo se conoce por lo que cuenta cada proceso |
-| H-GSP-07 | ¿Qué hacen exactamente el script `errores_to_file` (invocado por `MarcaRegErroneo`) y los comandos de limpieza de `HistoricizeFiles` (`rmCommand`, `rmOldCommand`)? | Sus textos salen cortados en el volcado. Afectan a qué se marca como erróneo con `Delta=Si` y a qué se borra de las carpetas de trabajo y de `old/` |
+| H-GSP-01 | **Abierta, avance parcial.** `raiseEvent.sh` (herramienta de línea de comandos de GoldenSource que lanza `executeBbvaEvent.sh`): su código no está en la plantilla de despliegue. Avance: vive en `/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/` (un nivel por encima de `scripts/`); sus opciones (`--domain`, `--server JBoss`, `--url`, `--fulltrace`, `--input`, `--user`, `--password`, `--async`, `--verbose`, `--querystatus <id>`) aparecen en `BBGexecuteBbvaEvent.sh` y `publish.sh`; `publish.sh` considera terminado el evento con código de `--querystatus` **0 o 7** (ver `comun_executebbvaevent` §7) | Código de `raiseEvent.sh` (qué significan los códigos de `--querystatus`, en especial el 7) o una prueba con un workflow que falle |
+| P-GSP-01 | **Resuelta (plantilla de despliegue, repositorio `estaticos`, rama develop).** ¿Quién sustituye el marcador `@@ENV@@`? Lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr`; las variantes `X.properties.pr/.pp/.ei/.de` las instala el plan como `X.properties` (§5) | `GSProcess.sh` solo sustituye `$ENV` (que la plantilla no usa). Queda como comprobación en servidor que no queden `@@ENV@@` sin sustituir |
+| H-GSP-08 | **Nueva, abierta.** ¿Qué versión de `GSProcess.sh` está instalada en cada entorno: la de la plantilla de despliegue (950 líneas, sin `JDKV`) o la migrada (960 líneas, con `JDKV`)? | Decide qué JDK usan los bloques `Java` (`<javahome>` frente a `<javahome17>`) y si una clave `JDKV` en el `.properties` se respeta o se ignora (§1.1). Se cierra con `wc -l` y `md5sum` de `scrt/GSProcess.sh` (y `grep -c JDKV`) en `pr`, `pp`, `ei` y `de` |
+| H-GSP-06 | **Abierta, avance parcial.** ¿Cuáles son las SELECT de `GenerateReports` (array `arrayStringSelects`) para cada `Servicio`? Avance: la plantilla de despliegue identifica qué módulos lanzan la acción `Reporte` (`LOPD`, `OFAC`, `bajaniveles`, `cargafechasGTR/MGC/STAR`, `clientes`, `nlegales`; §6.5.1 B) y que `informeMIFID` usa el mismo evento por `Workflow`; no contiene las SELECT | El script del nodo `Initialize Variables` (27.736 bytes) no está en el volcado ni en la plantilla. Sin él, el contenido de cada informe (`Reporte_bajaniveles.csv`, `Reporte_informeMIFID.csv`…) solo se conoce por lo que cuenta cada proceso |
+| H-GSP-07 | **Resuelta en parte.** `errores_to_file.sh` está analizado entero (§6.5.2, plantilla de despliegue): antepone `ERROR-` a la línea del fichero de referencia y tiene los defectos descritos. Siguen sin conocerse los comandos de limpieza de `HistoricizeFiles` (`rmCommand`, `rmOldCommand`) y el texto exacto del comando del nodo `Variables` de `MarcaRegErroneo` | Los comandos `rm` de `HistoricizeFiles` salen cortados en el volcado y no están en la plantilla. Afectan a qué se borra de las carpetas de trabajo y de `old/` |
 
 ## 12. Procesos que lo usan
 
@@ -535,3 +629,34 @@ Esta tabla solo sirve para localizar a los afectados si cambia el componente.
 | `rdr_reubicacion_new` | `Reubicacion` |
 | `rdr_valforres` | `ValuationForResolution` |
 | `recepcion_altamira_colombia` | `ExtraccionAltamiraReceive` |
+
+### 12.1 Motor antiguo `executeGSProcess3.sh` (plantilla de despliegue)
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), `scrt/executeGSProcess3.sh` (273 líneas, autor NFOQUE, 07/08/2014) es el **predecesor de `GSProcess.sh`**: en vez de un fichero de acciones secuenciales lee **indicadores `Clave=Si`** del `.properties` del módulo con `grep` y ejecuta, por este orden fijo, las fases que estén activadas. Ninguna otra pieza de la plantilla lo invoca (lo lanzaría Control-M). Los módulos de la plantilla escritos para este motor son los `.properties` **sin ninguna línea `Accion=`** y con indicadores: `alias`, `aliasR`, `conciliacion`, `conciliacionAlias`, `conciliacionRel`, `items`, `ratingsBANCOMER`, `ratingsBBVA`, `retBANCOMER` y `retBBVA`. Los demás `.properties` con indicadores (`Delta=`, `Preprocesado=`, `MDX=`…) los usa `GSProcess.sh` (los indicadores los leen los workflows o son informativos).
+
+| Fase (orden) | Se activa con | Qué hace |
+|---|---|---|
+| Espera de concurrencia | siempre | Bucle `ps -e \| grep executeGSProcess3.sh` y `sleep 300` mientras haya otro. En Linux `ps -e` muestra el nombre de proceso truncado a 15 caracteres (`executeGSProces`), de modo que el `grep` del nombre completo **no coincide nunca** y la espera no se activa (probado con un script del mismo nombre) |
+| Delta | `Delta=Si` (`grep` sobre el `.properties`) | Misma lógica que `Delta.sh` (marcha atrás con 5 s, referencia vacía en carga inicial, `Compare`), pero con `java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<CONF>` y `rm` en vez de `rm -f`. Sin `Delta=Si`, copia `<MOD>.csv` a `old/<MOD>.csv` |
+| Preprocesado | `Preprocesado=Si` | Quita los caracteres nulos del CSV (`sed`) y lanza `ControlCase` (clase sin paquete, `ControlCargaDatos.jar` + `javacsv.jar`) con el CSV, `<logs>/<MOD>_preprocess_summary.log` y `fillingRules_<MOD>.csv`. Si el Java falla solo escribe `ERROR executing jar` en el log |
+| Carga MDX | `MDX=Si` | `executeBbvaEvent.sh fileloading StandardFileLoad <credentials> <MOD>.properties` |
+| Workflow | `Workflow=Si` | `executeBbvaEvent.sh fileloading RDR_<MOD>` |
+| Errores | `Errores=Si` | `executeBbvaEvent.sh fileloading RDR_ErroresCSV` |
+| Reporte | `Reporte=Si` | `executeBbvaEvent.sh fileloading RDR_Reporte` |
+| Difusión | (comentada) | Desactivada en el código |
+
+Cada fase escribe en `execute_<MOD>_<AAAAMMDD>.log` si fue bien o mal, pero **ningún fallo cambia el resultado**: el script termina siempre con `ESTADO-0-` y código 0 (riesgo R17). Calcula el JDK con el mismo método de `ls`/`egrep` que la plantilla de `GSProcess.sh` (§1.1, punto 1). Como invoca `ControlCase` sin paquete, **dejaría de funcionar con el jar migrado** (`controlcargadatos.ControlCase`), y lo haría sin avisar (solo `ERROR executing jar` en el log, código 0).
+
+Los `fillingRules_` de estos módulos son: `alias` y `items` (reglas `NULL` y `LONG`), y `ratingsBBVA`, `ratingsBANCOMER`, `retBBVA` y `retBANCOMER` (solo una regla `DUPL`; ver `comun_controlcargadatos` §4.5).
+
+### 12.2 Scripts relacionados de la plantilla de despliegue
+
+| Fichero | Qué es | Relación con `GSProcess.sh` |
+|---|---|---|
+| `scrt/script_kill_BbvaEvent.sh`, `scrt/script_kill_raiseEvent.sh` | Parada de emergencia de eventos en vuelo (`comun_executebbvaevent` §8.1) | Matan también al `GSProcess.sh` padre si lo hay |
+| `scrt/BBGexecuteBbvaEvent.sh` | Variante de `executeBbvaEvent.sh` para cargas grandes de Bloomberg, enero de 2020 (`comun_executebbvaevent` §8.1) | Ninguno de los `.properties` de la plantilla la invoca |
+| `scrt/errores_to_file.sh` | Marca de errores con `Delta=Si` | §6.5.2 |
+| `scrt/Duplicados.sh` | Elimina duplicados de `CN460_ConCabecera.csv` | Lo lanza `Generico.sh LanzaScriptBash` (`comun_generico_sh` §4.5) |
+| `dat/properties/services.properties.pr/.pp/.ei/.de` | Configuración de los servicios de cola (`ServicesRDR`: contrapartidas, calendarios, jerarquías, diccionarios, valores, liquidaciones, tipos de operación, contactos, confirmaciones, acuerdos, países y mandatos) que arranca `services.sh` | No lo usa `GSProcess.sh`. Las cuatro variantes son **idénticas** (`global.env=@@ENV@@`); los nombres de cola siguen el patrón `KYRS.RDR.<SERVICIO>.REQUEST/RESPONSE` |
+| `dat/properties/kytl_pr_config.json` (y `_pp`, `_ei`, `_de`) | Cuatro ficheros de configuración **cifrados** (un único valor cifrado, dos bloques en base64 separados por `:`) | Existen en la plantilla; ningún script de la plantilla los referencia. No se documenta su contenido |
+| `dat/properties/Report.properties` | Lista de ficheros de las cargas iniciales (`files.list`: `TTEGCENG_PROCESSED.csv`, `TTEGCEMA_PROCESSED.csv`, `TTEGCAGC_PROCESSED.csv`, `TTEGCREL_FILTERED.csv` y dos `STARRET_Identifiers_*`), tipos de mensaje (`ENG,EMA,AGC,REL,RET,RET`), propiedades (`*FileUploading`) y campos excluidos (`fields.excluded`) | No lo usa `GSProcess.sh`; ningún script de la plantilla lo lee, así que el programa que lo consume no está identificado |

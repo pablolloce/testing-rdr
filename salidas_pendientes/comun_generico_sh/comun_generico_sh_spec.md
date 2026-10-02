@@ -5,8 +5,12 @@
 > proceso.
 >
 > Base del análisis: código fuente íntegro del script (608 líneas, bash, autor NFOQUE, fecha
-> 05/01/2018 en cabecera), obtenido de la evidencia del proceso `rdr_pr_bdiclienreg_resp`. Es la
-> única copia recibida.
+> 05/01/2018 en cabecera), obtenido de la evidencia del proceso `rdr_pr_bdiclienreg_resp` (rama de
+> Eduardo). Se ha recibido una **segunda copia**: la de la plantilla de despliegue (repositorio `estaticos`,
+> rama develop; 610 líneas), que es la base anterior a la migración a Java 17. Comparadas con `diff`, las dos
+> son **idénticas salvo en cómo obtienen el JDK en `TransformacionCTM`** (ver la fila de esa función en §4.4);
+> el resto de funciones, mensajes y códigos de salida son los mismos, y todas las funciones que usan los
+> `.properties` de la plantilla existen en el script.
 
 ## 1. Qué es y cómo se usa
 
@@ -115,7 +119,7 @@ Tienen nombres de fichero fijos dentro del código.
 | `LimpiarRefundicion` | ARG1 directorio | Sobre `ARG1/Refundicion.csv`: deja la cabecera, ordena el resto numéricamente por los caracteres 21-25, 26-28, 29-31, 32-34, 35-37, 38-40 y 41-47 del **primer campo separado por espacios**, extrae las columnas 1 y 5 (`;`), quita repetidos consecutivos y deja el resultado en `ARG1/Refundicion.tmp`. Borra sus temporales | Código 1 si falla cualquier paso |
 | `DeltaRegresivoSTAR` | ARG1 módulo, ARG2 ruta **con `/` final** | Compara `ARG2<ARG1>.csv` (nuevo) con `ARG2old/<ARG1>.csv` (anterior; si no existe lo crea solo con la cabecera). El nuevo fichero queda con la cabecera, las líneas que solo están en el nuevo (altas o cambios) y las que solo estaban en el anterior con la fecha `31/12/9999` cambiada a `01/01/1900` (bajas). El fichero nuevo original pasa a ser el "anterior". Usa el segundo campo **separado por espacios** de la salida de `diff`: una línea con espacios se corta | Código del último `mv` |
 | `IncrustaSubproducto` | ARG1 entrada, ARG2 fichero de mapeo `clave=valor`, ARG3 salida | Traduce el código de producto de Abaco (columna 56, separador `;`) a producto RDR según el mapeo. Pasa ambos ficheros a Unix, quita nulos, espacios finales, líneas vacías y cabecera; las líneas sin producto salen tal cual; las que tienen un producto del mapeo salen con el producto traducido; las que tienen un producto no mapeado salen sin cambios. Ordena por la columna 56, vuelve a pasar a DOS la entrada, el mapeo y el resultado, y escribe en `ARG3` la cabecera original y el resultado | Código del último `rm` |
-| `TransformacionCTM` | ARG1 prefijo del XML, ARG2 hoja XSL, ARG3 salida | Busca `<ARG1><AAAAMMDD de ayer>.xml`; si no existe, usa el de hoy (sin comprobar que exista). Ejecuta `java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF -cp $JAR/TaductorXML.jar traduce.Traduce <xml> <xsl> <salida>` (el jar se llama así, `TaductorXML`, sin la `r`). Cambia el log a `execute_TransformacionCTM_<AAAAMMDD>.log`. Si falta `credentials.xml`, termina con código 0 | Código del Java |
+| `TransformacionCTM` | ARG1 prefijo del XML, ARG2 hoja XSL, ARG3 salida | Busca `<ARG1><AAAAMMDD de ayer>.xml`; si no existe, usa el de hoy (sin comprobar que exista). Ejecuta `java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF -cp $JAR/TaductorXML.jar traduce.Traduce <xml> <xsl> <salida>` (el jar se llama así, `TaductorXML`, sin la `r`). **El JDK depende de la copia:** la copia migrada usa `JAVA64=<javahome>/bin` tal cual; la plantilla develop lo deriva con `ls`/`egrep` de la ruta de `<javahome>` (último directorio hermano con el mismo prefijo y sin `32`, igual que `GSProcess.sh`, ver su spec §1.1). En ambas **no lee `<javahome17>`** ni la clave `JDKV`: esta función siempre ejecuta el JDK de `<javahome>`. Cambia el log a `execute_TransformacionCTM_<AAAAMMDD>.log`. Si falta `credentials.xml`, termina con código 0 | Código del Java |
 | `XSLT_TO_XML` | ARG1 XML, ARG2 XSL, ARG3 salida | `xsltproc ARG2 ARG1 > ARG3` | Código 1 si falla `xsltproc` |
 
 ### 4.5 Otras
@@ -126,6 +130,32 @@ Tienen nombres de fichero fijos dentro del código.
 | `LanzaScriptSH` | ARG1 ruta del script, ARG2, ARG3 | Ejecuta `sh -x ARG1 ARG2 ARG3` (con traza de cada orden en la salida de error) | Código del script lanzado |
 | `traducir_creden` | ARG1 fichero a generar, ARG2 entorno (`pr`, `pp`, `ei`, `de`) | Lee de `credentials.xml` (sección `<database>`: `sid`, `gcuser`, `gcpass`, `host`, `host2`, `port`) y escribe en `ARG1` un fichero de conexión JDBC: `jdbc.driverClassName=oracle.jdbc.driver.OracleDriver`, `jdbc.url`, `jdbc.username` y **`jdbc.password` en claro**. La URL es de alta disponibilidad (`DESCRIPTION` con `FAILOVER=ON`, `host` y `host2`, `SERVICE_NAME=<sid>`) si el **nombre de máquina** indica `pr` o `pp`, y `jdbc:oracle:thin:@<host>:<port>/<sid>` en el resto. El entorno de `ARG2` solo decide de qué `credentials.xml` se leen los datos | Si falta `credentials.xml`, código 0 sin generar nada. Ver riesgo R1 |
 | `obtenerentorno`, `sustituirENV`, `sustituirCONF` | — | Copias de las funciones de `GSProcess.sh`, usadas por `TransformacionCTM` y `traducir_creden` | Si el nombre de máquina no permite deducir el entorno, código 254 |
+
+### 4.6 Scripts que la plantilla de despliegue lanza con `LanzaScriptBash`
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), las 28 acciones `LanzaScriptBash` de sus `.properties` ejecutan estos scripts de `scrt/` (`$SCRIPT/<script> arg2…arg5`):
+
+| Script | `.properties` que lo lanzan | Para qué |
+|---|---|---|
+| `TransformacionesExtraccionCTPDA.sh` | `TransformacionesExtraccionCTPDA_*` (CTM, DCD, DCT, DEALRECONSTR, FAED, FAET, FAMM, FIRCOSOFT, MENTOR, MENTOR_SINRATINGS, MGC, SALESFORCE, SICOR, SIRE) | Transformaciones de las extracciones de contrapartidas (cada una en su spec) |
+| `gleif.sh`, `Comprobar_fichero_LEI.sh`, `LEI.sh`, `initialSQLLoadLEI.sh` | `LEI`, `initialSQL_LEI` | Descarga, comprobación y carga de LEI (spec `rdr_cargalei_new`) |
+| `Duplicados.sh` | `Contrato460` | Ver más abajo |
+| `FED_Clan.sh` | `CargaABA` | Preparación del fichero ABA |
+| `mentor.sh` | `CargaMENTOR_LA` | Carga de contratos Mentor |
+| `logicaEMIR.sh`, `logicaCBR.sh`, `gemir.sh` | `EMIR`, `CBR`, `NFC` | Lógicas de las cargas EMIR/CBR/NFC |
+| `Caracteres.sh` | `salesWarehouseF5` | Limpieza de caracteres |
+| `RDR_Anna_Download_Historical.sh` | `RDR_Anna_Download` | Descarga de históricos |
+| `GSProcess.sh` | `MitigantsBBVA_SinPubli` | Llamada anidada a `GSProcess.sh` con otro módulo (a diferencia de la acción `Property`, esta no genera `.properties` temporales) |
+
+**`Duplicados.sh`** (plantilla de despliegue, `scrt/Duplicados.sh`, 85 líneas, NFOQUE, 15/01/2018). Recibe un único argumento, el fichero a depurar (en `rdr_c460`, `CN460_ConCabecera.csv`). Lo pasa a formato UNIX, quita nulos, espacios finales y líneas vacías, separa las filas por el campo 9 (fecha de cancelación) según valga `0001-01-01` (contrato activo) o no, elimina duplicados entre las activas usando los campos 9 y 10, deja las repetidas en `<fichero>_REPES`, **sustituye el fichero de entrada** por el resultado (filas no activas más una por clave activa) y lo devuelve en formato DOS (`unix2dos`). Borra sus temporales. El detalle del mecanismo de deduplicación está en la spec de `rdr_c460` (§6.1); el posible defecto de esa clave se ha dado por no relevante por decisión del usuario y no se trata aquí. Código de salida: el de `unix2dos`.
+
+### 4.7 Uso real en la plantilla
+
+Número de acciones `Script` por función en los `.properties` de la plantilla (todas están definidas en este script): `Borrar` 39, `Unix2Dos` 29, `LanzaScriptBash` 28, `Historificar` 22, `Delta` 19 (no es de este script: `Delta.sh`), `MoverFichero` 16, `QuitarNulos` 15, `CopiarFichero` 14, `XSLT_TO_XML` 13, `IncrustaSubproducto` 10, `Eliminar_fila` 8, `Cortar` 8, `ConvertirUNIX` 8, `MoverFicheros` 6, `Concatenar` 3, `CatFicheros` 3, y 1 o 2 de cada una de las demás (`traducir_creden`, `eliminarLineasDuplicada`, `TransformacionCTM`, `Ordenar`, `CortarGen`, `CortarEliminarCabecera`, `CopiarFicheroSinFechaCSV`, `limpiarFinales`, `eliminarLineasDuplicadaCabecera`, `VerificarAlert`, `VerificarAlertFx`, `LimpiarReubicacion`, `LimpiarRefundicion`, `LimpiarOficinas`, `LanzaScriptSH`, `InsertarSep`, `InsertarColumnaMGC`, `DeltaRegresivoSTAR`, `CortarColumnas`, `ConvertirUNIXValidaFichero`, `C460`). `TransformacionCTM` la usan `CTM.properties` (hoja `CTM_ALT.xsl`, salida `CTM/contrapartidas_ctm_altbic.txt`) y `extraccionEFR.properties` (hoja `removeCtm.xsl`, salida `KYTL_RDR_EXTRACTION_CPARTYS_EFR.xml`).
+
+### 4.8 `TaductorXML.jar` (clase `traduce.Traduce`): lo que se sabe sin el jar
+
+El jar no está en la plantilla. Por cómo se invoca, es un **transformador XSLT por línea de comandos** con tres argumentos (XML de entrada, hoja XSL, fichero de salida): `TransformacionCTM` lo llama con el XML de ayer o de hoy, y la acción `Java` de `initialSQL_LEI.properties` lo llama con `LEI/*.xml`, `GLEIF_traductor.xsl` y `LEI/LEI.csv` (el comodín lo expande el shell al ejecutar `java`, así que con varios XML recibiría más de tres argumentos). Las hojas que se le pasan son XSLT 1.0: `CTM_ALT.xsl` (salida de texto `method="text"`, cabecera `FINSID;STARID;SHTNMEID;STARIDCM;CPTYDES;CTMID;CTM_BIC;CTM_BIC_ALT;FNDMNGR;INDGEST`, una fila por `OPERATIVE` que tenga un `ROLE_IDENTIFIER` con `Data_Source='CTM_BIC_ALT'`), `removeCtm.xsl` (copia idéntica del XML omitiendo los `GLOBAL` cuyo `LOCAL` tenga `CTM_OnBoarding='Y'`) y `GLEIF_traductor.xsl`. Qué hace el programa ante un XML mal formado, una hoja inexistente o una salida no escribible, y con qué código sale, **sigue sin conocerse** (H-GSH-01).
 
 ## 5. Riesgos y defectos conocidos
 
@@ -166,3 +196,11 @@ Según sus specs; el detalle de argumentos y ficheros está en cada una.
 | `CatFicheros`, `CortarEliminarCabecera` | `opiniones_legales` |
 | `CortarGen`, `limpiarFinales` | `rdr_envio_cliex` |
 | `XSLT_TO_XML` | `extraccion_contactos` |
+
+### 6.1 Huecos y su estado
+
+| Id | Estado | Detalle |
+|---|---|---|
+| H-GSH-01 | **Abierta, avance parcial** | `TaductorXML.jar` no está en la plantilla de despliegue. Se documentan sus invocaciones y las hojas XSL que recibe (§4.8); falta el código para saber su comportamiento ante errores y sus códigos de salida |
+| H-GSH-02 | **Resuelta** | Ya hay una segunda copia (plantilla de despliegue, base anterior a la migración a Java 17). Diferencia única: el cálculo del JDK en `TransformacionCTM` (§4.4) |
+| H-GSH-03 | Sin cambios | Las discrepancias entre comentarios y código siguen resueltas por el código |

@@ -8,7 +8,11 @@
 >   cabecera), obtenido de la evidencia del proceso `rdr_conc_oficinas_new`.
 > - `compare.jar`: jar de 2.443 bytes con una única clase, `es.bbva.kytl.scripts.Compare`.
 >   El algoritmo de esta spec sale de **desensamblar su bytecode** (`javap -c -p`), no de
->   suposiciones. Hasta el 01/10/2026 figuraba como "algoritmo no decompilado".
+>   suposiciones. Hasta el 01/10/2026 figuraba como "algoritmo no decompilado". La clase es de Java 6 (versión de clase 50;
+>   fecha de la clase en el jar, 04/06/2014). Segunda pasada: se ha comprobado con `javap -v` que el único tipo
+>   que referencia fuera de `java.*` es ella misma (ver §2).
+> - Segunda copia de `Delta.sh`: la de la plantilla de despliegue (repositorio `estaticos`, rama develop), **idéntica
+>   byte a byte** a la analizada (mismo md5). La plantilla no incluye `compare.jar` ni `RDRCommon.jar`.
 
 ## 1. Qué es y para qué sirve
 
@@ -49,7 +53,12 @@ Ficheros y directorios, con `<dir>` = `$FILES/<MOD>`:
 
 Jars: `$JAR/compare.jar`, `$JAR/RDRCommon.jar`, `$LIB_PATH/ojdbc8.jar`, `$LIB_PATH/log4j.jar`.
 La clase de comparación no usa ni la base de datos ni log4j; están en el classpath pero no
-intervienen.
+intervienen. **Tampoco usa `RDRCommon.jar`** (H-DEL-01, resuelto): el desensamblado completo de
+`es.bbva.kytl.scripts.Compare` (tabla de constantes con `javap -v`) solo referencia clases de `java.*`
+(`HashMap`, `Map`, `BufferedReader`, `FileReader`, `FileWriter`, `PrintWriter`, `StringBuilder`, `Boolean`,
+`System`, excepciones de E/S) y a sí misma. `RDRCommon.jar` está en el classpath por herencia y no interviene: ni
+su presencia ni su ausencia cambian el resultado (la JVM ignora una entrada de classpath que no existe). Del
+propio `RDRCommon.jar` no se tiene código, pero ya no hace falta para esta spec.
 
 ## 3. Funcionamiento con `Si` (modo delta)
 
@@ -195,7 +204,7 @@ variables llegan a `GSProcess.sh` (las exporta un proceso hijo).
 | R2 | El delta no comunica bajas | Alto si el proceso necesita dar de baja registros: tiene que hacerse por otra vía |
 | R3 | Un día sin fichero deja el proceso sin referencia y al día siguiente se carga todo | Medio |
 | R4 | Línea en blanco tras el primer registro y sin salto de línea final | Medio: depende de cómo trate la carga esas líneas |
-| R5 | Usa el `java` del `PATH` del usuario, no el de `credentials.xml`. `GSProcess.sh` intenta añadir el JDK al `PATH`, pero lo hace antes de conocerlo y en realidad añade `/bin` | Medio: la versión de Java depende de la máquina |
+| R5 | Usa el `java` del `PATH` del usuario, no el de `credentials.xml`. **Depende de la versión de `GSProcess.sh`** (spec de `GSProcess.sh`, §1.1): en la copia migrada (con `JDKV`) intenta añadir el JDK al `PATH` antes de conocerlo y en realidad añade `/bin`; en la **plantilla de despliegue (sin `JDKV`)** sí añade `<javahome>/bin`, pero **al final** del `PATH`, así que un `java` anterior del `PATH` del usuario gana y solo si no hay ninguno se usa el JDK de `credentials.xml` | Medio: la versión de Java depende de la máquina y de la versión del orquestador (el `Compare` es de Java 6, funciona con cualquiera) |
 | R6 | El relanzamiento se detecta por diferencia de 5 segundos en fechas de fichero | Bajo |
 | R7 | Si no existe `old/`, todo falla en silencio | Bajo: se crea al instalar el proceso |
 
@@ -206,6 +215,24 @@ variables llegan a `GSProcess.sh` (las exporta un proceso hijo).
 | `kytl_bcbs_sector_asset_allocation` | Confirmado, con `Si` |
 | `rdr_conc_oficinas_new` | Confirmado (`Script(Delta)` antes de la carga de oficinas) |
 | `rdr_refundicion` | Confirmado, con `Si` |
-| `rdr_carga_plazas_trad_new` | **Sin confirmar**: su spec indica que no hay evidencia de si su `.properties` lo usa |
+| `rdr_carga_plazas_trad_new` | **Confirmado** (plantilla de despliegue): `TradPlazas.properties` ejecuta `Delta` con `ArgScri1=No`, es decir, **no hace delta** (solo copia `TradPlazas.csv` a `old/TradPlazas.csv`). El que hace delta con `Si` es `plazas.properties` |
 
 Cada spec de proceso indica si usa `Si` u otro valor y qué hace su carga con el resultado.
+
+### 11.1 Uso real en la plantilla de despliegue
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), 19 acciones `NomScript=Delta` en sus `.properties`. En ninguna se lanza `Delta.sh` fuera de `GSProcess.sh`; el motor antiguo `executeGSProcess3.sh` lleva su propia copia de la lógica (spec de `GSProcess.sh`, §12.1).
+
+| Módulo (`.properties`) | `ArgScri1` | Modo | Notas |
+|---|---|---|---|
+| `LEI` | `Si` | delta | `Delta=Si` y evento `Errores` (marca de errores, spec de `GSProcess.sh` §6.5.2) |
+| `Refundicion` | `Si` | delta | Ídem |
+| `oficinas` | `Si` | delta | Ídem |
+| `plazas` | `Si` | delta | Ídem; `MessageType=PLZ` |
+| `mifidcec` | `Si` | delta | Ídem |
+| `cargafechasGTR` | `Si` | delta | `MessageType=GTR`, que no tiene caso en `errores_to_file.sh` |
+| `T1_CatalogValuesTaxonomy`, `T2_RelValuesTaxonomy`, `T3_IssuersIssuesCustomer` | `Si` | delta | Sin evento `Errores` |
+| `ConBDI` (variantes `.pr`, `.pp`, `.ei`, `.de`), `ConClientela`, `OFAC`, `TradPlazas`, `cargafechasMGC`, `clientes`, `nlegales` | `No` | sin delta | Solo copia a `old/` |
+| `cargafechasSTAR` | `cargafechasSTAR` | sin delta | El valor no es `Si`, así que cae en la rama sin delta; además ese módulo llama a `DeltaRegresivoSTAR` (`Generico.sh`) |
+
+El indicador `Delta=` del `.properties` (que lee el workflow `ErroresCSV`) y el argumento de la acción `Delta` son independientes; en todos los módulos de la plantilla coinciden. Con `Delta=No` y `ArgScri1=No` el comparador no interviene nunca.

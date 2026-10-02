@@ -21,6 +21,19 @@
 La segunda copia del jar recibida el 02/10/2026 (evidencia de conciliación BDI, rama de Eduardo) es **idéntica byte a
 byte** (mismo md5) a la analizada aquí: no aporta la versión de producción.
 
+> **Qué aporta la plantilla de despliegue (repositorio `estaticos`, rama develop; tercera pasada).** La plantilla es
+> la base **anterior a la migración a Java 17**. Sus 17 invocaciones de este programa (`ConBDI` en sus cuatro
+> variantes `.pr/.pp/.ei/.de`, `ConClientela`, `Contrato460`, `OFAC`, `Refundicion`, `Reubicacion`, `TradPlazas`,
+> `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR`, `cedro`, `clientes`, `nlegales` y `oficinas`) usan la clase
+> **sin paquete** `ControlCase`, con `NomPaquete1=ControlCargaDatos.jar`, `NomPaquete2=javacsv.jar`, sin `JDKV` y
+> con la misma interfaz de tres argumentos (CSV, log, reglas) que la versión migrada. Es decir, según la plantilla
+> de despliegue, **la producción corre la versión sin paquete** y la migración a Java 17 está en curso (las copias
+> de las ramas de Eduardo ya llevan `JDKV=17` y `controlcargadatos.ControlCase`). Además, el motor antiguo
+> `executeGSProcess3.sh` invoca `ControlCase` sin paquete, así que el jar migrado lo rompería (spec de
+> `GSProcess.sh` §12.1). **El jar de producción en sí no está en la plantilla**: lo descrito en esta spec es el
+> comportamiento del jar migrado; el de producción se confirma con el jar o su versión instalada (md5, fecha y
+> `javap -c` de la clase `ControlCase`).
+
 ## 1. Qué es y para qué sirve
 
 Es un **filtro de calidad** que se ejecuta antes de cargar un fichero CSV en base de datos. Lee el
@@ -168,6 +181,398 @@ Tiene **46 columnas** y 3 filas de reglas:
 
 `ConBDI_processed.csv` conserva las 46 columnas: `USAR` no selecciona columnas.
 
+### 4.5 Ficheros de reglas de la plantilla de despliegue (22 ficheros)
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop, `dat/properties/fillingRules_*.csv`). Son los ficheros que instala el plan de despliegue; no se ha comprobado que sean idénticos a los del servidor. Salvo `fillingRules_ConBDI.csv` (CRLF), están con fin de línea LF y en ASCII (compatible con ISO-8859-1). La posición es la de la columna en la cabecera del fichero de reglas (empieza en 1), que es la que usa el programa para asignar las reglas (§5, paso 4); solo se listan las columnas con alguna regla. Cada celda de regla es una fila del fichero (la primera fila de regla aplica a la primera de las reglas de la columna, y así sucesivamente).
+
+**Comprobación realizada.** Con el jar analizado se ha ejecutado cada fichero de reglas con una entrada sintética de cabecera idéntica y un registro válido: los 22 se leen sin error y aceptan el registro (1 procesado, 0 rechazados, código 0). Los ficheros `ratings*` y `ret*` (solo `DUPL`) informan de la columna de duplicados (posición 0 en `ratings*`, 1 en `ret*`, contando desde 0 como el log).
+
+**Particularidades de la plantilla que conviene verificar con el fichero real:**
+1. **`fillingRules_ConClientela.csv`: la columna 80 se llama `,DBC-XTI-RAI` (con una coma delante).** El programa busca cada nombre de la cabecera de entrada en la de reglas; si el `ConClientela.csv` real trae `DBC-XTI-RAI` sin coma, el programa escribe en el log `Fecha y hora de FALLO...` y `Cabeceras incorrectas`, no genera nada útil y termina igualmente con código 0 (comprobado con el jar). Solo funciona si la cabecera del fichero de entrada trae exactamente `,DBC-XTI-RAI`.
+2. **`fillingRules_nlegales.csv`:** la tercera fila de regla tiene 13 campos y la cabecera 12; el campo sobrante está vacío y no afecta (comprobado).
+3. **`fillingRules_cedro.csv`:** la cabecera termina con espacios en blanco tras `NOM-LEGAL`; el programa los ignora (comprobado con una entrada sin esos espacios).
+4. **`fillingRules_clientes.csv`** escribe `POSITION(9)` y `POSITION(1)` en lugar de `POSICION`: funciona porque solo se miran los 4 primeros caracteres (`POSI`) y el número entre paréntesis.
+5. **Sin invocación en la plantilla:** `fillingRules_plazas.csv` (el módulo `plazas` tiene `Preprocesado=No` y no ejecuta el programa) y `fillingRules_cargafechas.csv` (ningún módulo lo referencia). `fillingRules_alias.csv` y `fillingRules_items.csv` los usan los scripts de carga inicial (`initialLoad*.sh`) y el motor antiguo.
+6. **Reglas de duplicados:** `ratingsBBVA`/`ratingsBANCOMER` marcan como clave la columna 1 (`CONTRAPARTIDA`/`Contrapartida`), y `retBBVA`/`retBANCOMER` la columna 2 (`Contrapartida`, cabecera `Cuenta;Contrapartida`). Se conserva la última aparición (§6).
+
+**`fillingRules_ConBDI.csv`** — 46 columnas, 3 filas de regla, 22 columnas con reglas. Lo usa: `ConBDI.properties` (`.pr/.pp/.ei/.de`, `rdr_conciliacion_bdi`). Fichero validado: `ConBDI/ConBDI.csv`, log `<logs>/ConBDI_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD-CLINTERN` | `NULL` + `POSICION(6)` + `USAR` |
+| 2 | `DES-NOMCORT1` | `USAR` |
+| 3 | `DES-NOMCORT2` | `USAR` |
+| 4 | `DES-NOMCLINT` | `USAR` |
+| 5 | `COD-INSTITUC` | `USAR` |
+| 7 | `COD-CBANCO` | `USAR` |
+| 9 | `COD-PLAZAINT` | `USAR` |
+| 11 | `COD-BANCOTES` | `USAR` |
+| 12 | `COD-PLAZATES` | `USAR` |
+| 18 | `QNU-BIC` | `USAR` |
+| 23 | `DES-CALLE` | `USAR` |
+| 24 | `DES-DISPLAZA` | `USAR` |
+| 25 | `DES-PROVPAIS` | `USAR` |
+| 34 | `CDNITR` | `USAR` |
+| 36 | `CPAISN` | `USAR` |
+| 37 | `CLPANA` | `USAR` |
+| 38 | `CCNAEO` | `USAR` |
+| 39 | `XTI-TIPOSBIC` | `USAR` |
+| 42 | `DES_DISPLAZ2` | `USAR` |
+| 43 | `COD_CDIPEX` | `USAR` |
+| 44 | `DES_PLAZAIN2` | `USAR` |
+| 45 | `DES_PROVINCI` | `USAR` |
+
+**`fillingRules_ConClientela.csv`** — 97 columnas, 3 filas de regla, 25 columnas con reglas. Lo usa: `ConClientela.properties` (`rdr_conciliacion_clientela`). Fichero validado: `ConClientela/ConClientela.csv`, log `<logs>/ConClientela_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 3 | `DBC-COD-CCLIEN` | `NULL` + `POSICION(9)` + `USAR` |
+| 4 | `DBC-XTI-TIPERSO` | `USAR` |
+| 7 | `DBC-XTI-CTIPCL1` | `USAR` |
+| 8 | `DBC-COD-DOCUM25` | `USAR` |
+| 12 | `DBC-COD-CDNOMB` | `USAR` |
+| 13 | `DBC-DES-DENOMB` | `USAR` |
+| 15 | `DBC-COD-CTPVIA` | `USAR` |
+| 16 | `DBC-DES-CCALLE` | `USAR` |
+| 17 | `DBC-QNU-CNUVIA` | `USAR` |
+| 18 | `DBC-DES-CRESTO` | `USAR` |
+| 19 | `DBC-DES-DPLAZA` | `USAR` |
+| 20 | `DBC-DES-DPROVI` | `USAR` |
+| 21 | `DBC-COD-CDIPOS` | `USAR` |
+| 23 | `DBC-COD-CDIPEX` | `USAR` |
+| 24 | `DBC-COD-CPAIS` | `USAR` |
+| 28 | `DBC-COD-CCNO` | `USAR` |
+| 29 | `DBC-COD-CNAE5` | `USAR` |
+| 32 | `DBC-COD-TIPINS` | `USAR` |
+| 45 | `DBC-COD-CLPANA` | `USAR` |
+| 46 | `DBC-FEC-FNACIF` | `USAR` |
+| 52 | `DBC-COD-FORSOCI` | `USAR` |
+| 54 | `DBC-XTI-CVIP` | `USAR` |
+| 84 | `DBC-COD-IDIOMA` | `USAR` |
+| 96 | `DBC-COD-OFIPPAL` | `USAR` |
+| 97 | `DBC-COD-LEI` | `USAR` |
+
+**`fillingRules_Refundicion.csv`** — 2 columnas, 2 filas de regla, 2 columnas con reglas. Lo usa: `Refundicion.properties` (`rdr_refundicion`). Fichero validado: `Refundicion/Refundicion.tmp`, log `<logs>/Refundicion_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD-CCLIEND` | `NULL` + `USAR` |
+| 2 | `COD-CCLIENP` | `NULL` + `USAR` |
+
+**`fillingRules_Reubicacion.csv`** — 4 columnas, 2 filas de regla, 4 columnas con reglas. Lo usa: `Reubicacion.properties` (`rdr_reubicacion_new`). Fichero validado: `Reubicacion/Reubicacion.tmp`, log `<logs>/Reubicacion_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD-BANCO` | `USAR` |
+| 2 | `COD-OFICO` | `NULL` + `USAR` |
+| 3 | `COD-BANCD` | `USAR` |
+| 4 | `COD-OFICD` | `NULL` + `USAR` |
+
+**`fillingRules_CN460.csv`** — 12 columnas, 3 filas de regla, 2 columnas con reglas. Lo usa: `Contrato460.properties` (`rdr_c460`). Fichero validado: `Contratos460/CN460_ConCabecera.csv`, log `Contratos460/Contratos460_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 7 | `FOLIO` | `USAR` |
+| 10 | `CCLIEN` | `NULL` + `POSICION(9)` + `USAR` |
+
+**`fillingRules_clientes.csv`** — 12 columnas, 3 filas de regla, 12 columnas con reglas. Lo usa: `clientes.properties` (`rdr_clientes_cib`). Fichero validado: `clientes/clientes.csv`, log `<logs>/clientes_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_CCLIEN` | `NULL` + `POSITION(9)` + `USAR` |
+| 2 | `COD_NIF` | `USAR` |
+| 3 | `COD_BDI` | `USAR` |
+| 4 | `DES_NOMCLI` | `USAR` |
+| 5 | `COD_BANCO` | `USAR` |
+| 6 | `COD_OFICINA` | `USAR` |
+| 7 | `COD_CONTRATO` | `USAR` |
+| 8 | `COD_CFOLIO` | `USAR` |
+| 9 | `COD_CNAE5` | `USAR` |
+| 10 | `DES_CNAE5` | `USAR` |
+| 11 | `COD_TIPOCLI` | `NULL` + `POSITION(1)` + `USAR` |
+| 12 | `DES_RESTO` | `USAR` |
+
+**`fillingRules_oficinas.csv`** — 134 columnas, 3 filas de regla, 85 columnas con reglas. Lo usa: `oficinas.properties` (`rdr_conc_oficinas_new`). Fichero validado: `oficinas/oficinas.csv`, log `<logs>/oficinas_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `CODCSB` | `NULL` + `POSICION(4)` + `USAR` |
+| 2 | `CODINT` | `USAR` |
+| 3 | `CODOFI` | `NULL` + `POSICION(4)` + `USAR` |
+| 4 | `CNIVEL` | `USAR` |
+| 5 | `CTIUNI` | `USAR` |
+| 6 | `CODPLA` | `NULL` + `POSICION(9)` + `USAR` |
+| 7 | `DNOMCO` | `NULL` + `USAR` |
+| 8 | `DNOMAB` | `USAR` |
+| 9 | `DDOMIC` | `NULL` + `USAR` |
+| 10 | `CODPOS` | `NULL` + `POSICION(5)` + `USAR` |
+| 12 | `DDOMTA` | `USAR` |
+| 13 | `CPREFI` | `USAR` |
+| 14 | `CTEL01` | `NULL` + `POSICION(9)` + `USAR` |
+| 15 | `CTEL02` | `NULL` + `POSICION(9)` + `USAR` |
+| 16 | `CFAX` | `NULL` + `POSICION(9)` + `USAR` |
+| 17 | `CTELEX` | `NULL` + `POSICION(8)` + `USAR` |
+| 18 | `CORREO` | `NULL` + `POSICION(6)` + `USAR` |
+| 19 | `SSWITF` | `USAR` |
+| 22 | `FAPERT` | `USAR` |
+| 23 | `FCIERR` | `NULL` + `POSICION(6)` + `USAR` |
+| 24 | `CBACIE` | `USAR` |
+| 25 | `COFCIE` | `USAR` |
+| 26 | `CBAMUT` | `USAR` |
+| 27 | `COFMUT` | `USAR` |
+| 28 | `CBACOM` | `USAR` |
+| 29 | `COFCOM` | `USAR` |
+| 30 | `CBALIQ` | `USAR` |
+| 31 | `COFLIQ` | `USAR` |
+| 32 | `CONLIQ` | `USAR` |
+| 33 | `FULTAC` | `USAR` |
+| 34 | `FINSTA` | `USAR` |
+| 35 | `CSISCO` | `USAR` |
+| 36 | `COFICO` | `USAR` |
+| 37 | `XTIP00` | `USAR` |
+| 38 | `XTIP01` | `USAR` |
+| 46 | `XTIP09` | `USAR` |
+| 47 | `XCAR01` | `USAR` |
+| 48 | `XCAR02` | `USAR` |
+| 49 | `XCAR03` | `USAR` |
+| 50 | `XCAR04` | `USAR` |
+| 51 | `XCAR05` | `USAR` |
+| 52 | `XCAR06` | `USAR` |
+| 53 | `XCAR07` | `USAR` |
+| 54 | `XCAR08` | `USAR` |
+| 55 | `XCAR09` | `USAR` |
+| 56 | `XCAR10` | `USAR` |
+| 57 | `XCAR11` | `USAR` |
+| 58 | `XCAR12` | `USAR` |
+| 59 | `XCAR13` | `USAR` |
+| 60 | `XCAR14` | `USAR` |
+| 61 | `XCAR20` | `USAR` |
+| 63 | `COFS36` | `USAR` |
+| 64 | `CMORA` | `USAR` |
+| 65 | `CBASEX` | `USAR` |
+| 66 | `COFSEX` | `USAR` |
+| 67 | `CBACAR` | `USAR` |
+| 68 | `COFCAR` | `USAR` |
+| 69 | `CBADIS` | `USAR` |
+| 70 | `COFDIS` | `USAR` |
+| 71 | `CREM01` | `USAR` |
+| 72 | `CPRI01` | `USAR` |
+| 73 | `CREM02` | `USAR` |
+| 74 | `CPRI02` | `USAR` |
+| 75 | `COFIVA` | `USAR` |
+| 76 | `CDIVIS` | `USAR` |
+| 77 | `CACT01` | `USAR` |
+| 80 | `CACT02` | `USAR` |
+| 83 | `CACT03` | `USAR` |
+| 86 | `CACT04` | `USAR` |
+| 89 | `CACT05` | `USAR` |
+| 90 | `FCAM05` | `USAR` |
+| 91 | `CNUE05` | `USAR` |
+| 92 | `CACT06` | `USAR` |
+| 95 | `CACT07` | `USAR` |
+| 98 | `CACT08` | `USAR` |
+| 101 | `CACT09` | `USAR` |
+| 104 | `CACT10` | `USAR` |
+| 107 | `CACT11` | `USAR` |
+| 110 | `CACT12` | `USAR` |
+| 113 | `CACT13` | `USAR` |
+| 116 | `CACT14` | `NULL` + `POSICION(4)` + `USAR` |
+| 131 | `COD_NIVCOMPL` | `USAR` |
+| 132 | `COD_CTEL03` | `USAR` |
+| 133 | `DES_DIRECNET` | `USAR` |
+| 134 | `QNU_TELIBERC` | `USAR` |
+
+**`fillingRules_TradPlazas.csv`** — 8 columnas, 2 filas de regla, 3 columnas con reglas. Lo usa: `TradPlazas.properties` (`rdr_carga_plazas_trad_new`). Fichero validado: `TradPlazas/TradPlazas.csv`, log `<logs>/TradPlazas_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `CPLAZA` | `NULL` + `USAR` |
+| 5 | `DNOMB1` | `USAR` |
+| 6 | `DNOMB2` | `USAR` |
+
+**`fillingRules_OFAC.csv`** — 20 columnas, 4 filas de regla, 5 columnas con reglas. Lo usa: `OFAC.properties`. Fichero validado: `OFAC/OFAC.csv`, log `<logs>/OFAC_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 3 | `NUM-OPERACION` | `USAR` |
+| 4 | `FEC-ENVIO` | `USAR` |
+| 12 | `NUM-CON-ENC1` | `NULL` + `POSICION(4)` + `INTEGER` + `USAR` |
+| 16 | `NUM-CON-ENC2` | `NULL` + `POSICION(4)` + `INTEGER` + `USAR` |
+| 20 | `NUM-CON-ENC3` | `NULL` + `POSICION(4)` + `INTEGER` + `USAR` |
+
+**`fillingRules_nlegales.csv`** — 12 columnas, 3 filas de regla, 4 columnas con reglas. Lo usa: `nlegales.properties`. Fichero validado: `nlegales/nlegales.csv`, log `<logs>/nlegales_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_ENTLEGAL` | `NULL` + `USAR` |
+| 3 | `DES_ENTLEGAL` | `NULL` + `USAR` |
+| 6 | `XTI_ESTADO` | `NULL` + `LONG(1)` |
+| 7 | `AUD_USUALTA` | `USAR` |
+
+**`fillingRules_cedro.csv`** — 176 columnas, 3 filas de regla, 67 columnas con reglas. Lo usa: `cedro.properties`. Fichero validado: `cedro/cedro.csv`, log `<logs>/cedro_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `ID-FISCAL` | `USAR` |
+| 3 | `COD-CTPDA` | `NULL` + `POSICION(11)` + `USAR` |
+| 4 | `XTI-BDLOCALI` | `USAR` |
+| 5 | `DES-NOMBAPEL` | `USAR` |
+| 6 | `DES-APELL1` | `USAR` |
+| 7 | `DES-APELL2` | `USAR` |
+| 9 | `COD-PAISOALF` | `NULL` + `POSICION(2)` |
+| 10 | `DES-PLAZAMT` | `NULL` + `LONG(28)` + `USAR` |
+| 11 | `COD-PLAZAINT` | `USAR` |
+| 12 | `DES-DIRECC` | `USAR` |
+| 13 | `DES-DPROVI` | `USAR` |
+| 14 | `COD-CDIPOS` | `USAR` |
+| 15 | `COD-PAIORIGE` | `NULL` + `POSICION(2)` + `USAR` |
+| 17 | `XSN-BANCO` | `USAR` |
+| 18 | `QNU-CSB` | `USAR` |
+| 19 | `COD-SWIFT` | `USAR` |
+| 20 | `COD-TESORER` | `USAR` |
+| 21 | `QTY-NUMCLBDI` | `USAR` |
+| 22 | `COD-CFOLIO` | `NULL` + `LONG(14)` + `USAR` |
+| 23 | `COD-NOMBRECO` | `USAR` |
+| 24 | `QNU-TESOR8` | `USAR` |
+| 25 | `QNU-TIPINSTI` | `USAR` |
+| 26 | `QNU-CODINSTI` | `USAR` |
+| 27 | `COD-MATRABAC` | `NULL` + `LONG(11)` |
+| 28 | `COD-CASAMATR` | `NULL` + `LONG(10)` |
+| 29 | `COD-RELCONMA` | `USAR` |
+| 30 | `XTI-BROKER` | `USAR` |
+| 32 | `XSN-CLIENVIP` | `USAR` |
+| 37 | `XTI-TIPCTPDA` | `NULL` + `LONG(2)` + `USAR` |
+| 39 | `DES-OBSER254` | `NULL` + `LONG(254)` + `USAR` |
+| 40 | `XSN-ESTADO` | `USAR` |
+| 42 | `COD-IDIOMINT` | `USAR` |
+| 51 | `COD-CROSSMAR` | `USAR` |
+| 53 | `FEC-NACICONS` | `USAR` |
+| 54 | `COD-FSOCI` | `USAR` |
+| 55 | `XTI-TIPERS` | `NULL` + `POSICION(1)` + `USAR` |
+| 59 | `COD-ACTVECOM` | `USAR` |
+| 68 | `COD-ORIGOFIC` | `USAR` |
+| 78 | `COD-CNAE5` | `USAR` |
+| 79 | `COD-CCNO` | `USAR` |
+| 80 | `QNU-CCLIENT` | `NULL` + `POSICION(9)` + `USAR` |
+| 83 | `COD-APLIFUEN` | `USAR` |
+| 96 | `COD-ESTDOS` | `USAR` |
+| 133 | `COD-NIVRIE` | `USAR` |
+| 145 | `COD-LEI` | `USAR` |
+| 146 | `COD-USIND` | `USAR` |
+| 147 | `COD-ROLIN` | `USAR` |
+| 148 | `COD-ROLFX` | `USAR` |
+| 149 | `COD-ROLEQ` | `USAR` |
+| 150 | `COD-ROLCR` | `USAR` |
+| 151 | `COD-ROLCO` | `USAR` |
+| 152 | `COD-FINENT` | `USAR` |
+| 153 | `COD-ROLCRSEC` | `USAR` |
+| 154 | `COD-ROLEQSEC` | `USAR` |
+| 155 | `COD-CICI` | `USAR` |
+| 156 | `COD-FINENTDF` | `USAR` |
+| 157 | `COD-USINDEM` | `USAR` |
+| 158 | `COD-SUBTICTP` | `USAR` |
+| 159 | `COD-FINENTEM` | `USAR` |
+| 161 | `COD-ROLCREM` | `USAR` |
+| 162 | `COD-ROLFXEM` | `USAR` |
+| 169 | `COD-GUARPAR` | `USAR` |
+| 171 | `XSN-ENTSPE` | `USAR` |
+| 173 | `XSN-ENDUSEXC` | `USAR` |
+| 174 | `ABACO-AJURIDICA` | `USAR` |
+| 175 | `COD-NOM-LEGAL` | `USAR` |
+| 176 | `NOM-LEGAL` | `NULL` + `LONG(120)` + `USAR` |
+
+**`fillingRules_cargafechasGTR.csv`** — 4 columnas, 3 filas de regla, 4 columnas con reglas. Lo usa: `cargafechasGTR.properties`. Fichero validado: `cargafechasGTR/cargafechasGTR.csv`, log `<logs>/cargafechasGTR_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_CAN_CTDA` | `NULL` + `USAR` |
+| 2 | `COD_APLICACI` | `NULL` + `USAR` |
+| 3 | `FEC_VENCIMIE` | `NULL` + `POSICION(10)` + `USAR` |
+| 4 | `COD_APLCNOP` | `NULL` + `USAR` |
+
+**`fillingRules_cargafechasMGC.csv`** — 4 columnas, 3 filas de regla, 4 columnas con reglas. Lo usa: `cargafechasMGC.properties`. Fichero validado: `cargafechasMGC/cargafechasMGC.csv`, log `<logs>/cargafechasMGC_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `CTPDA` | `NULL` + `USAR` |
+| 2 | `APLICATION` | `NULL` + `USAR` |
+| 3 | `FEC_ACTIV` | `NULL` + `POSICION(10)` + `USAR` |
+| 4 | `APP_ORIGEN` | `NULL` + `LONG(3)` + `USAR` |
+
+**`fillingRules_cargafechasSTAR.csv`** — 4 columnas, 3 filas de regla, 4 columnas con reglas. Lo usa: `cargafechasSTAR.properties`. Fichero validado: `cargafechasSTAR/cargafechasSTAR.csv`, log `<logs>/cargafechasSTAR_preprocess_summary.log`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `CODIGO` | `NULL` + `USAR` |
+| 2 | `APLICACION` | `NULL` + `USAR` |
+| 3 | `F_ACTIVIDAD` | `NULL` + `POSICION(10)` + `USAR` |
+| 4 | `ORIGEN` | `NULL` + `USAR` |
+
+**`fillingRules_cargafechas.csv`** — 3 columnas, 2 filas de regla, 3 columnas con reglas. Lo usa: ningún módulo de la plantilla lo referencia. Fichero validado: —.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_CPTDA` | `NULL` |
+| 2 | `FECHA_ACTIVIDAD` | `NULL` + `LONG(10)` |
+| 3 | `APP_ORIGEN` | `NULL` + `LONG(3)` |
+
+**`fillingRules_plazas.csv`** — 8 columnas, 3 filas de regla, 8 columnas con reglas. Lo usa: `plazas.properties` **no lo invoca** (`Preprocesado=No`, sin acción `ControlCase`). Fichero validado: —.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_PLAZAINT` | `NULL` + `LONG(3)` |
+| 2 | `DES_PLAZAINT` | `NULL` |
+| 3 | `DES_PLINTVER` | `NULL` |
+| 4 | `COD_PAISBBV` | `NULL` + `POSICION(4)` + `INTEGER` |
+| 5 | `DES_PANOMCOM` | `NULL` |
+| 6 | `DES_PANOMABR` | `NULL` |
+| 7 | `AUD_FMOPLZIN` | `NULL` |
+| 8 | `AUD_USUPLZIN` | `NULL` |
+
+**`fillingRules_alias.csv`** — 12 columnas, 2 filas de regla, 6 columnas con reglas. Lo usa: scripts `initialLoad*.sh` y motor antiguo (`FILE_RULES_ALIAS`). Fichero validado: carga inicial de alias.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_CNTABACO` | `NULL` |
+| 2 | `COD_ENTICENT` | `NULL` |
+| 3 | `COD_CLASEDAT` | `NULL` |
+| 4 | `COD_VORIGEN` | `NULL` |
+| 5 | `COD_ALIAS20` | `NULL` |
+| 6 | `XSN_ESTADO` | `NULL` + `LONG(1)` |
+
+**`fillingRules_items.csv`** — 11 columnas, 2 filas de regla, 4 columnas con reglas. Lo usa: scripts `initialLoad*.sh` y motor antiguo (`FILE_RULES_ITEMS`). Fichero validado: carga inicial de items.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `COD_CTPDA` | `NULL` |
+| 2 | `COD_CONCEPBO` | `NULL` |
+| 3 | `DES_VALORCP` | `NULL` |
+| 5 | `XSN_ESTADO` | `NULL` + `LONG(1)` |
+
+**`fillingRules_ratingsBBVA.csv`** — 2 columnas, 1 filas de regla, 1 columnas con reglas. Lo usa: motor antiguo (`ratingsBBVA.properties`, `Preprocesado=Si`). Fichero validado: `ratingsBBVA/ratingsBBVA.csv`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `CONTRAPARTIDA` | `DUPL` |
+
+**`fillingRules_ratingsBANCOMER.csv`** — 2 columnas, 1 filas de regla, 1 columnas con reglas. Lo usa: motor antiguo (`ratingsBANCOMER.properties`). Fichero validado: `ratingsBANCOMER/ratingsBANCOMER.csv`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 1 | `Contrapartida` | `DUPL` |
+
+**`fillingRules_retBBVA.csv`** — 2 columnas, 1 filas de regla, 1 columnas con reglas. Lo usa: motor antiguo (`retBBVA.properties`). Fichero validado: `retBBVA/retBBVA.csv`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 2 | `Contrapartida` | `DUPL` |
+
+**`fillingRules_retBANCOMER.csv`** — 2 columnas, 1 filas de regla, 1 columnas con reglas. Lo usa: motor antiguo (`retBANCOMER.properties`). Fichero validado: `retBANCOMER/retBANCOMER.csv`.
+
+| Pos. | Columna | Reglas (una por fila de regla) |
+|---|---|---|
+| 2 | `Contrapartida` | `DUPL` |
+
 ## 5. Algoritmo
 
 1. Calcula `<nombre>` y el directorio a partir del argumento 1 y abre los dos ficheros de salida. El
@@ -285,10 +690,12 @@ del log, sabiendo que el código de salida será 0.
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-CCD-01 | ¿Se pueden obtener los `fillingRules_*.csv` del resto de procesos (`ConClientela`, `clientes`, `oficinas`, `CN460`, `Reubicacion`)? | Sin ellos no se sabe qué valida cada proceso |
-| P-CCD-02 | ¿Algún paso de los procesos borra `<nombre>_processed.csv` antes de ejecutar este programa? | Decide si el riesgo R4 aplica (se responde en cada spec de proceso) |
+| P-CCD-01 | **Resuelta (plantilla de despliegue).** Los `fillingRules_*.csv` de todos los procesos (`ConClientela`, `clientes`, `oficinas`, `CN460`, `Reubicacion` y 17 más) están en §4.5 | Sin ellos no se sabe qué valida cada proceso. Queda comprobar en el servidor que coinciden con la plantilla |
+| P-CCD-02 | **Respondida con la plantilla de despliegue:** ninguno de los 17 módulos que lo invocan tiene una acción que borre o historifique `<nombre>_processed.csv` antes de ejecutarlo (el único `Borrar` relacionado, en `Contrato460`, borra el CSV de entrada `CN460_ConCabecera.csv`, no el procesado) | Por tanto el riesgo R4 aplica a todos: si falta el fichero de entrada o el de reglas, el `_processed.csv` del día anterior permanece |
 | P-CCD-03 | ¿En qué codificación llegan los ficheros de entrada? | Decide si aplica el riesgo R6 |
-| P-CCD-04 | ¿Qué versión del jar está desplegada en producción y se comporta igual que la analizada (compilación de 2026, clases con paquete)? | Los `.properties` de producción invocan la clase sin paquete: es otra versión, y el comportamiento descrito (códigos de salida, mensajes, ficheros) podría no ser el real |
+| P-CCD-04 | **Parcial.** ¿Qué versión del jar está desplegada en producción y se comporta igual que la analizada (compilación de 2026, clases con paquete)? Según la plantilla de despliegue, los 17 módulos que lo invocan usan la clase sin paquete y sin `JDKV`: la producción corre la versión anterior a la migración a Java 17. El jar de esa versión no está en la plantilla | Es otra versión, y el comportamiento descrito (códigos de salida, mensajes, ficheros) podría no ser el real. Se cierra con el `ControlCargaDatos.jar` de producción (md5, fecha, `javap` de `ControlCase`) o su confirmación en el servidor |
+| H-CCD-01 | **Parcial.** El comportamiento descrito es el del jar de integración (compilación 24/08/2026, JDK 17); el código del jar de producción no se ha recibido ni analizado. La plantilla confirma la interfaz (tres argumentos) y la clase sin paquete invocada, no el código | Código o versión de `ControlCargaDatos.jar` de producción (invocado por `GSProcess.sh`) |
+| H-CCD-02 | **Resuelta.** `rdr_carga_plazas_trad_new` sí usa el componente: `TradPlazas.properties` ejecuta `ControlCase` (CSV `TradPlazas/TradPlazas.csv`, reglas `fillingRules_TradPlazas.csv`) | Contexto |
 
 ## 11. Procesos que lo usan
 
@@ -302,4 +709,6 @@ del log, sabiendo que el código de salida será 0.
 | `rdr_conc_oficinas_new` | `oficinas.csv` | No identificado |
 | `rdr_reubicacion_new` | `Reubicacion.csv` | No identificado |
 
-`rdr_carga_plazas_trad_new` podría usarlo, pero no está confirmado.
+`rdr_carga_plazas_trad_new` lo usa (confirmado con la plantilla de despliegue: `TradPlazas.properties`, `Delta=No`, `Preprocesado=Si`).
+
+**Resto de módulos de la plantilla que lo invocan** (todos con la clase sin paquete): `OFAC` (`OFAC/OFAC.csv`, `fillingRules_OFAC.csv`), `nlegales`, `cedro`, `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR` (sus ficheros `…/<módulo>.csv`). Sus reglas están en §4.5. El motor antiguo `executeGSProcess3.sh` lo invoca para los módulos `ratings*`, `ret*`, `alias` y `items` (reglas `DUPL`, `NULL` y `LONG`).
