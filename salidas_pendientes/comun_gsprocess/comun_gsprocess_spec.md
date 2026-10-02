@@ -14,7 +14,7 @@
 > Lo que ejecutan en GoldenSource los eventos de la acción `Evento` (`StandardFileLoad`, `RDR_Reporte`,
 > `RDR_ErroresCSV`) se ha reconstruido del volcado de la base de workflows (§6.5.1). Las piezas a las que llama
 > tienen su propia spec de componente: `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`,
-> `salidas_pendientes/comun_delta/comun_delta_spec.md` y `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`.
+> `salidas/comun_delta/comun_delta_spec.md` y `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`.
 
 ## 1. Qué es y para qué sirve
 

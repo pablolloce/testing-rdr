@@ -4,7 +4,7 @@
 > componentes compartidos se explica una sola vez en sus specs comunes, a las que se remite de forma
 > acotada:
 > `salidas/comun_ctmfw/comun_ctmfw_spec.md`, `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`,
-> `salidas_pendientes/comun_delta/comun_delta_spec.md`, `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`,
+> `salidas/comun_delta/comun_delta_spec.md`, `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`,
 > `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md`,
 > `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`,
 > `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`,
@@ -328,7 +328,7 @@ informe (paso 5) y el resultado del sub-módulo (paso 9).
 
 ### 6.4 `Delta.sh No`
 
-Funcionamiento genérico en `salidas_pendientes/comun_delta/comun_delta_spec.md` §6. En este proceso se invoca con
+Funcionamiento genérico en `salidas/comun_delta/comun_delta_spec.md` §6. En este proceso se invoca con
 `No`: ejecuta `cp $FILES/ConBDI/ConBDI.csv $FILES/ConBDI/old/ConBDI.csv`. No cambia el fichero que se
 carga (se carga completo) ni ningún campo de salida. Devuelve el código del `cp`: 1 si no existe
 `ConBDI.csv` o el directorio `old/`.

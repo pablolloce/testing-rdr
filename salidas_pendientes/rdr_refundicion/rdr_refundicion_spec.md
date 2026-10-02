@@ -186,7 +186,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
 
 **Los 8 pasos, qué hace cada uno, qué deja y qué pasa si falla:**
 
-* **`Script(Delta)` con argumento `Si`** (modo delta; genérico en `salidas_pendientes/comun_delta/comun_delta_spec.md`):
+* **`Script(Delta)` con argumento `Si`** (modo delta; genérico en `salidas/comun_delta/comun_delta_spec.md`):
   ejecuta `Delta.sh Si`, que compara `Refundicion/Refundicion.csv` (hoy) con `Refundicion/old/Refundicion.csv`
   (el completo de la última carga) y **sustituye el fichero de hoy por otro que solo contiene la cabecera y las
   líneas nuevas o cambiadas** (comparación literal de la línea completa). **No emite bajas** (una refundición

@@ -583,7 +583,7 @@ IDX no recibida, P-LEI-05).
 | `GLEIF_traductor_New.xsl` | `LEI.sh` | Sí (plantilla de despliegue) | §6.3.1 (P-LEI-02 resuelta) |
 | `errores_to_file.sh` | `MarcaRegErroneo` (evento Errores con `Delta=Si`) | Sí (plantilla de despliegue) | §6.6 |
 | `initialSQL_LEI.properties`, `initialSQLLoadLEI.sh`, `LEI1_CTL.ctl`, `GLEIF_traductor.xsl`, `TaductorXML.jar` | Carga inicial manual (no la cadena diaria) | Todo menos el jar | §6.11 |
-| `Delta.sh` + `compare.jar` | Paso 3 | Sí | `salidas_pendientes/comun_delta/comun_delta_spec.md`; uso aquí en §6.3 |
+| `Delta.sh` + `compare.jar` | Paso 3 | Sí | `salidas/comun_delta/comun_delta_spec.md`; uso aquí en §6.3 |
 | `executeBbvaEvent.sh` | Pasos 4 y 7 | Sí | `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
 | Workflows `Standard File Load`, `ErroresCSV`, `MarcaRegErroneo`, `HistoricizeFiles` (y `ParseMDXLayout`, que esta cadena no lanza) | Eventos | Reconstruidos del volcado de GoldenSource; faltan el layout MDX, el script `errores_to_file` y los comandos de borrado | §6.2, §6.6; gap P-LEI-03 |
 | `RDR_Report.jar` + `select.properties` | Paso 5 | Sí | `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`; clave `LEI` en §6.4 |

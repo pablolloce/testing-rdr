@@ -139,7 +139,7 @@ del anterior. Rearranque: aviso a ANS RDR + ticket Remedy (`MEKYTL1121`: `N/A`).
 | Clasificación sectorial | `FT_T_FRCL` (BD RDR) | Altas/inactivaciones tipo SCD-2 (`DataStatTyp` `ACTIVE`/`INACTIVE`), sin borrado físico |
 | Marca de redistribución | `FT_T_RLT1` | `RltDifStat=PENDING_ESB`, `DataSrcApp=DATIO`, `MessageRlt=UPDATED_CPTY_SECTOR_ASSET_ALLOCATION` por contraparte modificada |
 | Original archivado | `.../SectorAssetAllocation/old/` | `*_Original.csv` (copia antes de deduplicar). Corrección: una versión anterior de esta spec lo situaba en el área de trabajo; el análisis original del script y los prerrequisitos (`old/` ya debe existir) lo sitúan en `old/` |
-| Referencia del delta | `.../old/` | fichero del día completo para comparar mañana (ver `salidas_pendientes/comun_delta/comun_delta_spec.md`) |
+| Referencia del delta | `.../old/` | fichero del día completo para comparar mañana (ver `salidas/comun_delta/comun_delta_spec.md`) |
 | Informe de carga | `.../SectorAssetAllocation/output/` (por la máscara `*SECTOR_ASSET_ALLOCATION*` que empaqueta `MEKYTL1121`) | Excel + texto BODY; se envía por correo; nombres y contenido exactos: P-SAA-03 |
 | Backup | `.../output/old/reporte_YYYYMMDD.zip` | zip de los `*SECTOR_ASSET_ALLOCATION*` de `output/` (que NO se borran) |
 
@@ -261,7 +261,7 @@ Comando: `/pr/kytl/online/multipais/multicanal/scrt/SAA_Local.sh ClienSector WAR
    reejecución (heurística de diferencia de fecha de modificación ≤5s entre `FILE_CARGA` y el
    `_old.csv`) y en ese caso deshace la historificación previa (`marcha_atras()`) en vez de
    recalcular el delta.
-   - **Qué emite el delta** (ver `salidas_pendientes/comun_delta/comun_delta_spec.md`): la cabecera y las
+   - **Qué emite el delta** (ver `salidas/comun_delta/comun_delta_spec.md`): la cabecera y las
      líneas del CSV de hoy que no están literalmente en el fichero de referencia (altas y
      modificaciones, indistinguibles). **No emite bajas**: una contraparte que desaparece del fichero
      no genera ninguna acción y su sectorización anterior queda activa en `FT_T_FRCL`. Si el fichero

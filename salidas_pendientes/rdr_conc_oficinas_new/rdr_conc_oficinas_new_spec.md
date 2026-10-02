@@ -21,7 +21,7 @@
 > **Componentes comunes que usa este proceso** (su funcionamiento genérico está en su spec; lo específico de
 > este proceso está aquí):
 > `salidas/comun_ctmfw/comun_ctmfw_spec.md`, `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`,
-> `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`, `salidas_pendientes/comun_delta/comun_delta_spec.md`,
+> `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`, `salidas/comun_delta/comun_delta_spec.md`,
 > `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md`,
 > `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`,
 > `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`, `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md`,
@@ -417,7 +417,7 @@ function LimpiarOficinas(){
 
 #### 6.4.2 `Script(Delta)` — diferencia con el día anterior
 
-Genérico en `salidas_pendientes/comun_delta/comun_delta_spec.md` (`Delta.sh` + `compare.jar`, clase
+Genérico en `salidas/comun_delta/comun_delta_spec.md` (`Delta.sh` + `compare.jar`, clase
 `es.bbva.kytl.scripts.Compare`, ya analizada por desensamblado). En este proceso `<dir>` es
 `/fichtemcomp/pr/descargas/kytl/oficinas` y `<MOD>` es `oficinas`. El argumento es **`Si`**
 (`ArgScri1=Si` en `oficinas.properties`), así que rige la primera rama; la segunda se deja como referencia:

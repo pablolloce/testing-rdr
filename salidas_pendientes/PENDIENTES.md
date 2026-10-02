@@ -4,13 +4,13 @@ Esta carpeta contiene las especificaciones que **todavía no están completas**:
 
 Criterio aplicado el 02/10/2026 con la regla "Dos carpetas" de `.github/copilot-instructions.md`. Los huecos **no bloqueantes** (siglas, contexto, confirmaciones de algo ya deducido, mejoras futuras) se listan aparte y no impiden volver a `salidas/`.
 
-**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 686 huecos bloqueantes y 379 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
+**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 684 huecos bloqueantes y 381 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
 
 Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
-- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 28 cerrados, 71 resueltos en parte, 2 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
+- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 30 cerrados, 74 resueltos en parte, 2 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -23,9 +23,9 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 80 | 47 |
 | Otros | 80 | 41 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
-| .properties y configuración de producción (dat/properties, cfg/entorno) | 60 | 30 |
+| .properties y configuración de producción (dat/properties, cfg/entorno) | 55 | 28 |
+| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 42 | 23 |
 | Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 41 | 24 |
-| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 39 | 21 |
 | Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 19 | 10 |
 | Layout o muestra de ficheros | 17 | 15 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
@@ -65,7 +65,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`extraccion_sait_contratos`](#extraccion-sait-contratos) — 11 bloqueantes
 - [`extraccion_scis`](#extraccion-scis) — 12 bloqueantes
 - [`extracciones_adhoc_ctpdas_fircosoft_sire`](#extracciones-adhoc-ctpdas-fircosoft-sire) — 15 bloqueantes
-- [`kytl001d_ratings_ada`](#kytl001d-ratings-ada) — 12 bloqueantes
+- [`kytl001d_ratings_ada`](#kytl001d-ratings-ada) — 10 bloqueantes
 - [`kytl_bcbs_sector_asset_allocation`](#kytl-bcbs-sector-asset-allocation) — 10 bloqueantes
 - [`legal_agreements_p062`](#legal-agreements-p062) — 9 bloqueantes
 - [`opiniones_legales`](#opiniones-legales) — 12 bloqueantes
@@ -921,31 +921,32 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/kytl001d_ratings_ada/kytl001d_ratings_ada_spec.md`  
 **Qué le falta:** Faltan la regla real de código 7 del file watcher, las líneas IDX de 4 pasos, la configuración del informe/CONCINTERN, el código de salida del jar y verificar el calendario (L-V vs M-S).  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Con AlertasEnvioExcepciones, Mail y ReportesRDR se documenta que el correo de ratings sale con asunto y cuerpo genéricos y qué validaciones pueden dejarlo sin fichero. Cierra el hueco de las excepciones del envío; el contenido de REP1 y DocumentGenerator siguen pendientes.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrados H-RAT-04 (log4j) y H-RAT-06 (era una etiqueta, no un fichero); CargaRatingsInternos.properties de la plantilla confirma el pipeline y la ausencia de Stop*. Siguen sin material CONCINTERN, FT_T_REP1/ALR1, DocumentGenerator, DataX, IDX y raiseEvent.  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (10)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-RAT-02 | parcial | Regla de post-proceso real de FW_CONCIL_RATINGMEX ante código 7 (¿'7→OK'?) y si publica el evento que dispara MEKYTL1225 sin fichero. | Definición Control-M real de FW_CONCIL_RATINGMEX |
 | P-RAT-03 | parcial | Línea literal de INFORMACION_HISTORIFICACIONES.IDX de MEKYTL1225/1226/1227/1232 (máscaras, operación, si admite no haber ficheros) y ruta origen de 1232 (¿fichtencomp?). | Líneas IDX de producción de las 4 claves |
 | P-RAT-04 | parcial | Configuración del informe en FT_T_REP1 para CargaRatingsInternos (query, cabecera, plantilla, destinatarios FT_T_ALR1) y qué hace CONCINTERN con cada fila. **Avance 2ª pasada:** Qué exige el Cocinado a la consulta de REP1 (ALG1_OID, MENSAJE, TIPO), plantilla/hoja por defecto, asunto genérico; añadido riesgo de informe sin reintento. Faltan las filas y CONCINTERN. | Filas FT_T_REP1/ALR1/ALU1 de CargaRatingsInternos y código del procedimiento CONCINTERN. |
-| P-RAT-05 | abierta | Código de salida de CargaRatingsInternos.jar ante fallo grave y si el .properties declara claves Stop*=Ok. | Código de salida del jar y .properties real completo |
+| P-RAT-05 | parcial | Código de salida de CargaRatingsInternos.jar ante fallo grave y si el .properties declara claves Stop*=Ok. **Avance 3ª pasada (estaticos):** CargaRatingsInternos.properties de la plantilla: 4 acciones, ninguna clave Stop*; spec 6.1. | Codigo de salida del jar ante fallo grave y confirmar el .properties instalado en produccion. |
 | P-RAT-07 | abierta | Convención de numeración de días de Control-M: 1,2,3,4,5 leído como L-V frente a las fichas que dicen M X J V S (martes-sábado). | Contrastar nombre del día en pantalla Control-M |
 | H-RAT-01 | abierta | Ficha de MEKYTL1223 indica Martes a Sábado (MXJVS) mientras el resto de la cadena corre L-V; solo se documenta, sin verificar la programación real de este job. | Captura Control-M/DataX de la programación de MEKYTL1223 |
 | H-RAT-03 | abierta | Código del procedimiento PL/SQL CONCINTERN, que concilia cada fila (excluido como 'fuera de alcance'). | código de CONCINTERN (invocado por CargaRatingsInternos.jar) |
-| H-RAT-04 | abierta | log4jCargaRatingsInternos.properties, pasado como argumento a CargaRatingsInternos.jar, no analizado. | contenido de log4jCargaRatingsInternos.properties (invocado por CargaRatingsInternos.jar) |
 | H-RAT-05 | parcial | Clase report.ReportesRDR de RDR_AlertasCocinado.jar (genera el Excel y el BODY) sin recibir; solo se conoce main.Ppal. **Avance 2ª pasada:** Código recibido de report.ReportesRDR y ReporteRDR (Cocinado): consulta REP1, validaciones, marcado; escrito en §6. La generación del Excel/BODY está en DocumentGenerator, no recibida. | Código de report.DocumentGenerator (RDR_AlertasCocinado.jar) y fila de FT_T_REP1 de CargaRatingsInternos (SHORT_PROCESS, TIPO, QUERY). |
-| H-RAT-06 | abierta | GestionAlertas_CargaRatingsInternos_cocinado.properties (ServicioJava del paso de informe) no aportado. | contenido de GestionAlertas_CargaRatingsInternos_cocinado.properties (invocado por GSProcess.sh) |
 | H-RAT-08 | abierta | Definición de la transferencia DataX kytl_ratingsinternosdatio_3 (esquema/transformación del CSV) no recibida; solo se conoce el comando datax-agent. | definición y esquemas de la transferencia kytl_ratingsinternosdatio_3 (invocada por MEKYTL1223) |
 | H-RAT-09 | abierta | raiseEvent.sh de GoldenSource (invocado por executeBbvaEvent.sh para el evento RDR_AlertasEnvio) no recibido; se desconoce qué devuelve si el workflow falla. | código de raiseEvent.sh y credentials.xml (invocados por executeBbvaEvent.sh en el paso de envío) |
 
-### No bloqueantes (4)
+### No bloqueantes (6)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | P-RAT-01 | parcial | Confirmar con el equipo DataX que el transferId x_ratingsinternosdatio_2 del inventario común está obsoleto frente a kytl_ratingsinternosdatio_3 del job. | El job real usa _3 (ficha y captura); solo falta confirmar que el inventario wiki está desactualizado. |
 | P-RAT-06 | parcial | Significado oficial de las siglas ADA y de ALID (valor de gf_source_system_attribute_id). | Vocabulario de negocio; el comportamiento (filtro = 'ALID') ya está descrito. |
 | H-RAT-02 | abierta | MEKYTL1223 sin Grupo de Soporte asignado. | Dato de contexto organizativo; no cambia comportamiento ni pruebas. |
+| H-RAT-04 | resuelta | log4jCargaRatingsInternos.properties, pasado como argumento a CargaRatingsInternos.jar, no analizado. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): log4jCargaRatingsInternos.properties de la plantilla: log rotativo CargaRatingsInternos.log (100MB x3, info), sin consola. Spec 6.1 y prerrequisitos. |
+| H-RAT-06 | resuelta | GestionAlertas_CargaRatingsInternos_cocinado.properties (ServicioJava del paso de informe) no aportado. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): GestionAlertas_CargaRatingsInternos_cocinado es solo la etiqueta ServicioJava del paso 2 de CargaRatingsInternos.properties, no un fichero (comprobado en la plantilla). Spec 6.1. |
 | H-RAT-07 | resuelta | Subworkflow AlertasEnvioExcepciones y ServerMailConfig.xml de RDR_AlertasEnvio sin analizar: no se sabe si este proceso tiene asunto/cuerpo propio. | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): AlertasEnvioExcepciones v12 (switch con 3 ramas, el proceso cae en DEFAULT: asunto/cuerpo genéricos) y Mail v6 (ServerMailConfig.xml) analizados; escrito en bloque 'Correo de alertas' de §6. |
 
 ## kytl_bcbs_sector_asset_allocation
@@ -1696,19 +1697,20 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_informe_mifid_new/rdr_informe_mifid_new_spec.md`  
 **Qué le falta:** Faltan SQL literal, .properties, script de historificación, planificación real, código de InformeMIFID.java y workflows GenerateReports/InformeMIFID.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se reconstruyen GenerateReports, InformeMIFID y Mail y se corrige el caso sin resultados (linea de texto en vez de cabecera) con TC-002 ajustado y TC-010 nuevo. El SQL, el codigo Java, raiseEvent y los demas huecos siguen abiertos.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** Se incorpora el literal de informeMIFID.properties (sin Stop, jar RDR_InformeMIFID.jar) y se corrige que los dos eventos son de tipo Workflow y no cuentan como error; solo el Java puede dejar el job en 1. Siguen abiertos el SQL del blob, el script Inicializa variables, la historificación y la planificación.  
 
 ### Huecos bloqueantes (10)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-INF-01 | parcial | SQL literal de arrayStringSelects[16] (rama informeMIFID, nodo 636 de GenerateReports.gsp). **Avance 2ª pasada:** Confirmado que la rama fija Reporte_informeMIFID.csv y la cabecera de 10 columnas; el SQL esta en un blob no exportado. | Blob statements (27.736 B) del nodo 'Initialize Variables' de GenerateReports v20 (arrayStringSelects[16]) |
-| P-INF-02 | parcial | Contenido literal de informeMIFID.properties.pr (evento de correo, args del Java, Stop) y nombre real del jar. | informeMIFID.properties.pr de producción |
+| P-INF-02 | parcial | Contenido literal de informeMIFID.properties.pr (evento de correo, args del Java, Stop) y nombre real del jar. **Avance 3ª pasada (estaticos):** informeMIFID.properties.{de,ei,pp,pr} leídos: sin Stop; jar RDR_InformeMIFID.jar; eventos RDR_Reporte y RDR_InformeMIFID de tipo Workflow (fallos no detectados). Escrito en §6.2. | Verificar el informeMIFID.properties instalado en pr y los destinatarios reales de Destination (enmascarados en la plantilla). |
 | P-INF-03 | abierta | Script y configuración con que MEKYTL0353 y MEKYTL0362 historifican (¿RAMERC0068.sh?). | script y línea IDX de MEKYTL0353/0362 |
 | P-INF-04 | abierta | Los Excel observados se generaron en miércoles, jueves y martes, no en tercer lunes: ¿manuales o planificación real distinta? | planificación real en Control-M (PLAN_1300) |
 | P-INF-05 | abierta | Cómo gestiona InformeMIFID.java el fallo de escritura final (código de salida). | código fuente de InformeMIFID.java |
 | H-INF-01 | parcial | InformeMIFID.java, GenerateReports.gsp e InformeMIFID.gsp analizados en sesión pero no están en el repositorio ni en la spec. **Avance 2ª pasada:** GenerateReports v20, Sub_GenerateReports/Sub_DevelopReport e InformeMIFID v3 reconstruidos (spec 6.3/6.5); corrige R8: sin filas el CSV es una linea de texto, sin cabecera. | Codigo de InformeMIFID.java (jar) y script 'Inicializa variables' del workflow InformeMIFID |
 | H-INF-03 | abierta | Plantilla Reporte_informeMIFID_Plantilla.xlsx: su ruta se vio en un listado de integración (ei) aportado como producción. | listado de producción del directorio informeMIFID |
-| H-INF-04 | abierta | Nombre real del jar (InformeMIFID.jar o RDR_InformeMIFID.jar): hipótesis por convención sin confirmar. | nombre del jar en informeMIFID.properties.pr |
+| H-INF-04 | parcial | Nombre real del jar (InformeMIFID.jar o RDR_InformeMIFID.jar): hipótesis por convención sin confirmar. **Avance 3ª pasada (estaticos):** NomPaquete1=RDR_InformeMIFID.jar en las cuatro variantes; escrito en §6.2 y §6.4. | Comprobar que el jar desplegado en pr se llama RDR_InformeMIFID.jar. |
 | H-INF-06 | abierta | raiseEvent.sh (herramienta GoldenSource que invoca executeBbvaEvent.sh): código no recibido; no se sabe qué devuelve --querystatus ante un workflow fallido. | código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
 | H-INF-07 | abierta | Script 'Inicializa variables' del workflow InformeMIFID (fileMail, nameFile, mail, ruta): decide el adjunto y su nombre. | Export del blob statements (1.520 B) del nodo 'Inicializa variables' del workflow InformeMIFID v3 |
 

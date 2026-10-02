@@ -172,7 +172,7 @@ llegó `Refundicion.csv`), esta cadena no arranca.
   ejecutan igualmente y el job solo acaba con código 1 al final (no hay parada temprana).
 * **Los 6 pasos, en orden (qué hace cada uno, qué deja, qué pasa si falla):**
   1. `Script(Delta, No)` — ejecuta `Delta.sh No` (modo "sin delta", genérico en
-     `salidas_pendientes/comun_delta/comun_delta_spec.md`): **no recorta el fichero**; solo copia
+     `salidas/comun_delta/comun_delta_spec.md`): **no recorta el fichero**; solo copia
      `ConClientela/ConClientela.csv` a `ConClientela/old/ConClientela.csv` (referencia). La conciliación
      procesa el fichero completo cada día. Código de salida = el del `cp`; falla si `old/` no existe.
   2. `Script(QuitarNulos)` — función de `Generico.sh`: borra los bytes nulos (`\x0`) de
