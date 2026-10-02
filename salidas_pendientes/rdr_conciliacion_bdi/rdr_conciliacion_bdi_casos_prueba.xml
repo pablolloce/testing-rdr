@@ -310,4 +310,25 @@
     <posibilidadFallo>El .properties de producción no tiene ninguna clave Stop; si el de pruebas la tuviera, la ejecución pararía en el paso 7 y habría que registrarlo como diferencia entre entornos.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-014" tipo="regresion">
+    <nombre>Paso 9: instanciación de Plantilla_ReportMail y log de RDR_ReportMail.jar</nombre>
+    <objetivo>Comprobar que la acción Property del paso 9 genera el temporal con los marcadores sustituidos, ejecuta RDR_ReportMail.jar con el tipo CONNECTIVITY y el workflow ComposeEmail, y deja traza en ReportMail.log.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción, con Plantilla_ReportMail.properties y log4jReportMail.properties de la plantilla de despliegue en el directorio de configuración, y el jar RDR_ReportMail.jar y el workflow ComposeEmail desplegados.</precondicion>
+      <precondicion>Poder conservar el temporal Mail_TMP_&lt;fecha&gt;.properties (por ejemplo, haciendo que GSProcess.sh falle antes de borrarlo, o capturándolo durante la ejecución).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Argumentos del paso 9" valor="NomProperty=Plantilla_ReportMail; ArgProp1=Mail_TMP; ArgProp2=_NivelLOG_-2; ArgProp3=_LOG_-log4jReportMail.properties; ArgProp4=_ReportType_-CONNECTIVITY"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar GSProcess.sh ConBDI hasta el paso 9 y revisar el temporal: Tipo=CONNECTIVITY, y los argumentos del Java: 2, la ruta absoluta de log4jReportMail.properties y CONNECTIVITY.</paso>
+      <paso numero="2">Revisar execute_Mail_TMP_&lt;fecha&gt;_&lt;AAAAMMDD&gt;.log: debe aparecer la ejecución del Java (servicio Email) y el evento ComposeEmail.</paso>
+      <paso numero="3">Revisar /&lt;env&gt;/kytl/online/multipais/multicanal/logs/ReportMail.log y anotar qué informe genera el tipo CONNECTIVITY y si deja algún fichero (por ejemplo, un Excel SWIFT).</paso>
+    </pasos>
+    <resultadoEsperado>El temporal se genera sin marcadores sin sustituir, ambas acciones se ejecutan y ReportMail.log registra la ejecución; lo que produce el informe queda anotado para cerrar P-CBD-03 y P-CBD-04.</resultadoEsperado>
+    <tipoValidacion>Inspección del temporal, de los logs y de los ficheros generados.</tipoValidacion>
+    <criterioAceptacion>Marcadores sustituidos y traza en los dos logs; contenido del informe documentado.</criterioAceptacion>
+    <posibilidadFallo>GSProcess.sh registra el sub-módulo como correcto aunque falle: la comprobación debe hacerse en los logs, no en el estado del job. Los .properties instalados pueden diferir de la plantilla.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

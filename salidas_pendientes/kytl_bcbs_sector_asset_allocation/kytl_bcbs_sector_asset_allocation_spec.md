@@ -88,7 +88,7 @@ Preguntas pendientes (no figuran en ninguna fuente disponible):
 | P-SAA-02 | Línea completa del `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL1119` (operación `M` mover o `C` copiar, máscara, rutas, si exige fichero) | Decide si el fichero origen sigue o no en `/unload/kytl/datent/datax/` y qué código devuelve el job si falta el fichero |
 | P-SAA-03 | Configuración del informe `SECTOR_ASSET_ALLOCATION` en `FT_T_REP1` (query, cabecera, plantilla Excel, nombres exactos del Excel/BODY, destinatarios en `FT_T_ALR1`) y si el `.properties` `SectorAssetAllocation_Report` declara `Stop*=Ok` | Es el contenido del correo de resultado; sin ello no se puede validar el informe ni saber a quién llega |
 | P-SAA-04 | **Parcialmente resuelta.** Valores de `Constants.SECTOR_CLASSIFICATION_IDS`: casi con seguridad `SAASECT` (sector), `SAASUBS` (subsector) y `SAACCT` (actividad económica), que son los tres `INDUS_CL_SET_ID` que la extracción genérica lee en `FT_T_FRCL`/`FT_T_INCL` para el bloque `SectorAssetAllocation` (deducción desde el lado de la extracción; no se ha visto la constante). El análisis original describe el valor de descarte `ES0182000000000` como «cuenta/valor de descarte conocido»; el prefijo `ES0182` coincide con el código de entidad de BBVA en España, de modo que probablemente es un identificador genérico de cliente que no debe cargarse (inferencia, sin confirmar). **Sigue pendiente** el layout de `ClienSector.csv`: nº de campos exigido (`TemplatePositions.NUMBER_OF_FIELDS`), orden y significado de cada campo, separador (`Constants.DATA_SPLITTER`) y geografías soportadas. | Sin ello no se puede construir un CSV de prueba válido ni saber qué clasificación se escribe en `FT_T_FRCL` |
-| P-SAA-05 | Directorio de trabajo real de `SAA_Local.sh ClienSector`: `MOD_EJECUCION=ClienSector` haría esperar `ClienSector.csv` (y el área `.../kytl/ClienSector/`), pero `MEKYTL1119` deja `<ODATE>._ClienSector.csv` en `.../kytl/SectorAssetAllocation/`. ¿Quién lo renombra o dónde lo busca el script? El análisis original del script describe la comprobación de `comprobarExisteFichero()` como la del fichero `YYYYMMDD_ClienSector.csv` (el mismo que mueve `MEKYTL1119`) en `.../SectorAssetAllocation/`, y la localización del fichero de carga final como `MOD_EJECUCION.csv`, sin explicar la diferencia de nombre; sigue sin resolverse. | Si no coinciden, la carga diría "No hay fichero para procesar" cada día sin error |
+| P-SAA-05 | **Resuelta (3ª pasada).** Directorio de trabajo real de `SAA_Local.sh ClienSector`. El script fija `MOD_EJECUCION=SectorAssetAllocation` (el parámetro `ClienSector` solo es `FILE_NAME`) y espera `.../kytl/SectorAssetAllocation/<AAAAMMDD>_ClienSector.csv`, que es el nombre con que `MEKYTL1119` lo deja (el punto de `%%$ODATE.` de Control-M separa la variable y no forma parte del nombre); no hay renombrado (§6.7). Queda un matiz: la fecha del nombre es la del sistema, no la de la jornada | Si el job se ejecutara tras medianoche, la carga diría «No hay fichero para procesar» sin error |
 
 ## 5. Especificación funcional
 
@@ -404,11 +404,42 @@ acciones condicionales, "Gestión de la Salida" = "Ninguno"). El requisito de bo
 documentado pero **no implementado** en la configuración real de producción. Riesgo: crecimiento
 indefinido de `output/` a lo largo del tiempo. Ver TC-010.
 
+### 6.7 Plantilla de despliegue de la UUAA KYTL: `SAA_Local.sh`, `log4jsectorclassification.properties` y `SectorAssetAllocation_Report.properties` (3ª pasada)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama `develop`). `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr`; los valores con `pr` son valores de producción según la plantilla, no una copia
+verificada de producción. La plantilla es la base anterior a la migración a Java 17. Lo que sigue sustituye a la descripción de `SAA_Local.sh` que se hizo sin el script (§6.3) en los puntos indicados como **Corrección**.
+
+**`SAA_Local.sh ClienSector WARN` leído entero.**
+- *Arranque.* Deduce el entorno por el nombre de la máquina (`lp*`=pr, `lw*`=pp, `li*`=ei, `ld*`=de), exige ejecutarlo como el usuario `xakytl1<p|w|i|d>` del entorno y exactamente **2 parámetros**; si no, sale con `-1`. Localiza el JDK en `credentials.xml` (si no, `/usr/local/<env>/jdk1.8.0_152`) y no usa `GSProcess.sh` ni `JDKV`. El log propio es `/<env>/kytl/online/multipais/multicanal/logs/SAA_Local_<AAAAMMDD>.log`.
+- **Corrección (P-SAA-05 resuelta).** El primer parámetro (`ClienSector`) **no es `MOD_EJECUCION`**: es solo `FILE_NAME`. El script fija `MOD_EJECUCION=SectorAssetAllocation` y trabaja siempre en `/fichtemcomp/<env>/descargas/kytl/SectorAssetAllocation/`. El fichero que espera
+  es `/fichtemcomp/<env>/descargas/kytl/SectorAssetAllocation/<AAAAMMDD>_ClienSector.csv` (**guion bajo**), con la fecha **del sistema en el momento de ejecutar el script**, no la fecha de Control-M. El post-comando de `MEKYTL1119` (`%%$ODATE._ClienSector.csv`) deja un fichero que, por la sintaxis de Control-M (el punto que sigue a una variable la separa del texto siguiente y no forma parte
+  del resultado), se resuelve a `<AAAAMMDD>_ClienSector.csv`: es el mismo nombre que busca el script y no hay renombrado entre ambos (esta lectura de la sintaxis no está contrastada con el entorno; sigue pendiente la línea IDX de `MEKYTL1119`, H-SAA-01). Si ejecuta después de medianoche, la fecha del sistema ya no coincide con la de la jornada y el script dice «No hay fichero para procesar» (ver riesgo nuevo en §9).
+- *Orden de las funciones (confirmado):* `exportvariables`, `inicioProceso`, `comprobarExisteFichero`, `eliminarLineasDuplicadaPorCampo`, `eliminarCabecera`, `exportservicios`, `delta`, `limpieza`, `ejecucionCarga`, `borradoFichero`, `finProceso`.
+- *`comprobarExisteFichero`:* si no existe el fichero del día, escribe «No hay fichero para procesar» en el log propio y hace `exit` sin código (devuelve 0).
+- *`eliminarLineasDuplicadaPorCampo`:* (1) `sed -i '/;ES0182000000000;/d'` borra, **en el propio fichero recibido**, toda línea que contenga ese valor entre punto y coma (sea cual sea el campo; `ES` + `0182` + `000000000` es la forma geografía + banco + cliente centinela, el mismo `000000000` que usa `rdr_c460`);
+  (2) `awk -F';' '!seen[$2]++'` **conserva la primera línea de cada valor del campo 2** y la **añade** (`>>`) a `SectorAssetAllocation/SectorAssetAllocation.csv`; (3) mueve el fichero ya recortado por el `sed` (no el recibido) a `old/<AAAAMMDD>_ClienSector_Original.csv`, por lo que el «original» archivado no conserva las líneas del centinela. Como añade en vez de escribir, si quedó un `SectorAssetAllocation.csv` de una ejecución anterior que no llegó al final, se acumulan líneas.
+- *`eliminarCabecera`:* `sed -i '1d'` quita la primera línea de `SectorAssetAllocation.csv`, sea cabecera o no.
+- *`delta`:* ejecuta `Delta.sh Si` (con `FILE_CARGA=.../SectorAssetAllocation/SectorAssetAllocation.csv` y la referencia `old/SectorAssetAllocation.csv`). **Consecuencia nueva:** al haber quitado ya la cabecera, `Compare` trata la primera línea de datos como cabecera: **la escribe siempre y no la compara**, de modo que el primer cliente del fichero se vuelve a cargar cada día aunque no cambie; el resto sale solo si es nuevo o ha cambiado. Delta no emite bajas. El resultado de `Delta.sh` solo se anota en el log propio.
+- *`limpieza`:* `sed -i '/^$/d'` quita las líneas en blanco, entre ellas la que `Delta.sh` deja tras el primer registro (por eso existe este paso).
+- *`ejecucionCarga`:* `java -Xmx16G -Dorg.jboss.logging.provider=log4j -cp <unas 60 librerías de `lib/` (Spring Boot 2.2.6, Spring 5.2.5, Hibernate 5.0.12, Spring Data JPA, `ojdbc8.jar`, `gson`, `httpclient`, `log4j.jar`…) + `jar/ConexionBD.jar`>:<jar>/sectorclassificationloader.jar com.bbva.kytl.sectorclassificationloader.SectorLoader <dat/properties>/log4jsectorclassification.properties WARN <SectorAssetAllocation.csv>`.
+  Los tres argumentos son el fichero de log4j, el nivel de auditoría (`WARN`, el segundo parámetro del script) y el CSV. No se comprueba el código de salida.
+- *`borradoFichero` y `finProceso`:* `rm -f SectorAssetAllocation.csv` y cierre del log. **El script devuelve siempre 0** salvo usuario, entorno o número de parámetros incorrectos (`-1`); incluso la falta de `credentials.xml` o del fichero acaba en 0.
+- *Sin `set -e`:* un fallo de cualquier función no detiene las siguientes.
+
+**Efecto sobre los duplicados (Corrección de TC-005/TC-006).** El filtro `awk` por el campo 2 (que, por la forma del valor centinela, es muy probablemente el identificador de cliente con geografía y banco) deja pasar **la primera** línea de cada cliente; las posteriores no llegan al cargador. Por eso, en la cadena completa
+prevalece la primera línea, no la última; el comportamiento «gana la última» de §6.4 solo se observa invocando `SectorLoader` directamente o con líneas que difieran en el campo 2.
+
+**`log4jsectorclassification.properties` (H-SAA-03 resuelta).** Logger raíz a nivel **`error`** con un único appender rotativo (100000KB, 3 copias) que escribe en `/@@ENV@@/kytl/online/multipais/multicanal/logs/sectorClassificationLOG.log`, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`, y con `org.springframework.jdbc.datasource.DriverManagerDataSource`
+apagado. Por el nivel `error`, ese fichero solo recoge errores y excepciones del cargador (el `WARN` que pasa el script es el nivel de auditoría de negocio del programa, §6.4, no el de log4j): los avisos y el progreso no salen en él.
+
+**`SectorAssetAllocation_Report.properties` (P-SAA-03, parte `Stop*`).** Fichero único (CRLF). La acción de variables solo lleva `MOD_EJECUCION=nombre del fichero`, un **texto de plantilla sin rellenar** (no tiene `Ruta`, `File` ni `Servicio`); `GSProcess.sh` toma el nombre del módulo del parámetro de la línea de comandos, de modo que ese valor no afecta a los pasos `Java`; el workflow `RDR_AlertasEnvio` recibe este mismo fichero, pero no consta que use `MOD_EJECUCION`. Acciones: (1) `Java` `ConexionBD.jar` + `RDR_AlertasCocinado.jar`, clase `main.Ppal` (etiqueta `GestionAlertas_SectorAssetAllocation_cocinado`; nivel de log `2`, `log4jAlertasCocinado.properties`, código de proceso `SECTOR_ASSET_ALLOCATION`, las librerías Apache POI 3.17 de la plantilla
+genérica de alertas) y (2) `Evento` `Workflow` `RDR_AlertasEnvio`. **No lleva ninguna clave `Stop*`** y no tiene paso de Barrido. Siguen sin estar las filas de `FT_T_REP1`/`FT_T_ALR1` de `SECTOR_ASSET_ALLOCATION` (consulta, plantilla, nombres de los ficheros, destinatarios).
+
 ## 7. Especificación de testing
 
 La cobertura se apoya en una combinación de: (a) una prueba `e2e` (TC-011) que valida
-superficialmente que la cadena completa termina bien paso a paso, y (b) 10 pruebas troceadas por
-sub-flujo (TC-001 a TC-010) que, en conjunto, cubren cada rama de decisión identificada en §6:
+superficialmente que la cadena completa termina bien paso a paso, y (b) 12 pruebas troceadas por
+sub-flujo (TC-001 a TC-010, TC-012 y TC-013) que, en conjunto, cubren cada rama de decisión identificada en §6:
 detección/ausencia de fichero (TC-002), limpieza y validación de formato por línea (TC-001, TC-003,
 TC-006), contraparte no encontrada (TC-004), conflicto con sectorización ADA (TC-007), y los 3
 hallazgos de riesgo de código confirmados (TC-008, TC-009, TC-010). Ningún sub-flujo de negocio
@@ -435,6 +466,8 @@ exigiendo entorno de test/preproducción o verificación por lectura de código.
 | TC-009 | `SectorLoader` puede terminar "bien" sin haber cargado nada ante `IOException` de lectura | §6.4 |
 | TC-010 | `MEKYTL1121` no borra los ficheros de `output/` pese al requisito documentado | §6.6 |
 | TC-011 | La cadena completa termina bien, paso a paso, de extremo a extremo | §5 |
+| TC-012 | `SAA_Local.sh` no encuentra el fichero si se ejecuta con fecha del sistema distinta de la de la jornada | §6.7 |
+| TC-013 | Limpieza del centinela, deduplicación por el campo 2 (gana la primera línea), cabecera y primera línea en el delta | §6.7 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -458,9 +491,11 @@ exigiendo entorno de test/preproducción o verificación por lectura de código.
 - **Verde engañoso:** fichero ausente en el área de trabajo, errores de lectura posteriores y fallos
   de envío no ponen ningún job en rojo; solo se ven en logs, `FT_T_FRCL`/`FT_T_RLT1` o por la ausencia
   del correo.
-- **Duplicidad de negocio controlada** (TC-005, TC-006): el motor resuelve duplicados dentro del
-  mismo fichero por "última línea procesada gana", sin error ni alerta — comportamiento confirmado,
+- **Duplicidad de negocio controlada** (TC-005, TC-006): el cargador resuelve duplicados dentro del
+  mismo fichero por "última línea procesada gana", sin error ni alerta; **pero `SAA_Local.sh` ya ha eliminado antes los duplicados por el campo 2 conservando la primera línea (§6.7), así que en la cadena completa prevalece la primera**. Comportamiento confirmado,
   no necesariamente deseable, documentado para que negocio lo valide si no lo conocía.
+- **Riesgo nuevo (3ª pasada, §6.7): fecha del sistema frente a fecha de jornada.** `SAA_Local.sh` busca `<AAAAMMDD>_ClienSector.csv` con la fecha del sistema al ejecutarse; si `BCBS_SECTOR_ASSET_ALLOCATION_LOAD` arranca después de medianoche (el filewatcher empieza a las 23:00 y espera hasta 195 minutos), el fichero de la jornada no se encuentra, el script acaba en 0 sin cargar y `MEKYTL1119` ya ha dejado el fichero sin procesar.
+- **Riesgo nuevo (3ª pasada): la primera línea del fichero se recarga cada día** (la cabecera ya se ha quitado antes de `Delta.sh`, que trata la primera línea de datos como cabecera), y el original archivado en `old/` no contiene las líneas del centinela `ES0182000000000`.
 - **Dependencia cruzada no documentada originalmente:** marca en `FT_T_RLT1` para el ESB (§6.4) y
   relación confirmada con Extracción Genérica de Contrapartidas (§6.4) — ninguna de las dos estaba
   en el documento fuente original con este nivel de certeza.

@@ -1,6 +1,6 @@
 # Prerrequisitos — RDR_CONCILIACION_BDI_new (cadena 4/8 del sistema P-021)
 
-> Derivado de `rdr_conciliacion_bdi_casos_prueba.xml` (TC-001 a TC-013). Cada prerrequisito indica qué
+> Derivado de `rdr_conciliacion_bdi_casos_prueba.xml` (TC-001 a TC-014). Cada prerrequisito indica qué
 > casos lo necesitan. Las rutas con `<env>` se refieren al entorno de pruebas; las de `pr` describen la
 > instalación real (referencia, no se usan para probar).
 
@@ -48,8 +48,8 @@ regla una vez; el `<` en una columna sin `USAR` comprueba que la regla no se apl
 | Fichero | Qué hay que conocer | Casos |
 |---|---|---|
 | `ConBDI.properties` | Debe ser el de producción (9 pasos de la spec §6.3, ninguna clave `Stop`, clave `Destination`, clases `ControlCase` y `CreateReport` y sin `JDKV`) con `@@ENV@@` sustituido por el entorno de pruebas | Todos; TC-013 en particular |
-| `Plantilla_ReportMail.properties` | En `$CONF`; el paso 9 la copia a `Mail_TMP_<AAAAMMDDhhmmss>.properties` y ejecuta `GSProcess.sh` sobre ella (contenido desconocido, P-CBD-03). Si falta, el fallo no se ve | Todos |
-| `ServerMailConfig.xml` | En `$CONF`, con la entrada `server` del entorno de pruebas (`host` y `user` del servidor SMTP); sin ella el sub-workflow `Mail` usa el servidor de desarrollo | TC-003, TC-004, TC-007 |
+| `Plantilla_ReportMail.properties` | En `$CONF`; el paso 9 la copia a `Mail_TMP_<AAAAMMDDhhmmss>.properties` (sustituyendo `_NivelLOG_`, `_LOG_` y `_ReportType_`) y ejecuta `GSProcess.sh` sobre ella: `RDR_ReportMail.jar` (`CONNECTIVITY`) y el workflow `ComposeEmail` (contenido según la plantilla de despliegue, spec §6.12 bis). `log4jReportMail.properties` en el mismo directorio (log `ReportMail.log`). Si falta, el fallo no se ve | Todos; TC-014 |
+| `ServerMailConfig.xml` | En `$CONF`, con la entrada `server` del entorno de pruebas (`host` y `user` del servidor SMTP; en la plantilla de despliegue los valores no vienen incluidos); sin ella el sub-workflow `Mail` usa el servidor de desarrollo | TC-003, TC-004, TC-007 |
 | `fillingRules_ConBDI.csv` | Idéntico al de la spec §6.6 (46 columnas) | TC-008, TC-009, TC-012 |
 | `select.properties` | Clave `ConBDI` con las 3 líneas de la spec §6.8 y `ruta` terminada en `/` | TC-007, TC-009, TC-011 |
 | `Reporte_ConciliacionBroker_Plantilla.xlsx` | En `ConBDI/`, con las 5 hojas `Resumen`, `NoBDI`, `NoRDR`, `DistintoRDR`, `DistintoNme` (estructura en la spec §6.10) | TC-001, TC-007; se retira en TC-002, TC-003, TC-013 |

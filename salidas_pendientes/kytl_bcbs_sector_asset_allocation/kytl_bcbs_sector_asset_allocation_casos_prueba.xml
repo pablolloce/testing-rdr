@@ -91,7 +91,7 @@
 
   <casoDePrueba id="TC-005" tipo="duplicidad">
     <nombre>Dos líneas del mismo fichero para la misma combinación cliente/geografía/tipo con valores distintos</nombre>
-    <objetivo>Confirmar que, ante 2 líneas del mismo CSV para la misma contraparte y tipo de clasificación con valores distintos, prevalece la última procesada, sin error ni alerta de duplicidad.</objetivo>
+    <objetivo>Confirmar qué valor prevalece ante 2 líneas del mismo CSV para la misma contraparte con valores distintos: en la cadena completa (SAA_Local.sh) la deduplicación por el campo 2 conserva la primera; el cargador por sí solo (SectorLoader) deja la última procesada. Sin error ni alerta de duplicidad en ningún caso.</objetivo>
     <precondiciones>
       <precondicion>Existe en FT_T_FINS la contraparte de prueba, sin sectorización previa para el tipo de clasificación usado.</precondicion>
       <precondicion>Ambas líneas caen en el mismo lote de 50 (fichero de prueba con menos de 50 líneas) para evitar la variable de concurrencia entre hilos distintos.</precondicion>
@@ -101,13 +101,13 @@
       <dato campo="línea CSV 2" valor="mismo cliente X, misma geografía Y, mismo tipo SAASECT, valor 'B' (línea posterior en el fichero)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar SAA_Local.sh ClienSector WARN con el CSV que contiene ambas líneas, en ese orden.</paso>
+      <paso numero="1">Variante A (cadena completa): ejecutar SAA_Local.sh ClienSector WARN con el CSV que contiene ambas líneas, en ese orden, y comprobar en old/ y en el fichero de carga que la segunda línea ha sido eliminada por el awk del campo 2.</paso>
       <paso numero="2">Consultar FT_T_FRCL para esa combinación cliente/tipo de clasificación.</paso>
-      <paso numero="3">Comprobar cuántos registros ACTIVE existen para esa combinación.</paso>
+      <paso numero="3">Comprobar cuántos registros ACTIVE existen para esa combinación. Variante B (solo el cargador): repetir invocando SectorLoader directamente con el CSV de las dos líneas, sin pasar por SAA_Local.sh, y comparar.</paso>
     </pasos>
-    <resultadoEsperado>Existe exactamente 1 registro ACTIVE para esa combinación, con ClValue='B' (el valor de la última línea procesada); el registro creado por la primera línea queda INACTIVE. No se genera ninguna alerta de duplicidad, porque el motor no la contempla.</resultadoEsperado>
+    <resultadoEsperado>Variante A: 1 registro ACTIVE con ClValue='A' (la primera línea; la segunda no llega al cargador). Variante B: 1 registro ACTIVE con ClValue='B' (la última línea procesada) y el creado por la primera línea INACTIVE. No se genera ninguna alerta de duplicidad.</resultadoEsperado>
     <tipoValidacion>Consulta directa a FT_T_FRCL, filtrando por estado y fecha de última modificación</tipoValidacion>
-    <criterioAceptacion>Solo 1 registro ACTIVE con el valor de la última línea; el histórico conserva el registro de la primera línea como INACTIVE.</criterioAceptacion>
+    <criterioAceptacion>Variante A: solo 1 registro ACTIVE con el valor de la primera línea. Variante B: solo 1 registro ACTIVE con el valor de la última línea y el histórico con la primera como INACTIVE.</criterioAceptacion>
     <posibilidadFallo>Si ambas líneas cayeran en lotes distintos procesados por hilos distintos en paralelo, el resultado podría no ser determinista (condición de carrera no descartable por el código analizado) — este caso se limita deliberadamente a un fichero de menos de 50 líneas para evitarlo; el escenario de lotes distintos no está cubierto y queda como riesgo documentado en kytl_bcbs_sector_asset_allocation_spec.md §9.</posibilidadFallo>
   </casoDePrueba>
 
@@ -125,7 +125,7 @@
       <dato campo="conflicto" valor="mismo cliente+geografía+tipo repetido 3 veces con 3 valores distintos; se considera conflicto si prevalece cualquier valor distinto de 'AZUL' (el de la última línea)"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar SAA_Local.sh ClienSector WARN con el CSV de las 3 líneas en conflicto.</paso>
+      <paso numero="1">Ejecutar SOLO el cargador (SectorLoader invocado directamente con el CSV de las 3 líneas; con SAA_Local.sh el awk del campo 2 dejaría únicamente la primera línea, 'ROJO', spec 6.7).</paso>
       <paso numero="2">Consultar FT_T_FRCL para esa combinación cliente/tipo de clasificación.</paso>
       <paso numero="3">Comprobar el valor ACTIVE final y el número de registros INACTIVE generados en el histórico.</paso>
     </pasos>
@@ -242,6 +242,49 @@
     <tipoValidacion>Observación de estado en Control-M + comprobación de existencia y tamaño del .zip final (validación superficial, sin profundizar en contenido — eso lo cubren TC-001 a TC-010)</tipoValidacion>
     <criterioAceptacion>Los 5 jobs en OK y el .zip final presente, no vacío y estructuralmente válido (abre sin error).</criterioAceptacion>
     <posibilidadFallo>Bloqueante confirmado: los 5 jobs de la cadena tienen "Ejecutar como Dummy" activo de forma persistente en su definición (gap 7, resuelto) — este caso no puede ejecutarse con sentido contra producción mientras eso no cambie; ejecutar solo en un entorno de test/preproducción equivalente donde la cadena esté activa.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="borde">
+    <nombre>SAA_Local.sh se ejecuta con fecha del sistema distinta de la de la jornada</nombre>
+    <objetivo>Comprobar que el script busca YYYYMMDD_ClienSector.csv con la fecha del sistema y no encuentra el fichero de la jornada si se ejecuta después de medianoche.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción, con MEKYTL1119 ya ejecutado y el fichero de la jornada D en SectorAssetAllocation/ como D_ClienSector.csv.</precondicion>
+      <precondicion>Posibilidad de ejecutar el script con la fecha del sistema de D+1 (o renombrar el fichero a la fecha de ayer/mañana para simularlo).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="SectorAssetAllocation/D_ClienSector.csv"/>
+      <dato campo="Fecha del sistema" valor="D+1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar SAA_Local.sh ClienSector WARN con fecha del sistema D+1.</paso>
+      <paso numero="2">Revisar SAA_Local_&lt;fecha&gt;.log y el código de salida.</paso>
+      <paso numero="3">Comprobar que el fichero D_ClienSector.csv sigue en SectorAssetAllocation/ y que no hay filas nuevas en FT_T_FRCL.</paso>
+    </pasos>
+    <resultadoEsperado>El log dice «No hay fichero para procesar», el script termina con código 0 y no se carga nada; el fichero queda sin procesar.</resultadoEsperado>
+    <tipoValidacion>Revisión de log, código de salida y consulta a FT_T_FRCL.</tipoValidacion>
+    <criterioAceptacion>Confirmado que un arranque tras medianoche deja la carga sin ejecutar y en verde.</criterioAceptacion>
+    <posibilidadFallo>El script instalado en producción puede diferir del de la plantilla de despliegue (no verificado).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="datos_sinteticos">
+    <nombre>Limpieza del centinela, deduplicación por el campo 2, cabecera y primera línea en el delta</nombre>
+    <objetivo>Comprobar qué hace SAA_Local.sh con el fichero antes de cargarlo: borrado de líneas con el valor ES0182000000000, conservación de la primera línea por cada valor del campo 2, retirada de la primera línea y efecto sobre el delta.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas, no producción; old/ existe y contiene el SectorAssetAllocation.csv del día anterior (o no existe, primera carga).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="cabecera + 5 líneas: dos con el mismo campo 2 (distinto contenido), una con ;ES0182000000000; en un campo, y dos normales"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar SAA_Local.sh ClienSector WARN.</paso>
+      <paso numero="2">Comprobar old/&lt;fecha&gt;_ClienSector_Original.csv: ya no contiene la línea del centinela.</paso>
+      <paso numero="3">Comprobar el fichero que recibe el cargador: sin cabecera, sin la línea del centinela, con una sola de las dos líneas de campo 2 repetido (la primera) y sin líneas en blanco.</paso>
+      <paso numero="4">Repetir al día siguiente con el mismo contenido y comprobar que solo la primera línea del fichero vuelve a salir en el delta.</paso>
+    </pasos>
+    <resultadoEsperado>Tres líneas llegan al cargador el primer día (las dos normales y la primera de campo 2 repetido); el segundo día solo la primera línea del fichero.</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros intermedios y del log.</tipoValidacion>
+    <criterioAceptacion>El contenido de cada fichero intermedio coincide con lo descrito.</criterioAceptacion>
+    <posibilidadFallo>No se conoce el layout oficial del CSV (P-SAA-04): el campo 2 se supone el identificador de cliente por el comportamiento del script.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

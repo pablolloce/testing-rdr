@@ -54,7 +54,7 @@ contrapartes de prueba.
 - `SAA_Local.sh` requiere que `Delta.sh`, `sectorclassificationloader.jar` y
   `log4jsectorclassification.properties` existan y sean accesibles desde
   `/pr/kytl/online/multipais/multicanal/scrt/` para que `BCBS_SECTOR_ASSET_ALLOCATION_LOAD`
-  funcione (todos los casos salvo TC-002, TC-010).
+  funcione (todos los casos salvo TC-002, TC-010). El script (según la plantilla de despliegue, spec §6.7) exige ejecutarlo como `xakytl1p` con 2 parámetros, y los jars de `lib/` (Spring/Hibernate/`ojdbc8`) más `ConexionBD.jar`; su log propio es `/pr/kytl/online/multipais/multicanal/logs/SAA_Local_<AAAAMMDD>.log` y el del cargador `sectorClassificationLOG.log` (nivel `error`).
 - `GSProcess.sh` requiere el `.properties` `SectorAssetAllocation_Report` (ya confirmado: motor
   `RDR_AlertasCocinado.jar`, workflow `RDR_AlertasEnvio`) para que
   `BCBS_SECTOR_ASSET_ALLOCATION_REPORT` funcione (TC-011).
@@ -69,7 +69,7 @@ contrapartes de prueba.
   ser escribible por `xakytl1p`/`xsramer1` para que `SAA_Local.sh` pueda operar (todos los casos
   salvo TC-002, TC-010). Confirmado por Control-M (comando posterior a la ejecución de
   `MEKYTL1119`): el fichero llega con nombre `%%ODATE._ClienSector.csv` (con punto, no guion bajo
-  como documenta la ficha y usa el filewatcher), propiedad `xakytl1p` y permisos `664`.
+  como documenta la ficha y usa el filewatcher), propiedad `xakytl1p` y permisos `664`. Por la sintaxis de Control-M ese nombre se resuelve a `<AAAAMMDD>_ClienSector.csv` (spec §6.7), que es el que busca `SAA_Local.sh` con la fecha del sistema (TC-012).
 - `/fichtemcomp/pr/descargas/kytl/SectorAssetAllocation/old/` debe existir para el archivado del
   CSV original y del histórico de `Delta.sh` (TC-008 en particular).
 - `/fichtemcomp/pr/descargas/kytl/SectorAssetAllocation/output/` y su subcarpeta `output/old/`
