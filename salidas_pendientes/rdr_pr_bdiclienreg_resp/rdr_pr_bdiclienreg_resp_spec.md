@@ -1245,7 +1245,25 @@ que lo leído de él es válido para workflows estables, pero no prueba qué ver
   Es aquí donde se crea realmente la SDI en GoldenSource.
 - **`SSIs_Fx_Difusion`** (v5, `RELEASED`, 2026-06-02): localiza el OID de la SDI (`FT_T_SSIS`/`FT_T_SAI1`) y la
   publica con el subworkflow `Publish ESB`; si el resultado no es `OK`, recorre la configuración de segmentos
-  `StandardSettlementInstructions` y la procesa con `ProcessSegments` como vía alternativa.
+  `StandardSettlementInstructions` y la procesa con `ProcessSegments` como vía alternativa. **Confirmado con
+  el `.wkf` real de `SSIs_Fx_Difusion` y de su subworkflow de publicación (grupo
+  `Custom/RDR/Alert/InvestorsPlan`, v4 en el export de la rama vs. v5 aquí — ver cautela del volcado arriba;
+  `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Fx_Difusion.wkf` y `RDR_SSI_Publish_ESB.wkf`):**
+  el export real abre un `Job` hijo (`CreateJob`, `configInfo="SSIs_Fx_Difusion"`) e invoca directamente
+  `RDR_SSI_Publish_ESB` (grupo `Custom/RDR/Integracion_ABACO-GS/Difusion_ESB`) con `Action`/`ID=SSI_OID`; ese
+  subworkflow resuelve el `Action` recibido a uno o dos pares `{accionXML, Id_SSI}` (BeanShell "Genera
+  difusion", mapeo A/M/R/P/C/S/E/D) y los publica con `ForEach` sobre un `CallSubWorkflow` genérico
+  `Sub_SendMessageToEMSQueue` a la cola EMS **`RDR.SETTLEMENT.PUBLISH`** — **no** se ha visto en el `.wkf` real
+  la rama alternativa de segmentos `StandardSettlementInstructions`/`ProcessSegments` que describe el volcado;
+  queda como discrepancia sin resolver entre ambas fuentes (posible rama de error no explorada en el export,
+  o lógica de una versión distinta) — no se puede zanjar sin volver a abrir el XML completo de
+  `RDR_SSI_Publish_ESB.wkf`. **Hallazgos nuevos del `.wkf` real:** (1) el comentario de negocio (`<comment>`)
+  de `SSIs_Fx_Difusion` declara `"Decomiso_Diccionario_v1"`, sin relación aparente con la difusión de SDIs —
+  vestigio de haberse clonado de otro objeto sin actualizar el comentario; (2) cualquier `Action` no
+  contemplado en el mapeo A/M/R/P/C/S/E/D de `RDR_SSI_Publish_ESB` se descarta silenciosamente, sin publicar
+  nada y sin marcar error; (3) las 3 queries de resolución del `SSI_OID` dentro de `RDR_SSI_Publish_ESB` no
+  declaran una transición explícita para el caso sin resultado — comportamiento no observable por análisis
+  estático.
 - **`SSIs_Fx_Reporte`** (v3, `RELEASED`): según `Donde` (`Valida`, `Cparty`, `Branch`, `Trans`, `Alta`, `KO`) y `Modo`
   (`Online` → `DATA_SRC_APP='ALERT_IP_SSI'`; `Conciliacion` → `ALERT_CON_SSI`), resuelve acrónimo, access code, `CodOid`
   y los `FINS_ID` del fondo y la gestora, y construye por concatenación **dos `INSERT`**: una fila de auditoría en

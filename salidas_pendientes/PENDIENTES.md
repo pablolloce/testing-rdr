@@ -38,7 +38,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`comun_executebbvaevent`](#comun-executebbvaevent) — 2 bloqueantes
 - [`comun_extraccion_generica`](#comun-extraccion-generica) — 8 bloqueantes
 - [`comun_generico_sh`](#comun-generico-sh) — 1 bloqueantes
-- [`comun_gestion_alertas`](#comun-gestion-alertas) — 13 bloqueantes
+- [`comun_gestion_alertas`](#comun-gestion-alertas) — 11 bloqueantes
 - [`comun_gsprocess`](#comun-gsprocess) — 4 bloqueantes
 - [`comun_lpftpexca`](#comun-lpftpexca) — 9 bloqueantes
 - [`comun_megenv0001`](#comun-megenv0001) — 7 bloqueantes
@@ -313,18 +313,18 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 ## comun_gestion_alertas
 
 **Spec:** `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md`  
-**Qué le falta:** Faltan ReportesRDR, ProcesoCLS, ConDB, QuerysConfig, AlertasEnvioExcepciones, ServerMailConfig.xml, los log4j, el .properties de producción y confirmar el jar desplegado del Barrido.
-**2ª pasada:** Se incorporan ReportesRDR/ReporteRDR reales (validaciones silenciosas, marcado incondicional, query de cada informe en FT_T_REP1) y AlertasEnvioExcepciones con sus tres casos y defectos (condicion cargados>0, variable destination no declarada). Siguen sin verse ProcesoCLS, DocumentGenerator, ConDB y ServerMailConfig.xml.
+**Qué le falta:** Faltan ProcesoCLS, ConDB, QuerysConfig del Barrido, ServerMailConfig.xml, los log4j, el .properties de producción y confirmar el jar desplegado del Barrido.
+**2ª pasada:** Se incorporan ReportesRDR/ReporteRDR reales (validaciones silenciosas, marcado incondicional, query de cada informe en FT_T_REP1) y AlertasEnvioExcepciones con sus tres casos y defectos (condicion cargados>0, variable destination no declarada). Siguen sin verse ProcesoCLS, ConDB y ServerMailConfig.xml.
+**3ª pasada (02/10, rama Eduardo):** report.DocumentGenerator real (código fuente completo): despacho EXCEL/WORD/CUERPO/TXT/DAT, generaExcelPorCeldas (único caso con celdas CELDAEXCEL implementado), fallo silencioso si celdas+tipo≠EXCEL, y confirma que BODY_<SH>.txt se escribe incluso sin mensajes si hay destinatarios activos. Cierra H-ALE-01/H-ALE-12; nuevo §4.2.2.
 
-### Huecos bloqueantes (13)
+### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-ALE-01 | parcial | Resuelta en lo esencial (nivel de log, proceso, exit 0, ficheros del Envío). Sigue abierto qué hace ReportesRDR (nombre real del fichero) y ProcesoCLS (redacción de mensajes). **Avance 2ª pasada:** ReportesRDR/ReporteRDR reales analizadas (4.2.1). | Codigo de report.DocumentGenerator y alertaspck.ProcesoCLS |
+| P-ALE-01 | parcial | Resuelta en lo esencial (nivel de log, proceso, exit 0, ficheros del Envío, nombre y contenido reales de los ficheros). **Avance 3ª pasada:** report.DocumentGenerator real (4.2.2); ReportesRDR/ReporteRDR reales (4.2.1). **Sigue abierto** solo ProcesoCLS (Barrido). | Código de alertaspck.ProcesoCLS |
 | P-ALE-02 | abierta | ¿Cuál es el contenido de GestionAlertas.properties en producción? La copia recibida es de integración con rutas ei escritas a mano. | GestionAlertas.properties de producción |
 | P-ALE-03 | parcial | Mail analizado. Sigue abierto AlertasEnvioExcepciones (qué procesos tienen asunto/cuerpo personalizados) y el ServerMailConfig.xml de cada entorno. **Avance 2ª pasada:** AlertasEnvioExcepciones resuelto (5.2). | ServerMailConfig.xml de cada entorno |
-| P-ALE-04 | parcial | ¿Se pueden obtener report.ReportesRDR, alertaspck.ProcesoCLS y QuerysConfig del Barrido? ¿Coincide marcaUsadosTPG1 con el jar desplegado? **Avance 2ª pasada:** ReportesRDR recibida; ProcesoCLS, DocumentGenerator, ConDB y QuerysConfig del Barrido no. | alertaspck.ProcesoCLS, report.DocumentGenerator, QuerysConfig del Barrido y jar desplegado |
-| H-ALE-01 | parcial | report.ReportesRDR (Cocinado: genera los ficheros del informe) no se ha recibido. **Avance 2ª pasada:** ReportesRDR real: extrae REP1, valida, delega en DocumentGenerator, marca ALG1 y SEND_PEND incondicionalmente. | report.DocumentGenerator (nombre y contenido reales de los ficheros) |
+| P-ALE-04 | parcial | ¿Se pueden obtener report.ReportesRDR, alertaspck.ProcesoCLS y QuerysConfig del Barrido? ¿Coincide marcaUsadosTPG1 con el jar desplegado? **Avance 3ª pasada:** report.DocumentGenerator recibida y cerrada (4.2.2). **Sigue sin verse** ProcesoCLS, ConDB y QuerysConfig del Barrido. | alertaspck.ProcesoCLS, QuerysConfig del Barrido y jar desplegado |
 | H-ALE-02 | abierta | alertaspck.ProcesoCLS (Barrido: agrupa y compone los mensajes, decide qué es error) no se ha recibido. | Código de ProcesoCLS (invocado por RDR_AlertasBarrido.jar) |
 | H-ALE-03 | abierta | jdbc.ConDB (conexión) de los dos jars, y ConexionBD.jar del classpath, no se han recibido. | Código de jdbc.ConDB y ConexionBD.jar (invocados por Barrido y Cocinado) |
 | H-ALE-04 | abierta | QuerysConfig del Barrido no se ha recibido (solo el del Cocinado). | Código de QuerysConfig del Barrido (RDR_AlertasBarrido.jar) |
@@ -332,15 +332,16 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-ALE-07 | abierta | log4jAlertasBarrido.properties y log4jAlertasCocinado.properties (dónde escribe su log cada programa) se nombran sin analizar su contenido. | Contenido de log4jAlertasBarrido.properties y log4jAlertasCocinado.properties |
 | H-ALE-08 | abierta | Defecto marcaUsadosTPG1 (incidencias no cerradas, mensajes duplicados) y desajuste Ppal/QuerysStr en estadísticas: confirmados solo en el código recibido, no en el jar desplegado. | Jar desplegado del Barrido o prueba con FT_T_TPG1.END_TMS (§7) |
 | H-ALE-09 | abierta | Subworkflow Mail: el script Validate MAIL escribe una variable (mailOK) no declarada; si el intérprete la trata como error, el envío fallaría siempre. Se supone que no afecta. | Log de una ejecución de Mail en producción o integración |
-| H-ALE-12 | abierta | report.DocumentGenerator (Cocinado) decide el fichero que se escribe en RUTA y no esta recibido; sin el no se sabe si una ejecucion sin mensajes deja BODY_<SH>.txt y por tanto si sale correo. | Codigo de report.DocumentGenerator del jar RDR_AlertasCocinado.jar |
 
-### No bloqueantes (3)
+### No bloqueantes (5)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| H-ALE-01 | resuelta | report.ReportesRDR (Cocinado: genera los ficheros del informe) no se ha recibido. | Cerrado en la 3ª pasada (02/10, rama Eduardo): ReportesRDR real: extrae REP1, valida, delega en DocumentGenerator (ahora también real, 4.2.2), marca ALG1 y SEND_PEND incondicionalmente. |
 | H-ALE-05 | resuelta | Subworkflow AlertasEnvioExcepciones (personaliza asunto y cuerpo por proceso) se invoca pero no se ha recibido. | Cerrado en la 2ª pasada (02/10): AlertasEnvioExcepciones.wkf real (rama Eduardo): conmutador con 3 casos (BATCH_REFINITIV_EMISORES, CARGA_BASKETS_SPONSORS, REGU_PDTE_LEI_EMISIONES) y DEFAULT sin cambios; nuevo 5.2. |
 | H-ALE-10 | abierta | Recepción de Altamira Colombia ejecuta solo Cocinado y Envío; no consta de dónde salen sus mensajes de FT_T_ALG1 (§3). | Es un hueco del proceso de recepción, que lo cubre en su spec; el mecanismo común está descrito. |
 | H-ALE-11 | abierta | GestionAlertas_ALERT_IP_SSI lanza antes el workflow RDR_SSIS_Fx_Alert_Online, que no se analiza aquí. | Workflow de otro proceso (rdr_pr_bdiclienreg_resp), que lo cubre en su spec; no forma parte del mecanismo común. |
+| H-ALE-12 | resuelta | report.DocumentGenerator (Cocinado) decide el fichero que se escribe en RUTA y no esta recibido; sin el no se sabe si una ejecucion sin mensajes deja BODY_<SH>.txt y por tanto si sale correo. | Cerrado en la 3ª pasada (02/10, rama Eduardo): código fuente real completo (4.2.2); BODY_<SH>.txt sí se escribe sin mensajes si hay destinatarios activos (cuerpo "sin datos a enviar"). |
 
 ## comun_gsprocess
 
@@ -1782,6 +1783,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_pr_bdiclienreg_resp/rdr_pr_bdiclienreg_resp_spec.md`  
 **Qué le falta:** Faltan: planificación real (ficha vs export), rutas y Main de los jars de R6/R7, los .properties de R6/R7, el orquestador de Investors_Client_Reg_resp, la línea IDX de MEKYTL0985, el generador del reporte SSI y numerosos subworkflows/jars/clases invocados no analizados.
 **2ª pasada:** Cerrados G3/G4 con los jars reales decompilados, P-BCR-09 y P-BCR-10, el subarbol SSI (Valida, Exec, Reporte, Data, CreateNew, Difusion), los eventos de difusion y DuplicateDelete. Hallazgo nuevo verificado: XMLReader descarta el mensaje entero si errors>0 sin liberar FT_T_RRM1, y se corrigen lecturas de Eduardo (CreateShortname, NoCodOid, Donde).
+**3ª pasada (02/10, rama Eduardo):** `RDR_SSI_Publish_ESB.wkf` y `SSIs_Fx_Difusion.wkf` reales confirman el mecanismo de publicación a la cola EMS `RDR.SETTLEMENT.PUBLISH` (§6.19bis) — con dos hallazgos nuevos (Action no mapeado se descarta en silencio; las 3 queries de resolución de SSI_OID no declaran transición explícita sin resultado) y una discrepancia sin resolver con el volcado (rama alternativa `ProcessSegments`/`StandardSettlementInstructions` no vista en el export real). `report.DocumentGenerator` recibida y cierra H-BCR-27 en parte (ver comun_gestion_alertas).
 
 ### Huecos bloqueantes (24)
 
@@ -1805,7 +1807,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-BCR-23 | parcial | Evento RDR_GapDatos (tabla CONTPTSONLINE, acción A; invocado por PartySetupDifusion) no analizado. **Avance 2ª pasada:** RDR_GapDatos -> TypeOfDifusion (volcado): enrutador por nivel/nomTabla; Operativo -> Sub_ComposeSendCopy -> cola MQ MGC-ABACO; 6.23. | Detalle de Sub_GetCntrprty*ClientData, Sub_CreateACA/CAB y Publish*ToMGC de Global/Local |
 | H-BCR-25 | abierta | Ficheros log4j (log4jAltaFondos.properties, log4jAlertasBarrido/Cocinado.properties y los de R6/R7): contenido no analizado. | Ficheros log4j*.properties (invocados por los jars) |
 | H-BCR-26 | abierta | ConexionBD.jar (jdbc.ConDB) no analizado: conexión de todos los jars de la cadena. | Código de ConexionBD.jar (invocado por los jars) |
-| H-BCR-27 | parcial | report.ReportesRDR (Cocinado) y alertaspck.ProcesoCLS (Barrido) no recibidas. **Avance 2ª pasada:** ReportesRDR y ReporteRDR reales analizadas (comun alertas 4.2.1): validaciones, marcado incondicional, query en FT_T_REP1. | Codigo de alertaspck.ProcesoCLS y report.DocumentGenerator |
+| H-BCR-27 | parcial | report.ReportesRDR (Cocinado) y alertaspck.ProcesoCLS (Barrido) no recibidas. **Avance 2ª pasada:** ReportesRDR y ReporteRDR reales analizadas (comun alertas 4.2.1): validaciones, marcado incondicional, query en FT_T_REP1. **Avance 3ª pasada (rama Eduardo):** report.DocumentGenerator real recibida y cerrada (comun alertas 4.2.2). **Sigue sin recibirse** solo alertaspck.ProcesoCLS. | Código de alertaspck.ProcesoCLS |
 | H-BCR-28 | parcial | AlertasEnvioExcepciones, ServerMailConfig.xml y GestionAlertas.properties de producción (analizado el de integración). **Avance 2ª pasada:** AlertasEnvioExcepciones.wkf real: solo 3 procesos personalizados; los de esta cadena van por DEFAULT (6.15 y comun 5.2). | ServerMailConfig.xml y GestionAlertas.properties de produccion |
 | H-BCR-29 | abierta | marcaUsadosTPG1 del Barrido podría fallar sin rastro (a verificar contra el jar desplegado, P-ALE-04). | Jar RDR_AlertasBarrido.jar desplegado |
 | H-BCR-30 | abierta | raiseEvent.sh (invocado por executeBbvaEvent.sh) no recibido: qué devuelve si el workflow termina con error (P-EBE-01). | Código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
