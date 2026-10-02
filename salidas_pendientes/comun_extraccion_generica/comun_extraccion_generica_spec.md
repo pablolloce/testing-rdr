@@ -222,6 +222,16 @@ informa de los fallos.
 | P-EXG-02 | ¿Terminan las cabeceras `HEADER` de `FT_T_PAR1` con salto de línea? | R5 |
 | P-EXG-03 | ¿Se ha llegado a ver en producción un `.tmp` residual en `extracciongenerica/`? | R3 |
 
+**Comprobación con el volcado de workflows de GoldenSource y con las librerías del motor (segunda pasada
+de cierre): sin cambios.** En el volcado no hay clases `MyThreadCpty`, `Constants`, `ConDB` ni
+`ConfigCredentials` de `ExtraccionGenericaOtherEntities.jar`, ni código de `ExtraccionGenericaCPTY.jar` ni de
+`ExtraccionGenericaEMISI.jar`, ni los `log4jExtraccionGenerica*.properties`. Las `ConDB.java` que hay en
+otras evidencias del repositorio (conciliación P-021, alertas) son de otros programas y no se pueden usar
+para deducir cómo se conecta este jar; el `Ppal` de la variante Unificada importa `ConDB`, `ConfigCredentials` y
+`Constants` pero tampoco trae su código. Tampoco hay filas `HEADER` de `FT_T_PAR1` (el único volcado de
+`FT_T_PAR1` que trae son 37 parámetros de otros procesos: `AUDITMEX`, `EMSQUEUE`, `MQQUEUE`, `UNIQUENESS`…), así que
+P-EXG-02 sigue abierta.
+
 ## 7. Procesos que lo usan
 
 | Proceso | Jar | Tipo |

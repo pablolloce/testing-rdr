@@ -9,7 +9,7 @@
 
 ## Configuración e infraestructura
 
-- `bajaniveles.properties` en `/pr/kytl/online/multipais/multicanal/dat/properties/` (si falta, `GSProcess.sh` termina con código 1) y `credentials.xml` en `/pr/kytl/online/multipais/multicanal/cfg/entorno/` (si falta, termina con 0 sin hacer nada). Los eventos de GoldenSource `RDR_BajaCpartiesGL`, `RDR_Reporte` y `RDR_ErroresCSV` y el workflow `BajaCpartiesGL` desplegados.
+- `bajaniveles.properties` en `/pr/kytl/online/multipais/multicanal/dat/properties/` (si falta, `GSProcess.sh` termina con código 1) y `credentials.xml` en `/pr/kytl/online/multipais/multicanal/cfg/entorno/` (si falta, termina con 0 sin hacer nada). Los eventos de GoldenSource `RDR_BajaCpartiesGL`, `RDR_Reporte` y `RDR_ErroresCSV` y los workflows `BajaCpartiesGL`, `Sub_BajaCpartiesGL`, `BajaClientela460`, `GenerateReports` (con su rama `bajaniveles`) y `ErroresCSV` desplegados. El usuario de la base de datos del workflow necesita escritura sobre `FT_T_FIID`, `FT_T_FINS`, `FT_T_FLG1` y `FT_T_RLT1`.
 - Líneas `MEKYTL0351@...` y `MEKYTL0945@...` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` y configuración `/pr/pl/envioweb/idx/MEKYTL0352.idx` (contenido no documentado: P-BNI-03 y P-BNI-04 de la spec). Si faltan, `RAMERC0068.sh` termina con 2 y `MEGENV0001.sh` con 110.
 
 - Cadena Control-M `RDR_CARGA_BAJA_NIVELES_new` (folder `KYTL0000-RDR_CARGA_BAJA_NIVELES_new`, servidor

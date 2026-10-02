@@ -17,6 +17,7 @@ El proceso se nutre de 5 tablas Oracle: `FT_T_FINS` (entidades), `FT_T_FIID` (id
 | TC-007 | 2 instituciones sintéticas con mismo `FINSID`/nombre y distinto identificador MGC |
 | TC-008 | Acceso de lectura a la definición XML vigente de `GenerateReports.gsp` |
 | TC-009 | 1 institución con datos limpios (sin relaciones ni fechas en conflicto) que cumpla el filtro |
+| TC-010 | Entorno de pruebas con `ServerMailConfig.xml`, Excel del día presente/ausente y posibilidad de bloquear el SMTP |
 
 ## Entorno de ejecución
 
@@ -29,6 +30,7 @@ El proceso se nutre de 5 tablas Oracle: `FT_T_FINS` (entidades), `FT_T_FIID` (id
 
 - `informeMIFID.properties.pr` debe existir y estar correctamente parametrizado para que `GSProcess.sh` dispare el evento `RDR_Reporte` (TC-001, TC-002, TC-004, TC-009).
 - El nodo `id="636"` de `GenerateReports.gsp` debe apuntar a `arrayStringSelects[16]` (TC-008). El texto literal del SQL aún no está en la spec (P-INF-01): hasta incorporarlo, TC-008 compara contra la copia que tenga el equipo.
+- El subworkflow `Mail` lee `/<entorno>/kytl/online/multipais/multicanal/dat/properties/ServerMailConfig.xml` (servidor SMTP y remitente por entorno, etiqueta `server` con `id=<entorno>`); si no se puede leer, usa un servidor de desarrollo escrito en el script. Los workflows `GenerateReports`, `Sub_GenerateReports`, `Sub_DevelopReport`, `HistoricizeFiles`, `InformeMIFID` y `Mail` deben estar desplegados.
 - La configuración de correo saliente (destinatarios `elegible.mifid@bbva.com`, un buzón individual (dirección personal omitida), asunto fijo) debe estar operativa para poder confirmar recepción (TC-001, TC-002, TC-009).
 
 ## Sistema de ficheros

@@ -7,7 +7,8 @@
 >
 > Base del análisis: código fuente íntegro del script (960 líneas, bash). Se han recibido tres
 > copias de distintos procesos y las tres son idénticas byte a byte (md5
-> `f3ed3dccb27ce916c9b95b51cb6a4091`), así que hay una única versión. Las piezas a las que llama
+> `f3ed3dccb27ce916c9b95b51cb6a4091`), así que hay una única versión. Lo que ejecutan en GoldenSource los eventos de la acción `Evento` (`StandardFileLoad`, `RDR_Reporte`,
+> `RDR_ErroresCSV`) se ha reconstruido del volcado de la base de workflows (§6.5.1). Las piezas a las que llama
 > tienen su propia spec de componente: `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md`,
 > `salidas_pendientes/comun_delta/comun_delta_spec.md` y `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`.
 
@@ -276,10 +277,10 @@ Comando según `NomEvento` (todos desde el directorio `$RAISEEVENT`):
 
 | `NomEvento` | Comando |
 |---|---|
-| `MDX` | `./executeBbvaEvent.sh fileloading StandardFileLoad $CREDENTIALS <MOD_EJECUCION>.properties` |
+| `MDX` | `./executeBbvaEvent.sh fileloading StandardFileLoad $CREDENTIALS <MOD_EJECUCION>.properties`. Qué hace el workflow: §6.5.1 |
 | `Workflow` | `./executeBbvaEvent.sh fileloading <NomWorkflow> $CREDENTIALS <MOD_EJECUCION>.properties` |
-| `Reporte` | `./executeBbvaEvent.sh fileloading RDR_Reporte $CREDENTIALS <MOD_EJECUCION>.properties` |
-| `Errores` | `./executeBbvaEvent.sh fileloading RDR_ErroresCSV $CREDENTIALS <MOD_EJECUCION>.properties` |
+| `Reporte` | `./executeBbvaEvent.sh fileloading RDR_Reporte $CREDENTIALS <MOD_EJECUCION>.properties`. Qué hace el workflow: §6.5.1 |
+| `Errores` | `./executeBbvaEvent.sh fileloading RDR_ErroresCSV $CREDENTIALS <MOD_EJECUCION>.properties`. Qué hace el workflow: §6.5.1 |
 | otro | `./executeBbvaEvent.sh $ARG_EVENTO $CREDENTIALS <MOD_EJECUCION>.properties`. `ARG_EVENTO` no se define en ningún sitio, así que el comando queda sin tipo de evento y `executeBbvaEvent.sh` lo rechaza por número de parámetros (riesgo R7) |
 
 **El fichero temporal del workflow no se usa** (riesgo R5). Para `NomEvento=Workflow`, el script
@@ -298,6 +299,84 @@ evalúa `RESULT=$?`, que es el código del **último comando de la rama**. En la
 siempre 0, el workflow no suma a `$Errores` y `StopEve=Ok` no lo detiene. En las ramas `MDX`,
 `Reporte`, `Errores` y la genérica, el último comando sí es `executeBbvaEvent.sh` y su código se
 evalúa correctamente.
+
+#### 6.5.1 Qué hace cada evento dentro de GoldenSource (workflows reconstruidos)
+
+**Procedencia.** Volcado de la base de workflows de GoldenSource (catálogo, nodos, transiciones, parámetros y eventos) y código Java de las actividades leído del jar del motor. Las versiones son las del volcado: `Standard File Load` v5 (workflow estándar de GoldenSource 8.7, última modificación 21/05/2022) y los workflows RDR en `Custom/RDR/Integracion_MGC-GS/…` (última modificación 05/11/2022, usuario `KYTL_GC`). Es la definición instalada en ese volcado, no necesariamente la que corre hoy en producción. **Límite del volcado:** los scripts BeanShell y las SELECT de varias líneas aparecen cortados a su primera línea; donde falta texto se indica.
+
+**Cómo reciben los datos.** `executeBbvaEvent.sh` pasa el `.properties` completo como fichero de entrada del evento (spec común de `executeBbvaEvent.sh`, §4). Los parámetros que declara cada workflow se llaman igual que claves del `.properties` (`Ruta`, `Servicio`, `File`, `MessageType`, `BusinessFeed`, `SuccessAction`, `Delta`). Las claves que el workflow no declara no le sirven; las que faltan toman el valor por defecto del workflow. (El emparejamiento por nombre se deduce de las definiciones; no se ha probado en ejecución.)
+
+| `NomEvento` | Evento de aplicación (`APPL_EVENT_NME`) | Workflow que lanza | Parámetros que lee del `.properties` |
+|---|---|---|---|
+| `MDX` | `StandardFileLoad` | `Standard File Load` v5 | `File` (obligatorio), `BusinessFeed`, `MessageType`, `SuccessAction`, `OutputDirectory`, `BulkSize`, `ParallelBranches`… |
+| `Reporte` | `RDR_Reporte` | `GenerateReports` v20 | `Ruta` y `Servicio` (ambos obligatorios) |
+| `Errores` | `RDR_ErroresCSV` | `ErroresCSV` v6 | `Ruta`, `Servicio`, `File`, `MessageType` (obligatorios) y `Delta` (opcional, por defecto `No`) |
+
+Nota: el evento `LoadMDX` (workflow `ParseMDXLayout`) es **otro** evento y `GSProcess.sh` no lo lanza: la acción `MDX` lanza `StandardFileLoad`.
+
+**A. Acción `MDX` → `Standard File Load` (carga de un fichero de entrada con el feed y el mapeo MDX del tipo de mensaje)**
+
+- Entradas: `File` (URI del fichero, obligatorio), `BusinessFeed`, `MessageType`, `SuccessAction` (`MOVE`, `DELETE` o `LEAVE`; por defecto `LEAVE`), `OutputDirectory` (obligatorio si `SuccessAction=MOVE`; si falta, error de parámetro), `BulkSize` (500), `ParallelBranches` (2), `MessageProcessingEvent` (`ProcessFeedMessage`), `SortedFileDirectory`, `ClientId`, `JobDefinitionId`, `ParentJobId`, `ProcessingDate` y otros propios de precios. Salida: `JobId`.
+- Secuencia: **crea el job** de la carga (queda en `FT_T_JBLG` con el fichero y el tipo de mensaje) → **abre el fichero** según la definición del feed → lee de la configuración (`jdbc/configuration`) los tipos de mensaje (según los nodos, por `MessageType` o, si no hay, los del `BusinessFeed`; la SELECT completa no está en el volcado) → ejecuta el subworkflow `Parallel File Load Sub`, normal o en `ParallelBranches` ramas → **cierra el job** → `End the FileLoad`.
+- `Parallel File Load Sub` (v5): lee el fichero en bloques (`File Split Condition`), traduce cada mensaje con el mapeo (`Translate Message`), lo procesa en su propia transacción con el evento `ProcessFeedMessage` (workflow `Basic Message Processing`), cierra la transacción y lanza la publicación. Un mensaje con error o fatal no detiene el fichero: las salidas `success`, `error` y `fatal` de `Process Message` convergen en el mismo punto; el error queda en la transacción (`FT_T_TRID`, severidad) y en las notificaciones.
+- Efecto de `SuccessAction` (código de la actividad `EndFile`): `LEAVE` **no toca el fichero** y marca como terminado el punto de control de la carga (`CheckpointRestart.setDone(true)`); `DELETE` lo borra; `MOVE` lo mueve a `OutputDirectory`. Los procesos RDR descritos usan `LEAVE`.
+- Si el fichero no se puede abrir: crea una transacción, registra una notificación (aplicación `INFSTRCT`, parte `CONTROLR`, con el texto de la excepción), la cierra y sigue por el camino común hasta cerrar el job. Es decir, **un fichero ilegible no aborta el workflow** (cabecera: `haltOnError=N`, `retries=3`).
+- Consecuencia para `GSProcess.sh`: el evento puede terminar "bien" con cero registros cargados; la forma de ver qué ha pasado es el job y las transacciones (`FT_T_JBLG`, `FT_T_TRID`, `FT_T_RLT1`) o el evento `Errores`.
+- Los contenidos del mapeo (por ejemplo `db://resource/RDR/mapping/LEI/cargaLEI.mdx` del feed `CargaLEI`) están en la base de datos como recursos; **no vienen en el volcado**, así que el efecto campo a campo de cada carga se documenta (si se conoce) en la spec de cada proceso.
+
+**A'. Evento `LoadMDX` → `ParseMDXLayout` (no lo lanza `GSProcess.sh`)**
+
+Workflow v2 (grupo `Staging`). Entradas `MessageType` y `BusinessFeed`; salida `Result` (identificador del tipo de registro creado). Si `parseType` es `BUSINESSFEED` llama a `ParseMDXLayoutForBusinessFeed`; en cualquier otro caso (incluido nulo) ejecuta la actividad `ParseMDXLayout`. Esa actividad **no carga datos**: lee el recurso MDX del tipo de mensaje (y su MDX base si lo declara con `OMDX.Base`/`BaseMDX`) y registra su estructura en la configuración (`FT_CFG_BFRT` tipos de registro, `FT_CFG_VSFD` campos, `FT_CFG_BFFP` posiciones, `FT_BE_BETP`, y el esquema del tipo de registro). Captura todas las excepciones (las imprime) y devuelve éxito, de modo que **nunca falla el workflow aunque el MDX sea inválido**: el único síntoma sería un tipo de registro sin crear.
+
+**B. Acción `Reporte` → `GenerateReports` (informes CSV por servicio)**
+
+Descripción del evento en el catálogo: "ejecutará WorkFlow de Reporte de Informes para Usuario dependiendo del Servicio que se indique". No devuelve nada al evento.
+
+1. `Initialize Variables` construye el array `arrayStringSelects` con las SELECT de todos los informes (script de 27.736 bytes que **no está en el volcado**).
+2. `Switch Case` sobre `Servicio` (si no coincide, rama `OUT`, que termina sin generar nada). Ramas: `bajaniveles`, `bajas`, `nlegales`, `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR`, `cedro`, `clientes`, `informeMIFID`, `LOPD`, `OFAC`, `OFAC2`, `OUT` y `bancarizacion` (esta última termina sin generar nada desde aquí).
+3. Cada rama fija el nombre del fichero y la SELECT (`Select` = un elemento de `arrayStringSelects`) y llama a `Sub_GenerateReports`:
+
+| `Servicio` | Fichero que genera | Cabecera |
+|---|---|---|
+| `bajaniveles` | `Reporte_bajaniveles.csv` | no identificable en el volcado |
+| `informeMIFID` | `Reporte_informeMIFID.csv` | `Entity Name;FINSID;Fiscal Identifier type;Identifier;MGC Identifiers;Resources;Annual Turnover;Total Assets;Exercise date;Expiration date` |
+| `bajas`, `nlegales`, `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR` | `Reporte_bajas.csv`, `Reporte_nlegales.csv`, `Reporte_cargafechasGTR.csv`, `Reporte_cargafechasMGC.csv`, `Reporte_cargafechasSTAR.csv` | no identificable |
+| `cedro`, `clientes` | `Reporte_cedro.csv`, `Reporte_clientes.csv` | no identificable |
+| `LOPD` | `LOPDReport.csv` | no identificable |
+| `OFAC`, `OFAC2` | varios (bucle `For Each Split` sobre `mapSelects`: cada elemento trae `FileName`, `Header` y `Select`) | por elemento |
+
+Los 12 nodos `Reportes` comparten nombre, por lo que el volcado no permite asignar con seguridad cada cabecera a su rama salvo la de `informeMIFID` (por coincidir sus columnas con las del informe). Aparecen además las cabeceras `FINSID;Legal Name;Level;Current Data Status;Message` (dos veces), `Reporte Cedro` y `Reporte Clientes Exclusivos`.
+
+4. `Sub_GenerateReports` v5 (entradas `Ruta`, `Servicio`, `Select`, `FileName`, `Header`): la carpeta de trabajo es `Carpeta = Ruta + Servicio + "/"` (por ejemplo `/fichtemcomp/pr/descargas/kytl/bajaniveles/`). Ejecuta la SELECT contra `jdbc/GSDM-1` (con un límite de filas cuyo valor no consta en el volcado). **Con filas:** llama a `Sub_DevelopReport`. **Sin filas:** historifica el fichero anterior y escribe el fichero con **una sola línea, el texto `La select no devuelve valores` (sin cabecera)**. Un informe vacío es, por tanto, un fichero con ese texto, no un fichero ausente.
+5. `Sub_DevelopReport` v4: historifica el fichero anterior, recorre las filas, escribe cada una en un fichero provisional `dummy<FileName>` en la misma carpeta (añadiendo; la cabecera se escribe solo al crear el fichero) y al final lo renombra con `mv -f <Carpeta>dummy<FileName> <Carpeta><FileName>`. El texto de formateo de cada línea no está en el volcado.
+6. `Sub_GenReportHost` v8 ("reporte en formato Host, texto plano"): es la variante usada por una de las ramas en lugar de `Sub_GenerateReports`; usa solo la primera columna de cada fila, escribe en UTF-8 y, si no hay filas, escribe `Not applicable information for this report`. No se puede saber qué servicio la usa (los nodos comparten nombre).
+
+Si falla: el workflow tiene `haltOnError=N` y `retries=0`, y no devuelve código al evento. Un error en la SELECT o al escribir queda en el log del servidor de GoldenSource; el síntoma visible es un fichero ausente (si falla antes de renombrar) o desactualizado. **Cada ejecución mueve primero el fichero anterior a `old/`**, de modo que si el informe nuevo no se genera, el del día anterior ya no está en la carpeta de trabajo.
+
+**C. Acción `Errores` → `ErroresCSV` (fichero de errores de la última carga del servicio)**
+
+Genera `<Ruta><Servicio>/<Servicio>_errores.csv` (por ejemplo `LEI/LEI_errores.csv`) con los errores de la **última carga de ese fichero y tipo de mensaje**, y, si `Delta=Si`, marca los registros erróneos.
+
+1. Calcula `Carpeta = Ruta + Servicio + "/"`, `fileName = Servicio + "_errores.csv"` y `DummyName = "dummy" + fileName`.
+2. `HistoricizeFiles(Carpeta, fileName)`: mueve (`mv -f`) el `<Servicio>_errores.csv` anterior a `<Carpeta>old` (sobrescribe el del mismo nombre que hubiera en `old`) y elimina ficheros provisionales y antiguos (los comandos exactos de estas dos limpiezas no están en el volcado). **Este paso se ejecuta antes de comprobar nada:** si luego no hay carga, el fichero de errores del día anterior desaparece de la carpeta de trabajo.
+3. `Hay JOB??`: busca en `FT_T_JBLG` el último job `CLOSED` cuyo `JOB_INPUT_TXT` sea `File`, con `JOB_MSG_TYP = MessageType` y con inicio **en la última hora** (`job_start_tms >= sysdate - 1/24`). Si no hay ninguno (no se cargó nada en la última hora, o `File`/`MessageType` llegan vacíos: en Oracle comparar con nulo no devuelve filas) **termina sin escribir fichero y sin error**. El caso de valores vacíos es una deducción: si GoldenSource rechazara antes el parámetro obligatorio vacío, el evento fallaría al arrancar; no se ha probado.
+4. Errores funcionales: `FT_T_RLT1` con `RLT_PURP_TYP='ERRORES'` del `JOB_ID`, unido a `FT_T_TRID`, ordenado por `RECORD_SEQ_NUM`; tipo `Funcional`.
+5. Errores técnicos: `FT_T_TRID` del `JOB_ID` con `CRRNT_SEVERITY_CDE > 39`; tipo `Tecnico`. Por cada transacción llama a `SubErroresCSV`, que añade al mismo fichero provisional las filas de notificación de esa transacción (SELECT DISTINCT sobre `NTXT`; texto completo no disponible).
+6. Cada fila se escribe con todas sus columnas separadas y terminadas en `;` (los nulos como vacío), añadiendo al fichero provisional `dummy<Servicio>_errores.csv`; la cabecera, escrita al crear el fichero, es `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`.
+7. Al final `mv -f <Carpeta>dummy… <Carpeta><Servicio>_errores.csv`. Si no hubo ninguna fila de error el fichero provisional no existe y no se crea `<Servicio>_errores.csv`: **sin fichero = sin errores** (el workflow no evalúa el código de retorno del `mv`: la actividad `CommandLine` solo falla si no puede arrancar el proceso).
+8. `Delta?`: si el parámetro `Delta` vale `Si` (clave del `.properties`; no tiene que ver con la acción `Script Delta` de `GSProcess.sh`), llama a `MarcaRegErroneo`. Con cualquier otro valor o sin él, termina.
+
+`MarcaRegErroneo` v7 (único de estos workflows con `haltOnError=Y`): selecciona los `MAIN_ENTITY_ID` de `FT_T_RLT1` del job con `RLT_PURP_TYP='ERRORES'`; por cada uno escribe una línea en `db_errores.txt` (en `Carpeta`) y ejecuta un comando de shell (`errores_to_file`) cuyo texto y script no están en el volcado. Según la descripción del propio parámetro `Delta` en el workflow, sirve para marcar los registros erróneos en el fichero de entrada de modo que **al día siguiente vuelvan a pasar por el proceso** en la comparación diferencial.
+
+**D. Qué falta (no está en el volcado)**
+
+| Pieza | Falta |
+|---|---|
+| `GenerateReports`, nodo `Initialize Variables` | Texto del script (27.736 bytes): las SELECT de todos los informes |
+| `Sub_DevelopReport`, nodo `Prepare Line`; `Sub_GenReportHost`, nodo `Formateo Query` | Cómo se formatea cada línea (separador) |
+| `HistoricizeFiles`, nodo `Prepare commands` | Los comandos de limpieza (`rmCommand`, `rmOldCommand`: qué borra y con qué antigüedad) |
+| `MarcaRegErroneo`, nodo `Variables` y script `errores_to_file` | Qué hace exactamente el marcado |
+| `ErroresCSV`/`SubErroresCSV` | SELECT de `NTXT` de `SubErroresCSV` (sale cortada) |
 
 ### 6.6 Acción `Property` (`Accion=Prop…`)
 
@@ -407,6 +486,8 @@ Todos verificados leyendo el código. Ninguno se ha corregido.
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-GSP-01 | ¿Quién sustituye el marcador `@@ENV@@` de los `.properties` (por ejemplo el de `cortarFicheroCestasAbaco`)? ¿El proceso de despliegue? | `GSProcess.sh` solo sustituye `$ENV`. Si nadie sustituye `@@ENV@@`, las rutas de esos `.properties` no existen y las acciones fallarían |
+| H-GSP-06 | ¿Cuáles son las SELECT de `GenerateReports` (array `arrayStringSelects`) para cada `Servicio`? | El script del nodo `Initialize Variables` (27.736 bytes) no está en el volcado. Sin él, el contenido de cada informe (`Reporte_bajaniveles.csv`, `Reporte_informeMIFID.csv`…) solo se conoce por lo que cuenta cada proceso |
+| H-GSP-07 | ¿Qué hacen exactamente el script `errores_to_file` (invocado por `MarcaRegErroneo`) y los comandos de limpieza de `HistoricizeFiles` (`rmCommand`, `rmOldCommand`)? | Sus textos salen cortados en el volcado. Afectan a qué se marca como erróneo con `Delta=Si` y a qué se borra de las carpetas de trabajo y de `old/` |
 
 ## 12. Procesos que lo usan
 

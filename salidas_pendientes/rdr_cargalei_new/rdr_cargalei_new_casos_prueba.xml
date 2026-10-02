@@ -43,7 +43,7 @@
     <pasos>
       <paso numero="1">Ejecutar la cadena con ese XML.</paso>
       <paso numero="2">Consultar FT_T_TRID para el JOB_ID de la carga con CRRNT_SEVERITY_CDE &gt; 39.</paso>
-      <paso numero="3">Comprobar que el fichero de errores de ErroresCSV contiene el registro erróneo.</paso>
+      <paso numero="3">Comprobar que /fichtemcomp/&lt;env&gt;/descargas/kytl/LEI/LEI_errores.csv (cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;…;NOTFCN_SHORT_TXT;) contiene el registro erróneo como Funcional o Tecnico, que el del día anterior está en LEI/old/ y que, por traer LEI.properties Delta=Si, se ha escrito LEI/db_errores.txt (MarcaRegErroneo).</paso>
       <paso numero="4">Comprobar que los registros válidos están cargados en GoldenSource.</paso>
     </pasos>
     <resultadoEsperado>El registro erróneo aparece en FT_T_TRID con severidad mayor que 39 y en el fichero de errores; los registros válidos quedan cargados.</resultadoEsperado>
@@ -248,6 +248,28 @@
     <tipoValidacion>Comparación del fichero con el resultado esperado.</tipoValidacion>
     <criterioAceptacion>Coincidencia exacta de las dos filas (el orden entre ellas no está garantizado).</criterioAceptacion>
     <posibilidadFallo>COMMENTS no se recorta con trim: un espacio inicial en el primer trozo se conserva.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="borde">
+    <nombre>ErroresCSV no encuentra la carga: ventana de una hora</nombre>
+    <objetivo>Confirmar que, si la carga de LEI.csv se inició hace más de una hora cuando se ejecuta el evento Errores, no se genera LEI_errores.csv aunque haya registros erróneos, y que no hay ningún error visible (RISK-LEI-007).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción).</precondicion>
+      <precondicion>XML de GLEIF con al menos un LEIRecord erróneo (como en TC-002) y forma de retrasar más de una hora los pasos 5 o 6 de LEI.properties (por ejemplo un RDR_Report.jar lento simulado) o de lanzar el evento Errores a mano pasada la hora.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Antigüedad de la carga al lanzar ErroresCSV" valor="más de 60 minutos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el fichero con registros erróneos y comprobar en FT_T_JBLG que el job está CLOSED con JOB_START_TMS de hace más de una hora.</paso>
+      <paso numero="2">Lanzar el evento Errores (./executeBbvaEvent.sh fileloading RDR_ErroresCSV ... LEI.properties).</paso>
+      <paso numero="3">Comprobar que el LEI_errores.csv anterior se ha movido a LEI/old/, que no se ha creado un LEI_errores.csv nuevo, que no existe db_errores.txt nuevo y que GSProcess.sh termina con código 0.</paso>
+      <paso numero="4">Repetir con la carga iniciada hace menos de una hora y comprobar que ahora sí se genera el fichero.</paso>
+    </pasos>
+    <resultadoEsperado>Con la carga de más de una hora no se genera fichero de errores ni marca de registros erróneos y no hay error; con menos de una hora sí.</resultadoEsperado>
+    <tipoValidacion>Consulta a FT_T_JBLG, ficheros de la carpeta LEI y log de GSProcess.sh.</tipoValidacion>
+    <criterioAceptacion>Comportamiento coincidente con el descrito; si se genera el fichero con más de una hora, la ventana de ErroresCSV no es la de la versión del volcado y la spec debe corregirse.</criterioAceptacion>
+    <posibilidadFallo>Que la versión de ErroresCSV en producción sea otra (el volcado es de 2022) o que JOB_INPUT_TXT no coincida con el valor de File y el fichero no se genere en ningún caso.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

@@ -102,6 +102,12 @@ En algunas cadenas los eventos de estos jobs siguen otra convención de nombres
 |---|---|---|
 | P-LPF-01 | ¿Se pueden obtener `LPFTPEXCA0000.sh`, `LPFTPEXCA0002.sh` y la configuración de la pasarela para los identificadores `MEXIRM…` que usa RDR? **Parcial:** las fichas de borrado resuelven qué se borra (un fichero concreto con fecha, §2.1); siguen sin conocerse destino, protocolo, códigos de salida, qué hace `0002` si no encuentra el fichero y cuál es el nombre vigente de los jobs (`MEKYTL1104_*` o `MEXIRM1104_*`) | Sin ellos no se pueden especificar destino, protocolo, códigos de salida ni comportamiento ante fallos |
 
+**Comprobación con el volcado de workflows de GoldenSource (segunda pasada de cierre): sin cambios.** Los
+scripts de shell de pasarela (`LPFTPEXCA0000.sh`, `LPFTPEXCA0002.sh`) y la configuración de las
+transferencias `MEXIRM…` no son artefactos de GoldenSource y no figuran en el volcado (ni en sus workflows,
+eventos, consultas ni recursos). Las fichas `EX-005-03` de los jobs `MEKYTL1104_SND`/`_DEL` ya recogidas no
+añaden más de lo descrito en §2 y §3.
+
 ## 6. Procesos que lo usan
 
 `cesion_contratos_bbva` (`MEXIRM0022`, `MEXIRM0096`), `extraccion_generica_cestas`,

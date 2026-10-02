@@ -112,6 +112,17 @@ la salida del job.
 | P-EBE-01 | ¿Qué devuelve `raiseEvent.sh --querystatus` cuando el workflow ha **terminado con error**: 0, o distinto de 0? | Si devuelve 0, un workflow fallido se da por correcto y el proceso sigue. Si devuelve distinto de 0, el script sigue esperando hasta agotar el tiempo y entonces falla con `Exceeded timeout`, lo que retrasa el fallo y lo etiqueta mal. Sin el código de `raiseEvent.sh` o una prueba no se puede saber |
 | P-EBE-02 | ¿Cuál es el valor de `<timeout>` en `credentials.xml` de cada entorno? | Fija cuánto espera cada evento antes de darse por fallido |
 
+**Comprobación con el volcado de workflows de GoldenSource (segunda pasada de cierre): sin cambios en
+P-EBE-01.** El volcado no contiene `raiseEvent.sh` ni ninguna cadena `querystatus` / `WorkFlow ID` (se
+han buscado también en los jars del motor). Lo único que aparece con ese nombre es la actividad
+`com.j2fe.event.RaiseEvent`, que lanza un evento desde dentro de un workflow y no es la herramienta de
+línea de comandos. Sí aporta un dato de contexto: los workflows RDR que lanza `GSProcess.sh` (ver
+`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.1) tienen `haltOnError=N` y
+`retries=0`, y los errores de datos (un mensaje, un fichero ilegible, una SELECT sin filas) **no hacen
+fallar el workflow**, de modo que lo que responda `--querystatus` ante un workflow fallido solo
+importaría ante un fallo duro dentro de un nodo. El código de `raiseEvent.sh` o una prueba con un
+workflow que falle siguen siendo necesarios.
+
 ## 8. Procesos que lo usan
 
 Todos los que tienen una acción `Evento` en su `.properties` de `GSProcess.sh` (cargas MDX,

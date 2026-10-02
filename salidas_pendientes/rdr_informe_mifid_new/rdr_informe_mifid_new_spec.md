@@ -49,8 +49,13 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
   economicos cerca de expirar".
 - R6: `MEKYTL0353` mueve el CSV a `.../informeMIFID/old/` renombrándolo `Reporte_informeMIFID_<yyyymmdd>.csv`.
 - R7: `MEKYTL0362` mueve el Excel a `.../informeMIFID/old/` con el mismo nombre.
-- R8: sin contrapartidas que cumplan el filtro no es un error: CSV solo con cabecera, Excel con la hoja vacía y
-  correo enviado igual.
+- R8: sin contrapartidas que cumplan el filtro no es un error y el correo se envía igual. **Corrección (segunda
+  pasada de cierre):** la versión anterior decía "CSV solo con cabecera, Excel con la hoja vacía". Según los
+  workflows `Sub_GenerateReports`/`Sub_DevelopReport` reconstruidos del volcado de GoldenSource (§6.3), cuando la
+  SELECT no devuelve filas el CSV **no lleva cabecera**: contiene una sola línea de texto, `La select no devuelve
+  valores`. Qué hace entonces `InformeMIFID.jar` con esa línea (¿la escribe como dato en la hoja `CtpdasExpiran`?, ¿la
+  salta como si fuera la cabecera?) no consta, porque su código no está en el repositorio (P-INF-05). El resultado
+  se debe comprobar en TC-002.
 - R9: si falta la plantilla, el Java falla con una excepción no capturada al abrirla (`FileInputStream`) y no
   genera el Excel.
 
@@ -83,11 +88,12 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
 
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción |
+| P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción **Segunda pasada de cierre:** el volcado de workflows de GoldenSource contiene `GenerateReports` v20, pero el script del nodo `Initialize Variables` que construye el array de SELECT (27.736 bytes) sale como blob sin texto, así que el SQL literal sigue sin estar. Lo que el volcado confirma: la rama `informeMIFID` fija `FileName = Reporte_informeMIFID.csv` y la cabecera de §6.3 (R3) es una constante del workflow |
 | P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar`. **Resuelta en parte (pasada de cierre):** el análisis original del proceso confirma las tres etapas, el evento `RDR_Reporte`, el evento `RDR_InformeMIFID` y que el Java recibe el CSV y el nombre base `Reporte_informeMIFID`; nombra el jar de dos formas (`InformeMIFID.jar` y `RDR_InformeMIFID.jar`, clase `InformeMIFID`; por la convención `RDR_*.jar` de otras cadenas, el nombre real probablemente es `RDR_InformeMIFID.jar`, sin confirmar). Siguen sin constar el literal, `Stop` y el nombre exacto del jar |
 | P-INF-03 | ¿Con qué script historifican `MEKYTL0353` y `MEKYTL0362` (¿`RAMERC0068.sh`?) y con qué configuración? | Para saber si fallan cuando falta el fichero |
 | P-INF-04 | Los Excel observados (`_20260729`, `_20260827`, `_20260901`) se generaron en miércoles, jueves y martes, no en tercer lunes de mes. ¿Fueron ejecuciones manuales o la planificación real es otra? | Contradice R1; decide cuándo hay que esperar el informe |
 | P-INF-05 | ¿Cómo maneja `InformeMIFID.java` el fallo de escritura final (código de salida)? | La spec recoge que el error se captura sin propagarse: el job podría terminar OK sin Excel |
+| H-INF-07 | ¿Qué calcula el script `Inicializa variables` del workflow `InformeMIFID` (`ruta`, `fileMail`, `nameFile`, `mail`)? | Decide qué fichero se adjunta (¿el Excel con fecha del día?), con qué nombre y con qué cuerpo. El texto (1.520 bytes) no viene en el volcado de workflows; sin él no se puede afirmar qué adjunto lleva el correo ni si sale sin adjunto cuando falta el Excel del día |
 
 ## 5. Especificación funcional
 
@@ -105,7 +111,7 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
 **Resultado final:** correo enviado; en `informeMIFID/old/` quedan `Reporte_informeMIFID_<yyyymmdd>.csv` y
 `Reporte_informeMIFID_<yyyyMMdd>.xlsx`; la plantilla sigue en `informeMIFID/`.
 
-**Sin resultados:** CSV solo con cabecera, Excel con la hoja vacía, correo enviado.
+**Sin resultados:** CSV de una sola línea (`La select no devuelve valores`, sin cabecera), Excel según lo que haga el Java con esa línea (P-INF-05), correo enviado.
 **Sin plantilla:** el Java falla; el resto depende de P-INF-02 (§4.1).
 
 ## 6. Especificación técnica
@@ -156,6 +162,22 @@ activas en `FT_T_FIRL` sale una vez por relación (Hallazgo A).
 
 Salida: `/fichtemcomp/<env>/descargas/kytl/informeMIFID/Reporte_informeMIFID.csv`, separador `;`.
 
+**Cómo ejecuta `GenerateReports` esta rama (reconstruido del volcado de workflows de GoldenSource; detalle genérico en
+`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.1).** `GenerateReports` v20 recibe `Ruta` y
+`Servicio` del `.properties` (`Servicio=informeMIFID`) y, tras construir el array de SELECT, bifurca por `Servicio`.
+En la rama `informeMIFID` (nodo `Initialize Variable datoseco`) fija `FileName = Reporte_informeMIFID.csv`, toma su
+`Select` del array (el índice 16 es el que da la documentación original; el volcado corta ahí el script) y llama a
+`Sub_GenerateReports` con la cabecera de columnas de arriba. `Sub_GenerateReports` trabaja en la carpeta
+`Ruta + "informeMIFID/"`:
+1. Ejecuta la SELECT contra `jdbc/GSDM-1`.
+2. **Con filas:** `Sub_DevelopReport` mueve el `Reporte_informeMIFID.csv` anterior a `informeMIFID/old/` (con el mismo
+   nombre, sin fecha; `MEKYTL0353` lo habrá movido ya con fecha, así que normalmente no hay nada que mover), escribe
+   la cabecera y las filas en un fichero provisional `dummyReporte_informeMIFID.csv` y lo renombra al final.
+3. **Sin filas:** historifica igual el anterior y escribe el fichero con **una sola línea, `La select no devuelve
+   valores`, sin cabecera.**
+Si falla algo en esta rama, el workflow (`haltOnError=N`, `retries=0`) no devuelve error al evento: el síntoma es un
+CSV ausente o antiguo, y el Java fallaría después al no encontrarlo (P-INF-05).
+
 | Columna | Contenido |
 |---------|-----------|
 | `Entity Name` | Nombre de la entidad |
@@ -183,6 +205,26 @@ Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; un
 "Informe MIFID con datos economicos cerca de expirar". Adjunto: el Excel generado. El workflow
 `envioReporteMail.gsp` no interviene (sus variables `LEI`/`C460` son de otros procesos).
 
+**Qué hace el workflow (reconstruido del volcado de workflows de GoldenSource, versión 3 de `InformeMIFID`, 05/11/2022).** El evento
+`RDR_InformeMIFID` ("Informe contrapartidas con datos economicos cerca de expirar") lanza `InformeMIFID`, de solo
+dos pasos: `Inicializa variables` (un script que calcula `ruta`, `fileMail`, `nameFile` y `mail`: el cuerpo, el fichero a adjuntar y su nombre; su texto, 1.520 bytes,
+no viene en el volcado) y la llamada al subworkflow `Mail` con `Destination`, `Subject`, `FileMail`, `NameFile` y `Mail`.
+Por defecto `Servicio` vale `informeMIFID` y `Subject` el asunto anterior.
+
+**Subworkflow `Mail` v6 (`Custom/RDR/Common`, texto completo disponible):**
+1. `HOST - USER`: deduce el entorno por la **existencia de directorios** (`/pr/kytl/online/multipais/multicanal/cfg/entorno/`,
+   luego `pp`, `ei`, `de`; el primero que exista) y lee del fichero `/<entorno>/kytl/online/multipais/multicanal/dat/properties/ServerMailConfig.xml`
+   la etiqueta `server` con `id=<entorno>` y de ella `host` y `user` (servidor SMTP y remitente). Si no puede leerlo,
+   **se queda con un servidor y un remitente de desarrollo escritos en el propio script**; no hay error ni aviso.
+2. Envío: SMTP sin autenticación por el puerto 25; el remitente es `user`; el destinatario o destinatarios se obtienen
+   separando `Destination` por `;`; el cuerpo es el texto `Mail`; **el adjunto solo se añade si el fichero `FileMail` existe**
+   (si no existe, el correo sale sin adjunto y sin aviso) con el nombre `NameFile`.
+3. **Todos los errores se capturan y solo se imprimen** (`printStackTrace`): un fallo de conexión, un destinatario inválido
+   o un servidor caído no hacen fallar el workflow ni el job. Tampoco devuelve ningún resultado.
+Consecuencias: (a) si falta el Excel nuevo el correo puede salir igualmente sin adjunto; (b) si el correo no se envía, nadie lo
+sabe desde Control-M: la única traza está en el log del servidor de GoldenSource; (c) en un entorno donde falte `ServerMailConfig.xml`
+el correo intentaría salir por el servidor de desarrollo. Los valores de `ServerMailConfig.xml` por entorno no se documentan aquí.
+
 ### 6.6 Inventario de ejecutables
 
 | Ejecutable | Lo invoca | ¿Recibido? | Dónde está analizado |
@@ -190,18 +232,18 @@ Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; un
 | `GSProcess.sh` | `KYTL_INFMIFID_GSPROCESS` | Sí | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; §6.2 |
 | `informeMIFID.properties.pr` | `GSProcess.sh` | Descrito; literal no | §6.2; P-INF-02 |
 | `executeBbvaEvent.sh` | Acciones `Evento` | Sí | `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
-| `GenerateReports.gsp` (rama 636, SQL `arrayStringSelects[16]`) | Evento `RDR_Reporte` | Analizado en sesión; SQL literal no incorporado | §6.3; P-INF-01 |
+| `GenerateReports.gsp` (rama 636, SQL `arrayStringSelects[16]`) | Evento `RDR_Reporte` | Estructura reconstruida del volcado de workflows de GoldenSource (§6.3); SQL literal no disponible | §6.3; P-INF-01 |
 | `InformeMIFID.jar` | Acción `Java` | Código analizado en sesión | §6.4; P-INF-05 |
-| `InformeMIFID.gsp` | Evento `RDR_InformeMIFID` | Analizado en sesión | §6.5 |
+| `InformeMIFID.gsp` y subworkflow `Mail` | Evento `RDR_InformeMIFID` | Reconstruidos del volcado; solo falta el script `Inicializa variables` (1.520 bytes) | §6.5 |
 | Historificación de `MEKYTL0353`/`MEKYTL0362` | Control-M | No | P-INF-03 |
 
 ## 7. Especificación de testing
 
-8 casos por condición (TC-001 a TC-008) y uno de extremo a extremo (TC-009), en
+9 casos por condición (TC-001 a TC-008 y TC-010) y uno de extremo a extremo (TC-009), en
 `rdr_informe_mifid_new_casos_prueba.xml`:
 
 - **TC-001 (happy_path):** una contrapartida en el filtro → CSV, Excel, correo e historificación (R1-R7).
-- **TC-002 (negativo):** ninguna en el filtro → CSV solo cabecera, Excel vacío, correo (R8).
+- **TC-002 (negativo):** ninguna en el filtro → CSV de una línea `La select no devuelve valores`, Excel según el Java, correo (R8).
 - **TC-003 (error_funcional):** sin plantilla → el Java falla y el job queda NOTOK; correo según P-INF-02 (R9).
 - **TC-004 (borde):** `EXPDATE` en los límites del mes siguiente (R2).
 - **TC-005 (duplicidad):** Hallazgo A, varias relaciones activas.
@@ -209,6 +251,7 @@ Destinatarios fijos en el parámetro `Destination`: `elegible.mifid@bbva.com; un
 - **TC-007 (datos_sinteticos):** dos instituciones con mismo `FINSID` y nombre.
 - **TC-008 (regresion):** la rama 636 sigue usando el mismo SQL.
 - **TC-009 (e2e):** ciclo mensual completo.
+- **TC-010 (negativo):** correo sin Excel adjunto y fallo de envío no visible (§6.5).
 
 TC-001 a TC-008 cubren cada paso y condición de §5-§6; TC-009 el flujo completo. TC-004 a TC-007 necesitan
 escritura en tablas maestras: solo en entorno de pruebas.
@@ -226,9 +269,12 @@ escritura en tablas maestras: solo en entorno de pruebas.
 | TC-007 | Sin deduplicación | R3, R4 |
 | TC-008 | Rama compartida intacta | R2 |
 | TC-009 | Flujo completo | R1-R9 |
+| TC-010 | El correo sale sin adjunto si falta el Excel y un fallo de envío no se ve | R5 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
+- **Informe vacío sin cabecera:** sin filas, el CSV es una línea de texto, no un CSV con cabecera (R8); el Java puede escribirla en el Excel como si fuera un dato.
+- **Correo que no se entera de los fallos:** el subworkflow `Mail` captura todos los errores; si no puede enviar, el job termina en OK (§6.5).
 - **Plantilla estática sin responsable:** sin cambios desde 03/04/2020 ni proceso de mantenimiento.
 - **Fallo silencioso en la escritura del Excel** (P-INF-05): el job podría terminar OK sin Excel.
 - **Correo sin Excel nuevo:** si falta la plantilla y no hay `Stop`, el correo se lanza igualmente (§4.1).

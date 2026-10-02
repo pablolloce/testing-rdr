@@ -330,6 +330,17 @@ documento; cada spec de proceso que use una de ellas debe incluir su query o dec
 | P-PLA-08 | ¿Qué hace `cleanSchedules()`? | Puede modificar o filtrar calendarios antes de decidir qué se ejecuta |
 | P-PLA-09 | ¿Tienen las 21 queries un `ORDER BY` que identifique cada fila de forma única? | R10: sin él, los ficheros de más de 1.000 filas pueden tener filas repetidas o perdidas |
 
+**Comprobación con el volcado de workflows de GoldenSource (segunda pasada de cierre): ninguna de estas
+preguntas queda cerrada.** El volcado contiene los workflows, eventos y tareas Quartz de GoldenSource, no
+el motor del planificador: no hay `ProjectMain.jar`, ni referencias a `RDR_SW_PLANIFICADOR`, `ProjectMain`,
+`FT_T_ATE1` o `FT_T_QPF1` en los workflows, eventos o consultas de publicación, y las 48 tareas Quartz que
+trae (`Cleanup`, `Events`: borrado de logs e instancias de workflow, `RemoveExpiredLocks`, `Data Lineage Proc`…) son
+del propio producto, están en `PAUSED` salvo una en `WAITING` y ninguna es de RDR. Es decir, el
+planificador genérico no se programa dentro de GoldenSource sino desde fuera (el disparo de
+`RDR_SW_PLANIFICADOR_new` sigue siendo P-PLA-03). Lo único que toca `FT_T_ATE1`/`FT_T_PAR1` en el
+volcado es un workflow de otro proceso que lee un parámetro `ESPERA_STAR` de `FT_T_PAR1`, sin relación con
+este motor.
+
 ## 7.1 Cómo probarlo
 
 El motor no recibe argumentos: lo que ejecuta lo deciden las tablas. Para probar una extracción

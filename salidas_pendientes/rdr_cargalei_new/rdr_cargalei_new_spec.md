@@ -9,7 +9,9 @@
 >   `GestionAlertas.properties`, `aviso_LEI.properties.pr`, los scripts `gleif.sh`/`LEI.sh`/
 >   `Comprobar_fichero_LEI.sh`, los workflows `LoadMDX.gsp`→`ParseMDXLayout.gsp` y `ErroresCSV.gsp`, y la wiki
 >   interna "Carga del LEI [RDR / MoCA / Alert Mirror]". **De todo eso, al repositorio solo han llegado el
->   documento de análisis y `LEI.properties`**; el resto se conoce por la descripción del documento.
+>   documento de análisis y `LEI.properties`**; el resto se conoce por la descripción del documento. Los workflows de
+>   GoldenSource (`Standard File Load`, `ParseMDXLayout`, `ErroresCSV`, `MarcaRegErroneo`, `HistoricizeFiles`) se han
+>   reconstruido después a partir del volcado de la base de workflows de GoldenSource (versiones del 21/05/2022 y 05/11/2022; §6.6).
 > - `LEI.properties` real (copia del entorno de integración, rutas `ei`), copiado literalmente en §6.2.
 > - `select.properties` real (copia de integración), del que se copia la clave `LEI` en §6.4.
 > - Workflow `SendMailReport.wkf` (versión 16) recibido en la evidencia de otro proceso; se usa en §6.6.
@@ -82,7 +84,7 @@ Control-M (L-V, ≥14:30)
 | R5 | El evento MDX carga `LEI.csv` en GoldenSource (feed `CargaLEI`) **antes** de que se compruebe si el fichero estaba vacío (orden real de `LEI.properties`, §6.2). |
 | R6 | `RDR_Report.jar` genera `Reporte_LEI.csv` con la query de la clave `LEI` de `select.properties` (§6.4). |
 | R7 | `Comprobar_fichero_LEI.sh`: si `LEI.csv` tiene menos de 2 líneas, restaura `LEI_old.csv` y lanza `GSProcess.sh aviso_LEI`, que avisa por correo con `LEI.csv` adjunto. Si no, no hace nada. |
-| R8 | El evento Errores (workflow `ErroresCSV`) recoge los errores técnicos de la carga (`FT_T_TRID` con `CRRNT_SEVERITY_CDE > 39` y `FT_T_RLT1`), los escribe en fichero, marca los registros erróneos y historifica el fichero de origen. |
+| R8 | El evento Errores (workflow `ErroresCSV`) recoge los errores de la última carga de `LEI.csv` (funcionales en `FT_T_RLT1` y técnicos en `FT_T_TRID` con `CRRNT_SEVERITY_CDE > 39`) y los escribe en `LEI/LEI_errores.csv`; como `LEI.properties` trae `Delta=Si`, marca además los registros erróneos para que vuelvan a pasar al día siguiente (§6.6). Si la carga no se cerró en la última hora, no escribe nada. |
 | R9 | `MEKYTL0349` envía `Reporte_LEI.csv` a `XCOMWPMER`, carpeta `\\S00371f2\DATOS\TRANSMI\MVP00G215\RDR\LEI\REPORTE\`, como `Reporte_LEI_AAAAMMDD.csv`; después `MEKYTL0944` lo historifica a `Reporte_LEI_yyyymmdd.zip` en `old`. |
 | R10 | `INFORME_GLEIF` ejecuta la Gestión de alertas con el código de proceso `Reporte_GLEIF_Entity_Status` y envía el Excel a Customer Data Management (FINSID operativo, LEI, LEI Status, Entity Status, Murex ID; si la contrapartida tiene más de un Murex ID activo, el principal). Después `MEKYTL1237` historifica `RDR_Reporte_GLEIF_YYYYMMDD.xlsx` en `old` sin cambiar el nombre. |
 | R11 | Con `Stop=Ok`, el primer subproceso de `LEI.properties` que devuelva un código distinto de 0 detiene `GSProcess.sh` con código 1 y no se ejecutan los pasos siguientes (§6.2). |
@@ -104,7 +106,9 @@ Control-M (L-V, ≥14:30)
 >
 > **Corrección (2026-10-01):** la versión anterior incluía `Delta=Si` entre las variables globales como si
 > activase el delta. `GSProcess.sh` no reconoce esa clave en la acción `Variables`; el delta lo activa la
-> acción `Script` con `NomScript=Delta` y `ArgScri1=Si`.
+> acción `Script` con `NomScript=Delta` y `ArgScri1=Si`. Matiz (segunda pasada de cierre): la clave `Delta=Si` sí tiene efecto, pero
+> en otro sitio: los eventos reciben el `.properties` completo y el workflow `ErroresCSV` declara un parámetro
+> `Delta`; con `Si` ejecuta `MarcaRegErroneo` (§6.6).
 >
 > **Corrección (2026-10-01):** la versión anterior planteaba que un fallo de descarga de `gleif.sh` ("URL
 > inaccesible") acaba en la restauración y el aviso de `Comprobar_fichero_LEI.sh`. Con `Stop=Ok` eso solo
@@ -117,7 +121,7 @@ Control-M (L-V, ≥14:30)
 |----|----------|-----------------|
 | P-LEI-01 | ¿Se pueden obtener `gleif.sh`, `LEI.sh` y `Comprobar_fichero_LEI.sh`? En concreto: ¿con qué código terminan si la descarga falla, si el XML no tiene registros o si `LEI.csv` está vacío? ¿De qué ruta exacta restaura `LEI_old.csv` y a qué fichero lo copia? ¿Restaura también `LEI/old/LEI.csv`? | Son ejecutables de la cadena que no están en el repositorio. Con `Stop=Ok`, su código de salida decide si se ejecuta la carga, el informe y el aviso; y la restauración decide qué carga el delta del día siguiente (RISK-LEI-002) |
 | P-LEI-02 | ¿Se puede obtener `GLEIF_traductor_New.xsl`? | Decide el valor de cada una de las 18 columnas de `LEI.csv` y su separador; sin ella no se puede afirmar qué dato de GLEIF va en cada columna |
-| P-LEI-03 | ¿Cuál es el layout MDX del feed `CargaLEI` y qué hace `ParseMDXLayout` con un `LEI.csv` que solo tiene la cabecera? ¿Qué componente escribe en `FT_T_RLT1` las filas `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='CARGALEI'` y en `FT_T_JBLG` el job `CargaLEI`? | Determina qué tablas y campos cambian en GoldenSource y de dónde sale el contenido de `Reporte_LEI.csv` |
+| P-LEI-03 | ¿Cuál es el layout MDX del feed `CargaLEI` y qué hace `ParseMDXLayout` con un `LEI.csv` que solo tiene la cabecera? ¿Qué componente escribe en `FT_T_RLT1` las filas `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='CARGALEI'` y en `FT_T_JBLG` el job `CargaLEI`? | **Resuelta en parte (2ª pasada de cierre).** (1) El evento `MDX` no ejecuta `ParseMDXLayout`, sino `Standard File Load` (§6.2 paso 4); `ParseMDXLayout` solo registra la estructura de un MDX en la configuración y no se lanza en esta cadena. (2) El job de `FT_T_JBLG` lo crea `Standard File Load` (primer nodo, con el fichero y el tipo de mensaje `CargaLEI`). (3) El feed `CargaLEI` usa la definición `SkipHeaderReadByLineUTF8.xml` (por su nombre: descarta la cabecera y lee por líneas en UTF-8) y el tipo de mensaje `CargaLEI` el mapeo `db://resource/RDR/mapping/LEI/cargaLEI.mdx` (3.912 bytes, modificado el 09/09/2023 por `kytl_ir`). Con un `LEI.csv` de solo cabecera no hay mensajes que procesar y el workflow cierra el job sin cargar nada y sin error (deducido). Siguen sin constar el **contenido** del MDX (columna → campo) y qué componente escribe las filas `REPORTES`/`CARGALEI` de `FT_T_RLT1`: ni el XML del feed ni el MDX vienen en el volcado |
 | P-LEI-04 | ¿Cuál es la configuración (`.idx`) de la clave `MEKYTL0349` de `MEGENV0001.sh`: protocolo, máquinas, `FALLA_NO_FICHERO`, renombrado y ruta de historificación local? | Decide si el envío falla o no cuando falta `Reporte_LEI.csv` y cómo se renombra a `Reporte_LEI_AAAAMMDD.csv` |
 | P-LEI-05 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0944` y `MEKYTL1237`? | Deciden operación (mover, comprimir), rutas y si fallan cuando no hay fichero. El `.zip` de `MEKYTL0944` no encaja con las operaciones de compresión de `RAMERC0068.sh` (que usa `gzip`, `.gz`) |
 | P-LEI-06 | ¿Cuál es el contenido de `Reporte_GLEIF_Entity_Status.properties` y la configuración en base de datos del código de proceso `Reporte_GLEIF_Entity_Status` (`FT_T_REP1`: `QUERY`, `CABECERA`, `RUTA`, `EXCEL_TEMPLATE`, `EXCEL_SHEET`, `SHORT_PROCESS`; `FT_T_ALR1`/`FT_T_ALU1`: destinatarios)? ¿Quién escribe sus incidencias en `FT_T_TPG1`? | Sin ello no se puede especificar ni el contenido del Excel ni sus destinatarios ni su nombre exacto |
@@ -141,7 +145,7 @@ delta carga el fichero completo); la configuración de GoldenSource del feed `Ca
 6. `RDR_Report.jar` genera `/fichtemcomp/<env>/descargas/kytl/LEI/Reporte_LEI.csv` con los cambios
    registrados por la carga desde el inicio del último job `CargaLEI` cerrado (§6.4).
 7. `Comprobar_fichero_LEI.sh` comprueba que `LEI.csv` tenga al menos 2 líneas; si no, restaura y avisa.
-8. El evento Errores escribe el fichero de errores de la carga y marca los registros erróneos.
+8. El evento Errores escribe `LEI/LEI_errores.csv` con los errores de la carga (si los hubo y si la carga se inició en la última hora) y marca los registros erróneos (`Delta=Si`).
 9. En paralelo tras `RDRKYTL001`: `MEKYTL0349` envía `Reporte_LEI.csv` por XCOM y `MEKYTL0944` lo
    historifica; `INFORME_GLEIF` genera y envía el Excel y `MEKYTL1237` lo historifica.
 
@@ -227,7 +231,7 @@ Cómo lo ejecuta `GSProcess.sh` (funcionamiento genérico en su spec común):
 | 1 | `Script` | `$SCRIPT/Generico.sh LanzaScriptBash gleif.sh` → ejecuta `$SCRIPT/gleif.sh` | Con `Stop=Ok`, código ≠ 0 detiene todo con código 1 |
 | 2 | `Script` | `$SCRIPT/Generico.sh LanzaScriptBash LEI.sh` | Igual |
 | 3 | `Script` | `$SCRIPT/Delta.sh Si` | `Delta.sh` en modo `Si` siempre devuelve 0: nunca detiene |
-| 4 | `Evento` | `./executeBbvaEvent.sh fileloading StandardFileLoad $CREDENTIALS LEI.properties` (carga MDX; el documento identifica la definición del evento como `LoadMDX.gsp`, que enlaza con el workflow `ParseMDXLayout`) | Código 1 de `executeBbvaEvent.sh` detiene todo |
+| 4 | `Evento` | `./executeBbvaEvent.sh fileloading StandardFileLoad $CREDENTIALS LEI.properties` (carga del fichero con el workflow estándar `Standard File Load`, feed `CargaLEI`, tipo de mensaje `CargaLEI`; el documento de análisis lo asocia a `LoadMDX.gsp` y `ParseMDXLayout`, pero según el volcado de workflows `LoadMDX` es otro evento, que solo registra el layout y esta acción no lanza; ver §6.6) | Código 1 de `executeBbvaEvent.sh` detiene todo. Un error dentro de la carga (un registro erróneo, un fichero ilegible) **no hace fallar el workflow** (termina con normalidad), así que no es un caso de código 1; qué devuelve `--querystatus` ante un fallo duro del workflow sigue sin conocerse (P-EBE-01) |
 | 5 | `Java` | `<javahome17>/bin/java -Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=$CONF -cp RDR_Report.jar:ojdbc8.jar:common-lang3.jar:log4j.jar rdr_report.CreateReport /ei/kytl/online/multipais/multicanal/dat/properties/select.properties LEI` | Siempre termina con 0: nunca detiene |
 | 6 | `Script` | `$SCRIPT/Generico.sh LanzaScriptBash Comprobar_fichero_LEI.sh` | Código ≠ 0 detiene antes del paso 7 (código del script desconocido, P-LEI-01) |
 | 7 | `Evento` | `./executeBbvaEvent.sh fileloading RDR_ErroresCSV $CREDENTIALS LEI.properties` | Código 1 deja el job en NOTOK |
@@ -236,7 +240,7 @@ Variables que exporta `GSProcess.sh` y que usan los pasos: `FILES=/fichtemcomp/<
 `FILE_CARGA=$FILES/LEI/LEI.csv` (solo si existe al arrancar), `LOG_GENERICO=<logs>/execute_LEI_<AAAAMMDD>.log`.
 Los eventos reciben como fichero de entrada el propio `LEI.properties`, con todas sus claves (`File`,
 `BusinessFeed`, `MessageType`, `SuccessAction`): de ahí toma el workflow qué fichero cargar y con qué feed.
-`SuccessAction=LEAVE` es la acción de éxito que se pasa a GoldenSource; su efecto interno no está documentado.
+`SuccessAction=LEAVE` es la acción de éxito que se pasa a GoldenSource: según el código de la actividad `EndFile`, `LEAVE` **no mueve ni borra `LEI.csv`** y solo marca como terminado el punto de control de la carga (las otras dos opciones son `DELETE` y `MOVE`).
 
 **Cómo saber si ha ido bien:** última línea `ESTADO-0-` en `execute_LEI_<AAAAMMDD>.log`. Si se paró por
 `Stop`, no hay `ESTADO-1-`: hay que buscar `finalizado de forma incorrecta debido a`.
@@ -315,13 +319,41 @@ adjunto (parámetro `File`) con nombre fijo `Report.csv`. Qué recibe realmente 
 
 Dentro de esta cadena, la comprobación es el paso 6: llega después de la carga y del informe (GAP-LEI-001).
 
-### 6.6 Evento Errores → `ErroresCSV`
+### 6.6 Cargas de GoldenSource: eventos `StandardFileLoad` y Errores (`ErroresCSV`)
 
-Workflow de errores del feed, recorrido por transacción (`TRN_ID`): consulta `FT_T_TRID` (errores técnicos:
-`RECORD_SEQ_NUM`, `MAIN_ENTITY_NME`, `CRRNT_SEVERITY_CDE`, `TRN_ID`, `JOB_ID`…) con `CRRNT_SEVERITY_CDE > 39`
-y `FT_T_RLT1`; escribe los errores en ficheros de salida (nodos "Write File1/File2", con cabecera); si hay
-`JOB_ID`, llama al subworkflow `MarcaRegErroneo` (marca el registro como erróneo) y a `HistoricizeFiles`
-(historifica el fichero de origen). Nombre y ruta del fichero de errores: no constan.
+Reconstruidos del volcado de la base de workflows de GoldenSource; el funcionamiento genérico de cada
+uno está en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.1. Aquí, lo que importa para esta cadena:
+
+* **Evento MDX (paso 4) → `Standard File Load` v5.** Recibe del `.properties` `File=…/LEI/LEI.csv`,
+  `BusinessFeed=CargaLEI`, `MessageType=CargaLEI` y `SuccessAction=LEAVE`. Crea el job de la carga
+  (`FT_T_JBLG`, con el fichero y `CargaLEI` como tipo de mensaje), abre el fichero con la definición del feed,
+  procesa cada línea (`ProcessFeedMessage`, 500 por bloque, 2 ramas en paralelo por defecto) y cierra el job.
+  Los errores por registro no abortan la carga: quedan en la transacción de ese registro. Un `LEI.csv` de solo
+  cabecera no genera mensajes (P-LEI-03).
+* **Evento Errores (paso 7) → `ErroresCSV` v6.** Recibe `Ruta`, `Servicio=LEI`, `File`, `MessageType=CargaLEI`
+  y `Delta=Si`. Escribe **`/fichtemcomp/<env>/descargas/kytl/LEI/LEI_errores.csv`** (carpeta `Ruta`+`Servicio`+`/`,
+  mismo directorio que `LEI.csv`), separado por `;`, con cabecera
+  `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`.
+  Pasos: (1) mueve a `LEI/old/` el `LEI_errores.csv` del día anterior; (2) busca en `FT_T_JBLG` el último job
+  `CLOSED` de `File` y `CargaLEI` **iniciado en la última hora**; si no hay ninguno, termina sin escribir nada y
+  sin error; (3) escribe primero los errores funcionales (`FT_T_RLT1` con `RLT_PURP_TYP='ERRORES'`, tipo
+  `Funcional`) y luego los técnicos (`FT_T_TRID` con severidad mayor que 39, tipo `Tecnico`, con las
+  notificaciones de cada transacción añadidas por `SubErroresCSV`); (4) renombra el fichero provisional
+  `dummyLEI_errores.csv` a `LEI_errores.csv` (**si no hubo ningún error, el fichero no se crea**); (5) como
+  `Delta=Si`, llama a `MarcaRegErroneo`.
+* **`MarcaRegErroneo` v7 (con `Delta=Si`).** Selecciona los identificadores de entidad de las filas de error del
+  job en `FT_T_RLT1`, escribe cada uno en `LEI/db_errores.txt` y ejecuta el comando de shell `errores_to_file`.
+  Por la descripción del parámetro `Delta` en el workflow, su finalidad es marcar los registros erróneos en el
+  fichero de entrada para que **al día siguiente pasen otra vez por el proceso** en la comparación diferencial.
+  Es el único de estos workflows con `haltOnError=Y`. El texto del comando y el script `errores_to_file` no
+  vienen en el volcado, por lo que no se sabe sobre qué fichero actúa (¿`LEI/old/LEI.csv`?, ¿`LEI.csv`?).
+  Esto afecta a RISK-LEI-002: es posible que, ante errores de carga, el delta del día siguiente reincorpore
+  esos registros.
+* **`HistoricizeFiles`.** Mueve (`mv -f`) el fichero indicado a la subcarpeta `old` con el mismo nombre
+  (sin fecha, sobrescribiendo el del día anterior) y borra ficheros provisionales y antiguos; los comandos de
+  borrado no vienen en el volcado.
+* **Qué NO hace `ErroresCSV`:** no historifica `LEI.csv` (la versión anterior de esta spec decía que "historifica
+  el fichero de origen"; el fichero que historifica es el de errores).
 
 ### 6.7 `MEKYTL0349` / `MEKYTL0944`
 
@@ -376,7 +408,7 @@ IDX no recibida, P-LEI-05).
 | `GLEIF_traductor_New.xsl` | `LEI.sh` | **No** | Gap P-LEI-02 |
 | `Delta.sh` + `compare.jar` | Paso 3 | Sí | `salidas_pendientes/comun_delta/comun_delta_spec.md`; uso aquí en §6.3 |
 | `executeBbvaEvent.sh` | Pasos 4 y 7 | Sí | `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
-| Workflows `LoadMDX`/`ParseMDXLayout`, `ErroresCSV` | Eventos | Descritos, no en el repositorio; layout MDX no recibido | §6.2, §6.6; gap P-LEI-03 |
+| Workflows `Standard File Load`, `ErroresCSV`, `MarcaRegErroneo`, `HistoricizeFiles` (y `ParseMDXLayout`, que esta cadena no lanza) | Eventos | Reconstruidos del volcado de GoldenSource; faltan el layout MDX, el script `errores_to_file` y los comandos de borrado | §6.2, §6.6; gap P-LEI-03 |
 | `RDR_Report.jar` + `select.properties` | Paso 5 | Sí | `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`; clave `LEI` en §6.4 |
 | `aviso_LEI.properties`, `SendMailReport.wkf` | `Comprobar_fichero_LEI.sh` | `.properties` no; `.wkf` sí (v16) | §6.5; gap P-LEI-07 |
 | `MEGENV0001.sh` (`.idx` de `MEKYTL0349`) | `MEKYTL0349` | Script sí; `.idx` no | `salidas_pendientes/comun_megenv0001/comun_megenv0001_spec.md`; gap P-LEI-04 |
@@ -387,7 +419,7 @@ IDX no recibida, P-LEI-05).
 
 **Estrategia:** se combinan una prueba de extremo a extremo (TC-001) con pruebas por tramo: delta
 (TC-003, TC-004), volumen y troceo (TC-006), errores de carga (TC-002), fichero vacío (TC-005, TC-007),
-falso positivo de fichero vacío (TC-009), parada por `Stop` (TC-010), contenido del informe (TC-011) y
+falso positivo de fichero vacío (TC-009), parada por `Stop` (TC-010), contenido del informe (TC-011), ventana de una hora de `ErroresCSV` (TC-012) y
 topología (TC-008). Juntas cubren cada paso de `LEI.properties`, las dos ramas posteriores y las condiciones
 de fallo conocidas. Lo que depende de material no recibido (código de los scripts, layout MDX, configuración
 de alertas, `.idx`) se verifica observando el resultado, y el resultado esperado indica qué parte queda
@@ -398,7 +430,7 @@ Casos (detalle en `rdr_cargalei_new_casos_prueba.xml`):
 - `error_funcional`: TC-002 (registro LEI erróneo → `FT_T_TRID`), TC-010 (fallo de `gleif.sh` con `Stop=Ok`).
 - `regresion`: TC-003 (LEI sin cambios no se recarga), TC-006 (troceo >50.000), TC-008 (topología y orden).
 - `conflicto_integridad`: TC-004 (cambio de estado ISSUED → LAPSED), TC-007 (estado real tras fichero vacío).
-- `borde`: TC-005 (fichero vacío: restauración y aviso), TC-009 (GLEIF sin cambios → falso aviso).
+- `borde`: TC-005 (fichero vacío: restauración y aviso), TC-009 (GLEIF sin cambios → falso aviso), TC-012 (`ErroresCSV` no encuentra la carga pasada una hora).
 - `datos_sinteticos`: TC-011 (contenido de `Reporte_LEI.csv` con mensajes `MESSAGE_RLT` sintéticos).
 
 ## 8. Validaciones de casos de prueba (trazabilidad)
@@ -409,7 +441,7 @@ Casos (detalle en `rdr_cargalei_new_casos_prueba.xml`):
 | R5, GAP-LEI-001 | TC-007 | Estado real de base de datos e informe cuando el fichero llega vacío |
 | R6 | TC-001, TC-011 | Contenido y formato de `Reporte_LEI.csv` |
 | R7 | TC-005, TC-009 | Restauración y aviso, incluido el falso positivo |
-| R8 | TC-002 | Errores técnicos de la carga |
+| R8, RISK-LEI-007 | TC-002, TC-012 | Errores técnicos de la carga, fichero `LEI_errores.csv` y ventana de una hora |
 | R9, R10 | TC-001, TC-004 | Envío XCOM, Excel y su historificación |
 | R11 | TC-010 | Parada inmediata ante fallo con `Stop=Ok` |
 | Topología | TC-008 | Detecta cambios en la cadena o en el orden de `LEI.properties` |
@@ -434,6 +466,7 @@ Casos (detalle en `rdr_cargalei_new_casos_prueba.xml`):
   envío es global (puede salir con las alertas de otro proceso o no salir sin que el job lo refleje).
 * **RISK-LEI-006 [media]:** el aviso de fichero vacío depende de `SendMailReport`, cuya versión recibida tiene
   destinatarios y asunto fijos distintos de los documentados (P-LEI-07).
+* **RISK-LEI-007 [media]:** `ErroresCSV` solo busca la carga **iniciada en la última hora** (`job_start_tms >= sysdate - 1/24`). Entre el inicio de la carga (paso 4) y el evento Errores (paso 7) se ejecutan la carga completa, `RDR_Report.jar` y `Comprobar_fichero_LEI.sh`: si todo ello supera una hora (por ejemplo una carga completa tras perder la base del delta, RISK-LEI-002), `ErroresCSV` no encuentra el job, **no genera `LEI_errores.csv` y no marca los registros erróneos, sin ningún error visible**. Además, mueve a `old/` el fichero de errores del día anterior antes de buscar, por lo que ese día la carpeta no tiene fichero de errores aunque los hubiera.
 * **Duplicidades:** un mismo LEI repetido en `LEI.csv` (dos líneas idénticas nuevas) sale dos veces en el
   delta; el tratamiento en la carga depende del layout MDX (P-LEI-03). El informe no deduplica.
 * **Configuración de integración:** la copia de `LEI.properties` lleva rutas `ei` escritas a mano (P-LEI-09).

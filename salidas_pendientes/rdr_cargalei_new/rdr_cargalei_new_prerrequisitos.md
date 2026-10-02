@@ -34,7 +34,7 @@ entorno de pruebas.
 | `GSProcess.sh`, `Generico.sh`, `Delta.sh` | `/<env>/kytl/online/multipais/multicanal/scrt/` | Usuario de ejecución de `RDRKYTL001` (no consta, P-LEI-08) |
 | `gleif.sh`, `LEI.sh`, `Comprobar_fichero_LEI.sh` | Mismo directorio `scrt/` | Ídem |
 | `RDR_Report.jar`, `compare.jar`, `RDRCommon.jar` y librerías | `.../multicanal/jar` y `.../multicanal/lib` | — |
-| `executeBbvaEvent.sh` y servidor GoldenSource con el feed `CargaLEI` y los workflows `ParseMDXLayout` y `ErroresCSV` | `/usr/local/<env>/goldensource_87/...` | — |
+| `executeBbvaEvent.sh` y servidor GoldenSource con el feed `CargaLEI` (definición `SkipHeaderReadByLineUTF8.xml` y mapeo `cargaLEI.mdx`) y los workflows `Standard File Load`, `ErroresCSV`, `SubErroresCSV`, `MarcaRegErroneo` y `HistoricizeFiles` | `/usr/local/<env>/goldensource_87/...` | — |
 | `MEGENV0001.sh` (`.idx` de `MEKYTL0349`), `RAMERC0068.sh` (IDX de `MEKYTL0944`, `MEKYTL1237`) | `/<env>/pl/...` | Usuario de los jobs (no consta) |
 | Consulta a base de datos | Esquema de GoldenSource | Usuario de solo lectura; TC-011 necesita escritura en `FT_T_RLT1`/`FT_T_JBLG` |
 

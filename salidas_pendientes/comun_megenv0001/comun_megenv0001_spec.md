@@ -263,6 +263,13 @@ En `/<env>/pl/envioweb/log/`:
 | P-MEG-01 | ¿Se pueden obtener los cuatro módulos `SF_MEGENV0001_*.mod` de `/<env>/pl/envioweb/scrt/`? | Contienen la transmisión, la historificación y la preparación de parámetros. Sin ellos no se puede saber cómo se detecta un envío fallido, qué orden exacta se ejecuta ni cómo se historifica |
 | P-MEG-02 | ¿Algún módulo define `binJava` y `ficheroJar`? Es decir, ¿las configuraciones se generan desde base de datos o siempre salen de `idx/bck/`? | Decide si un cambio de configuración en base de datos llega a aplicarse |
 
+**Comprobación con el volcado de workflows de GoldenSource (segunda pasada de cierre): sin cambios.** Los
+módulos `SF_MEGENV0001_XCOM/CD/SFTP/PARAMS.mod`, `GENV.jar` y los `.idx` son scripts y ficheros de la capa de
+envío (`/<env>/pl/envioweb/`), no de GoldenSource, y no figuran en el volcado. Un documento de análisis de
+otro proceso confirma que los tres módulos de protocolo se cargan por `source` y que la generación de
+configuración con `GENV.jar` está desactivada (rutas Java comentadas, siempre se usa `idx/bck/`), lo que
+coincide con §3, pero no aporta código de los módulos.
+
 ## 10. Procesos que lo usan
 
 Cada spec de proceso debe incluir, por cada job que ejecuta `MEGENV0001.sh`, su clave y su

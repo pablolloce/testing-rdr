@@ -75,7 +75,8 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar KYTL_BNIVEL_GSPROCESS con la BD sin candidatos.</paso>
-      <paso numero="2">Verificar que el job termina OK y genera los 2 reportes, aunque estén vacíos o sin filas de detalle.</paso>
+      <paso numero="2">Verificar que el job termina OK y genera los 2 reportes, aunque estén vacíos o sin filas de detalle. Si la SELECT del informe no devuelve filas, Reporte_bajaniveles.csv existe con una única línea de texto (La select no devuelve valores), no está ausente, y Reporte_bajaniveles_dos.csv es su copia con CRLF.</paso>
+      <paso numero="3">Comprobar que no se crea bajaniveles_errores.csv (RDR_ErroresCSV no encuentra ningún job de carga de fichero para este servicio).</paso>
     </pasos>
     <resultadoEsperado>La cadena completa se ejecuta con normalidad; los reportes reflejan 0 bajas realizadas.</resultadoEsperado>
     <tipoValidacion>Verificación de RC y de contenido de los reportes generados.</tipoValidacion>
@@ -179,6 +180,30 @@
     <tipoValidacion>Estado en Control-M + reporte + consulta a BD.</tipoValidacion>
     <criterioAceptacion>Comportamiento real documentado.</criterioAceptacion>
     <posibilidadFallo>Si el job sí queda en NOTOK, el defecto no aplica a esta versión y la spec debe corregirse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="funcional">
+    <nombre>Baja en cascada LOCAL a GLOBAL y rechazos de Sub_BajaCpartiesGL</nombre>
+    <objetivo>Verificar el comportamiento de Sub_BajaCpartiesGL: baja de un LOCAL, baja de su GLOBAL cuando era el último LOCAL activo, y rechazo sin error cuando hay hijas activas.</objetivo>
+    <precondiciones>
+      <precondicion>Un GLOBAL con un único LOCAL activo, sin hijas OPERATIVE activas (caso A).</precondicion>
+      <precondicion>Un GLOBAL con dos LOCAL activos, uno de ellos candidato a baja (caso B).</precondicion>
+      <precondicion>Un LOCAL con una hija OPERATIVE activa añadida entre la selección y la baja, o llamada directa al workflow con ese mnemónico (caso C).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Workflow" valor="Sub_BajaCpartiesGL (parámetros job, mnem, relTyp)"/>
+      <dato campo="Tablas a comprobar" valor="FT_T_FIID, FT_T_FINS, FT_T_FLG1, FT_T_RLT1"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Caso A: ejecutar la baja del LOCAL y consultar DATA_STAT_TYP de LOCAL y GLOBAL en FT_T_FIID y FT_T_FINS, y de la GLOBAL en FT_T_FLG1.</paso>
+      <paso numero="2">Caso B: ejecutar la baja del LOCAL candidato y comprobar que la GLOBAL sigue activa.</paso>
+      <paso numero="3">Caso C: ejecutar la baja y comprobar que no se inactiva nada, que el workflow termina sin error y que OUTPUT indica que la baja falló porque hay una hija activa.</paso>
+      <paso numero="4">En los tres casos, comprobar las filas insertadas en FT_T_RLT1 para el job y, en la rama de LOCAL con CLIENTELAID, la llamada a BajaClientela460.</paso>
+    </pasos>
+    <resultadoEsperado>Caso A: LOCAL y GLOBAL inactivos en la misma llamada. Caso B: solo el LOCAL inactivo. Caso C: ninguna tabla cambia y el rechazo queda registrado, sin error.</resultadoEsperado>
+    <tipoValidacion>Consulta a BD antes y después, y revisión de la salida del workflow.</tipoValidacion>
+    <criterioAceptacion>Los tres casos se comportan como se indica; se documentan las columnas reales de FT_T_RLT1.</criterioAceptacion>
+    <posibilidadFallo>Que los dos LOCAL de un mismo GLOBAL, procesados en paralelo, no den de baja la GLOBAL en la fase LOCAL (la fase GLOBAL la recoge después); que la rama con CLIENTELAID no sea la deducida de las transiciones.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

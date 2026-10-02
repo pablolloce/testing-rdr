@@ -29,7 +29,7 @@
 
   <casoDePrueba id="TC-002" tipo="negativo">
     <nombre>Sin contrapartidas próximas a expirar no se trata como error</nombre>
-    <objetivo>Confirmar que, cuando ninguna contrapartida cumple el filtro de expiración del mes siguiente, el proceso no falla: genera un CSV solo con cabecera, un Excel con la hoja vacía, y envía el correo igualmente.</objetivo>
+    <objetivo>Confirmar que, cuando ninguna contrapartida cumple el filtro de expiración del mes siguiente, el proceso no falla: genera un CSV de una sola línea (La select no devuelve valores, sin cabecera, según Sub_GenerateReports), un Excel cuyo contenido depende de cómo trate el Java esa línea (P-INF-05), y envía el correo igualmente.</objetivo>
     <precondiciones>
       <precondicion>No existe ningún registro en FT_T_FIST con stat_def_id='EXPDATE', data_stat_typ='ACTIVE', end_tms IS NULL y fecha dentro del rango del mes siguiente al actual.</precondicion>
       <precondicion>La plantilla Reporte_informeMIFID_Plantilla.xlsx existe en la ruta esperada.</precondicion>
@@ -40,15 +40,15 @@
     <pasos>
       <paso numero="1">Confirmar antes de la ejecución que no hay ningún registro que cumpla el filtro (consulta manual del mismo SQL de arrayStringSelects[16]).</paso>
       <paso numero="2">Esperar al disparo automático de la cadena.</paso>
-      <paso numero="3">Abrir Reporte_informeMIFID.csv y verificar que contiene únicamente la línea de cabecera.</paso>
-      <paso numero="4">Abrir el Excel generado y verificar que la hoja CtpdasExpiran no tiene filas de datos.</paso>
+      <paso numero="3">Abrir Reporte_informeMIFID.csv y verificar qué contiene: según la definición de Sub_GenerateReports, una única línea de texto La select no devuelve valores y no la cabecera de columnas. Registrar el resultado real.</paso>
+      <paso numero="4">Abrir el Excel generado y registrar si la hoja CtpdasExpiran queda sin filas de datos o con la línea de texto como si fuera un dato.</paso>
       <paso numero="5">Confirmar que el correo se recibió igualmente en elegible.mifid@bbva.com con el Excel adjunto.</paso>
       <paso numero="6">Verificar en Control-M que los 3 jobs terminaron en estado OK, sin ningún fallo registrado.</paso>
     </pasos>
-    <resultadoEsperado>El CSV contiene solo la cabecera, el Excel tiene la hoja CtpdasExpiran vacía, el correo se envía igual que en un mes con datos, y los 3 jobs terminan en OK — la ausencia de resultados no se trata como error.</resultadoEsperado>
+    <resultadoEsperado>El CSV contiene la línea La select no devuelve valores (sin cabecera), el Excel se genera con lo que el Java haga con esa línea, el correo se envía igual que en un mes con datos, y los 3 jobs terminan en OK — la ausencia de resultados no se trata como error.</resultadoEsperado>
     <tipoValidacion>Inspección de CSV/Excel + confirmación de correo + estado de ejecución en Control-M</tipoValidacion>
-    <criterioAceptacion>CSV con solo cabecera, hoja CtpdasExpiran sin filas, correo recibido, y los 3 jobs en "Ended OK".</criterioAceptacion>
-    <posibilidadFallo>Ninguna esperada según el código y el documento fuente (caso borde documentado explícitamente); fallaría si el proceso empezara a tratar el resultado vacío como error no documentado.</posibilidadFallo>
+    <criterioAceptacion>CSV de una línea con el texto indicado, Excel generado (contenido documentado), correo recibido, y los 3 jobs en "Ended OK". Si el CSV contiene solo la cabecera, la spec (R8, 6.3) debe volver a corregirse.</criterioAceptacion>
+    <posibilidadFallo>Que el Java trate la línea de texto como dato y el Excel salga con una fila inútil, o que lance una excepción al no encontrar columnas; que el proceso empiece a tratar el resultado vacío como error no documentado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
@@ -208,6 +208,27 @@
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 3 jobs) + inspección de filesystem + confirmación de correo</tipoValidacion>
     <criterioAceptacion>Los 3 jobs están en "Ended OK"; el CSV y el Excel contienen la fila esperada; el correo llegó a ambos destinatarios; ambos ficheros están historificados en /old/.</criterioAceptacion>
     <posibilidadFallo>Cualquier fallo puntual de infraestructura (SMTP caído, filesystem sin espacio) haría fallar el paso correspondiente sin que se trate de un defecto de la lógica de negocio, pero rompería el resultado end-to-end esperado en este caso concreto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-010" tipo="negativo">
+    <nombre>Correo sin Excel adjunto y errores de envío no visibles</nombre>
+    <objetivo>Confirmar que el subworkflow Mail envía el correo sin adjunto cuando el fichero indicado no existe, y que un fallo de envío no pone en rojo el job.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción), con ServerMailConfig.xml del entorno.</precondicion>
+      <precondicion>Poder ejecutar la acción Evento RDR_InformeMIFID aislada (executeBbvaEvent.sh fileloading RDR_InformeMIFID ... informeMIFID.properties) con el Excel del día presente, ausente y con un servidor SMTP inaccesible.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Casos" valor="A: Excel presente; B: Excel ausente; C: SMTP inaccesible"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Caso A: lanzar el evento y comprobar que el correo llega con el adjunto.</paso>
+      <paso numero="2">Caso B: renombrar el Excel del día, lanzar el evento y comprobar si el correo llega sin adjunto.</paso>
+      <paso numero="3">Caso C: bloquear el acceso al SMTP, lanzar el evento y comprobar el código de salida de executeBbvaEvent.sh, el estado del job y el log del servidor de GoldenSource.</paso>
+    </pasos>
+    <resultadoEsperado>A: correo con adjunto. B: correo sin adjunto y sin error. C: sin correo, código de salida 0 y job en OK; el fallo solo aparece en el log del servidor.</resultadoEsperado>
+    <tipoValidacion>Buzón de pruebas, código de salida y log del servidor de GoldenSource.</tipoValidacion>
+    <criterioAceptacion>Comportamiento coincidente con el descrito en la spec (6.5); si el job falla en el caso C, el subworkflow Mail de producción no es el del volcado y la spec debe corregirse.</criterioAceptacion>
+    <posibilidadFallo>Que la versión de producción del subworkflow Mail difiera (el volcado es de 2022).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
