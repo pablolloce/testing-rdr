@@ -1910,11 +1910,12 @@ Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
   FROM DUAL`, sin consulta real — un valor fijo de sucursal para ese caso). Con la(s) sucursal(es) resueltas,
   invoca el subworkflow `SSIs_Fx_Exec` (**confirmado con `.wkf` real** — ver Anexo más abajo) una vez por
   sucursal. Cualquier fallo de validación (SDI inválido, combinación acceso/acrónimo no única, sin sucursales)
-  dispara el subworkflow `SSIs_Fx_Reporte` (no aportado, con `Accion="Alta"`/`Donde` indicando el punto exacto
-  del fallo: `"Valida"`, `"Cparty"` o `"Branch"`) y continúa con el siguiente SDI del lote.
+  dispara el subworkflow `SSIs_Fx_Reporte` (**confirmado con `.wkf` real** — ver Anexo más abajo, con
+  `Accion="Alta"`/`Donde` indicando el punto exacto del fallo: `"Valida"`, `"Cparty"` o `"Branch"`) y continúa
+  con el siguiente SDI del lote.
 - **Qué recibe/produce:** recibe `Modo`/`RES`/`VREQ_OID`; produce, por cada SDI válido y por cada sucursal
   resuelta, una invocación de `SSIs_Fx_Exec` (alta real, confirmada); por cada fallo, una invocación de
-  `SSIs_Fx_Reporte` (reporte de error, no aportada).
+  `SSIs_Fx_Reporte` (reporte de error, confirmado).
 - **Campos de salida afectados:** no confirmable más allá de las consultas de lectura de este `.wkf` concreto
   — el alta real por sucursal ocurre dentro de `SSIs_Fx_Exec` (ver Anexo), que a su vez delega en 3
   subworkflows propios aún no aportados.
@@ -1922,10 +1923,37 @@ Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
   única, sin sucursales encontradas) tiene su propia rama `KO` explícita que invoca `SSIs_Fx_Reporte` y
   continúa con el siguiente SDI — no hay fallos silenciosos detectados en este `.wkf`, a diferencia de otros
   puntos de la cadena.
-- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx` no aportado — no se puede confirmar el detalle final de la
-  validación estructural del XML de la SDI (ver también los 3 subworkflows propios de `SSIs_Fx_Exec` en el
-  Anexo: `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`, tampoco aportados). `SSIs_Fx_Reporte` queda
-  **confirmado con `.wkf` real** — ver Anexo más abajo.
+- **Gap cerrado:** `SSIs_Valida_Fx` queda ahora también **confirmado con `.wkf` real** — ver Anexo siguiente.
+  Solo quedan sin aportar los 3 subworkflows propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`,
+  `SSIs_Fx_Difusion`).
+
+**Anexo — `SSIs_Valida_Fx`, confirmado con `.wkf` real:**
+
+Workflow analizado: `SSIs_Valida_Fx` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 2, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Valida_Fx.wkf`).
+
+- **Qué hace:** valida la estructura de la SDI de F/X recibida de Alert Mirror antes de que `SSIs_Fx_Alta`
+  siga procesándola. Extrae en paralelo (`ANDSPLIT`) 6 campos por XPath del XML (`accessCode`, `acronym`,
+  `localAgent/bic`→`BICCorresponsal`, `currency`, `method`, `codOid`, `security`) más 1 `DBQuery`
+  (`COUNT Currency`: `FT_T_ISSU`, `DENOM_CURR_CDE=:currency AND ISS_TYP='CURRENCY' AND DATA_STAT_TYP=
+  'ACTIVE'` → `CountCurrency`, confirma que la divisa está realmente dada de alta en RDR, no solo que el XML
+  la informe). Tras sincronizar los 7 resultados, un único nodo `BeanShell` (`"Validate Xpath"`) valida, en
+  cascada y en este orden, 8 condiciones — `method` debe ser `"CASH"` o `"FEDWIRE"`; `Acronym` no vacío;
+  `AccessCode` no vacío; `Security` debe ser `"F/X"` o `"CSH"`; `BICCorresponsal` no vacío; `Currency` no
+  vacío; `CountCurrency` no nulo/vacío/`"0"` (la divisa existe y está activa en RDR); `CodOid` no vacío — y
+  corta en la primera que falle, devolviendo `Resultado="KO"` junto con un `errorText` descriptivo específico
+  de esa condición. Si las 8 se cumplen, `Resultado="OK"`. **[Hallazgo — posible convención de protocolo con
+  el llamante, no confirmada]** 3 de los 8 mensajes de error (`method` inválido, `Security` inválido,
+  `Currency` no dada de alta) llevan el prefijo literal `"NoCodOid::"` en `errorText`, pese a que `CodOid` ya
+  se ha extraído en paralelo en todos los casos y no depende de ninguna de esas 3 validaciones — parece una
+  señal dirigida al llamante (`SSIs_Fx_Reporte`, Donde=`"Valida"`) para que no intente resolver detalles
+  asociados al `CodOid` en el reporte de error, pero no se ha podido confirmar con el material disponible si
+  `SSIs_Fx_Reporte` realmente interpreta ese prefijo de algún modo especial.
+- **Qué recibe/produce:** recibe `message` (el XML de la SDI); produce `Resultado` (`"OK"`/`"KO"`) y
+  `errorText` (descripción del fallo si `"KO"`) — ambos consumidos por `SSIs_Fx_Alta` para decidir si
+  continúa procesando la SDI o la reporta vía `SSIs_Fx_Reporte`.
+- **Qué pasa si falla:** sin rama de gestión de error genérica — cada una de las 8 validaciones tiene su
+  propio punto de salida `KO` explícito con mensaje descriptivo; no hay fallos silenciosos en este `.wkf`.
 
 **Anexo — `SSIs_Fx_Exec`, confirmado con `.wkf` real:**
 
@@ -2485,11 +2513,12 @@ real con una validación de 2 niveles (estado de la petición + contenido embebi
 fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
 timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
 variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
-bloqueantes; `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` quedan ahora también **confirmados con `.wkf` real** (Anexos
-de §6.19): el primero orquesta el alta por sucursal, comprobando además un error MDX previo en `FT_T_RLT1`
-antes de considerar la SDI dada de alta; el segundo es el reportador de auditoría genérico (`FT_T_RLT1`/
-`FT_T_VREQ`, por concatenación directa de cadenas) que ambos invocan — quedan como residuales de código no
-aportado `SSIs_Valida_Fx` y los 3 subworkflows propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`,
-`SSIs_Fx_Difusion`).
+bloqueantes; `SSIs_Fx_Exec`, `SSIs_Fx_Reporte` y `SSIs_Valida_Fx` quedan ahora también **confirmados con
+`.wkf` real** (Anexos de §6.19): el primero orquesta el alta por sucursal, comprobando además un error MDX
+previo en `FT_T_RLT1` antes de considerar la SDI dada de alta; el segundo es el reportador de auditoría
+genérico (`FT_T_RLT1`/`FT_T_VREQ`, por concatenación directa de cadenas) que ambos invocan; el tercero valida
+8 condiciones en cascada sobre la SDI (incluida la existencia real de la divisa en RDR) antes de que
+`SSIs_Fx_Alta` la procese — quedan como único residual de código no aportado en todo R9 los 3 subworkflows
+propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`).
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
