@@ -1,0 +1,984 @@
+<com.j2fe.workflow.definition.Workflow id="0">
+<alwaysPersist>false</alwaysPersist>
+<clustered>true</clustered>
+<comment id="1">IP_V1</comment>
+<endNode id="2">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="3">Stop</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="4">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="5" type="java.util.HashSet">
+<item id="6" type="com.j2fe.workflow.definition.Transition">
+<name id="7">goto-next</name>
+<source id="8">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="9">RES</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="10">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="11" type="java.util.HashSet">
+<item id="12" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="13">statements</name>
+<stringValue id="14"><![CDATA[import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("IndexSSIS");
+
+if(ALT_ID_aux!=null && ALT_ID_aux.length>0 && ALT_ID_aux[0].get("ALT_ID")!=null){
+	RES.put("CanVal_A", ALT_ID_aux[0].get("ALT_ID"));
+}else{
+	RES.put("CanVal_A", " ");
+}
+
+if(FINR_INST_MNEM_aux!=null && FINR_INST_MNEM_aux.length>0 && FINR_INST_MNEM_aux[0].get("FINR_INST_MNEM")!=null){
+	RES.put("MNEM",FINR_INST_MNEM_aux[0].get("FINR_INST_MNEM"));
+}else{
+	RES.put("MNEM"," ");
+}
+
+//RES.put("ReqID",ReqID);
+//RES.put("CanVal_A", ALT_ID);
+RES.put("RDRDataCtxtIdTyp","SISETUP");
+RES.put("Source","ALERT");
+// RES.put("SysVal", SysVal);
+RES.put("DestSysDataCtxtIdTyp","ALERTID");
+//RES.put("MNEM",FINR_INST_MNEM);]]></stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="15" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="16">["ALT_ID_aux"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="17">variables["ALT_ID_aux"]</name>
+<stringValue id="18">ALT_ID_aux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="19" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="20">["FINR_INST_MNEM_aux"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="21">variables["FINR_INST_MNEM_aux"]</name>
+<stringValue id="22">FINR_INST_MNEM_aux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="23" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="24">variables["RES"]</name>
+<stringValue id="25">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="26" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="27">variables["RES"]</name>
+<stringValue id="28">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="29" type="java.util.HashSet">
+<item id="30" type="com.j2fe.workflow.definition.Transition">
+<name id="31">goto-next</name>
+<source id="32">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="33">FINR_INST_MNEM</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="34">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="35" type="java.util.HashSet">
+<item id="36" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="37">database</name>
+<stringValue id="38">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="39" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="40">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="41">mappedParameters["01"]</name>
+<stringValue id="42">SysVal</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="43" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="44">mappedResult</name>
+<stringValue id="45">FINR_INST_MNEM_aux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="46" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="47">querySQL</name>
+<stringValue id="48">select ssis.finr_inst_mnem as FINR_INST_MNEM from ft_t_ssis ssis, ft_t_sai1 sai11 where ssis.ssi_oid=sai11.ssi_oid and sai11.alt_id=? and sai11.data_src_id='ALERT'</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="49" type="java.util.HashSet">
+<item id="50" type="com.j2fe.workflow.definition.Transition">
+<name id="51">goto-next</name>
+<source id="52">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="53">ALT_ID</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="54">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="55" type="java.util.HashSet">
+<item id="56" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="57">database</name>
+<stringValue id="58">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="59" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="60">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="61">mappedParameters["01"]</name>
+<stringValue id="62">SysVal</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="63" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="64">mappedResult</name>
+<stringValue id="65">ALT_ID_aux</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="66" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="67">querySQL</name>
+<stringValue id="68"><![CDATA[select ALT_ID from (select sai1.alt_id from ft_t_sai1 sai1, ft_t_sai1 sai11 where sai1.ssi_oid=sai11.ssi_oid and sai1.data_src_id='RDR' and sai11.alt_id=? and sai11.data_src_id='ALERT'  and sai1.DATA_STAT_TYP='ACTIVE'  and sai11.DATA_STAT_TYP='ACTIVE' order by sai1.last_Chg_tms desc) where rownum <=1]]></stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="69" type="java.util.HashSet">
+<item id="70" type="com.j2fe.workflow.definition.Transition">
+<name id="71">goto-next</name>
+<source id="72">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="73">OK</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="74">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="75" type="java.util.HashSet">
+<item id="76" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="77">statements</name>
+<stringValue id="78">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("SSIsExec");
+logger.error("SSIsExec MDX Module: SUCCESS");
+
+String MNEM=TRIP;
+
+RES.put("MNEM",MNEM);
+RES.put("TransID",TransID);
+
+RES.put("Result","ACK");
+RES.put("Module","SSIsExec");
+
+Resultado="OK";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="79" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="80">variables["RES"]</name>
+<stringValue id="81">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="82" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="83">["RES"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="84">variables["RES"]</name>
+<stringValue id="85">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="86" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="87">["Resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="88">variables["Resultado"]</name>
+<stringValue id="89">Resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="90" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="91">variables["TRIP"]</name>
+<stringValue id="92">TRIP</stringValue>
+<type>VARIABLE</type>
+<variablePart id="93">[0]["MNEM"]</variablePart>
+</item>
+<item id="94" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="95">["TransID"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="96">variables["TransID"]</name>
+<stringValue id="97">TransId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="98" type="java.util.HashSet">
+<item id="99" type="com.j2fe.workflow.definition.Transition">
+<name id="100">OK</name>
+<source id="101">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="102">OK-KO</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="103">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="104" type="java.util.HashSet">
+<item id="105" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="106">statements</name>
+<stringValue id="107">if(TRIP.length==0){
+	return "KO";
+}else{
+	if(TRIP[0].get("SEVERITY")==null || TRIP[0].get("SEVERITY").equals("KO")){
+		return "KO";
+	}else{
+		return "OK";
+	}
+}
+</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="108" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="109">["TRIP"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="110">variables["TRIP"]</name>
+<stringValue id="111">TRIP</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="112" type="java.util.HashSet">
+<item id="113" type="com.j2fe.workflow.definition.Transition">
+<name id="114">goto-next</name>
+<source id="115">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="116">Query TRID</name>
+<nodeHandler>com.j2fe.general.activities.database.DBQuery</nodeHandler>
+<nodeHandlerClass id="117">com.j2fe.general.activities.database.DBQuery</nodeHandlerClass>
+<parameters id="118" type="java.util.HashSet">
+<item id="119" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="120">database</name>
+<stringValue id="121">jdbc/GSDM-1</stringValue>
+<type>REFERENCE</type>
+</item>
+<item id="122" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="123">["01"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="124">mappedParameters["01"]</name>
+<stringValue id="125">TransId</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="126" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="127">mappedResult</name>
+<stringValue id="128">TRIP</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="129" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="130">querySQL</name>
+<stringValue id="131">select decode(crrnt_severity_cde,10,'OK',20,'OK',30,'OK','KO') as SEVERITY, main_entity_id as MNEM  from ft_t_trid  where trn_id=?</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="132" type="java.util.HashSet">
+<item id="133" type="com.j2fe.workflow.definition.Transition">
+<name id="134">goto-next</name>
+<source id="135">
+<activation>TRANSACTIONAL</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="136">Call Subworkflow</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandler>
+<nodeHandlerClass id="137">com.j2fe.workflow.handler.impl.CallSubWorkflow</nodeHandlerClass>
+<parameters id="138" type="java.util.HashSet">
+<item id="139" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="140">["Message"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="141">input["Message"]</name>
+<stringValue id="142">PartyMsg</stringValue>
+<type>VARIABLE</type>
+<variablePart id="143">message</variablePart>
+</item>
+<item id="144" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="145">["MessageMetaData"]@java/util/Map@</UITypeHint>
+<input>true</input>
+<name id="146">input["MessageMetaData"]</name>
+<stringValue id="147">PartyMsg</stringValue>
+<type>VARIABLE</type>
+<variablePart id="148">properties.custom</variablePart>
+</item>
+<item id="149" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="150">["MessageType"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="151">input["MessageType"]</name>
+<stringValue id="152">PartyMsg</stringValue>
+<type>VARIABLE</type>
+<variablePart id="153">properties.messageType</variablePart>
+</item>
+<item id="154" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="155">["TransactionId"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="156">input["TransactionId"]</name>
+<stringValue id="157">PartyMsg</stringValue>
+<type>VARIABLE</type>
+<variablePart id="158">transactionId</variablePart>
+</item>
+<item id="159" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="160">name</name>
+<stringValue id="161">Basic Message Processing</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="162" type="java.util.HashSet">
+<item id="163" type="com.j2fe.workflow.definition.Transition">
+<name id="164">goto-next</name>
+<source id="165">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="166">Create Message Object</name>
+<nodeHandler>com.j2fe.feeds.activities.CreateMessage</nodeHandler>
+<nodeHandlerClass id="167">com.j2fe.feeds.activities.CreateMessage</nodeHandlerClass>
+<parameters id="168" type="java.util.HashSet">
+<item id="169" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="170">businessFeed</name>
+<stringValue id="171">PartySetupSSI</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="172" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="173">intputMessage</name>
+<stringValue id="174">message</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="175" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="176">jobId</name>
+<stringValue id="177">JobId</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="178" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="179">message</name>
+<stringValue id="180">PartyMsg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="181" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="182">messageType</name>
+<stringValue id="183">MsgTyp</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="184" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="185">transactionId</name>
+<stringValue id="186">TransId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="187" type="java.util.HashSet">
+<item id="188" type="com.j2fe.workflow.definition.Transition">
+<name id="189">OTHER</name>
+<source id="190">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="191">Switch Case</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandler>
+<nodeHandlerClass id="192">com.j2fe.workflow.handler.impl.SwitchCaseSplit</nodeHandlerClass>
+<parameters id="193" type="java.util.HashSet">
+<item id="194" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="195">caseItem</name>
+<stringValue id="196">MsgTyp</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="197" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="198">defaultItem</name>
+<stringValue id="199">OTHER</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="200" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="201">nullTransition</name>
+<stringValue id="202">OTHER</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="203" type="java.util.HashSet">
+<item id="204" type="com.j2fe.workflow.definition.Transition">
+<name id="205">goto-next</name>
+<source id="206">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="207">TratarFecha</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="208">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="209" type="java.util.HashSet">
+<item id="210" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="211">statements</name>
+<objectValue id="212" type="java.lang.String"><![CDATA[import org.apache.log4j.Logger;
+import org.w3c.dom.*;
+import javax.xml.parsers.*;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+import java.io.*;
+import java.util.*;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
+Logger logger = Logger.getLogger("SSIsCreateNew");
+
+String cad_SettStartDT="";
+String anio="";
+
+if(SettStartDT!=null && SettStartDT.length()>0){
+	int fin = SettStartDT.indexOf("-");
+	anio=SettStartDT.substring(0, fin);
+	logger.error("*** anio: "+anio);
+	if(anio.length()==2||anio.length()==3){
+		if(anio.length()==2){
+			cad_SettStartDT="20".concat(SettStartDT);
+			logger.error("*** cad_SettStartDT: "+cad_SettStartDT);
+		}else if(anio.length()==3){
+			cad_SettStartDT="2".concat(SettStartDT);
+			logger.error("*** cad_SettStartDT: "+cad_SettStartDT);
+		}
+		try {	
+			DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+			DocumentBuilder builder = factory.newDocumentBuilder();
+			StringBuilder xmlStringBuilder = new StringBuilder();
+			xmlStringBuilder.append(message);
+
+			ByteArrayInputStream input =  new ByteArrayInputStream(xmlStringBuilder.toString().getBytes("UTF-8"));
+			Document doc = builder.parse(input);
+			doc.getDocumentElement().normalize();	
+
+			NodeList nList = doc.getElementsByTagName("SetInst");
+			for (int temp = 0; temp < nList.getLength(); temp++) {
+				Node nNode = nList.item(temp);
+				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+					Element eElement = (Element) nNode;
+					eElement.getElementsByTagName("SettStartDT").item(0).setTextContent(cad_SettStartDT);
+				}
+			}
+						
+			StringWriter writer = new StringWriter();
+			StreamResult result = new StreamResult(writer);
+			TransformerFactory tFactory = TransformerFactory.newInstance();
+			Transformer transformer = tFactory.newTransformer();
+			DOMSource source = new DOMSource(doc);
+			transformer.transform(source,result);
+			message= writer.toString();
+			message= message.replaceAll("&gt;", ">");
+			message= message.replaceAll("&lt;", "<");
+
+		} catch (Exception ex) {  
+			logger.error("*** Exception: "+ex);
+		}
+	}
+}
+]]></objectValue>
+<type>CONSTANT</type>
+</item>
+<item id="213" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="214">["SettStartDT"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="215">variables["SettStartDT"]</name>
+<stringValue id="216">SettStartDT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="217" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="218">["message"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="219">variables["message"]</name>
+<stringValue id="220">message</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="221" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="222">["message"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="223">variables["message"]</name>
+<stringValue id="224">message</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="225" type="java.util.HashSet">
+<item id="226" type="com.j2fe.workflow.definition.Transition">
+<name id="227">goto-next</name>
+<source id="228">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="229">SettStartDT</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.ExecuteXPath</nodeHandler>
+<nodeHandlerClass id="230">com.j2fe.workflow.handler.impl.ExecuteXPath</nodeHandlerClass>
+<parameters id="231" type="java.util.HashSet">
+<item id="232" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="233">inputText</name>
+<stringValue id="234">message</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="235" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="236">outputValues[0]</name>
+<stringValue id="237">SettStartDT</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="238" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="239">xPath</name>
+<stringValue id="240">/SettlInstrcntsResp/SetInst/SettStartDT</stringValue>
+<type>CONSTANT</type>
+</item>
+</parameters>
+<sources id="241" type="java.util.HashSet">
+<item id="242" type="com.j2fe.workflow.definition.Transition">
+<name id="243">goto-next</name>
+<source id="244">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="245">Start</name>
+<nodeHandler>com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandler>
+<nodeHandlerClass id="246">com.j2fe.workflow.handler.impl.DummyActivityHandler</nodeHandlerClass>
+<sources id="247" type="java.util.HashSet">
+</sources>
+<targets id="248" type="java.util.HashSet">
+<item idref="242"/>
+</targets>
+<type>START</type>
+</source>
+<target idref="228"/>
+</item>
+</sources>
+<targets id="249" type="java.util.HashSet">
+<item idref="226"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="206"/>
+</item>
+</sources>
+<targets id="250" type="java.util.HashSet">
+<item idref="204"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="190"/>
+</item>
+</sources>
+<targets id="251" type="java.util.HashSet">
+<item idref="188"/>
+<item id="252" type="com.j2fe.workflow.definition.Transition">
+<name id="253">SSI_FX</name>
+<source idref="190"/>
+<target id="254">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="255">Create Message Object</name>
+<nodeHandler>com.j2fe.feeds.activities.CreateMessage</nodeHandler>
+<nodeHandlerClass id="256">com.j2fe.feeds.activities.CreateMessage</nodeHandlerClass>
+<parameters id="257" type="java.util.HashSet">
+<item id="258" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="259">businessFeed</name>
+<stringValue id="260">SetupSSI_FX</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="261" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="262">intputMessage</name>
+<stringValue id="263">message</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="264" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="265">jobId</name>
+<stringValue id="266">JobId</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="267" type="com.j2fe.workflow.definition.Parameter">
+<input>false</input>
+<name id="268">message</name>
+<stringValue id="269">PartyMsg</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="270" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="271">messageType</name>
+<stringValue id="272">MsgTyp</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="273" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="274">transactionId</name>
+<stringValue id="275">TransId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="276" type="java.util.HashSet">
+<item idref="252"/>
+</sources>
+<targets id="277" type="java.util.HashSet">
+<item id="278" type="com.j2fe.workflow.definition.Transition">
+<name id="279">goto-next</name>
+<source idref="254"/>
+<target idref="135"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="165"/>
+</item>
+</sources>
+<targets id="280" type="java.util.HashSet">
+<item idref="163"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="135"/>
+</item>
+<item idref="278"/>
+</sources>
+<targets id="281" type="java.util.HashSet">
+<item idref="133"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="115"/>
+</item>
+</sources>
+<targets id="282" type="java.util.HashSet">
+<item idref="113"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="101"/>
+</item>
+</sources>
+<targets id="283" type="java.util.HashSet">
+<item id="284" type="com.j2fe.workflow.definition.Transition">
+<name id="285">KO</name>
+<source idref="101"/>
+<target id="286">
+<activation>INVOKE</activation>
+<clusteredCall>false</clusteredCall>
+<directJoin>false</directJoin>
+<name id="287">Set error</name>
+<nodeHandler>com.j2fe.general.activities.BeanShellScript</nodeHandler>
+<nodeHandlerClass id="288">com.j2fe.general.activities.BeanShellScript</nodeHandlerClass>
+<parameters id="289" type="java.util.HashSet">
+<item id="290" type="com.j2fe.workflow.definition.Parameter">
+<input>true</input>
+<name id="291">statements</name>
+<stringValue id="292">import org.apache.log4j.Logger;
+Logger logger = Logger.getLogger("SSIsExec");
+logger.error("MDXSSIsSetup Module - Result: FAILED");
+
+RES.put("Result","NACK");
+RES.put("ErrorID","XSITEC002");
+RES.put("Message","Data Base Setup Error");
+RES.put("MessageG","RDR Technical Error");
+RES.put("Module","MDXSSIsSetup");
+RES.put("Reg","Online SSIs Setup");
+RES.put("TransID",TransID);
+RES.put("AccUsu","0000");
+
+Resultado="KO";</stringValue>
+<type>CONSTANT</type>
+</item>
+<item id="293" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="294">["RES"]@java/lang/Object@</UITypeHint>
+<input>true</input>
+<name id="295">variables["RES"]</name>
+<stringValue id="296">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="297" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="298">["RES"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="299">variables["RES"]</name>
+<stringValue id="300">RES</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="301" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="302">["Resultado"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="303">variables["Resultado"]</name>
+<stringValue id="304">Resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="305" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="306">["Resultado"]@java/lang/String@</UITypeHint>
+<input>false</input>
+<name id="307">variables["Resultado"]</name>
+<stringValue id="308">Resultado</stringValue>
+<type>VARIABLE</type>
+</item>
+<item id="309" type="com.j2fe.workflow.definition.Parameter">
+<UITypeHint id="310">["TransID"]@java/lang/String@</UITypeHint>
+<input>true</input>
+<name id="311">variables["TransID"]</name>
+<stringValue id="312">TransId</stringValue>
+<type>VARIABLE</type>
+</item>
+</parameters>
+<sources id="313" type="java.util.HashSet">
+<item idref="284"/>
+</sources>
+<targets id="314" type="java.util.HashSet">
+<item id="315" type="com.j2fe.workflow.definition.Transition">
+<name id="316">goto-next</name>
+<source idref="286"/>
+<target idref="2"/>
+</item>
+</targets>
+<type>ACTIVITY</type>
+</target>
+</item>
+<item idref="99"/>
+</targets>
+<type>XORSPLIT</type>
+</source>
+<target idref="72"/>
+</item>
+</sources>
+<targets id="317" type="java.util.HashSet">
+<item idref="70"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="52"/>
+</item>
+</sources>
+<targets id="318" type="java.util.HashSet">
+<item idref="50"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="32"/>
+</item>
+</sources>
+<targets id="319" type="java.util.HashSet">
+<item idref="30"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="8"/>
+</item>
+</sources>
+<targets id="320" type="java.util.HashSet">
+<item idref="6"/>
+</targets>
+<type>ACTIVITY</type>
+</source>
+<target idref="2"/>
+</item>
+<item idref="315"/>
+</sources>
+<targets id="321" type="java.util.HashSet">
+</targets>
+<type>END</type>
+</endNode>
+<forcePurgeAtEnd>false</forcePurgeAtEnd>
+<group id="322">Custom/RDR/Alert</group>
+<haltOnError>false</haltOnError>
+<lastChangeUser id="323">KYTL_GC</lastChangeUser>
+<lastUpdate id="324">2022-11-05T07:49:11.000+0100</lastUpdate>
+<name id="325">SSIsCreateNew</name>
+<optimize>true</optimize>
+<parameter id="326" type="java.util.HashMap">
+<entry>
+<key id="327" type="java.lang.String">JobId</key>
+<value id="328" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="329">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="330" type="java.lang.String">MsgTyp</key>
+<value id="331" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="332">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="333" type="java.lang.String">RES</key>
+<value id="334" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="335">java.util.Map</className>
+<clazz>java.util.Map</clazz>
+<input>true</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="336" type="java.lang.String">Resultado</key>
+<value id="337" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="338">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>false</input>
+<output>true</output>
+<required>false</required>
+</value>
+</entry>
+<entry>
+<key id="339" type="java.lang.String">SysVal</key>
+<value id="340" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="341">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="342" type="java.lang.String">TransId</key>
+<value id="343" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="344">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+<entry>
+<key id="345" type="java.lang.String">message</key>
+<value id="346" type="com.j2fe.workflow.definition.WorkflowParameter">
+<className id="347">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<input>true</input>
+<output>false</output>
+<required>true</required>
+</value>
+</entry>
+</parameter>
+<permissions id="348" type="java.util.HashSet">
+</permissions>
+<priority>50</priority>
+<purgeAtEnd>true</purgeAtEnd>
+<retries>0</retries>
+<startNode idref="244"/>
+<status>RELEASED</status>
+<variables id="349" type="java.util.HashMap">
+<entry>
+<key id="350" type="java.lang.String">ALT_ID</key>
+<value id="351" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="352">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="353" type="java.lang.String">ALT_ID_aux</key>
+<value id="354" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="355">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="356" type="java.lang.String">FINR_INST_MNEM</key>
+<value id="357" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="358">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="359" type="java.lang.String">FINR_INST_MNEM_aux</key>
+<value id="360" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="361">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="362" type="java.lang.String">JobId</key>
+<value id="363" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="364">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="365" type="java.lang.String">MsgTyp</key>
+<value id="366" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="367">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="368" type="java.lang.String">PartyMsg</key>
+<value id="369" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="370">java.lang.Object</className>
+<clazz>java.lang.Object</clazz>
+<persistent>true</persistent>
+</value>
+</entry>
+<entry>
+<key id="371" type="java.lang.String">RES</key>
+<value id="372" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="373">java.util.Map</className>
+<clazz>java.util.Map</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="374" type="java.lang.String">Resultado</key>
+<value id="375" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="376">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="377" type="java.lang.String">SysVal</key>
+<value id="378" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="379">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="380" type="java.lang.String">TransId</key>
+<value id="381" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="382">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+<entry>
+<key id="383" type="java.lang.String">message</key>
+<value id="384" type="com.j2fe.workflow.definition.GlobalVariable">
+<className id="385">java.lang.String</className>
+<clazz>java.lang.String</clazz>
+<persistent>false</persistent>
+</value>
+</entry>
+</variables>
+<version>4</version>
+</com.j2fe.workflow.definition.Workflow>

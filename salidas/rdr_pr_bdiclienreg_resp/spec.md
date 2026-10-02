@@ -1631,7 +1631,7 @@ con destinatarios de email activos) y reenvía cada una de sus 5 fases a los mé
   `"REPORTEEXCEL"`, descarta todos los tipos salvo `"EXCEL"` si existe, o no genera nada si no existe — **mismo
   patrón de "éxito silencioso sin generar nada" ya visto en otros puntos de esta cadena** (ver §9). Superadas
   las validaciones, delega la generación real de cada tipo de fichero en `DocumentGenerator.generaDocumento`
-  (clase no aportada — único residuo de código que queda de esta pieza) y cuenta los ficheros generados; un
+  (**ahora confirmado con código fuente real** — ver detalle más abajo) y cuenta los ficheros generados; un
   fallo individual de un tipo de envío no detiene a los demás, solo marca el resultado global como fallido.
   `marcaUsadosALG()`/`marcaUsadosALG1()` trocea los `ALG1_OID` en lotes de hasta 990 (mismo límite de Oracle
   en `IN` ya visto en `marcaUsadosTPG1` de `AlertasBarrido`) y los marca usados vía `QuerysStr.queryMarcadoALG1`
@@ -1639,6 +1639,23 @@ con destinatarios de email activos) y reenvía cada una de sus 5 fases a los mé
   ya señalado para `AlertasBarrido`): no se confirma el mismo defecto en `AlertasCocinado`. `cierraConexion()`
   traga **cualquier** excepción al cerrar la conexión sin registrar nada, ni siquiera un log — fallo
   completamente silencioso, aunque de bajo impacto (solo afecta al cierre ordenado de la conexión).
+- **`DocumentGenerator.generaDocumento` (`report.DocumentGenerator`) — confirmado por completo con código
+  fuente real, cierra el último residuo de R8:** despacha por `tipo_doc` — `EXCEL` (Apache POI
+  `XSSFWorkbook`, escribe sobre la plantilla `excelTemplate` de `FT_T_REP1`: título en fila 5/columna 1,
+  cabecera opcional en fila 9, un mensaje por fila a partir de ahí), `WORD` (Apache POI `XWPFDocument`,
+  plantilla fija `<ruta>/Templates/Template_Alertas_Word.docx` — a diferencia de Excel, cuya plantilla viene
+  de BBDD, la de Word está hardcodeada), `CUERPO`/`TXT`/`DAT` (texto plano; `DAT` genera además un `.ctl`
+  vacío para Datio tras el `.dat`). Si en vez de `mensajes` hay `celdas` (mensajes `CELDAEXCEL` de
+  `FT_T_ALG1`, formato `"idFila";"idCol";"valor"` separado por `split("\";\"")` — **confirma el consumo real
+  de ese formato ya visto en `Calculate SFTR/EMIR NFC Sector`, §6.13quater**), solo el caso `EXCEL` tiene
+  implementación (`generaExcelPorCeldas`, escribe cada celda en la fila/columna indicada de la plantilla,
+  agrupando filas nuevas por `idFila`); si `tipo_doc` no es `EXCEL` con celdas presentes, el método no entra
+  en ninguna rama y devuelve `false` **sin ningún log que explique por qué** — un informe configurado con
+  celdas pero con un tipo de envío distinto de Excel fallaría en silencio. Si no hay ni mensajes ni celdas
+  pero sí hay suscriptores de email, genera un cuerpo de correo "sin datos a enviar" y devuelve éxito (mismo
+  patrón de "éxito sin generar el documento real" ya visto en el resto de esta cadena). Para
+  `EXCEL`/`WORD`/`TXT` (no `DAT`) con emails activos, genera además por separado el cuerpo del correo
+  (`generaCuerpoCorreo`) con un resumen de estadísticas o del número de filas.
 - **Qué recibe/produce:** ambos reciben el identificador de proceso vía `args[2]` (placeholder `PROCESOS`
   sustituido, §6.9/§6.12); Barrido produce filas nuevas en `FT_T_ALG1`; Cocinado marca `FT_T_REP1.SEND_PEND`
   y cierra los mensajes de `FT_T_ALG1` que consumió. Ambos comparten el mismo patrón de auditoría de errores
@@ -1988,10 +2005,8 @@ Workflow analizado: `SSIs_Fx_Exec` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
 - **Qué pasa si falla:** sin rama de gestión de error genérica visible — cada fallo conocido (resultado de
   `SSIsData_Fx` distinto de `"OK"`, o error MDX detectado tras `SSIsCreateNew`) tiene su propio reporte
   explícito vía `SSIs_Fx_Reporte` y el bucle continúa con la siguiente sucursal sin abortar el lote completo.
-- **Gap abierto, no bloqueante:** `SSIsData_Fx`, `SSIsCreateNew` y `SSIs_Fx_Difusion` no aportados — queda
-  confirmado el esqueleto de orquestación completo (incluida la comprobación de error MDX vía `FT_T_RLT1`),
-  pero no la lógica real de persistencia/difusión de cada uno. `SSIs_Fx_Reporte` queda **confirmado con
-  `.wkf` real** — ver Anexo siguiente.
+- **Sin gaps abiertos:** `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion` y `SSIs_Fx_Reporte` quedan los 4
+  **confirmados con evidencia real** — ver Anexos siguientes.
 
 **Anexo — `SSIs_Fx_Reporte`, confirmado con `.wkf` real:**
 
@@ -2018,6 +2033,102 @@ Workflow analizado: `SSIs_Fx_Reporte` (grupo `Custom/RDR/Alert/InvestorsPlan`, v
   concatenación directa de cadenas (mismo patrón de codificación, menos uniforme que el `DBStatement`
   parametrizado del resto del árbol, ya señalado en otros jars de esta cadena, p. ej. `AltaFondos_Genera_csv`,
   §6.3) a partir de valores ya resueltos por queries/XPath previos, no de entrada externa directa.
+
+**Anexo — `SSIsData_Fx`, confirmado con evidencia real (`.gsp`/análisis documentado):**
+
+Workflow analizado: `SSIsData_Fx` (grupo `Custom/RDR/Alert/InvestorsPlan`, formato `.gsp`, package version
+`8.7.1.106` — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIsData_Fx.md`).
+
+- **Qué hace:** es el **motor de composición del mensaje MDX de alta de la SDI**, invocado por `SSIs_Fx_Exec`
+  tras transformar el XML por XSLT. Workflow hoja (no invoca ningún otro `CallSubWorkflow`): valida
+  `CAL_METH` (debe ser `SWIFT`/`TARGET2`), el BIC del corresponsal y `cparty` (que descompone por `|` en
+  `Acronym`/`Access`); lanza en paralelo hasta 6 cadenas de `DBQuery` (branch, contrapartida, corresponsal,
+  beneficiario, intermediario 1, intermediario 2 — los 2 intermediarios y el beneficiario solo si vienen
+  informados) que resuelven `FINS_ID`/nombre/`short` de cada parte contra `FT_T_FRID`/`FT_T_FINR`/
+  `FT_T_FINS`/`FT_T_FIID` (patrón `FINSRL_ID_CTXT_TYP='SWIFTLIQ'`+`FINSRL_TYP='CPARTY'`, o — para el
+  beneficiario sin BIC propio y para la propia contrapartida — `FRIDACRO`/`FRIDACC` con
+  `FINSRL_ID_CTXT_TYP='ALERTID'`/`'ACCDE'`); valida que las 6 resoluciones hayan encontrado dato (si falta
+  cualquiera, error funcional específico — `XSIFUN007`/`013`/`016`/`019`/`010`/`022`); y finalmente reescribe
+  el propio XML (`Replace`) sustituyendo `PartyId`/`PartyShort`/`PartyName` de cada participante con los
+  valores resueltos, normalizando `CAL_METH` y, si `Type="Online"`, forzando `SettStartDT="1970-01-01"` como
+  centinela. El resultado (`Resultado`/`RES`/`message` reescrito) vuelve a `SSIs_Fx_Exec`.
+- **[Hallazgo] 2 nodos sin transición `KO` explícita en el `.gsp`:** `Validate Queries` (si falta cualquier
+  `FINS_ID` resuelto) y el `XORSPLIT` de intermediario 1 (si `interm1` viene vacío) calculan y devuelven
+  `"KO"` pero el workflow solo define la transición `"OK"` — a diferencia de `Validate Xpath` y de los
+  `XORSPLIT` de intermediario 2/beneficiario, que sí definen su `KO` explícito. Sin una transición de salida
+  definida, el comportamiento del motor de workflow ante ese caso no es observable desde el `.gsp` estático
+  — posible bug de configuración.
+- **[Hallazgo] variable `Benef` no declarada ni asignada dentro de este workflow:** se usa en la rama de
+  resolución del beneficiario por BIC propio, pero ningún nodo de `SSIsData_Fx` la rellena ni la declara como
+  parámetro de entrada — llega como variable de contexto heredada de `SSIs_Fx_Exec`/`SSIs_Fx_Alta`, un
+  acoplamiento implícito entre workflows no reflejado en la firma de parámetros declarada.
+- **Qué recibe/produce:** recibe `Branch`/`RES`/`Type`/`message`; produce `Resultado`/`RES`/`message`
+  (XML reescrito con los `FINS_ID` resueltos).
+- **Qué pasa si falla:** cada validación (`Validate Xpath`/`Validate Queries`) rellena `RES` con un error
+  funcional específico antes de devolver `KO`; un fallo de `Replace` (excepción Java) cae en un nodo `Set
+  error` que solo rellena un error técnico genérico (`OSITEC009`) si `RES` no tenía ya un mensaje — red de
+  seguridad para el único punto de esta pieza sin un error de negocio específico.
+
+**Anexo — `SSIsCreateNew`, confirmado con `.wkf` real:**
+
+Workflow analizado: `SSIsCreateNew` (grupo **`Custom/RDR/Alert`** — un nivel por encima de
+`.../InvestorsPlan`, donde viven el resto de sus hermanos `SSIs_Fx_*`, estado `RELEASED`, v4 —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIsCreateNew.wkf`).
+
+- **Qué hace: es la pieza que realmente aplica la SDI en GoldenSource, cerrando el último hueco de toda esta
+  cadena.** Resuelve `ALT_ID` (el cross-reference RDR↔ALERT más reciente activo, `FT_T_SAI1` auto-join) y
+  `FINR_INST_MNEM` (`FT_T_SSIS`/`FT_T_SAI1`) a partir de `SysVal`, y construye un `RES` con 3 valores
+  fijos (`RDRDataCtxtIdTyp="SISETUP"`, `Source="ALERT"`, `DestSysDataCtxtIdTyp="ALERTID"`). Comprueba el
+  resultado de la transacción asociada en `FT_T_TRID` (`Query TRID`: decodifica `CRRNT_SEVERITY_CDE` 10/20/30
+  → `"OK"`, cualquier otro valor → `"KO"`, vía `TransId`) — si `"KO"` o sin fila, va directo a `Set error`
+  (`RES` NACK/`XSITEC002`/"Data Base Setup Error"/`RDR Technical Error`) y `Stop`, **sin llegar a aplicar
+  nada**. Si `"OK"`: según `MsgTyp` (`SwitchCaseSplit`, default/`OTHER` vs. `"SSI_FX"`), si no es `SSI_FX`
+  corrige primero el año de `SettStartDT` si viene con 2 o 3 dígitos (`TratarFecha`: lo normaliza a 4
+  prefijando `"20"`/`"2"` y reescribe el XML) — **la rama `SSI_FX` se salta esta corrección**, coherente con
+  que `SSIsData_Fx` ya fuerza `SettStartDT="1970-01-01"` para el flujo F/X online, aunque no está documentado
+  explícitamente que ese sea el motivo. Construye el mensaje (`CreateMessage`, `businessFeed="PartySetupSSI"`
+  por defecto o `"SetupSSI_FX"` si `MsgTyp="SSI_FX"` — 2 plantillas de negocio distintas según el origen) y
+  lo aplica **invocando el mismo motor genérico `"Basic Message Processing"` ya confirmado en §6.8** —
+  **confirma de punta a punta cómo se materializa realmente el alta de una SDI en GoldenSource**, cerrando
+  la pregunta que quedaba abierta desde `SSIs_Fx_Alta`/`SSIs_Fx_Exec`.
+- **[Hallazgo menor] comentario de negocio desalineado con el grupo:** a diferencia de sus hermanos
+  (`Custom/RDR/Alert/InvestorsPlan`), este vive un nivel más arriba, en `Custom/RDR/Alert` — sin que el
+  propio `.wkf` ni este análisis puedan confirmar si es un descuido de organización o una decisión
+  deliberada (p. ej. por ser compartido con otro proceso de alertas no visto en esta sesión).
+- **[Hallazgo] `ALT_ID`/`PartyMsg` declaradas `persistent=true`**, a diferencia de casi todas las demás
+  variables de esta familia (`persistent=false`) — sugiere que su valor se espera disponible más allá de una
+  única invocación, aunque no se ha podido confirmar con qué otro punto de la cadena comparten ese estado.
+- **Qué recibe/produce:** recibe `JobId`/`MsgTyp`/`RES`/`SysVal`/`TransId`/`message`; produce `RES`/
+  `Resultado` (`"OK"`/`"KO"`) — el efecto real es la aplicación de la SDI en GoldenSource vía `"Basic
+  Message Processing"`.
+- **Qué pasa si falla:** si `FT_T_TRID` no confirma éxito de la transacción, falla con un error técnico
+  genérico antes de llegar a aplicar nada; un fallo dentro de `"Basic Message Processing"` hereda el mismo
+  comportamiento ya descrito en §6.8 (no confirmado si aborta solo este mensaje o el job completo).
+
+**Anexo — `SSIs_Fx_Difusion`, confirmado con `.wkf` real:**
+
+Workflow analizado: `SSIs_Fx_Difusion` (grupo `Custom/RDR/Alert/InvestorsPlan`, estado `RELEASED`, v4,
+**última actualización 2026-10-01** — como `Calculate Corporate Relationship` (§6.13sexies), uno de los
+workflows modificados más recientemente de toda esta auditoría —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Fx_Difusion.wkf`).
+
+- **Qué hace:** es la pieza de difusión más simple de toda la familia `SSIs_Fx_*` — resuelve el `SSI_OID`
+  real a partir del `ALT_ID` recibido (`FT_T_SAI1`, `DATA_SRC_ID='RDR'`, `ACTIVE`), abre un `Job` hijo
+  (`CreateJob`, `configInfo="SSIs_Fx_Difusion"`, `parentJobId=JobID_Padre`) y, con eso, invoca directamente
+  el subworkflow `RDR_SSI_Publish_ESB` (`Action`/`ID=SSI_OID`) — toda la lógica real de publicación al ESB
+  vive en ese subworkflow, no aportado ni analizado en esta sesión (nombre sugiere un mecanismo de
+  publicación genérico, no exclusivo de F/X).
+- **[Hallazgo] comentario de negocio (`<comment>`) completamente desalineado con la función real del
+  workflow:** declara `"Decomiso_Diccionario_v1"` — un nombre que sugiere un proceso de "decomiso de
+  diccionario" sin relación aparente con la difusión de SDIs al ESB; probablemente un vestigio de haber
+  clonado este `.wkf` a partir de otro objeto no relacionado, sin actualizar su comentario de negocio.
+- **Qué recibe/produce:** recibe `Action`/`ID` (el `ALT_ID`); produce la invocación a `RDR_SSI_Publish_ESB`
+  con el `SSI_OID` resuelto — no declara salida propia.
+- **Qué pasa si falla:** sin rama de gestión de error visible en este `.wkf`; si `RDR_SSI_Publish_ESB` falla,
+  el comportamiento depende de ese subworkflow, no aportado.
+- **Gap residual, no bloqueante:** `RDR_SSI_Publish_ESB` (el publicador real al ESB) no aportado — por su
+  nombre, es probable que sea un mecanismo genérico compartido con otros procesos de alerta, no exclusivo de
+  esta cadena.
 
 ## 7. Especificación de testing
 
@@ -2323,6 +2434,18 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   deja rastro de error visible para el llamante, mismo patrón de "éxito silencioso sin generar nada" ya
   confirmado en otros puntos de esta cadena (`AltaFondos_Genera_csv.jar`, §6.3). `ReporteRDR.cierraConexion()`
   además traga **cualquier** excepción al cerrar la conexión sin registrar nada en ningún log.
+* **[Confirmado con código fuente real, §6.14] `report.DocumentGenerator.generaDocumento()` falla en
+  silencio y sin ningún log cuando un informe tiene mensajes `CELDAEXCEL` pero su `tipo_doc` no es
+  `"EXCEL"`:** solo esa combinación tiene implementación (`generaExcelPorCeldas`); cualquier otra combinación
+  de tipo+celdas cae fuera de todas las ramas del `if`/`else if` y el método devuelve `false` sin haber
+  registrado en ningún punto cuál fue el motivo.
+* **[Confirmado con evidencia real, §6.19 — Anexo] `SSIsData_Fx` tiene 2 nodos que calculan `"KO"` sin
+  transición de salida definida para ese caso en el `.gsp`** (`Validate Queries` y el `XORSPLIT` de
+  intermediario 1) — a diferencia de sus equivalentes directos en el mismo workflow, que sí definen su `KO`
+  explícito; el comportamiento real del motor de workflow ante esa situación no es observable desde un
+  análisis estático. El mismo workflow usa además una variable (`Benef`) que nunca declara ni asigna
+  internamente — llega como estado implícito heredado de `SSIs_Fx_Exec`/`SSIs_Fx_Alta`, un acoplamiento no
+  reflejado en su firma de parámetros.
 * **[Confirmado con `.wkf` real, §6.13quater — Anexo] 2ª confirmación de un nombre de bind cruzado entre el
   nivel Global y el Operativo:** `Other Regulatory Information Extraction` (lado Global) usa
   `:cntrprtyOperativeOid` como nombre de bind en su SQL pese a mapear el parámetro real `cntrprtyGlobalOid`
@@ -2501,10 +2624,10 @@ qué ningún "Send Mail" de todo el audit comprueba su resultado; `AlertasEnvioE
 confirmado con `.wkf` real) cierra el último punto pendiente de esta sub-cadena — corrige la suposición
 implícita de que generaba adjuntos/gestionaba excepciones de envío: en realidad personaliza `body`/`subject`
 para 3 procesos ajenos a R8 (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS`,
-`REGU_PDTE_LEI_EMISIONES`), dejando el envío real en manos de `Mail`. Con esto, **R8 queda funcionalmente resuelto
-de principio a fin, sin cabos sueltos bloqueantes**: la clase `report.ReporteRDR` que implementa la lógica
-interna de `AlertasCocinado` queda también confirmada con código fuente real (§6.14) — solo queda, como
-residual mínimo, `DocumentGenerator.generaDocumento` (la generación física de cada fichero).
+`REGU_PDTE_LEI_EMISIONES`), dejando el envío real en manos de `Mail`. Con esto, **R8 queda funcionalmente
+resuelto de principio a fin, sin ningún cabo suelto**: tanto `report.ReporteRDR` como
+`report.DocumentGenerator` (la generación física de cada fichero — Excel/Word/TXT/DAT/cuerpo de correo,
+incluido el consumo real del formato `CELDAEXCEL`) quedan confirmados con código fuente real (§6.14).
 
 El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la
 confirmación de nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, pero
@@ -2519,12 +2642,16 @@ real con una validación de 2 niveles (estado de la petición + contenido embebi
 fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
 timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
 variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
-bloqueantes; `SSIs_Fx_Exec`, `SSIs_Fx_Reporte` y `SSIs_Valida_Fx` quedan ahora también **confirmados con
-`.wkf` real** (Anexos de §6.19): el primero orquesta el alta por sucursal, comprobando además un error MDX
-previo en `FT_T_RLT1` antes de considerar la SDI dada de alta; el segundo es el reportador de auditoría
-genérico (`FT_T_RLT1`/`FT_T_VREQ`, por concatenación directa de cadenas) que ambos invocan; el tercero valida
-8 condiciones en cascada sobre la SDI (incluida la existencia real de la divisa en RDR) antes de que
-`SSIs_Fx_Alta` la procese — quedan como único residual de código no aportado en todo R9 los 3 subworkflows
-propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`).
-**Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
-no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
+bloqueantes; `SSIs_Fx_Exec`, `SSIs_Fx_Reporte`, `SSIs_Valida_Fx`, `SSIsData_Fx`, `SSIsCreateNew` y
+`SSIs_Fx_Difusion` quedan todos **confirmados con evidencia real** (Anexos de §6.19): `SSIs_Fx_Exec`
+orquesta el alta por sucursal, comprobando además un error MDX previo en `FT_T_RLT1`; `SSIs_Fx_Reporte` es
+el reportador de auditoría genérico (`FT_T_RLT1`/`FT_T_VREQ`) que invocan `SSIs_Fx_Alta`/`SSIs_Fx_Exec`;
+`SSIs_Valida_Fx` valida 8 condiciones en cascada sobre la SDI; `SSIsData_Fx` compone el mensaje MDX
+resolviendo los `FINS_ID` de las hasta 6 partes de la liquidación; y **`SSIsCreateNew` cierra la pregunta
+que quedaba abierta desde el principio de R9 — aplica la SDI invocando el mismo motor genérico `"Basic
+Message Processing"` ya confirmado en §6.8**, el mismo que usa `RDR_XMLReader` para el alta de
+contrapartidas. Solo queda, como residual mínimo, `RDR_SSI_Publish_ESB` (el publicador real al ESB invocado
+por `SSIs_Fx_Difusion`, probablemente un mecanismo genérico compartido con otros procesos).
+**Con esto, R9 queda funcionalmente resuelto de principio a fin, y la auditoría completa de
+`RDR_PR_BDICLIENREG_RESP_new` (R1-R9) no tiene más gaps técnicos abiertos, salvo ese único residual mínimo y
+los demás cabos sueltos no bloqueantes ya señalados en cada sección.**
