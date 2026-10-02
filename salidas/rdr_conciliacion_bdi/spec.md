@@ -42,7 +42,7 @@ automatizado — ver gap G1).
 | G1 | ¿El informe SWIFT (`Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`) se distribuye por algún canal no documentado, o solo se archiva? | Confirmado: sin canal de transmisión automatizado por diseño (R6). Descartado un canal no documentado. |
 | G2 | ¿Qué reglas concretas aplica `fillingRules_ConBDI.csv` (campo a campo) sobre `ConBDI.csv` para producir `ConBDI_processed.csv`? | **Resuelto.** Fichero real aportado por el usuario: define 45 campos destino (nomenclatura tipo copybook de intervinientes/contraparte), de los cuales 22 están marcados `USAR` (efectivamente volcados a `ConBDI_processed.csv`); el resto queda documentado pero no se marca para volcado. `COD-CLINTERN` lleva además una regla de extracción posicional (`POSICION(6)`) y un valor por defecto `NULL` — únicas reglas especiales del fichero. Detalle campo a campo en §6.2. |
 | G3 | ¿Qué procedimientos PL/SQL concretos ejecuta `RDR_PLSQL.jar` (clase `ConBDI`) sobre `ConBDI_processed.csv`, y qué tablas/columnas de GoldenSource afectan? | **Resuelto (2026-09-28), en el límite de lo alcanzable desde código Java, con la versión completa real de `ConDB.java`.** `executeCONBDI_Hilos` llama al procedimiento almacenado Oracle **`CONBDI2`** (`{call CONBDI2(?,?,...,?)}`, 21 parámetros: los 20 campos extraídos por `ConBDI.java` + `FLD_JOB_ID`) por cada registro válido — confirma el nombre exacto del procedimiento y su firma completa. También confirma, con SQL literal, `obtenerBDIs` (query que lista los códigos BDI activos en GoldenSource, `FT_T_FIID`/`FINS_ID_CTXT_TYP='BDIID'`), `crearJOB`/`cerrarJOB` (INSERT/UPDATE literales sobre `FT_T_JBLG`) e `insertRLT1BDI` (INSERT literal sobre `FT_T_RLT1`). **Único cabo suelto no bloqueante:** el cuerpo interno del propio procedimiento `CONBDI2` (qué hace exactamente dentro de la base de datos con esos 21 parámetros) vive en Oracle, no en este código Java — cerrarlo del todo exigiría un export de PL/SQL de BD, no un fichero de aplicación. Ver §6.4. |
-| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto.** El informe Broker queda **cerrado al 100%**: código fuente real de `InformeBroker.java`/`ConDB.java` (4 hojas `NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`, cada una con su query real y columnas exactas) confirmado además con la plantilla real (`Reporte_ConciliacionBroker_Plantilla.xlsx`) y una muestra de salida real — ver §6.5. **Sigue abierto para el SWIFT:** descartados como generadores `InformeBroker`/`ConDB` (no lo mencionan) y `RDR_Report.jar` (confirmado por bytecode real que solo escribe texto plano, nunca `.xlsx` — ver §6.5); el jar/clase real que lo genera sigue sin identificar, candidato pendiente: `RDR_PLSQL.jar`. |
+| G4 | ¿Qué columnas exactas componen `Reporte_ConciliacionBroker_yyyymmdd.xlsx` y `Reporte_ConBDI_SWIFT_YYYYMMDD.xlsx`? | **Parcialmente resuelto.** El informe Broker queda **cerrado al 100%**: código fuente real de `InformeBroker.java`/`ConDB.java` (4 hojas `NoBDI`/`NoRDR`/`DistintoRDR`/`DistintoNme`, cada una con su query real y columnas exactas) confirmado además con la plantilla real (`Reporte_ConciliacionBroker_Plantilla.xlsx`) y una muestra de salida real — ver §6.5. **Sigue abierto para el SWIFT, pero con `RDR_PLSQL.jar` ahora descartado por completo:** vía `javap` sobre el jar íntegro (no solo la clase `ConBDI` ya conocida) se confirma que contiene únicamente `ConBDI`/`ConClientela`/`ConContrato460` (los 3 preprocesadores "Con*" de esta familia, ninguno propio de `ConBDI`) más utilidades `jdbc`/`util` — **cero dependencias de Apache POI o similar en todo el jar**, igual que ya se había confirmado para `RDR_Report.jar`. Descartados ya los 3 candidatos obvios (`InformeBroker`/`ConDB`, `RDR_Report.jar`, `RDR_PLSQL.jar`); el generador real del SWIFT sigue sin identificar y sin candidato pendiente conocido dentro de la cadena ya aportada. |
 
 ## 5. Especificación funcional
 
@@ -341,10 +341,12 @@ disponible es el código realmente desplegado).
   `XSSFWorkbook` en todo el jar. Confirma también que es el **mismo motor compartido** ya visto en
   `rdr_cargalei_new` (`Reporte_LEI.csv`) — reutilizado entre procesos sin lógica de negocio propia, con el
   SQL/cabecera de cada uso en un `.properties` distinto (`ConBDI` aquí, otro en `rdr_cargalei_new`). **G4
-  sigue igual de acotado que antes para el SWIFT** (el informe Broker ya estaba cerrado, el CSV `ConBDI` ya
-  estaba cerrado vía §6.3): se descarta `RDR_Report.jar` como candidato, el jar/clase real que produce el
-  `.xlsx` SWIFT sigue sin identificar — candidato pendiente de revisar: `RDR_PLSQL.jar` (el paso anterior a
-  `RDR_Report.jar` en R2) u otro componente no visto en este material.
+  más acotado para el SWIFT, con `RDR_PLSQL.jar` ya descartado como candidato (vía `javap` sobre el jar
+  completo, ver §6.4):** el generador real del `.xlsx` SWIFT sigue sin identificar — no queda ningún
+  candidato pendiente dentro de la cadena de jars ya aportada (`InformeBroker`, `ConDB`, `RDR_Report.jar` y
+  `RDR_PLSQL.jar` descartados los 4); habría que mirar fuera de la secuencia `R2` ya documentada, o
+  confirmar si algún procedimiento PL/SQL interno de Oracle (`CONBDI2`, no alcanzable desde código Java) lo
+  genera directamente en base de datos.
 
 ## 7. Especificación de testing
 
@@ -432,5 +434,9 @@ queda así cerrado al 100%, estructura y contenido real incluidos.** El análisi
 hipótesis de que sea el generador del informe SWIFT: es un motor 100% genérico sin ninguna dependencia de
 Apache POI, que solo puede escribir texto plano — coherente con que, por `select.properties`
 (`documentos_fuente/evidencia_rdr_bancarizacion/select.properties`, ya confirmado en §6.3), genera
-`Reporte_ConBDI.csv`, no el `.xlsx` SWIFT. **El generador real del informe SWIFT sigue sin identificar**;
-el candidato que queda por revisar es `RDR_PLSQL.jar` (el paso anterior a `RDR_Report.jar` en R2).
+`Reporte_ConBDI.csv`, no el `.xlsx` SWIFT. **`RDR_PLSQL.jar` también descartado por completo** (vía `javap`
+sobre el jar íntegro, no solo la clase `ConBDI`): solo contiene `ConBDI`/`ConClientela`/`ConContrato460` y
+utilidades `jdbc`/`util`, sin ninguna dependencia de Apache POI en ninguna de sus clases. **El generador real
+del informe SWIFT sigue sin identificar, y ya no queda ningún candidato pendiente** dentro de la cadena de
+jars de R2 — de aparecer, tendría que ser un componente fuera de lo ya aportado (p. ej. generado directamente
+por el procedimiento Oracle `CONBDI2`, no alcanzable desde código Java).

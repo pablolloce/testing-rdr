@@ -474,9 +474,11 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
      (Streetlamp, `correlationId=counter`, `flushImmediate=true`) → `Create Message Object`
      (`intputMessage=alta`) → `Call Subworkflow` **transaccional** `"Basic Message Processing"` (el nombre
      sugiere que es este subworkflow, no aportado, el que realmente aplica el alta de la contraparte en
-     GoldenSource) → `Duplicate Delete XMLReader` (mismo patrón de nombre que el chequeo de duplicados del
-     paso 5 — presumiblemente registra el mensaje como ya procesado, para que un reenvío futuro del mismo
-     `alta` sí se detecte como duplicado en el paso 5).
+     GoldenSource) → `Duplicate Delete XMLReader` (**confirmado con `.wkf` real, ver §6.7bis** — no registra
+     el mensaje como procesado, hace exactamente lo contrario: **borra** de `FT_T_RRM1` la fila que
+     `Duplicate XMLReader`, paso 5, insertó al detectar/marcar el mensaje — es decir, `FT_T_RRM1` actúa como
+     un marcador transitorio de "mensaje en curso de procesado", no como un histórico permanente de
+     duplicados, y este paso lo libera una vez que `"Basic Message Processing"` ha terminado con éxito).
   9. Al agotarse `Messages`, `Close Job` cierra el job de Streetlamp y el workflow termina (`Stop`).
 - **Campos de salida afectados:** no genera fichero; su efecto es la actualización real de GoldenSource vía
   `"Basic Message Processing"` (no confirmado en detalle, gap abierto) para cada mensaje no duplicado.
@@ -492,10 +494,30 @@ Workflow analizado: `XMLReader` (grupo `Custom/RDR/Layout_Setup`, versión 8, ex
 - **Estado del propio workflow:** el `.wkf` exportado declara `<status>DEVELOPMENT</status>` — no se ha
   confirmado si este campo refleja el estado real del ciclo de vida del workflow en el entorno de
   producción o es un valor de metadatos sin relación con el entorno de ejecución real.
-- **Cabo suelto menor, no bloqueante:** `Duplicate Delete XMLReader` no se ha aportado directamente; se
-  infiere por nombre y posición en el flujo (mismo patrón que `Duplicate XMLReader`, §6.7a) que registra el
-  mensaje como ya procesado, sin confirmación directa de su código. El resto de subworkflows de esta rama
-  (`OTHER`, `ValidacionOficinas`, `"Basic Message Processing"`) quedan confirmados en §6.7/§6.8.
+- **Sin gaps abiertos en esta rama:** `Duplicate Delete XMLReader` cerrado con `.wkf` real, ver §6.7bis. El
+  resto de subworkflows de esta rama (`OTHER`, `ValidacionOficinas`, `"Basic Message Processing"`) quedan
+  confirmados en §6.7/§6.8.
+
+### 6.7bis `Workflow(DuplicateDeleteXMLReader)` — confirmado con `.wkf` real, componente compartido
+
+Workflow analizado: `DuplicateDeleteXMLReader` (grupo `Custom/RDR/Layout_Setup`, estado `RELEASED`, v2 —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/DuplicateDeleteXMLReader.wkf`).
+
+- **Qué hace:** recibe `JobId`/`MensajeTxt` y ejecuta un único `DELETE FROM FT_T_RRM1 WHERE
+  MSG_REQ=<MensajeTxt>`, envuelto en `Create Job`/`Close Job` (Streetlamp, `parentJobId=JobId`,
+  `configInfo="Duplicate Delete"`) — no una `Transaction` como el resto de la cadena. **Confirma el
+  mecanismo real de deduplicación de `RDR_XMLReader` (corrige la hipótesis anterior):** `FT_T_RRM1` no es un
+  histórico permanente de mensajes duplicados — es un marcador **transitorio** de "mensaje en curso de
+  procesado". `Duplicate XMLReader` (paso 5, §6.6) inserta la fila al detectar el mensaje; este workflow la
+  **borra** únicamente tras completar con éxito `"Basic Message Processing"` (paso 8). **[Hallazgo —
+  confirma y agrava el riesgo ya apuntado en §9]** si el procesado falla o el job se interrumpe en cualquier
+  punto entre la inserción (paso 5) y este borrado (paso 8), la fila de `FT_T_RRM1` **nunca se libera** — un
+  reenvío legítimo de ese mismo mensaje tras un fallo parcial se detectaría para siempre como "duplicado" y
+  se descartaría silenciosamente, sin ninguna vía de recuperación automática visible en este `.wkf` (habría
+  que borrar la fila manualmente en BBDD). Mismo grupo GoldenSource (`Custom/RDR/Layout_Setup`) que sugiere
+  reutilización por otros procesos de carga por XML, no exclusiva de Investors Plan.
+- **Qué pasa si falla:** sin rama de gestión de error visible — un fallo del `DELETE` (p. ej. fila ya
+  inexistente) no está diferenciado del caso de éxito en este `.wkf`.
 
 ### 6.7 Subworkflows de la rama `OTHER` de `RDR_XMLReader` — confirmado con `.wkf` real
 
@@ -993,7 +1015,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   compartido con carpeta GoldenSource dedicada. **Corrección sobre la estimación previa de esta misma
   sesión:** `Get Canonical Identifier`, que se había citado como uno de esos ~10 subworkflows, **no lo es**
   — es una `DBQuery` inline dentro del propio `.wkf` de `OperativeRegulatoryInformation` (§6.13sexies,
-  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 5 de los 16 ya
+  confirmado con el `.wkf` real), no una llamada a subworkflow; se descarta de esta lista. 6 de los 16 ya
   están cerrados con `.wkf` real — ver el listado en el Anexo de §6.13quater más abajo.
 - **[Hallazgo, no confirmado como defecto] SQL de cierre (`UPDATE DR`) con sintaxis dudosa para Oracle:**
   `UPDATE ft_t_rlt1 SET RLT_DIF_STAT = 'FIN' FROM FT_T_INCL WHERE ft_t_rlt1.main_entity_id=? AND
@@ -1004,7 +1026,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
 
-**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (5 de 16):**
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (6 de 16):**
 
 - **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
   Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
@@ -1079,6 +1101,20 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   (`Switch Case` sobre el conteo): con más de una, limpia duplicados dejando solo la correcta; con una,
   verifica que coincida y la inactiva si no; el caso de 0 filas (alta nueva) no se ha podido trazar por
   completo dentro del tramo leído del fichero (1626 líneas).
+- **`Calculate_EMIR_Category`** (mismo grupo, estado `RELEASED`, v7): **único subworkflow de toda esta
+  familia con una condición de entrada previa al gate general `hacerCalculoDR`** — solo calcula si la
+  contraparte es, a la vez, de nivel `REL_TYP='GLOBAL'` y tipo `FINSRL_TYP='INDVDUAL'` (persona física); si
+  no cumple ambas condiciones (o no existe ninguna fila `FT_T_FIRL` activa), no hace nada. Para las personas
+  físicas que sí cumplen, **fija la categoría EMIR a `"02"` de forma incondicional** (salvo que ya exista un
+  override manual, `manualEmir`) — regla de negocio hardcodeada: toda persona física a nivel Global es
+  categoría EMIR `"02"`, sin más cálculo. Gestiona 0/1 filas `FT_T_FRA1` activas (alta nueva vía `Insercion
+  JAVA` con JDBC manual — 5ª confirmación de este patrón en la familia, con `ORG_ID='0182'` hardcodeado) o
+  reactiva una inactiva; si ya existe una fila activa con valor distinto de `"02"`, la corrige. **[Hallazgo]
+  usa la tabla `REGULATORY_INFO` en vez de `FT_T_REG1`** (que sí usan el resto de `Calculate_*` de esta
+  familia para el mismo lookup de `REG_NME`) — no confirmado si es una vista/sinónimo equivalente o una
+  inconsistencia real entre copias del motor. También tiene una condición SQL comentada
+  (`--AND LAST_CHG_USR_ID='BBVA:CUSTOMER'`) en una de sus 2 ramas de `UPDATE`, ausente en la otra —
+  asimetría entre 2 ramas que debieran comportarse igual.
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1159,7 +1195,7 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   `RDR_AltaFondos_Enriquecimientos` §6.11) pese a estar aparentemente en la ruta real de producción — no
   confirmado si refleja el ciclo de vida real.
 
-**Anexo — subworkflows del árbol Operativo (DFA) confirmados con `.wkf` real (2 de 7):**
+**Anexo — subworkflows del árbol Operativo (DFA) confirmados con `.wkf` real (3 de 7):**
 
 - **`Auxiliary DFA Data Extraction`** (grupo `.../Regulatory Information Extraction/Operative Data
   Extraction`, estado `RELEASED`, v6): 1 query inicial (`Continente`, decide `'MEX'`/`'EUR'` según si la
@@ -1186,6 +1222,11 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   `INSERT`/`UPDATE` final sobre `FT_T_FRA1` (clasificación `DFACAT`) sí usa el nodo `DBStatement` estándar
   (a diferencia de `Calculate Counterparty type under EMIR`, §6.13quater, que usa JDBC manual) — mismo
   patrón `out`/`true`/`reactivar`/`false` que el resto de la familia `Calculate_*`.
+- **`DFA Type Extraction`** (mismo grupo que `Auxiliary DFA Data Extraction`, estado `RELEASED`, v4): el más
+  simple de todo el árbol — una única `DBQuery` de lectura sobre `FT_T_FRA1` (clasificación `DFACAT`) que
+  devuelve `CL_VALUE`/`DATA_STAT_TYP` para la contraparte, sin ninguna escritura. Es el subworkflow que
+  `OperativeRegulatoryInformation` invoca como `"Counterparty type under DFA Extraction"` (§6.13sexies) —
+  mismo patrón "Extraction = solo lectura" ya confirmado en `Auxiliary DFA Data Extraction`.
 
 ### 6.13septies `Workflow(PartySetupDifusion)` — confirmado con `.wkf` real, motor compartido
 
@@ -1670,12 +1711,14 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   (confirmado por código, §6.4):** el parámetro `args[3]` admite valores `SCFF`/`GENERICO_CTP` además de
   `IP` (usado aquí) — el mismo jar puede estar en uso por otra/s cadena/s de RDR, con su propia clase
   `Ficheros2` (encoding y modo de escritura distintos) potencialmente asociada a esos otros contextos.
-* **Duplicados descartados sin contador ni alerta visible (confirmado por `.wkf` real, §6.6):**
-  `Workflow(RDR_XMLReader)` detecta duplicados mensaje a mensaje (subworkflow `Duplicate XMLReader`) y los
-  descarta con un solo log, sin incrementar ningún contador de duplicados en las variables globales del
-  workflow ni generar alerta — una alta legítima reenviada tras un fallo parcial anterior podría descartarse
-  silenciosamente en vez de reprocesarse, si el mecanismo de "Duplicate Delete XMLReader" (no aportado) no
-  se ejecutó correctamente en el intento previo.
+* **[Confirmado, ya no hipotético, con `.wkf` real de ambos workflows, §6.6/§6.7bis] Duplicados descartados
+  sin contador ni alerta visible, y marcador de dedup sin limpieza garantizada ante fallo parcial:**
+  `Workflow(RDR_XMLReader)` detecta duplicados mensaje a mensaje (`Duplicate XMLReader` inserta un marcador
+  en `FT_T_RRM1` por `MSG_REQ`) y los descarta con un solo log, sin contador ni alerta.
+  `DuplicateDeleteXMLReader` borra ese marcador solo tras el éxito de `"Basic Message Processing"` — si el
+  procesado falla o el job se interrumpe entre la inserción y el borrado, el marcador **queda huérfano para
+  siempre**: un reenvío legítimo de esa misma alta tras el fallo se descartaría como duplicado
+  indefinidamente, sin ninguna vía de recuperación automática, solo borrado manual en BBDD.
 * **Nombre de configuración de apariencia de prueba en un flujo de producción (confirmado por `.wkf` real,
   §6.6):** el nodo `File Split Condition` de `Workflow(RDR_XMLReader)` usa `businessFeed="PruebaCompas"` —
   a confirmar con el equipo responsable si es un nombre heredado de pruebas nunca renombrado o un nombre de
@@ -1930,14 +1973,16 @@ Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
 delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
-fuera de alcance**: 7 de los 23 están cerrados con `.wkf` real entre esta ronda y la anterior
+fuera de alcance**: 9 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
 (`Calculate Counterparty type under EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under
-SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector` del lado Global, `Auxiliary DFA Data
-Extraction`/`Calculate Counterparty type under DFA` del lado Operativo — ver los Anexos de
-§6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando
-`INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión JDBC manual dentro de
-`BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 4 de estos subworkflows; una
-vía de alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14; y un mecanismo de
+SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category` del lado Global,
+`Auxiliary DFA Data Extraction`/`Calculate Counterparty type under DFA`/`DFA Type Extraction` del lado
+Operativo — ver los Anexos de §6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración
+(`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión
+JDBC manual dentro de `BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 5 de
+estos subworkflows; una vía de alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14;
+`Calculate_EMIR_Category` como único subworkflow con una condición de entrada previa al gate general
+(solo aplica a personas físicas a nivel Global); y un mecanismo de
 deduplicación por minuto vía restricción de unicidad en `FT_T_RRM1`; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
 corrección sobre la hipótesis previa — no es un `RaiseEvent`, es un `CallSubWorkflow` real que asigna el rol
 "Mandated Account" (`FT_T_FINR`/`FT_T_ENFR`/`FT_T_FRRL`) condicionado a un flag de `FT_T_UTD1`; y

@@ -74,10 +74,10 @@ cadenas** — la carga semanal de T3 va 2 días más rezagada que su homóloga d
   (diario M-V y semanal lunes) sobre la misma fuente de datos.
 * **Ámbito técnico:** los 2 folders Control-M completos, `KYTL0000-RDR_CARGASECTOADA` (18 pasos) y
   `KYTL0000-RDR_CARGASECTOADA_2` (18 pasos) — 36 pasos en total.
-* **Fuera de alcance:** el código fuente/jar (`RDR_SectorizacionEmisores.jar`) de las 3 clases Java que
-  ejecuta `GSProcess.sh CargaSectorizacionT1/T2/T3` — los 3 `.properties` reales ya confirman el punto de
-  entrada exacto (jar/clase/fichero de entrada por tramo, ver GAP-ADA-003), pero el mapeo de campos interno
-  de la carga en GoldenSource sigue sin aportar; el detalle de por qué existen 2 cadenas redundantes sobre la
+* **Fuera de alcance:** el cuerpo interno del procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION`
+  (confirmado como destino único de los 3 tramos vía `javap`, ver GAP-ADA-003 — PL/SQL de base de datos, no
+  alcanzable desde el bytecode Java aportado, mismo límite natural ya aplicado a `CONBDI2`/`CONCLI2`/
+  `CONC460` en otros procesos de este audit); el detalle de por qué existen 2 cadenas redundantes sobre la
   misma fuente DataX (§9, no confirmable sin contexto de negocio adicional).
 
 ## 3. Requisitos detectados
@@ -102,12 +102,14 @@ cadenas** — la carga semanal de T3 va 2 días más rezagada que su homóloga d
 |----|-----|------------|
 | GAP-ADA-001 | Los 6 jobs de "Transferencia DataX" (arranque real de cada tramo) no tenían ficha propia en el documento original — solo se citaban como predecesores de otros jobs. | **Resuelto (6/6)** con fichas EX-005-03 reales: `MEKYTL1273`/`1274`/`1275` (Cadena 1, T1/T2/T3) y `MEKYTL1281`/`1282`/`1283` (Cadena 2, T1/T2/T3). Confirman que son jobs `datax-agent` reales (máquina `datax-live`), mismo patrón que el job DataX ya confirmado en `kytl001d_ratings_ada`. |
 | GAP-ADA-002 | ¿Es real que la Historificación del Tramo 1 depende de la Carga Core del Tramo 2, rompiendo la independencia de tramos que el propio documento declara? | **Confirmado como hallazgo real, no error de lectura ni de redacción, ahora con las fichas EX-005-03 originales de `MEKYTL1287` y `MEKYTL1293`** (no solo su transcripción en el documento funcional). Ambas fichas repiten de forma idéntica (campo predecesor + descripción textual del cambio) el mismo hallazgo, mismo día (13/12/2025), en 2 cadenas independientes — descarta un error puntual de transcripción. La verificación en ejecución real (TC-004) sigue siendo útil para confirmar el comportamiento en vivo, pero el diseño documentado ya no admite duda razonable. Ver R9, RISK-ADA-001 (§9). |
-| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource) no aportado. | **Parcialmente resuelto** con los 3 `.properties` reales (`CargaSectorizacionT1/T2/T3.properties`): confirman el punto de entrada exacto de cada tramo — mismo jar para los 3 (`RDR_SectorizacionEmisores.jar`), pero clase Java distinta por tramo: `main.java.sectorizacionemisores.T1_Values_Desc_Catalog` (T1), `T2_Sect_Bloom_Refinit_POST` (T2), `T3_SectorizacionADA` (T3, único que fija `JDKV=17` explícito — los otros 2 no fijan versión de JDK, posible divergencia de entorno de ejecución entre tramos). Confirma también el fichero de entrada real de cada clase: T1 lee `T1_CatalogValuesTaxonomy.csv`; T3 lee `T3_IssuersIssuesCustomer.csv`; **y T2 lee los 2 ficheros, el suyo propio (`T2_RelValuesTaxonomy.csv`) y el de T1 (`T1_CatalogValuesTaxonomy.csv`)** — hallazgo nuevo: la Carga Core del Tramo 2 depende del fichero del Tramo 1, **contradiciendo de nuevo** la independencia de tramos declarada en R2 (segundo acoplamiento T1↔T2 confirmado, además del ya visto en GAP-ADA-002/R9 sobre la Historificación). **Sigue sin aportar:** el código fuente/jar de las 3 clases, así que el mapeo de campos interno de la carga sigue siendo una caja negra. |
+| GAP-ADA-003 | Contenido real de la lógica de `GSProcess.sh CargaSectorizacionT1/T2/T3` (la carga real en GoldenSource) no aportado. | **Resuelto en el límite de lo alcanzable desde código Java**, con los 3 `.properties` reales y, ahora, `RDR_SectorizacionEmisores.jar` completo (vía `javap -v -p`, sin `.java` fuente ni decompilador disponibles). Los `.properties` confirman el punto de entrada exacto de cada tramo — mismo jar para los 3, clase Java distinta: `main.java.sectorizacionemisores.T1_Values_Desc_Catalog` (T1), `T2_Sect_Bloom_Refinit_POST` (T2), `T3_SectorizacionADA` (T3, único que fija `JDKV=17` explícito). Confirma también el fichero de entrada real de cada clase: T1 lee `T1_CatalogValuesTaxonomy.csv`; T3 lee `T3_IssuersIssuesCustomer.csv`; **y T2 lee los 2 ficheros, el suyo propio (`T2_RelValuesTaxonomy.csv`) y el de T1 (`T1_CatalogValuesTaxonomy.csv`)** — hallazgo nuevo: la Carga Core del Tramo 2 depende del fichero del Tramo 1, **contradiciendo de nuevo** la independencia de tramos declarada en R2 (segundo acoplamiento T1↔T2 confirmado, además del ya visto en GAP-ADA-002/R9 sobre la Historificación). **Con el jar real, se cierra el "mapeo de campos interno" al máximo alcanzable:** las 3 clases delegan toda la escritura en GoldenSource a una única clase compartida `main.java.jdbc.Querys`, que a su vez llama siempre al **mismo procedimiento Oracle `PRC_CONCILIACION_SECTORIZACION`** (9 parámetros, vía `CallableStatement`) — no 3 procedimientos distintos — discriminado internamente por un literal de tramo pasado como parámetro (`"T1"`, `"T2_BB"`/`"T2_RE"` — el Tramo 2 tiene **2 sub-rutas internas, Bloomberg y Refinitiv, no documentadas hasta ahora**, ambas dentro de la misma clase `T2_Sect_Bloom_Refinit_POST` — y `"T3"`), con el resto de parámetros poblados desde los campos de cada CSV (confirmados por nombre: `gf_catalog_val_id`/`gf_catlg_field_value_en_desc`/`g_catalog_id` en T1; `gf_rdr_id`/`g_asset_allocation_sector_type`/`subsec_type`/`actvy_type`/`descrip` en T2; `gf_rdr_operative_id`/los 3 campos de asset allocation en T3). **Único resto, fuera de alcance por naturaleza:** el cuerpo del propio `PRC_CONCILIACION_SECTORIZACION` vive en Oracle, no en este código Java. **Hallazgo adicional:** el jar contiene 2 clases más no usadas por la configuración de producción confirmada (`T2_Sect_Bloom_Refinit` sin sufijo y `T2_Sect_Bloom_Refinit_PREV`) — mismo patrón de jar con variantes no invocadas ya visto en otros componentes de este audit. |
 | GAP-ADA-004 | ¿Por qué existen 2 cadenas (diaria y semanal-lunes) tirando del mismo `transferId` de DataX? | **No bloqueante, aceptado como pregunta abierta de negocio.** Podría ser una carga de respaldo/reconciliación semanal sobre la misma fuente, o una migración en curso de una cadena a otra (la restricción a "solo lunes" de `RDR_CARGASECTOADA_2` desde el 10/02/2026 sugiere una reducción progresiva, coherente con una cadena en proceso de desactivación). No se fuerza una interpretación sin confirmación funcional. |
 | GAP-ADA-005 | ¿Piden ambas cadenas el mismo corte de datos (`CUTOFF_DATE`) para el mismo `transferId`? | **Confirmado como hallazgo real (no gap de evidencia):** para T1/T2 sí, ambas cadenas piden `ODATE-1` (4 fichas reales). Para T3, `MEKYTL1275` (Cadena 1) pide `ODATE-1` pero `MEKYTL1283` (Cadena 2) pide `ODATE-3` — confirmado literalmente en las 2 fichas EX-005-03 reales. Esto matiza GAP-ADA-004: la duplicación entre cadenas no es uniforme en los 3 tramos. Ver RISK-ADA-002 (§9). |
 
-**Balance: 5 gaps identificados — 1 resuelto por completo (6/6 fichas DataX), 2 confirmados como hallazgos
-reales (no gaps de evidencia), 2 aceptados como no bloqueantes. 0 gaps de evidencia abiertos.**
+**Balance: 5 gaps identificados — 2 resueltos por completo (6/6 fichas DataX; y la carga real en
+GoldenSource de T1/T2/T3, converge en un único procedimiento Oracle compartido), 2 confirmados como
+hallazgos reales (no gaps de evidencia), 1 aceptado como no bloqueante (GAP-ADA-004). 0 gaps de evidencia
+abiertos.**
 
 ## 5. Especificación funcional
 
@@ -237,10 +239,12 @@ Referencia de casos por tipo:
   T3 estaría cargando de forma consistente datos 2 días más antiguos que los que su nombre y calendario
   sugieren; si es intencional, no hay justificación de negocio documentada. Se recomienda confirmar con el
   equipo funcional si el offset es deliberado (TC-009).
-* **No bloqueante (GAP-ADA-003):** confirmado el punto de entrada exacto (jar/clase/fichero de entrada) de
-  `GSProcess.sh CargaSectorizacionT1/T2/T3` con los 3 `.properties` reales; la lógica interna de mapeo de
-  campos de las 3 clases Java (`T1_Values_Desc_Catalog`/`T2_Sect_Bloom_Refinit_POST`/`T3_SectorizacionADA`,
-  todas en `RDR_SectorizacionEmisores.jar`) sigue sin aportar.
+* **Sin gaps abiertos (GAP-ADA-003):** confirmado el punto de entrada exacto (jar/clase/fichero de entrada)
+  con los 3 `.properties` reales, y con `RDR_SectorizacionEmisores.jar` completo (vía `javap`) se confirma
+  que las 3 clases Java convergen en un único procedimiento Oracle compartido
+  (`PRC_CONCILIACION_SECTORIZACION`) discriminado por un literal de tramo — el único resto (el cuerpo del
+  procedimiento en sí) vive en Oracle, fuera de alcance por naturaleza, mismo criterio que `CONBDI2`/
+  `CONCLI2`/`CONC460` en otros procesos de este audit.
 * **Aceptado, no perseguido (GAP-ADA-004):** 2 cadenas redundantes sobre la misma fuente DataX para T1/T2 —
   posible cadena en fase de desactivación (la restricción de `RDR_CARGASECTOADA_2` a "solo lunes" desde
   10/02/2026 sugiere una reducción progresiva), sin confirmación funcional. Matizado por GAP-ADA-005 para T3
@@ -260,6 +264,10 @@ rompiendo la independencia de tramos declarada en el resumen del proceso (RISK-A
 documentado como caso de prueba explícito (TC-004) en vez de asumirlo sin verificar. Además, la ficha real
 de `MEKYTL1283` revela un segundo hallazgo no anticipado: pese a compartir `transferId` con su gemelo de
 Cadena 1, pide un corte de datos distinto (`ODATE-3` vs. `ODATE-1`) — la duplicación de fuente entre
-cadenas (GAP-ADA-004) no es uniforme en los 3 tramos (RISK-ADA-002, GAP-ADA-005, TC-009). El proceso queda
+cadenas (GAP-ADA-004) no es uniforme en los 3 tramos (RISK-ADA-002, GAP-ADA-005, TC-009). Con
+`RDR_SectorizacionEmisores.jar` completo (`javap`), GAP-ADA-003 queda **resuelto en el límite de lo
+alcanzable desde código Java**: las 3 clases Java convergen en un único procedimiento Oracle compartido
+(`PRC_CONCILIACION_SECTORIZACION`), discriminado por tramo, con el Tramo 2 revelando además 2 sub-rutas
+internas (Bloomberg/Refinitiv) no documentadas hasta ahora. El proceso queda
 con **0 gaps de evidencia abiertos** y 2 hallazgos de diseño confirmados pendientes de verificación
 funcional/en vivo, no de evidencia adicional.

@@ -302,7 +302,11 @@ documentadas en el documento fuente (`documentos_fuente/carga_conciliacion_clien
   drena `Querys.insercionesRLT1`, con 3 hallazgos propios de robustez: conexión JDBC nunca inicializada,
   *busy-loop* sin espera, y pérdida silenciosa de una sentencia SQL si falla su ejecución) tampoco encaja
   con `BajaClientela460.wkf` (que no usa colas Java ni hilos, solo SQL nativo del motor de workflows) — su
-  relación real con `ConContrato460`/`ConDB` sigue sin confirmarse, y su cadena de origen sigue sin
+  relación real con `ConContrato460`/`ConDB` sigue sin confirmarse. **Localización física confirmada
+  (ronda posterior, javap sobre `RDR_PLSQL.jar`):** `ConContrato460` vive en el mismo jar compartido
+  `RDR_PLSQL.jar` que `ConBDI` (`rdr_conciliacion_bdi`) y `ConClientela` (`rdr_conciliacion_clientela`) —
+  confirma que es un cuarto motor "`Con*`" de la misma familia de preprocesadores `GSProcess.sh`, no una
+  clase suelta; su cadena de invocación concreta (qué `.properties`/proceso Control-M lo dispara) sigue sin
   identificar. Los 4 hallazgos de código siguen siendo válidos como información confirmada, pero ya no se
   presentan como parte de `RDR_REFUNDICION_new`.
 * **`Evento(Errores)`:** **Resuelto (2026-09-29) con el `.wkf` real del workflow.** El documento fuente lo
