@@ -661,8 +661,11 @@ como el resto de la cadena — exportado en formato `.gsp`, versión 8.7.1.106 d
      eventos de publicación interna (`TriggerPublishing`) para los sistemas suscritos a GoldenSource.
   - Existe una rama paralela para `messageArray` (varios mensajes en una sola invocación) con la misma
     lógica de traducción/filtro/aplicación/publicación por cada elemento, más una llamada a un subworkflow
-    `"Store Vendor Data"` (no aportado) cuando el valor de `Severity` no es `50` — el significado exacto de
-    ese valor de severidad no está documentado en este material y no se puede confirmar sin más contexto.
+    `"Store Vendor Data"` cuando el valor de `Severity` no es `50` — el significado exacto de ese valor de
+    severidad no está documentado en este material y no se puede confirmar sin más contexto. **`Store Vendor
+    Data` es un objeto interno de administración de GoldenSource, fuera del alcance de los permisos
+    disponibles para este audit (confirmado por el equipo) — no se incluye como pendiente a conseguir; queda
+    documentado como límite permanente, no como gap abierto.**
 - **Qué recibe/produce:** recibe `Message`/`messageArray`, `MessageType`, `TransactionId`, `MessageMetaData`,
   `IsWorkstationMessage`, `ProcessFilteredMessages`, `CheckForDoNotPostFlag`; produce `Severity` (entero, sin
   diccionario de valores confirmado), `Processed` (mensajes ya aplicados, tipo binario) y actualiza
