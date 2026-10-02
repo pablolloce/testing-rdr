@@ -171,4 +171,27 @@
     <posibilidadFallo>Cualquier fallo intermedio en cualquiera de las 2 ramas impide alcanzar el cierre final dentro de la ventana diaria.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-009" tipo="datos_sinteticos">
+    <nombre>Formato del reporte y del fichero de errores generados por los workflows de GoldenSource</nombre>
+    <objetivo>Comprobar el formato de Reporte_clientes.csv y clientes_errores.csv que producen GenerateReports y ErroresCSV (spec 6.3.2), incluido el día en que la consulta del reporte no devuelve filas.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con clientes.properties equivalente al de producción y workflows GenerateReports, ErroresCSV y Standard File Load en estado RELEASED.</precondicion>
+      <precondicion>Directorio de la cadena con un Reporte_clientes.csv y un clientes_errores.csv de una ejecución anterior.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="clientes.csv (caso A)" valor="cabecera + 3 clientes válidos + 1 cliente con COD_NIF vacío que ControlCargaDatos.jar rechaza o GoldenSource rechaza al cargar"/>
+      <dato campo="clientes.csv (caso B)" valor="cabecera y ningún cliente exclusivo, de modo que la consulta del reporte no devuelve filas"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Caso A: ejecutar KYTL_CLI_GSPROCESS y abrir Reporte_clientes.csv y clientes_errores.csv.</paso>
+      <paso numero="2">Verificar que el Reporte_clientes.csv anterior está en old/ (una sola copia) y que el nuevo empieza por la línea «Reporte Clientes Exclusivos», seguida de una línea por fila con columnas separadas por ; y ; final, sin la palabra null.</paso>
+      <paso numero="3">Verificar que clientes_errores.csv empieza por la cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT; y contiene una línea de tipo Funcional o Tecnico para el cliente rechazado.</paso>
+      <paso numero="4">Caso B: repetir con el fichero sin clientes exclusivos y abrir Reporte_clientes.csv, Reporte_clientes_dos.csv y lo que reciben los dos destinos.</paso>
+    </pasos>
+    <resultadoEsperado>Caso A: formato descrito arriba. Caso B: Reporte_clientes.csv contiene únicamente la línea «La select no devuelve valores», Reporte_clientes_dos.csv la misma con CRLF y los dos destinos la reciben sin error en Control-M.</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros (cabecera, separadores, línea final, ausencia de null) y de los ficheros recibidos en destino.</tipoValidacion>
+    <criterioAceptacion>Los dos formatos coinciden con la spec; el caso B documenta que un día sin datos llega a los destinos como un reporte con una línea de texto (RK10).</criterioAceptacion>
+    <posibilidadFallo>Las columnas reales del reporte dependen de una consulta que no se ha visto (P-CIB-04): el caso no valida su contenido, solo el formato. Si el job de carga tarda más de una hora en cerrarse, clientes_errores.csv no se genera (RK11).</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

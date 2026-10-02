@@ -17,7 +17,7 @@
       <paso numero="3">Verificar que MEKYTL1225 movió y renombró el fichero a YYYYMMDD_RatingsInternos.csv en receive/.</paso>
       <paso numero="4">Verificar en el log de GS_CODIGOS_RATINGMEX que la fila válida se envió a CONCINTERN.</paso>
       <paso numero="5">Verificar que se generó Reporte_CargaRatingsInternos_YYYYMMDD.xlsx y BODY_Reporte_CargaRatingsInternos_YYYYMMDD.txt.</paso>
-      <paso numero="6">Confirmar el envío del correo con el informe (workflow RDR_AlertasEnvio).</paso>
+      <paso numero="6">Confirmar el envío del correo con el informe (workflow RDR_AlertasEnvio): asunto «[RDR Reportes] - CargaRatingsInternos» (el proceso cae en la rama DEFAULT de AlertasEnvioExcepciones, sin asunto ni cuerpo propios), Excel adjunto y FT_T_REP1.SEND_PEND del proceso en 'N'.</paso>
       <paso numero="7">Verificar que MEKYTL1226, MEKYTL1227 y MEKYTL1232 historificaron los 3 ficheros a receive/old/.</paso>
     </pasos>
     <resultadoEsperado>Los 7 jobs terminan OK; la fila válida se concilia; el informe se genera y se envía; los 3 ficheros quedan historificados en receive/old/.</resultadoEsperado>

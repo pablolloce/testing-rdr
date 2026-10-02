@@ -372,6 +372,36 @@ Aplicado a este proceso:
   workflow no comprueba el envío. Que `KYTL003D_EXTRACCION_ALTAMIRA_RECEIVE` termine en verde no
   garantiza que el correo haya salido.
 
+**Correo de alertas: rama de `AlertasEnvioExcepciones`, envío y generación del informe (revisión 02/10/2026).**
+Procedencia: volcado de la base de workflows de GoldenSource (`AlertasEnvio` v7, `AlertasEnvioExcepciones` v12,
+`Mail` v6) y código de las clases `report.ReportesRDR` y `report.ReporteRDR` del Cocinado. La mecánica genérica de las
+tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que cambia el resultado de este proceso.
+- *Rama del conmutador.* El código de proceso de este informe en `FT_T_REP1` no consta (P-RAC-08). `AlertasEnvio` construye, para cada informe pendiente, el asunto `[RDR Reportes] - <código de proceso>` y como cuerpo el texto `txtBody` que deja el nodo del tipo de envío (los scripts de esos nodos no son legibles en el volcado), y llama al subworkflow `AlertasEnvioExcepciones` con `proceso`, `subject` y `body`, usando lo que éste devuelva. Ese subworkflow (versión 12, de 03/07/2026) es un conmutador (`Switch Case`) por código de proceso con solo tres ramas que fijan asunto y cuerpo propios: `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`, más una rama `DEFAULT` que termina sin tocar nada. Ninguna de sus 12 versiones ha tenido una rama para este proceso, y ninguna de las tres existentes corresponde a él: **cae en `DEFAULT` y su correo lleva el asunto `[RDR Reportes] - <código de proceso>` y el cuerpo que genera el tipo de envío, sin texto propio.**
+- *Qué condiciones debe cumplir el correo para salir.* Para cada proceso con `SEND_PEND='Y'`, el workflow `AlertasEnvio`
+  **pone primero `SEND_PEND='N'`** y solo después valida la ruta, el entorno, los destinatarios y las periodicidades. Cada
+  destinatario y tipo de envío (`EXCEL`, `WORD`, `TXT`, `DAT`, `CUERPO`) tiene una periodicidad en `FT_T_ALR1` que se compara
+  con `LAST_SEND_TMS`: `DIARIA` 1 día, `SEMANAL` 7, `MENSUAL` 30, `ENVIOTOTAL` siempre; con el sufijo `_PARCIAL` además no
+  se envía si el cuerpo contiene `No existen datos a enviar`. `Validate MAIL` exige destinatario y asunto no vacíos y que el
+  nodo del tipo de envío haya dejado `enviar='S'`; su comprobación del cuerpo lee por error la variable `MAIL` (el mapa del
+  destinatario) en lugar de `body`, así que nunca detecta un cuerpo vacío. Consecuencia: si el correo no sale por periodicidad,
+  falta de fichero o fallo del envío, `SEND_PEND` ya está a `'N'` y el informe **no se reintenta** en la siguiente ejecución del
+  envío (los mensajes de `FT_T_ALG1` ya se marcaron como usados al cocinar).
+- *Envío.* El subworkflow `Mail` lee `ServerMailConfig.xml` (en `/<env>/kytl/online/multipais/multicanal/dat/properties/`,
+  nodo `/root/server[@id=<env>]`, etiquetas `host` y `user`; si no puede leerlo usa un servidor de desarrollo escrito en el
+  propio workflow), compone el mensaje con el cuerpo en texto y el adjunto solo si el fichero existe, y lo envía por SMTP (puerto 25)
+  a los destinatarios separados por `;`. Cualquier excepción se captura y solo se imprime: el workflow termina bien, se escribe
+  `Correo enviado` y se actualiza `LAST_SEND_TMS` aunque el correo no haya salido.
+- *Generación del informe (Cocinado).* Por cada fila activa de `FT_T_REP1` con destinatarios activos, `ReportesRDR`: (a) sustituye
+  `$ENV` en `RUTA`; toma la plantilla de `EXCEL_TEMPLATE` (si es nula, `<RUTA>/Templates/Template_Alertas_Excel.xlsx`) y la hoja
+  de `EXCEL_SHEET` (si es nula, `Reporte`); (b) ejecuta la consulta del CLOB `QUERY`, que debe devolver las columnas `ALG1_OID`,
+  `MENSAJE` y `TIPO` (`MENSAJE`, `ESTADISTICA` o `CELDAEXCEL`); (c) lee los tipos de envío de los destinatarios del proceso (`FT_T_ALU1`/`FT_T_ALR1`, según la spec común); (d) genera los documentos llamando a `DocumentGenerator.generaDocumento` (clase no recibida); (e) marca los
+  mensajes de `FT_T_ALG1` como usados y `SEND_PEND='Y'` **sin comprobar si se generó algo**. Los nombres de los ficheros salen de `SHORT_PROCESS` y `RUTA` de su fila de `FT_T_REP1` (no recibida). No genera ningún documento,
+  y lo da por correcto, cuando: mezcla mensajes con celdas de Excel o estadísticas con celdas de Excel; no hay ningún tipo de
+  envío; el único tipo es `DAT` y no hay mensajes; el informe es de tipo `REPORTEEXCEL` y el único tipo de envío no es `EXCEL`; o
+  es `REPORTEEXCEL` con varios tipos de envío y ninguno es `EXCEL` (si alguno es `EXCEL`, genera solo el Excel). En esos casos
+  los mensajes quedan consumidos y no hay fichero que enviar. Un `SHORT_PROCESS` nulo en la fila de `FT_T_REP1` provoca una
+  excepción no capturada al construir el informe y el Cocinado termina con error. Los «no localizados» de este proceso se escriben en `FT_T_RLT1` (`RLT_PURP_TYP='REPORTES'`) y no en `FT_T_ALG1`: si el informe se alimenta de ellos, la consulta de `FT_T_REP1` tiene que leerlos de `FT_T_RLT1` y devolverlos con las tres columnas anteriores (no se ha visto). Con una consulta sin filas el Cocinado no rechaza el informe (solo rechaza el caso `DAT`) y se lo entrega a `DocumentGenerator`; el texto `No existen datos a enviar` de la regla `_PARCIAL` es probablemente el que escribe esa clase cuando no hay datos (deducción: la clase no se ha recibido).
+
 ### 6.8 Job 6: `MEKYTL1046` (`RAMERC0068.sh`)
 
 Comando `/pr/pl/scrt/RAMERC0068.sh MEKYTL1046` como `xsramer1`. Según la ficha: origen `receive/`,
@@ -445,6 +475,7 @@ TC-014 y TC-015 no deben ejecutarse contra producción; TC-004 y TC-016 tampoco,
 | RISK-REC-011 | Máscaras incoherentes entre jobs (`CONCILIA_*.txt`, `CONCILIA*.TXT`, `CONCILIAYYYYMMDD.TXT`) | Alto: el file watcher o el histórico pueden no encontrar el fichero (P-RAC-04, P-RAC-05) |
 | RISK-REC-012 | El fichero del viernes puede no procesarse nunca (martes a viernes, "ayer") | Medio (P-RAC-06) |
 | RISK-REC-013 | Los hilos de conciliación comparten una única conexión a base de datos | Bajo/medio: errores de concurrencia solo se imprimen |
+| RISK-REC-014 | `AlertasEnvio` pone `SEND_PEND='N'` antes de validar periodicidad, fichero y destinatarios, y el Cocinado ya ha consumido los mensajes: un informe que no sale no se reintenta (§6.7) | Medio |
 
 ## 10. Conclusión y requisitos de cierre
 

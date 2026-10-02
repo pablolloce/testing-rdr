@@ -235,7 +235,7 @@
       <paso numero="1">Confirmar que BCBS_SECTOR_ASSET_ALLOCATION_FW detecta el fichero y termina OK.</paso>
       <paso numero="2">Confirmar que MEKYTL1119 se dispara y termina OK.</paso>
       <paso numero="3">Confirmar que BCBS_SECTOR_ASSET_ALLOCATION_LOAD se dispara y termina OK.</paso>
-      <paso numero="4">Confirmar que BCBS_SECTOR_ASSET_ALLOCATION_REPORT se dispara y termina OK.</paso>
+      <paso numero="4">Confirmar que BCBS_SECTOR_ASSET_ALLOCATION_REPORT se dispara y termina OK y, si el correo sale, que su asunto es «[RDR Reportes] - SECTOR_ASSET_ALLOCATION» (rama DEFAULT de AlertasEnvioExcepciones, sin asunto ni cuerpo propios) y que FT_T_REP1.SEND_PEND del proceso queda en 'N'.</paso>
       <paso numero="5">Confirmar que MEKYTL1121 se dispara y termina OK, y que reporte_YYYYMMDD.zip existe en output/old/ y no está vacío.</paso>
     </pasos>
     <resultadoEsperado>Los 5 jobs terminan en estado OK en el orden documentado, y el artefacto final (reporte_YYYYMMDD.zip) existe, no está vacío y contiene al menos un fichero con máscara *SECTOR_ASSET_ALLOCATION*.</resultadoEsperado>

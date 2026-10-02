@@ -83,10 +83,10 @@ configuración de conexión a base de datos.
 |----|----------|-----------------|
 | P-LEIR-01 | ¿Qué días exactos corre la cadena? La ficha dice "L-V-S-D". | Si son todos los días o no decide cuándo se procesa la respuesta a las peticiones enviadas a las 00:30 de cada día |
 | P-LEIR-02 | ¿Cómo está definida la ciclicidad (cada 10 minutos desde el inicio o desde el fin) y qué regla tienen los dos filewatchers ante el código 7 (tiempo agotado)? ¿Hay regla "7 → OK"? | Con una espera máxima de 60 minutos por ejecución, la ventana 04:30-05:30 cabe en una sola espera; y sin regla "7 → OK" el filewatcher quedaría NOTOK los días sin fichero, en contra de R2 |
-| P-LEIR-03 | ¿Cuáles son las posiciones de cada campo en la línea de 259 caracteres (`RespuestaClientela.segmentaMensaje`)? | Sin ellas no se puede construir un fichero de prueba campo a campo |
+| P-LEIR-03 | **Resuelta en parte (02/10/2026).** ¿Cuáles son las posiciones de cada campo en la línea de 259 caracteres (`RespuestaClientela.segmentaMensaje`)? Se deduce que las posiciones 1-60 repiten el formato del fichero enviado y que el bloque de error ocupa el resto (§6.2); **sigue pendiente** el reparto por campo del bloque de error (`TIPERROR`, `CODERROR`, `MODULO_ERR`, `PARRAF_ERR`, `TABLA_ERR`, `ACCESS_ERR`, `SQLERR`, `DESC_ERROR`). | Sin ellas no se puede construir un fichero de prueba campo a campo |
 | P-LEIR-04 | ¿Cuál es el literal de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` (argumentos, `Stop`) y el patrón exacto del comando `ctmfw` de `REG_LEIS_RESP_FILE_FW` (`LEIsReg_*` o `LEIsReg_*.txt`, §6.1)? | Para documentar rutas exactas y comportamiento ante fallos |
-| P-LEIR-05 | ¿Con qué código termina `main.Main` si falla la conexión, si no existen las rutas `receive`/`old`/`Alertas` o si hay una excepción en un fichero? | Decide si `GSPROC_REG_LEIS_RESP` queda NOTOK en esos casos |
-| P-LEIR-06 | ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes |
+| P-LEIR-05 | **Resuelta en parte (02/10/2026).** ¿Con qué código termina `main.Main` si falla la conexión, si no existen las rutas `receive`/`old`/`Alertas` o si hay una excepción en un fichero? Los dos jars hermanos de la misma plantilla terminan siempre con 0 (§6.2); **sigue pendiente** confirmarlo en el jar real. | Decide si `GSPROC_REG_LEIS_RESP` queda NOTOK en esos casos |
+| P-LEIR-06 | **Resuelta en parte (02/10/2026).** ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? Resuelto: qué exige el Cocinado a la consulta, asunto y cuerpo genéricos del correo (rama `DEFAULT`) y reglas de periodicidad (bloque «Correo de alertas» de §6.5); **sigue pendiente** el contenido de las filas. ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes |
 | P-LEIR-07 | Si dos peticiones `LEI_REG_LINE_SENT` tienen el mismo LEI, ¿cuál devuelve `identificaCliente`? | Decide qué petición recibe la respuesta |
 
 ## 5. Especificación funcional
@@ -162,6 +162,26 @@ Clases (según el documento):
   `PERSCTPN`, `DOCUMPS` (LEI), `INICVIG`, `FINVIG` y el bloque de error `TIPERROR`, `CODERROR`, `MODULO_ERR`,
   `PARRAF_ERR`, `TABLA_ERR`, `ACCESS_ERR`, `SQLERR`, `DESC_ERROR`; actualiza estados.
 
+**Evidencia de jars hermanos (no son este jar).** El código de `LEI_Register_response.jar` no está en el repositorio, pero hay dos jars
+del mismo autor y de la misma plantilla (`Main` → `ProcesaFichero` → `RespuestaCliente` → `QuerysStr`/`QueryExec`, mismos argumentos de
+nivel de log, `log4j`, rutas `receive`/`old`/`error` y patrón): `clientelaBDI_Altas_response.jar` y `Investors_Client_Reg_resp.jar`,
+ambos del proceso de altas de fondos (`rdr_pr_bdiclienreg_resp`). Su código confirma, por analogía y sin sustituir al jar real, lo que el
+documento dice de este:
+- `Main.main` es un `void` que nunca llama a `System.exit`: si falla la configuración del log o de la conexión, escribe el error y
+  hace `return`; si falla el tratamiento de un fichero lo captura. **El proceso termina con código 0 en todos los casos** (P-LEIR-05).
+  Un fallo de conexión solo se ve en el log y, en este proceso, en que las peticiones siguen en `LEI_REG_LINE_SENT`.
+- `ProcesaFichero` descarta las líneas vacías o de menos de 100 caracteres (`Linea no valida`) y sigue; al terminar mueve el fichero a
+  `old/`, o a `error/` si salta una excepción; la comprobación de ficheros exige que el nombre **contenga** el patrón (no que lo empiece).
+- `RespuestaCliente.segmentaMensaje` corta la línea con una lista de nombres de campo y otra de longitudes, acumulando el desplazamiento;
+  si la línea es más corta que la suma de longitudes, `substring` lanza una excepción, la línea se marca como errónea y se descarta con una
+  traza, **sin tocar el estado de la petición**. Aplicado a este proceso: una línea de entre 100 y 258 caracteres no se procesa, aunque
+  supere el filtro de 100. Qué estado acaba teniendo su petición depende de cómo se construya el universo de `NO_RESPONSE`, que no se ha visto.
+- La clase hermana inserta cada campo en `FT_T_UTD1` con `UTD_USAGE_TYP='FIELD_RESP'`, recortando espacios y sustituyendo un valor vacío por
+  un espacio, y duplica las comillas simples: el mismo patrón que describe el documento para este proceso.
+Sobre las posiciones (P-LEIR-03): los seis primeros campos suman 60 caracteres (`PAIS` 2, `ENTIDAD` 4, `PERSCTPN` 9, `DOCUMPS` 25,
+`INICVIG` 10, `FINVIG` 10, los mismos anchos del fichero enviado) y el resto, hasta 259, son 199 caracteres para el bloque de error (y, si la
+respuesta repite el relleno de 100 caracteres de la petición, 99 para el error). Es una deducción por aritmética: no hay reparto por campo.
+
 **Consultas (`jdbc.QuerysStr`):**
 
 | Consulta | Tablas | Qué hace |
@@ -211,6 +231,36 @@ Qué ejecuta (genérico en la spec común de Gestión de alertas):
 Consecuencias en este proceso: `GSPROC_REG_LEIS_ALERTAS` termina en verde aunque falle cualquiera de las tres
 etapas (acción `Property`); los `.err` se borran aunque la alerta no haya salido; qué contiene el correo y
 quién lo recibe está en base de datos (P-LEIR-06).
+
+**Correo de alertas: rama de `AlertasEnvioExcepciones`, envío y generación del informe (revisión 02/10/2026).**
+Procedencia: volcado de la base de workflows de GoldenSource (`AlertasEnvio` v7, `AlertasEnvioExcepciones` v12,
+`Mail` v6) y código de las clases `report.ReportesRDR` y `report.ReporteRDR` del Cocinado. La mecánica genérica de las
+tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que cambia el resultado de este proceso.
+- *Rama del conmutador.* El código de proceso de este informe en `FT_T_REP1` es `RDR_ERROR_LEI_REGISTER`. `AlertasEnvio` construye, para cada informe pendiente, el asunto `[RDR Reportes] - <código de proceso>` y como cuerpo el texto `txtBody` que deja el nodo del tipo de envío (los scripts de esos nodos no son legibles en el volcado), y llama al subworkflow `AlertasEnvioExcepciones` con `proceso`, `subject` y `body`, usando lo que éste devuelva. Ese subworkflow (versión 12, de 03/07/2026) es un conmutador (`Switch Case`) por código de proceso con solo tres ramas que fijan asunto y cuerpo propios: `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES` (esta última, sobre las peticiones de LEI de emisiones; no tiene relación con el registro de LEI de clientes), más una rama `DEFAULT` que termina sin tocar nada. Ninguna de sus 12 versiones ha tenido una rama para `RDR_ERROR_LEI_REGISTER`: **este proceso cae en `DEFAULT` y su correo lleva el asunto `[RDR Reportes] - RDR_ERROR_LEI_REGISTER` y el cuerpo que genera el tipo de envío, sin texto propio.**
+- *Qué condiciones debe cumplir el correo para salir.* Para cada proceso con `SEND_PEND='Y'`, el workflow `AlertasEnvio`
+  **pone primero `SEND_PEND='N'`** y solo después valida la ruta, el entorno, los destinatarios y las periodicidades. Cada
+  destinatario y tipo de envío (`EXCEL`, `WORD`, `TXT`, `DAT`, `CUERPO`) tiene una periodicidad en `FT_T_ALR1` que se compara
+  con `LAST_SEND_TMS`: `DIARIA` 1 día, `SEMANAL` 7, `MENSUAL` 30, `ENVIOTOTAL` siempre; con el sufijo `_PARCIAL` además no
+  se envía si el cuerpo contiene `No existen datos a enviar`. `Validate MAIL` exige destinatario y asunto no vacíos y que el
+  nodo del tipo de envío haya dejado `enviar='S'`; su comprobación del cuerpo lee por error la variable `MAIL` (el mapa del
+  destinatario) en lugar de `body`, así que nunca detecta un cuerpo vacío. Consecuencia: si el correo no sale por periodicidad,
+  falta de fichero o fallo del envío, `SEND_PEND` ya está a `'N'` y el informe **no se reintenta** en la siguiente ejecución del
+  envío (los mensajes de `FT_T_ALG1` ya se marcaron como usados al cocinar).
+- *Envío.* El subworkflow `Mail` lee `ServerMailConfig.xml` (en `/<env>/kytl/online/multipais/multicanal/dat/properties/`,
+  nodo `/root/server[@id=<env>]`, etiquetas `host` y `user`; si no puede leerlo usa un servidor de desarrollo escrito en el
+  propio workflow), compone el mensaje con el cuerpo en texto y el adjunto solo si el fichero existe, y lo envía por SMTP (puerto 25)
+  a los destinatarios separados por `;`. Cualquier excepción se captura y solo se imprime: el workflow termina bien, se escribe
+  `Correo enviado` y se actualiza `LAST_SEND_TMS` aunque el correo no haya salido.
+- *Generación del informe (Cocinado).* Por cada fila activa de `FT_T_REP1` con destinatarios activos, `ReportesRDR`: (a) sustituye
+  `$ENV` en `RUTA`; toma la plantilla de `EXCEL_TEMPLATE` (si es nula, `<RUTA>/Templates/Template_Alertas_Excel.xlsx`) y la hoja
+  de `EXCEL_SHEET` (si es nula, `Reporte`); (b) ejecuta la consulta del CLOB `QUERY`, que debe devolver las columnas `ALG1_OID`,
+  `MENSAJE` y `TIPO` (`MENSAJE`, `ESTADISTICA` o `CELDAEXCEL`); (c) lee los tipos de envío de los destinatarios del proceso (`FT_T_ALU1`/`FT_T_ALR1`, según la spec común); (d) genera los documentos llamando a `DocumentGenerator.generaDocumento` (clase no recibida); (e) marca los
+  mensajes de `FT_T_ALG1` como usados y `SEND_PEND='Y'` **sin comprobar si se generó algo**. Los nombres de los ficheros salen de `SHORT_PROCESS` y `RUTA` de su fila de `FT_T_REP1` (no recibida). No genera ningún documento,
+  y lo da por correcto, cuando: mezcla mensajes con celdas de Excel o estadísticas con celdas de Excel; no hay ningún tipo de
+  envío; el único tipo es `DAT` y no hay mensajes; el informe es de tipo `REPORTEEXCEL` y el único tipo de envío no es `EXCEL`; o
+  es `REPORTEEXCEL` con varios tipos de envío y ninguno es `EXCEL` (si alguno es `EXCEL`, genera solo el Excel). En esos casos
+  los mensajes quedan consumidos y no hay fichero que enviar. Un `SHORT_PROCESS` nulo en la fila de `FT_T_REP1` provoca una
+  excepción no capturada al construir el informe y el Cocinado termina con error. Las incidencias de este proceso llegan a `FT_T_ALG1` a través del Barrido, desde `FT_T_TPG1`; según el documento, el Java de respuesta solo escribe `errores.err` y no `FT_T_TPG1` (P-LEIR-06). Si nadie más escribe en `FT_T_TPG1`, el Barrido no genera mensajes y el Cocinado procesa el informe con la consulta de `FT_T_REP1` sin filas: no lo rechaza (solo rechaza el caso `DAT`) y se lo entrega a `DocumentGenerator`.
 
 ### 6.6 Inventario de ejecutables
 
@@ -266,6 +316,8 @@ los filewatchers quedan condicionados a P-LEIR-02 y P-LEIR-06.
 - **Filewatchers y código 7:** sin regla "7 → OK", un día sin fichero o sin incidencias deja el filewatcher en
   error (P-LEIR-02).
 - **Matiz de orquestación** entre la ficha y la regla de planificación de `GSPROC_REG_LEIS_ALERTAS` (§6.1).
+- **Informe que no se reintenta:** `AlertasEnvio` pone `SEND_PEND='N'` antes de validar periodicidad, fichero y destinatarios y el `.err` se borra siempre; si el correo no sale, la incidencia no vuelve a avisarse (§6.5).
+- **Línea de 100 a 258 caracteres:** supera el filtro de 100 pero es más corta que el registro de 259; por analogía con el jar hermano se descarta con una traza (§6.2).
 
 ## 10. Conclusión y requisitos de cierre
 

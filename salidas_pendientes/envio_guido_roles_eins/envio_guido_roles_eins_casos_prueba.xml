@@ -128,10 +128,10 @@
       <paso numero="3">Verificar el contenido de GUIDO_IMPORT.csv tras la ejecución.</paso>
       <paso numero="4">Verificar si el evento GoldenSource UserRoleFileProcessing se ejecuta igualmente.</paso>
     </pasos>
-    <resultadoEsperado>GUIDO_IMPORT.csv queda vacío (0 bytes de datos) tras el filtrado; el evento executeBbvaEvent.sh se ejecuta igualmente al no estar encadenado con &amp;&amp; a la limpieza previa.</resultadoEsperado>
+    <resultadoEsperado>GUIDO_IMPORT.csv queda vacío (0 bytes de datos) tras el filtrado; el evento executeBbvaEvent.sh se ejecuta igualmente al no estar encadenado con &amp;&amp; a la limpieza previa. El workflow UserRoleFileProcessing no procesa ningún usuario, escribe en su log «GUIDO File Processing Error: No user details found in incoming file OR None of the user data was processed successfully», no ejecuta las dos sentencias de baja (los usuarios y relaciones existentes no se dan de baja) y aun así regenera, en modo append, OFP_RDR.csv y OFP_ROLES_RDR.csv con el estado actual de RDR.</resultadoEsperado>
     <tipoValidacion>Inspección del fichero tras la limpieza + verificación de la ejecución del evento GoldenSource (log de executeBbvaEvent.sh).</tipoValidacion>
     <criterioAceptacion>Se confirma que el evento se dispara sin control de error, documentando RISK-GUIDO-002 como comportamiento actual, no como validación superada.</criterioAceptacion>
-    <posibilidadFallo>Riesgo real: GoldenSource podría procesar una carga vacía sin que RDR lo detecte como anomalía.</posibilidadFallo>
+    <posibilidadFallo>Riesgo real: GoldenSource procesa una carga vacía sin que RDR lo detecte como anomalía, y los ficheros OFP se generan igualmente (con duplicados si ya existían, RISK-GUIDO-003). Si el log no muestra el mensaje de error, las bajas se habrían ejecutado y hay que revisar ft_t_ausr y ft_t_aurp.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-007" tipo="duplicidad">
@@ -155,22 +155,26 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-008" tipo="datos_sinteticos">
-    <nombre>Limitación de evidencia: duplicidad a nivel de registro en OFP_ROLES_RDR.csv</nombre>
-    <objetivo>Documentar explícitamente que no se puede definir ni probar un caso de duplicidad a nivel de registro sin el diccionario de datos real del fichero (GAP-GUIDO-004).</objetivo>
+    <nombre>Duplicación de líneas en OFP_ROLES_RDR.csv al repetir el evento (modo append)</nombre>
+    <objetivo>Comprobar si el fichero OFP_ROLES_RDR.csv acumula copias del mismo bloque cuando el evento UserRoleFileProcessing se ejecuta más de una vez sin que el fichero se haya enviado y movido (RISK-GUIDO-003, GAP-GUIDO-004). El workflow escribe con append=true y no vacía el fichero antes.</objetivo>
     <precondiciones>
-      <precondicion>Ninguna — este caso documenta una limitación, no ejecuta una prueba funcional.</precondicion>
+      <precondicion>Entorno de prueba con GUIDO_IMPORT.csv sintético válido (con filas KYTL) y sin OFP_ROLES_RDR.csv ni OFP_RDR.csv en /fichtemcomp/&lt;env&gt;/descargas/kytl/users/.</precondicion>
+      <precondicion>Se puede lanzar dos veces seguidas el evento UserRoleFileProcessing (guidoLoad.sh o executeBbvaEvent.sh) sin ejecutar MEKYTL1061.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="OFP_ROLES_RDR.csv" valor="sin muestra real disponible; delimitador, columnas y clave de negocio no confirmados (GAP-GUIDO-004)"/>
+      <dato campo="GUIDO_IMPORT.csv" valor="fichero sintético con 3 usuarios KYTL y 2 roles cada uno (se vuelve a depositar antes de la 2ª ejecución, porque la 1ª lo mueve si successAction=MOVE)"/>
+      <dato campo="OFP_ROLES_RDR.csv" valor="muestra real de 4341 líneas (rol,módulo,nivel_acceso; 201 combinaciones distintas) como referencia de formato"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Solicitar una muestra real de OFP_ROLES_RDR.csv o su diccionario de datos.</paso>
-      <paso numero="2">Si se obtiene, definir la clave de negocio real y rediseñar este caso como una prueba de duplicidad a nivel de registro equivalente a la de otros procesos RDR ya cerrados.</paso>
+      <paso numero="1">Lanzar el evento una primera vez y contar las líneas de OFP_ROLES_RDR.csv y de OFP_RDR.csv (N1 y M1) y las líneas distintas de cada uno (D1 y E1).</paso>
+      <paso numero="2">Sin enviar ni mover los ficheros, depositar de nuevo GUIDO_IMPORT.csv y lanzar el evento otra vez.</paso>
+      <paso numero="3">Contar de nuevo líneas totales (N2, M2) y distintas (D2, E2).</paso>
+      <paso numero="4">Comprobar que cada línea sigue teniendo 3 campos separados por coma (OFP_ROLES_RDR.csv) o 2 (OFP_RDR.csv), sin cabecera.</paso>
     </pasos>
-    <resultadoEsperado>No aplica un resultado de pase/fallo hasta disponer de la estructura real del fichero.</resultadoEsperado>
-    <tipoValidacion>No aplica (caso de documentación de gap, no de validación funcional).</tipoValidacion>
-    <criterioAceptacion>No aplica; el caso queda abierto como marcador de GAP-GUIDO-004 hasta recibir evidencia.</criterioAceptacion>
-    <posibilidadFallo>No se fuerza una estructura de datos inventada para evitar generar un caso de prueba engañoso.</posibilidadFallo>
+    <resultadoEsperado>Con el comportamiento descrito en la spec (append sin vaciado): N2 = 2 × N1 y M2 = 2 × M1, mientras D2 = D1 y E2 = E1 (el mismo bloque repetido). Si N2 = N1, el fichero se vacía en alguna parte que no se ha visto (por ejemplo, en UserRoleFileProcessing.properties) y debe actualizarse la spec.</resultadoEsperado>
+    <tipoValidacion>Recuento de líneas totales y distintas (wc -l y sort -u | wc -l) de los dos ficheros tras cada ejecución.</tipoValidacion>
+    <criterioAceptacion>Se documenta cuál de las dos situaciones ocurre. El caso no valida que EINS reciba un fichero sin duplicados mientras el comportamiento sea el de append: confirma el riesgo RISK-GUIDO-003.</criterioAceptacion>
+    <posibilidadFallo>Riesgo real: EINS recibe el mismo rol tantas veces como ejecuciones sin envío, sin que ningún job de Control-M lo detecte. No se conoce el texto de la consulta de OFP_ROLES_RDR.csv; si la propia consulta devolviera filas repetidas, N1 ya contendría duplicados (D1 &lt; N1).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-009" tipo="conflicto_integridad">

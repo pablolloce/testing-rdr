@@ -11,6 +11,9 @@
 - Cadena Control-M `KYTL0000-RDR_GUIDO_PR_new` dada de alta y activa, con método de ejecución "User Daily específico" (`PLAN_1200`).
 - Scripts desplegados y operativos: `guidoLoad.sh` en `/pr/kytl/online/multipais/multicanal/scrt/`; `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/`.
 - Motor de carga GoldenSource operativo, con el evento `UserRoleFileProcessing` dado de alta y accesible vía `executeBbvaEvent.sh fileloading` y el `credentials.xml` de `/pr/kytl/online/multipais/multicanal/cfg/entorno/`.
+- Fichero `UserRoleFileProcessing.properties` en el directorio `properties` que indica `credentials.xml` (es el fichero de entrada del evento cuando se lanza con 3 argumentos). Da valor a `fileDirectory`, `filePatternString`, `successAction` y `outputFileDirectory`; sin él, el workflow buscaría en `/tmp` (valor por defecto). Su contenido real no se ha visto.
+- En GoldenSource: feed `UserRoles` (patrón `GUIDO_IMPORT.csv`, lectura `LineByLine.xml`, tipo de mensaje `Users`), mapeo `db://resource/RDR/mapping/users/UserRoleMaintenance.mdx` y los workflows `UserRoleFileProcessing`, `Sub_ActiveUserRoleOFP` y `Sub_ActiveRoleActivityOFP` en estado RELEASED.
+- Directorio `/fichtemcomp/pr/descargas/kytl/users/` escribible por el usuario con el que corre GoldenSource: ahí escribe el workflow los dos `OFP_*.csv` (en modo `append`) y, si `successAction` es `MOVE`, mueve de ahí el `GUIDO_IMPORT.csv` cargado.
 - Fichero `.idx` de backup de `MEKYTL1061` disponible en `/pr/pl/envioweb/idx/bck/` (la generación vía Java está deshabilitada, por lo que este backup es el que se usa siempre).
 - Conectividad Connect:Direct operativa entre `lprdr501` y `lpnov503`, con acceso de escritura a `/usr/local/pr/nova/landingzone/EINS/filesystempre/incoming/`.
 - Carpeta de backup `/fichtemcomp/pr/descargas/kytl/users/backup/` disponible y con permisos de escritura.
@@ -27,4 +30,5 @@
 ## Flujos previos que deben haberse completado
 
 - La carga de usuarios/roles en GoldenSource (evento `UserRoleFileProcessing`) debe completarse sin fallos para que `OFP_ROLES_RDR.csv` exista con contenido válido; RDR no valida el contenido de negocio del fichero antes de enviarlo.
+- Antes de repetir el evento en pruebas, `OFP_RDR.csv` y `OFP_ROLES_RDR.csv` deben haberse enviado y movido (o borrado a mano): el workflow los escribe en modo `append` y, si existen, añade al final (RISK-GUIDO-003).
 - **Importante:** dado el soft-failure genérico de `MEKYTL1061` (código de retorno ≠ 0 → Marcar como OK, ver DEF-GUIDO-001 en `envio_guido_roles_eins_spec.md`), el estado "OK" en Control-M **no garantiza** que el envío a EINS haya tenido éxito real — debe verificarse el log/Salida del job o la llegada efectiva del fichero a EINS como parte de cualquier validación operativa, no solo el estado del job.

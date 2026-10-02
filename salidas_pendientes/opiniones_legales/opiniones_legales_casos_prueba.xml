@@ -316,7 +316,7 @@
       <paso numero="3">MEKYTL0978 historifica el log procesado.</paso>
       <paso numero="4">RESPONSE_LEGAL_OPINION_IN marca el cierre de la cadena.</paso>
     </pasos>
-    <resultadoEsperado>Los 4 jobs finalizan OK, el registro de prueba queda auditado en FT_T_RLT1 (OK o KO según corresponda), FT_T_REP1.SEND_PEND del proceso vuelve a 'N' tras el envío del informe (el fallo de las alertas no se ve en Control-M), y el log original queda historificado en old/ (ver P-OPLEG-06).</resultadoEsperado>
+    <resultadoEsperado>Los 4 jobs finalizan OK, el registro de prueba queda auditado en FT_T_RLT1 (OK o KO según corresponda), FT_T_REP1.SEND_PEND del proceso vuelve a 'N' en cuanto el workflow de envío empieza a tratarlo, haya salido o no el correo, y el correo (si sale) lleva el asunto «[RDR Reportes] - &lt;código de proceso&gt;» de la rama DEFAULT (el fallo de las alertas no se ve en Control-M), y el log original queda historificado en old/ (ver P-OPLEG-06).</resultadoEsperado>
     <tipoValidacion>Monitorización completa de la cadena + verificación de FT_T_RLT1 y del fichero historificado</tipoValidacion>
     <criterioAceptacion>Cadena completa OK, auditoría confirmada en FT_T_RLT1.</criterioAceptacion>
     <posibilidadFallo>Cualquier fallo intermedio (ausencia de fichero) detiene el flujo — ver TC-007.</posibilidadFallo>

@@ -70,6 +70,7 @@ Incluye los 5 jobs de `RDR_LEGALOPINION_new` y los 4 jobs de `RESPONSE_LEGAL_OPI
   (P-OPLEG-03).
 - El campo `lastReview` del CSV que consume `Legal_Opinion_Cargador`: se lee pero no se inserta en
   ninguna columna Oracle (confirmado en el documento fuente) — se documenta como hecho, no como gap.
+- El workflow `LegalOpinion` de GoldenSource: es un borrador en desarrollo, sin evento ni llamador, que no interviene en las dos cadenas (§6.6).
 
 ## 3. Requisitos detectados
 
@@ -296,6 +297,52 @@ comprueba en base de datos: `FT_T_REP1.SEND_PEND` vuelve a `'N'`, `FT_T_ALR1.LAS
 filas nuevas en `FT_T_RLT1` con `MAIN_ENTITY_NME='ERROR_GESTION_ALERTAS'`. Después de enviar, el pipeline borra el
 `.xlsx`.
 
+**Correo de alertas: rama de `AlertasEnvioExcepciones`, envío y generación del informe (revisión 02/10/2026).**
+Procedencia: volcado de la base de workflows de GoldenSource (`AlertasEnvio` v7, `AlertasEnvioExcepciones` v12,
+`Mail` v6) y código de las clases `report.ReportesRDR` y `report.ReporteRDR` del Cocinado. La mecánica genérica de las
+tres etapas sigue en la spec común de Gestión de alertas; aquí solo lo que cambia el resultado de este proceso.
+- *Rama del conmutador.* El código de proceso de este informe en `FT_T_REP1` no consta (P-OPLEG-03). `AlertasEnvio` construye, para cada informe pendiente, el asunto `[RDR Reportes] - <código de proceso>` y como cuerpo el texto `txtBody` que deja el nodo del tipo de envío (los scripts de esos nodos no son legibles en el volcado), y llama al subworkflow `AlertasEnvioExcepciones` con `proceso`, `subject` y `body`, usando lo que éste devuelva. Ese subworkflow (versión 12, de 03/07/2026) es un conmutador (`Switch Case`) por código de proceso con solo tres ramas que fijan asunto y cuerpo propios: `BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`, más una rama `DEFAULT` que termina sin tocar nada. Ninguna de sus 12 versiones ha tenido una rama para este proceso, y ninguna de las tres existentes corresponde a él: **cae en `DEFAULT` y su correo lleva el asunto `[RDR Reportes] - <código de proceso>` y el cuerpo que genera el tipo de envío, sin texto propio.**
+- *Qué condiciones debe cumplir el correo para salir.* Para cada proceso con `SEND_PEND='Y'`, el workflow `AlertasEnvio`
+  **pone primero `SEND_PEND='N'`** y solo después valida la ruta, el entorno, los destinatarios y las periodicidades. Cada
+  destinatario y tipo de envío (`EXCEL`, `WORD`, `TXT`, `DAT`, `CUERPO`) tiene una periodicidad en `FT_T_ALR1` que se compara
+  con `LAST_SEND_TMS`: `DIARIA` 1 día, `SEMANAL` 7, `MENSUAL` 30, `ENVIOTOTAL` siempre; con el sufijo `_PARCIAL` además no
+  se envía si el cuerpo contiene `No existen datos a enviar`. `Validate MAIL` exige destinatario y asunto no vacíos y que el
+  nodo del tipo de envío haya dejado `enviar='S'`; su comprobación del cuerpo lee por error la variable `MAIL` (el mapa del
+  destinatario) en lugar de `body`, así que nunca detecta un cuerpo vacío. Consecuencia: si el correo no sale por periodicidad,
+  falta de fichero o fallo del envío, `SEND_PEND` ya está a `'N'` y el informe **no se reintenta** en la siguiente ejecución del
+  envío (los mensajes de `FT_T_ALG1` ya se marcaron como usados al cocinar).
+- *Envío.* El subworkflow `Mail` lee `ServerMailConfig.xml` (en `/<env>/kytl/online/multipais/multicanal/dat/properties/`,
+  nodo `/root/server[@id=<env>]`, etiquetas `host` y `user`; si no puede leerlo usa un servidor de desarrollo escrito en el
+  propio workflow), compone el mensaje con el cuerpo en texto y el adjunto solo si el fichero existe, y lo envía por SMTP (puerto 25)
+  a los destinatarios separados por `;`. Cualquier excepción se captura y solo se imprime: el workflow termina bien, se escribe
+  `Correo enviado` y se actualiza `LAST_SEND_TMS` aunque el correo no haya salido.
+- *Generación del informe (Cocinado).* Por cada fila activa de `FT_T_REP1` con destinatarios activos, `ReportesRDR`: (a) sustituye
+  `$ENV` en `RUTA`; toma la plantilla de `EXCEL_TEMPLATE` (si es nula, `<RUTA>/Templates/Template_Alertas_Excel.xlsx`) y la hoja
+  de `EXCEL_SHEET` (si es nula, `Reporte`); (b) ejecuta la consulta del CLOB `QUERY`, que debe devolver las columnas `ALG1_OID`,
+  `MENSAJE` y `TIPO` (`MENSAJE`, `ESTADISTICA` o `CELDAEXCEL`); (c) lee los tipos de envío de los destinatarios del proceso (`FT_T_ALU1`/`FT_T_ALR1`, según la spec común); (d) genera los documentos llamando a `DocumentGenerator.generaDocumento` (clase no recibida); (e) marca los
+  mensajes de `FT_T_ALG1` como usados y `SEND_PEND='Y'` **sin comprobar si se generó algo**. El Excel de este proceso es `Legal_Opinion_Response.xlsx`, sin fecha en el nombre; su nombre sale de `SHORT_PROCESS` y de `RUTA`. No genera ningún documento,
+  y lo da por correcto, cuando: mezcla mensajes con celdas de Excel o estadísticas con celdas de Excel; no hay ningún tipo de
+  envío; el único tipo es `DAT` y no hay mensajes; el informe es de tipo `REPORTEEXCEL` y el único tipo de envío no es `EXCEL`; o
+  es `REPORTEEXCEL` con varios tipos de envío y ninguno es `EXCEL` (si alguno es `EXCEL`, genera solo el Excel). En esos casos
+  los mensajes quedan consumidos y no hay fichero que enviar. Un `SHORT_PROCESS` nulo en la fila de `FT_T_REP1` provoca una
+  excepción no capturada al construir el informe y el Cocinado termina con error.
+
+### 6.6 Workflow `LegalOpinion` de GoldenSource (no forma parte de las dos cadenas)
+
+El volcado de la base de workflows de GoldenSource contiene un workflow llamado `LegalOpinion` (versión 1, grupo
+`Custom/RDR/LegalOpinion`, estado `DEVELOPMENT`, comentario `RDR_LO_v0_26112019`, modificado el 05/11/2022). **No tiene
+evento asociado ni lo llama ningún otro workflow del volcado**, y ninguno de los jobs de las dos cadenas lo ejecuta (el
+nombre coincide solo con el del módulo `LegalOpinion` de `GSProcess.sh` que ejecuta `MEKYTL0930`). Es un borrador sin terminar que
+calcula, para un acuerdo legal, si existe opinión legal positiva de BBVA:
+1. Completa el tipo de acuerdo (`select agrmnt_typ from ft_t_lagr where leg_agrmnt_id=? and org_id=? and data_stat_typ='ACTIVE'`) y el tipo de entidad (`select fld_val from ft_t_lat1 where indus_cl_set_id='MENTTYPE' and leg_agrmnt_id=? and org_id=? and data_stat_typ='ACTIVE'`) si no vienen informados.
+2. Valida que tipo de entidad, tipo de acuerdo y país de residencia no estén vacíos; si faltan, termina en `KO` sin hacer nada. El script compara `TypAgr` con una variable que se llama `typAgr`, por lo que, tal como está, esa validación no funcionaría.
+3. Consulta la opinión del país (`FT_T_LAL1`/`FT_T_LLD1`/`FT_T_INCL`: acuerdo `ISDA`, `INDUS_CL_SET_ID` de la opinión `LEGALOPINI`, tipo de entidad `MENTTYPE`) y obtiene `Y` si la clasificación es `Positive` y `N` en otro caso.
+4. Inserta en `FT_T_FRCL` una clasificación `FXALFUND`/`CONNECTING` para la contraparte, con usuario `BBVA:CUSTOMER`, usando variables que el workflow no declara.
+
+Su única utilidad para este documento es confirmar el modelo de datos: las opiniones legales viven en `FT_T_LAL1` (cabecera por país
+y tipo de acuerdo) y `FT_T_LLD1` (detalle por tipo de entidad), con el resultado en un conjunto de clasificaciones `LEGALOPINI`.
+No cambia ningún requisito ni caso de prueba.
+
 ## 7. Especificación de testing
 
 La matriz de `opiniones_legales_casos_prueba.xml` (16 TC: TC-001 a TC-016) cubre los 9 tipos exigidos: `happy_path`
@@ -344,7 +391,9 @@ Cobertura por cadena:
   verificación end-to-end completa del ciclo (desde el CSV de Mentor hasta `FT_T_RLT1`) requeriría
   localizar antes ese job.
 - **RISK-OPLEG-005:** los fallos de las alertas (Barrido, Cocinado o envío) no se ven en Control-M, y el envío
-  es global (§6.5): el informe de Legal Opinion puede no llegar o llegar con el de otro proceso.
+  es global (§6.5): el informe de Legal Opinion puede no llegar o llegar con el de otro proceso. Además
+  `AlertasEnvio` pone `SEND_PEND='N'` antes de validar periodicidad, fichero y destinatarios: un informe que no sale
+  no se reintenta en el siguiente envío (§6.5).
 - **RISK-OPLEG-006:** la extracción de la cadena 1 la hace el Planificador (martes a sábado) y no se sincroniza
   con la cadena (P-OPLEG-01, P-OPLEG-02): posible pérdida de cambios de fin de semana y trabajo sobre un fichero
   ausente o antiguo.

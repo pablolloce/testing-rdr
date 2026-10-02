@@ -199,7 +199,7 @@
     <resultadoEsperado>Los 5 jobs terminan OK en orden; E2E-OK queda en LEI_OK y E2E-KO en LEI_KO; Alertas/errores.err contiene "Existen 1 errores." (o más si hay otras peticiones LEI_REG_LINE_SENT sin respuesta, que pasan a NO_RESPONSE); GSPROC_REG_LEIS_ALERTAS ejecuta la Gestión de alertas con RDR_ERROR_LEI_REGISTER y borra el .err; el fichero queda en old/. El contenido y los destinatarios del correo son los configurados en FT_T_REP1/FT_T_ALR1 (P-LEIR-06).</resultadoEsperado>
     <tipoValidacion>Verificación end-to-end en Control-M (estado de los 5 jobs) + inspección de BBDD, filesystem y alerta</tipoValidacion>
     <criterioAceptacion>Los 5 jobs terminan "Ended OK" (los 2 de alerta solo se disparan por la incidencia); FT_T_VREQ refleja LEI_OK/LEI_KO correctamente; alerta notificada; errores.err eliminado tras notificar; fichero en old/.</criterioAceptacion>
-    <posibilidadFallo>GSPROC_REG_LEIS_ALERTAS termina en verde y borra el .err aunque la alerta no salga (acción Property): la notificación se verifica en FT_T_REP1.SEND_PEND (vuelve a N) y FT_T_ALR1.LAST_SEND_TMS, no por el estado del job.</posibilidadFallo>
+    <posibilidadFallo>GSPROC_REG_LEIS_ALERTAS termina en verde y borra el .err aunque la alerta no salga (acción Property): la notificación se verifica en FT_T_REP1.SEND_PEND y FT_T_ALR1.LAST_SEND_TMS, no por el estado del job. SEND_PEND vuelve a N en cuanto el workflow de envío empieza a tratar el proceso (antes de enviar), de modo que un N no prueba que el correo haya salido; el asunto esperado es «[RDR Reportes] - RDR_ERROR_LEI_REGISTER» (rama DEFAULT de AlertasEnvioExcepciones).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

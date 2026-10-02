@@ -45,6 +45,8 @@
 | Acciones del job `KYTL_CLI_GSPROCESS_FW` (captura) | Código 0 → evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new`; código 7 → evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO` y marcar OK | TC-003 |
 | `clientes.properties` (no recibido, P-CIB-01) | Argumentos de `Delta.sh` y de `ControlCargaDatos.jar`, fichero que carga el MDX, `Stop` | TC-001, TC-002, TC-007 |
 | `fillingRules_clientes.csv` (no recibido, P-CIB-02) | Reglas por columna | TC-001, TC-008 |
+| Feed `clientes` de GoldenSource (spec §6.3.2) | Patrón `clientes_processed.csv`, lectura `SkipHeaderReadByLine.xml`, tipo de mensaje `CLX`, mapeo `clientes.mdx`, `ROLLBACK_ON_ERROR=N`; workflows `Standard File Load`, `ErroresCSV`, `MarcaRegErroneo`, `SubErroresCSV`, `GenerateReports`, `Sub_GenerateReports`, `Sub_DevelopReport` y `HistoricizeFiles` en estado RELEASED | TC-001, TC-009 |
+| Parámetros de los eventos `RDR_ErroresCSV` y `RDR_Reporte` en `clientes.properties` (no recibido, P-CIB-01) | `Ruta` (directorio base, p. ej. `/fichtemcomp/pr/descargas/kytl/`), `Servicio=clientes`, `File`, `MessageType=CLX` y `Delta`; con `Delta=Si` hace falta además `errores_to_file.sh` en `/<env>/kytl/online/multipais/multicanal/scrt/` | TC-009 |
 | `.idx` de `MEKYTL0147` y `MEKYTL0148` (no recibidos, P-CIB-05) | Renombrado `Reporte_clientes_<yyyymmdd>.csv` / `CLIEXCLU_<yyyymmdd>.txt`, rutas, `FALLA_NO_FICHERO` | TC-004 |
 | Líneas IDX de `MEKYTL0136` y `MEKYTL0939` (no recibidas, P-CIB-06) | Renombrado con `_yyyymmdd`, operación, campo 5 | TC-001, TC-007 |
 
@@ -52,7 +54,7 @@
 
 | Ruta | Uso | Entorno |
 |---|---|---|
-| `/fichtemcomp/pr/descargas/kytl/clientes/` | Entrada `clientes.csv`; salidas intermedias (`clientes_processed.csv`, `clientes_noprocessed.csv`, `Reporte_clientes.csv` si existe) y `Reporte_clientes_dos.csv` | Producción (referencia) |
+| `/fichtemcomp/pr/descargas/kytl/clientes/` | Entrada `clientes.csv`; salidas intermedias (`clientes_processed.csv`, `clientes_noprocessed.csv`, `Reporte_clientes.csv`, `clientes_errores.csv`, y `db_errores.txt` si `Delta=Si`) y `Reporte_clientes_dos.csv` | Producción (referencia) |
 | `/fichtemcomp/pr/descargas/kytl/clientes/old/` | Históricos `clientes_<yyyymmdd>.csv` y `Reporte_clientes_dos_<yyyymmdd>.csv`; referencia del delta `clientes.csv` (y `_old.csv`, `_original.csv`) si `Delta.sh` trabaja en modo `Si`. Sin compresión ni purga documentada | Producción (referencia) |
 | `\\S00371F2\DATOS\TRANSMI\MVP00G215\RDR\` en `XCOMWPMER` | Destino de `MEKYTL0147` | Producción (referencia) |
 | `\\S00371F2\DATOS TRANSMI\MVP00G219\` en `XCOMWPMER` (ruta literal de la ficha, P-CIB-05) | Destino de `MEKYTL0148` | Producción (referencia) |
