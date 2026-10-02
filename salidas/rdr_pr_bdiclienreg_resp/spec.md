@@ -1080,7 +1080,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
 
-**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (12 de 16):**
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (15 de 16):**
 
 - **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
   Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
@@ -1249,6 +1249,30 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   manual (`manualEmir`) que consume `Calculate Final type under EMIR` (ya cerrado) — sin él, el override
   manual se mencionaba solo como parámetro de entrada, sin saber de dónde salía. Mismo patrón "Extraction =
   solo lectura" ya confirmado en `Auxiliary DFA Data Extraction`/`DFA Type Extraction` (lado Operativo).
+- **`Manual SFTR Extraction`** (mismo grupo, estado `RELEASED`, **v1, última actualización 2025-04-12** — la
+  misma fecha que `Calculate Counterparty type under SFTR`, confirmando que el soporte de override manual
+  SFTR se añadió todo junto, muy recientemente respecto al resto de la familia): gemela exacta de `Manual
+  EMIR Extraction` — misma query de solo lectura sobre `FT_T_FRA1`, esta vez con clasificación `MANUALSFTR`
+  en vez de `MANPARTY`, confirmando el origen del override `manualSftr` que consumen `Calculate Final type
+  under SFTR` y `Calculate_Reporting_Delegation_Model` (ambos ya cerrados). **[Hallazgo] el nodo interno
+  conserva literalmente el nombre `"Manual type under EMIR"`** dentro de esta extracción SFTR — otra
+  confirmación más del copy-paste EMIR→SFTR sin renombrar ya señalado repetidamente en esta familia.
+- **`USINDEM Extraction`** (mismo grupo, estado `RELEASED`, v5): extracción de solo lectura del valor **ya
+  existente** de `FT_T_FRA1` para la clasificación `INDICYN` (mismo patrón `ROW_NUMBER()`/`RNK=1` para
+  quedarse con la fila "ganadora" ya visto en el resto de la familia) — confirma el origen exacto del
+  parámetro `europeanPersonData` (el valor "antiguo" contra el que `Calculate European Person Indicator`, ya
+  cerrado, compara el recién calculado).
+- **`Other Regulatory Information Extraction`** (mismo grupo, estado `RELEASED`, v3): 2 queries en paralelo
+  (`ANDSPLIT`) sobre `FT_T_FRA1`/`FT_T_INCL` — una para los 5 indicadores de rol CFTC
+  (`RR_CRD`/`RR_IRS`/`RR_FX`/`RR_COM`/`RR_EQD`) y otra para los 2 de SEC (`SEC_CRD`/`SEC_EQD`) — que confirma
+  el origen de los parámetros `cftcData`/`secData` consumidos por `Calculate Other Regulatory Information`
+  (ya cerrado). **[Hallazgo] variable de bind con nombre cruzado Operativo/Global:** el texto de ambas
+  queries usa `:cntrprtyOperativeOid` como nombre del bind, pese a que el parámetro real de este workflow (y
+  el que se mapea en la posición `01`) es `cntrprtyGlobalOid` — **mismo patrón de nombre de bind
+  copiado/cruzado entre el lado Global y el Operativo ya señalado para `Calculate Parent Company Country of
+  Residence`** (lado Operativo con un nombre con errata del lado Global); aquí es al revés, una query Global
+  que lleva el nombre "Operative" en su bind — refuerza que este tipo de inconsistencia de nomenclatura entre
+  ambos niveles de la jerarquía es un patrón recurrente en esta familia, no un error aislado.
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1466,8 +1490,11 @@ más, como `PartySetupDifusion`; estado `RELEASED`, v7 —
 
 Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars **más la clase orquestadora real
 `main.Ppal` de cada uno** (`Ppal_AlertasBarrido.java`, paquete `main`, clase `Ppal`;
-`Ppal_AlertasCocinado.java`, paquete `main`, clase `Ppal`, delega en `report.ReportesRDR` no aportada —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`).
+`Ppal_AlertasCocinado.java`, paquete `main`, clase `Ppal`, delega en `report.ReporteRDR` — **ahora también
+aportada con código fuente real**, ver más abajo —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`). **Corrección de nomenclatura sobre lo
+documentado previamente en esta misma sesión:** la clase se llama `ReporteRDR` (singular), no `ReportesRDR`
+— confirmado por sus propios mensajes de log (`"ReporteRDR::..."`), que son la fuente real del nombre.
 
 - **Argumentos reales confirmados (ambos jars):** `args[0]` = nivel de log (`1`=DEBUG, `2`=INFO, `3`=ERROR,
   `4`=FATAL), `args[1]` = ruta del `.properties` de log4j, `args[2]` = identificador de proceso (si no vale el
@@ -1516,14 +1543,30 @@ Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars **más l
   envío (`FT_T_REP1.SEND_PEND='Y'`, `query_REP1_MarcaPending`) y cierra los mensajes consumidos
   (`queryMarcadoALG1`: `PROCESADO='S'`, `LAST_CHG_USR_ID='AlertasCocinado.jar'`). **Es este `SEND_PEND='Y'` el
   que activa realmente el envío en `AlertasEnvio`** (§6.15). **`main.Ppal` real de `AlertasCocinado`
-  confirmado, aunque delega casi todo en una clase no aportada:** el orquestador (`Ppal_AlertasCocinado.java`)
-  se limita a encadenar 5 fases sobre un objeto `ReportesRDR` (`report.ReportesRDR`, clase no aportada):
-  `extraerReportes()` → `descargaMensajesResportes()` → `generaDocumentos()` →
-  `marcaALG1_Reportes()`/`marcaReportesPending()` → `cerrarConexiones()`, con el mismo patrón de auditoría por
-  fase en `FT_T_RLT1` ya visto en `AlertasBarrido` — **a diferencia de `AlertasBarrido`, aquí no se puede
-  confirmar si las llamadas reales a BBDD están activas o comentadas**, porque viven dentro de `ReportesRDR`,
-  no en este `main.Ppal`. Queda cerrada la estructura externa de orquestación, pero no la lógica interna de
-  generación de documentos/marcado.
+  confirmado, delegando en `report.ReporteRDR` (ahora también con código fuente real):** el orquestador
+  (`Ppal_AlertasCocinado.java`) encadena 5 fases sobre un objeto `ReporteRDR`: `descargaMensajesReporte()` →
+  `descargaTiposEnvio()` → `generaDocumentos()` → `marcaUsadosALG()`/`marcaReportePendiente()` →
+  `cierraConexion()`, con el mismo patrón de auditoría por fase en `FT_T_RLT1` ya visto en `AlertasBarrido`.
+- **`report.ReporteRDR` — lógica interna confirmada por completo con código fuente real:**
+  `descargaMensajesReporte()` ejecuta la `query` del proceso (la pasada por el `main.Ppal`, consulta real sobre
+  `FT_T_ALG1`) y clasifica cada fila por `TIPO` en 3 vectores (`MENSAJE`/`ESTADISTICA`/`CELDAEXCEL`), guardando
+  todos los `ALG1_OID` vistos. `descargaTiposEnvio()` resuelve los medios de envío suscritos al proceso
+  (`QuerysStr.query_ALU1_TiposEnvio`). `generaDocumentos()` aplica una cascada de validaciones previas que, si
+  no se cumplen, **abortan sin generar nada pero devuelven éxito (`return true`)**: no se puede combinar
+  `MENSAJE`+`CELDAEXCEL` ni `ESTADISTICA`+`CELDAEXCEL`; sin ningún tipo de envío suscrito, no genera nada; un
+  único tipo `"DAT"` sin mensajes, no genera nada; si el proceso está definido como `"REPORTEEXCEL"` pero sus
+  suscriptores no incluyen `"EXCEL"`, no genera nada; con varios tipos de envío y el proceso definido como
+  `"REPORTEEXCEL"`, descarta todos los tipos salvo `"EXCEL"` si existe, o no genera nada si no existe — **mismo
+  patrón de "éxito silencioso sin generar nada" ya visto en otros puntos de esta cadena** (ver §9). Superadas
+  las validaciones, delega la generación real de cada tipo de fichero en `DocumentGenerator.generaDocumento`
+  (clase no aportada — único residuo de código que queda de esta pieza) y cuenta los ficheros generados; un
+  fallo individual de un tipo de envío no detiene a los demás, solo marca el resultado global como fallido.
+  `marcaUsadosALG()`/`marcaUsadosALG1()` trocea los `ALG1_OID` en lotes de hasta 990 (mismo límite de Oracle
+  en `IN` ya visto en `marcaUsadosTPG1` de `AlertasBarrido`) y los marca usados vía `QuerysStr.queryMarcadoALG1`
+  — **a diferencia de `marcaUsadosTPG1`, aquí el troceo está bien implementado** (sin el desajuste de índices
+  ya señalado para `AlertasBarrido`): no se confirma el mismo defecto en `AlertasCocinado`. `cierraConexion()`
+  traga **cualquier** excepción al cerrar la conexión sin registrar nada, ni siquiera un log — fallo
+  completamente silencioso, aunque de bajo impacto (solo afecta al cierre ordenado de la conexión).
 - **Qué recibe/produce:** ambos reciben el identificador de proceso vía `args[2]` (placeholder `PROCESOS`
   sustituido, §6.9/§6.12); Barrido produce filas nuevas en `FT_T_ALG1`; Cocinado marca `FT_T_REP1.SEND_PEND`
   y cierra los mensajes de `FT_T_ALG1` que consumió. Ambos comparten el mismo patrón de auditoría de errores
@@ -1535,11 +1578,10 @@ Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars **más l
   genérico que solo registra en log — no relanzan la excepción ni marcan el proceso como fallido de forma
   visible fuera del propio jar, mismo patrón de fallo silencioso ya visto en otros puntos de esta cadena
   (§6.9/§9) y confirmado ahora también a nivel de orquestador (`main.Ppal` de `AlertasBarrido`, ver hallazgo
-  de `realizaInserciones` comentado arriba). No se puede confirmar, por ejemplo, si `Cocinado` marca
-  `SEND_PEND='Y'` incluso cuando no hay mensajes pendientes en `ALG1` (lo que dispararía un intento de envío
-  "vacío" en `AlertasEnvio`), porque esa decisión vive dentro de `ReportesRDR`, no aportada.
-- **Gap abierto, no bloqueante:** clase `report.ReportesRDR` de `AlertasCocinado` (lógica interna de las 5
-  fases de su `main.Ppal`).
+  de `realizaInserciones` comentado arriba).
+- **Residuo mínimo, no bloqueante:** solo `DocumentGenerator.generaDocumento` (la generación física de cada
+  fichero — Excel/DAT/etc.) queda sin aportar; toda la lógica de decisión que la rodea (`ReporteRDR`) está
+  confirmada por completo.
 
 ### 6.15 `Workflow(AlertasEnvio)` — confirmado con `.wkf` real
 
@@ -1798,21 +1840,56 @@ Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
   `FXFUNDS` (`FIST.LAST_CHG_USR_ID='FXFUNDS'`), sigue la rama `"Investors"` (resuelve las sucursales reales del
   contraparte vía `FT_T_ENFR`); si no, sigue la rama `"A1"` (**hardcodea** `ORG_ID='A1'` con un `SELECT 'A1'
   FROM DUAL`, sin consulta real — un valor fijo de sucursal para ese caso). Con la(s) sucursal(es) resueltas,
-  invoca el subworkflow `SSIs_Fx_Exec` (no aportado, ejecución real del alta) una vez por sucursal. Cualquier
-  fallo de validación (SDI inválido, combinación acceso/acrónimo no única, sin sucursales) dispara el
-  subworkflow `SSIs_Fx_Reporte` (no aportado, con `Accion="Alta"`/`Donde` indicando el punto exacto del fallo:
-  `"Valida"`, `"Cparty"` o `"Branch"`) y continúa con el siguiente SDI del lote.
+  invoca el subworkflow `SSIs_Fx_Exec` (**confirmado con `.wkf` real** — ver Anexo más abajo) una vez por
+  sucursal. Cualquier fallo de validación (SDI inválido, combinación acceso/acrónimo no única, sin sucursales)
+  dispara el subworkflow `SSIs_Fx_Reporte` (no aportado, con `Accion="Alta"`/`Donde` indicando el punto exacto
+  del fallo: `"Valida"`, `"Cparty"` o `"Branch"`) y continúa con el siguiente SDI del lote.
 - **Qué recibe/produce:** recibe `Modo`/`RES`/`VREQ_OID`; produce, por cada SDI válido y por cada sucursal
-  resuelta, una invocación de `SSIs_Fx_Exec` (alta real, no aportada); por cada fallo, una invocación de
+  resuelta, una invocación de `SSIs_Fx_Exec` (alta real, confirmada); por cada fallo, una invocación de
   `SSIs_Fx_Reporte` (reporte de error, no aportada).
-- **Campos de salida afectados:** no confirmable más allá de las consultas de lectura — el alta real ocurre
-  dentro de `SSIs_Fx_Exec`, no aportado.
+- **Campos de salida afectados:** no confirmable más allá de las consultas de lectura de este `.wkf` concreto
+  — el alta real por sucursal ocurre dentro de `SSIs_Fx_Exec` (ver Anexo), que a su vez delega en 3
+  subworkflows propios aún no aportados.
 - **Qué pasa si falla:** cada uno de los 3 puntos de validación (XML inválido, combinación acceso/acrónimo no
   única, sin sucursales encontradas) tiene su propia rama `KO` explícita que invoca `SSIs_Fx_Reporte` y
   continúa con el siguiente SDI — no hay fallos silenciosos detectados en este `.wkf`, a diferencia de otros
   puntos de la cadena.
-- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` no aportados — no se
-  puede confirmar el detalle final de qué campos de GoldenSource se actualizan en el alta real de la SDI.
+- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx` y `SSIs_Fx_Reporte` no aportados — no se puede confirmar el
+  detalle final de qué campos de GoldenSource se actualizan en el alta real de la SDI (ver también los 3
+  subworkflows propios de `SSIs_Fx_Exec` en el Anexo: `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`,
+  tampoco aportados).
+
+**Anexo — `SSIs_Fx_Exec`, confirmado con `.wkf` real:**
+
+Workflow analizado: `SSIs_Fx_Exec` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 2, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Fx_Exec.wkf`).
+
+- **Qué hace:** recibe `Branchs` (mapa de sucursales a procesar) y `CountMax`, y ejecuta un bucle manual
+  (`Count`/`CountMax`, patrón `for` clásico de GoldenSource) una vez por sucursal (`Branch`). Por cada
+  iteración: extrae `codOid` del XML `alta` (XPath `/ssiInformation/codOid`), fija `MsgTyp="SSI_FX"`,
+  transforma `alta` a un mensaje de salida vía XSLT (`db://resource/RDR/xslt/XMLTransformAlertFxRDR.xslt`) y
+  abre una transacción (`CreateTransaction`, con `correlationId` **fijo a `"0"`** — ninguna transacción
+  generada aquí lleva una correlación propia a este nivel). Llama al subworkflow propio `SSIsData_Fx` (no
+  aportado — la pieza que realmente persiste la SDI) con `Branch`/`RES`/`Type`/`message`; si el `Resultado`
+  no es `"OK"`, reporta el fallo vía `SSIs_Fx_Reporte` (`Donde="KO"`) y pasa a la siguiente sucursal sin
+  abortar el lote.
+  - Si `SSIsData_Fx` devuelve `"OK"`: consulta `FT_T_RLT1` (`DATA_SRC_APP='ALERT_MDX_IP'`, la fila más
+    reciente por `GS_FIELD`/`SRC_FIELD`) para comprobar si existe un **error MDX** ya registrado para ese
+    `codOid`/`Branch`, y llama al subworkflow propio `SSIsCreateNew` (no aportado) con ese mensaje. Si el
+    resultado combinado es `"OK"` **y** no hay mensaje de error MDX asociado, considera la SDI
+    completamente dada de alta: invoca `SSIs_Fx_Difusion` (difusión, no aportado, `Action="A"`) y
+    `SSIs_Fx_Reporte` (éxito, `Donde="Alta"`). Si hay error MDX, reporta el fallo vía `SSIs_Fx_Reporte`
+    (`Donde="Trans"`, con la descripción del error) sin difundir nada.
+- **Qué recibe/produce:** recibe `Branchs`/`CountMax`/`JobId`/`RES`/`Type`/`alta` (entre otros); no declara
+  una salida de negocio propia — su efecto es la cadena de invocaciones a `SSIsData_Fx`/`SSIsCreateNew`/
+  `SSIs_Fx_Difusion`/`SSIs_Fx_Reporte` descrita arriba, una vez por sucursal.
+- **Qué pasa si falla:** sin rama de gestión de error genérica visible — cada fallo conocido (resultado de
+  `SSIsData_Fx` distinto de `"OK"`, o error MDX detectado tras `SSIsCreateNew`) tiene su propio reporte
+  explícito vía `SSIs_Fx_Reporte` y el bucle continúa con la siguiente sucursal sin abortar el lote completo.
+- **Gap abierto, no bloqueante:** `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion` (nombrado como
+  `SSIs_Fx_Difusion` en el `CallSubWorkflow`) y `SSIs_Fx_Reporte` no aportados — queda confirmado el
+  esqueleto de orquestación completo (incluida la comprobación de error MDX vía `FT_T_RLT1`), pero no la
+  lógica real de persistencia/difusión de cada uno.
 
 ## 7. Especificación de testing
 
@@ -2096,6 +2173,20 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   transicionar el estado — a diferencia del nivel inferior (`Fondo.procesaFondo`), que sí marca
   `ERROR_CLI_REG_RESP` ante el mismo tipo de fallo. Una petición así nunca se reintenta ni se marca para
   revisión manual.
+* **[Confirmado con código fuente real, §6.14] `report.ReporteRDR.generaDocumentos()` tiene 5 rutas de
+  validación que, si no se cumplen, no generan ningún documento pero devuelven éxito (`return true`):** sin
+  tipos de envío suscritos, un reporte `"DAT"` sin mensajes, un reporte `"REPORTEEXCEL"` sin suscriptores a
+  Excel, o la combinación de mensajes normales/estadísticas con celdas de Excel — ninguna de estas 5 rutas
+  deja rastro de error visible para el llamante, mismo patrón de "éxito silencioso sin generar nada" ya
+  confirmado en otros puntos de esta cadena (`AltaFondos_Genera_csv.jar`, §6.3). `ReporteRDR.cierraConexion()`
+  además traga **cualquier** excepción al cerrar la conexión sin registrar nada en ningún log.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] 2ª confirmación de un nombre de bind cruzado entre el
+  nivel Global y el Operativo:** `Other Regulatory Information Extraction` (lado Global) usa
+  `:cntrprtyOperativeOid` como nombre de bind en su SQL pese a mapear el parámetro real `cntrprtyGlobalOid`
+  — el mismo tipo de inconsistencia de nomenclatura ya señalado en sentido inverso para `Calculate Parent
+  Company Country of Residence` (lado Operativo con un bind con errata del lado Global, §6.13sexies) —
+  refuerza que este patrón de copy-paste entre niveles de jerarquía sin renombrar binds es recurrente en toda
+  la familia `Regulatory Information`, no un error aislado.
 * **[PRIORIDAD ALTA, confirmado con `main.Ppal` real de `AlertasBarrido`, §6.14] El `INSERT` real en
   `FT_T_ALG1`/`FT_T_RLT1` está desactivado en el código fuente aportado, pero el propio proceso audita el paso
   como `"OK"` igualmente:** las 2 llamadas a `realizaInserciones(...)` que ejecutarían los inserts están
@@ -2216,16 +2307,19 @@ Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
 delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
-fuera de alcance**: 17 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
+fuera de alcance**: 20 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
 (`Calculate Counterparty type under EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under
 SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category`/`Calculate European
 Person Indicator`/`Calculate Other Regulatory Information`/`Calculate_Reporting_Delegation_Model`/`Calculate
-Counterparty type under SFTR`/`Calculate EMIR NFC Sector`/`Manual EMIR Extraction` del lado Global,
-`Auxiliary DFA Data Extraction`/`Calculate Counterparty type under DFA`/`DFA Type Extraction`/`Corporate
-Relationship Extraction`/`Calculate Parent Company Country of Residence` del lado Operativo — ver los Anexos
-de §6.13quater/§6.13sexies), con hallazgos propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`)
-ejecutando `INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión JDBC manual dentro de
-`BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 8 de estos subworkflows (en 2
+Counterparty type under SFTR`/`Calculate EMIR NFC Sector`/`Manual EMIR Extraction`/`Manual SFTR Extraction`/
+`USINDEM Extraction`/`Other Regulatory Information Extraction` del lado Global, `Auxiliary DFA Data
+Extraction`/`Calculate Counterparty type under DFA`/`DFA Type Extraction`/`Corporate Relationship
+Extraction`/`Calculate Parent Company Country of Residence` del lado Operativo — ver los Anexos de
+§6.13quater/§6.13sexies; solo `EMIR Extraction` (Global) y `COMPCOUN Extraction`/`Calculate Corporate
+Relationship` (Operativo) quedan sin aportar de los 23), con hallazgos propios: 2 nodos de depuración
+(`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión
+JDBC manual dentro de `BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 8 de
+estos subworkflows (en 2
 de ellos con el mismo `Logger` mal etiquetado, copiado literalmente de un subworkflow distinto); una vía de
 alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14, confirmada ya en el lado EMIR y
 en el lado SFTR; `Calculate_EMIR_Category` como único subworkflow con una condición de entrada previa al gate
@@ -2263,8 +2357,9 @@ confirmado con `.wkf` real) cierra el último punto pendiente de esta sub-cadena
 implícita de que generaba adjuntos/gestionaba excepciones de envío: en realidad personaliza `body`/`subject`
 para 3 procesos ajenos a R8 (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS`,
 `REGU_PDTE_LEI_EMISIONES`), dejando el envío real en manos de `Mail`. Con esto, **R8 queda funcionalmente resuelto
-de principio a fin, sin cabos sueltos bloqueantes**: solo queda, como residual de código no aportado, la clase
-`report.ReportesRDR` que implementa la lógica interna de `AlertasCocinado`.
+de principio a fin, sin cabos sueltos bloqueantes**: la clase `report.ReporteRDR` que implementa la lógica
+interna de `AlertasCocinado` queda también confirmada con código fuente real (§6.14) — solo queda, como
+residual mínimo, `DocumentGenerator.generaDocumento` (la generación física de cada fichero).
 
 El gap técnico G9 (`Workflow(RDR_SSIS_Fx_Alert_Online)`, R9) queda **resuelto por completo, incluida la
 confirmación de nomenclatura**: el `.wkf` aportado (§6.16) se llama internamente `SSIs_Fx_Peticion`, pero
@@ -2279,6 +2374,9 @@ real con una validación de 2 niveles (estado de la petición + contenido embebi
 fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
 timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
 variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
-bloqueantes; quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Exec` y `SSIs_Fx_Reporte`.
+bloqueantes; `SSIs_Fx_Exec` queda ahora también **confirmado con `.wkf` real** (Anexo de §6.19): orquesta el
+alta por sucursal, comprobando además un error MDX previo en `FT_T_RLT1` antes de considerar la SDI dada de
+alta — quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Reporte` y los 3 subworkflows
+propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`).
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
