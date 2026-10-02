@@ -9,7 +9,7 @@ TC-008 y TC-010, que solo leen.
 
 | Origen | Qué alimenta | Casos |
 |--------|--------------|-------|
-| `oficinas.csv` (134 columnas separadas por `;`, cabecera, banco en la 1.ª columna `CODCSB`) | Todo el proceso | TC-001, TC-003, TC-009, TC-011, TC-012, TC-013 |
+| `oficinas.csv` (134 columnas separadas por `;`, cabecera, banco en la 1.ª columna `CODCSB`) | Todo el proceso | TC-001, TC-003, TC-009, TC-011, TC-012, TC-013, TC-014, TC-015 |
 | `old/oficinas.csv` (referencia del día anterior, filtrada) | `Delta.sh` | TC-001, TC-009, TC-013 |
 | `FT_T_RLT1`, `FT_T_FIID`, `FT_T_JBLG` (GoldenSource, `jdbc/GSDM-1`) | Informe `Reporte_oficinas.csv` y comprobación de la carga | TC-001, TC-002, TC-010 |
 | Tablas de la entidad `Oficina` (sin identificar, P-CONOFI-03) | Carga MDX | TC-001, TC-012 |
@@ -29,13 +29,16 @@ TC-008 y TC-010, que solo leen.
 | TC-011 | Cabecera + 3 filas `0182;`, 2 filas `0049;` y 1 fila `01820;` |
 | TC-012 | Cabecera + 2 filas `0049;` y copia de seguridad de las tablas de oficinas |
 | TC-013 | Referencia con la oficina `0182;0001`; fichero con 2 copias de esa línea y 2 copias de una oficina nueva `0182;0999` |
+| TC-014 | Referencia con solo la cabecera; cabecera + 1 oficina `0182` válida (sus 134 campos con relleno de ceros/nueves donde no hay dato) + 5 copias alteradas: `CODOFI` de 3 caracteres, `DNOMCO` vacío, `<` en `DDOMIC`, `CTEL01` de 8 caracteres y una línea de 100 campos; copia de seguridad de las tablas de oficinas |
+| TC-015 | `oficinas.csv` de 0 bytes y un `oficinas_processed.csv` previo con cabecera + 2 oficinas; copia de seguridad de las tablas de oficinas |
+| TC-016 | Carga `OFC` recién cerrada con al menos una fila `FT_T_RLT1` `RLT_PURP_TYP='ERRORES'`; `errores_to_file.sh` desplegado en `/<env>/kytl/online/multipais/multicanal/scrt/`; copia de seguridad de `oficinas/old/oficinas.csv` |
 
 ## 3. Entorno de ejecución
 
 | Elemento | Referencia en producción | Usuario | Casos |
 |----------|--------------------------|---------|-------|
 | Agente de Control-M con `ctmfw` | `pr-rdr.igrupobbva` | `xpctma1` | TC-001 a TC-003 |
-| `GSProcess.sh`, `Generico.sh`, `Delta.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | TC-001, TC-003, TC-004, TC-009, TC-011 a TC-013 |
+| `GSProcess.sh`, `Generico.sh`, `Delta.sh`, `errores_to_file.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | TC-001, TC-003, TC-004, TC-009, TC-011 a TC-013, TC-016 |
 | `ControlCargaDatos.jar`, `javacsv.jar`, `compare.jar`, `RDRCommon.jar`, `RDR_Report.jar` | `/pr/kytl/online/multipais/multicanal/jar/` (JDK 17 de `<javahome17>`) | `xakytl1p` | TC-001, TC-010, TC-013 |
 | `executeBbvaEvent.sh` y servidor GoldenSource | `/usr/local/pr/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts/` | `xakytl1p` | TC-001, TC-012 |
 | `RAMERC0068.sh` | `/pr/pl/scrt/` | `xsramer1` | TC-001, TC-005 |
@@ -49,9 +52,9 @@ El entorno de pruebas necesita lo mismo, en `/<env>/...`, con una máquina cuyo 
 
 | Fichero | Qué hay que conocer | Casos |
 |---------|---------------------|-------|
-| `oficinas.properties` (`/<env>/kytl/online/multipais/multicanal/dat/properties/`) | Argumento de `Delta`, `Stop`, directorio de `LimpiarOficinas`, fichero de la carga MDX y de `Unix2Dos` (no recibido, P-CONOFI-01) | TC-001, TC-003, TC-004, TC-009, TC-012, TC-013 |
-| `fillingRules_oficinas.csv` | Reglas de validación (no recibido, P-CONOFI-02) | TC-001 |
-| `select.properties` | Clave `oficinas` (literal en la spec §6.4.6) y `ruta` del entorno | TC-001, TC-010 |
+| `oficinas.properties` (`/<env>/kytl/online/multipais/multicanal/dat/properties/`) | Debe ser igual al de producción (contenido en la spec §6.3.1): `Delta` con `Si`, sin ninguna clave `Stop`, `File=.../oficinas/oficinas_processed.csv`, `NomClaseJava=ControlCase` (el jar del entorno debe tener esa clase sin paquete, H-CONOFI-17). Las rutas llevan `@@ENV@@`: el despliegue debe sustituirlo por `<env>` | TC-001, TC-003, TC-004, TC-009, TC-012 a TC-015 |
+| `fillingRules_oficinas.csv` (mismo directorio) | Reglas de validación (spec §6.4.3): 134 columnas con la misma cabecera que `oficinas.csv`, 3 filas de reglas (`NULL`, `POSICION(n)`, `USAR`) | TC-001, TC-014, TC-015 |
+| `select.properties` | Clave `oficinas` (literal en la spec §6.4.6) y `ruta=/fichtemcomp/<env>/descargas/kytl/` (la plantilla trae `@@ENV@@`) | TC-001, TC-010 |
 | `credentials.xml` | `<logs>`, `<javahome17>`, conexión a base de datos y a GoldenSource, `<timeout>` | TC-001, TC-010 |
 | Línea `MEKYTL0242` de `/<env>/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` | Campo 5 (tolerancia) y operación; debe ser igual a la de producción (no obtenible, P-CONOFI-07) | TC-001, TC-005 |
 | `/<env>/pl/envioweb/idx/MEKYTL0243.idx` | `PROTOCOLO`, `FALLA_NO_FICHERO`, destino (no obtenible, P-CONOFI-07) | TC-001, TC-006, TC-007 |
@@ -76,7 +79,10 @@ El entorno de pruebas necesita lo mismo, en `/<env>/...`, con una máquina cuyo 
 ## 7. Entorno de pruebas: qué queda por definir
 
 - Qué entorno se usa y con qué nombre de máquina.
-- Copias de `oficinas.properties`, `fillingRules_oficinas.csv`, la línea `MEKYTL0242` del IDX y
-  `MEKYTL0243.idx` iguales a las de producción (preguntas P-CONOFI-01, 02 y 07).
+- `oficinas.properties` y `fillingRules_oficinas.csv` están en la spec (§6.3.1 y §6.4.3) y deben desplegarse tal cual, con
+  `@@ENV@@` sustituido por el entorno.
+- Copias de la línea `MEKYTL0242` del IDX y de `MEKYTL0243.idx` iguales a las de producción (pregunta P-CONOFI-07).
+- Versión de `ControlCargaDatos.jar` y `RDR_Report.jar` con las clases sin paquete (`ControlCase`, `CreateReport`), como en
+  producción (H-CONOFI-17).
 - Acceso de lectura a las tablas de GoldenSource del entorno y permiso para restaurar las de oficinas tras
   TC-012.

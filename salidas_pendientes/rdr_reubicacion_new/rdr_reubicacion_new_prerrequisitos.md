@@ -9,7 +9,7 @@ producción.
 
 | Origen | Qué alimenta | Casos |
 |--------|--------------|-------|
-| `Reubicacion.csv` (separador `;`, col. 2 = oficina que se cierra, col. 6 = destino; resto sin documentar, P-REUB-02) | Todo el proceso | TC-001, TC-002, TC-006, TC-011 a TC-016 |
+| `Reubicacion.csv` (separador `;`, con fila de cabecera: col. 1 `COD-BANCO`, col. 2 `COD-OFICO` = oficina que se cierra, col. 5 `COD-BANCD`, col. 6 `COD-OFICD` = destino; columnas 3 y 4 sin documentar, P-REUB-02) | Todo el proceso | TC-001, TC-002, TC-006, TC-011 a TC-018 |
 | `FT_T_SUFR` (relaciones `IS_OFFI` de la organización `A1`, `TRADES_WITH`, `RISKPYME`), `FT_T_SUBD`, `FT_T_FINS`, `FT_T_FIID` (`FINSID`) | Procedimiento `REUBICACION` | TC-001, TC-011 a TC-016 |
 | `FT_T_RLT1` (`REPORTES`/`REUBICACION`) y `FT_T_JBLG` (`JOB_MSG_TYP='Reubicacion'`) | Informe | TC-001, TC-002, TC-011 a TC-016 |
 
@@ -21,14 +21,16 @@ producción.
 | TC-002 | Ningún `Reubicacion.csv` |
 | TC-004 | Destino de `MEKYTL0233` inaccesible en la configuración de pruebas |
 | TC-005 | Sin configuración `.idx` para `MEKYTL0234` (ni en `idx/bck/`) |
-| TC-006 | `Reubicacion.csv` de 0 bytes |
+| TC-006 | `Reubicacion.csv` de 0 bytes y un `Reubicacion_processed.csv` previo de un cierre anterior |
 | TC-007 | `MEKYTL0111` en Hold |
 | TC-009 | A: destino de `MEKYTL0111` inaccesible. B: línea `MEKYTL0122` del IDX de pruebas con campo 5 = `0` y `Reubicacion.csv` retirado antes del paso 4 |
 | TC-012 | Una línea con oficina de cierre inexistente y otra válida |
 | TC-013 | Destino sin `IS_OFFI` activa; destino con 2 `IS_OFFI` activas |
 | TC-014 | Oficina de cierre con `FT_T_FINS` no `ACTIVE`, `FINSID` activo, `IS_OFFI` y 1 `TRADES_WITH` |
-| TC-015 | Una línea de 6 columnas con oficinas válidas distintas en las columnas 4 y 6 |
+| TC-015 | Cabecera y una línea de 6 columnas con oficinas válidas distintas en las columnas 4 y 6 |
 | TC-016 | Dos líneas iguales en columnas 1, 2, 5 y 6 y distintas en 3 y 4 |
+| TC-017 | Cabecera + 3 líneas válidas + 3 inválidas (`COD-OFICO` vacío, `COD-OFICD` vacío, `<` en `COD-OFICD`); tres parejas de oficinas de prueba |
+| TC-018 | 4 líneas de datos válidas sin cabecera; sin `Reubicacion_processed.csv` previo; copia de seguridad de las oficinas de prueba |
 
 ## 3. Entorno de ejecución
 
@@ -49,9 +51,9 @@ trabajarán contra producción.
 
 | Fichero | Qué hay que conocer | Casos |
 |---------|---------------------|-------|
-| `Reubicacion.properties` | Fichero que carga el workflow, `MessageType=Reubicacion`, `Stop`, argumentos (no recibido, P-REUB-01) | TC-001, TC-006, TC-015, TC-016 |
-| `fillingRules_Reubicacion.csv` | Reglas de validación (no recibido, P-REUB-03) | TC-001 |
-| `select.properties` | Clave `Reubicacion` (literal en la spec §6.4.4) y `ruta` del entorno | TC-001, TC-011 |
+| `Reubicacion.properties` (`/<env>/kytl/online/multipais/multicanal/dat/properties/`) | Debe ser igual al de producción (contenido en la spec §6.3.1): `File=.../Reubicacion/Reubicacion_processed.csv`, `MessageType=Reubicacion`, `BusinessFeed=Reubicacion`, sin ninguna clave `Stop`, `NomClaseJava=ControlCase` (el jar del entorno debe tener esa clase sin paquete, H-REUB-07). Las rutas llevan `@@ENV@@`: el despliegue debe sustituirlo por `<env>` | TC-001, TC-006, TC-015 a TC-018 |
+| `fillingRules_Reubicacion.csv` (mismo directorio) | Cabecera `COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD`, fila `;NULL;;NULL` y fila `USAR;USAR;USAR;USAR` (spec §6.4.2) | TC-001, TC-017, TC-018 |
+| `select.properties` | Clave `Reubicacion` (literal en la spec §6.4.4) y `ruta=/fichtemcomp/<env>/descargas/kytl/` (la plantilla trae `@@ENV@@`) | TC-001, TC-011 |
 | Configuración `.idx` de `MEKYTL0111`, `MEKYTL0233`, `MEKYTL0234` | Protocolo, destino, `FALLA_NO_FICHERO` (producción no obtenible) | TC-001, TC-003, TC-004, TC-005, TC-009 |
 | Línea `MEKYTL0122` del IDX | Operación y campo 5 (producción no obtenible) | TC-001, TC-009 |
 | Calendario `RDR_CIERREOFI` | Día de la prueba marcado (P-REUB-05) | Todos los que ejecutan la cadena |
@@ -71,5 +73,6 @@ trabajarán contra producción.
 ## 7. Entorno de pruebas: qué queda por definir
 
 - Entorno y máquina; destinos de envío de pruebas para las tres claves de `MEGENV0001.sh`.
-- Copias iguales a producción de `Reubicacion.properties` y `fillingRules_Reubicacion.csv`.
+- `Reubicacion.properties` y `fillingRules_Reubicacion.csv` están en la spec (§6.3.1 y §6.4.2) y deben desplegarse tal cual, con `@@ENV@@` sustituido por el entorno.
+- Versión de `ControlCargaDatos.jar` y `RDR_Report.jar` con las clases sin paquete (`ControlCase`, `CreateReport`), como en producción (H-REUB-07, H-REUB-08).
 - Oficinas de prueba en GoldenSource y permiso para restaurarlas tras cada caso.

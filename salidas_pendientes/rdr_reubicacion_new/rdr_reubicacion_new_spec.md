@@ -2,6 +2,9 @@
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Cierre inicial: 2026-09-30.
 > Revisión de autosuficiencia: 2026-10-01 (correcciones según las specs de componente común).
+> Segunda pasada de cierre: 2026-10-02 (con `Reubicacion.properties`, `fillingRules_Reubicacion.csv`, `RDR_Reubicacion.gsp` y
+> `select.properties` de la rama de Carlos, y con la definición de feeds, eventos y workflows de GoldenSource del volcado de
+> `fileloading`).
 >
 > **Procedencia de los datos** (solo trazabilidad; todo lo necesario está copiado o analizado aquí):
 > documento funcional "Carga y conciliación de plazas/oficinas" (ficha maestra y anexo técnico de la cadena);
@@ -10,7 +13,10 @@
 > (`Workspace_589_2`, 30/09/2026); código de la función `LimpiarReubicacion` y de la función `Unix2Dos` de
 > `Generico.sh`; workflows de GoldenSource `PLSQL_Load.wkf` y `Sub_Load.wkf`; jars `ControlCargaDatos.jar` y
 > `RDR_Report.jar`; `select.properties` de integración (recibido también como `select_1.properties`,
-> idéntico); `RAMERC0068.sh`, `MEGENV0001.sh` e IDX de historificación de integración.
+> idéntico); `RAMERC0068.sh`, `MEGENV0001.sh` e IDX de historificación de integración; `Reubicacion.properties` (plantilla
+> con el marcador `@@ENV@@`), `fillingRules_Reubicacion.csv`, el evento `RDR_Reubicacion.gsp` y la plantilla de
+> `select.properties` (rama de Carlos, 02/10/2026); y, del volcado de la base de workflows de GoldenSource, el feed
+> `Reubicacion` y la tabla de eventos.
 >
 > **Componentes comunes que usa** (funcionamiento genérico en su spec; lo específico, aquí):
 > `salidas/comun_ctmfw/comun_ctmfw_spec.md`, `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`,
@@ -64,8 +70,12 @@ RDR_REUBICACION_MEKYTL0122_OK_new  (la ficha lo da como predecesor de RDR_DIFUSI
 - Cada reubicación que falla (oficina no encontrada, destino duplicado, error) **queda registrada en
   `FT_T_RLT1` y en el informe, pero no hace fallar el job**.
 - La oficina cerrada queda `INACTIVEPEND` en `FT_T_FINS`, no `INACTIVE`.
-- El `Reubicacion.properties` que dice a `GSProcess.sh` qué hacer **no se ha recibido**; tampoco el formato
-  completo de `Reubicacion.csv` (preguntas P-REUB-01 y P-REUB-02).
+- `Reubicacion.properties` ya está analizado (§6.3.1): el workflow carga `Reubicacion_processed.csv`, la salida de la
+  validación de `Reubicacion.tmp`, y **ninguna acción lleva `Stop`**. El formato completo de `Reubicacion.csv` sigue
+  sin conocerse (P-REUB-02): solo se sabe que la fila de nombres de columna debe llamar `COD-BANCO`, `COD-OFICO`,
+  `COD-BANCD` y `COD-OFICD` a las columnas 1, 2, 5 y 6.
+- Si `Reubicacion.csv` llega vacío, `ControlCargaDatos.jar` no regenera `Reubicacion_processed.csv` y el workflow
+  vuelve a cargar el del cierre anterior (RISK-REUB-014).
 
 ## 2. Alcance del proceso
 
@@ -89,9 +99,9 @@ workflow, que no se ejecuta en este proceso).
 | R1 | El paso 1 (`KYTL_REU_GSPROCESS_FW`, usuario `xpctma1`) espera `/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv` con `ctmfw ... CREATE 0 60 10 5 780`: búsqueda cada 60 s; medición cada 10 s; completo tras 5 mediciones iguales; tamaño mínimo 0 bytes; espera máxima 780 min (13 h). Arranca a las 11:00 (`TIMEFROM="1100"`) | Export; `comun_ctmfw` |
 | R2 | Código 0 → evento `RDR_REUBICACION_KYTL_REU_GSPROCESS_FW_OK_new`, que activa en paralelo `KYTL_REU_GSPROCESS`, `MEKYTL0233` y `MEKYTL0234`. Código 7 → `DOACTION OK` + evento `RDR_REUBICACION_MEKYTL0122_OK_new` (fin de cadena). Otro código → NOTOK | Export |
 | R3 | La cadena solo se planifica los días del calendario `RDR_CIERREOFI` (`DAYSCAL`, `WEEKDAYS="ALL"`, `DAYS_AND_OR="A"`). La ficha la describe como "a petición, según el calendario de cierre de oficinas" (típicamente domingos de cierre) | Export; ficha EX-005-02; documento |
-| R4 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, usuario `xakytl1p`) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Evento Workflow RDR_Reubicacion` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)` | Documento funcional |
+| R4 | `KYTL_REU_GSPROCESS` (`GSProcess.sh Reubicacion`, usuario `xakytl1p`) ejecuta: `Script(LimpiarReubicacion)` → `Java(ControlCargaDatos.jar, javacsv.jar)` → `Evento Workflow RDR_Reubicacion` → `Java(RDR_Report.jar)` → `Script(Unix2Dos)`. Confirmado, con parámetros y sin ninguna clave `Stop`, por `Reubicacion.properties` (§6.3.1) | Documento funcional; `Reubicacion.properties` |
 | R5 | `LimpiarReubicacion` genera `Reubicacion.tmp` con las columnas 1, 2, 5 y 6 de `Reubicacion.csv`, sin líneas repetidas y en orden inverso | Código `Generico.sh` |
-| R6 | Por cada línea cargada, el procedimiento `REUBICACION` de `Sub_Load` toma la 2.ª columna del fichero cargado como oficina que se cierra y la 4.ª como oficina destino, reasigna a la oficina destino las relaciones `TRADES_WITH` y `RISKPYME` de `FT_T_SUFR`, desactiva la oficina cerrada (`FT_T_SUFR`/`FT_T_SUBD` a `INACTIVE`, `FT_T_FINS` a `INACTIVEPEND`) y registra el resultado en `FT_T_RLT1` | `Sub_Load.wkf` |
+| R6 | Por cada línea cargada (`Reubicacion_processed.csv`, 4 columnas), el procedimiento `REUBICACION` de `Sub_Load` toma la 2.ª columna del fichero cargado (`COD-OFICO`, columna 2 de `Reubicacion.csv`) como oficina que se cierra y la 4.ª (`COD-OFICD`, columna 6 de `Reubicacion.csv`) como oficina destino, reasigna a la oficina destino las relaciones `TRADES_WITH` y `RISKPYME` de `FT_T_SUFR`, desactiva la oficina cerrada (`FT_T_SUFR`/`FT_T_SUBD` a `INACTIVE`, `FT_T_FINS` a `INACTIVEPEND`) y registra el resultado en `FT_T_RLT1` | `Sub_Load.wkf` |
 | R7 | Los errores de una línea (oficina de cierre no encontrada, destino no encontrado, destino duplicado, cualquier otro error) se registran en `FT_T_RLT1` y no detienen el resto | `Sub_Load.wkf` |
 | R8 | El informe `Reporte_Reubicacion.csv` se genera con la clave `Reubicacion` de `select.properties` (§6.4.4) y su copia CRLF `Reporte_Reubicacion_dos.csv` con `Unix2Dos` | `select.properties`; documento |
 | R9 | `MEKYTL0233` envía por XCOM `Reubicacion.csv` a `lppwc501:/infa_shared/srcfiles/enso/stag/ESKYTLENSP_MIGROFICINAS_AAAAMMDD_001.dat`; regla NOTOK → OK | Ficha EX-005-03; export |
@@ -100,6 +110,8 @@ workflow, que no se ejecuta en este proceso).
 | R12 | `MEKYTL0122` espera los tres eventos `RDR_REUBICACION_MEKYTL0111_OK_new`, `..._MEKYTL0233_OK_new` y `..._MEKYTL0234_OK_new` (todos obligatorios) y mueve `Reubicacion.csv` a `old/Reubicacion_yyyymmdd.csv`; regla NOTOK → OK; publica `RDR_REUBICACION_MEKYTL0122_OK_new` | Export; ficha EX-005-03 |
 | R13 | Los 6 jobs consumen 1 unidad de `MAX-LPRDR501` y tienen `MAXRERUN="0"` | Export |
 | R14 | Criticidad W (aviso al día siguiente) según la ficha de cadena y la aclaración del usuario; las fichas de job marcan C. Escalado: "Avisar a ANS RDR (BZG03906)", `ans_rdr.es@bbva.com` | Fichas; §4.1 |
+| R15 | `ControlCargaDatos.jar` valida `Reubicacion/Reubicacion.tmp` con `fillingRules_Reubicacion.csv` (4 columnas: `COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD`; `NULL` en `COD-OFICO` y `COD-OFICD`; `USAR` en las cuatro) y deja `Reubicacion_processed.csv` (el fichero que carga el workflow) y `Reubicacion_noprocessed.csv`. No limita la longitud de los códigos | `Reubicacion.properties`; `fillingRules_Reubicacion.csv` |
+| R16 | El evento `RDR_Reubicacion` es un `GenericEvent` sin parámetros propios que lanza el workflow `PLSQL_Load`; el feed `Reubicacion` lee `Reubicacion_processed.csv` con la definición `SkipHeaderReadByLine` | `RDR_Reubicacion.gsp`; volcado de eventos y feeds |
 
 ## 4. Gaps identificados y preguntas pendientes
 
@@ -116,25 +128,30 @@ workflow, que no se ejecuta en este proceso).
 
 ### 4.2 Preguntas pendientes
 
+Resueltas el 02/10/2026 con material nuevo (ya no son preguntas): **P-REUB-01** (`Reubicacion.properties`, §6.3.1),
+**P-REUB-03** (`fillingRules_Reubicacion.csv`, §6.4.2), **P-REUB-04** (`RDR_Reubicacion.gsp`: evento `GenericEvent` que lanza
+`PLSQL_Load`, §6.4.3) y **P-REUB-06** (`ruta` de `select.properties`: la plantilla de la rama de Carlos lleva
+`ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, que en producción es `/fichtemcomp/pr/descargas/kytl/`; el resto de claves
+es idéntico a la copia de integración, §6.4.4). **P-REUB-02** queda resuelta en parte (abajo).
+
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-REUB-01 | ¿Se puede obtener `Reubicacion.properties`? En particular: directorio que recibe `LimpiarReubicacion`, argumentos de `ControlCargaDatos.jar`, `File`/`Ruta`/`MessageType`/`BusinessFeed` que usa el workflow, si alguna acción tiene `Stop=Ok` y el fichero de `Unix2Dos` | Decide **qué fichero carga el workflow** (`Reubicacion.csv`, `Reubicacion.tmp` o `Reubicacion_processed.csv`) y, por tanto, qué columnas llegan como oficina de cierre y destino (§6.4.3); y si un fallo intermedio detiene las acciones siguientes |
-| P-REUB-02 | ¿Cuál es el formato de `Reubicacion.csv` (columnas, cabecera sí/no, longitud de los códigos de oficina)? ¿Se puede aportar una muestra? | Sin él no se sabe qué significan las columnas 1, 3, 4 y 5, si una cabecera llega al workflow como si fuera una reubicación, ni si los códigos caben en los 9 caracteres del procedimiento |
-| P-REUB-03 | ¿Se puede obtener `fillingRules_Reubicacion.csv`? | Decide qué valida `ControlCargaDatos.jar` |
-| P-REUB-04 | ¿Se puede obtener la definición del evento `RDR_Reubicacion` (`.gsp`) que confirme que lanza `PLSQL_Load`? | La identificación actual se basa en el grupo del workflow (`Refundicion-Reubicacion`) y en la rama `Reubicacion` de `Sub_Load`, no en el evento |
+| P-REUB-02 (resuelta en parte) | Del formato de `Reubicacion.csv` se deduce de `LimpiarReubicacion` y de las reglas (§5.1): separador `;`, al menos 6 columnas y fila de cabecera cuyos nombres en las columnas 1, 2, 5 y 6 son `COD-BANCO`, `COD-OFICO`, `COD-BANCD` y `COD-OFICD`. Falta el significado de las columnas 3 y 4, la longitud real de los códigos de oficina y una muestra | Sin la muestra no se sabe si los códigos de oficina caben en los 9 caracteres del procedimiento (la validación no los limita) ni si las columnas 3/4 distinguen instrucciones |
 | P-REUB-05 | ¿Qué días marca el calendario `RDR_CIERREOFI`? | Decide cuándo se ejecuta la cadena |
-| P-REUB-06 | ¿Qué valor tiene `ruta` en el `select.properties` de producción? (la copia recibida es de integración) | Ruta real de `Reporte_Reubicacion.csv`, que `MEKYTL0111` busca en `/fichtemcomp/pr/descargas/kytl/Reubicacion/` |
 | P-REUB-07 | ¿Qué proceso pasa la oficina de `INACTIVEPEND` a `INACTIVE` y qué uso tiene la fila `FT_T_RLT1` "Oficina actualizada a Inactive Pending" (`RLT_DIF_STAT='PENDING'`, `RLT_DIF_ACC='B'`)? | Es el estado final que deja este proceso; quien lo consume no está en las fuentes |
 | P-REUB-08 | ¿Hay otra vía para confirmar el campo 5 de la línea `MEKYTL0122` del IDX y `FALLA_NO_FICHERO`/protocolo de `MEKYTL0111`, `MEKYTL0233` y `MEKYTL0234`? ¿Cómo se materializa el "A DUMMY" de `MEKYTL0234`? | Con la regla NOTOK → OK, su fallo no se ve; solo se sabría mirando logs (§6.5, §6.6) |
+| H-REUB-15 | Definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` (253 bytes) del feed `Reubicacion`: por su nombre salta la primera línea de `Reubicacion_processed.csv` (la fila de nombres de columna), pero el XML no está en el volcado | Si no la saltara, la cabecera se procesaría como una reubicación (RISK-REUB-011) |
 
 ## 5. Especificación funcional
 
 ### 5.1 Qué hay inicialmente
 
 - `Reubicacion.csv` depositado en `/fichtemcomp/pr/descargas/kytl/Reubicacion/` el día de cierre. Separador
-  `;`; al menos 6 columnas: la 2.ª es la oficina que se cierra y la 6.ª la oficina destino (deducido de
-  `LimpiarReubicacion` + `Sub_Load`, §6.4.1 y §6.4.3, si el workflow carga `Reubicacion.tmp`); el resto no está
-  documentado (P-REUB-02).
+  `;`; al menos 6 columnas. Se usan la 1 (`COD-BANCO`), la 2 (`COD-OFICO`, **oficina que se cierra**), la 5
+  (`COD-BANCD`) y la 6 (`COD-OFICD`, **oficina destino**); los nombres vienen de la cabecera de
+  `fillingRules_Reubicacion.csv`. Las columnas 3 y 4 se descartan y su significado no está documentado (P-REUB-02).
+  **El fichero debe llevar una fila de cabecera** con esos cuatro nombres en esas columnas: la validación toma la
+  primera línea como nombres de columna y, sin ellos, rechaza todos los registros (§6.4.2).
 - Directorio `old/` existente (lo usa `MEKYTL0122`).
 - En GoldenSource, cada oficina existe como institución (`FT_T_FINS`, con identificador `FINSID` activo en
   `FT_T_FIID`), como subdivisión (`FT_T_SUBD`) y con una relación `IS_OFFI` de la organización `A1` en
@@ -242,12 +259,83 @@ bytes (un fichero vacío se da por llegado); búsqueda cada 60 s; medición cada
 ### 6.3 Paso 2a — `GSProcess.sh Reubicacion`
 
 Genérico en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`. En este proceso lee
-`/pr/kytl/online/multipais/multicanal/dat/properties/Reubicacion.properties` (no recibido, P-REUB-01), con
+`/pr/kytl/online/multipais/multicanal/dat/properties/Reubicacion.properties` (contenido en §6.3.1), con
 `MOD_EJECUCION=Reubicacion`, `FILES=/fichtemcomp/pr/descargas/kytl`,
 `FILE_CARGA=/fichtemcomp/pr/descargas/kytl/Reubicacion/Reubicacion.csv`,
 `LOG_GENERICO=<logs>/execute_Reubicacion_<AAAAMMDD>.log`. Si una acción devuelve distinto de 0, el job
-termina con 1 (en ese momento si hay `Stop=Ok`, al final si no). `ControlCargaDatos.jar` y `RDR_Report.jar`
+termina con 1; como `Reubicacion.properties` no tiene `Stop`, siempre **al final**, después de ejecutar las
+acciones restantes. `ControlCargaDatos.jar` y `RDR_Report.jar`
 siempre devuelven 0: sus fallos solo se ven en el log y en los ficheros.
+
+#### 6.3.1 Contenido de `Reubicacion.properties`
+
+Fichero de la rama de Carlos (02/10/2026): plantilla con finales de línea CRLF, con el mismo formato que el
+`ConBDI.properties.pr` de producción (marcador `@@ENV@@`, clase Java sin paquete). Contenido completo:
+
+```
+MOD_EJECUCION=Reubicacion
+Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/
+File=/fichtemcomp/@@ENV@@/descargas/kytl/Reubicacion/Reubicacion_processed.csv
+Servicio=Reubicacion
+BusinessFeed=Reubicacion
+SuccessAction=LEAVE
+MessageType=Reubicacion
+Accion=VariablesGlobales
+NomScript=LimpiarReubicacion
+PreArgScri1=$FILES
+ArgScri1=Reubicacion
+Accion=Script
+NomPaquete1=ControlCargaDatos.jar
+NomPaquete2=javacsv.jar
+NomClaseJava=ControlCase
+ServicioJava=Reubicacion
+PreArgJava1=$FILES
+ArgJava1=Reubicacion/Reubicacion.tmp
+PreArgJava2=$LOG
+ArgJava2=Reubicacion_preprocess_summary.log
+PreArgJava3=$CONF
+ArgJava3=fillingRules_Reubicacion.csv
+Libreria1=ojdbc8.jar
+Libreria2=common-lang3.jar
+Libreria3=log4j.jar
+Accion=Java
+NomEvento=Workflow
+NomWorkflow=RDR_Reubicacion
+Accion=Evento
+NomPaquete1=RDR_Report.jar
+NomClaseJava=CreateReport
+ServicioJava=ReportReubicacion
+PreArgJava1=$CONF
+ArgJava1=select.properties
+ArgJava2=Reubicacion
+Libreria1=ojdbc8.jar
+Libreria2=common-lang3.jar
+Libreria3=log4j.jar
+Accion=Java
+NomScript=Unix2Dos
+PreArgScri1=$FILES
+ArgScri1=Reubicacion/Reporte_Reubicacion.csv
+Accion=Script
+```
+
+| Bloque | Qué fija o ejecuta | Valor real |
+|--------|--------------------|------------|
+| `VariablesGlobales` | Variables para el evento y el log | `File` = **`Reubicacion/Reubicacion_processed.csv`** (el fichero que lee el workflow); `BusinessFeed=Reubicacion`; `MessageType=Reubicacion`; `Servicio=Reubicacion`; `SuccessAction=LEAVE` (el fichero no se mueve ni se borra al terminar) |
+| `Script` 1 | `LimpiarReubicacion` | Directorio `$FILES/Reubicacion` = `/fichtemcomp/pr/descargas/kytl/Reubicacion` (§6.4.1) |
+| `Java` 1 | `ControlCase` de `ControlCargaDatos.jar` + `javacsv.jar` | Valida `$FILES/Reubicacion/Reubicacion.tmp`; log `$LOG/Reubicacion_preprocess_summary.log`; reglas `$CONF/fillingRules_Reubicacion.csv` (§6.4.2) |
+| `Evento` | `Workflow` `RDR_Reubicacion` | Lanza `PLSQL_Load` con este `.properties` (§6.4.3) |
+| `Java` 2 | `CreateReport` de `RDR_Report.jar` | `$CONF/select.properties`, clave `Reubicacion` (§6.4.4) |
+| `Script` 2 | `Unix2Dos` | `$FILES/Reubicacion/Reporte_Reubicacion.csv` (§6.4.5) |
+
+- **Ninguna clave `Stop`**: un fallo en una acción no impide las siguientes; el job termina con 1 al final.
+- **Marcador `@@ENV@@`** en `Ruta` y `File`: `GSProcess.sh` solo sustituye `$ENV` (pregunta general P-GSP-01 de la spec
+  común). Indicio de que lo sustituye el despliegue: la copia de integración de `select.properties` es idéntica a la plantilla
+  salvo que donde la plantilla dice `@@ENV@@` la copia dice `ei`.
+- **Java sin paquete y sin `JDKV`**: `ControlCase` y `CreateReport` (sin `controlcargadatos.` ni `rdr_report.`) y sin `JDKV=17`. Los
+  jars analizados tienen la clase dentro de un paquete y están compilados para JDK 17; producción usa otra versión
+  (H-REUB-07 y H-REUB-08, §9).
+- El evento `Workflow` recibe como cuarto parámetro `Reubicacion.properties` completo (el temporal que crea
+  `GSProcess.sh` no se usa, spec común).
 
 ### 6.4 Paso 2a — las cinco acciones
 
@@ -261,11 +349,13 @@ function LimpiarReubicacion(){
 }
 ```
 
-- `ARG1` es el directorio (según el documento, `/fichtemcomp/pr/descargas/kytl/Reubicacion`; literal en
-  `Reubicacion.properties`, P-REUB-01).
+- `ARG1` es el directorio: `PreArgScri1=$FILES` y `ArgScri1=Reubicacion` (`Reubicacion.properties`) dan
+  `/fichtemcomp/pr/descargas/kytl/Reubicacion`.
 - **Qué hace**: escribe en `Reubicacion.tmp` las columnas 1, 2, 5 y 6 de cada línea, separadas por `;`; elimina
-  las líneas repetidas (sobre esas 4 columnas) y ordena en orden inverso sobre la línea completa. Si
-  `Reubicacion.csv` tiene cabecera, la cabecera se ordena con los datos y puede quedar en cualquier posición.
+  las líneas repetidas (sobre esas 4 columnas) y ordena en orden inverso sobre la línea completa. La cabecera se
+  ordena con los datos, pero como empieza por `C` y los datos empiezan por dígitos (banco `0182`), el orden
+  inverso la deja **la primera** (comprobado con `sort -ur` en los locales `C`, `es_ES.UTF-8` y `en_US.UTF-8`); si algún
+  código de banco empezara por una letra posterior a `C`, la cabecera ya no sería la primera línea.
   `Reubicacion.csv` no se modifica.
 - **Campos afectados**: desaparecen las columnas 3 y 4 y las posteriores a la 6. Dos líneas que solo se
   diferencien en esas columnas se convierten en una.
@@ -287,12 +377,39 @@ solo caracteres permitidos; `DUPL` = clave de duplicados (se queda la última). 
 columna; la primera línea del CSV se trata como cabecera. No transforma datos (solo quita espacios en los
 extremos). **Siempre termina con 0.**
 
-En este proceso **no se conocen** sus argumentos ni las reglas (P-REUB-01, P-REUB-03). Si valida
-`Reubicacion.tmp`, el resultado sería `Reubicacion_processed.csv`; como `Reubicacion.tmp` está ordenado al
-revés, su primera línea puede no ser la cabecera, y el programa tomaría esa línea como nombres de columna.
+**Configuración real en este proceso** (`Reubicacion.properties` y `fillingRules_Reubicacion.csv`, rama de Carlos):
+
+- **Qué valida**: `$FILES/Reubicacion/Reubicacion.tmp`, la salida de `LimpiarReubicacion` (4 columnas). Deja en el mismo
+  directorio `Reubicacion_processed.csv` y `Reubicacion_noprocessed.csv` (el nombre sale de quitar `.tmp`) y, en `$LOG`,
+  `Reubicacion_preprocess_summary.log`. Se invoca como `ControlCase` (sin paquete) y sin `JDKV` (ver aviso de versión
+  abajo).
+- **Qué se carga después**: el workflow lee **`Reubicacion_processed.csv`** (`File=`): la validación sí condiciona qué
+  reubicaciones se aplican. Nada en la cadena borra `Reubicacion_processed.csv` antes de validar (respuesta a P-CCD-02).
+- **Reglas** (`fillingRules_Reubicacion.csv`, 4 columnas): cabecera `COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD`; fila 1
+  `;NULL;;NULL` (`NULL` en `COD-OFICO` y `COD-OFICD`: obligatorias); fila 2 `USAR;USAR;USAR;USAR` (caracteres
+  restringidos en las cuatro). No hay `POSICION`, `LONGITUD` ni `DUPL`: **no se limita la longitud de los códigos** (un código
+  de más de 9 caracteres pasa la validación y llega al procedimiento, RISK-REUB-012), los bancos pueden ir vacíos y no
+  se eliminan duplicados (ya los quita `sort -u`, sobre las 4 columnas).
+- **Cabecera**: los nombres de la primera línea de `Reubicacion.tmp` tienen que ser **exactamente** esos cuatro y en
+  ese orden. Con la cabecera `COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD` en primer lugar (consecuencia del orden inverso
+  de `LimpiarReubicacion`, §6.4.1) la validación funciona. Probado con el jar analizado sobre un fichero de ejemplo de 6
+  líneas de datos: 3 válidas (`0182;0615;0182;0200`, `0182;0223;0182;0100`, `0182;0063;0182;0100`) y 3 rechazadas
+  (`COD-OFICO` vacío → `El campo COD-OFICO es NULO`; `COD-OFICD` vacío → `El campo COD-OFICD es NULO`; un `<` en
+  `COD-OFICD` → `Registro 3 con algún caracter no valido`). **Sin fila de cabecera** en `Reubicacion.csv`, la primera
+  línea de datos hace de cabecera, los demás registros se rechazan como `tiene diferentes campos que la cabecera`, no se
+  genera `Reubicacion_processed.csv` y no se reubica nada, con el job en verde (RISK-REUB-015).
+- **Entrada vacía**: con `Reubicacion.csv` de 0 bytes, `LimpiarReubicacion` deja `Reubicacion.tmp` vacío (§6.4.1) y
+  el programa termina con 0, con el log a 0 cargados y 0 rechazados, **sin tocar `Reubicacion_processed.csv`**: el
+  workflow vuelve a cargar el fichero validado del cierre anterior (RISK-REUB-014).
+- **Codificación**: el programa lee ISO-8859-1; con códigos numéricos de oficina no afecta.
+
+> **Aviso de versión (H-REUB-07).** Como en `oficinas.properties`, la clase se invoca como `ControlCase` sin paquete y sin
+> `JDKV=17`; el jar analizado trae la clase en el paquete `controlcargadatos`, así que con él la invocación literal
+> fallaría (clase no encontrada, código 1). Producción ejecuta otra versión del jar: todo lo descrito (mensajes, ficheros,
+> que termine siempre con 0) es el comportamiento del jar analizado y el de producción podría diferir.
 
 > **Corrección.** La versión anterior declaraba "fuera de alcance" el contenido de `ControlCargaDatos.jar`; su
-> funcionamiento está analizado. Falta su configuración en este módulo.
+> funcionamiento está analizado y la configuración de este módulo ya consta.
 
 #### 6.4.3 `Evento Workflow RDR_Reubicacion` (`PLSQL_Load` + `Sub_Load`)
 
@@ -302,13 +419,20 @@ Comando (genérico en `salidas_pendientes/comun_executebbvaevent/comun_executebb
 ./executeBbvaEvent.sh fileloading RDR_Reubicacion /pr/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml Reubicacion.properties
 ```
 
-El evento recibe el `Reubicacion.properties` completo. Según el workflow recibido (identificación sin el
-`.gsp` del evento, P-REUB-04), se ejecuta **`PLSQL_Load`** (versión 8, comentario `RDR_UGS87_ASYN_v1`, grupo
+El evento recibe el `Reubicacion.properties` completo. El evento `RDR_Reubicacion` (`RDR_Reubicacion.gsp`, paquete de
+GoldenSource 8.7.1.118) es un `com.j2fe.event.GenericEvent` con la lista de parámetros vacía cuyo workflow es
+**`PLSQL_Load`** (el volcado de eventos de la base de workflows lo confirma); los parámetros de entrada de `PLSQL_Load`
+(`BusinessFeed` y `File` obligatorios; `MessageType`, `Ruta`, `Servicio`) salen del `.properties`. Se ejecuta **`PLSQL_Load`** (versión 8, comentario `RDR_UGS87_ASYN_v1`, grupo
 `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`):
 
 1. `Create Job`: crea un job de GoldenSource (tabla `FT_T_JBLG`) con el tipo de mensaje `MessageType` del
    `.properties`. El informe lo busca como `JOB_MSG_TYP='Reubicacion'`, así que ese es el valor esperado.
-2. `Open File` (`ReadFile`): abre el fichero `File` del `.properties` (P-REUB-01).
+2. `Open File` (`ReadFile`): abre el fichero `File` del `.properties`, `Reubicacion_processed.csv`, con la definición del
+   business feed `Reubicacion` (origen `RDR`; definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml`,
+   que por su nombre lee línea a línea saltando la primera, la fila de nombres de columna que escribe
+   `ControlCargaDatos.jar`; el XML de 253 bytes no está en el volcado; patrón de fichero `Reubicacion_processed.csv`; tipo de
+   mensaje `Reubicacion`; sin mapeo MDX; modo de commit `None`; `ROLLBACK_ON_ERROR=N`; notificaciones y copias de mensajes
+   solo en `ERROR`, salvo `WRITE_NOTFCN_TYP=WARNING`). Si la apertura falla, `PLSQL_Load` cierra el job sin cargar nada.
 3. `File Split Condition`: lo trocea en lotes de **500** líneas (`bulk=500`), base de datos `jdbc/GSDM-1`.
 4. `For Each Split` + `Load`: llama al subworkflow **`Sub_Load`** por cada línea (mensaje), en paralelo.
 5. `Synchronize`, `Close Job`, `End the FileLoad` (`successAction=LEAVE`: el fichero no se mueve ni se borra).
@@ -316,8 +440,9 @@ El evento recibe el `Reubicacion.properties` completo. Según el workflow recibi
 `Sub_Load` (comentario `RDR_OFI_INACT_V1`) elige la rama por el tipo de mensaje (`Switch Case` sobre
 `properties.messageType`); en la rama `Reubicacion`:
 - Nodo `Variable PL` (BeanShell): `campos = linea.split(";"); oficinaDES = campos[1]; oficinaPER = campos[3];`
-  es decir, **2.ª y 4.ª columnas de la línea cargada**. Si se carga `Reubicacion.tmp` (4 columnas), son las
-  columnas 2 y 6 de `Reubicacion.csv`; si se cargara `Reubicacion.csv`, serían la 2 y la 4 (P-REUB-01).
+  es decir, **2.ª y 4.ª columnas de la línea cargada**. Como se carga `Reubicacion_processed.csv` (4 columnas, derivadas de
+  las columnas 1, 2, 5 y 6 de `Reubicacion.csv`), son `COD-OFICO` (columna 2 de `Reubicacion.csv`, oficina que se cierra) y
+  `COD-OFICD` (columna 6, oficina destino).
 - Nodo `Carga PL`: ejecuta el bloque PL/SQL `REUBICACION` con tres parámetros: `OFICINAD VARCHAR2(9) :=
   oficinaDES` (oficina que se cierra), `OFICINAP VARCHAR2(9) := oficinaPER` (oficina que persiste) y
   `JOB VARCHAR2(40) := jobId`. La lógica es la de §5.3. Fragmentos que determinan el comportamiento:
@@ -358,8 +483,13 @@ Detalles que importan:
 - Un error ocurrido después de la reasignación (por ejemplo, en una de las actualizaciones finales) deja la
   reasignación hecha y escribe la fila de error: el bloque no deshace lo anterior.
 - Un código de oficina de más de 9 caracteres falla al asignarse a `OFICINAD`/`OFICINAP` en la sección de
-  declaraciones; ese error no lo captura el propio bloque y llega al workflow. Qué hace `PLSQL_Load` con él no
-  está analizado (el nodo tiene una salida `error`).
+  declaraciones; ese error no lo captura el propio bloque y llega al workflow. **Esos códigos no los frena la validación**
+  (§6.4.2). Qué hace el workflow con la excepción (lectura de las definiciones y del motor): el nodo `Carga PL` de
+  `Sub_Load` (v13) solo tiene la transición `goto-next` (no hay salida `error`), y `Sub_Load` y `PLSQL_Load` tienen
+  `haltOnError=N` y 0 reintentos. En el motor (`goldensource.core`, clase `Engine`) cualquier excepción de una
+  actividad se envuelve en una `ActivityException` y se propaga hacia el workflow que la llamó; que la instancia quede
+  fallida o que `PLSQL_Load` llegue a su nodo `Close Job` (el informe usa el último job `CLOSED`) no se ha podido
+  determinar con el material disponible (H-REUB-06, resuelta en parte).
 - Si la oficina cerrada ya no estaba `ACTIVE` en `FT_T_FINS`, se reasigna sin dejar ninguna fila de éxito.
 - La rama `Refundicion` del mismo `Sub_Load` no se ejecuta en este proceso.
 
@@ -370,7 +500,10 @@ spec común).
 #### 6.4.4 `Java(RDR_Report.jar)` — informe
 
 Genérico en `salidas_pendientes/comun_rdr_report/comun_rdr_report_spec.md`. Clave **`Reubicacion`**. Líneas literales de
-`select.properties` (integración; `ruta=/fichtemcomp/ei/descargas/kytl/`, P-REUB-06):
+`select.properties` (`ruta=/fichtemcomp/@@ENV@@/descargas/kytl/` en la plantilla de la rama de Carlos; es la **única** línea que
+difiere de la copia de integración, que dice `/fichtemcomp/ei/descargas/kytl/`; en producción equivale a
+`/fichtemcomp/pr/descargas/kytl/`, donde `MEKYTL0111` busca el informe). La invocación (`Reubicacion.properties`) pasa
+`$CONF/select.properties` y la clave `Reubicacion`:
 
 ```
 queryReubicacion=select RLT1.message_rlt Estado_Reubicacion, rlt1.src_value Oficina_Cerrada, rlt1.gs_value Oficina_Destino, rlt1.main_entity_id FINSID_Oficina_Cerrada FROM FT_T_RLT1 RLT1 where RLT_PURP_TYP='REPORTES' AND DATA_SRC_APP = 'REUBICACION'  and RLT1.start_tms > (SELECT START_TMS FROM(SELECT JOB_START_TMS START_TMS FROM fT_T_JBLG WHERE JOB_MSG_TYP = 'Reubicacion' AND job_stat_typ = 'CLOSED' ORDER BY JOB_START_TMS DESC) WHERE ROWNUM <2)
@@ -394,7 +527,8 @@ fileNameReubicacion=Reporte_Reubicacion.csv
 
 #### 6.4.5 `Script(Unix2Dos)`
 
-Función `Unix2Dos` de `Generico.sh` (no el script `Unix2Dos.sh`): crea `Reporte_Reubicacion_dos.csv` con
+Función `Unix2Dos` de `Generico.sh` (no el script `Unix2Dos.sh`), con el argumento
+`$FILES/Reubicacion/Reporte_Reubicacion.csv` (`Reubicacion.properties`): crea `Reporte_Reubicacion_dos.csv` con
 `\r` al final de cada línea; el original no cambia. Sin argumento → `ESTADO-2-`, código 2; fichero inexistente
 → `ESTADO-4-`, código 4.
 
@@ -437,7 +571,7 @@ NOTOK → OK**, cualquiera de ellos publica igualmente `RDR_REUBICACION_MEKYTL01
 |---------|------------------|---------------|
 | `Reubicacion.csv` | Origen | Lo leen 2a, 2b y 2c; lo mueve el paso 4 |
 | `Reubicacion.tmp` | `LimpiarReubicacion` | Se sobrescribe en cada ejecución; nadie lo borra |
-| `<nombre>_processed.csv`, `<nombre>_noprocessed.csv` | `ControlCargaDatos.jar` (P-REUB-01) | Se sobrescriben; nadie los borra |
+| `Reubicacion_processed.csv`, `Reubicacion_noprocessed.csv` | `ControlCargaDatos.jar` (§6.4.2) | `Reubicacion_processed.csv` es el fichero que carga el workflow. Se sobrescriben; nadie los borra, y si la entrada llega vacía el `_processed` del cierre anterior permanece |
 | `Reporte_Reubicacion.csv` | `RDR_Report.jar` | Se sustituye en cada ejecución |
 | `old/Reporte_Reubicacion.zip` | `RDR_Report.jar` | Solo la última versión anterior |
 | `Reporte_Reubicacion_dos.csv` | `Unix2Dos` | Se sobrescribe |
@@ -459,13 +593,13 @@ NOTOK → OK**, cualquiera de ellos publica igualmente `RDR_REUBICACION_MEKYTL01
 |------------|-----------------|------------|----------|
 | `ctmfw` | `KYTL_REU_GSPROCESS_FW` | Utilidad de BMC | §6.2; `comun_ctmfw` |
 | `GSProcess.sh` | `KYTL_REU_GSPROCESS` | Sí | §6.3; `comun_gsprocess` |
-| `Reubicacion.properties` | `GSProcess.sh` | **No** | P-REUB-01 |
+| `Reubicacion.properties` | `GSProcess.sh` | Sí (rama de Carlos, plantilla `@@ENV@@`) | §6.3.1 |
 | `Generico.sh` (`LimpiarReubicacion`, `Unix2Dos`) | `GSProcess.sh` | Sí | §6.4.1, §6.4.5 |
-| `ControlCargaDatos.jar` + `fillingRules_Reubicacion.csv` | `GSProcess.sh` | Jar sí; reglas **no** | §6.4.2; P-REUB-03 |
+| `ControlCargaDatos.jar` + `fillingRules_Reubicacion.csv` | `GSProcess.sh` | Sí (el jar es el de integración; producción usa otra versión, H-REUB-07) | §6.4.2 |
 | `executeBbvaEvent.sh` | `GSProcess.sh` | Sí | §6.4.3 |
-| Evento `RDR_Reubicacion` (`.gsp`) | `executeBbvaEvent.sh` | **No** | P-REUB-04 |
+| Evento `RDR_Reubicacion` (`.gsp`) | `executeBbvaEvent.sh` | Sí (rama de Carlos) | §6.4.3 |
 | `PLSQL_Load.wkf`, `Sub_Load.wkf` (bloque `REUBICACION`) | Evento | Sí | §6.4.3 |
-| `RDR_Report.jar` + `select.properties` | `GSProcess.sh` | Sí (integración) | §6.4.4 |
+| `RDR_Report.jar` + `select.properties` | `GSProcess.sh` | Sí (jar de integración; `select.properties` de integración y plantilla `@@ENV@@`) | §6.4.4 |
 | `MEGENV0001.sh` + `.idx` de 3 claves | `MEKYTL0233/0234/0111` | Script sí (sin módulos); `.idx` **no** | §6.5; P-REUB-08 |
 | `RAMERC0068.sh` + línea IDX `MEKYTL0122` | `MEKYTL0122` | Script sí; línea **no** | §6.6; P-REUB-08 |
 
@@ -474,7 +608,8 @@ NOTOK → OK**, cualquiera de ellos publica igualmente `RDR_REUBICACION_MEKYTL01
 **Estrategia.** En un entorno de pruebas con la cadena desplegada y un día marcado en `RDR_CIERREOFI`, se
 prueba el flujo completo (TC-001) y cada tramo por separado: filewatcher (TC-002, TC-006), preparación del
 fichero (TC-015, TC-016), regla de negocio de la reubicación línea a línea (TC-011 a TC-014), ramas tolerantes
-y Fan-In (TC-003, TC-004, TC-005, TC-007, TC-009) y configuración (TC-008). Los casos que modifican datos de
+y Fan-In (TC-003, TC-004, TC-005, TC-007, TC-009), validación de `ControlCargaDatos.jar` (TC-017, TC-018) y
+configuración (TC-008). Los casos que modifican datos de
 GoldenSource necesitan oficinas de prueba y no se ejecutan en producción.
 
 | Id | Tipo | Qué prueba |
@@ -494,12 +629,15 @@ GoldenSource necesitan oficinas de prueba y no se ejecutan en producción.
 | TC-014 | conflicto_integridad | Oficina de cierre ya inactiva: reasignación sin filas de éxito |
 | TC-015 | happy_path | Columnas que llegan al procedimiento |
 | TC-016 | duplicidad | Dos líneas que solo difieren en las columnas 3/4 se convierten en una |
+| TC-017 | error_funcional | Registros que incumplen `fillingRules_Reubicacion.csv`: se rechazan y no se reubican |
+| TC-018 | borde | `Reubicacion.csv` sin cabecera: se rechaza todo y no se reubica nada |
 
 Cada caso tiene pasos, datos y resultado concretos; donde el resultado depende de un dato no recibido
-(fichero que carga el workflow, configuración de envíos) el caso fija qué observar en cada alternativa. La
+(configuración de envíos) el caso fija qué observar en cada alternativa. La
 suma de TC-001 (flujo completo) y de los casos por tramo cubre todas las transiciones de Control-M (códigos 0,
 7 y otro del paso 1; OK y NOTOK de cada job) y todas las ramas del procedimiento `REUBICACION`. TC-010 y
-TC-017 se retiraron en la revisión del 01/10/2026 (solo servían a preguntas retiradas por el usuario).
+el TC-017 original se retiraron en la revisión del 01/10/2026 (solo servían a preguntas retiradas por el usuario); los
+TC-017 y TC-018 actuales se añadieron el 02/10/2026.
 
 ## 8. Validaciones de casos de prueba (trazabilidad)
 
@@ -515,6 +653,8 @@ TC-017 se retiraron en la revisión del 01/10/2026 (solo servían a preguntas re
 | R11 | TC-001, TC-009 |
 | R12 | TC-007, TC-009 |
 | R14 | TC-008 (revisión de fichas) |
+| R15 | TC-017, TC-018, TC-006 |
+| R16 | TC-001, TC-015 |
 
 ## 9. Riesgos, duplicidades y escenarios de fallo
 
@@ -528,9 +668,12 @@ TC-017 se retiraron en la revisión del 01/10/2026 (solo servían a preguntas re
 | RISK-REUB-007 | La oficina queda `INACTIVEPEND`; si ya no estaba activa, la reasignación se hace sin filas de éxito | Medio |
 | RISK-REUB-008 | `LimpiarReubicacion` une líneas que solo difieren en las columnas 3/4 | Medio, según el significado de esas columnas (P-REUB-02) |
 | RISK-REUB-010 | Si falta `Reubicacion.csv` al ejecutar 2a, `LimpiarReubicacion` deja `Reubicacion.tmp` vacío y devuelve 0 | Bajo (el paso 1 garantiza el fichero) |
-| RISK-REUB-011 | Si el fichero cargado tiene cabecera, el workflow la procesa como una reubicación más (genera "Oficina de cierre no encontrada") | Bajo, sin confirmar (P-REUB-01/02) |
-| RISK-REUB-012 | Códigos de oficina de más de 9 caracteres provocan un error no capturado por el bloque `REUBICACION` | Medio, sin confirmar (P-REUB-02) |
+| RISK-REUB-011 | La cabecera de `Reubicacion_processed.csv` se procesaría como una reubicación más ("Oficina de cierre no encontrada" con `COD-OFICO`, que justo mide 9 caracteres) | Bajo: el feed `Reubicacion` usa la definición `SkipHeaderReadByLine`, que por su nombre salta la primera línea (el XML no está en el volcado) |
+| RISK-REUB-012 | Códigos de oficina de más de 9 caracteres provocan un error no capturado por el bloque `REUBICACION`, y la validación no limita la longitud (`fillingRules_Reubicacion.csv` solo tiene `NULL` y `USAR`) | Medio; la longitud real de los códigos y el efecto del error en el workflow siguen sin confirmar (P-REUB-02, H-REUB-06) |
 | RISK-REUB-013 | Si `RDR_Report.jar` no conecta, `MEKYTL0111` envía el informe del cierre anterior | Medio |
+| RISK-REUB-014 | Con `Reubicacion.csv` vacío o ausente, `ControlCargaDatos.jar` no regenera `Reubicacion_processed.csv` y el workflow vuelve a cargar el del cierre anterior, sin ningún aviso (el programa termina con 0). Si no hay uno anterior, la apertura falla y el job se cierra sin cargar | Medio: relectura de reubicaciones antiguas (en su mayoría sin efecto, porque la oficina ya está `INACTIVEPEND`) |
+| RISK-REUB-015 | Si `Reubicacion.csv` llega sin fila de cabecera, la validación toma la primera línea como cabecera, rechaza el resto y no genera `Reubicacion_processed.csv`: no se reubica nada con el job en verde | Alto si el origen cambia de formato |
+| RISK-REUB-016 | `Reubicacion.properties` invoca `ControlCase` y `CreateReport` sin paquete y sin `JDKV=17`: producción usa versiones de los jars distintas de las analizadas (H-REUB-07, H-REUB-08) | Medio, sin confirmar |
 
 **Duplicidades.** `LimpiarReubicacion` elimina líneas repetidas (sobre las 4 columnas que conserva). Dos
 líneas con la misma oficina de cierre y destinos distintos se procesan las dos: la segunda encuentra la
@@ -543,5 +686,10 @@ La orquestación (export y fichas), la preparación del fichero, la lógica comp
 PL/SQL), el informe (query literal) y los mecanismos genéricos de envío e histórico están descritos con
 evidencia. Correcciones de esta revisión: lectura de `ctmfw`, tratamiento de los fallos de `cut` en
 `LimpiarReubicacion`, contenido de `ControlCargaDatos.jar`, nombre del destino de `MEKYTL0233` y columnas que
-llegan al procedimiento (dependen del fichero que cargue el workflow). Para cerrar faltan, sobre todo,
-`Reubicacion.properties` (P-REUB-01) y el formato de `Reubicacion.csv` (P-REUB-02).
+llegan al procedimiento. Con el material del 02/10/2026 quedan resueltos `Reubicacion.properties` (el workflow carga
+`Reubicacion_processed.csv`, sin `Stop`), las reglas de validación, el evento `RDR_Reubicacion` (lanza `PLSQL_Load`) y la
+ruta del informe de producción; las columnas que llegan al procedimiento son, ya sin alternativas, la 2 y la 6 de
+`Reubicacion.csv`. Para cerrar faltan, sobre todo, una muestra y el significado de las columnas 3 y 4 de `Reubicacion.csv`
+(P-REUB-02), el calendario `RDR_CIERREOFI` (P-REUB-05), las configuraciones de envío e historificación (P-REUB-08,
+H-REUB-02), el efecto sobre `PLSQL_Load` de un código de oficina de más de 9 caracteres (H-REUB-06) y las versiones de
+producción de los jars y scripts comunes (H-REUB-07 a H-REUB-11).

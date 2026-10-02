@@ -10,7 +10,7 @@
       <precondicion>Directorio /fichtemcomp/&lt;env&gt;/descargas/kytl/Reubicacion/old/ existente; destinos de MEGENV0001.sh de pruebas configurados para MEKYTL0233 y MEKYTL0111.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Reubicacion.csv" valor="1 línea; columna 2 = código de la oficina que se cierra; columna 6 = código de la oficina destino (formato completo pendiente, P-REUB-02)"/>
+      <dato campo="Reubicacion.csv" valor="Cabecera (COD-BANCO en la columna 1, COD-OFICO en la 2, COD-BANCD en la 5 y COD-OFICD en la 6) + 1 línea; columna 2 = código de la oficina que se cierra; columna 6 = código de la oficina destino (las columnas 3 y 4 no están documentadas, P-REUB-02)"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Depositar Reubicacion.csv después de las 11:00.</paso>
@@ -25,7 +25,7 @@
     <resultadoEsperado>Los 6 jobs se ejecutan, la reubicación queda aplicada, el informe y su copia existen, el fichero queda historificado y se publica el evento de fin.</resultadoEsperado>
     <tipoValidacion>Control-M + base de datos + ficheros + logs.</tipoValidacion>
     <criterioAceptacion>Se cumplen los 8 pasos. Solo en entorno de pruebas.</criterioAceptacion>
-    <posibilidadFallo>Si las relaciones no se reasignan con la columna 6 como destino, el workflow carga otro fichero (P-REUB-01): ver TC-015.</posibilidadFallo>
+    <posibilidadFallo>Si las relaciones no se reasignan con la columna 6 como destino, la configuración del entorno de pruebas no coincide con Reubicacion.properties de producción (el workflow debe cargar Reubicacion_processed.csv): ver TC-015.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="conflicto_integridad">
@@ -127,11 +127,11 @@
     <pasos>
       <paso numero="1">Crear Reubicacion.csv vacío después de las 11:00.</paso>
       <paso numero="2">Comprobar que KYTL_REU_GSPROCESS_FW termina con 0 y abre las 3 ramas.</paso>
-      <paso numero="3">Comprobar que Reubicacion.tmp queda vacío y que no hay filas nuevas DATA_SRC_APP='REUBICACION' en FT_T_RLT1.</paso>
-      <paso numero="4">Comprobar el estado final de KYTL_REU_GSPROCESS y anotar qué acciones terminaron mal en el log.</paso>
+      <paso numero="3">Comprobar que Reubicacion.tmp queda vacío, que Reubicacion_processed.csv conserva tamaño y fecha del cierre anterior (ControlCargaDatos no lo regenera) y que no hay filas nuevas DATA_SRC_APP='REUBICACION' con efecto en FT_T_RLT1 (la relectura del fichero anterior no vuelve a reasignar nada: la oficina cerrada ya está INACTIVEPEND).</paso>
+      <paso numero="4">Comprobar el estado final de KYTL_REU_GSPROCESS y anotar qué acciones terminaron mal en el log (Reubicacion.properties no tiene Stop: todas las acciones se ejecutan). Comprobar en FT_T_JBLG que PLSQL_Load abrió un job nuevo para Reubicacion_processed.csv.</paso>
       <paso numero="5">Si KYTL_REU_GSPROCESS termina OK, comprobar que Reporte_Reubicacion.csv tiene solo la cabecera y que la cadena llega a RDR_REUBICACION_MEKYTL0122_OK_new.</paso>
     </pasos>
-    <resultadoEsperado>No se reubica nada. Si el paso 2a termina OK, la cadena termina en verde con un informe vacío; si alguna acción del workflow falla con el fichero vacío, el paso 2a queda NOTOK y la cadena se para antes de MEKYTL0111.</resultadoEsperado>
+    <resultadoEsperado>No se reubica nada nuevo. Reubicacion.properties no tiene Stop, así que todas las acciones se ejecutan: ControlCargaDatos no toca el Reubicacion_processed.csv del cierre anterior y PLSQL_Load lo vuelve a leer (sin efecto sobre oficinas ya INACTIVEPEND, RISK-REUB-014). Si el paso 2a termina OK, la cadena termina en verde con un informe vacío; si alguna acción falla con el fichero vacío, el paso 2a queda NOTOK y la cadena se para antes de MEKYTL0111.</resultadoEsperado>
     <tipoValidacion>Control-M + log de GSProcess.sh + ficheros.</tipoValidacion>
     <criterioAceptacion>Se cumple una de las dos ramas del resultado y se anota cuál. No ejecutar en producción.</criterioAceptacion>
     <posibilidadFallo>Que la cadena termine en verde sin datos es aceptable por diseño, pero sin aviso.</posibilidadFallo>
@@ -285,9 +285,9 @@
 
   <casoDePrueba id="TC-015" tipo="happy_path">
     <nombre>Columnas que llegan al procedimiento como oficina de cierre y destino</nombre>
-    <objetivo>Verificar qué columnas de Reubicacion.csv se usan, que dependen del fichero que carga el workflow (P-REUB-01).</objetivo>
+    <objetivo>Verificar que el workflow carga Reubicacion_processed.csv y que la oficina que se cierra y la destino son las columnas 2 y 6 de Reubicacion.csv.</objetivo>
     <precondiciones>
-      <precondicion>Reubicacion.csv de prueba con una línea de 6 columnas: col2 = oficina cerrada válida, col4 = un código distinto que sea una oficina destino válida, col6 = otra oficina destino válida.</precondicion>
+      <precondicion>Reubicacion.csv de prueba con la cabecera COD-BANCO;COD-OFICO;X3;X4;COD-BANCD;COD-OFICD y una línea de 6 columnas: col2 = oficina cerrada válida, col4 = un código distinto que sea una oficina destino válida, col6 = otra oficina destino válida.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="LimpiarReubicacion" valor="cut -f 1,2,5,6 -d &quot;;&quot; Reubicacion.csv | sort -ur &gt; Reubicacion.tmp"/>
@@ -295,12 +295,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar la cadena.</paso>
-      <paso numero="2">Comprobar que Reubicacion.tmp contiene col1;col2;col5;col6.</paso>
+      <paso numero="2">Comprobar que Reubicacion.tmp contiene la cabecera COD-BANCO;COD-OFICO;COD-BANCD;COD-OFICD en primer lugar y la línea col1;col2;col5;col6, y que Reubicacion_processed.csv contiene lo mismo.</paso>
       <paso numero="3">Comprobar en FT_T_RLT1 los valores SRC_VALUE (oficina cerrada) y GS_VALUE (destino).</paso>
     </pasos>
-    <resultadoEsperado>Si el workflow carga Reubicacion.tmp (o su _processed.csv): SRC_VALUE = col2 y GS_VALUE = col6. Si carga Reubicacion.csv: SRC_VALUE = col2 y GS_VALUE = col4.</resultadoEsperado>
+    <resultadoEsperado>SRC_VALUE = col2 y GS_VALUE = col6 (el workflow carga Reubicacion_processed.csv, derivado de Reubicacion.tmp); la col4 no se usa.</resultadoEsperado>
     <tipoValidacion>Fichero + FT_T_RLT1.</tipoValidacion>
-    <criterioAceptacion>Se cumple una de las dos ramas y se anota cuál (responde a P-REUB-01). No ejecutar en producción.</criterioAceptacion>
+    <criterioAceptacion>Se cumple el resultado esperado. No ejecutar en producción.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada.</posibilidadFallo>
   </casoDePrueba>
 
@@ -321,8 +321,53 @@
     </pasos>
     <resultadoEsperado>Las dos líneas se convierten en una y se aplica una sola reubicación, sin aviso.</resultadoEsperado>
     <tipoValidacion>Fichero + FT_T_RLT1.</tipoValidacion>
-    <criterioAceptacion>Se cumplen los pasos 2 y 3 (RISK-REUB-008). Si el workflow cargara Reubicacion.csv (TC-015), se procesarían las dos líneas: anotarlo. No ejecutar en producción.</criterioAceptacion>
+    <criterioAceptacion>Se cumplen los pasos 2 y 3 (RISK-REUB-008). No ejecutar en producción.</criterioAceptacion>
     <posibilidadFallo>Si las columnas 3/4 distinguen instrucciones distintas (P-REUB-02), es un defecto.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="error_funcional">
+    <nombre>Registros que incumplen fillingRules_Reubicacion.csv: se rechazan y no se reubican</nombre>
+    <objetivo>Verificar que ControlCargaDatos.jar rechaza los registros con COD-OFICO o COD-OFICD vacíos o con caracteres no permitidos, que el workflow carga solo Reubicacion_processed.csv y que el job termina en verde.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con Reubicacion.properties y fillingRules_Reubicacion.csv iguales a los de producción, día marcado en RDR_CIERREOFI y tres parejas de oficinas de prueba válidas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Reubicacion.csv" valor="Cabecera COD-BANCO;COD-OFICO;X3;X4;COD-BANCD;COD-OFICD + 3 líneas válidas (0182;OFIA;a;b;0182;OFID1, 0182;OFIB;a;b;0182;OFID2, 0182;OFIC;a;b;0182;OFID3 con códigos de oficinas de prueba) + 3 inválidas: COD-OFICO vacío, COD-OFICD vacío y COD-OFICD con el carácter &lt;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Reubicacion.csv y dejar que se ejecute KYTL_REU_GSPROCESS.</paso>
+      <paso numero="2">Comprobar que Reubicacion.tmp tiene la cabecera en primer lugar y 6 líneas de datos.</paso>
+      <paso numero="3">Comprobar en Reubicacion_preprocess_summary.log "Registros correctamente cargados en el fichero procesado 3" y "Registros NO CARGADOS correctamente: 3".</paso>
+      <paso numero="4">Comprobar que Reubicacion_noprocessed.csv contiene "El campo COD-OFICO es NULO", "El campo COD-OFICD es NULO" y "Registro &lt;n&gt; con algún caracter no valido".</paso>
+      <paso numero="5">Comprobar en FT_T_RLT1 que solo hay filas de éxito para las 3 oficinas válidas y que el informe Reporte_Reubicacion.csv no contiene las 3 inválidas.</paso>
+      <paso numero="6">Comprobar que KYTL_REU_GSPROCESS termina OK (código 0).</paso>
+    </pasos>
+    <resultadoEsperado>Las 3 reubicaciones válidas se aplican; las 3 inválidas no llegan al workflow ni aparecen en el informe; el job termina en verde porque ControlCargaDatos.jar termina siempre con 0.</resultadoEsperado>
+    <tipoValidacion>Log y ficheros de ControlCargaDatos + FT_T_RLT1 + Control-M.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 6. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si el job termina NOTOK con código 1, la invocación de ControlCase (sin paquete) no encuentra la clase en el jar del entorno de pruebas: revisar la versión del jar (H-REUB-07).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="borde">
+    <nombre>Reubicacion.csv sin cabecera: se rechaza todo y no se reubica nada</nombre>
+    <objetivo>Verificar el comportamiento de la validación cuando la primera línea del fichero no es la fila de nombres de columna (RISK-REUB-015).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con Reubicacion.properties y fillingRules_Reubicacion.csv iguales a los de producción, día marcado en RDR_CIERREOFI y copia de seguridad de las oficinas de prueba. Sin Reubicacion_processed.csv previo.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Reubicacion.csv" valor="4 líneas de datos válidas (sin cabecera), con la oficina que se cierra en la columna 2 y el destino en la 6"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar Reubicacion.csv sin cabecera y dejar que se ejecute KYTL_REU_GSPROCESS.</paso>
+      <paso numero="2">Comprobar en Reubicacion_preprocess_summary.log "Registros correctamente cargados en el fichero procesado 0" y "Registros NO CARGADOS correctamente: 3" (la línea de datos ordenada primero hace de cabecera).</paso>
+      <paso numero="3">Comprobar que Reubicacion_noprocessed.csv contiene 3 líneas "tiene diferentes campos que la cabecera" y que no existe Reubicacion_processed.csv.</paso>
+      <paso numero="4">Comprobar que no hay reasignaciones ni filas nuevas con efecto en FT_T_SUFR/FT_T_RLT1 y que el informe solo tiene la cabecera.</paso>
+      <paso numero="5">Comprobar el estado de KYTL_REU_GSPROCESS y anotarlo.</paso>
+    </pasos>
+    <resultadoEsperado>No se reubica nada y no hay ningún error visible en el validador; el job queda en verde salvo que la apertura del fichero inexistente por el workflow lo haga fallar, lo que se anota.</resultadoEsperado>
+    <tipoValidacion>Log y ficheros de ControlCargaDatos + FT_T_RLT1 + Control-M.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 4 y se anota el estado del paso 5. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Restaurar las oficinas de prueba si se reasignó algo.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

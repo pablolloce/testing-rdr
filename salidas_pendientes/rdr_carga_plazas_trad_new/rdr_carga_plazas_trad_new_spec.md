@@ -1,6 +1,8 @@
 # Especificación — Traducción de Plazas (`RDR_CARGA_PLAZAS_TRAD_new`)
 
 > Generado por el agente Spec Intake Formatter. Usuario: pablo.llorente@nfq.es. Fecha de cierre: 2026-09-30.
+> Segunda pasada de cierre: 2026-10-02, con 19 capturas de la consola de Control-M del folder (rama de Carlos) y con la
+> definición del business feed `Plaza` de la base de workflows de GoldenSource (volcado de `fileloading`).
 > Fuentes: **ficha real EX-005-02 `RDR_CARGA_PLAZAS_TRAD_new`** (definición de cadena SSDD), **export real de
 > Control-M del folder completo** (`Workspace_489.xml`), **3 fichas reales EX-005-03** (nivel job, de
 > `KYTL_PLATR_GSPROCESS_FW`, `KYTL_PLATR_GSPROCESS` y `MEKYTL0129`) y un **fichero real `TradPlazas.csv`**
@@ -58,7 +60,7 @@ la cadena sin excepciones conocidas.
 * **Fuera de alcance** (detalle completo en §9.2): el contenido interno del pipeline de `GSProcess.sh` para
   `PARM1=TradPlazas` (no hay evidencia equivalente a `LimpiarOficinas`/`Delta.sh`/`ControlCargaDatos.jar`
   específica de esta clave); el significado funcional exacto de los campos `CCPPOS`/`CCOMUN` de
-  `TradPlazas.csv`; el significado exacto del calendario `RDR_FEST_HOST_PREV`; y la confirmación operativa
+  `TradPlazas.csv`; los días que marca el calendario `RDR_FEST_HOST_PREV` y el significado de su sufijo; y la confirmación operativa
   real de las 2 dependencias cruzadas descritas en la ficha del filewatcher (predecesor `RDR_CARGA_PLAZAS`,
   sucesor "Carga de nombres legales en RDR"), que no tienen ningún `INCOND`/`OUTCOND` cruzado en el Control-M
   real.
@@ -67,27 +69,28 @@ la cadena sin excepciones conocidas.
 
 | ID | Requisito |
 |----|-----------|
-| R1 | `KYTL_PLATR_GSPROCESS_FW` (filewatcher, `TASKTYPE="Command"`, `RUN_AS="xpctma1"`) monitorea la creación de `/fichtemcomp/pr/descargas/kytl/TradPlazas/TradPlazas.csv` (`ctmfw '<fichero>' CREATE 0 60 10 5 240`: tamaño mínimo 0 bytes —se acepta incluso vacío—; busca el fichero cada **60 s**; una vez encontrado, mide su tamaño cada **10 s** y lo da por completo cuando lo ve igual en **5 mediciones seguidas** —unos 50 s sin crecer—; si en **240 minutos (4 h)** no lo ha detectado completo, termina con error de tiempo agotado, código **7**), activo desde las 05:00 AM (`TIMEFROM="0500"`, `TIMETO="&gt;"` — sin límite superior explícito más allá del propio timeout de `ctmfw`), gobernado por el calendario `CONFCAL="RDR_FEST_HOST_PREV"` — **un calendario distinto** del `RDR_FEST_HOST` usado en `RDR_CONC_OFICINAS_new` (sufijo `_PREV`, significado exacto no confirmado). **Confirmado con la ficha real EX-005-03:** día de ejecución "L M X J V" desde las 05:00 AM, coincide exactamente con R1b. **`ctmfw` confirmado como la utilidad nativa estándar de BMC Control-M Agent (File Watcher)**, no un script propio de BBVA — mismo hallazgo que en `rdr_conc_oficinas_new`/`rdr_reubicacion_new`; en esta cadena, sin embargo, el código de retorno 7 (tiempo agotado) **no tiene la regla "7 → OK"** (ver R2): el filewatcher queda en NOTOK y la cadena se detiene sin procesar nada y sin ponerse en verde. Esa es la diferencia con `rdr_conc_oficinas_new`, donde el 7 deja la cadena en verde sin haber procesado el fichero. Detalle genérico de `ctmfw` en `salidas/comun_ctmfw/comun_ctmfw_spec.md`. |
+| R1 | `KYTL_PLATR_GSPROCESS_FW` (filewatcher, `TASKTYPE="Command"`, `RUN_AS="xpctma1"`) monitorea la creación de `/fichtemcomp/pr/descargas/kytl/TradPlazas/TradPlazas.csv` (`ctmfw '<fichero>' CREATE 0 60 10 5 240`: tamaño mínimo 0 bytes —se acepta incluso vacío—; busca el fichero cada **60 s**; una vez encontrado, mide su tamaño cada **10 s** y lo da por completo cuando lo ve igual en **5 mediciones seguidas** —unos 50 s sin crecer—; si en **240 minutos (4 h)** no lo ha detectado completo, termina con error de tiempo agotado, código **7**), activo desde las 05:00 AM (`TIMEFROM="0500"`, `TIMETO="&gt;"` — sin límite superior explícito más allá del propio timeout de `ctmfw`), gobernado por el calendario `CONFCAL="RDR_FEST_HOST_PREV"` — **un calendario distinto** del `RDR_FEST_HOST` usado en `RDR_CONC_OFICINAS_new` (sufijo `_PREV`, significado exacto no confirmado). Cómo se aplica el calendario está en §6.1 (capturas de la consola de Control-M). **Confirmado con la ficha real EX-005-03:** día de ejecución "L M X J V" desde las 05:00 AM, coincide exactamente con R1b. **`ctmfw` confirmado como la utilidad nativa estándar de BMC Control-M Agent (File Watcher)**, no un script propio de BBVA — mismo hallazgo que en `rdr_conc_oficinas_new`/`rdr_reubicacion_new`; en esta cadena, sin embargo, el código de retorno 7 (tiempo agotado) **no tiene la regla "7 → OK"** (ver R2): el filewatcher queda en NOTOK y la cadena se detiene sin procesar nada y sin ponerse en verde. Esa es la diferencia con `rdr_conc_oficinas_new`, donde el 7 deja la cadena en verde sin haber procesado el fichero. Detalle genérico de `ctmfw` en `salidas/comun_ctmfw/comun_ctmfw_spec.md`. |
 | R7 | **Dependencias cruzadas de negocio confirmadas por texto en la ficha EX-005-03 del filewatcher, no reflejadas en el export real de Control-M:** su descripción dice literalmente *"En cuanto se reciba [el fichero] y haya finalizado el proceso `RDR_CARGA_PLAZAS`, se desencadena la cadena del proceso Carga de nombres legales en RDR"*. Esto implica (a) un **predecesor de negocio**, la cadena `RDR_CARGA_PLAZAS` (nombre sin sufijo `_TRAD_new` — no confirmado si es la misma familia u otra cadena distinta ya existente en el audit), cuya finalización condicionaría el disparo, y (b) un **sucesor de negocio**, probablemente `rdr_cargalei_new` ("carga de nombres legales", ya documentado en este audit). **Ninguna de las 2 relaciones tiene `INCOND`/`OUTCOND` cruzado en el export real de Control-M** (el filewatcher no depende de ningún evento externo, solo del calendario; `MEKYTL0129` no publica ningún evento consumido fuera del folder) — ver RISK-CARGATRAD-004. |
 | R1b | **Día de ejecución confirmado por 2 fuentes que se corroboran entre sí:** la ficha EX-005-02 declara textualmente "L M X J V" (lunes a viernes); el export real de Control-M confirma `WEEKDAYS="0,1,2,3,4"`. **Esto permite, por primera vez en esta sesión, confirmar con 2 fuentes independientes la convención de numeración de `WEEKDAYS` de esta instancia de Control-M: 0=lunes, 1=martes, 2=miércoles, 3=jueves, 4=viernes** (consistente además con `RDR_CONC_OFICINAS_new`, cuyo `WEEKDAYS="1,2,3,4,5"` — martes a sábado — encaja exactamente con la misma convención). |
 | R2 | **Sin mecanismo de salto por código de retorno.** A diferencia de `RDR_CONC_OFICINAS_new` y `RDR_REUBICACION_new`, el export real no contiene ningún bloque `<ON STMT>` para este filewatcher — no hay evidencia de un salto controlado ante ningún código de retorno concreto. Un fallo real del filewatcher, en principio, detiene la cadena sin más (ver TC-002). **Consecuencia concreta para el código 7 (tiempo agotado, 240 min sin fichero completo): el job `KYTL_PLATR_GSPROCESS_FW` queda en NOTOK (error visible en Control-M), no publica `RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_FW_OK_new`, y los pasos 2 y 3 no arrancan** (esperan esa condición). Ese día no se carga nada, no se historifica nada y no hay ningún "OK" falso. Con `MAXRERUN=0` no hay relanzamiento automático: la actuación es avisar a ANS RDR (grupo de soporte de Remedy `BZG03906`, `ans_rdr.es@bbva.com`). |
-| R3 | `KYTL_PLATR_GSPROCESS` (`GSProcess.sh` con `PARM1=TradPlazas`, `TASKTYPE="Job"`, `RUN_AS="xakytl1p"`, `MEMLIB=/pr/kytl/online/multipais/multicanal/scrt`) — **mismo motor genérico confirmado ya en `RDR_CONC_OFICINAS_new`/`RDR_REUBICACION_new`**, aquí parametrizado con una 3ª clave (`TradPlazas`) distinta de `oficinas`/`Reubicacion`. **Confirmado con la ficha real EX-005-03:** "Proceso que ejecuta el script principal para el prepocesado, carga y generación de reporte de Traduccion de plazas" — confirma que, igual que en `oficinas`, el pipeline interno incluye preprocesado, carga en GoldenSource y generación de un reporte, aunque el desglose script a script (equivalente a `LimpiarOficinas`/`Delta.sh`/`ControlCargaDatos.jar`) sigue sin confirmar. **Nota:** la propia ficha muestra una inconsistencia menor entre su campo "Ruta" (`/pr/kytl/online/multipais/multicanal/scrt/`, coincide con el `MEMLIB` real) y su campo "Comando" (`/pp/kytl/online/multipais/multicanal/scrt/GSProcess.sh TradPlazas`, con `/pp/` en vez de `/pr/`) — muy probablemente una errata de la ficha, no un comando real distinto. Sin `<ON STMT>` — sin tolerancia a fallo. **Comprobación hecha (01/10/2026) sobre si existe evidencia de `Delta.sh` / `ControlCargaDatos.jar` para esta clave: no la hay.** Ni el export de Control-M, ni las 4 fichas, ni ninguna otra fuente disponible contienen el `TradPlazas.properties` (el fichero que `GSProcess.sh` lee para saber qué hacer) ni su traza de ejecución; el job solo pasa `%%PARM1=TradPlazas`. Por tanto **no se puede afirmar ni negar** que el módulo use `Delta.sh` (comparación con el fichero del día anterior) ni `ControlCargaDatos.jar` (validación contra `fillingRules_<X>.csv`), ni que haya `RDR_Report.jar`. Lo único firme es la frase de la ficha: preprocesado + carga + generación de reporte. Mecánica genérica de `GSProcess.sh`: lee `/<env>/kytl/online/multipais/multicanal/dat/properties/TradPlazas.properties`; si no existe termina con código 1; ejecuta sus acciones en orden; si una acción falla y no lleva `Stop…=Ok` sigue con la siguiente y el código 1 sale al final; la acción `Property` nunca detecta el fallo del submódulo (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6-§8). Ver preguntas P-TPL-01 y P-TPL-02. |
+| R3 | `KYTL_PLATR_GSPROCESS` (`GSProcess.sh` con `PARM1=TradPlazas`, `TASKTYPE="Job"`, `RUN_AS="xakytl1p"`, `MEMLIB=/pr/kytl/online/multipais/multicanal/scrt`) — **mismo motor genérico confirmado ya en `RDR_CONC_OFICINAS_new`/`RDR_REUBICACION_new`**, aquí parametrizado con una 3ª clave (`TradPlazas`) distinta de `oficinas`/`Reubicacion`. **Confirmado con la ficha real EX-005-03:** "Proceso que ejecuta el script principal para el prepocesado, carga y generación de reporte de Traduccion de plazas" — confirma que, igual que en `oficinas`, el pipeline interno incluye preprocesado, carga en GoldenSource y generación de un reporte, aunque el desglose script a script (equivalente a `LimpiarOficinas`/`Delta.sh`/`ControlCargaDatos.jar`) sigue sin confirmar. **Nota (P-TPL-06, resuelta):** la propia ficha muestra una inconsistencia entre su campo "Ruta" (`/pr/kytl/online/multipais/multicanal/scrt/`, coincide con el `MEMLIB` real) y su campo "Comando" (`/pp/kytl/online/multipais/multicanal/scrt/GSProcess.sh TradPlazas`, con `/pp/` en vez de `/pr/`). La consola de Control-M (captura de la pestaña General del job, §6.1) muestra el job como `Script` con ruta `/pr/kytl/online/multipais/multicanal/scrt`, fichero `GSProcess.sh` y variable local `PARM1 = TradPlazas` (`%%PARM1`), en un folder del Site Standard `KYTL0000_SS_PR_HR` (producción): **el `/pp/` es una errata de la ficha**, el job real apunta a `/pr/`. Sin `<ON STMT>` — sin tolerancia a fallo. **Comprobación hecha (01/10/2026) sobre si existe evidencia de `Delta.sh` / `ControlCargaDatos.jar` para esta clave: no la hay.** Ni el export de Control-M, ni las 4 fichas, ni ninguna otra fuente disponible contienen el `TradPlazas.properties` (el fichero que `GSProcess.sh` lee para saber qué hacer) ni su traza de ejecución; el job solo pasa `%%PARM1=TradPlazas`. Por tanto **no se puede afirmar ni negar** que el módulo use `Delta.sh` (comparación con el fichero del día anterior) ni `ControlCargaDatos.jar` (validación contra `fillingRules_<X>.csv`), ni que haya `RDR_Report.jar`. Lo único firme es la frase de la ficha: preprocesado + carga + generación de reporte. Mecánica genérica de `GSProcess.sh`: lee `/<env>/kytl/online/multipais/multicanal/dat/properties/TradPlazas.properties`; si no existe termina con código 1; ejecuta sus acciones en orden; si una acción falla y no lleva `Stop…=Ok` sigue con la siguiente y el código 1 sale al final; la acción `Property` nunca detecta el fallo del submódulo (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6-§8). Ver preguntas P-TPL-01 y P-TPL-02. |
 | R4 | `MEKYTL0129` (`RAMERC0068.sh`, `TASKTYPE="Job"`, `RUN_AS="xsramer1"`, `MEMLIB=/pr/pl/scrt`) — **mismo motor genérico de historificación confirmado ya en `RDR_CONC_OFICINAS_new` (`MEKYTL0242`) y `RDR_REUBICACION_new` (`MEKYTL0122`)**. Cierra la cadena (no publica ningún evento consumido por un paso posterior dentro del folder). **Ruta y nombre de fichero de destino confirmados esta ronda con la ficha real EX-005-03** (ya no una inferencia por analogía): `/fichtemcomp/pr/descargas/kytl/TradPlazas/old/TradPlazas_yyyymmdd.csv` — coincide exactamente con lo que se había inferido por patrón con `MEKYTL0242`. La ficha lo describe como "script de historificación": servidor origen y destino `pr-rdr.igrupobbva`; origen `/fichtemcomp/pr/descargas/kytl/TradPlazas/TradPlazas.csv`; destino `/fichtemcomp/pr/descargas/kytl/TradPlazas/old` con nombre `TradPlazas_yyyymmdd.csv` (año, mes y día "en que se genera el envío"). El job se lanza como `RAMERC0068.sh` con `%%PARM1=MEKYTL0129`: esa clave se busca en el fichero IDX de historificación (`/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, 8 campos separados por `@`, ver `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md` §4). **La línea IDX de `MEKYTL0129` no está en ninguna fuente aportada** (P-TPL-03): no se sabe si la operación es mover o copiar, ni si falla cuando no hay fichero. Si la clave no está en el IDX el script termina con código 2; si el directorio origen o destino no existe, con 4 o 5; si no hay fichero y el campo 5 vale `0` o vacío, con 6. Un código distinto de 0 deja el job en NOTOK. **A diferencia de las fichas de `MEKYTL0242`/`MEKYTL0243`, la de `MEKYTL0129` no incluye ninguna instrucción de tolerancia ("que no falle")** — consistente con la ausencia real de `<ON STMT>` ya confirmada: el diseño de este job parece deliberadamente estricto, no solo un vacío de Control-M. |
 | R5 | Los 3 jobs consumen 1 unidad del recurso cuantitativo global `MAX-LPRDR501` (asignación total: 100, confirmado en Control-M real) — **mismo recurso compartido con `RDR_CONC_OFICINAS_new` y `RDR_REUBICACION_new`**, confirmando que las 3 cadenas de esta familia compiten por el mismo pool de concurrencia. |
 | R6 | Grupo de soporte ANS RDR (`ans_rdr.es@bbva.com` / Remedy `BZG03906`, confirmado en ficha EX-005-02); criticidad **W confirmada de forma consistente en los 3 niveles** — la ficha de cadena EX-005-02 y las 3 fichas de job EX-005-03 declaran todas W, **sin la discrepancia W/C ya detectada en `RDR_REUBICACION_new`** (RISK-REUB-009); máximo de relanzamientos **0** confirmado en los 3 jobs (`MAXRERUN="0"`); `PLAN_1200` confirmado; periodicidad diaria (`D`), lunes a viernes desde las 05:00 AM. **Nota de calidad documental:** 2 de las 3 fichas EX-005-03 (`KYTL_PLATR_GSPROCESS_FW` y `MEKYTL0129`) tienen su campo "Normas de rearranque" con el texto plantilla sin rellenar ("Revisar si hay instrucciones en campo descripción e incorporarlo en este campo"); solo la de `KYTL_PLATR_GSPROCESS` tiene la instrucción real de aviso a ANS RDR. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
 
-Preguntas sin respuesta en ninguna fuente disponible:
+P-TPL-06 (comando `/pp/` frente a `/pr/`) queda **resuelta el 02/10/2026** con las capturas de la consola de Control-M
+(R3, §6.1): era una errata de la ficha. Preguntas sin respuesta en ninguna fuente disponible:
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-TPL-01 | Contenido de `TradPlazas.properties` (acciones de `GSProcess.sh` para `TradPlazas`: ¿`Delta.sh`? ¿`ControlCargaDatos.jar` con qué `fillingRules`? ¿carga MDX/evento de GoldenSource, qué entidad/tabla? ¿`RDR_Report.jar` y con qué fichero de informe?) | Sin él no se puede decir qué se valida, qué se carga, dónde queda el resultado ni cómo se ve un rechazo; TC-001 y TC-004 solo pueden comprobar el estado del job |
+| P-TPL-01 (resuelta en parte) | Contenido de `TradPlazas.properties` (acciones de `GSProcess.sh` para `TradPlazas`: ¿`Delta.sh`? ¿`ControlCargaDatos.jar` con qué `fillingRules`? ¿carga MDX/evento de GoldenSource, qué entidad/tabla? ¿`RDR_Report.jar` y con qué fichero de informe?). Del destino de la carga ya hay un indicio en la definición del feed `Plaza` (§6.2); el `.properties` sigue sin recibirse | Sin él no se puede decir qué se valida, qué se carga, dónde queda el resultado ni cómo se ve un rechazo; TC-001 y TC-004 solo pueden comprobar el estado del job |
 | P-TPL-02 | ¿Hay algún `Stop…=Ok` en ese `.properties`? | Decide si un fallo intermedio corta la carga o si el resto de acciones se ejecuta igualmente |
 | P-TPL-03 | Línea de `MEKYTL0129` en `INFORMACION_HISTORIFICACIONES.IDX` de producción (operación mover/copiar, campo 5 "falla si no hay fichero", tipo de selección) | Determina si el job falla cuando no hay `TradPlazas.csv` y si el fichero desaparece de origen |
 | P-TPL-04 | ¿Quién genera/deposita `TradPlazas.csv` y por qué mecanismo (¿lo deja `RDR_CARGA_PLAZAS`?) | Define el prerrequisito real de la prueba y la hora esperada de llegada |
-| P-TPL-05 | Significado de `CCPPOS`, `CCOMUN`, `PLZBAN` y del calendario `RDR_FEST_HOST_PREV` | Necesario para interpretar el fichero y saber en qué días festivos no se ejecuta |
-| P-TPL-06 | La ficha de `KYTL_PLATR_GSPROCESS` da el comando con `/pp/` (preproducción) frente a `/pr/` en la ruta: ¿errata? | Si no lo fuese, el job apuntaría a otro entorno |
+| P-TPL-05 (resuelta en parte) | Significado de `CCPPOS`, `CCOMUN`, `PLZBAN` y del calendario `RDR_FEST_HOST_PREV`. De cómo actúa el calendario sobre los jobs ya se sabe lo que muestra la consola (§6.1: solo se ordenan los días marcados, directiva "Deshabilitar Ejecutar", sin desplazamiento); falta qué días marca el calendario y qué significa `_PREV` | Necesario para interpretar el fichero y saber en qué días festivos no se ejecuta |
+| H-TPL-07 | Texto del mapeo `db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx` (2.385 bytes) del tipo de mensaje `PLZTRAD` del feed `Plaza`: qué campos de `TradPlazas.csv` van a qué tablas de GoldenSource (§6.2) | Sin él no se puede decir qué entidad y tablas actualiza la carga |
 
 ## 5. Especificación funcional
 
@@ -167,11 +170,68 @@ Los 3 jobs consumen `MAX-LPRDR501 QUANT=1`, `MAXWAIT=3`, `MAXRERUN=0` — todo c
 export real de Control-M (`Workspace_489.xml`). **Ninguno de los 3 jobs tiene ningún bloque `<ON STMT>`** —
 confirmado con el export completo, no una omisión de lectura parcial.
 
-**Nota sobre metadatos del export:** los campos `ACTIVE_FROM="20201225"`/`ACTIVE_TILL="20201223"` de los 3
-jobs muestran una fecha de fin anterior a la de inicio (2 días antes) — se transcribe tal cual aparece en el
-export real; parece metadato residual de una ventana de activación puntual ya vencida hace años, no una
-inconsistencia relevante para el comportamiento actual de la cadena (mismo patrón de campo probablemente
-presente, sin haber sido señalado, en los exports ya usados de `RDR_CONC_OFICINAS_new`/`RDR_REUBICACION_new`).
+**Periodo de actividad (H-TPL-03, resuelta):** los campos `ACTIVE_FROM="20201225"`/`ACTIVE_TILL="20201223"` de los 3 jobs
+(fin anterior al inicio) son la forma en que el export codifica una **ventana de inactividad**: la consola de Control-M
+muestra en los 3 jobs "Periodo de actividad: **No activo**, desde 12/23/2020 hasta 12/25/2020". Es decir, los jobs están
+excluidos solo del 23 al 25 de diciembre de 2020, una ventana ya pasada; **hoy no hay ninguna restricción de actividad**. No es un
+metadato residual que cuestione que la cadena esté activa. Los exports de `RDR_CONC_OFICINAS_new` y `RDR_REUBICACION_new`
+no tienen estos campos.
+
+### 6.1 Lo que muestran las capturas de la consola de Control-M
+
+Rama de Carlos, 02/10/2026: 19 capturas del folder y de los 3 jobs en modo solo lectura (datos de la consola, sin credenciales).
+Coinciden con el export y añaden lo siguiente:
+
+| Aspecto | Folder / job | Lo que muestra la consola | Equivalente en el export |
+|---------|--------------|---------------------------|--------------------------|
+| Folder | `KYTL0000-RDR_CARGA_PLAZAS_TRAD_new` | Tipo `Normal`; servidor `MERCADOS-4`; método de ejecución `User Daily específico` = `PLAN_1200`; Site Standard `KYTL0000_SS_PR_HR`, UUAA `KYTL0000`; políticas `KYTL0000_DIRECTIVA_RESTRICTIVA` (`KYTL0000_SS_PR_HR`) e `KYTL0000_DIRECTIVA_INFORMATIVA` (`KYTL0000_SS_PR_HI`) | `FOLDER_ORDER_METHOD="PLAN_1200"` |
+| Contenido | Folder | Exactamente 3 jobs en cadena lineal: `KYTL_PLATR_GSPROCESS_FW` → `KYTL_PLATR_GSPROCESS` → `MEKYTL0129` | — |
+| Programación | 3 jobs | "Avanzado"; días de la semana `0, 1, 2, 3, 4`; días del mes: ninguno; meses: todos | `WEEKDAYS="0,1,2,3,4"` |
+| Calendario | 3 jobs | Calendario de confirmación `RDR_FEST_HOST_PREV`; directiva excepcional **"Deshabilitar Ejecutar"**; desplazar por **0 días confirmados** | `CONFCAL`, `SHIFT="Ignore Job"`, `SHIFTNUM="+00"` |
+| Horario | FW | Desde las 05:00 AM hasta "Permitir el envío pasado el siguiente nuevo día (+)" | `TIMEFROM="0500"`, `TIMETO=">"` |
+| Horario | GSPROCESS y MEKYTL0129 | "Sin hora de inicio" hasta "Final del día (hora del nuevo día)" | sin `TIMEFROM`/`TIMETO` |
+| Relanzamiento | 3 jobs | No cíclico; máximo de relanzamientos 0 | `MAXRERUN="0"` |
+| Periodo de actividad | 3 jobs | "No activo" del 23/12/2020 al 25/12/2020 (ver arriba) | `ACTIVE_FROM`/`ACTIVE_TILL` |
+| Retención | 3 jobs | Mantener activo para 3 días | — |
+| Ejecución retroactiva | 3 jobs | Desactivada | `RETRO="0"` |
+| Dummy / prioridad | 3 jobs | "Ejecutar como Dummy" desactivado; prioridad `Custom` vacía; "Crítico (reservar recursos)" desactivado | `CRITICAL="0"` |
+| Prerrequisitos | FW | Sin espera de eventos ni recursos de control; solo el recurso cuantitativo `MAX-LPRDR501` 1 de 100 | — |
+| Prerrequisitos | GSPROCESS | Espera el evento `RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_FW_OK_new` (con "Y"), y `MAX-LPRDR501` | `INCOND` |
+| Prerrequisitos | MEKYTL0129 | Espera el evento `RDR_CARGA_PLAZAS_TRAD_KYTL_PLATR_GSPROCESS_OK_new`, y `MAX-LPRDR501` | `INCOND` |
+| Acciones | 3 jobs | Solo "Eventos: Agregar ..." (el `_OK_new` de cada job); **sin "Acciones Si"**, sin notificaciones antes ni después, sin captura de la salida del job; gestión de la salida: acción "Ninguno" | `OUTCOND`, sin `ON` |
+| Documentación | 3 jobs | Tipo `Fichero`, sin ruta ni fichero de documento | — |
+| Comandos | FW | Tipo `Comando`: `ctmfw '/fichtemcomp/pr/descargas/kytl/TradPlazas/TradPlazas.csv' CREATE 0 60 10 5 240`, usuario `xpctma1` | `CMDLINE` |
+| Comandos | GSPROCESS | Tipo `Script`, ruta `/pr/kytl/online/multipais/multicanal/scrt`, fichero `GSProcess.sh`, variable local `PARM1 = TradPlazas` (`%%PARM1`), usuario `xakytl1p` | `MEMLIB`, `MEMNAME` |
+| Comandos | MEKYTL0129 | Tipo `Script`, ruta `/pr/pl/scrt`, fichero `RAMERC0068.sh`, variable local `PARM1 = MEKYTL0129`, usuario `xsramer1` | `MEMLIB`, `MEMNAME` |
+
+Lectura de las equivalencias (la consola y el export dicen lo mismo con otros nombres):
+- **Calendario con "Deshabilitar Ejecutar" y desplazamiento 0** (`SHIFT="Ignore Job"`, `SHIFTNUM="+00"`): el job solo se
+  ordena los días de la semana 0 a 4 **que además estén marcados en `RDR_FEST_HOST_PREV`**; un día no marcado no se
+  ejecuta y no se mueve a otro día. Qué días marca el calendario y qué significa `_PREV` no consta (P-TPL-05).
+- **"Sin Acciones Si"** confirma en la consola lo que ya decía la ausencia de bloques `ON` del export (R2): el fallo de cualquiera
+  de los 3 jobs deja el job en NOTOK y no hay ninguna regla que lo fuerce a OK.
+- La consola marca con un aviso naranja el folder, los 3 jobs y, en la pestaña General, los campos "Nombre de job",
+  "Aplicación" y "Sub-Aplicación" (probable aviso de una política de Site Standard); el texto del aviso no consta en las capturas.
+
+### 6.2 Destino de la carga: el business feed `Plaza`
+
+La base de workflows de GoldenSource (volcado de `fileloading`) define el business feed **`Plaza`** (origen de datos `RDR`)
+con **dos** tipos de mensaje, ambos leídos con la definición `SkipHeaderReadByLine` (por su nombre, lee línea a línea
+saltando la primera):
+
+| Orden | Fichero (patrón) | Tipo de mensaje | Mapeo MDX | Grupo de fichero |
+|-------|------------------|-----------------|-----------|------------------|
+| 0 | `plazas_processed.csv` | `PLZ` | `db://resource/RDR/mapping/plazas/plazas.mdx` (3.439 bytes, modificado 10/09/2022) | 0 |
+| 1 | **`TradPlazas_processed.csv`** | **`PLZTRAD`** | **`db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx`** (2.385 bytes, modificado 05/09/2020) | 1 |
+
+Ambos con modo de commit `None`, `ROLLBACK_ON_ERROR=N`, clave de mensaje activada (`USE_KEY_TYP=Y`) y notificaciones y copias de
+mensajes solo en caso de `ERROR`. Existe además una copia anterior del mapeo en `db://resource/RDR/mapping/TraduccionPlazas/TraduccionPlazas.mdx`
+(2.210 bytes, 05/09/2020). Lectura (**inferencia**, no confirmada sin `TradPlazas.properties`): el nombre del fichero del feed,
+`TradPlazas_processed.csv`, es el de la salida de la validación de `ControlCargaDatos.jar` aplicada a
+`TradPlazas/TradPlazas.csv` (así se forman en el resto de cadenas de esta familia), de modo que la acción `GSProcess.sh` de esta
+cadena cargaría ese fichero con el tipo de mensaje `PLZTRAD`; y el tipo `PLZ` del mismo feed correspondería al fichero `plazas` que
+deja la cadena predecesora `RDR_CARGA_PLAZAS` (H-TPL-02), lo que daría sentido a la dependencia de negocio R7. El texto de los
+mapeos MDX no está en el volcado: qué campos de `TradPlazas.csv` van a qué tablas sigue sin conocerse.
 
 ## 7. Especificación de testing
 
@@ -235,8 +295,9 @@ cruzadas de negocio descritas solo por texto (R7).
   hecho.
 * **Significado funcional exacto de los campos `CCPPOS`/`CCOMUN`** de `TradPlazas.csv` — estructura y ejemplo
   real confirmados (§5), semántica de negocio exacta no.
-* **Significado exacto del calendario `RDR_FEST_HOST_PREV`** — distinto del `RDR_FEST_HOST` usado en
-  `RDR_CONC_OFICINAS_new`; el sufijo `_PREV` no está explicado en el material disponible.
+* **Días que marca el calendario `RDR_FEST_HOST_PREV` y significado de su sufijo** — distinto del `RDR_FEST_HOST` usado en
+  `RDR_CONC_OFICINAS_new`. La consola de Control-M confirma cómo se aplica (solo se ordenan los días marcados; sin desplazamiento, §6.1),
+  pero no su contenido; el sufijo `_PREV` no está explicado en el material disponible.
 * **Contenido del campo "Normas de rearranque"** de 2 de las 3 fichas EX-005-03 (`KYTL_PLATR_GSPROCESS_FW`,
   `MEKYTL0129`) — quedó como texto plantilla sin rellenar en el origen; no es un hueco de esta auditoría, sino
   de la propia ficha fuente.
@@ -263,6 +324,8 @@ nombres legales, probablemente `rdr_cargalei_new`) que **no están reflejadas en
 Control-M real** (RISK-CARGATRAD-004) — un patrón de discrepancia entre diseño documentado y configuración
 viva ya visto repetidas veces en este audit. La convención de numeración de `WEEKDAYS` de esta instancia de
 Control-M (0=lunes...4=viernes) queda confirmada con 2 fuentes independientes cruzando esta cadena con
-`RDR_CONC_OFICINAS_new`. Quedan fuera de alcance, sin impacto bloqueante: el desglose script a script del
+`RDR_CONC_OFICINAS_new`. La segunda pasada (02/10/2026) añade las capturas de la consola de Control-M, que corroboran
+punto por punto el export (§6.1), aclaran que el comando con `/pp/` de la ficha era una errata, que el "periodo de actividad" de
+2020 es una ventana de inactividad ya pasada, y apuntan al feed `Plaza` (tipo de mensaje `PLZTRAD`) como destino de la carga (§6.2). Quedan fuera de alcance, sin impacto bloqueante: el desglose script a script del
 pipeline interno de `GSProcess.sh` para esta clave, la semántica exacta de `CCPPOS`/`CCOMUN`, y el significado
 del calendario `RDR_FEST_HOST_PREV`.

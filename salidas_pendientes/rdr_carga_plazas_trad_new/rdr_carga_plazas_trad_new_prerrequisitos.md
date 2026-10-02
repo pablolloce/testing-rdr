@@ -21,7 +21,7 @@
   `rdr_conc_oficinas_new`/`rdr_reubicacion_new`; la ficha real EX-005-03 confirma que incluye preprocesado,
   carga y generación de reporte, pero **el desglose script a script interno para esta clave concreta no está
   confirmado** (no hay evidencia equivalente a `LimpiarOficinas`/`Delta.sh` específica de `TradPlazas`).
-- Fichero `TradPlazas.properties` presente en `/pr/kytl/online/multipais/multicanal/dat/properties/` (si falta, `GSProcess.sh` termina con código 1). Su contenido no está documentado (P-TPL-01 de la spec).
+- Fichero `TradPlazas.properties` presente en `/pr/kytl/online/multipais/multicanal/dat/properties/` (si falta, `GSProcess.sh` termina con código 1). Su contenido no está documentado (P-TPL-01 de la spec). Por la definición del business feed `Plaza` de GoldenSource, la carga probablemente usa el tipo de mensaje `PLZTRAD` sobre `TradPlazas_processed.csv` (spec §6.2, no confirmado).
 - Línea `MEKYTL0129@...` presente en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (si falta, `RAMERC0068.sh` termina con código 2); su contenido no está documentado (P-TPL-03).
 - Directorio `/fichtemcomp/pr/descargas/kytl/TradPlazas/old/` existente (si no existe, `RAMERC0068.sh` falla con código 5).
 - Motor `RAMERC0068.sh` operativo para `MEKYTL0129` (historificación) — mismo motor genérico ya confirmado.

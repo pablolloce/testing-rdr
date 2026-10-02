@@ -113,6 +113,7 @@
       <paso numero="1">Confirmar que el folder sigue conteniendo exactamente 3 jobs con la topología lineal documentada.</paso>
       <paso numero="2">Confirmar el consumo de MAX-LPRDR501 por cada job.</paso>
       <paso numero="3">Confirmar si existe contención real con RDR_CONC_OFICINAS_new/RDR_REUBICACION_new cuando coinciden en ventana.</paso>
+      <paso numero="4">Confirmar los atributos de la spec §6.1: días de la semana 0 a 4, calendario RDR_FEST_HOST_PREV con "Deshabilitar Ejecutar" y desplazamiento 0, ausencia de "Acciones Si", relanzamientos 0, periodo de actividad "No activo" solo del 23/12/2020 al 25/12/2020 y que el job GSPROCESS sigue siendo un Script con ruta /pr/kytl/online/multipais/multicanal/scrt y PARM1=TradPlazas.</paso>
     </pasos>
     <resultadoEsperado>Topología sin discrepancias; consumo de recurso confirmado.</resultadoEsperado>
     <tipoValidacion>Comparación directa contra la definición real de Control-M.</tipoValidacion>

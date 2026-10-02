@@ -17,16 +17,16 @@
       <paso numero="1">Depositar oficinas.csv en /fichtemcomp/&lt;env&gt;/descargas/kytl/oficinas/ después de las 00:00.</paso>
       <paso numero="2">Comprobar que KYTL_CONOFI_GSPROCESS_FW termina con código 0 y publica RDR_CONC_OFICINAS_KYTL_CONOFI_GSPROCESS_FW_OK_new.</paso>
       <paso numero="3">Comprobar que old/oficinas_prelimpieza.csv contiene las 6 oficinas recibidas (incluida la 0049).</paso>
-      <paso numero="4">Comprobar en execute_oficinas_&lt;AAAAMMDD&gt;.log el mensaje "Proceso delta finalizado correctamente 2 registros diferentes" (si oficinas.properties usa Delta Si; si no, que no aparece y se carga el fichero filtrado completo).</paso>
+      <paso numero="4">Comprobar en execute_oficinas_&lt;AAAAMMDD&gt;.log el mensaje "Proceso delta finalizado correctamente 2 registros diferentes" (oficinas.properties usa Delta Si), y en oficinas_preprocess_summary.log "Registros correctamente cargados en el fichero procesado 2" y "Registros NO CARGADOS correctamente: 0".</paso>
       <paso numero="5">Comprobar que execute_oficinas_&lt;AAAAMMDD&gt;.log termina con ESTADO-0- y que KYTL_CONOFI_GSPROCESS termina OK.</paso>
       <paso numero="6">Comprobar que existen Reporte_oficinas.csv con cabecera FINSID;CSB;OFICINA;MENSAJE y Reporte_oficinas_dos.csv con el mismo contenido y finales CRLF.</paso>
       <paso numero="7">Comprobar que MEKYTL0242 termina OK y que existe old/oficinas_&lt;AAAAMMDD&gt;.csv con el mismo contenido que tenía oficinas.csv al final del paso 2.</paso>
       <paso numero="8">Comprobar que MEKYTL0243 termina OK y publica RDR_CONC_OFICINAS_MEKYTL0243_OK_new.</paso>
     </pasos>
-    <resultadoEsperado>Los 4 jobs terminan OK; la oficina 0049 no llega a la carga; con Delta Si solo se cargan la oficina modificada y la nueva; el informe y su copia CRLF existen; oficinas.csv queda historificado con la fecha del día y se publica el evento de fin.</resultadoEsperado>
+    <resultadoEsperado>Los 4 jobs terminan OK; la oficina 0049 no llega a la carga; solo se cargan la oficina modificada y la nueva (Delta Si); el informe y su copia CRLF existen; oficinas.csv queda historificado con la fecha del día y se publica el evento de fin.</resultadoEsperado>
     <tipoValidacion>Control-M (estados y eventos) + inspección de ficheros y del log de GSProcess.sh.</tipoValidacion>
     <criterioAceptacion>Todos los pasos se cumplen. Caso ejecutable solo en entorno de pruebas.</criterioAceptacion>
-    <posibilidadFallo>Si oficinas.properties no usa Delta Si, el paso 4 mostrará la carga completa: anotar el valor real y responder P-CONOFI-01.</posibilidadFallo>
+    <posibilidadFallo>Si el paso 4 muestra la carga completa en lugar del delta, el entorno de pruebas no usa la misma oficinas.properties que producción (Delta Si, ver spec §6.3.1): corregir la configuración antes de seguir.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="conflicto_integridad">
@@ -71,7 +71,7 @@
     </pasos>
     <resultadoEsperado>El fichero vacío pasa el filewatcher, LimpiarOficinas falla en el grep y el paso 2 termina NOTOK, parando la cadena.</resultadoEsperado>
     <tipoValidacion>Control-M + log de GSProcess.sh + ficheros.</tipoValidacion>
-    <criterioAceptacion>Se cumplen los pasos 2 a 5. Anotar qué acciones posteriores se ejecutaron (dice si hay Stop, P-CONOFI-01).</criterioAceptacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 5. oficinas.properties no tiene Stop: comprobar además que Delta, ControlCargaDatos, la carga MDX, el informe y Unix2Dos se ejecutan igualmente tras el fallo de LimpiarOficinas (ver TC-012 y TC-015).</criterioAceptacion>
     <posibilidadFallo>Riesgo RISK-CONOFI-009.</posibilidadFallo>
   </casoDePrueba>
 
@@ -87,7 +87,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Provocar el fallo y dejar que se ejecute KYTL_CONOFI_GSPROCESS.</paso>
-      <paso numero="2">Comprobar que el job termina NOTOK con código 1 y que execute_&lt;AAAAMMDD&gt;.log tiene "...de modo INCORRECTO con &lt;n&gt; subprocesos erroneos ***" (o, si hay Stop, "finalizado de forma incorrecta debido a").</paso>
+      <paso numero="2">Comprobar que el job termina NOTOK con código 1 y que execute_&lt;AAAAMMDD&gt;.log tiene "...de modo INCORRECTO con &lt;n&gt; subprocesos erroneos ***" (oficinas.properties no tiene Stop, así que no aparece "finalizado de forma incorrecta debido a" y las acciones posteriores se ejecutan).</paso>
       <paso numero="3">Comprobar que Control-M no relanza el job.</paso>
       <paso numero="4">Comprobar que MEKYTL0242 y MEKYTL0243 no se ejecutan.</paso>
       <paso numero="5">Restaurar old/ antes de cualquier otra prueba.</paso>
@@ -186,7 +186,7 @@
     <nombre>Relanzamiento del paso 2 sin fichero nuevo: la protección de Delta.sh no se activa</nombre>
     <objetivo>Verificar el comportamiento deducido del código cuando se relanza KYTL_CONOFI_GSPROCESS sin que haya llegado un oficinas.csv nuevo (spec §6.4.2).</objetivo>
     <precondiciones>
-      <precondicion>Entorno de pruebas; oficinas.properties con Delta Si (si no, el caso no aplica y se anota en P-CONOFI-01).</precondicion>
+      <precondicion>Entorno de pruebas; oficinas.properties igual a la de producción (Delta Si, spec §6.3.1).</precondicion>
       <precondicion>Una primera ejecución del paso 2 completada con un delta de al menos 2 registros, y copia de seguridad de todo el directorio oficinas/ antes del relanzamiento.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -241,7 +241,7 @@
     <pasos>
       <paso numero="1">Depositar el fichero y dejar que se ejecute el paso 2.</paso>
       <paso numero="2">Comprobar que old/oficinas_prelimpieza.csv tiene las 7 líneas originales.</paso>
-      <paso numero="3">Comprobar que el fichero que entra en Delta (o, sin Delta Si, el que se carga) tiene la cabecera y solo las 3 filas "0182;".</paso>
+      <paso numero="3">Comprobar que el fichero que entra en Delta tiene la cabecera y solo las 3 filas "0182;".</paso>
     </pasos>
     <resultadoEsperado>Solo pasan las 3 filas cuyo primer campo es exactamente 0182 (la fila "01820;" se descarta); el fichero recibido queda copiado completo.</resultadoEsperado>
     <tipoValidacion>Comparación de ficheros.</tipoValidacion>
@@ -265,17 +265,17 @@
       <paso numero="4">Comprobar qué acciones posteriores aparecen en el log (Delta, ControlCargaDatos, MDX...).</paso>
       <paso numero="5">Comprobar que KYTL_CONOFI_GSPROCESS termina NOTOK con código 1.</paso>
     </pasos>
-    <resultadoEsperado>El job termina NOTOK. Si oficinas.properties tiene Stop=Ok, ninguna acción posterior se ejecuta. Si no lo tiene, Delta, ControlCargaDatos y la carga MDX se ejecutan sobre el fichero sin filtrar (oficinas 0049) antes de terminar NOTOK.</resultadoEsperado>
+    <resultadoEsperado>El job termina NOTOK. oficinas.properties no tiene Stop: Delta, ControlCargaDatos y la carga MDX se ejecutan sobre el fichero sin filtrar (oficinas 0049, que pasan las reglas de fillingRules_oficinas.csv) antes de terminar NOTOK.</resultadoEsperado>
     <tipoValidacion>Log de GSProcess.sh + ficheros + Control-M.</tipoValidacion>
-    <criterioAceptacion>Se cumple la rama que corresponde a la configuración real; anotar cuál es (responde a P-CONOFI-01). No ejecutar en producción.</criterioAceptacion>
-    <posibilidadFallo>La rama sin Stop confirma RISK-CONOFI-008: restaurar las tablas de oficinas tras la prueba.</posibilidadFallo>
+    <criterioAceptacion>Se cumple el resultado esperado (confirma RISK-CONOFI-008). No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Las oficinas 0049 llegan a GoldenSource: restaurar las tablas de oficinas tras la prueba.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-013" tipo="duplicidad">
     <nombre>Líneas repetidas: iguales a la referencia no se recargan; repetidas nuevas salen tantas veces como aparezcan</nombre>
     <objetivo>Verificar el tratamiento de duplicados de Delta.sh/compare.jar con datos sintéticos.</objetivo>
     <precondiciones>
-      <precondicion>Entorno de pruebas; oficinas.properties con Delta Si; old/oficinas.csv de referencia con la oficina 0182;0001.</precondicion>
+      <precondicion>Entorno de pruebas; oficinas.properties igual a la de producción (Delta Si); old/oficinas.csv de referencia con la oficina 0182;0001.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Línea A" valor="Oficina 0182;0001 idéntica a la referencia, repetida 2 veces en oficinas.csv"/>
@@ -288,8 +288,77 @@
     </pasos>
     <resultadoEsperado>La línea A no aparece en el delta; la línea B aparece 2 veces, con una línea en blanco entre ambas (defecto de formato de compare.jar) y sin salto de línea final. El log indica "2 registros diferentes".</resultadoEsperado>
     <tipoValidacion>Log de GSProcess.sh + contenido del delta.</tipoValidacion>
-    <criterioAceptacion>Se cumple el resultado. Lo que haga la carga MDX con la línea B duplicada depende de reglas no recibidas (P-CONOFI-03) y se anota.</criterioAceptacion>
+    <criterioAceptacion>Se cumple el resultado. ControlCargaDatos no elimina la línea B duplicada (fillingRules_oficinas.csv no tiene DUPL); lo que haga la carga MDX con ella depende de oficinas.mdx (P-CONOFI-03) y se anota.</criterioAceptacion>
     <posibilidadFallo>No ejecutar en producción.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-014" tipo="error_funcional">
+    <nombre>Registros del delta que incumplen fillingRules_oficinas.csv: se rechazan y no se cargan</nombre>
+    <objetivo>Verificar que ControlCargaDatos.jar separa los registros inválidos en oficinas_noprocessed.csv, que el evento MDX carga solo oficinas_processed.csv y que el job termina en verde aunque haya rechazos.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con oficinas.properties y fillingRules_oficinas.csv iguales a los de producción, old/ existente con una referencia vacía (solo la cabecera) y copia de seguridad de las tablas de oficinas de GoldenSource.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="oficinas.csv" valor="Cabecera de 134 columnas + 1 oficina 0182 válida + 5 oficinas 0182 alteradas: (a) CODOFI de 3 caracteres, (b) DNOMCO vacío, (c) DDOMIC con el carácter &lt; , (d) CTEL01 de 8 caracteres, (e) línea con solo 100 campos"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar oficinas.csv y dejar que se ejecute el paso 2.</paso>
+      <paso numero="2">Comprobar en oficinas_preprocess_summary.log "Registros correctamente cargados en el fichero procesado 1", "Registros NO CARGADOS correctamente: 5" y "Registros DUPLICADOS eliminados: 0".</paso>
+      <paso numero="3">Comprobar que oficinas_noprocessed.csv tiene la línea "FICHERO DE REGISTROS NO PROCESADOS" y 5 líneas con los mensajes "El campo CODOFI no tiene la longitud correcta", "El campo DNOMCO es NULO", "Registro 4 con algún caracter no valido", "El campo CTEL01 no tiene la longitud correcta" y "El registro nº:6 :(...) tiene diferentes campos que la cabecera.".</paso>
+      <paso numero="4">Comprobar que oficinas_processed.csv tiene la fila de nombres de columna y solo la oficina válida.</paso>
+      <paso numero="5">Comprobar en FT_T_JBLG que el job de carga OFC más reciente trata un solo registro y que en las tablas de oficinas solo cambia la oficina válida.</paso>
+      <paso numero="6">Comprobar que KYTL_CONOFI_GSPROCESS termina OK (código 0) y que la cadena continúa.</paso>
+    </pasos>
+    <resultadoEsperado>Las 5 oficinas inválidas no llegan a GoldenSource; la válida sí; el job termina en verde porque ControlCargaDatos.jar termina siempre con 0. Al día siguiente, si las 5 siguen igual en el origen, no vuelven a salir en el delta (RISK-CONOFI-016).</resultadoEsperado>
+    <tipoValidacion>Log y ficheros de ControlCargaDatos + consulta a GoldenSource + Control-M.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 6. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si el job termina NOTOK con código 1, la invocación de ControlCase (sin paquete, producción) no encuentra la clase en el jar del entorno de pruebas: revisar la versión del jar (H-CONOFI-17).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="borde">
+    <nombre>oficinas.csv vacío: se vuelve a cargar oficinas_processed.csv del día anterior</nombre>
+    <objetivo>Verificar el efecto de un fichero vacío sobre la validación y la carga cuando no hay Stop (RISK-CONOFI-014).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con oficinas.properties igual a la de producción (sin Stop) y una carga anterior completada que dejó oficinas_processed.csv con al menos 2 registros; copia de seguridad de las tablas de oficinas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="oficinas.csv" valor="Fichero de 0 bytes"/>
+      <dato campo="oficinas_processed.csv previo" valor="Cabecera + 2 oficinas del día anterior"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Anotar tamaño y fecha de oficinas_processed.csv, depositar oficinas.csv vacío y dejar que se ejecute el paso 2.</paso>
+      <paso numero="2">Comprobar que LimpiarOficinas falla (grep) y que el job acaba NOTOK.</paso>
+      <paso numero="3">Comprobar en oficinas_preprocess_summary.log "Registros correctamente cargados en el fichero procesado 0" y "Registros NO CARGADOS correctamente: 0".</paso>
+      <paso numero="4">Comprobar que oficinas_processed.csv conserva tamaño y fecha del paso 1.</paso>
+      <paso numero="5">Comprobar en FT_T_JBLG que se ha creado un job de carga OFC nuevo que procesa los 2 registros del día anterior.</paso>
+    </pasos>
+    <resultadoEsperado>ControlCargaDatos no regenera oficinas_processed.csv y la carga MDX vuelve a cargar los 2 registros del día anterior, sin mensaje de error propio; el job termina NOTOK solo por el fallo de LimpiarOficinas.</resultadoEsperado>
+    <tipoValidacion>Ficheros + log + consulta a FT_T_JBLG.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 2 a 5. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Si el job OFC no se crea o no procesa registros, el comportamiento de la versión del jar de producción es distinto del analizado (H-CONOFI-17): anotarlo.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="regresion">
+    <nombre>Evento Errores: fichero oficinas_errores.csv y ventana de una hora del job de carga</nombre>
+    <objetivo>Verificar qué genera el workflow ErroresCSV tras la carga y que no genera nada si el job de carga OFC empezó hace más de una hora (RISK-CONOFI-012).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con oficinas.properties igual a la de producción (Delta Si) y una carga OFC recién terminada en la que al menos un registro produzca una fila de FT_T_RLT1 con RLT_PURP_TYP='ERRORES' (por ejemplo, un registro que incumpla una regla de la carga MDX).</precondicion>
+      <precondicion>Directorios oficinas/ y oficinas/old/ existentes; copia de seguridad de oficinas/old/oficinas.csv.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Ventana" valor="job_start_tms &gt;= sysdate - 1/24 sobre FT_T_JBLG (JOB_INPUT_TXT = oficinas_processed.csv, JOB_MSG_TYP = OFC, JOB_STAT_TYP = CLOSED)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Con la carga terminada hace menos de una hora, comprobar que existe oficinas/oficinas_errores.csv con la cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT; y al menos una línea de tipo Funcional.</paso>
+      <paso numero="2">Comprobar que oficinas/db_errores.txt contiene el identificador de la entidad errónea y que se ha ejecutado errores_to_file.sh (log de la salida del job KYTL_CONOFI_GSPROCESS).</paso>
+      <paso numero="3">Comprobar que no existe dummyoficinas_errores.csv.</paso>
+      <paso numero="4">Esperar a que el job de carga tenga más de una hora (o ajustar su fecha de inicio en el entorno de pruebas) y relanzar solo el evento RDR_ErroresCSV con el mismo oficinas.properties.</paso>
+      <paso numero="5">Comprobar que el oficinas_errores.csv del paso 1 está ahora en oficinas/old/oficinas_errores.csv, que no hay un oficinas_errores.csv nuevo y que no se ha vuelto a ejecutar errores_to_file.sh.</paso>
+    </pasos>
+    <resultadoEsperado>Dentro de la hora se genera el fichero de errores y se marcan los registros erróneos; pasada la hora el fichero anterior se mueve a old/ y no se genera ninguno nuevo ni se marca nada.</resultadoEsperado>
+    <tipoValidacion>Ficheros + consulta a FT_T_JBLG/FT_T_RLT1 + salida del job.</tipoValidacion>
+    <criterioAceptacion>Se cumplen los pasos 1 a 5. No ejecutar en producción.</criterioAceptacion>
+    <posibilidadFallo>Qué cambia exactamente errores_to_file.sh en old/oficinas.csv no se puede comprobar contra la spec (H-CONOFI-19): anotar el antes y el después.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>
