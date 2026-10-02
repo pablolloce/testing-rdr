@@ -1080,7 +1080,7 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   tiempo de ejecución; si falla, el cierre de `RLT_DIF_STAT='FIN'` no ocurriría, dejando la fila
   `CONTROLDR`/`GLOBAL` abierta indefinidamente sin que el resto del workflow (ya en su tramo final) se entere.
 
-**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (15 de 16):**
+**Anexo — subworkflows del árbol Global confirmados con `.wkf` real (16 de 16 — completo):**
 
 - **`Calculate Counterparty type under EMIR`** (grupo `.../Data Regulatory Calculation/Global Data
   Calculation`, estado `RELEASED`, v9): calcula la etiqueta EMIR (`"01"`-`"05"`) mediante un `switch` sobre
@@ -1273,6 +1273,24 @@ iteración —, `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/GlobalRegul
   Residence`** (lado Operativo con un nombre con errata del lado Global); aquí es al revés, una query Global
   que lleva el nombre "Operative" en su bind — refuerza que este tipo de inconsistencia de nomenclatura entre
   ambos niveles de la jerarquía es un patrón recurrente en esta familia, no un error aislado.
+- **`EMIR Extraction`** (mismo grupo, estado `RELEASED`, v5 — **último subworkflow Global pendiente: con
+  este, los 16 de 16 quedan confirmados con `.wkf` real**): 2 extracciones en paralelo que cierran 2 orígenes
+  de datos abiertos del lado de cálculo EMIR. La primera relee el valor **ya existente** de `FT_T_FRA1`
+  (clasificación `EMIRCAT`, mismo patrón `ROW_NUMBER()`/`RNK=1`) → `cntrprtyTypeUnderEMIR` — confirma el
+  origen exacto de ese parámetro, consumido por `Calculate Final type under EMIR` (ya cerrado) para
+  combinarlo con el override manual. La segunda resuelve el código de institución (`FT_T_FRCL`,
+  clasificación `CODINSTI`, sobre el descendiente Local→Operativo con `subsidiary_ind='N'`) y lo traduce a
+  una etiqueta de negocio (`FT_T_INCL`, `CL_VALUE`→`CL_NME`, `INDUS_CL_SET_ID='EMIRTAG'`) → `etiquetaEmir` —
+  confirma el origen de la etiqueta base que `Calculate Counterparty type under EMIR` (ya cerrado) usa en su
+  `switch` de clasificación. **[Hallazgo] bug de scope de variable en la rama de institución no encontrada:**
+  el nodo `"Is NULL"` declara `String codText = "";` al principio del script y, en la rama `else` (código de
+  institución no encontrado), **vuelve a declarar `String codText = "0000";` dentro del propio bloque
+  `else`** — en BeanShell/Java esta redeclaración crea una variable de bloque que no sobrevive al `else`, así
+  que el `codText` real que queda expuesto como variable de salida del nodo sigue siendo `""`, no `"0000"`
+  como el código aparenta pretender. El nodo siguiente (`"Etiqueta EMIR"`, rama `KO`) usa ese `codText` vacío
+  para buscar la etiqueta en `FT_T_INCL`, por lo que el valor de respaldo `"0000"` nunca llega a usarse
+  realmente — la rama de "institución no encontrada" probablemente produce una `etiquetaEmir` vacía en vez
+  del valor de respaldo previsto.
 
 ### 6.13quinquies `Workflow(RDR_AltaFondos_ROL)` — confirmado con `.wkf` real
 
@@ -1353,7 +1371,7 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   `RDR_AltaFondos_Enriquecimientos` §6.11) pese a estar aparentemente en la ruta real de producción — no
   confirmado si refleja el ciclo de vida real.
 
-**Anexo — subworkflows del árbol Operativo (DFA) confirmados con `.wkf` real (5 de 7):**
+**Anexo — subworkflows del árbol Operativo (DFA) confirmados con `.wkf` real (7 de 7 — completo):**
 
 - **`Auxiliary DFA Data Extraction`** (grupo `.../Regulatory Information Extraction/Operative Data
   Extraction`, estado `RELEASED`, v6): 1 query inicial (`Continente`, decide `'MEX'`/`'EUR'` según si la
@@ -1411,6 +1429,33 @@ Information` — `Custom/RDR/Integracion_MGC-GS/Regulatory Information` —, ver
   global declarada en el workflow (`cntrprtyOperativeOid`) — si GoldenSource resuelve el bind por nombre
   literal del texto SQL, este `UPDATE` nunca encontraría el valor real y podría no actualizar ninguna fila
   pese a reportar éxito; no se puede confirmar sin ejecutarlo si el motor cae a algún valor por defecto.
+- **`COMPCOUN Extraction`** (mismo grupo que `Corporate Relationship Extraction`, estado `RELEASED`, v4):
+  extracción trivial de solo lectura — `SELECT GU_ID COMPCOUN FROM FT_T_FIGU WHERE INST_MNEM=
+  :cntrprtyOperativeOid AND FINS_GU_PURP_TYP='COUNCOMP' AND DATA_STAT_TYP='ACTIVE'` — confirma el origen
+  exacto del parámetro `compcoun` (el valor/override ya existente) consumido por `Calculate Parent Company
+  Country of Residence` (arriba). Mismo patrón "Extraction = solo lectura" del resto del árbol.
+- **`Calculate Corporate Relationship`** (grupo `.../Data Regulatory Calculation/Operative Data
+  Calculation`, estado **`DEVELOPMENT`, v15, última actualización 2026-10-01** — el subworkflow modificado
+  más recientemente de todo este árbol, literalmente "ayer" respecto a esta sesión de auditoría — **último
+  subworkflow Operativo pendiente: con este, los 7 de 7 quedan confirmados con `.wkf` real, y con ellos, el
+  árbol completo de 23 subworkflows de Regulatory Information (Global + Operativo)**): motor de
+  autocorrección del dato `CORPREL` ya existente (de `Corporate Relationship Extraction`) contra 2 señales
+  independientes — `Fund Indicator` (`FT_T_FIGP`, `PRT_PURP_TYP='FUND'`) y `Head Office Relationship`
+  (`FT_T_FINS.SUBSIDIARY_IND`). Un `switch` con 8 casos (`CMA`/`SUC`/`FIL`/`CVR`/`CON`/`AFL`/`SNU`/`NE`/
+  default) valida el valor declarado contra esas 2 señales y lo recalcula si detecta una inconsistencia (p.
+  ej. declarado `"CMA"` pero resulta ser sucursal → se recalcula a `"SUC"` o `"FIL"` según si es fondo);
+  `"CVR"` (Covered Prime Brokerage) y `"SNU"` (Footnote 513/CFTC Guidance 13-69) son los únicos 2 casos que
+  **nunca** se recalculan, prevaleciendo siempre el valor declarado por el usuario. Mismo patrón
+  `out`/`true`/`reactivar`/`false` contra `FT_T_FRA1` (clasificación `CORPREL`, `REG_NME='DFA'`) que el resto
+  de la familia, con `DBStatement` estándar (sin JDBC manual). **[Hallazgo] 2ª confirmación del mismo nombre
+  de bind con errata ya visto en `Calculate Parent Company Country of Residence`:** la rama `true` de
+  `Update (CORPREL)` usa `WHERE INST_MNEM = :contrprtyOperativeOid` (sin la "p"). **[Hallazgo más grave en la
+  rama `reactivar`]** su propio `Update (CORPREL)` usa `WHERE INST_MNEM = :contrprtyGlobalOid` — una
+  variable que **no existe en absoluto** en el ámbito de este workflow (sus parámetros/variables declarados
+  son `cntrprtyOperativeOid`, no `cntrprtyGlobalOid`, en ningún punto) — a diferencia de una simple errata de
+  nombre, este bind podría no resolver en absoluto en tiempo de ejecución, lo que apuntaría a que la rama
+  `reactivar` (reactivar una clasificación `CORPREL` inactiva) está genuinamente rota, no solo
+  silenciosamente ineficaz.
 
 ### 6.13septies `Workflow(PartySetupDifusion)` — confirmado con `.wkf` real, motor compartido
 
@@ -1490,11 +1535,15 @@ más, como `PartySetupDifusion`; estado `RELEASED`, v7 —
 
 Ficheros analizados: `QuerysStr.java`/`QuerysConfig.java` de ambos jars **más la clase orquestadora real
 `main.Ppal` de cada uno** (`Ppal_AlertasBarrido.java`, paquete `main`, clase `Ppal`;
-`Ppal_AlertasCocinado.java`, paquete `main`, clase `Ppal`, delega en `report.ReporteRDR` — **ahora también
-aportada con código fuente real**, ver más abajo —
-`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`). **Corrección de nomenclatura sobre lo
-documentado previamente en esta misma sesión:** la clase se llama `ReporteRDR` (singular), no `ReportesRDR`
-— confirmado por sus propios mensajes de log (`"ReporteRDR::..."`), que son la fuente real del nombre.
+`Ppal_AlertasCocinado.java`, paquete `main`, clase `Ppal`, delega en `report.ReportesRDR` — **ahora también
+aportada con código fuente real, al igual que la clase singular `report.ReporteRDR` en la que se apoya**,
+ver más abajo — `documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/alertas/`). **Corrección sobre lo
+documentado previamente en esta misma sesión:** no es una, sino **2 clases distintas y reales** — la
+corrección anterior ("se llama `ReporteRDR`, no `ReportesRDR`") era solo parcialmente cierta: existen ambas,
+con responsabilidades distintas. `ReportesRDR` (plural) es el orquestador de nivel superior que invoca
+directamente `main.Ppal`; internamente mantiene un `Vector<ReporteRDR>` (uno por cada fila de `FT_T_REP1`
+con destinatarios de email activos) y reenvía cada una de sus 5 fases a los métodos ya documentados de
+`ReporteRDR` (singular, uno por proceso/informe concreto).
 
 - **Argumentos reales confirmados (ambos jars):** `args[0]` = nivel de log (`1`=DEBUG, `2`=INFO, `3`=ERROR,
   `4`=FATAL), `args[1]` = ruta del `.properties` de log4j, `args[2]` = identificador de proceso (si no vale el
@@ -1543,11 +1592,30 @@ documentado previamente en esta misma sesión:** la clase se llama `ReporteRDR` 
   envío (`FT_T_REP1.SEND_PEND='Y'`, `query_REP1_MarcaPending`) y cierra los mensajes consumidos
   (`queryMarcadoALG1`: `PROCESADO='S'`, `LAST_CHG_USR_ID='AlertasCocinado.jar'`). **Es este `SEND_PEND='Y'` el
   que activa realmente el envío en `AlertasEnvio`** (§6.15). **`main.Ppal` real de `AlertasCocinado`
-  confirmado, delegando en `report.ReporteRDR` (ahora también con código fuente real):** el orquestador
-  (`Ppal_AlertasCocinado.java`) encadena 5 fases sobre un objeto `ReporteRDR`: `descargaMensajesReporte()` →
-  `descargaTiposEnvio()` → `generaDocumentos()` → `marcaUsadosALG()`/`marcaReportePendiente()` →
-  `cierraConexion()`, con el mismo patrón de auditoría por fase en `FT_T_RLT1` ya visto en `AlertasBarrido`.
-- **`report.ReporteRDR` — lógica interna confirmada por completo con código fuente real:**
+  confirmado, delegando en `report.ReportesRDR` (ahora también con código fuente real):** el orquestador
+  (`Ppal_AlertasCocinado.java`) encadena 5 fases sobre un único objeto `ReportesRDR`: `extraerReportes()` →
+  `descargaMensajesResportes()` → `generaDocumentos()` → `marcaALG1_Reportes()`/`marcaReportesPending()` →
+  `cerrarConexiones()`, con el mismo patrón de auditoría por fase en `FT_T_RLT1` ya visto en `AlertasBarrido`.
+- **`report.ReportesRDR` (plural) — el orquestador real de nivel superior, confirmado con código fuente
+  real:** `extraerReportes()` ejecuta `QuerysStr.query_REP1()`/`query_REP1_Filtrado(proceso)` (mismo
+  placeholder `PROCESOS` ya documentado) y, por cada fila, instancia un `ReporteRDR` (singular) con sus
+  datos — incluida la resolución de rutas (sustituyendo el placeholder literal `"$ENV"` por `ConDB.env`) y
+  de la query real del proceso, que **se almacena como un CLOB en la propia `FT_T_REP1`** (columna `QUERY`,
+  leída con un `clobToString()` manual) — es decir, la query que cada `ReporteRDR.descargaMensajesReporte()`
+  ejecuta contra `FT_T_ALG1` es configurable en BBDD, no fija en el jar. **[Hallazgo] hack de entorno
+  local hardcodeado:** si `ConDB.getUbicacionJar().equals("LOCAL")`, antepone literalmente `"C:"` a la ruta
+  y a la plantilla — una unidad de Windows fija, vestigio de desarrollo local dejado en el código de
+  producción (mismo tipo de parche de entorno ya visto en la detección de `pr`/`pp`/`ei`/`de` de
+  `credentials.xml` en `Mail`/`PartySetupDifusion`/`CreateShortname`). `descargaMensajesResportes()`
+  descarga los mensajes de **todos** los `ReporteRDR` en una pasada y, solo después, en una 2ª pasada
+  completa, sus tipos de envío — no intercalado por informe. `generaDocumentos()`/`marcaALG1_Reportes()`/
+  `marcaReportesPending()`/`cerrarConexiones()` son fan-outs triviales sobre el mismo vector, reenviando a
+  los métodos ya documentados de `ReporteRDR`; `cerrarConexiones()` cierra cada conexión individual y,
+  después, su propia conexión compartida, ambos pasos envueltos en un `catch` vacío (ni log) — mismo patrón
+  de cierre-de-conexión completamente silencioso ya confirmado en `ReporteRDR.cierraConexion()`, ahora
+  visto también a nivel del orquestador superior.
+- **`report.ReporteRDR` (singular, uno por proceso/informe) — lógica interna confirmada por completo con
+  código fuente real:**
   `descargaMensajesReporte()` ejecuta la `query` del proceso (la pasada por el `main.Ppal`, consulta real sobre
   `FT_T_ALG1`) y clasifica cada fila por `TIPO` en 3 vectores (`MENSAJE`/`ESTADISTICA`/`CELDAEXCEL`), guardando
   todos los `ALG1_OID` vistos. `descargaTiposEnvio()` resuelve los medios de envío suscritos al proceso
@@ -1854,10 +1922,10 @@ Workflow analizado: `SSIs_Fx_Alta` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
   única, sin sucursales encontradas) tiene su propia rama `KO` explícita que invoca `SSIs_Fx_Reporte` y
   continúa con el siguiente SDI — no hay fallos silenciosos detectados en este `.wkf`, a diferencia de otros
   puntos de la cadena.
-- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx` y `SSIs_Fx_Reporte` no aportados — no se puede confirmar el
-  detalle final de qué campos de GoldenSource se actualizan en el alta real de la SDI (ver también los 3
-  subworkflows propios de `SSIs_Fx_Exec` en el Anexo: `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`,
-  tampoco aportados).
+- **Gap abierto, no bloqueante:** `SSIs_Valida_Fx` no aportado — no se puede confirmar el detalle final de la
+  validación estructural del XML de la SDI (ver también los 3 subworkflows propios de `SSIs_Fx_Exec` en el
+  Anexo: `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`, tampoco aportados). `SSIs_Fx_Reporte` queda
+  **confirmado con `.wkf` real** — ver Anexo más abajo.
 
 **Anexo — `SSIs_Fx_Exec`, confirmado con `.wkf` real:**
 
@@ -1886,10 +1954,36 @@ Workflow analizado: `SSIs_Fx_Exec` (grupo `Custom/RDR/Alert/InvestorsPlan`, vers
 - **Qué pasa si falla:** sin rama de gestión de error genérica visible — cada fallo conocido (resultado de
   `SSIsData_Fx` distinto de `"OK"`, o error MDX detectado tras `SSIsCreateNew`) tiene su propio reporte
   explícito vía `SSIs_Fx_Reporte` y el bucle continúa con la siguiente sucursal sin abortar el lote completo.
-- **Gap abierto, no bloqueante:** `SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion` (nombrado como
-  `SSIs_Fx_Difusion` en el `CallSubWorkflow`) y `SSIs_Fx_Reporte` no aportados — queda confirmado el
-  esqueleto de orquestación completo (incluida la comprobación de error MDX vía `FT_T_RLT1`), pero no la
-  lógica real de persistencia/difusión de cada uno.
+- **Gap abierto, no bloqueante:** `SSIsData_Fx`, `SSIsCreateNew` y `SSIs_Fx_Difusion` no aportados — queda
+  confirmado el esqueleto de orquestación completo (incluida la comprobación de error MDX vía `FT_T_RLT1`),
+  pero no la lógica real de persistencia/difusión de cada uno. `SSIs_Fx_Reporte` queda **confirmado con
+  `.wkf` real** — ver Anexo siguiente.
+
+**Anexo — `SSIs_Fx_Reporte`, confirmado con `.wkf` real:**
+
+Workflow analizado: `SSIs_Fx_Reporte` (grupo `Custom/RDR/Alert/InvestorsPlan`, versión 3, estado `RELEASED` —
+`documentos_fuente/evidencia_rdr_pr_bdiclienreg_resp/SSIs_Fx_Reporte.wkf`).
+
+- **Qué hace:** es el reportador de auditoría genérico que invocan tanto `SSIs_Fx_Alta` como `SSIs_Fx_Exec`
+  (parámetro `Donde`: `"Valida"`/`"Cparty"`/`"Branch"`/`"Alta"`/`"KO"`/`"Trans"`). Resuelve 5 datos comunes
+  — `AccessCode`/`Acronym`/`CodOid` (por XPath del XML en modo `"Alta"`, o por 4 queries sobre
+  `FT_T_SSIS`/`FT_T_FRID`/`FT_T_SAI1`/`FT_T_SsIA` en modo `"Baja"`/`"Conciliacion"`) y `FinsIdFund`/
+  `FinsIdGest` (2 queries sobre `FT_T_FRID`/`FT_T_FIGP`/`FT_T_FIID`, resolviendo el fondo y su gestora) — y,
+  según la rama de `Donde`, construye **2 `INSERT` literales por concatenación de cadenas** (no
+  parametrizados): uno en `FT_T_RLT1` (fila de auditoría, `RLT_DIF_ACC='FAILED'`/`'SUCCESSFUL'` según el
+  caso) y otro en `FT_T_VREQ` (nueva petición de tracking, mismo estado). Cada rama lleva su propio mensaje
+  fijo (p. ej. `"Cpty"`: "el Acrónimo X y el Access Code Y están dados de alta en más de una contrapartida
+  que opera con FX en RDR"; `"Baja"`/modo conciliación exitoso: "La SDI con ID: X se ha dado de baja
+  correctamente."; `"alta"`: "La SDI se ha dado de alta correctamente con el ID X"; `"branch"`: "El fondo con
+  FINSID: X no tiene asociada la branch A1"), salvo las ramas `"KO"`/`"Trans"`, que usan directamente el
+  `Message`/`ERROR_DESC` recibido del llamante como descripción del fallo.
+- **Qué recibe/produce:** recibe `Donde`/`Branch`/`RES`/`XML`/`Modo`/`Accion`/`SSI_ID`/`ERROR_DESC` (según la
+  rama); no declara salida de negocio — su efecto es la fila de auditoría en `FT_T_RLT1` y la nueva petición
+  en `FT_T_VREQ` descritas arriba.
+- **Qué pasa si falla:** sin rama de gestión de error visible en el propio `.wkf`; construye el `INSERT` por
+  concatenación directa de cadenas (mismo patrón de codificación, menos uniforme que el `DBStatement`
+  parametrizado del resto del árbol, ya señalado en otros jars de esta cadena, p. ej. `AltaFondos_Genera_csv`,
+  §6.3) a partir de valores ya resueltos por queries/XPath previos, no de entrada externa directa.
 
 ## 7. Especificación de testing
 
@@ -2161,6 +2255,21 @@ detención silenciosa) y el Soft Failure de la historificación final. El conjun
   podría no aplicarse nunca pese a reportar éxito — no confirmable sin ejecutarlo. El mismo workflow tiene
   además un mensaje de log que dice literalmente lo contrario de la condición que lo dispara ("No existe el
   país de residencia" en la rama donde sí existe).
+* **[PRIORIDAD ALTA, confirmado con `.wkf` real, §6.13sexies — Anexo] `Calculate Corporate Relationship`
+  (el subworkflow modificado más recientemente de todo el árbol Regulatory Information, `DEVELOPMENT` v15,
+  2026-10-01) tiene 2 variables de bind rotas en sus 2 `UPDATE` de `FT_T_FRA1`:** la rama `true` repite la
+  misma errata de nombre (`:contrprtyOperativeOid`, sin la "p") ya vista en `Calculate Parent Company
+  Country of Residence`; la rama `reactivar` va más allá y usa `:contrprtyGlobalOid`, una variable que no
+  existe en absoluto en el ámbito de este workflow (solo declara `cntrprtyOperativeOid`) — a diferencia de
+  una errata que simplemente no bindea, esta podría no resolver en tiempo de ejecución, apuntando a que la
+  reactivación de una clasificación `CORPREL` inactiva está genuinamente rota, no solo silenciosamente
+  ineficaz.
+* **[Confirmado con `.wkf` real, §6.13quater — Anexo] `EMIR Extraction` tiene un bug de scope de variable
+  en BeanShell que descarta su propio valor de respaldo:** `String codText = "0000";` se redeclara dentro
+  de un bloque `else` que ya tenía una declaración externa `String codText = "";` — la redeclaración queda
+  confinada a ese bloque y nunca se propaga a la variable de salida real del nodo, que permanece vacía. La
+  rama "código de institución no encontrado" probablemente resuelve una `etiquetaEmir` vacía en vez del
+  valor de respaldo `"0000"` que el código aparenta pretender.
 * **[Confirmado con `.wkf` real, §6.13septies — Anexo] `CreateShortname` calcula una detección de duplicados
   por restricción de unicidad en `FT_T_RRM1` cuyo resultado nunca se vuelve a leer:** el `SwitchCaseSplit` que
   decidiría actuar sobre ella se evalúa **antes** de que la variable se asigne (siempre toma la rama por
@@ -2307,26 +2416,28 @@ Information`), uno por nivel de jerarquía (Global/Operativo), que calculan EMIR
 DFA/Corporate Relationship respectivamente, cada uno con su propio mecanismo de override manual (ventanas de
 7 y 9 **segundos**, no días — cifras distintas entre sí, confirmando que no es un valor único compartido) y
 delegando a su vez en un árbol de 16 (Global) y 7 (Operativo) subworkflows propios más, **ya no tratados como
-fuera de alcance**: 20 de los 23 están cerrados con `.wkf` real entre esta ronda y las anteriores
-(`Calculate Counterparty type under EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under
-SFTR`/`Calculate Investment Firm`/`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category`/`Calculate European
-Person Indicator`/`Calculate Other Regulatory Information`/`Calculate_Reporting_Delegation_Model`/`Calculate
-Counterparty type under SFTR`/`Calculate EMIR NFC Sector`/`Manual EMIR Extraction`/`Manual SFTR Extraction`/
-`USINDEM Extraction`/`Other Regulatory Information Extraction` del lado Global, `Auxiliary DFA Data
+fuera de alcance**: **los 23 de 23 quedan cerrados con `.wkf` real** (`Calculate Counterparty type under
+EMIR`/`Calculate Final type under EMIR`/`Calculate Final type under SFTR`/`Calculate Investment Firm`/
+`Calculate SFTR NFC Sector`/`Calculate_EMIR_Category`/`Calculate European Person Indicator`/`Calculate Other
+Regulatory Information`/`Calculate_Reporting_Delegation_Model`/`Calculate Counterparty type under SFTR`/
+`Calculate EMIR NFC Sector`/`Manual EMIR Extraction`/`Manual SFTR Extraction`/`USINDEM Extraction`/`Other
+Regulatory Information Extraction`/`EMIR Extraction` — los 16 del lado Global; `Auxiliary DFA Data
 Extraction`/`Calculate Counterparty type under DFA`/`DFA Type Extraction`/`Corporate Relationship
-Extraction`/`Calculate Parent Company Country of Residence` del lado Operativo — ver los Anexos de
-§6.13quater/§6.13sexies; solo `EMIR Extraction` (Global) y `COMPCOUN Extraction`/`Calculate Corporate
-Relationship` (Operativo) quedan sin aportar de los 23), con hallazgos propios: 2 nodos de depuración
-(`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e incondicionales en `FT_T_RLT1`; un patrón de conexión
-JDBC manual dentro de `BeanShellScript` que bypasea el nodo estándar `DBStatement`, confirmado ya en 8 de
-estos subworkflows (en 2
-de ellos con el mismo `Logger` mal etiquetado, copiado literalmente de un subworkflow distinto); una vía de
-alerta directa a `TABLEALERTGENER` distinta del ciclo `FT_T_TPG1` de §6.14, confirmada ya en el lado EMIR y
-en el lado SFTR; `Calculate_EMIR_Category` como único subworkflow con una condición de entrada previa al gate
-general (solo aplica a personas físicas a nivel Global); un mecanismo de deduplicación por minuto vía
-restricción de unicidad en `FT_T_RRM1`; una asimetría estructural entre el lado EMIR y el lado SFTR del
-cálculo de tipo de contraparte (`Calculate Counterparty type under SFTR` no tiene gate ni escribe en
-`FT_T_FRA1`, a diferencia de su gemelo EMIR); `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
+Extraction`/`Calculate Parent Company Country of Residence`/`COMPCOUN Extraction`/`Calculate Corporate
+Relationship` — los 7 del lado Operativo — ver los Anexos de §6.13quater/§6.13sexies), con hallazgos
+propios: 2 nodos de depuración (`"Prueba"`/`"Prueba 2"`) ejecutando `INSERT` reales e incondicionales en
+`FT_T_RLT1`; un patrón de conexión JDBC manual dentro de `BeanShellScript` que bypasea el nodo estándar
+`DBStatement`, confirmado ya en 8 de estos subworkflows (en 2 de ellos con el mismo `Logger` mal etiquetado,
+copiado literalmente de un subworkflow distinto); una vía de alerta directa a `TABLEALERTGENER` distinta
+del ciclo `FT_T_TPG1` de §6.14, confirmada ya en el lado EMIR y en el lado SFTR; `Calculate_EMIR_Category`
+como único subworkflow con una condición de entrada previa al gate general (solo aplica a personas físicas
+a nivel Global); un mecanismo de deduplicación por minuto vía restricción de unicidad en `FT_T_RRM1`; una
+asimetría estructural entre el lado EMIR y el lado SFTR del cálculo de tipo de contraparte (`Calculate
+Counterparty type under SFTR` no tiene gate ni escribe en `FT_T_FRA1`, a diferencia de su gemelo EMIR); y,
+en el subworkflow modificado más recientemente de todo el árbol (`Calculate Corporate Relationship`,
+`DEVELOPMENT` v15, 2026-10-01), 2 variables de bind rotas en sus 2 `UPDATE` — una con la misma errata ya
+vista en `Calculate Parent Company Country of Residence`, otra que referencia una variable que no existe en
+absoluto en el ámbito del workflow; `RDR_AltaFondos_ROL` (§6.13quinquies, confirmado con `.wkf` real) resuelve además una
 corrección sobre la hipótesis previa — no es un `RaiseEvent`, es un `CallSubWorkflow` real que asigna el rol
 "Mandated Account" (`FT_T_FINR`/`FT_T_ENFR`/`FT_T_FRRL`) condicionado a un flag de `FT_T_UTD1`; y
 `PartySetupDifusion` (§6.13septies, confirmado con `.wkf` real) cierra el sexto y último subworkflow: difusión
@@ -2374,9 +2485,11 @@ real con una validación de 2 niveles (estado de la petición + contenido embebi
 fallo. Hallazgos propios: asimetría de auditoría (`NACK` de `SSIs_Fx_Peticion` sí registra en `FT_T_RLT1`; un
 timeout, o un fallo interno detectado por `RecepcionAlertApiRest` tras un `ACK` aparente, no lo hacen), y una
 variable llamada `insertRLT1` que en realidad contiene un `UPDATE` sobre `FT_T_VREQ`. Sin cabos sueltos
-bloqueantes; `SSIs_Fx_Exec` queda ahora también **confirmado con `.wkf` real** (Anexo de §6.19): orquesta el
-alta por sucursal, comprobando además un error MDX previo en `FT_T_RLT1` antes de considerar la SDI dada de
-alta — quedan como residuales de código no aportado `SSIs_Valida_Fx`, `SSIs_Fx_Reporte` y los 3 subworkflows
-propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`, `SSIs_Fx_Difusion`).
+bloqueantes; `SSIs_Fx_Exec` y `SSIs_Fx_Reporte` quedan ahora también **confirmados con `.wkf` real** (Anexos
+de §6.19): el primero orquesta el alta por sucursal, comprobando además un error MDX previo en `FT_T_RLT1`
+antes de considerar la SDI dada de alta; el segundo es el reportador de auditoría genérico (`FT_T_RLT1`/
+`FT_T_VREQ`, por concatenación directa de cadenas) que ambos invocan — quedan como residuales de código no
+aportado `SSIs_Valida_Fx` y los 3 subworkflows propios de `SSIs_Fx_Exec` (`SSIsData_Fx`, `SSIsCreateNew`,
+`SSIs_Fx_Difusion`).
 **Con esto, R9 queda funcionalmente resuelto y la auditoría completa de `RDR_PR_BDICLIENREG_RESP_new` (R1-R9)
 no tiene más gaps técnicos abiertos, salvo los cabos sueltos no bloqueantes ya señalados en cada sección.**
