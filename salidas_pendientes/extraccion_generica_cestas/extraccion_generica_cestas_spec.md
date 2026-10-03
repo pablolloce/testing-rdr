@@ -113,7 +113,7 @@ modos alternativos, las dos queries se usan en cada ejecución):
 4. Publica: mueve `Baskets.xml.tmp` (directorio `/fichtemcomp/pr/descargas/kytl/issues/`) a
    `/fichtemcomp/pr/descargas/kytl/issues/Baskets/<nombre>` donde `<nombre>` es el nombre de fichero de
    `URL_OUTPUT_FILE` de la query de detalle en `FT_T_ATE1` (`baskets.xml`; la ruta de `URL_OUTPUT_FILE` se
-   ignora). La subcarpeta `Baskets/` debe existir; sustituye el `baskets.xml` anterior.
+   ignora). La subcarpeta `Baskets/` debe existir; sustituye el `baskets.xml` anterior. **Nota (plantilla/objetos develop):** `ExtraccionGenericaBASKETS.properties` escribe `Baskets.xml.tmp` en `issues`, y `RDR_Validacion_XSD.sh` (tipo `BASKET`) valida `issues/Baskets/baskets.xml` (minúscula) con `Baskets_Schema.xsd`, raíz `Securities` y registro `Security`; el nombre final lo decide `URL_OUTPUT_FILE` (no visto). Ese script sale con 0 aunque el XML no cumpla el XSD (solo log). Procedencia: revisión de `comun_extraccion_generica`.
 5. Casi cualquier error (BBDD caída, query rota, una cesta que falla, subcarpeta inexistente) se escribe en
    el log del jar y el programa **termina con código 0**. Solo aborta con ≠0 si hay dos filas con el mismo
    nombre de detalle o no encuentra `URL_OUTPUT_FILE`. Por tanto un `GS_EXTRACCION_BASKETS` en verde **no
@@ -493,7 +493,7 @@ etiqueta de cierre.
   no `@@ENV@@`, pregunta abierta común P-GSP-01 en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`). El resto de
   argumentos (nivel de log, fichero log4j, **número de hilos**, directorio de ficheros, ubicación de
   credenciales, librerías) no figuran en la ficha: el resto de procesos que usan el mismo jar emplean el
-  formato descrito en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.1 (P-CES-03). **Cierre 3:** la plantilla de despliegue trae los 7 argumentos (20 hilos, log, `issues/Baskets.xml.tmp`; §6.2).
+  formato descrito en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.1 (P-CES-03). **Cierre 3:** la plantilla de despliegue trae los 7 argumentos (20 hilos, log, `issues/Baskets.xml.tmp`; §6.2). **Corrección:** P-GSP-01 está resuelta (cierre 3, `comun_gsprocess` §5): el marcador `@@ENV@@` lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr` al instalar el fichero de la plantilla (`X.properties.<env>` pasa a `X.properties`); `GSProcess.sh` no lo sustituye (solo `$ENV`/`$CONF`).
 - Regla general de `GSProcess.sh` (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §7): sin clave `Stop*=Ok`
   los pasos siguientes se ejecutan aunque falle uno anterior; las claves `Stop` de estos dos `.properties` no
   constan en las fuentes.

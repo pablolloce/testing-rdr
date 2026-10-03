@@ -302,7 +302,7 @@ siguientes se ejecutan igualmente** y el job termina con código 1 al final (spe
 |---|---|---|---|---|
 | 1 | `Script` `Delta` | `$SCRIPT/Delta.sh No` | Copia `ConBDI.csv` a `old/ConBDI.csv` (§6.4) | Código 1 del `cp` si falta `old/` o el fichero; se cuenta como error y se sigue |
 | 2 | `Script` `QuitarNulos` | `Generico.sh QuitarNulos $FILES/ConBDI/ConBDI.csv` | Quita `\x0` de `ConBDI.csv` en sitio (§6.5) | Código 1 si falla `sed` |
-| 3 | `Java` `PreprocessedBDI` | `java … -cp ControlCargaDatos.jar:javacsv.jar:… ControlCase $FILES/ConBDI/ConBDI.csv $LOG/ConBDI_preprocess_summary.log $CONF/fillingRules_ConBDI.csv` (en el `.properties` la clase es `ControlCase`, sin paquete; el jar recibido contiene `controlcargadatos.ControlCase`, P-CBD-13) | `ConBDI_processed.csv`, `ConBDI_noprocessed.csv`, log (§6.6) | Casi siempre sale con 0: los fallos solo se ven en el log |
+| 3 | `Java` `PreprocessedBDI` | `java … -cp ControlCargaDatos.jar:javacsv.jar:… ControlCase $FILES/ConBDI/ConBDI.csv $LOG/ConBDI_preprocess_summary.log $CONF/fillingRules_ConBDI.csv` (en el `.properties` la clase es `ControlCase`, sin paquete; el jar recibido contiene `controlcargadatos.ControlCase`, P-CBD-13) | `ConBDI_processed.csv`, `ConBDI_noprocessed.csv`, log (§6.6) | Casi siempre sale con 0: los fallos solo se ven en el log **Nota (plantilla/objetos develop):** los `fillingRules_*.csv` de este módulo están en `comun_controlcargadatos` §4.5, y en la plantilla ningún módulo borra `<nombre>_processed.csv` antes de `ControlCase` (aplica el riesgo R4 de ese componente). |
 | 4 | `Java` `ConBDI` | `java … -cp RDR_PLSQL.jar:ojdbc8.jar:… ConBDI $FILES/ConBDI/ConBDI_processed.csv` | Carga en GS, `FT_T_JBLG`, `FT_T_RLT1` (§6.7) | Código ≠0 solo si no hay conexión a BD (excepción no controlada) |
 | 5 | `Java` `ReporteBDI` | `java … -cp RDR_Report.jar:… CreateReport $CONF/select.properties ConBDI` (clase `CreateReport` sin paquete en el `.properties`; el jar recibido contiene `rdr_report.CreateReport`, P-CBD-13) | `Reporte_ConBDI.csv` (§6.8) | Siempre 0 |
 | 6 | `Script` `Unix2Dos` | `Generico.sh Unix2Dos $FILES/ConBDI/Reporte_ConBDI.csv` | `Reporte_ConBDI_dos.csv` (§6.9) | Código 4 si no existe `Reporte_ConBDI.csv` |
@@ -527,7 +527,7 @@ Funcionamiento genérico (cómo lee `select.properties`, historificación del an
 `<gcpassapp>` de `credentials.xml` (otro usuario de BD que el de `ConBDI.java`).
 
 Líneas literales de la clave en `select.properties` (copia de integración, líneas 6 a 8; la query es una
-sola línea y contiene dos tabuladores, que se muestran como espacios):
+sola línea y contiene dos tabuladores, que se muestran como espacios): **Nota (plantilla/objetos develop):** el `select.properties` de la plantilla (25 claves) es idéntico al de integración salvo la ruta (`@@ENV@@`); la tabla clave, `fileName`, cabecera y módulos está en `comun_rdr_report` §3.1, así que ya no cabe hablar de un `select.properties` de producción no recibido.
 
 ```
 queryConBDI=SELECT NVL(MAIN_ENTITY_ID,'N/A') BDI_ID,NVL(MESSAGE_RLT,'N/A') Mensaje,NVL(SRC_VALUE,'N/A') Valor_BDI,NVL(GS_VALUE,'N/A') Valor_GS FROM FT_T_RLT1 RLT1 where RLT_PURP_TYP='REPORTES' AND DATA_SRC_APP = 'BDI'  and RLT1.start_tms > (SELECT START_TMS FROM(SELECT JOB_START_TMS START_TMS FROM fT_T_JBLG WHERE JOB_MSG_TYP = 'BDI' AND job_stat_typ = 'CLOSED' ORDER BY JOB_START_TMS DESC) WHERE ROWNUM <2) ORDER BY MAIN_ENTITY_ID DESC, RLT_STATUS DESC
@@ -706,7 +706,7 @@ la pregunta abierta P-EBE-01 de su spec común.
 versión 6, último cambio `KYTL_GC` 2022-11-05, estado `RELEASED`, `haltOnError=false`, `retries=0`). Es
 genérico (lo comparten otros procesos). Parámetros de entrada: `Destination` (obligatorio), `Mail`
 (cuerpo, obligatorio), `Subject` (obligatorio), `FileMail` (ruta del adjunto, opcional) y `NameFile`
-(nombre con el que se adjunta, opcional). Dos nodos `Bean Shell Script` en cadena:
+(nombre con el que se adjunta, opcional). Dos nodos `Bean Shell Script` en cadena: **Nota (plantilla/objetos develop):** el sub-workflow `Mail` (`ConCorreo_v1`) separa los destinatarios por `;`, adjunta el fichero solo si existe y envía por SMTP puerto 25 con `HOST`/`USER` como variables del workflow. Procedencia: revisión de `rdr_c460`.
 1. `HOST - USER`: deduce el entorno por el primer directorio que exista entre `/pr/…/cfg/entorno/`,
    `/pp/…`, `/ei/…` y `/de/…`; parte de unos valores por defecto de desarrollo (servidor SMTP de
    desarrollo y remitente `rdr.es@dev.bbva.com`) y los sustituye por los de la entrada

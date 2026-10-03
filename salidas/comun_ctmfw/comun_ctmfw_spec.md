@@ -70,6 +70,8 @@ Con comodines, se da por cumplida la espera cuando **algún** fichero que cumpla
 completo. `ctmfw` **no mueve, no lee ni valida** el fichero: solo detecta su llegada. Lo que se
 haga con él lo hacen los jobs siguientes de la cadena.
 
+**Nota (plantilla/objetos develop):** sintaxis AutoEdit de Control-M: en `%%$ODATE._ClienSector.csv` o `%%$YEAR.%%$MONTH.%%$DAY._RatingsInternos.csv` el punto tras la variable es un delimitador y no sale en el nombre (probablemente `AAAAMMDD_...`); es relevante para `kytl001d_ratings_ada` (patrón con puntos) y `rdr_c460` (`CN460_F%%$DATE._*.csv`). No contrastado en entorno. Procedencia: revisión de `kytl_bcbs_sector_asset_allocation`.
+
 ## 4. Códigos de salida
 
 | Código | Significado | Fuente |

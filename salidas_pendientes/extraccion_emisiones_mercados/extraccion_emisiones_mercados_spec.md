@@ -157,7 +157,7 @@ entorno, no de código propio de estas cadenas. En el inventario de extracciones
 combinaciones, ver `comun_planificador_generico`) **no hay ninguna extracción de emisiones** con horario
 09:25 o 14:25-18:40, por lo que no se puede afirmar qué fichero de emisiones generan (P-EMI-02). El job termina
 en verde si el motor arranca, aunque no encuentre nada que ejecutar. `traducir_creden` y el `.properties` usan
-la variable de entorno como `@@ENV@@` según la spec común (pregunta abierta P-GSP-01 de `comun_gsprocess`).
+la variable de entorno como `@@ENV@@` según la spec común (pregunta abierta P-GSP-01 de `comun_gsprocess`). **Corrección:** P-GSP-01 está resuelta (cierre 3, `comun_gsprocess` §5): el marcador `@@ENV@@` lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr` al instalar el fichero de la plantilla (`X.properties.<env>` pasa a `X.properties`); `GSProcess.sh` no lo sustituye (solo `$ENV`/`$CONF`).
 
 **Paso OUT (Dummy).** `RDR_EXTRACCION_EMISIONES_OUT` / `RDR_EXTRACCION_EMISIONES_VENCIDAS_OUT`, mismo patrón que
 el IN: prerrequisito el evento del paso OS, agrega el evento de cierre de malla al finalizar. Ninguno de los 3

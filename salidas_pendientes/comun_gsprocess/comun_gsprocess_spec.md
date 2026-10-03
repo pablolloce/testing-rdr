@@ -174,6 +174,8 @@ Consecuencias:
   no debe devolver ficheros. `sustituirCONF` sí tiene trabajo: 29 ficheros de la plantilla usan el literal `$CONF`
   (por ejemplo `PreArgJava1=$CONF`) y el script los reescribe en sitio la primera vez.
 
+**Nota (plantilla/objetos develop):** `sustituirENV` y `sustituirCONF` reescriben en el propio fichero (`sed -i`) el texto literal `$ENV` y `$CONF` de todos los csv/xml/properties de `dat/properties` en cada ejecución; los ficheros instalados difieren de la plantilla solo por eso, algo a tener en cuenta al verificar con `diff`. Procedencia: revisión de `rdr_conciliacion_bdi`.
+
 ## 6. El fichero `.properties`: formato y acciones
 
 ### 6.1 Formato
@@ -231,6 +233,8 @@ comparado es más largo que la palabra (por ejemplo `Ruta`, `File`, `Tipo` o `St
 `Variables`), la clave tiene que ser exactamente esa palabra. Las tablas siguientes indican el
 nombre que usan los `.properties` reales.
 
+**Nota (plantilla/objetos develop):** las claves que siguen a la última `Accion=` de un `.properties` (p. ej. `filterName=IS_PUBLISH` tras `Accion=Evento` en `selectivePublishEmisiones.properties`) no las procesa `GSProcess.sh`; solo llegan al workflow porque el evento recibe el `.properties` completo. Conviene tomarlo como regla de lectura. Además, `Stop`/`StopScr`/`StopJav`/`StopEve`/`StopProp` solo paran con `Ok` exacto: `Contrato460` y la cabecera del propio script llevan `OK` y no paran. Procedencia: revisiones de `extraccion_emisiones_mercados`, `rdr_issues_re_pro_new` y `rdr_c460`.
+
 ### 6.2 Acción `Variables` (`Accion=Vari…`)
 
 Fija variables globales que usan las acciones siguientes y, sobre todo, los workflows. Claves
@@ -274,6 +278,8 @@ $SCRIPT/Delta.sh $ArgScri1
 # cualquier otro NomScript
 $SCRIPT/Generico.sh <NomScript> <PreArgScri1>/<ArgScri1> ... <PreArgScri5>/<ArgScri5>
 ```
+
+**Nota (plantilla/objetos develop):** `GSProcess.sh` lanza `Generico.sh` con `$PreArgSn$ArgScrin` sin comillas, así que el shell expande los comodines (p. ej. `LEIsReg_*.req`) y `Generico.sh` solo mapea los argumentos 2 a 6 a `ARG1`..`ARG5`; funciones como `ConvertirUNIXValidaFichero` o `Borrar` solo usan `ARG1` (el primer fichero alfabético). Procedencia: revisión de `rdr_pr_register_leis_send_new`.
 
 ### 6.4 Acción `Java` (`Accion=Java…`)
 
@@ -456,6 +462,8 @@ Genera `<Ruta><Servicio>/<Servicio>_errores.csv` (por ejemplo `LEI/LEI_errores.c
 
 `MarcaRegErroneo` v7 (único de estos workflows con `haltOnError=Y`): selecciona los `MAIN_ENTITY_ID` de `FT_T_RLT1` del job con `RLT_PURP_TYP='ERRORES'`; por cada uno escribe una línea en `db_errores.txt` (en `Carpeta`) y ejecuta un comando de shell (`errores_to_file`) cuyo texto se conoce por el objeto `MarcaRegErroneo.gsp` (develop): el nodo `Variables` detecta el entorno (primera carpeta existente entre `/pr/`, `/pp/`, `/ei/`, `/de/` + `kytl/online/multipais/multicanal/cfg/entorno/`; en un servidor con varias a la vez gana `pr`) y compone `sh /<entorno>/kytl/online/multipais/multicanal/scrt/errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv  <Ruta><Servicio>/db_errores.txt` (hay dos espacios antes del tercer argumento; es inocuo). La SELECT es `select main_entity_id from ft_t_rlt1 where job_id=? and rlt_purp_typ='ERRORES' and main_entity_id is not null union select main_entity_id from ft_t_trid where job_id=? and crrnt_severity_cde > 39 and main_entity_id is not null` (**incluye también los errores técnicos de `FT_T_TRID`**, no solo los funcionales); si no devuelve filas termina sin hacer nada. Las filas se concatenan en una sola cadena (cada id seguido de un espacio) y se añaden como **una única línea** a `db_errores.txt` de `Carpeta` (modo `append=true`: el fichero **no se trunca entre ejecuciones**, acumula líneas de ejecuciones anteriores salvo que el proceso lo borre). Va con `haltOnError=Y`: un fallo del comando aborta el workflow. El script `errores_to_file.sh` sí está en la plantilla de despliegue y se analiza en §6.5.2 (la invocación `sh .../errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt` la documentan las specs de los procesos que la usan, a partir del propio workflow). Según la descripción del propio parámetro `Delta` en el workflow, sirve para marcar los registros erróneos en el fichero de entrada de modo que **al día siguiente vuelvan a pasar por el proceso** en la comparación diferencial.
 
+**Nota (plantilla/objetos develop):** `SkipHeaderReadByLine.xml` usa ISO-8859-1, `LineSplitter`, `EmptyMessageFilter` y `skipLines=1`: salta siempre la primera línea sin validarla. `Sub_Report` y `Pr_Ej1` (Refundicion-Reubicacion) no los invoca ningún evento ni workflow del repositorio, y `Sub_Report` filtra `RLT_STATUS='4'` mientras `Sub_Load` escribe `1`; `RDR_ConClientela` y `RDR_ConBDI` lanzan `PLSQL_Load`, pero `Sub_Load` solo tiene ramas `Reubicacion` y `Refundicion`. Procedencia: revisiones de `rdr_conc_oficinas_new`, `rdr_refundicion` y `rdr_conciliacion_clientela`.
+
 #### 6.5.2 `errores_to_file.sh`: cómo "marca" los registros erróneos el evento `Errores` con `Delta=Si`
 
 **Procedencia.** Script de la plantilla de despliegue (repositorio `estaticos`, rama develop, `scrt/errores_to_file.sh`, 98 líneas, autor NFOQUE, 07/07/2014). Se ha leído entero y se ha ejecutado en un entorno de prueba con ficheros sintéticos para confirmar los comportamientos de abajo.
@@ -528,6 +536,8 @@ Limitaciones:
 - No hay límite de anidamiento.
 - La acción convierte cada clave del bloque en variable de shell con `eval`.
 
+**Nota (plantilla/objetos develop):** `Property` separa origen y destino con `cut -d '-'`, de modo que ni el texto a sustituir ni el valor pueden llevar guion. Procedencia: revisión de `rdr_conciliacion_bdi`.
+
 ## 7. Qué ocurre cuando un subproceso falla
 
 Cada acción comprueba el código de salida de lo que ha lanzado:
@@ -588,7 +598,7 @@ Todos verificados leyendo el código. Ninguno se ha corregido.
 
 | Id | Riesgo | Impacto |
 |---|---|---|
-| R1 | Si falta `credentials.xml`, termina con código 0 sin hacer nada | Alto: Control-M marca el job como correcto |
+| R1 | Si falta `credentials.xml`, termina con código 0 sin hacer nada | Alto: Control-M marca el job como correcto **Nota (plantilla/objetos develop):** `RDR_CargaBasketSponsor.sh` se comporta igual (sale con 0 sin hacer nada). Procedencia: revisiones de `carga_sponsors_baskets`, `cesion_cestas_abaco` y `extraccion_sait_contratos`. |
 | R2 | La acción `Property` nunca detecta el fallo del sub-módulo | Alto: fallos invisibles en procesos compuestos |
 | R3 | Un `.properties` guardado con finales Unix pierde el último carácter de cada valor | Medio: latente, los ficheros actuales son CRLF |
 | R4 | El acumulador de claves no se vacía entre acciones | Medio: un bloque puede heredar claves del anterior |
@@ -693,3 +703,5 @@ Los `fillingRules_` de estos módulos son: `alias` y `items` (reglas `NULL` y `L
 | `dat/properties/services.properties.pr/.pp/.ei/.de` | Configuración de los servicios de cola (`ServicesRDR`: contrapartidas, calendarios, jerarquías, diccionarios, valores, liquidaciones, tipos de operación, contactos, confirmaciones, acuerdos, países y mandatos) que arranca `services.sh` | No lo usa `GSProcess.sh`. Las cuatro variantes son **idénticas** (`global.env=@@ENV@@`); los nombres de cola siguen el patrón `KYRS.RDR.<SERVICIO>.REQUEST/RESPONSE` |
 | `dat/properties/kytl_pr_config.json` (y `_pp`, `_ei`, `_de`) | Cuatro ficheros de configuración **cifrados** (un único valor cifrado, dos bloques en base64 separados por `:`) | Existen en la plantilla; ningún script de la plantilla los referencia. No se documenta su contenido |
 | `dat/properties/Report.properties` | Lista de ficheros de las cargas iniciales (`files.list`: `TTEGCENG_PROCESSED.csv`, `TTEGCEMA_PROCESSED.csv`, `TTEGCAGC_PROCESSED.csv`, `TTEGCREL_FILTERED.csv` y dos `STARRET_Identifiers_*`), tipos de mensaje (`ENG,EMA,AGC,REL,RET,RET`), propiedades (`*FileUploading`) y campos excluidos (`fields.excluded`) | No lo usa `GSProcess.sh`; ningún script de la plantilla lo lee, así que el programa que lo consume no está identificado |
+
+**Nota (plantilla/objetos develop):** `Refinitiv_Derivados_Batch.sh` fija Java 8 (`/usr/local/<env>/jdk1.8.0_152`) y no usa `<javahome>` ni `JDKV`: con la migración a Java 17 en curso hay que revisarlo aparte de `GSProcess.sh`. `MorningAutomat.sh` (ANS) comprueba la carga del día: busca `<día>.*/TradPlazas/`, `*/plazas/`, `*/oficinas/`, `*/Refundicion/` y `*/clientes/` en el resultado SQL periódico y ficheros `*tela*`, `*BDI*`, `*bajas*`, `*niveles*`, `*carizacion*` fechados en el directorio de logs; útil para el apartado «cómo saber si fue bien» de varios procesos. Procedencia: revisiones de `descarga_derivados_refinitiv` y `rdr_carga_plazas_trad_new`.

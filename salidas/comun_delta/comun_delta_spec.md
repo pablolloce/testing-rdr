@@ -208,6 +208,8 @@ variables llegan a `GSProcess.sh` (las exporta un proceso hijo).
 | R6 | El relanzamiento se detecta por diferencia de 5 segundos en fechas de fichero | Bajo |
 | R7 | Si no existe `old/`, todo falla en silencio | Bajo: se crea al instalar el proceso |
 
+**Nota (plantilla/objetos develop):** si un script quita la cabecera antes de `Delta.sh` `Si` (`SAA_Local.sh` hace `sed 1d`; caso `T2` de `rdr_cargasectoada` con un CSV transformado sin cabecera), `Compare` trata la primera línea de datos como cabecera: siempre sale en el delta y no se compara. `SAA_Local.sh` limpia después con la función `limpieza()`, que quita la línea en blanco que deja `Delta`. Además, `Delta.sh` de la plantilla coincide con lo descrito (`compare.jar`, ventana de 5 s para la marcha atrás), y la marca `ERROR-` que `errores_to_file.sh` antepone a `old/<MOD>.csv` es lo que hace reaparecer como nuevo un registro erróneo en el siguiente delta. Procedencia: revisiones de `kytl_bcbs_sector_asset_allocation`, `rdr_cargasectoada` y `rdr_refundicion`.
+
 ## 11. Procesos que lo usan
 
 | Proceso (`salidas/…`) | Uso |

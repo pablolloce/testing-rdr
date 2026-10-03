@@ -206,6 +206,8 @@ Observaciones que se desprenden de la tabla:
   de LEI pendientes); `CARGA_BASKETS_SPONSORS` sale de su propio fichero.
 - Ninguna variante lleva `Stop`: se mantiene el comportamiento de §2 (el fallo de lo que ejecuta un `Property` no se detecta).
 
+**Nota (plantilla/objetos develop):** la acción `Property` sustituye en la copia temporal todo literal `GestionAlertas` (también en `Ruta` y en `ServicioJava`), además de `PROCESOS`. La plantilla usa `@@ENV@@` en todas las rutas y logs (`AlertasBarrido.log`, `AlertasCocinado.log`, nivel `info`, 100000 KB x3). `Reporte_GLEIF_Entity_Status.properties` es solo una acción `Property` sobre esta plantilla (`ArgProp2=PROCESOS-Reporte_GLEIF_Entity_Status`) y no existe el flag `JDKV`. De `GestionAlertasAOSRDR.properties` no consta qué job de Control-M lo ejecuta ni cada cuánto (atiende, entre otros, `PETICION_REFINITIV_EMISIONES` del workflow `Refinitiv_Request_Response`). De `ReporteSectorizacionT1/T2/T3` (`Sectorizacion_T1/T2/T3`) falta saber qué incidencias recoge el Barrido (configuración en `FT_T_TPG1`/`FT_T_REP1`). Procedencia: revisiones de `descarga_derivados_refinitiv`, `rdr_batch_emisores_refinitiv`, `rdr_carga_refinitiv_multi` y `rdr_cargasectoada`.
+
 ## 4. Etapas 1 y 2: Barrido y Cocinado (queries reales)
 
 ### 4.1 Barrido (`RDR_AlertasBarrido.jar`)
@@ -496,6 +498,8 @@ siempre. Como el mecanismo se usa en producción, es más probable que no afecte
 comprobar en el log de una ejecución de integración que se llega a `Send Mail`.
 
 **Localización exacta (según los objetos `AlertasEnvio.gsp` y `Mail.gsp` del repositorio de objetos de GoldenSource, rama develop).** El nodo `Validate MAIL` no está en el subworkflow `Mail` (v6, que solo tiene los nodos `HOST - USER` y el envío SMTP), sino en `AlertasEnvio` v7 (comentario `AOS_BASKETS_v1`). Comprueba destino, asunto y cuerpo no vacíos y `enviar='S'`, y escribe en el log (nivel `ERROR`, logger `AlertasEnvio - Validate mail`) `Destination OK`, `Subject OK` y `Body OK : ` + `mailOK`; `mailOK` no se pasa como variable al script (solo `body`, `destination`, `env`, `enviar`, `subject` y `validaemail`). Es la única referencia a `mailOK` y no condiciona el resultado (`validaemail` se calcula antes). Además, el log dice «Body OK» pero imprime una variable inexistente en lugar de `bodyOK`. Con el comportamiento habitual de BeanShell una variable no definida provoca un error de evaluación en ese nodo, lo que impediría **todos** los envíos; como el envío funciona, se concluye que el intérprete de GoldenSource lo tolera, pero no se ha comprobado en ejecución.
+
+**Nota (plantilla/objetos develop):** `ComposeEmail` marca las filas de `FT_T_UTD1` como enviadas aunque `Mail` falle, porque `Mail` no gestiona errores. En `AlertasEnvio` (develop, v7) el entorno se deduce del directorio `cfg/entorno`, `SEND_PEND` pasa a `N` antes de validar, el cuerpo es `BODY_<SHORT>.txt` (`CUERPO_<SHORT>.txt` en el tipo `CUERPO`), los adjuntos pueden ser `.dat`, `.xlsx`/`.xlsm`, `.txt` o `.docx`, sin `BODY` no hay envío y el `YYYYMMDD` de `SHORT_PROCESS` es la fecha del envío; el asunto es `[RDR Reportes] - <proceso>` y `LAST_SEND_TMS` se actualiza tras enviar. Procedencia: revisiones de `rdr_conciliacion_bdi`, `recepcion_altamira_colombia`, `kytl001d_ratings_ada` y `kytl_bcbs_sector_asset_allocation`.
 
 ### 5.2 Personalización por proceso: subworkflow `AlertasEnvioExcepciones` (`.wkf` real, rama de Eduardo)
 

@@ -506,7 +506,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
 |---|---|---|
 | `Refundicion.csv` | sistema origen (P-REF-01) | Tras `Delta` es solo el delta del día; `MEKYTL0121` lo mueve a `old/` |
 | `Refundicion.tmp` | `LimpiarRefundicion` | Cabecera + columnas 1 y 5, ordenado y sin repetidos consecutivos |
-| `Refundicion_processed.csv` / `Refundicion_noprocessed.csv` | `ControlCargaDatos` | Registros válidos / rechazados (se sobrescriben cada día) |
+| `Refundicion_processed.csv` / `Refundicion_noprocessed.csv` | `ControlCargaDatos` | Registros válidos / rechazados (se sobrescriben cada día) **Nota (plantilla/objetos develop):** los `fillingRules_*.csv` de este módulo están en `comun_controlcargadatos` §4.5, y en la plantilla ningún módulo borra `<nombre>_processed.csv` antes de `ControlCase` (aplica el riesgo R4 de ese componente). |
 | `Reporte_Refundicion.csv` / `Reporte_Refundicion_dos.csv` | `RDR_Report` / `Unix2Dos` | Informe (LF) / mismo informe en CRLF (el que se envía) |
 | `<Servicio>_errores.csv` | `Evento(Errores)` (`ErroresCSV`) | Auditoría de errores funcionales (`FT_T_RLT1`, `ERRORES`) y técnicos (`FT_T_TRID`, severidad >39) del job; solo si se encuentra el job `CLOSED` de la última hora; cabecera de 11 columnas `RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT;`. Nombre y directorio: `<Ruta><Servicio>/<Servicio>_errores.csv` (para esta cadena, `Refundicion/Refundicion_errores.csv`), confirmados con el workflow; el anterior se mueve a `old/` al inicio del evento |
 | `db_errores.txt` | `MarcaRegErroneo` (`Delta=Si`) | Identificadores (`MAIN_ENTITY_ID`, para Refundición el par `CLIENTED;CLIENTEP`) de los registros con error del job, separados por espacio; lo consume `errores_to_file.sh` (§6.3), que lo **borra** al terminar |
@@ -582,7 +582,7 @@ copia verificada de producción. La plantilla es la base **anterior a la migraci
   (marcan la línea cuya primera columna, o las columnas 1-3 en `OFC` y la 3 en `OFA`, contiene el identificador). Un tipo no reconocido no marca nada,
   pero igualmente borra `$3`. Peculiaridades del código: la comprobación `[ NUM_PARAMETROS > 1 ]` está mal escrita (es una redirección a un
   fichero llamado `1` y la condición es siempre cierta), por lo que cada ejecución deja un fichero vacío `1` en el directorio de trabajo del proceso que
-  lo lanza; no devuelve ningún código de error propio.
+  lo lanza; no devuelve ningún código de error propio. **Nota (plantilla/objetos develop):** `errores_to_file.sh` está analizado en `comun_gsprocess` §6.5.2: antepone `ERROR-` a las líneas de `old/<Servicio>.csv` que contienen los ids de `db_errores.txt`, y lo borra al terminar. Defectos: un id sin coincidencia marca todas las líneas, con varias coincidencias no marca ninguna, crea un fichero `1` por `[ NUM_PARAMETROS > 1 ]` y sale con 0. En este módulo no queda pendiente ningún «script no recibido».
 
 **Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana busca, en el resultado de la consulta periódica de cargas del día, una línea para el directorio `*/Refundicion/` («Carga Refundición», también los lunes); solo indica que la carga de ayer quedó registrada.
 

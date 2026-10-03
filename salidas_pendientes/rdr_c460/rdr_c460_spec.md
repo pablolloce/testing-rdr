@@ -57,7 +57,7 @@ Incluye las 9 jobs de la cadena `KYTL0000-RDR_C460_new` y el pipeline interno co
   n; `LONGITUD(n)` = máximo n; `INTEGER`/`DOUBLE`/`NEGATIVO` (>0); `USAR` = solo caracteres permitidos;
   `DUPL` = clave de duplicados (queda la última aparición). Un registro con distinto número de campos que
   la cabecera se rechaza con `"El registro nº:<n> :(<línea>) tiene diferentes campos que la cabecera."`.
-  Siempre termina con código 0, incluso sin fichero de entrada.
+  Siempre termina con código 0, incluso sin fichero de entrada. **Nota (plantilla/objetos develop):** los `fillingRules_*.csv` de este módulo están en `comun_controlcargadatos` §4.5, y en la plantilla ningún módulo borra `<nombre>_processed.csv` antes de `ControlCase` (aplica el riesgo R4 de ese componente).
 - Los sistemas que reciben los mensajes de los workflows `RDR_BajaContratos460` y
   `RDR_BajaCodTesBDIGesC460` (Clientela y BDI, por cola MQ): los dos workflows en sí **sí están analizados**
   (§6.8, con la base de workflows de GoldenSource), pero lo que hagan los destinatarios con el mensaje queda
@@ -381,7 +381,7 @@ separadas por `;`, ISO-8859-1, saltos LF; un valor nulo sin `NVL` saldría como 
 guarda el informe anterior en `<ruta><clave>/old/<nombre>.zip` (solo la última versión). **Siempre termina
 con código 0**: si falla la conexión o la query, el job no lo ve y puede quedar el informe del día
 anterior. Los informes son la fotografía de `FT_T_RLT1` "de hoy" (`start_tms`/`last_chg_tms >
-trunc(sysdate)`). Las líneas literales de `select.properties` de las tres claves `Contratos460*`:
+trunc(sysdate)`). Las líneas literales de `select.properties` de las tres claves `Contratos460*`: **Nota (plantilla/objetos develop):** el `select.properties` de la plantilla (25 claves) es idéntico al de integración salvo la ruta (`@@ENV@@`); la tabla clave, `fileName`, cabecera y módulos está en `comun_rdr_report` §3.1, así que ya no cabe hablar de un `select.properties` de producción no recibido.
 
 **Clave `Contratos460/Reportes`** (paso 9; fichero `.../Contratos460/Reportes/Reportes_Contratos460.csv`):
 ```

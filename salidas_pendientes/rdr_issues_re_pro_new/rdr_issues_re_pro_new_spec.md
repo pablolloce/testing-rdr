@@ -49,7 +49,7 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
 
 | ID | Requisito |
 |----|-----------|
-| R9 | `RDR_ISSUES_RESTO_T` (23:00h, L-V) ejecuta `GSProcess.sh ExtraccionGenericaEMISI_RESTO`, genera `emisiones.resto.xml`. |
+| R9 | `RDR_ISSUES_RESTO_T` (23:00h, L-V) ejecuta `GSProcess.sh ExtraccionGenericaEMISI_RESTO`, genera `emisiones.resto.xml`. **Nota (plantilla/objetos develop):** los `.properties` `EMISI_ALL`/`EMISI_RESTO` generan `issues/ReportingEngine/emisiones.xml` y `emisiones.resto.xml` (jar `EMISI` + `ConexionBD.jar`), y `RDR_Validacion_XSD.sh` (tipos `ISSUE` e `ISSUERESTO`) los valida con `xsd_emisiones_batch.xsd` (`Securities`/`Security`), saliendo con 0 aunque no cumplan. Procedencia: revisión de `comun_extraccion_generica`. |
 | R10 | `FW_RDR_ISSUES_RESTO_T` (`ctmfw '/fichtemcomp/pr/descargas/kytl/issues/ReportingEngine/emisiones.resto.xml' CREATE 0 60 10 5 120`: misma mecánica, espera máxima 120 min desde 23:00h) detecta el fichero. RC=0 → publica `FW_RDR_ISSUES_RESTO_T_OK`; RC=7 → solo email a `ans_rdr.es@bbva.com` (sin regla "7→OK": job NOTOK, el bloque 2 se detiene). |
 | R11 | `RDRKYTL002` valida contra XSD (`RDR_Validacion_XSD.sh pr ISSUERESTO`), dispara en paralelo 8 ramas. |
 | R12 | Fan-out de 8 ramas desde `RDRKYTL002`: `RDRKYTL001` (transformación, ver R13), `MEKYTL1146`→Mentor (**sin relanzamiento ante error**, criticidad C), `MEKYTL1064`→KLYO, `MEKYTL1125`→copia local DataX (+ evento externo `GC_TESO`), `MEKYTL1130`→Quotepad, `MEKYTL1131`→Nova/XCTT, `MEKYTL0986`→AMIWEB, `MEKYTL1092`→HYDRA. |

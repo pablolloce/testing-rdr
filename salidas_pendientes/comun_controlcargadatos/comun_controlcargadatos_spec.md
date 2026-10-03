@@ -195,7 +195,7 @@ Según la plantilla de despliegue (repositorio `estaticos`, rama develop, `dat/p
 5. **Sin invocación en la plantilla:** `fillingRules_plazas.csv` (el módulo `plazas` tiene `Preprocesado=No` y no ejecuta el programa) y `fillingRules_cargafechas.csv` (ningún módulo lo referencia). `fillingRules_alias.csv` y `fillingRules_items.csv` los usan los scripts de carga inicial (`initialLoad*.sh`) y el motor antiguo.
 6. **Reglas de duplicados:** `ratingsBBVA`/`ratingsBANCOMER` marcan como clave la columna 1 (`CONTRAPARTIDA`/`Contrapartida`), y `retBBVA`/`retBANCOMER` la columna 2 (`Contrapartida`, cabecera `Cuenta;Contrapartida`). Se conserva la última aparición (§6).
 
-**`fillingRules_ConBDI.csv`** — 46 columnas, 3 filas de regla, 22 columnas con reglas. Lo usa: `ConBDI.properties` (`.pr/.pp/.ei/.de`, `rdr_conciliacion_bdi`). Fichero validado: `ConBDI/ConBDI.csv`, log `<logs>/ConBDI_preprocess_summary.log`.
+**`fillingRules_ConBDI.csv`** — 46 columnas, 3 filas de regla, 22 columnas con reglas. Lo usa: `ConBDI.properties` (`.pr/.pp/.ei/.de`, `rdr_conciliacion_bdi`). Fichero validado: `ConBDI/ConBDI.csv`, log `<logs>/ConBDI_preprocess_summary.log`. **Nota (plantilla/objetos develop):** `ConBDI.properties.{de,ei,pp,pr}` son idénticos salvo `Destination`: `Delta` No; `QuitarNulos`; `ControlCase` con `fillingRules_ConBDI.csv`; `RDR_PLSQL.jar` clase `ConBDI`; `CreateReport` clave `ConBDI`; `Unix2Dos`; `RDR_InformeBroker.jar`; workflow `RDR_informeBroker_BDI`; `Property` `Plantilla_ReportMail`. Las clases van sin paquete (versión previa a Java 17). Procedencia: revisión de `rdr_pr_bdiclienreg_resp`.
 
 | Pos. | Columna | Reglas (una por fila de regla) |
 |---|---|---|
@@ -712,3 +712,5 @@ del log, sabiendo que el código de salida será 0.
 `rdr_carga_plazas_trad_new` lo usa (confirmado con la plantilla de despliegue: `TradPlazas.properties`, `Delta=No`, `Preprocesado=Si`).
 
 **Resto de módulos de la plantilla que lo invocan** (todos con la clase sin paquete): `OFAC` (`OFAC/OFAC.csv`, `fillingRules_OFAC.csv`), `nlegales`, `cedro`, `cargafechasGTR`, `cargafechasMGC`, `cargafechasSTAR` (sus ficheros `…/<módulo>.csv`). Sus reglas están en §4.5. El motor antiguo `executeGSProcess3.sh` lo invoca para los módulos `ratings*`, `ret*`, `alias` y `items` (reglas `DUPL`, `NULL` y `LONG`).
+
+**Nota (plantilla/objetos develop):** `nlegales.properties` y `fillingRules_nlegales.csv` aparecen en el material de `opiniones_legales`, pero son de entidades legales (CNL), no de opiniones legales. En la plantilla, ningún módulo borra `<nombre>_processed.csv` antes de `ControlCase` (aplica R4 de este componente); `TradPlazas` sí usa el componente. Procedencia: revisiones de `opiniones_legales` y `comun_controlcargadatos`.

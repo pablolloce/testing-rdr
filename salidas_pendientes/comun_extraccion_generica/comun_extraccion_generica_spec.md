@@ -200,6 +200,8 @@ como en `CPTY` y `EMISI`. Es la base anterior a la migración a Java 17, que est
 instalado: en integración, la copia con paquete y `JDKV=17` (evidencia de entorno recibida); en el resto, la plantilla hasta que se
 migre. No cambia ningún argumento ni el algoritmo.
 
+**Nota (plantilla/objetos develop):** `RDR_Validacion_XSD.sh` sale con 0 aunque el XML bien formado no cumpla el XSD (solo deja log), lo que es relevante para todo proceso que use `VALIDACION_XSD` con `Force` `OK`. Existe una pareja `ExtraccionGenericaCONTR`/`CONTRBBVA` y `transformarBANCOMERContracts*`; la plantilla trae 20 hilos y ningún `Stop*` en ambas. Procedencia: revisiones de `extraccion_generica_cestas` y `cesion_contratos_bbva`.
+
 ### 2.6 Dónde escribe su log cada extracción (log4j de la plantilla)
 
 Según la plantilla de despliegue, los doce `log4jExtraccionGenerica<TIPO>.properties` (`BASKETS`, `CON`, `CONTR`, `CONTRBBVA`, `CPTY`, `DOMI`,
@@ -280,6 +282,8 @@ Según la plantilla de despliegue, `ExtraccionDUCOMASTERDATA.properties` declara
 | Orden de las filas | No determinista (paralelo) | El de la query |
 | Fallo de base de datos | Se registra y termina con 0 | Termina con error |
 | Fichero anterior | Se sustituye; si el movimiento falla, el temporal se acumula | Se sustituye solo si todo fue bien |
+
+**Nota (plantilla/objetos develop):** en `scriptsSQL` de develop, `QueryAgreementBBVA.sql`, `Baskets.sql` y `emisiones_RE*.sql` llevan los marcadores de paginación `:paginacionResultado`/`:paginacionFinal`/`:paginacionInicio`, mientras que `ExtraccionCONTRBBVA.sql` y `ExtraccionBASKETS.sql` son listas sin paginación (la de detalle de cestas recibe `instr_id=?`). Las listas de contrapartidas devuelven una columna `INST_MNEM` sin paginar y las de detalle se parametrizan con `INST_MNEM=?`. El detalle `DUCOCPTY` devuelve la columna `RESULT` (línea ya concatenada) y el de SSIs/SCIs `xmlResult`; el jar trata ambas según el tipo, y la lista `DUCOCPTY` exige rol activo (`MUREXID`/`MARKITBIC`/`STARID`). El detalle de SCIs no filtra `END_TMS` ni el estado de la SCI (se fía de la lista), lleva escalares sin `ROWNUM`, `STP` lee `VAL_DATE` y `DateFrom`/`DateTo` salen sin `TO_CHAR`; en SSIs/SCIs una subconsulta escalar sin `ROWNUM` produce `ORA-01427` y omite esa fila en silencio (el job acaba OK). Procedencia: revisiones de `cesion_contratos_bbva`, `extraccion_generica_cestas`, `extraccion_emisiones_mercados`, `rdr_issues_re_pro_new`, `extraccion_generica_contrapartidas`, `extraccion_scis`, `rdr_duco_cpty` y `rdr_extraccionssis`.
 
 ## 5. Riesgos
 

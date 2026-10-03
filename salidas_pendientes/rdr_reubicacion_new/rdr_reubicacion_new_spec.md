@@ -330,7 +330,7 @@ Accion=Script
 - **Ninguna clave `Stop`**: un fallo en una acción no impide las siguientes; el job termina con 1 al final.
 - **Marcador `@@ENV@@`** en `Ruta` y `File`: `GSProcess.sh` solo sustituye `$ENV` (pregunta general P-GSP-01 de la spec
   común). Indicio de que lo sustituye el despliegue: la copia de integración de `select.properties` es idéntica a la plantilla
-  salvo que donde la plantilla dice `@@ENV@@` la copia dice `ei`.
+  salvo que donde la plantilla dice `@@ENV@@` la copia dice `ei`. **Corrección:** P-GSP-01 está resuelta (cierre 3, `comun_gsprocess` §5): el marcador `@@ENV@@` lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` por `de`, `ei`, `pp` o `pr` al instalar el fichero de la plantilla (`X.properties.<env>` pasa a `X.properties`); `GSProcess.sh` no lo sustituye (solo `$ENV`/`$CONF`).
 - **Java sin paquete y sin `JDKV`**: `ControlCase` y `CreateReport` (sin `controlcargadatos.` ni `rdr_report.`) y sin `JDKV=17`. Los
   jars analizados tienen la clase dentro de un paquete y están compilados para JDK 17; producción usa otra versión
   (H-REUB-07 y H-REUB-08, §9).
