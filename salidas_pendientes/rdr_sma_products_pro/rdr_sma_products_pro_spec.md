@@ -351,7 +351,7 @@ Origen en los tres casos: `productos_<DDMMAAAA>.xml` en `/fichtemcomp/pr/descarg
 | P-PROD-02 | ¿Qué fecha lleva exactamente `productos_<DDMMAAAA>p1.xml` en Big Data: día natural siguiente, día hábil siguiente u otra? ¿Dónde se calcula (variable del `.idx`, módulo `SF_MEGENV0001_PARAMS.mod`)? | Es el nombre que recibe el consumidor; los fines de semana y festivos dan resultados distintos |
 | P-PROD-03 | ¿Cuál es la línea de `MEKYTL0406` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (máscara, destino, campo "falla si no hay fichero", tipo de selección, días, operación)? | Decide qué ficheros se archivan (uno o todos los `productos_*.xml`), si falla sin fichero, y qué ocurre al relanzar el mismo día si ya existe el `.gz` |
 | P-PROD-04 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.3).** Se tiene el script con las comillas invertidas íntegras y la hoja `productos.xsl` (la única candidata, por nombre y por coincidir con los campos de entrada de 5.2); sigue sin código del jar. ¿Se puede obtener el código (o el jar para decompilar) de `BatchProductos.Transformaciones_PRODUCTOS` en `RDR_Transformacion_PRODUCTOS.jar`, la hoja XSL que aplica y una copia del script tal como está instalado? | Es el único paso que cambia el contenido del fichero: hace falta saber qué lee, qué XSL aplica, qué cambia, qué fecha pone en el nombre, si consulta base de datos, dónde escribe su log y qué código devuelve si falla (un error capturado que termine con 0 dejaría la cadena en verde sin fichero nuevo). La copia recibida del script ha perdido las comillas invertidas de las sustituciones de órdenes (ver §6.3) |
-| P-PROD-05 | ¿El valor real de `URL_OUTPUT_FILE` de la extracción `productos.sql` (`ACT1_OID 0152F5B19`) es `.../productos/productossinfiltrar.xml` (como espera el FW) o `.../productos/productosinfiltrar.xml` (como dice el inventario del Planificador)? ¿Se puede obtener el texto de la query (`CLOB_VALUE`)? | Si fuera el segundo, el FW procesaría siempre un fichero antiguo; sin la query no se puede especificar campo a campo el contenido del fichero ni comprobar si tiene `ORDER BY` (riesgo de filas repetidas o perdidas en la paginación del Planificador) |
+| P-PROD-05 | **Resuelta en parte (4ª pasada, objeto `productos.sql` de la rama develop, ver 5.2): el texto de la query está incorporado (una sola fila CLOB, sin `ORDER BY`, campos y filtros literales). Sigue abierto el valor real de `URL_OUTPUT_FILE`.** ¿El valor real de `URL_OUTPUT_FILE` de la extracción `productos.sql` (`ACT1_OID 0152F5B19`) es `.../productos/productossinfiltrar.xml` (como espera el FW) o `.../productos/productosinfiltrar.xml` (como dice el inventario del Planificador)? ¿Se puede obtener el texto de la query (`CLOB_VALUE`)? | Si fuera el segundo, el FW procesaría siempre un fichero antiguo; sin la query no se puede especificar campo a campo el contenido del fichero ni comprobar si tiene `ORDER BY` (riesgo de filas repetidas o perdidas en la paginación del Planificador) |
 | P-PROD-06 | ¿Hay algo fuera de esta cadena que borre o renombre `productossinfiltrar.xml`? Si no, ¿es aceptable que, cuando el Planificador falla, la cadena reenvíe el fichero del día anterior en verde? | El FW no distingue un fichero nuevo de uno antiguo (RISK-PROD-006) |
 | P-PROD-07 | ¿Qué sistema es "SMA" y cuál de los tres destinos le corresponde? ¿Quién es el responsable de cada destino? | Saber a quién afecta un fallo de cada envío y a quién avisar |
 
@@ -383,26 +383,33 @@ El fichero lo genera el Planificador Genérico de RDR (motor `ProjectMain.jar`, 
 
 **Parámetro activo en `FT_T_PAR1`:** `PAR1_OID 0152F5B1B`, tipo `ROOT_TAG`, `PAR1_NME` = `<Productos>`, `PAR1_VALUE` = `</Productos>`. Es decir, el XML va envuelto en la etiqueta raíz `<Productos>…</Productos>`. Si ese parámetro estuviera `INACTIVE`, la extracción se ejecutaría igualmente sin sustituir el marcador.
 
-**Qué extrae la query** (análisis del documento fuente, que no reproduce el SQL; el texto de la query, `CLOB_VALUE`, **no se ha recibido**, P-PROD-05): parte del catálogo maestro de tipos de instrumento `FT_T_ISTY`, filtrando los registros activos cuyo nombre empieza por `CANONICO:` (`data_stat_typ = 'ACTIVE' AND iss_typ_nme LIKE 'CANONICO:%'`), y por cada tipo canónico añade sus equivalencias por sistema origen desde `FT_T_ISCD` / `FT_T_EIST`. Son 3 tablas, sin el patrón atributo-valor (EAV) que usa la extracción de portfolios.
+**Qué extrae la query** (texto literal del objeto `productos.sql` de la rama develop del repositorio de objetos de GoldenSource, 4ª pasada; puede diferir
+del `CLOB_VALUE` instalado): una sola sentencia `SELECT XMLAGG(XMLELEMENT(NAME "Producto", ...)).getClobVal() xmlResult FROM FT_T_ISTY dealTypes WHERE
+dealTypes.data_stat_typ = 'ACTIVE' AND iss_typ_nme LIKE 'CANONICO:%'`. Devuelve **una sola fila** con un único CLOB que agrega todos los `Producto` (no hay `GROUP BY`),
+por lo que el límite de 20.000 filas y la paginación por `ROWNUM` del Planificador no se aplican a esta query (solo podría importar el tamaño del CLOB).
+Parte del catálogo maestro de tipos de instrumento `FT_T_ISTY`, filtra los activos cuyo nombre empieza por `CANONICO:` y, por cada uno, añade sus equivalencias por
+sistema origen con una subconsulta sobre `FT_T_ISCD` y `FT_T_EIST` (unidas por `iscd_oid` y por `iss_typ`, solo `EIST` con `data_stat_typ='ACTIVE'`; `FT_T_ISCD` no se
+filtra por estado). Son 3 tablas, sin el patrón atributo-valor (EAV) que usa la extracción de portfolios.
 
-Campos por producto canónico:
+Campos por producto canónico (etiquetas XML literales de la query):
 
 | Campo | Contenido | Origen |
 |---|---|---|
-| `Canonico_Value` | Valor (código) del producto canónico | `FT_T_ISTY` |
-| `Canonico_Description` | Descripción del producto canónico | `FT_T_ISTY` |
+| `Canonico_Value` | `TRIM(iss_typ_nme)`: **incluye el prefijo `CANONICO:`** (la query solo toma nombres que lo llevan) | `FT_T_ISTY.ISS_TYP_NME` |
+| `Canonico_Description` | `TRIM(iss_typ_desc)` | `FT_T_ISTY.ISS_TYP_DESC` |
 
-Bloque que se repite por cada sistema origen (subproducto):
+Bloque `SubProductos` (siempre presente, vacío `<SubProductos/>` si el tipo no tiene equivalencias activas) con un `SubProducto` por equivalencia:
 
 | Campo | Contenido | Origen |
 |---|---|---|
-| `System_Name` | Nombre del sistema origen | `FT_T_ISCD` / `FT_T_EIST` |
-| `System_Value` | Código del subproducto en ese sistema | `FT_T_ISCD` / `FT_T_EIST` |
-| `System_Description` | Descripción del subproducto en ese sistema | `FT_T_ISCD` / `FT_T_EIST` |
+| `System_Name` | Sistema origen, **sin `TRIM`** | `FT_T_EIST.DATA_SRC_ID` |
+| `System_Value` | `TRIM(ext_iss_typ_txt)` (código del subproducto en ese sistema; es el campo que la hoja trocea por `:`) | `FT_T_EIST.EXT_ISS_TYP_TXT` |
+| `System_Description` | `TRIM(ext_iss_typ_desc)` | `FT_T_EIST.EXT_ISS_TYP_DESC` |
 
-Los nombres de campo son los del análisis del documento fuente; si son exactamente los nombres de las etiquetas XML no se puede confirmar sin la query.
+Consecuencias: no hay `ORDER BY` en ninguno de los dos `XMLAGG`, así que el orden de productos y de subproductos no está garantizado (Oracle suele repetirlo, pero no lo asegura);
+un `Canonico_Value` con prefijo `CANONICO:` llega tal cual a la hoja `productos.xsl`, que no lo quita (6.3.1); los nombres de campo coinciden con los de entrada de la hoja.
 
-**Lo que el Planificador aporta de riesgo a este proceso** (detalle en su spec común): la validación contra XSD de los XML no bloquea (un XML inválido se deja igualmente); los errores solo van al log del motor, sin reintento ni aviso; la paginación por `ROWNUM` en bloques de 1.000 filas puede repetir o perder filas si la query no tiene un `ORDER BY` único; el límite de 20.000 filas en XML sin paginación explícita no se sabe si trunca. Ninguno de estos fallos llega a Control-M: esta cadena procesaría lo que haya en el fichero.
+**Lo que el Planificador aporta de riesgo a este proceso** (detalle en su spec común): la validación contra XSD de los XML no bloquea (un XML inválido se deja igualmente); los errores solo van al log del motor, sin reintento ni aviso; la paginación por `ROWNUM` en bloques de 1.000 filas y el límite de 20.000 filas **no afectan a `productos.sql`**, que devuelve una sola fila CLOB (5.2, 4ª pasada). Ninguno de estos fallos llega a Control-M: esta cadena procesaría lo que haya en el fichero.
 
 ### 5.3 Reglas de nombre en destino
 
@@ -456,7 +463,7 @@ Consecuencia: la cadena puede terminar en verde sin haber entregado nada a nadie
 | `MEKYTL0404.idx`, `MEKYTL0405.idx`, `MEKYTL1030_CLOUD.idx` (configuración) | `MEGENV0001.sh` | **No** | P-PROD-01 |
 | `RAMERC0068.sh` | `MEKYTL0406` | Sí (spec común) | §1.3 paso 7; genérico en `comun_ramerc0068` |
 | Línea `MEKYTL0406` del IDX de historificaciones | `RAMERC0068.sh` | **No** | P-PROD-03 |
-| `ProjectMain.jar` + query `productos.sql` (`CLOB_VALUE`) | Planificador (fuera de la cadena) | Motor: spec común; query: **no** | §5.2; P-PROD-05 |
+| `ProjectMain.jar` + query `productos.sql` (`CLOB_VALUE`) | Planificador (fuera de la cadena) | Motor: spec común; query: sí (rama develop, 4ª pasada) | §5.2; P-PROD-05 (queda `URL_OUTPUT_FILE`) |
 
 ### 6.3 Análisis de `RDR_Transformacion_PRODUCTOS.sh`
 
@@ -557,7 +564,7 @@ inferencia fuerte, no como hecho. Qué hace (XSLT 1.0, salida XML con sangrado y
   - Cualquier otro sistema: solo `SystemName`, `SystemValue` y `Description`.
 - **Detalle que afecta a las pruebas:** `TypeMurex` y `ProductCodeStar` usan `substring-before` sobre el resto, así que salen **vacíos** si el valor tiene
   exactamente 3 trozos sin `:` final; el sistema se compara de forma exacta (mayúsculas, espacios y sufijos cuentan); el resto de campos se copian tal cual.
-  La hoja no filtra ni ordena productos (el nombre del fichero final, la fecha y cualquier filtrado siguen sin conocerse: P-PROD-04 y P-PROD-05).
+  La hoja no filtra ni ordena productos (el nombre del fichero final, la fecha y cualquier filtrado de la clase del jar siguen sin conocerse: P-PROD-04 y P-PROD-05; la entrada trae `Canonico_Value` con el prefijo `CANONICO:` y la hoja no lo retira).
 - **Ficheros de la plantilla que no pertenecen a esta cadena:** `mentorProducts.sh` y `ProductsMDX.properties` tratan las exclusiones de acuerdos
   (`agreements/exclusions.csv` a `exclusiones.xml`, feed `MitigantsBBVA`), y `publish/dictionaryproducts.xml` y `publish/securities.xml` son peticiones SOAP de
   publicación inicial de Golden Source (colas `RDR.DICTIONARY.INITIALLOAD` y `RDR.SECURITIES.INITIALLOAD`). Ninguno participa en `RDR_SMA_PRODUCTS_PRO`.
@@ -605,9 +612,9 @@ inferencia fuerte, no como hecho. Qué hace (XSLT 1.0, salida XML con sangrado y
 | RISK-PROD-007 | Opciones de JVM obsoletas en el script de transformación y Java tomado del `PATH` | Medio: un cambio de Java en la máquina puede impedir el arranque | Revisar al actualizar Java |
 | RISK-PROD-008 | Si la clase Java captura sus errores y termina con 0, la cadena seguiría sin fichero nuevo; los envíos fallarían y se marcarían OK | Alto | P-PROD-04 |
 | RISK-PROD-009 | `Backup/` sin purga documentada | Bajo: crecimiento de disco | Confirmar si hay limpieza externa |
-| RISK-PROD-010 | Fallos del Planificador (XSD no bloqueante, paginación sin `ORDER BY`, límite de 20.000 filas) no llegan a Control-M | Medio | P-PROD-05 y preguntas P-PLA-* de la spec común |
+| RISK-PROD-010 | Fallos del Planificador (XSD no bloqueante, errores del motor solo en su log) no llegan a Control-M. Con el texto real de `productos.sql` (5.2) la paginación sin `ORDER BY` y el límite de 20.000 filas **no aplican** (devuelve una sola fila CLOB); queda el tamaño del CLOB y el orden no garantizado de productos y subproductos | Medio | P-PROD-05 y preguntas P-PLA-* de la spec común |
 
-**Duplicidades:** la cadena no valida contenido; si la query del Planificador repite filas (paginación sin `ORDER BY`), el fichero se distribuye con duplicados. Un relanzamiento el mismo día genera el mismo nombre de fichero en origen y en los tres destinos; el efecto en destino depende de `ACCION_REMOTA` (P-PROD-01) y en `Backup/` de la línea de `MEKYTL0406` (P-PROD-03).
+**Duplicidades:** la cadena no valida contenido; la query del Planificador (`productos.sql`) devuelve una sola fila CLOB sin paginación (4ª pasada), por lo que no repite filas por paginación; sí podría haber productos repetidos si `FT_T_ISTY` tuviera varios registros activos con el mismo nombre, y el orden no está garantizado. Un relanzamiento el mismo día genera el mismo nombre de fichero en origen y en los tres destinos; el efecto en destino depende de `ACCION_REMOTA` (P-PROD-01) y en `Backup/` de la línea de `MEKYTL0406` (P-PROD-03).
 
 ## 10. Conclusión y requisitos de cierre
 
@@ -618,7 +625,7 @@ La orquestación de la cadena (jobs, eventos, usuarios, tolerancia a fallos, rut
 2. P-PROD-02: fecha de "p1".
 3. P-PROD-03: línea `MEKYTL0406` del IDX de historificaciones.
 4. P-PROD-04: código de `BatchProductos.Transformaciones_PRODUCTOS`, hoja XSL y script instalado.
-5. P-PROD-05: nombre real del fichero del Planificador y texto de la query.
+5. P-PROD-05: nombre real del fichero del Planificador (`URL_OUTPUT_FILE`); el texto de la query ya está incorporado desde la rama develop (4ª pasada).
 6. P-PROD-06: tratamiento del fichero de entrada antiguo.
 7. P-PROD-07: qué es SMA y quién recibe cada envío.
 8. Mecanismo de alerta para los fallos silenciosos de los envíos (RISK-PROD-001).

@@ -122,8 +122,9 @@ están guardadas en la tabla `FT_T_ATE1`.
 |---|---|---|
 | P-SCIS-01 | ¿Cuál es la línea de `MEKYTL1022` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` de producción? (`grep ^MEKYTL1022@ /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en `pr-rdr.igrupobbva`) | Es lo único que dice qué archiva `MEKYTL1022`, desde dónde, hacia dónde, con qué operación y si falla cuando no hay fichero. Sin ella no se sabe si el fichero acaba en `SCIS/backup` (lo único que purga la cadena) ni si la línea tiene la operación destructiva `BD`. Aceptado como no bloqueante (29/09/2026) |
 | P-SCIS-02 | **Resuelta (3ª pasada, plantilla de despliegue `estaticos`, develop).** ¿Se puede obtener `ExtraccionGenericaSCIs.properties` literal (y el `log4j` que declara)? | Hilos 20, log4j `log4jExtraccionGenericaSCIs.properties` (log `logs/ExtraccionGenericaSCIs.log`, 100 MB x3), tipo `SCIS`, una sola acción `Java`; ver 6.2. Verificar en el servidor que lo instalado coincide con la plantilla |
-| P-SCIS-03 | ¿Se puede obtener el SQL literal de `ExtraccionSCIs.sql` y de `ExtraccionContingenciaSCIs.sql`? | El diccionario procede de una descripción en prosa. Sin SQL no se puede confirmar el `Colony` duplicado, si la exclusión `A15` mira el estado de la asignación, ni hay subconsultas escalares o `rownum` problemáticos |
-| P-SCIS-04 | ¿Se emite realmente dos veces `Colony` en cada `MailingInf`? | Lo afirma el documento; sin SQL no se ha confirmado (TC-14) |
+| P-SCIS-03 | **Resuelta (4ª pasada, objetos `ExtraccionSCIs.sql` y `ExtraccionContingenciaSCIs.sql` de la rama develop; ver 6.3 y 6.5). Falta solo comprobar que el `CLOB_VALUE` de producción coincide con develop.** ¿Se puede obtener el SQL literal de `ExtraccionSCIs.sql` y de `ExtraccionContingenciaSCIs.sql`? | El diccionario procede de una descripción en prosa. Sin SQL no se puede confirmar el `Colony` duplicado, si la exclusión `A15` mira el estado de la asignación, ni hay subconsultas escalares o `rownum` problemáticos |
+| P-SCIS-04 | **Resuelta (4ª pasada, develop): sí, el SQL escribe dos veces `XMLELEMENT (Name "Colony", (MADR.NEIGHBORHOOD_NME))` seguidas en `MailingInf` (6.5).** ¿Se emite realmente dos veces `Colony` en cada `MailingInf`? | Lo afirma el documento; sin SQL no se ha confirmado (TC-14) |
+| P-SCIS-12 | (nueva, no bloqueante) `STP` lee `FT_T_COA1.VAL_DATE` con `STAT_DEF_ID='STPCONF'`, mientras que en SSIs el indicador equivalente (`STPSSI`) se lee de `FLD_VAL`. ¿En qué columna se guarda `STPCONF`? | Si se guarda en `FLD_VAL`, el elemento `STP` sale siempre vacío (defecto); si es una fecha, el valor sale con el formato de fecha de Oracle (6.5) |
 | P-SCIS-05 | ¿Por qué cuatro campos normalizan `;` a `,`? | Se altera el dato de origen sin motivo registrado |
 | P-SCIS-06 | ¿Qué valores tienen `FT_T_PAR1` (`ROOT_TAG` `ACTIVE` de `ExtraccionContingenciaSCIs.sql`) y `FT_T_ATE1.URL_OUTPUT_FILE` de esa query? | Deciden la etiqueta raíz y el nombre del fichero publicado en `SCIS/`. El código tiene comentada una versión antigua con `<ConfInstructions>`/`</ConfInstructions>`, que no tiene por qué ser la actual |
 | P-SCIS-07 | El folder se ordena con `PLAN_1300` y `WEEKDAYS="0,1,2,3,4"`. ¿A qué hora se ordena y qué días naturales corre realmente? | Si se ordena a las 13:00, el día ordenado el domingo correría el lunes a las 03:30 (ejecución efectiva de lunes a viernes); si no, de domingo a jueves |
@@ -199,7 +200,7 @@ deliberadamente las inactivas; el campo `Status` las distingue (herencia del dis
 
 **`A15`** es COMPASS (BBVA Compass/BBVA USA, vendida a PNC en 2020): la misma exclusión aparece
 en las extracciones de contactos y de SSIs. `ORG_ID` es de ancho fijo (`'A15 '` con espacio). Si
-la exclusión de SCIs mira o no el estado de la asignación no se sabe sin el SQL (P-SCIS-03).
+la exclusión de SCIs **no mira el estado de la asignación** (según el objeto `ExtraccionSCIs.sql` de la rama develop, `NOT EXISTS` sobre `FT_T_SCA1` con `PURP_TYP='BRANCH'` y `ORG_ID='A15 '`, sin condición de `DATA_STAT_TYP`): una asignación `INACTIVE` a A15, o una SCI asignada a A15 y a otras oficinas, también queda fuera (P-SCIS-03 resuelta).
 
 **Algoritmo** (genérico en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md`
 §2; aplicado al tipo `SCIS` según el código de `Querys.java`):
@@ -373,16 +374,22 @@ estándar del Java (un `SCIS_OID` por línea procesada) va a la salida del job; 
 de `GSProcess.sh` `execute_ExtraccionGenericaSCIs_<AAAAMMDD>.log` (directorio `<logs>` de
 `credentials.xml`), que termina con `ESTADO-0-` si todo fue bien.
 
-### 6.3 Queries (según el documento; SQL literal pendiente, P-SCIS-03)
+### 6.3 Queries (SQL literal de la rama develop, 4ª pasada; P-SCIS-03 resuelta)
 
-**Lista — `ExtraccionSCIs.sql`.** Selecciona `SCIS_OID` de `FT_T_SCIS` para los registros con
-estado `ACTIVE` o `INACTIVE`, sin fecha de baja (`END_TMS` nulo) y sin asignación de tipo `BRANCH`
-a la organización `A15` en `FT_T_SCA1`. El documento dice que es "la misma lógica de filtrado que
-la extracción de SSIs".
+Fuente: objetos `ExtraccionSCIs.sql` y `ExtraccionContingenciaSCIs.sql` del repositorio de objetos de GoldenSource, rama develop
+(carpeta de scripts SQL de la configuración personalizada); puede diferir de lo instalado.
 
-**Detalle — `ExtraccionContingenciaSCIs.sql`.** Filtro `SCIS.SCIS_OID = <parámetro>` (el
-identificador de la query de lista). Construye un bloque `ConfInstruction` por SCI y lo devuelve
-en la columna `XMLRESULT`. Tabla principal `FT_T_SCIS`.
+**Lista — `ExtraccionSCIs.sql`.** Una sola sentencia: `SELECT SCIS.SCIS_OID FROM FT_T_SCIS SCIS WHERE SCIS.DATA_STAT_TYP IN
+('ACTIVE','INACTIVE') AND SCIS.END_TMS IS NULL AND NOT EXISTS (SELECT 1 FROM FT_T_SCA1 SCA1 WHERE SCIS.SCIS_OID=SCA1.SCIS_OID AND
+SCA1.PURP_TYP='BRANCH' AND SCA1.ORG_ID='A15 ')`. Misma lógica que la de SSIs, con `FT_T_SCA1`. Sin `ORDER BY` ni `ROWNUM`; la
+exclusión no filtra por estado de la asignación.
+
+**Detalle — `ExtraccionContingenciaSCIs.sql`.** Una sentencia `SELECT XMLELEMENT(Name "ConfInstruction", ...).getClobVal() xmlResult
+FROM FT_T_SCIS SCIS WHERE SCIS.SCIS_OID = ?` (un parámetro). Construye un bloque `ConfInstruction` por SCI y lo devuelve en la
+columna `xmlResult` (`XMLRESULT` para el jar). **A diferencia de SSIs, no filtra `END_TMS` ni `DATA_STAT_TYP` de la SCI**: se fía de la
+lista. Todas las subconsultas de campo (`ConfId`, `PartyId`, `PartyShort`, `Currency`, `DateFrom`, `DateTo`, `STP`, `SecurityAccount`,
+`ContactRDRId`, `ContactAbacoId`) son escalares sin `ROWNUM`: con más de una fila Oracle lanza `ORA-01427` y esa SCI no genera bloque (el jar
+lo registra en su log y sigue con código 0, 5.4).
 
 Las dos se guardan en `FT_T_ATE1` (columna `CLOB_VALUE`, buscadas por `ACTION_NME`): cambiar esas
 filas cambia el proceso sin desplegar nada (RG-11).
@@ -410,7 +417,7 @@ filas cambia el proceso sin desplegar nada (RG-11).
 
 ### 6.5 Diccionario del bloque `ConfInstruction`
 
-Origen según el documento de análisis, **no verificado contra SQL** (P-SCIS-03).
+Origen verificado contra el SQL literal de la rama develop (6.3); diferencias con el documento de análisis anotadas abajo.
 
 | Campo | Origen |
 |---|---|
@@ -426,11 +433,11 @@ Origen según el documento de análisis, **no verificado contra SQL** (P-SCIS-03
 | `Inhibit` | `FT_T_SCIS.STMNT_2B_SENT_IND` (indicador de inhibición de envío) |
 | `InstType` | `FT_T_SCIS.CONFIRM_INSTRUC_DESC` |
 | `NotifType` | `FT_T_SCIS.TRADE_TYP` |
-| `DateFrom` / `DateTo` | `FT_T_COA1` con `STAT_DEF_ID='DATEFROM'` / `'DATETO'` |
+| `DateFrom` / `DateTo` | `FT_T_COA1.VAL_DATE` con `STAT_DEF_ID='DATEFROM'` / `'DATETO'` y `ACTIVE`; **sin `TO_CHAR`**: el formato lo decide Oracle al serializar la fecha (no `DD/MM/YYYY` como `ActualDate`, `StartDate`, `LastChangeDate`); verificar en pruebas |
 | `Agrupation` | `FT_T_SCIS.CONFIRM_GRP_IND` |
 | `Receiver` | `FT_T_SCIS.CONFIRM_RECEIVER_IND` (la contraparte recibe la confirmación) |
 | `Sender` | `FT_T_SCIS.CONFIRM_SENDER_IND` (BBVA emite la confirmación) |
-| `STP` | `FT_T_COA1` con `STAT_DEF_ID='STPCONF'` |
+| `STP` | `FT_T_COA1` con `STAT_DEF_ID='STPCONF'` y `DATA_STAT_TYP='ACTIVE'`; **el SQL lee la columna `VAL_DATE`** (no `FLD_VAL`), ver P-SCIS-12 |
 | `SecurityAccount` | `FT_T_ACCT` con `ACCT_PURP_TYP='SECURITY ACCOUNT'` |
 
 Bloques repetibles:
@@ -472,8 +479,13 @@ MediaChannel
         └── Email E_MAIL_ADDR_TXT   └── Phone PHONE_NUM_ID
 ```
 
-- **`Colony` duplicado.** El documento dice que la query emite `Colony` dos veces con el mismo
-  origen: cada `MailingInf` llevaría dos `Colony` iguales (P-SCIS-04, RG-03).
+- **`Colony` duplicado (confirmado en el SQL de develop).** La query escribe dos veces seguidas
+  `XMLELEMENT (Name "Colony", (MADR.NEIGHBORHOOD_NME))`: cada `MailingInf` lleva dos `Colony` iguales (P-SCIS-04 resuelta, RG-03).
+- **Filtros de estado y uniones del detalle** (según el SQL de develop): `Attributes` une `FT_T_COA1` (`ACTIVE`, `DATA_SRC_ID='SCISATT'`) con `FT_T_INCS`
+  solo por `INDUS_CL_SET_ID` (sin filtro de estado en `INCS`); `Branches` une `FT_T_SCA1` con `FT_T_ENTR` (no pasa por `FT_T_EERL`, a diferencia de SSIs) y usa
+  `BranchCode`/`BranchName`; `MediaChanelList` toma los `FT_T_SCMO` `ACTIVE`; `ContactDetail` une `FT_T_CNTC` sin filtro de estado; `MailingAddress` filtra solo
+  `FT_T_MADR.DATA_STAT_TYP='ACTIVE'` (no el de `FT_T_ADTP`), mientras que `ElectronicAddress` filtra `ADTP` y `EADR`; `ExtIdentifiers` excluye `CONFIRMID` y contextos nulos.
+  Los campos `Language`, `DepartamentNme` y `Observ` salen sin normalizar `;`.
 - **Cuatro campos normalizan `;` a `,`** y `Address` además los saltos de línea a espacio; no se
   conoce el motivo y no se le atribuye ninguno (P-SCIS-05).
 - `MediaChanelList` es la diferencia funcional con la extracción de SSIs.
@@ -493,7 +505,7 @@ con el nombre de `URL_OUTPUT_FILE`.
 | `ExtraccionGenericaSCIs.properties` y `log4jExtraccionGenericaSCIs.properties` | `GSProcess.sh` / el jar | Sí (plantilla de despliegue) | 6.2; P-SCIS-02 resuelta |
 | `HistSCIs.properties`, `HistSCIsINACT.properties`, `RDR_SCIs_Compass.xsl`, `RDR_SCIs_CompassINACT.xsl` | Dummy `EXTRACCION_SCIS_XML(_INACT)` (no se ejecutan) | Sí (plantilla) | 6.9 |
 | `ExtraccionGenericaOtherEntities.jar` | Acción `Java` | Código parcial (`Ppal`, `Querys`, `FicheroExtraccion`) | §5.3-§5.4 y `comun_extraccion_generica`; faltan `MyThreadCpty`, `ConDB`, `ConfigCredentials`, `Constants` (P-EXG-01 de la spec común) |
-| `ExtraccionSCIs.sql`, `ExtraccionContingenciaSCIs.sql` | El jar | **No** (solo prosa) | §6.3, §6.5; P-SCIS-03 |
+| `ExtraccionSCIs.sql`, `ExtraccionContingenciaSCIs.sql` | El jar | Sí (rama develop, 4ª pasada) | §6.3, §6.5; P-SCIS-03 resuelta |
 | `RAMERC0068.sh` | `MEKYTL1022` | Sí (spec común) | §5.5 |
 | Línea `MEKYTL1022` del IDX de producción | `RAMERC0068.sh` | **No** | P-SCIS-01 |
 | `find ... -exec rm -r` | `MANT_RDR_EXTRACCION_SCIS` | Comando literal | §5.7 |
@@ -534,7 +546,7 @@ fichero** (porque nada en la cadena lo comprueba) y en el ciclo de vida del fich
 purga). Cuatro bloques:
 
 1. **Extracción y contenido**: universo (activas e inactivas, exclusión `A15`), bloque
-   `ConfInstruction`, árbol `MediaChanelList`, `Colony` (TC-02, TC-05, TC-10, TC-11, TC-12, TC-14).
+   `ConfInstruction`, árbol `MediaChanelList`, `Colony` (TC-02, TC-05, TC-10, TC-11, TC-12, TC-14, TC-16).
 2. **Archivado y purga** (TC-06, TC-07, TC-13).
 3. **Topología de la cadena**: Dummy y colector (TC-08, TC-09).
 4. **Fallos y entorno**: universo vacío, aborto del Java, host mal nombrado (TC-03, TC-04, TC-15).
@@ -559,7 +571,7 @@ prerrequisitos; TC-06 y TC-15 llevan condiciones de seguridad explícitas.
 
 ### 7.3 Huecos de cobertura conocidos
 
-- Sin SQL literal (P-SCIS-03). El `.properties` ya se conoce (plantilla, P-SCIS-02 resuelta).
+- El SQL literal ya se conoce (rama develop, P-SCIS-03 resuelta; falta contrastarlo con producción) y el `.properties` también (plantilla, P-SCIS-02 resuelta). Sin resolver: formato de `DateFrom`/`DateTo`/`STP` (P-SCIS-12).
 - Línea del IDX de `MEKYTL1022` (P-SCIS-01).
 - Caída de Oracle (P-SCIS-09).
 - CSV de la rama desactivada: fuera de alcance.
@@ -577,9 +589,9 @@ prerrequisitos; TC-06 y TC-15 llevan condiciones de seguridad explícitas.
 | negativo | Aborto del Java detiene la cadena; host mal nombrado | TC-04, TC-15 |
 | borde | Inactivas; colector sobre Dummy | TC-11, TC-09 |
 | regresion | Dummy sin efecto; exclusión `A15` | TC-08, TC-10 |
-| datos_sinteticos | Bloques repetibles y `MediaChanelList` | TC-12 |
+| datos_sinteticos | Bloques repetibles y `MediaChanelList`; subconsultas escalares con datos duplicados | TC-12, TC-16 |
 | duplicidad | Residuos de una pasada anterior | TC-13 |
-| conflicto_integridad | `Colony` duplicado | TC-14 |
+| conflicto_integridad | `Colony` duplicado (confirmado en el SQL de develop) | TC-14 |
 
 | Requisito | Casos |
 |---|---|
@@ -604,7 +616,7 @@ prerrequisitos; TC-06 y TC-15 llevan condiciones de seguridad explícitas.
 |---|---|---|---|
 | RG-01 | Ficha antigua de `MEKYTL1022` atribuía una extracción | Cerrado: la ficha vigente ya no lo dice | — |
 | RG-02 | Línea del IDX de `MEKYTL1022` desconocida; se asume destino `SCIS/backup` | Si el destino es otro, el archivado no se purga nunca; si el nombre es fijo, solo se guarda un día | P-SCIS-01 (aceptado como no bloqueante) |
-| RG-03 | `Colony` duplicado | XML con información redundante | P-SCIS-04 |
+| RG-03 | `Colony` duplicado (confirmado en el SQL de develop) | XML con información redundante | P-SCIS-04 (resuelta) |
 | RG-04 | `;` normalizado a `,` sin motivo | Alteración del dato sin justificación | P-SCIS-05 |
 | RG-05 | `RAMERC0068.sh` asume producción si el nombre de máquina no sigue la nomenclatura | En pruebas operaría sobre producción | Verificar el nombre del host (TC-15) |
 | RG-06 | No se puede comprobar que la línea de `MEKYTL1022` no tenga `BD` (borrado del directorio como `root`) | Borrado completo de un directorio | Junto con P-SCIS-01 |
@@ -618,6 +630,8 @@ prerrequisitos; TC-06 y TC-15 llevan condiciones de seguridad explícitas.
 | RG-14 | Proceso sin consumidores | Recursos sin uso | P-SCIS-10 |
 | RG-15 | Universo completo con inactivas, sin filtro incremental | Volumen y duración crecientes | Vigilar duración (P-SCIS-11) |
 | RG-16 | El Java devuelve 0 ante casi cualquier error y la cadena no valida el fichero | Se archivan ficheros vacíos, incompletos o mal formados con la cadena en verde; incumple R-13 | P-SCIS-08; TC-03 |
+| RG-18 | Subconsultas escalares sin `ROWNUM` en el detalle (`ORA-01427` con datos duplicados) | La SCI afectada desaparece del XML con el job en OK | TC-16 |
+| RG-19 | `STP` lee `VAL_DATE`; `DateFrom`/`DateTo` sin `TO_CHAR` | `STP` posiblemente vacío; fechas con formato distinto al resto | P-SCIS-12; TC-16 |
 | RG-17 | `.tmp` residual en `extracciongenerica/` | La siguiente ejecución publica un XML con dos raíces, sin que nada lo detecte | Comprobar antes de relanzar (§5.8); TC-13 |
 
 ---
@@ -633,7 +647,6 @@ extraen, archivan y purgan un XML que nadie consume. Lo esencial:
 3. **Ningún paso de la cadena comprueba el fichero**: el programa Java termina en verde aunque
    pierda SCIs o no encuentre ninguna, y el requisito R-13 no se cumple hoy.
 
-**Para cerrar faltan**: la decisión sobre R-13 (P-SCIS-08), el SQL
-literal (P-SCIS-03), los valores de `FT_T_PAR1`/`URL_OUTPUT_FILE` (P-SCIS-06) y la hora de orden
-(P-SCIS-07). La línea del IDX de `MEKYTL1022` (P-SCIS-01) quedó aceptada como gap no bloqueante
+**Para cerrar faltan**: la decisión sobre R-13 (P-SCIS-08), los valores de `FT_T_PAR1`/`URL_OUTPUT_FILE` (P-SCIS-06),
+la hora de orden (P-SCIS-07) y contrastar con producción el SQL de la rama develop, que ya está incorporado (P-SCIS-03 y P-SCIS-04 resueltas en la 4ª pasada). La línea del IDX de `MEKYTL1022` (P-SCIS-01) quedó aceptada como gap no bloqueante
 por decisión del usuario; el resto de preguntas no bloquea.

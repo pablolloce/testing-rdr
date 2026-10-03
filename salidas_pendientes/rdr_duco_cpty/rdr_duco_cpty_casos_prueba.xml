@@ -238,4 +238,25 @@
     <criterioAceptacion>Se cumplen los pasos 2 a 4. Documenta un riesgo: antes de relanzar tras un fallo de publicación hay que borrar el temporal a mano.</criterioAceptacion>
     <posibilidadFallo>Si el fichero no contuviera las líneas residuales, la versión desplegada no abre el temporal en modo añadir y RK-DCP-02 se podría cerrar.</posibilidadFallo>
   </casoDePrueba>
+  <casoDePrueba id="TC-011" tipo="negativo">
+    <nombre>Contrapartidas sin jerarquía de dos niveles o solo con alias no salen</nombre>
+    <objetivo>Verificar que, según el SQL de lista y detalle, una contrapartida operativa sin cadena padre-abuelo en ft_t_firl y otra que solo tiene alias (sin rol) quedan fuera de DUCOCPTY.csv.</objetivo>
+    <precondiciones>
+      <precondicion>Contrapartida CPTY021 ACTIVE, relación OPERATIVE/CPARTY, con rol MUREXID ACTIVE, pero sin fila de relación del padre hacia un abuelo en ft_t_firl.</precondicion>
+      <precondicion>Contrapartida CPTY022 ACTIVE con relación OPERATIVE/CPARTY completa (padre y abuelo) y solo un ALIASID ACTIVE, sin ningún rol MUREXID, MARKITBIC ni STARID.</precondicion>
+      <precondicion>Contrapartida CPTY023 de control con jerarquía completa y rol MUREXID ACTIVE.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FINSID" valor="CPTY021, CPTY022, CPTY023"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar los datos descritos y ejecutar RDR_DUCOCPTY_GSPROCESS.</paso>
+      <paso numero="2">Comprobar en el log del jar el número de contrapartidas a tratar.</paso>
+      <paso numero="3">Buscar en DUCOCPTY.csv filas con FINSID CPTY021, CPTY022 y CPTY023.</paso>
+    </pasos>
+    <resultadoEsperado>Solo CPTY023 aparece en el fichero; CPTY021 y CPTY022 no tienen ninguna línea y el job termina en OK.</resultadoEsperado>
+    <tipoValidacion>Validación de regla de selección según el texto de las queries de la rama develop.</tipoValidacion>
+    <criterioAceptacion>Una o más líneas de CPTY023 y ausencia total de CPTY021 y CPTY022.</criterioAceptacion>
+    <posibilidadFallo>Si aparece CPTY021 o CPTY022, la query instalada difiere de la de develop.</posibilidadFallo>
+  </casoDePrueba>
 </casosDePrueba>

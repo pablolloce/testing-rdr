@@ -342,4 +342,26 @@
     <posibilidadFallo>Si terminara OK, la versión desplegada difiere del código analizado.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-016" tipo="regresion">
+    <nombre>Orden de las líneas por línea completa e inclusión de elementos INACTIVE</nombre>
+    <objetivo>Verificar que el fichero sale ordenado por el texto completo de cada línea (secciones Calendar, DAYBASISTYPE, Index, Products) y que los elementos y los identificadores externos INACTIVE no se filtran.</objetivo>
+    <precondiciones>
+      <precondicion>Un calendario INACTIVE (cal_id CAL_T16) con un identificador externo INACTIVE en ft_t_cid1.</precondicion>
+      <precondicion>Un índice de tipo INDEXSW (pref_iss_id IDX_T16) con estado INACTIVE y un identificador externo ACTIVE.</precondicion>
+      <precondicion>Un tipo de emisión con equivalencia externa en ft_t_eist y una base de cálculo (DAYBASIS) con equivalencia externa.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="cal_id / pref_iss_id" valor="CAL_T16 / IDX_T16"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar la cadena completa (extracción y copia).</paso>
+      <paso numero="2">Listar las etiquetas de la primera columna del CSV en el orden en que aparecen.</paso>
+      <paso numero="3">Comprobar que existen líneas de CAL_T16 (estados INACTIVE en columnas 3 y 8) y de IDX_T16 (INACTIVE en la columna 3).</paso>
+      <paso numero="4">Repetir la extracción sin cambiar datos y comparar ambos ficheros línea a línea.</paso>
+    </pasos>
+    <resultadoEsperado>Las etiquetas aparecen agrupadas en el orden Calendar, DAYBASISTYPE, Index, Products; las líneas INACTIVE están presentes; los dos ficheros son idénticos línea a línea.</resultadoEsperado>
+    <tipoValidacion>Contenido y orden del CSV según el texto de la query de la rama develop (ORDER BY 1 sobre la línea completa).</tipoValidacion>
+    <criterioAceptacion>Orden agrupado por sección, líneas INACTIVE presentes y ficheros idénticos entre ejecuciones.</criterioAceptacion>
+    <posibilidadFallo>Si el orden difiere (NLS_SORT distinto) o faltan líneas INACTIVE, la query instalada difiere de develop.</posibilidadFallo>
+  </casoDePrueba>
 </casosDePrueba>

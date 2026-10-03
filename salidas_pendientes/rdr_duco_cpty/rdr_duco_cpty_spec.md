@@ -93,7 +93,9 @@ documentan las fichas; la historificación.
 | P-DCP-03 | ¿Se pueden obtener `LPFTPEXCA0000.sh`, `LPFTPEXCA0002.sh` y la configuración de la pasarela para el identificador `MEKYTL1151` (máquina y ruta final en DUCO)? | Sin ellos no se sabe a qué máquina y ruta de DUCO llega el fichero, qué códigos de salida dan ni qué borra exactamente la limpieza (pregunta común P-LPF-01). |
 | P-DCP-04 | ¿Cuál es la línea de `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL1150`? | Decide la operación (`MG` o `GM`), el renombrado, si falla sin fichero (campo 5) y por tanto qué códigos de error da y si una reejecución es posible (TC-006). |
 | P-DCP-05 | ¿Cuál es el nombre literal del evento que espera `MEKYTL1150`: `RDR_DUCO_CPTY_MEKYTL1151_DEL_OK` (el que publica `MEKYTL1151_DEL` según su ficha) o `RDR_DUCOCPTY_MEKYTL1151_DEL_OK` (como se transcribió la comprobación en vivo)? | Si los nombres no coinciden, `MEKYTL1150` no se ejecutaría nunca y el histórico no se generaría. |
-| P-DCP-06 | ¿Cuál es el texto de las queries `ExtraccionDUCOCPTY.sql` (lista) y `ExtraccionAdhocDUCOCPTY.sql` (detalle), de la cabecera (`FT_T_PAR1`, `HEADER`) y de `URL_OUTPUT_FILE`? ¿Termina la cabecera en salto de línea? ¿Qué valores toman las 26 columnas de plaza? | El diccionario de §5.3 viene del análisis del documento fuente, no de la query literal. Si la cabecera no termina en salto de línea, la primera contrapartida sale pegada a ella (RK-DCP-03). |
+| P-DCP-06 | **Resuelta en parte (4ª pasada, objetos `ExtraccionDUCOCPTY.sql` y `ExtraccionAdhocDUCOCPTY.sql` de la rama develop; ver 5.3 y 6.2.1): texto de las dos queries y correspondencia de las 26 plazas ya incorporados (con correcciones: orden de `ALIAS_ID`/`ALIAS_TYPE` y código de cada plaza). Siguen abiertos el texto de la cabecera, si termina en salto de línea y `URL_OUTPUT_FILE` (filas de `FT_T_PAR1`/`FT_T_ATE1`).** ¿Cuál es el texto de las queries `ExtraccionDUCOCPTY.sql` (lista) y `ExtraccionAdhocDUCOCPTY.sql` (detalle), de la cabecera (`FT_T_PAR1`, `HEADER`) y de `URL_OUTPUT_FILE`? ¿Termina la cabecera en salto de línea? ¿Qué valores toman las 26 columnas de plaza? | El diccionario de §5.3 viene del análisis del documento fuente, no de la query literal. Si la cabecera no termina en salto de línea, la primera contrapartida sale pegada a ella (RK-DCP-03). |
+| H-DCP-08 | **Resuelta en parte (4ª pasada, develop).** Filas de `FT_T_ATE1` (query de lista y de detalle con `URL_OUTPUT_FILE`) y de `FT_T_PAR1` `HEADER` | El texto de las dos queries ya está (6.2.1); faltan `URL_OUTPUT_FILE` y el texto de la cabecera de producción |
+| H-DCP-09 | **Resuelta (4ª pasada, develop).** Cómo construye la query de detalle la línea completa y la columna `RESULT` | `RESULT` concatena las 41 columnas con comillas y barra vertical como separador y termina con `TO_CHAR(sysdate,'yyyymmdd')` (5.3) |
 | P-DCP-07 | ¿Qué hace el programa si no puede conectar con la base de datos (clase `ConDB`, no recibida)? | Decide si un fallo de conexión deja el job en NOTOK (la cadena se para) o en OK con un fichero vacío que se envía a DUCO. |
 | P-DCP-08 | ¿Hay alguna purga de `.../DUCOCPTY/old/`? | Sin purga documentada, el histórico crece un fichero por día de ejecución. |
 
@@ -128,19 +130,22 @@ documentan las fichas; la historificación.
 
 ### 5.3 Resultado: `DUCOCPTY.csv` campo a campo
 
-**Formato** (documento fuente, análisis de la query de detalle; la query literal no se ha visto,
-P-DCP-06): campos separados por `|`, cada valor entre comillas dobles. La primera línea es la cabecera
+**Formato** (según el SQL literal de `ExtraccionAdhocDUCOCPTY.sql`, objeto de la rama develop del repositorio de objetos de
+GoldenSource; 4ª pasada): campos separados por `|`, cada valor entre comillas dobles. La primera línea es la cabecera
 de `FT_T_PAR1`; después, las líneas de cada contrapartida. Codificación: las líneas de datos en UTF-8 (el
 programa las escribe así explícitamente); la cabecera, en la codificación de la JVM (ISO-8859-1 con las
 opciones por defecto de `GSProcess.sh`). Fin de línea LF. **El orden de las contrapartidas no es
 determinista** (se procesan en paralelo): dos ejecuciones con los mismos datos dan el mismo contenido en
 distinto orden.
 
-**Qué líneas salen:** la query de lista (`ExtraccionDUCOCPTY.sql`) da los `INST_MNEM` a tratar; por cada
+**Qué líneas salen:** la query de lista (`ExtraccionDUCOCPTY.sql`) da los `INST_MNEM` a tratar (ver 6.2.1); por cada
 uno, la query de detalle (`ExtraccionAdhocDUCOCPTY.sql`) filtra la institución (`inst_mnem` = el
-parámetro), su relación operativa (`rel_typ OPERATIVE`) con rol de contrapartida (`finsrl_typ CPARTY`),
-se queda con el registro de mayor rango de `ft_t_enfr` por institución y organización (`ENFR_RANK=1`) y
-exige rol o alias no nulos. Sale **una línea por cada contexto de rol** (`ROLE_TYPE`) de la
+parámetro, único parámetro de la query), su relación operativa (`rel_typ OPERATIVE`) con rol de contrapartida
+(`finsrl_typ CPARTY`) y estado `ACTIVE`, **exige una cadena de dos niveles de relaciones** (`firlO.prnt_inst_mnem = firlL.inst_mnem` y
+`firlL.prnt_inst_mnem = firlG.inst_mnem`; el LEI y la clasificación DFA son los de la entidad global `firlG`), se queda con el registro de
+mayor rango de `ft_t_enfr` por institución y organización (`ENFR_RANK=1`) y exige rol o alias no nulos. Una contrapartida operativa sin
+padre y abuelo en `ft_t_firl` no sale, aunque tenga rol. Las filas `firlL` y `firlG` no se filtran por tipo ni estado: si el padre tuviera
+varias relaciones con abuelos distintos, saldrían varias líneas (una por cada LEI/abuelo). Sale **una línea por cada contexto de rol** (`ROLE_TYPE`) de la
 contrapartida. Una contrapartida sin rol ni alias no sale. Dos contrapartidas con el mismo LEI salen las
 dos (no hay deduplicación).
 
@@ -157,17 +162,20 @@ dos (no hay deduplicación).
 | 7 | `ROLE_ID` | Identificador de rol (`roleid.finr_id`) |
 | 8 | `ROLE_DATA_SRC` | Fuente del rol (`roleid.data_src_id`) |
 | 9 | `ROLE_STATUS` | Estado del rol (`roleid.data_stat_typ`) |
-| 10 | `ALIAS_TYPE` | Contexto del alias (`aliasid.finsrl_id_ctxt_typ`, contexto `ALIASID`). **Solo se rellena si `ROLE_TYPE=STARID`** |
-| 11 | `ALIAS_ID` | Identificador de alias (`aliasid.finr_id`). Solo con `STARID` |
+| 10 | `ALIAS_ID` | Identificador de alias (`aliasid.finr_id`). **Solo se rellena si `ROLE_TYPE=STARID`** (el orden de las columnas 10 y 11 es el de la línea que construye el SQL de develop: primero el identificador y luego el tipo; la versión anterior los tenía al revés) |
+| 11 | `ALIAS_TYPE` | Contexto del alias (`aliasid.finsrl_id_ctxt_typ`, siempre `ALIASID` cuando se rellena). Solo con `STARID` |
 | 12 | `ALIAS_DATA_SRC` | Fuente del alias (`aliasid.data_src_id`). Solo con `STARID` |
 | 13 | `ALIAS_STATUS` | Estado del alias (`aliasid.data_stat_typ`). Solo con `STARID` |
-| 14-39 | Plazas (`BRANCH_STATUS`) | 26 columnas de estado de la contrapartida en cada entidad/plaza de BBVA, obtenidas con un `PIVOT` sobre `ft_t_enfr` por `enfr.org_id`. Correspondencia columna → `org_id`: `SPAIN`→`AR1`, `MILAN`→`A1`, `NEW_YORK`→`A10`, `IRLANDA`→`A11`, `LONDRES`→`A12`, `HONGKONG`→`A13`, `PARIS`→`A16`, `FRANKFURT`→`A17`, `SINGAPUR`→`A18`, `KOREA`→`A19`, `TAIPEI`→`A5`, `SHANGHAI`→`A6`, `BRUSELAS`→`A7`, `BBVA_CLEARING`→`A8`, `ARGENTINA`→`A9`, `BBVA_SECURITIES_INC`→`BSI`, `BANSERVI2`→`BS2`, `CBBMEX`→`CBB`, `COLOMBIA`→`C1`, `AGENCIAS_DEL_EXTRANJERO`→`EXT`, `BANCOHOU`→`HOU`, `MEXICO`→`MEX`, `PERU`→`PE1`, `PORTUGAL`→`P1`, `VENEZUELA_OVERSEAS_NV`→`VEO`, `VENEZUELA`→`VE1`. Una contrapartida sin filas en `ft_t_enfr` sale con las 26 vacías. Los valores concretos que toman no están documentados (P-DCP-06) |
+| 14-39 | Plazas (`BRANCH_STATUS`) | 26 columnas con el estado (`enfr.data_stat_typ`) de la relación de la contrapartida con cada entidad/plaza de BBVA, obtenidas con un `PIVOT` (`LISTAGG`) sobre `ft_t_enfr` por `enfr.org_id`. **Correspondencia verificada con el SQL de la rama develop** (columna → `org_id`, en el orden en que salen en el fichero): `SPAIN`→`A1`, `MILAN`→`A5`, `NEW_YORK`→`A6`, `IRLANDA`→`A7`, `LONDRES`→`A8`, `HONGKONG`→`A9`, `PARIS`→`A10`, `FRANKFURT`→`A11`, `SINGAPUR`→`A12`, `KOREA`→`A13`, `TAIPEI`→`A16`, `SHANGHAI`→`A17`, `BRUSELAS`→`A18`, `BBVA_CLEARING`→`A19`, `ARGENTINA`→`AR1`, `BBVA_SECURITIES_INC`→`BSI`, `BANSERVI2`→`BS2`, `CBBMEX`→`CBB`, `COLOMBIA`→`C1`, `AGENCIAS_DEL_EXTRANJERO`→`EXT`, `BANCOHOU`→`HOU`, `MEXICO`→`MEX`, `PERU`→`PE1`, `PORTUGAL`→`P1`, `VENEZUELA_OVERSEAS_NV`→`VEO`, `VENEZUELA`→`VE1` (la tabla de la versión anterior desplazaba los códigos una posición y estaba equivocada). Por organización se queda con una sola relación: la de mejor estado (`ACTIVE` antes que `INACTIVE`, por orden alfabético), y entre iguales la de `start_tms` y `last_chg_tms` más recientes (`DENSE_RANK`, `ENFR_RANK=1`); si hay empate total, `LISTAGG` concatena los estados sin separador (p. ej. `ACTIVEACTIVE`). No se filtra el estado de la relación: sale también `INACTIVE`. Una contrapartida sin filas en `ft_t_enfr` sale con las 26 vacías |
 | 40 | `DFA_FINENT` | Clasificación Dodd-Frank de entidad financiera (clasificación regulatoria activa `reg1.reg_nme='DFA'`, conjunto `FINENT`) |
 | 41 | `RESULT` | Fecha de generación `AAAAMMDD` (`TO_CHAR(sysdate,'yyyymmdd')`), al final de cada línea |
 
-Nota técnica: el programa escribe, por cada fila de la query de detalle, el valor de su columna
-`RESULT`; el documento describe `RESULT` como la última columna con la fecha. Cómo construye la query la
-línea completa no se ha visto (P-DCP-06).
+Nota técnica (resuelta en la 4ª pasada, H-DCP-09): el programa escribe, por cada fila de la query de detalle, el valor de su columna
+`RESULT`. En el SQL de develop, `RESULT` es el `SELECT` externo que concatena las 41 columnas con `'"'||valor||'"'` separadas por `|`
+(un valor nulo sale como `""`), y la última es `TO_CHAR(sysdate,'yyyymmdd')` (por eso es la fecha de la ejecución, no una fecha del dato);
+la consulta interna lleva `SELECT DISTINCT`, que solo elimina filas idénticas en todas las columnas. Los valores de texto van con `TRIM`
+(salvo `STATUS_FINS`, `ROLE_STATUS`, `ALIAS_STATUS`, `DFA_FINENT` y `BRANCH_STATUS`).
+La cabecera (`HEADER` de `FT_T_PAR1`) y `URL_OUTPUT_FILE` no están en estos objetos (P-DCP-06 en parte, H-DCP-08).
 
 ### 5.4 Envío, limpieza e historificación
 
@@ -234,6 +242,24 @@ Como el nombre del `.properties` que lee `GSProcess.sh` es el valor de `PARM1`, 
 | Nombre final | Lo que haya tras la última `/` de `URL_OUTPUT_FILE` de la fila de detalle (debe ser `DUCOCPTY.csv`) |
 | Publicación | Mueve el temporal a `<directorio del temporal>/DUCOCPTY/<nombre>`, sustituyendo el existente: `/fichtemcomp/pr/descargas/kytl/extracciongenerica/DUCOCPTY/DUCOCPTY.csv` |
 | Filtro de estado en `FT_T_ATE1` | **Ninguno**: una fila `INACTIVE` se sigue usando |
+
+#### 6.2.1 Texto de las queries (4ª pasada)
+
+Fuente: objetos `ExtraccionDUCOCPTY.sql` y `ExtraccionAdhocDUCOCPTY.sql` del repositorio de objetos de GoldenSource, rama develop (puede
+diferir de lo instalado).
+
+- **Lista (`ExtraccionDUCOCPTY.sql`):** `SELECT DISTINCT inst_mnem` de una subconsulta sobre `ft_t_firl` (operativa, `rel_typ='OPERATIVE'`,
+  `finsrl_typ='CPARTY'`, `ACTIVE`), `ft_t_fins` (`ACTIVE`), `ft_t_fiid` (`FINSID`, `ACTIVE`), la cadena `firlL`/`firlG`, y dos outer joins a
+  `ft_t_frid`: el de **rol** (contextos `MUREXID`, `MARKITBIC`, `STARID`, `finsrl_typ='CPARTY'`, `ACTIVE`, sin fecha de baja) y el de **alias**
+  (`ALIASID`). La marca `role_alias` vale 1 solo si existe el rol (`roleid.finr_id` no nulo) y la query se queda con `role_alias=1`: **la lista
+  solo contiene contrapartidas con rol activo**; las que tienen solo alias no entran en la lista (el detalle también pide rol o alias, pero el
+  alias solo se rellena con rol `STARID`, así que en la práctica tampoco saldrían). Hay además un outer join a `ft_t_edmv` que no se usa en el resultado.
+  No lleva `ORDER BY`.
+- **Detalle (`ExtraccionAdhocDUCOCPTY.sql`):** parámetro único `firlO.inst_mnem = ?`; mismas uniones que la lista más `ft_t_fiid` del LEI
+  (`LEIID`, `ACTIVE`, sobre la entidad global), la clasificación DFA (`ft_t_fra1`/`ft_t_reg1`/`ft_t_incl`, registro `DFA` activo, conjunto
+  `FINENT`, activa) y `ft_t_enfr` (`finsrl_typ='CPARTY'`, sin filtro de estado, ordenada con `DENSE_RANK` por estado ascendente, `start_tms` y
+  `last_chg_tms` descendentes). El resultado se pivota por `org_id` (26 plazas, 5.3) y se concatena en `RESULT`.
+- **Cabecera:** el texto de `HEADER` no está en estos objetos; debería coincidir con los 41 nombres de columna de 5.3 (no comprobado).
 
 **Log** (escrito según la configuración de log4j del `.properties`): `******** INICIO PROCESO EXTRACCION
 GENERICA ********`, `Cantidad de DUCOCPTY a tratar: <n>`, `Proceso finalizado. Tiempo de ejecuccion:
@@ -311,7 +337,7 @@ del `mv`, el `.csv` queda sin comprimir en `old/`, el job termina con 16 y una r
 **Estrategia.** Pruebas troceadas por paso más una end-to-end (TC-009). La extracción se prueba por
 contenido (filtros, una línea por rol, columnas de plaza, alias solo en `STARID`, sin deduplicación) y
 por comportamiento ante errores, que es donde están los riesgos (el programa termina con 0 casi siempre).
-Los 10 casos están en `rdr_duco_cpty_casos_prueba.xml`:
+Los 11 casos están en `rdr_duco_cpty_casos_prueba.xml`:
 
 - TC-001 (`happy_path`): ejecución estándar con 2 contrapartidas.
 - TC-002 (`negativo`): contrapartida sin rol ni alias no sale.
@@ -325,6 +351,7 @@ Los 10 casos están en `rdr_duco_cpty_casos_prueba.xml`:
 - TC-008 (`regresion`): `MEKYTL1150` sigue esperando el OK de `MEKYTL1151_DEL` tras republicar.
 - TC-009 (`e2e`): cadena completa.
 - TC-010 (`conflicto_integridad`): temporal residual → la ejecución siguiente añade detrás y duplica.
+- TC-011 (`negativo`, 4ª pasada): contrapartida con rol pero sin cadena padre-abuelo en `ft_t_firl`, y contrapartida solo con alias: ninguna sale.
 
 Cada caso tiene datos y pasos concretos y un resultado esperado decidido. Cobertura: TC-003 y TC-010 cubren
 las ramas de error del paso 1; TC-001/002/004/005/007 el contenido; TC-006 y TC-008 el paso 5 y su
@@ -336,7 +363,7 @@ configuración no se ha recibido (P-DCP-02, P-DCP-03).
 | Requisito | Casos | Qué garantiza |
 |-----------|-------|---------------|
 | R1, R7 | TC-009 | Arranque por hora en la ventana real |
-| R2 | TC-001, TC-002, TC-004, TC-005, TC-007 | Filtro, granularidad por rol, plazas y ausencia de deduplicación |
+| R2 | TC-001, TC-002, TC-004, TC-005, TC-007, TC-011 | Filtro, granularidad por rol, plazas y ausencia de deduplicación |
 | R3 | TC-003, TC-010 | El fichero se publica (y se envía) aunque haya errores |
 | R4, R5 | TC-001, TC-009 | Encadenamiento envío → transmisión → limpieza |
 | R6 | TC-001, TC-006, TC-008, TC-009 | Histórico `.gz`, su predecesor real y el riesgo de no atomicidad |
@@ -353,6 +380,7 @@ configuración no se ha recibido (P-DCP-02, P-DCP-03).
 | RK-DCP-06 | **Histórico no atómico** con `MG`: `mv` y después `gzip` (TC-006) | Bajo |
 | RK-DCP-07 | **Nombre del evento** que espera `MEKYTL1150` (P-DCP-05): si no coincide, no hay histórico | Medio |
 | RK-DCP-08 | **Valor de `PARM1`** con dos palabras en la ficha (P-DCP-01): si se configurara así, `GSProcess.sh` terminaría con 1 sin extraer | Medio (documental) |
+| RK-DCP-10 | **Exigencia de jerarquía de dos niveles** (4ª pasada, develop): una contrapartida operativa sin padre y abuelo en `ft_t_firl` no sale aunque tenga rol; y si el padre tiene varios abuelos, la contrapartida sale repetida con cada LEI (TC-011) | Medio |
 | RK-DCP-09 | **Codificación mixta**: cabecera en la codificación de la JVM y datos en UTF-8 | Bajo |
 | Duplicidad por diseño | Una contrapartida con varios roles da varias líneas (TC-005); no es un defecto | — |
 

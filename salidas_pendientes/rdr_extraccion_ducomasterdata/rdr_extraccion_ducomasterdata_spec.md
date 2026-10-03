@@ -97,7 +97,8 @@ otro programa (`ExtraccionGenericaOtherEntities.jar`) y otro calendario. Compart
 | P-DMD-01 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.2). Falta verificar en el servidor de producción que lo instalado coincide.** ¿Se puede obtener `ExtraccionDUCOMASTERDATA.properties` (el que lee `GSProcess.sh`)? | Es lo que se ejecuta. Sin él no se conocen el segundo argumento del Java (configuración de log4j: dónde escribe su log), si lleva directivas `DirJavaN` (que quitarían `-Dfile.encoding=iso-8859-1` y cambiarían la codificación del CSV) ni si tiene `StopJava`. Del log real solo se conocen los argumentos 1, 3, 4 y 5. |
 | P-DMD-02 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de producción para las claves `MEKYTL1299` y `MEKYTL1300`? | Deciden la operación real (copia o movimiento), el nombre exacto en destino, si falla cuando no hay fichero (campo 5) y si se sobrescribe un histórico del mismo día. Hoy se conocen solo por las fichas. |
 | P-DMD-03 | ¿Quién borra del backup los ficheros de más de 6 meses? | `RAMERC0068.sh` admite **una sola línea y una sola operación por clave** (`salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md` §4 y §7): con la clave `MEKYTL1300` no puede a la vez mover el fichero y borrar los antiguos. Si no hay otro mecanismo, el histórico crece sin límite. |
-| P-DMD-04 | ¿Cuál es el texto literal, en producción, de la query (`CLOB_VALUE` de `ExtraccionDUCOMASTERDATA.sql`), de la cabecera (`PAR1_VALUE_CLOB`) y de `URL_OUTPUT_FILE`? | El diccionario de §5.3 procede del análisis de la query hecho en el documento fuente; la query, la cabecera y la ruta de producción no se han visto. La ruta de integración sí (§6.2). |
+| P-DMD-04 | **Resuelta en parte (4ª pasada, objeto `ExtraccionDUCOMASTERDATA.sql` de la rama develop, ver 5.3): el texto de la query coincide con el diccionario y se incorpora íntegro. Siguen abiertos la cabecera (`PAR1_VALUE_CLOB`), `URL_OUTPUT_FILE` y la comprobación contra el `CLOB_VALUE` de producción.** ¿Cuál es el texto literal, en producción, de la query (`CLOB_VALUE` de `ExtraccionDUCOMASTERDATA.sql`), de la cabecera (`PAR1_VALUE_CLOB`) y de `URL_OUTPUT_FILE`? | El diccionario de §5.3 procede del análisis de la query hecho en el documento fuente; la query, la cabecera y la ruta de producción no se han visto. La ruta de integración sí (§6.2). |
+| H-DMD-04 | **Resuelta (4ª pasada, develop).** Si la query filtra por `DATA_STAT_TYP` y su orden/`UNION ALL` exactos | No filtra por estado; `UNION ALL` de 4 bloques con `ORDER BY 1` sobre la línea completa (5.3) |
 | P-DMD-05 | ¿Qué versión del jar está desplegada en producción? | La versión de noviembre de 2025 montaba la ruta como `<argumento 4>/<tipo>/<fichero>` y, con el argumento 4 terminado en `DUCOMASTERDATA`, escribió en `.../DUCOMASTERDATA/DUCOMASTERDATA/` (log del 26/11/2025), donde `MEKYTL1299` no lo encontraría. La de julio de 2026 usa `URL_OUTPUT_FILE` completa. |
 | P-DMD-06 | ¿El nombre en `/unload/kytl/datsal/datax/` es `ExtraccionDUCOMASTERDATA.csv` (inventario DataX de la wiki) o `Extraccion DUCOMASTERDATA.csv`, con espacio (ficha de `MEKYTL1299`)? | Si el nombre no coincide con el que espera la transferencia de DUCO, el fichero no se recoge. |
 
@@ -130,10 +131,13 @@ otro programa (`ExtraccionGenericaOtherEntities.jar`) y otro calendario. Compart
 
 ### 5.3 Resultado: `ExtraccionDUCOMASTERDATA.csv` campo a campo
 
-**Formato** (según el análisis de la query del documento fuente; la query literal no se ha visto,
-P-DMD-04): primera línea la cabecera de `FT_T_PAR1` si existe; después una línea por fila de la query,
+**Formato** (según el SQL literal de `ExtraccionDUCOMASTERDATA.sql`, objeto de la rama develop del repositorio de objetos de GoldenSource,
+4ª pasada; el `CLOB_VALUE` de producción no se ha contrastado): primera línea la cabecera de `FT_T_PAR1` si existe; después una línea por fila de la query,
 que la propia query construye ya concatenada en la columna `RESULT`. Campos separados por `|`, cada valor
-entre comillas dobles. La query une 4 bloques con `UNION ALL`, ordenados por la columna 1. Las filas cuyo
+entre comillas dobles. La query une 4 bloques con `UNION ALL` y termina con `ORDER BY 1`: como la query solo devuelve una columna (`RESULT`, la línea completa), **el
+orden es el de la línea entera como texto**, no el de la etiqueta de la columna 1; con la ordenación binaria por defecto de Oracle el
+fichero sale agrupado por sección en este orden: `Calendar`, `DAYBASISTYPE`, `Index`, `Products`, y dentro de cada una por el identificador
+principal, el contexto, etc. (orden determinista salvo cambio de `NLS_SORT`; si la sesión usara una ordenación lingüística podría variar). Las filas cuyo
 `RESULT` venga nulo o vacío se saltan sin contarlas. Fin de línea LF (el que escribe Java en Unix).
 Codificación: la que tenga la JVM (`FileWriter` sin juego de caracteres explícito); con las opciones por
 defecto de `GSProcess.sh` es ISO-8859-1 (pendiente de confirmar con el `.properties`, P-DMD-01).
@@ -165,8 +169,11 @@ Consecuencias que importan al probar:
   4-8 vacías (salvo la 6 en `Products`), y que un elemento con varios identificadores externos salga
   **una vez por cada uno**. No hay deduplicación: dos calendarios distintos con el mismo `alt_id` salen
   como dos líneas.
-- El documento no indica que la query filtre por `DATA_STAT_TYP`: los elementos `INACTIVE` también salen,
-  con su estado en la columna 3. No confirmado con la query literal (P-DMD-04).
+- La query **no filtra por `DATA_STAT_TYP` en ninguna sección** (confirmado con el SQL de develop, H-DMD-04): los elementos `INACTIVE` salen, con su
+  estado en la columna 3, y también los identificadores externos `INACTIVE` (columna 8).
+- Todas las columnas de texto van con `TRIM`; un valor nulo sale como `""`. Los literales `'Index'`, `'Calendar'`, `'Products'` y `'DAYBASISTYPE'` son fijos y la columna 6 es
+  el literal `""` salvo en `Products`. En `Products` la unión con `ft_t_iscd` es interna: un tipo de emisión sin fila en `ft_t_iscd` no sale; los `LEFT JOIN`
+  con `ft_t_eist` y `ft_t_dsrc` mantienen el tipo aunque no tenga equivalencia externa. La lista de 12 tipos de la sección `Index` incluye `NOTIFACT`.
 - Un cambio en las filas de `FT_T_ATE1`/`FT_T_PAR1` cambia el fichero **sin desplegar código**.
 
 ### 5.4 Destino y entrega
@@ -264,7 +271,7 @@ Particularidades de este proceso que salen de esas consultas:
 - Valor de `URL_OUTPUT_FILE` observado en integración (log del 20/07/2026):
   `/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA/ExtraccionDUCOMASTERDATA.csv`. En
   producción se espera la misma ruta con `pr` (es la ruta origen que usan `MEKYTL1299` y `MEKYTL1300`),
-  pero el valor no se ha visto (P-DMD-04).
+  pero el valor no se ha visto (P-DMD-04; el objeto `ExtraccionDUCOMASTERDATA.sql` de develop solo aporta el texto de la query, no la ruta ni la cabecera).
 
 **Algoritmo** (genérico en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §3; aquí
 lo que produce en este proceso):
@@ -329,7 +336,7 @@ salida del job. Si el nombre de máquina no permite deducir el entorno, trabaja 
 | `GSProcess.sh` | Job `EXTRACCIONDUCOMASTERDATA` | Sí (componente común) | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; uso aquí en §6.2 |
 | `ExtraccionDUCOMASTERDATA.properties` y `log4jExtraccionDUCOMASTERDATA.properties` | `GSProcess.sh` / el jar | Sí (plantilla de despliegue) | 6.2; P-DMD-01 resuelta en parte |
 | `ExtraccionGenericaUnificada.jar` (`Principal`, `OperacionesDB`) | Acción `Java` del `.properties` | Código fuente de las 2 clases funcionales; no `ConexionDB` ni `ConfiguracionCredenciales` | §6.2 y `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §3 |
-| Query `ExtraccionDUCOMASTERDATA.sql` (`FT_T_ATE1.CLOB_VALUE`) | El jar | Analizada en el documento fuente; texto literal **no** recibido | §5.3; P-DMD-04 |
+| Query `ExtraccionDUCOMASTERDATA.sql` (`FT_T_ATE1.CLOB_VALUE`) | El jar | Sí: texto literal de la rama develop (4ª pasada); falta contrastarlo con producción | §5.3; H-DMD-04 resuelta; P-DMD-04 en parte |
 | `RAMERC0068.sh` | Jobs `MEKYTL1299`, `MEKYTL1300` | Sí (componente común) | `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md`; uso aquí en §6.3 |
 | Líneas IDX `MEKYTL1299`, `MEKYTL1300` | `RAMERC0068.sh` | **No** | P-DMD-02 |
 
@@ -337,7 +344,7 @@ salida del job. Si el nombre de máquina no permite deducir el entorno, trabaja 
 
 **Estrategia.** Pruebas troceadas por paso (extracción, copia, historificación) más una prueba
 end-to-end. La extracción se prueba sobre todo a nivel de contenido (filtros y `LEFT JOIN` de cada
-sección) y de comportamiento ante errores de configuración, que es donde están los riesgos. Los 15 casos
+sección) y de comportamiento ante errores de configuración, que es donde están los riesgos. Los 16 casos
 están en `rdr_extraccion_ducomasterdata_casos_prueba.xml`:
 
 - `happy_path`: TC-001 (las 4 secciones, copia y backup).
@@ -351,6 +358,7 @@ están en `rdr_extraccion_ducomasterdata_casos_prueba.xml`:
 - `datos_sinteticos`: TC-007 (dos calendarios con el mismo `alt_id`).
 - `regresion`: TC-008 (criticidad W de `MEKYTL1300`), TC-013 (dos viernes seguidos no colisionan).
 - `e2e`: TC-009.
+- `regresion` (4ª pasada): TC-016 (orden de las líneas del fichero por línea completa y presencia de `INACTIVE`).
 
 Cada caso tiene pasos y datos concretos y un resultado esperado decidido. Dos casos dependen de material
 pendiente y lo dicen en sus precondiciones: TC-006 (línea IDX de `MEKYTL1300`, P-DMD-02) y TC-012
@@ -391,7 +399,7 @@ El proceso queda descrito de principio a fin con material verificado: planificac
 los 3 jobs, lógica completa del programa de extracción (código fuente), configuración que lee de base de
 datos, diccionario de las 4 secciones, destino DataX con su DataObject y comportamiento ante cada error.
 
-Quedan **6 preguntas abiertas** (§4.2). Las que más afectan a las pruebas son P-DMD-01 (el `.properties`
+Quedan **6 preguntas abiertas** (§4.2; P-DMD-04 en parte: falta cabecera, `URL_OUTPUT_FILE` y contraste con producción, el SQL de develop ya está incorporado). Las que más afectan a las pruebas son P-DMD-01 (el `.properties`
 ya se conoce por la plantilla; falta contrastarlo con el servidor), P-DMD-02 (las líneas IDX de `MEKYTL1299` y `MEKYTL1300`) y P-DMD-03 (la purga a 6
 meses). Mientras no se respondan, TC-006 y TC-012 se ejecutan condicionados a lo que digan sus
 precondiciones y el resto de casos no se ve afectado.

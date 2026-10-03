@@ -98,6 +98,7 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
 | P-SSI-03 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` para la clave `MEKYTL1024` (máscara de origen, ruta, operación mover, renombrado, `FALLASINOFICH`) | Qué hace si no hay fichero y cómo se forma exactamente el nombre del backup |
 | P-SSI-04 | **Resuelta en parte.** Nombres de eventos, condiciones de entrada y criticidad: resueltos (ver §5, tabla de orden y eventos; `GS_EXTRACCION_CONT` y `MEKYTL1024` = criticidad S, «Aviso día siguiente incluso si es festivo»; todas las condiciones de entrada con «Eliminar en No»; `MANT_RDR_EXTRACCION_SSIS` espera `…_MEKYTL1025_OK` Y `…_MEKYTL1047_OK`), según las fichas del documento original del proceso (rama de Miguel). **Sigue pendiente:** reglas `ON` (si las hay) y, con ello, qué ocurre exactamente cuando un job falla a mitad de la cadena (las fichas no las describen) | Poder afirmar qué ocurre cuando un job falla en mitad de la cadena |
 | P-SSI-05 | Valores de `ROOT_TAG` y `URL_OUTPUT_FILE` de `ExtraccionContingenciaSSIs.sql` en `FT_T_PAR1`/`FT_T_ATE1` | Forma exacta del XML y nombre del fichero publicado |
+| H-SSI-04 | **Resuelta (4ª pasada, objeto `ExtraccionContingenciaSSIs.sql` de la rama develop; ver 6.2).** Texto íntegro de `ExtraccionContingenciaSSIs.sql` | Confirma campos, exclusión A15 sin filtro de estado de la asignación y subconsultas escalares sin `ROWNUM` (riesgo `ORA-01427`); falta solo comprobar que el `CLOB_VALUE` de producción coincide con develop |
 
 ## 5. Especificación funcional
 
@@ -265,17 +266,53 @@ y la plantilla es anterior a la migración a Java 17 (clase `Ppal` sin paquete; 
   INACT). Esto explica los nombres `RDR_SSIS_YYYYMMDD.csv` de las fichas de `MEKYTL1025/1047`, que no se ejecutan. Nota: el XSL de SSIs
   busca la etiqueta `BranchCod` (sin `e`) mientras el de SCIs usa `BranchCode`; no afecta hoy porque no se ejecuta.
 - No se encuentra en la plantilla la línea `MEKYTL1024` del IDX, ni `ExtraccionContingenciaSSIs.sql`, ni filas `FT_T_PAR1`/`FT_T_ATE1`,
-  ni código del jar: P-SSI-03, P-SSI-05, H-SSI-01 a 04 y 06 siguen abiertos.
+  ni código del jar. **Actualización (4ª pasada, repositorio de objetos de GoldenSource, rama develop):** el texto íntegro de
+  `ExtraccionContingenciaSSIs.sql` y de `ExtraccionSSIs.sql` sí está (6.2), lo que cierra H-SSI-04; siguen abiertos P-SSI-03, P-SSI-05,
+  H-SSI-01 a 03 y 06.
+
+### 6.2 Texto íntegro de `ExtraccionSSIs.sql` y `ExtraccionContingenciaSSIs.sql` (4ª pasada)
+
+Fuente: objetos `ExtraccionSSIs.sql` y `ExtraccionContingenciaSSIs.sql` del repositorio de objetos de GoldenSource, rama develop
+(carpeta de scripts SQL de la configuración personalizada). Es el texto que se guarda en `FT_T_ATE1.CLOB_VALUE`; la rama develop puede
+diferir de lo instalado, pero el diccionario de 6 coincide campo a campo con él (24 planos y 8 bloques, mismos nombres de etiqueta y mismos
+orígenes). Lo que el texto íntegro añade o precisa:
+
+- **Lista (`ExtraccionSSIs.sql`).** Es la sentencia ya citada en 5. La exclusión `NOT EXISTS` mira **cualquier** fila de `FT_T_SSIA` con
+  `SSI_ASSIGN_PURP_TYP='BRANCH'` y `ORG_ID='A15 '`, **sin filtrar por el estado de la asignación**: una asignación `INACTIVE` a A15 también
+  excluye la SSI, y una SSI asignada a A15 **y a otras oficinas** también queda fuera (no hace falta que A15 sea la única).
+- **Detalle (`ExtraccionContingenciaSSIs.sql`).** Una sola sentencia `SELECT XMLELEMENT(Name "SettInstruction", ...).getClobVal() xmlResult FROM
+  FT_T_SSIS SSIS WHERE SSIS.END_TMS IS NULL AND SSIS.SSI_OID = ?`. Un único parámetro posicional; no filtra por `DATA_STAT_TYP`.
+- **Subconsultas escalares sin `ROWNUM`.** Son escalares (devuelven un valor por campo) las de `SettID`, `PartyId`, `PartyShort`, `SettMethod`,
+  `TargetType`, `SettStartDT`, `SettEndDT`, `DateOfApplication`, `SubBalance`, `IsSTP`, `MT210`, `DoNotIssuePayment`, `eMarkets`, `SecurityAccount`
+  y, dentro de cada `Parties`, `PartyId`, `PartyShort`, `Account`, `GLAccount`, `Identifier`, `OtherCode`, `MessageTo`, `BicCode`, `ABACode`,
+  `AccountValid` y `SetOffice`. Si alguna devuelve más de una fila, Oracle lanza `ORA-01427` y **esa SSI no genera bloque**; el jar lo registra en
+  su log y sigue con código 0 (5, errores). El propio SQL lo advierte en un comentario sobre `SecurityAccount` («puede dar excepción si los datos
+  no se cargaron correctamente», «NO PONER ROWNUM»): es una decisión de diseño, no un olvido.
+- **Estados.** Llevan `DATA_STAT_TYP='ACTIVE'` las subconsultas de `SettID`, `PartyId`, `PartyShort`, `SettMethod`, `TargetType`,
+  `DateOfApplication`, `SubBalance`, `IsSTP`, `MT210`, `DoNotIssuePayment`, `eMarkets`, `SecurityAccount`, los bloques `Statistics`,
+  `Classification`, `Products`, `Branches` (solo la asignación), `Offices`, `Currencies`, `Participants`, `ExtIdentifiers` y los `SAP1`/`SSAC`
+  de los participantes. **No lo llevan** `SettStartDT` y `SettEndDT` (leen `FT_T_SAT1` solo por `STAT_DEF_ID` `DATEFROM`/`DATETO`, de modo que
+  una fila histórica `INACTIVE` sale o provoca `ORA-01427`), `BicCode` (por `FRID_OID`), `ENTR` y `EERL` de `Branches`.
+- **Formato de las fechas.** `ActualDate`, `StartDate` y `LastChangeDate` salen con `TO_CHAR(..., 'DD/MM/YYYY')`. `SettStartDT` y `SettEndDT` salen
+  de `FT_T_SAT1.VAL_DATE` **sin `TO_CHAR`**: su formato lo decide Oracle al serializar la fecha en XML (no `DD/MM/YYYY`); verificarlo en el
+  entorno de pruebas antes de fijar el valor esperado (TC-010).
+- **`Branches`.** Une `FT_T_SSIA` (`BRANCH`, `ACTIVE`) con `FT_T_ENTR` y `FT_T_EERL` (`RL_TYP='BRANCH'`) por `ORG_ID`; si una oficina tuviera varias
+  filas `EERL` de ese tipo, saldría repetida. Etiquetas `BranchCod`/`BranchNme` (en SCIs son `BranchCode`/`BranchName`): coincide con la nota del XSL heredado.
+- **`Statistics` y los campos planos.** `Statistics` agrupa todas las filas `ACTIVE` de `FT_T_SAT1` con `STAT_DEF_ID` definido en `FT_T_STDF` con
+  `DATA_SRC_ID='SSISATT'`; si `STPSSI`, `MT210`, `NIPY` o `PSESSI` estuvieran dados de alta en ese origen, sus valores saldrían **también**
+  dentro de `Statistics` además de en el campo plano (no se puede saber sin el contenido de `FT_T_STDF`).
+- **`ExtIdentifiers`.** Incluye todas las filas `ACTIVE` de `FT_T_SAI1` con contexto no nulo, también la del contexto `RDR` que ya sale como `SettID`.
+- La etiqueta raíz (`ROOT_TAG`) y `URL_OUTPUT_FILE` **no** forman parte de estos textos: P-SSI-05 sigue abierta.
 
 ## 7. Especificación de testing
 
-La estrategia de pruebas combina 8 pruebas troceadas por sub-flujo/tipo de gap (TC-001 a TC-008)
-con 1 prueba end-to-end (TC-009) que recorre la cadena completa. Los 9 casos están definidos en
+La estrategia de pruebas combina 10 pruebas troceadas por sub-flujo/tipo de gap (TC-001 a TC-008, TC-010 y TC-011)
+con 1 prueba end-to-end (TC-009) que recorre la cadena completa. Los 11 casos están definidos en
 `rdr_extraccionssis_casos_prueba.xml`.
 
 - **TC-001** (`happy_path`): ejecución diaria estándar con SSIs válidas, valida generación
   correcta del XML y el mapeo de campos principal.
-- **TC-002** (`negativo`): valida la exclusión de SSIs asignadas exclusivamente a BRANCH/A15
+- **TC-002** (`negativo`): valida la exclusión de SSIs con asignación BRANCH/A15
   (regla de negocio de la query maestra).
 - **TC-003** (`error_funcional`): fallo del job disparador (`GS_EXTRACCION_CONT`): con `.properties`
   inexistente el job termina en NOTOK y la cadena no avanza; con un error de base de datos dentro del jar el
@@ -294,6 +331,10 @@ con 1 prueba end-to-end (TC-009) que recorre la cadena completa. Los 9 casos est
 - **TC-009** (`e2e`): recorre la cadena completa de los 7 jobs en un día de la ventana real
   (domingo a jueves), desde el disparo de `GS_EXTRACCION_CONT` hasta la purga en
   `MANT_RDR_EXTRACCION_SSIS`, validando el encadenamiento de eventos y el resultado final.
+- **TC-010** (`error_funcional`, 4ª pasada): una SSI con dos filas `ACTIVE` de clasificador `CAL_METH` en `FT_T_SAT1` provoca `ORA-01427` en el detalle;
+  la SSI no aparece en el XML, las demás sí, el job termina en OK y el error solo consta en el log del jar (6.2).
+- **TC-011** (`negativo`, 4ª pasada): la exclusión A15 de la lista no mira el estado de la asignación ni si hay otras oficinas: una SSI con asignación
+  `INACTIVE` a A15, y otra asignada a A15 y a otra oficina, quedan ambas fuera del XML (6.2).
 
 Cada caso está definido con pasos y datos concretos y ejecutables, sin interpretación adicional
 necesaria (ver `rdr_extraccionssis_casos_prueba.xml`). La cobertura es completa: TC-001, TC-002, TC-005, TC-006 y
@@ -313,6 +354,7 @@ tramo, transición o condición sin cubrir.
 | R6 (Dummy inertes) | TC-008 | Los nodos `KYTL003D_MEKYTL1025`/`1047` permanecen inertes tras cambios de configuración. |
 | R7 (purga 7 días) | TC-004, TC-009 | El límite de purga se aplica exactamente en el borde documentado. |
 | R8 (programación D-J) | TC-009 | La cadena solo se prueba/ejecuta en la ventana real confirmada. |
+| R2 (A15 sin filtro de estado; escalares sin ROWNUM) | TC-010, TC-011 | Comportamiento real del texto íntegro del SQL (6.2) |
 | R9 (unicidad SSI_OID) | TC-002 | La ausencia de duplicados en la selección maestra queda validada indirectamente al confirmar el filtro `NOT EXISTS`. |
 | R10 (Participants sin deduplicar) | TC-005 | El comportamiento confirmado de no deduplicación queda demostrado explícitamente. |
 
@@ -333,6 +375,9 @@ tramo, transición o condición sin cubrir.
   para el mismo participante, el XML las reproduciría sin control. Riesgo de calidad de datos
   aguas abajo del consumidor del XML (aunque, per Gap 3, no hay consumidor confirmado dentro del
   alcance analizado).
+- **Riesgo confirmado en el texto de la query (4ª pasada, 6.2) — SSI omitida en silencio:** las subconsultas escalares del detalle no llevan
+  `ROWNUM`; una SSI con dos filas `ACTIVE` del mismo clasificador (p. ej. dos `CAL_METH` en `FT_T_SAT1`) o con dos filas `DATEFROM`/`DATETO` (que
+  ni siquiera filtran estado) provoca `ORA-01427`, el jar registra el error en su log y el fichero sale **sin esa SSI** con el job en OK (TC-010).
 - **Gap operativo confirmado — Normas de Rearranque ausentes (Gap 2):** los 3 jobs OS reales de la
   cadena (`GS_EXTRACCION_CONT`, `MEKYTL1024`, `MANT_RDR_EXTRACCION_SSIS`) no tienen normas de
   rearranque específicas documentadas, solo texto plantilla sin rellenar. Riesgo operativo real
@@ -352,5 +397,5 @@ distribución externa, criticidad no visible, tipo real de los jobs Dummy, uso d
 duplicidad/integridad en `SSI_OID`/`Participants`) quedaron resueltos con evidencia de Control-M
 en vivo (calendario, tipo de job, criticidad, usuario de ejecución), lectura de código SQL real
 (`ExtraccionSSIs.sql`, fragmento de `ExtraccionContingenciaSSIs.sql`) y confirmación explícita del
-usuario. No queda ninguna hipótesis sin confirmar. Los 9 casos de prueba en `rdr_extraccionssis_casos_prueba.xml`
+usuario. No queda ninguna hipótesis sin confirmar. En la 4ª pasada se incorporó el texto íntegro del SQL de detalle (rama develop, 6.2). Los 11 casos de prueba en `rdr_extraccionssis_casos_prueba.xml`
 cubren de forma combinada (troceada + end-to-end) el funcionamiento completo del proceso.

@@ -29,7 +29,7 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-002" tipo="negativo">
-    <nombre>Exclusión de SSI asignada exclusivamente a BRANCH/A15</nombre>
+    <nombre>Exclusión de SSI con asignación BRANCH/A15</nombre>
     <objetivo>Verificar que la query maestra excluye correctamente del procesamiento cualquier SSI con asignación de tipo BRANCH a la organización A15.</objetivo>
     <precondiciones>
       <precondicion>Existe una SSI (SSI_OID=500004) con DATA_STAT_TYP='ACTIVE', END_TMS nulo, y una fila en FT_T_SSIA con SSI_ASSIGN_PURP_TYP='BRANCH' y ORG_ID='A15'.</precondicion>
@@ -212,5 +212,50 @@
     <tipoValidacion>Validación end-to-end de la cadena completa: encadenamiento de eventos, contenido del XML generado y efecto de la purga en la misma ejecución.</tipoValidacion>
     <criterioAceptacion>Los 7 jobs aparecen en estado OK en Control-M, el contenido del XML coincide exactamente con las SSIs de prueba, y el estado final de backup/ refleja tanto la nueva generación como la purga correcta.</criterioAceptacion>
     <posibilidadFallo>Cualquier job en NOTOK, cualquier discrepancia en el contenido del XML, o cualquier fichero purgado/conservado incorrectamente invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+  <casoDePrueba id="TC-010" tipo="error_funcional">
+    <nombre>SSI con subconsulta escalar de más de una fila: omitida en silencio</nombre>
+    <objetivo>Verificar que una SSI cuyo detalle provoca ORA-01427 (subconsulta escalar sin ROWNUM) no genera bloque SettInstruction, que las demás SSI sí, y que el job termina en OK.</objetivo>
+    <precondiciones>
+      <precondicion>Tres SSIs ACTIVE sin BRANCH/A15 (SSI_OID=500020, 500021, 500022), con datos completos y válidos.</precondicion>
+      <precondicion>La SSI 500021 tiene dos filas ACTIVE en FT_T_SAT1 con INDUS_CL_SET_ID='CAL_METH' (valores distintos).</precondicion>
+      <precondicion>Acceso de lectura al log del jar (logs/ExtraccionGenericaSSIs.log).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500020, 500021, 500022"/>
+      <dato campo="FT_T_SAT1 (SSI 500021)" valor="dos filas CAL_METH ACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar los datos descritos y ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Comprobar el estado del job en Control-M y su código de salida.</paso>
+      <paso numero="3">Buscar en el XML publicado un SettInstruction por cada SSI_OID (identificar por SettID).</paso>
+      <paso numero="4">Buscar en el log del jar el error de la SSI 500021 (ORA-01427).</paso>
+    </pasos>
+    <resultadoEsperado>El XML contiene los bloques de 500020 y 500022 y no el de 500021; GS_EXTRACCION_CONT termina en OK (código 0); el log del jar registra el error de la SSI 500021.</resultadoEsperado>
+    <tipoValidacion>Validación de comportamiento real del texto íntegro del SQL de detalle (rama develop) y del tratamiento de errores del jar.</tipoValidacion>
+    <criterioAceptacion>Exactamente dos SettInstruction en el fichero, ausencia del de 500021, job en OK y error visible solo en el log.</criterioAceptacion>
+    <posibilidadFallo>Si el bloque de 500021 aparece (la query instalada difiere de develop y usa ROWNUM) o si el job termina en NOTOK, el comportamiento documentado en 6.2 debe revisarse.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="negativo">
+    <nombre>Exclusión A15 con asignación inactiva y con otras oficinas</nombre>
+    <objetivo>Confirmar que la lista excluye toda SSI con cualquier asignación BRANCH a A15, sea cual sea su estado y tenga o no otras oficinas.</objetivo>
+    <precondiciones>
+      <precondicion>SSI 500030 ACTIVE con una asignación BRANCH a A15 en estado INACTIVE en FT_T_SSIA.</precondicion>
+      <precondicion>SSI 500031 ACTIVE con asignaciones BRANCH ACTIVE a A15 y a otra organización distinta.</precondicion>
+      <precondicion>SSI 500032 ACTIVE sin asignación a A15 (control).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SSI_OID" valor="500030, 500031, 500032"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar los datos y ejecutar GS_EXTRACCION_CONT.</paso>
+      <paso numero="2">Revisar el número de SSIs a tratar en el log del jar.</paso>
+      <paso numero="3">Buscar en el XML publicado un bloque por cada SSI_OID.</paso>
+    </pasos>
+    <resultadoEsperado>Solo aparece el bloque de 500032; 500030 y 500031 no están en el XML.</resultadoEsperado>
+    <tipoValidacion>Validación de regla de negocio según el texto íntegro de ExtraccionSSIs.sql (NOT EXISTS sin filtro de estado de la asignación).</tipoValidacion>
+    <criterioAceptacion>El XML contiene únicamente la SSI 500032 y la cadena termina sin error.</criterioAceptacion>
+    <posibilidadFallo>Si aparece 500030, la query instalada filtra por estado de la asignación y difiere de develop.</posibilidadFallo>
   </casoDePrueba>
 </casosDePrueba>

@@ -418,10 +418,10 @@
       <paso numero="6">Si se dispone del SQL literal, localizar las dos apariciones del elemento y confirmar que comparten origen.</paso>
       <paso numero="7">Registrar el impacto: al no haber consumidores, no hay sistema que pueda rechazarlo hoy, pero quedaría como defecto latente si se activase alguno.</paso>
     </pasos>
-    <resultadoEsperado>Se confirma o se descarta la duplicación. Si existe, el XML es bien formado pero contiene información redundante, y debe reportarse como defecto a corregir en la query.</resultadoEsperado>
+    <resultadoEsperado>Cada MailingInf contiene dos elementos Colony consecutivos con el mismo valor (duplicación confirmada en el SQL de develop). El XML es bien formado pero contiene información redundante, y debe reportarse como defecto a corregir en la query.</resultadoEsperado>
     <tipoValidacion>Conteo de ocurrencias del elemento dentro de cada MailingInf; validación de buena formación XML; inspección del SQL si está disponible.</tipoValidacion>
     <criterioAceptacion>El comportamiento queda confirmado documentalmente y, de existir la duplicación, registrado como defecto.</criterioAceptacion>
-    <posibilidadFallo>Media — el documento fuente lo afirma explícitamente, pero no se ha podido verificar contra el SQL literal.</posibilidadFallo>
+    <posibilidadFallo>Baja — el SQL de la rama develop (objeto ExtraccionContingenciaSCIs.sql) escribe dos veces el elemento Colony; solo fallaría si la query instalada difiere de develop.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-15" tipo="negativo">
@@ -451,6 +451,32 @@
     <tipoValidacion>Inspección del log del script en /pr/pl/log/ para identificar el entorno resuelto y las rutas empleadas; verificación del nombre del host.</tipoValidacion>
     <criterioAceptacion>Queda verificado que el host del entorno de pruebas resuelve al entorno correcto, y no a producción. El escenario de host no conforme (paso 4) NO debe ejecutarse sobre una máquina con acceso a rutas de producción: se verifica por lectura del código de RAMERC0068.sh (mensaje "ERROR: Esta maquina no sigue el formato de las nomenclaturas en funcion del entorno --&gt; &lt;maquina&gt;.Se configura para entorno PR.").</criterioAceptacion>
     <posibilidadFallo>Alta si el entorno de pruebas no respeta la nomenclatura. El fallback a producción está en el código y afecta por igual a todos los procesos del repositorio que usan este script.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-16" tipo="datos_sinteticos">
+    <nombre>Subconsulta escalar con más de una fila omite la SCI; formato de DateFrom, DateTo y STP</nombre>
+    <objetivo>Verificar que una SCI cuyo detalle provoca ORA-01427 no genera bloque ConfInstruction (job en OK, error solo en el log del jar) y registrar el formato real de DateFrom, DateTo y STP.</objetivo>
+    <precondiciones>
+      <precondicion>Tres SCIs ACTIVE sin asignación BRANCH a A15 (SCIS_OID 600001, 600002, 600003) con datos completos.</precondicion>
+      <precondicion>La SCI 600002 tiene dos filas ACTIVE en FT_T_COI1 con DATA_SRC_ID='RDR' e ID_CTXT_TYP='CONFIRMID' (ALT_ID distintos).</precondicion>
+      <precondicion>La SCI 600001 tiene filas ACTIVE en FT_T_COA1 con STAT_DEF_ID DATEFROM y DATETO (VAL_DATE informado) y una fila STPCONF.</precondicion>
+      <precondicion>Acceso al log logs/ExtraccionGenericaSCIs.log.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="SCIS_OID" valor="600001, 600002, 600003"/>
+      <dato campo="FT_T_COI1 (SCI 600002)" valor="dos filas CONFIRMID ACTIVE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar los datos y ejecutar GS_EXTRACCIONSCIS.</paso>
+      <paso numero="2">Comprobar que el job termina en OK.</paso>
+      <paso numero="3">Buscar en el XML un bloque ConfInstruction por cada SCI (identificar por ConfId).</paso>
+      <paso numero="4">Buscar en el log el error de la SCI 600002 (ORA-01427).</paso>
+      <paso numero="5">En el bloque de 600001, anotar el texto exacto de DateFrom, DateTo y STP, y compararlo con el de StartDate (DD/MM/YYYY).</paso>
+    </pasos>
+    <resultadoEsperado>Aparecen los bloques de 600001 y 600003 y no el de 600002; el job termina en OK; el log registra el error de 600002. DateFrom y DateTo no tienen el formato DD/MM/YYYY de StartDate; STP se registra tal como sale (vacío si STPCONF no se guarda en VAL_DATE).</resultadoEsperado>
+    <tipoValidacion>Contenido del XML y log del jar, según el texto de la query de la rama develop.</tipoValidacion>
+    <criterioAceptacion>Dos bloques en el fichero, ausencia del de 600002, job en OK y formatos de fecha y STP anotados para cerrar P-SCIS-12.</criterioAceptacion>
+    <posibilidadFallo>Media: si la query instalada difiere de develop (ROWNUM o TO_CHAR), el resultado cambia.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

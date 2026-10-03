@@ -4,13 +4,14 @@ Esta carpeta contiene las especificaciones que **todavía no están completas**:
 
 Criterio aplicado el 02/10/2026 con la regla "Dos carpetas" de `.github/copilot-instructions.md`. Los huecos **no bloqueantes** (siglas, contexto, confirmaciones de algo ya deducido, mejoras futuras) se listan aparte y no impiden volver a `salidas/`.
 
-**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 641 huecos bloqueantes y 428 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
+**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 615 huecos bloqueantes y 455 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
 
 Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
-- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 142 resueltos en parte, 6 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
+- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 142 resueltos en parte, 6 nuevos Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
+- **4ª pasada (03/10)** — repositorio de objetos de GoldenSource (`objetosgs`, rama develop: workflows `.gsp` con los scripts BeanShell y consultas en línea, `queries/`, `rep1/`, mappings `.mdx`, feeds, xslt, scriptsSQL): 27 cerrados, 46 resueltos en parte, 1 nuevos (recuento parcial mientras la pasada esté en curso).
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -18,21 +19,21 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 
 | Material | Huecos | Procesos afectados |
 |---|---|---|
-| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 113 | 44 |
+| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 109 | 43 |
 | Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 85 | 43 |
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 81 | 47 |
-| Otros | 77 | 39 |
+| Otros | 76 | 38 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
-| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 61 | 38 |
-| Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 40 | 24 |
+| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 64 | 39 |
+| Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 34 | 23 |
 | .properties y configuración de producción (dat/properties, cfg/entorno) | 17 | 13 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
-| Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 17 | 8 |
 | raiseEvent.sh (lo invoca executeBbvaEvent.sh) | 16 | 15 |
 | Versión de RAMERC0068.sh instalada en producción | 15 | 15 |
-| Workflows y subworkflows de GoldenSource | 14 | 12 |
-| Layout o muestra de ficheros | 13 | 12 |
-| Confirmación funcional del usuario | 10 | 6 |
+| Layout o muestra de ficheros | 12 | 11 |
+| Confirmación funcional del usuario | 11 | 7 |
+| Workflows y subworkflows de GoldenSource | 7 | 6 |
+| Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 6 | 2 |
 
 Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, la carpeta `/pr/pl/envioweb/idx/bck/*.idx`, los módulos `/pr/pl/envioweb/scrt/*.mod`, `raiseEvent.sh`, `LPFTPEXCA0000/0002.sh`, los exports XML de las carpetas de Control-M, una consulta a `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1`, y la verificación en los servidores de que lo instalado coincide con la plantilla `estaticos` (versión de `GSProcess.sh`, jars con o sin paquete, `.properties` efectivos). Del volcado `fileloading` faltan los scripts BeanShell (`statements`) de los nodos listados al final.
 
@@ -47,23 +48,23 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`comun_extraccion_generica`](#comun-extraccion-generica) — 7 bloqueantes
 - [`comun_generico_sh`](#comun-generico-sh) — 1 bloqueantes
 - [`comun_gestion_alertas`](#comun-gestion-alertas) — 10 bloqueantes
-- [`comun_gsprocess`](#comun-gsprocess) — 4 bloqueantes
+- [`comun_gsprocess`](#comun-gsprocess) — 2 bloqueantes
 - [`comun_lpftpexca`](#comun-lpftpexca) — 9 bloqueantes
 - [`comun_megenv0001`](#comun-megenv0001) — 7 bloqueantes
-- [`comun_planificador_generico`](#comun-planificador-generico) — 14 bloqueantes
+- [`comun_planificador_generico`](#comun-planificador-generico) — 13 bloqueantes
 - [`comun_ramerc0068`](#comun-ramerc0068) — 1 bloqueantes
 - [`comun_rdr_report`](#comun-rdr-report) — 2 bloqueantes
-- [`descarga_derivados_refinitiv`](#descarga-derivados-refinitiv) — 20 bloqueantes
+- [`descarga_derivados_refinitiv`](#descarga-derivados-refinitiv) — 19 bloqueantes
 - [`envio_altamira_bancomer_mexico`](#envio-altamira-bancomer-mexico) — 8 bloqueantes
 - [`envio_altamira_colombia`](#envio-altamira-colombia) — 11 bloqueantes
 - [`envio_calendarios_modelity`](#envio-calendarios-modelity) — 10 bloqueantes
 - [`envio_guido_roles_eins`](#envio-guido-roles-eins) — 12 bloqueantes
 - [`extraccion_contactos`](#extraccion-contactos) — 11 bloqueantes
-- [`extraccion_emisiones_mercados`](#extraccion-emisiones-mercados) — 12 bloqueantes
+- [`extraccion_emisiones_mercados`](#extraccion-emisiones-mercados) — 11 bloqueantes
 - [`extraccion_generica_cestas`](#extraccion-generica-cestas) — 12 bloqueantes
 - [`extraccion_generica_contrapartidas`](#extraccion-generica-contrapartidas) — 22 bloqueantes
 - [`extraccion_sait_contratos`](#extraccion-sait-contratos) — 10 bloqueantes
-- [`extraccion_scis`](#extraccion-scis) — 11 bloqueantes
+- [`extraccion_scis`](#extraccion-scis) — 9 bloqueantes
 - [`extracciones_adhoc_ctpdas_fircosoft_sire`](#extracciones-adhoc-ctpdas-fircosoft-sire) — 11 bloqueantes
 - [`kytl001d_ratings_ada`](#kytl001d-ratings-ada) — 10 bloqueantes
 - [`kytl_bcbs_sector_asset_allocation`](#kytl-bcbs-sector-asset-allocation) — 8 bloqueantes
@@ -72,22 +73,22 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`rdr_bancarizacion`](#rdr-bancarizacion) — 3 bloqueantes
 - [`rdr_batch_emisores_refinitiv`](#rdr-batch-emisores-refinitiv) — 8 bloqueantes
 - [`rdr_c460`](#rdr-c460) — 6 bloqueantes
-- [`rdr_carga_baja_niveles`](#rdr-carga-baja-niveles) — 5 bloqueantes
+- [`rdr_carga_baja_niveles`](#rdr-carga-baja-niveles) — 3 bloqueantes
 - [`rdr_carga_bbg_multi_m_new`](#rdr-carga-bbg-multi-m-new) — 4 bloqueantes
 - [`rdr_carga_bbg_multi_t_new`](#rdr-carga-bbg-multi-t-new) — 5 bloqueantes
-- [`rdr_carga_plazas_trad_new`](#rdr-carga-plazas-trad-new) — 8 bloqueantes
-- [`rdr_carga_refinitiv_multi`](#rdr-carga-refinitiv-multi) — 13 bloqueantes
-- [`rdr_cargalei_new`](#rdr-cargalei-new) — 9 bloqueantes
+- [`rdr_carga_plazas_trad_new`](#rdr-carga-plazas-trad-new) — 7 bloqueantes
+- [`rdr_carga_refinitiv_multi`](#rdr-carga-refinitiv-multi) — 11 bloqueantes
+- [`rdr_cargalei_new`](#rdr-cargalei-new) — 7 bloqueantes
 - [`rdr_cargasectoada`](#rdr-cargasectoada) — 9 bloqueantes
-- [`rdr_clientes_cib`](#rdr-clientes-cib) — 12 bloqueantes
+- [`rdr_clientes_cib`](#rdr-clientes-cib) — 9 bloqueantes
 - [`rdr_conc_oficinas_new`](#rdr-conc-oficinas-new) — 11 bloqueantes
 - [`rdr_conciliacion_bdi`](#rdr-conciliacion-bdi) — 16 bloqueantes
 - [`rdr_conciliacion_clientela`](#rdr-conciliacion-clientela) — 17 bloqueantes
-- [`rdr_dictionary_index_y_weekly`](#rdr-dictionary-index-y-weekly) — 16 bloqueantes
-- [`rdr_duco_cpty`](#rdr-duco-cpty) — 21 bloqueantes
-- [`rdr_envio_cliex`](#rdr-envio-cliex) — 16 bloqueantes
-- [`rdr_extraccion_ducomasterdata`](#rdr-extraccion-ducomasterdata) — 10 bloqueantes
-- [`rdr_extraccionssis`](#rdr-extraccionssis) — 11 bloqueantes
+- [`rdr_dictionary_index_y_weekly`](#rdr-dictionary-index-y-weekly) — 14 bloqueantes
+- [`rdr_duco_cpty`](#rdr-duco-cpty) — 20 bloqueantes
+- [`rdr_envio_cliex`](#rdr-envio-cliex) — 14 bloqueantes
+- [`rdr_extraccion_ducomasterdata`](#rdr-extraccion-ducomasterdata) — 9 bloqueantes
+- [`rdr_extraccionssis`](#rdr-extraccionssis) — 10 bloqueantes
 - [`rdr_informe_mifid_new`](#rdr-informe-mifid-new) — 10 bloqueantes
 - [`rdr_issues_re_pro_new`](#rdr-issues-re-pro-new) — 16 bloqueantes
 - [`rdr_mifidmic_new`](#rdr-mifidmic-new) — 13 bloqueantes
@@ -96,8 +97,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`rdr_pr_register_leis_send_new`](#rdr-pr-register-leis-send-new) — 9 bloqueantes
 - [`rdr_pro_sma_portfolios`](#rdr-pro-sma-portfolios) — 9 bloqueantes
 - [`rdr_refundicion`](#rdr-refundicion) — 10 bloqueantes
-- [`rdr_reubicacion_new`](#rdr-reubicacion-new) — 12 bloqueantes
-- [`rdr_sendbbg_asset`](#rdr-sendbbg-asset) — 10 bloqueantes
+- [`rdr_reubicacion_new`](#rdr-reubicacion-new) — 11 bloqueantes
+- [`rdr_sendbbg_asset`](#rdr-sendbbg-asset) — 9 bloqueantes
 - [`rdr_sma_products_pro`](#rdr-sma-products-pro) — 15 bloqueantes
 - [`rdr_valforres`](#rdr-valforres) — 3 bloqueantes
 - [`recepcion_altamira_colombia`](#recepcion-altamira-colombia) — 19 bloqueantes
@@ -250,13 +251,14 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Falta el código de raiseEvent.sh (o una prueba) para saber qué devuelve el estado de un workflow fallido.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** fileloading no contiene raiseEvent.sh ni 'querystatus' (solo la actividad RaiseEvent interna de workflows y los jars sin esa cadena); P-EBE-01 y H-EBE-01 siguen abiertos. Se anade nota con el dato de contexto (workflows RDR con haltOnError=N, errores de datos no abortan).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** No hay executeBbvaEvent.sh ni raiseEvent.sh en estaticos, pero si BBGexecuteBbvaEvent.sh (variante con timeout/2), los dos script_kill_* y publish.sh, que trata querystatus 0 y 7 como finales: pista parcial para P-EBE-01. Se documentan en §8.1 con los defectos de los scripts de parada.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** raiseEvent.sh y querystatus no existen en el repositorio de objetos (solo la actividad interna RaiseEvent y una variable queryStatus sin uso). Los dos huecos siguen parciales.  
 
 ### Huecos bloqueantes (2)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-EBE-01 | parcial | ¿Qué devuelve raiseEvent.sh --querystatus cuando el workflow ha terminado con error: 0 o distinto de 0? **Avance 3ª pasada (estaticos):** publish.sh (plantilla) sale del bucle de --querystatus con codigo 0 o 7: el 7 es un estado final distinto de 0; significado no confirmado. Escrito en §7. | Codigo de raiseEvent.sh o prueba con un workflow que falle para confirmar que 7 = error y que devuelve la consulta |
-| H-EBE-01 | parcial | raiseEvent.sh (herramienta de línea de comandos de GoldenSource que lanza y consulta el evento) se invoca pero su código no se ha recibido. **Avance 3ª pasada (estaticos):** raiseEvent.sh no esta en la plantilla; se documenta ubicacion (CommandLineTools/), opciones y uso en publish.sh y BBGexecuteBbvaEvent.sh. Escrito en §7. | Codigo de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
+| P-EBE-01 | parcial | ¿Qué devuelve raiseEvent.sh --querystatus cuando el workflow ha terminado con error: 0 o distinto de 0? **Avance 3ª pasada (estaticos):** publish.sh (plantilla) sale del bucle de --querystatus con codigo 0 o 7: el 7 es un estado final distinto de 0; significado no confirmado. Escrito en §7. **Avance 4ª pasada (objetosgs):** Búsqueda de raiseEvent/querystatus en todo el repo develop: sin código de la herramienta; nota añadida a la spec. | Código de raiseEvent.sh o prueba de --querystatus con un workflow que falle (confirmar que 7 = error) |
+| H-EBE-01 | parcial | raiseEvent.sh (herramienta de línea de comandos de GoldenSource que lanza y consulta el evento) se invoca pero su código no se ha recibido. **Avance 3ª pasada (estaticos):** raiseEvent.sh no esta en la plantilla; se documenta ubicacion (CommandLineTools/), opciones y uso en publish.sh y BBGexecuteBbvaEvent.sh. Escrito en §7. **Avance 4ª pasada (objetosgs):** Solo se confirma ubicación CommandLineTools (workflow cmd.gsp con chmod); sin código. | Código de raiseEvent.sh (CommandLineTools de Fileloading/Engine) |
 
 ### No bloqueantes (1)
 
@@ -316,6 +318,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se incorporan ReportesRDR/ReporteRDR reales (validaciones silenciosas, marcado incondicional, query de cada informe en FT_T_REP1) y AlertasEnvioExcepciones con sus tres casos y defectos (condicion cargados>0, variable destination no declarada). Siguen sin verse ProcesoCLS, DocumentGenerator, ConDB y ServerMailConfig.xml.  
 **Reconciliación con feature/Eduardo (02-03/10):** report.DocumentGenerator real (código fuente completo): despacho EXCEL/WORD/CUERPO/TXT/DAT, generaExcelPorCeldas (único caso con celdas CELDAEXCEL implementado), fallo silencioso si celdas+tipo≠EXCEL, y confirma que BODY_<SH>.txt se escribe incluso sin mensajes si hay destinatarios activos. Cierra H-ALE-01/H-ALE-12; nuevo §4.2.2.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla de despliegue aporta GestionAlertas.properties y sus ocho variantes, los log4j de Barrido y Cocinado, la estructura de ServerMailConfig.xml y un inventario de 44 consumidores. No hay codigo Java (ProcesoCLS, DocumentGenerator, ConDB) ni valores de correo, asi que esos huecos siguen abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se documentan las 10 consultas rep1 (contrato CELDAEXCEL), los lanzadores Bash de Barrido/Cocinado y la localizacion exacta de mailOK en AlertasEnvio. Los huecos Java (ProcesoCLS, ConDB, QuerysConfig) siguen abiertos: no hay codigo Java en el repo.  
 
 ### Huecos bloqueantes (10)
 
@@ -330,7 +333,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-ALE-04 | abierta | QuerysConfig del Barrido no se ha recibido (solo el del Cocinado). | Código de QuerysConfig del Barrido (RDR_AlertasBarrido.jar) |
 | H-ALE-06 | parcial | ServerMailConfig.xml (host y remitente por entorno) no se ha recibido. **Avance 3ª pasada (estaticos):** ServerMailConfig.xml de la plantilla: estructura root/server[@id=de\|ei\|pp\|pr]/host,user; valores enmascarados. Documentado en 5.1. | Host SMTP y remitente reales de cada entorno (no incluidos en la plantilla). |
 | H-ALE-08 | abierta | Defecto marcaUsadosTPG1 (incidencias no cerradas, mensajes duplicados) y desajuste Ppal/QuerysStr en estadísticas: confirmados solo en el código recibido, no en el jar desplegado. | Jar desplegado del Barrido o prueba con FT_T_TPG1.END_TMS (§7) |
-| H-ALE-09 | abierta | Subworkflow Mail: el script Validate MAIL escribe una variable (mailOK) no declarada; si el intérprete la trata como error, el envío fallaría siempre. Se supone que no afecta. | Log de una ejecución de Mail en producción o integración |
+| H-ALE-09 | parcial | Subworkflow Mail: el script Validate MAIL escribe una variable (mailOK) no declarada; si el intérprete la trata como error, el envío fallaría siempre. Se supone que no afecta. **Avance 4ª pasada (objetosgs):** Localizado: Validate MAIL esta en AlertasEnvio v7 (no en Mail); mailOK no se pasa al script y solo se usa en un log. Sin prueba de ejecucion. | Log de una ejecucion de AlertasEnvio en integracion para confirmar que se llega a Send Mail |
 
 ### No bloqueantes (6)
 
@@ -349,17 +352,16 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** El script está analizado por completo (código íntegro, 3 copias idénticas). Falta confirmar quién sustituye @@ENV@@ y los artefactos GoldenSource que lanza la acción Evento (raiseEvent.sh, StandardFileLoad/ParseMDXLayout, RDR_Reporte, RDR_ErroresCSV).  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Los tres huecos de eventos (StandardFileLoad/ParseMDXLayout, RDR_Reporte, RDR_ErroresCSV) se cierran con workflows reconstruidos del volcado y se documentan en la spec 6.5.1. H-GSP-01 (raiseEvent.sh) y P-GSP-01 (@@ENV@@) siguen abiertos: no hay nada en fileloading.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se documentan las dos versiones de GSProcess.sh (plantilla sin JDKV, 950 lineas, frente a la copia con JDKV, 960): diff de 5 puntos, JDKV ignorado sin aviso en la antigua, y se cierra @@ENV@@. Se analiza errores_to_file.sh (con defectos verificados), el motor antiguo executeGSProcess3.sh y se avanza en raiseEvent/Reporte/HistoricizeFiles.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados H-GSP-06 y H-GSP-07 con los objetos GenerateReports, HistoricizeFiles, MarcaRegErroneo y subworkflows. H-GSP-01 sigue parcial por falta de raiseEvent.sh.  
 
-### Huecos bloqueantes (4)
+### Huecos bloqueantes (2)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| H-GSP-01 | parcial | raiseEvent.sh (herramienta de línea de comandos de GoldenSource) no analizado; lo invoca executeBbvaEvent.sh, que lanza GSProcess.sh en la acción Evento. **Avance 3ª pasada (estaticos):** raiseEvent.sh no esta en la plantilla; se documenta ubicacion (CommandLineTools/), opciones y que publish.sh trata querystatus 0 o 7 como finales (§11). | Codigo de raiseEvent.sh (significado de los codigos de --querystatus, en especial el 7) o prueba con un workflow que falle |
-| H-GSP-06 | parcial | Las SELECT por Servicio del array arrayStringSelects de GenerateReports (script del nodo 'Initialize Variables', 27.736 B) no estan en el volcado. **Avance 3ª pasada (estaticos):** Plantilla identifica los 8 modulos que lanzan la accion Reporte (LOPD, OFAC, bajaniveles, cargafechasGTR/MGC/STAR, clientes, nlegales) y que informeMIFID usa Workflow RDR_Reporte (§6.5.1 B). | Export del blob statements del nodo 'Initialize Variables' del workflow GenerateReports v20 (las SELECT no estan en estaticos) |
-| H-GSP-07 | parcial | Script errores_to_file y comando del nodo 'Variables' de MarcaRegErroneo; comandos rm de 'Prepare commands' de HistoricizeFiles (salen cortados a su primera linea). **Avance 3ª pasada (estaticos):** errores_to_file.sh analizado entero y probado (§6.5.2): antepone ERROR- a la linea de old/<Servicio>.csv; casos PLZ/OFC/OFA/Refundicion/CargaLEI/mifid_class/Disputes/ISDA12/13 y defectos. | Statements de 'Prepare commands (Standard)' de HistoricizeFiles (rm/rmOld) y del nodo 'Variables' de MarcaRegErroneo (texto exacto del comando) |
+| H-GSP-01 | parcial | raiseEvent.sh (herramienta de línea de comandos de GoldenSource) no analizado; lo invoca executeBbvaEvent.sh, que lanza GSProcess.sh en la acción Evento. **Avance 3ª pasada (estaticos):** raiseEvent.sh no esta en la plantilla; se documenta ubicacion (CommandLineTools/), opciones y que publish.sh trata querystatus 0 o 7 como finales (§11). **Avance 4ª pasada (objetosgs):** Sin cambios: raiseEvent.sh no está en el repositorio de objetos. | Código de raiseEvent.sh o prueba con workflow que falle |
 | H-GSP-08 | abierta | Version de GSProcess.sh instalada en cada entorno: plantilla develop (950 lineas, sin JDKV) o copia migrada (960 lineas, con JDKV). Una clave JDKV se ignora en la antigua. | wc -l, md5sum y grep -c JDKV de scrt/GSProcess.sh en pr, pp, ei y de |
 
-### No bloqueantes (5)
+### No bloqueantes (7)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -368,6 +370,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-GSP-03 | resuelta | Evento Reporte: workflow RDR_Reporte nombrado en la tabla de comandos pero no analizado. | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): RDR_Reporte -> GenerateReports v20 + Sub_GenerateReports/Sub_DevelopReport/Sub_GenReportHost reconstruidos: servicios, ficheros, informe vacio='La select no devuelve valores'; spec 6.5.1 B. |
 | H-GSP-04 | resuelta | Evento Errores: workflow RDR_ErroresCSV nombrado en la tabla de comandos pero no analizado. | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): RDR_ErroresCSV -> ErroresCSV v6 completo (ErroresCSV.wkf de rama + volcado), SubErroresCSV, MarcaRegErroneo, HistoricizeFiles: fichero, SQL, ventana 1h, Delta; spec 6.5.1 C. |
 | H-GSP-05 | abierta | credentials.xml: solo se describen las etiquetas que lee el script (<logs>, <javahome>, <javahome17>); los valores por entorno no se documentan. | Contiene credenciales; la estructura que usa el script está descrita y el comportamiento es cierto |
+| H-GSP-06 | resuelta | Las SELECT por Servicio del array arrayStringSelects de GenerateReports (script del nodo 'Initialize Variables', 27.736 B) no estan en el volcado. **Avance 3ª pasada (estaticos):** Plantilla identifica los 8 modulos que lanzan la accion Reporte (LOPD, OFAC, bajaniveles, cargafechasGTR/MGC/STAR, clientes, nlegales) y que informeMIFID usa Workflow RDR_Reporte (§6.5.1 B). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): GenerateReports.gsp (develop): 17 SELECT de arrayStringSelects, ficheros y cabeceras por Servicio, documentados en spec 6.5.1 B.1 |
+| H-GSP-07 | resuelta | Script errores_to_file y comando del nodo 'Variables' de MarcaRegErroneo; comandos rm de 'Prepare commands' de HistoricizeFiles (salen cortados a su primera linea). **Avance 3ª pasada (estaticos):** errores_to_file.sh analizado entero y probado (§6.5.2): antepone ERROR- a la linea de old/<Servicio>.csv; casos PLZ/OFC/OFA/Refundicion/CargaLEI/mifid_class/Disputes/ISDA12/13 y defectos. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): HistoricizeFiles.gsp (rm/mv/rm), MarcaRegErroneo.gsp (comando y SELECT) y SubErroresCSV.gsp documentados en 6.5.1 C |
 
 ## comun_lpftpexca
 
@@ -427,8 +431,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** No está el código del motor ni las queries ni las capturas; el comportamiento (planificación, ejecución repetida, límites, logs, conexión por entorno) depende de 9 preguntas abiertas y de material no recibido.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** El volcado no contiene el motor ProjectMain ni referencias a RDR_SW_PLANIFICADOR/FT_T_ATE1/FT_T_QPF1 (las 48 tareas Quartz son del producto y estan pausadas); no se cierra ninguna pregunta. El documento de analisis de la rama ya estaba incorporado a la spec.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla no trae el motor (ProjectMain.jar) ni las queries, asi que P-PLA-01..09 y H-PLA-01..05 siguen abiertos. Se incorporan el alias salesWarehouse_RDR.properties, la generacion de planificador.properties por traducir_creden, el tipo de parametro PARAMETER y los scripts parseClob_* con su relacion con ACTUALIZAR_FECHA_PAR1.sh.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrado H-PLA-03 con los 17 scripts de scriptsSQL y avance en P-PLA-09/P-PLA-05. El motor, capturas y XSD no estan en el repositorio.  
 
-### Huecos bloqueantes (14)
+### Huecos bloqueantes (13)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -436,21 +441,21 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-PLA-02 | abierta | ¿hasBeenExecuted() controla por ACT1_OID o por QPF1_OID? | código de hasBeenExecuted() o prueba con 3 horarios |
 | P-PLA-03 | abierta | ¿Cuál es la planificación exacta de RDR_SW_PLANIFICADOR_new y el margen de isScheduled()? | ficha/export de RDR_SW_PLANIFICADOR_new y código de isScheduled() |
 | P-PLA-04 | abierta | ¿Dónde escribe el motor su log y qué texto indica que una extracción fue bien? | configuración de log del motor y mensajes de éxito/error |
-| P-PLA-05 | abierta | ¿Qué pasa al superar las 20.000 filas en un XML sin paginación? | código de QueryServiceImpl (límite de 20.000) o prueba |
+| P-PLA-05 | parcial | ¿Qué pasa al superar las 20.000 filas en un XML sin paginación? **Avance 4ª pasada (objetosgs):** Ninguna extraccion XML activa supera 20.000 filas por diseno (SAIT paginado, productos/portfolios 1 fila) | Codigo de QueryServiceImpl o prueba |
 | P-PLA-06 | abierta | ¿Usa el motor los database_<entorno>.properties de ProjectDAO (el de producción está vacío) o solo planificador.properties? | código de ProjectDAO y de carga de configuración |
 | P-PLA-07 | abierta | ¿Qué es el 'día especial' que puede representar 0 en QPF1_DAY? | código de isScheduled() / definición de día especial |
 | P-PLA-08 | abierta | ¿Qué hace cleanSchedules()? | código de cleanSchedules() en ProjectRunnableProcess |
-| P-PLA-09 | abierta | ¿Tienen las 21 queries un ORDER BY que identifique cada fila de forma única? | texto CLOB_VALUE de las 21 queries |
+| P-PLA-09 | parcial | ¿Tienen las 21 queries un ORDER BY que identifique cada fila de forma única? **Avance 4ª pasada (objetosgs):** Solo 4 scripts con ORDER BY final; solo los 2 SAIT traen marcadores de paginacion; productos/portfolios son 1 fila | Codigo de ProjectSQL para saber si pagina el resto de consultas |
 | H-PLA-01 | abierta | Código Java de ProjectMain.jar (ProjectDAO, ProjectSQL, ProjectMain) no está en el repositorio; todo lo del motor procede del documento de análisis. | código fuente de ProjectMain.jar (invocado por GSProcess.sh planifGenerico) |
 | H-PLA-02 | abierta | Las tres capturas de consultas a base de datos que sustentan el inventario (§5) no están en el repositorio. | capturas/consultas de FT_T_ATE1, FT_T_QPF1 y FT_T_PAR1 de producción |
-| H-PLA-03 | abierta | Texto de las queries (CLOB_VALUE) de los 17 scripts distintos (RDR_ExtraccionSW*.sql, RDR_Calendarios_Modelity.sql, productos.sql, portfolios.sql, BATCH_SAIT*.sql…) no recibido. | CLOB_VALUE de cada script SQL activo de FT_T_ATE1 |
 | H-PLA-04 | abierta | XSD contra el que se valida cada XML (SAIT, productos, portfolios) nombrado pero no aportado. | XSD de cada extracción XML (invocado por ProjectSQL) |
 | H-PLA-05 | abierta | Wiki del proceso y ficha de la cadena RDR_SW_PLANIFICADOR_new (cron exacto) citadas pero no incluidas. | wiki y ficha/export de Control-M de RDR_SW_PLANIFICADOR_new |
 
-### No bloqueantes (1)
+### No bloqueantes (2)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| H-PLA-03 | resuelta | Texto de las queries (CLOB_VALUE) de los 17 scripts distintos (RDR_ExtraccionSW*.sql, RDR_Calendarios_Modelity.sql, productos.sql, portfolios.sql, BATCH_SAIT*.sql…) no recibido. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Los 17 scripts activos estan en scriptsSQL (develop); tabla en spec 5.1 con extraccion, forma y ORDER BY |
 | H-PLA-06 | abierta | Las filas 14, 18 y 19 del inventario no las consume ninguna spec del repositorio. | Es información de quién consume aguas abajo; el contenido y la entrega ya están claros |
 
 ## comun_ramerc0068
@@ -497,8 +502,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el script de carga Refinitiv_Derivados_Batch.sh, los jars refinitivFilter/openFigiEnricher/RDR_Refinitiv_Request, el job 1 y los .idx del job 2, las exports de Control-M y varios sub-workflows/feeds/procedimientos (AltaRolEmisor, Carga_Listed_MIC, PRC_ESCOBA_SUBYACENTES, Standard File Load).  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Con el volcado de GoldenSource y las clases de alertas de Eduardo se cierran el cierre de TPG1 por el Barrido y el paso de parámetros a los workflows de los jobs 5/6, y se corrige que AltaRolEmisor no es un mensaje JMS sino una llamada síncrona; se identifica TABLEALERTGENER como FT_T_ALG1. Siguen abiertos scripts, jars, Control-M, .properties de producción y los mappings .mdx.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Con el codigo completo de Refinitiv_Derivados_Batch.sh y Run_InitialReportMerger.sh se cierran P-DDR-05, H-DDR-01 y P-DDR-06 y se corrige que sin .zip el job 4 sale en rojo (255). Aparece un jar nuevo sin analizar (merger, H-DDR-20) y siguen abiertos los jars, pasarela, IDX, Control-M, .mdx y raiseEvent.sh.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierran P-DDR-08 y H-DDR-08, avanzan H-DDR-07 y H-DDR-10 y se corrigen TC-014/TC-015 (IS_EXTF marca WARNING; AltaRolEmisor escribe FT_T_FRID). Aparece H-DDR-21 (workflow Refinitiv_Derivados huérfano).  
 
-### Huecos bloqueantes (20)
+### Huecos bloqueantes (19)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -506,31 +512,32 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-DDR-02 | abierta | Línea .idx de las claves MEKYTL1080/1081 de MEGENV0001.sh y sus códigos de salida. | idx/MEKYTL1080.idx e idx/MEKYTL1081.idx de producción |
 | P-DDR-03 | parcial | Los workflows de jobs 5/6 insertan alertas PROCESO='PETICION_REFINITIV_EMISIONES' y el job 7 solo barre DERIVADOS_REFINITIV; ¿qué envía las otras? ¿Dónde escribe ExceptionService? **Avance 2ª pasada:** TABLEALERTGENER es FT_T_ALG1 (nodo Insert ALG1, ALG1_OID, lecturas en FT_T_ALG1); el Barrido no interviene; el Cocinado las recoge por proceso o PROCESOS. §4.2 y §6.7. **Avance 3ª pasada (estaticos):** GestionAlertasAOSRDR.properties lanza GestionAlertas para 9 procesos, incl. PETICION_REFINITIV_EMISIONES, _IDENTIFICADORES y BATCH_REFINITIV_EMISORES (Barrido+Cocinado+Envio). Spec §6.8.D. | Job de Control-M (y hora) que ejecuta GSProcess.sh GestionAlertasAOSRDR, y codigo de ExceptionService (dónde escribe). |
 | P-DDR-04 | abierta | Definición Control-M exacta de las 2 cadenas: condiciones, reintentos, reglas de aceptación de códigos (¿job 3 verde si rm no encuentra fichero?), calendario real de KYTL001P. | exports/fichas de KYTL001D y KYTL001P_DESCARGA_FICHEROS_DERIVADOS_REFINITIV |
-| P-DDR-08 | parcial | Muestra de Emisores* resuelta (un orgId por línea). Sigue abierto el consumidor del mensaje JMS AltaRolEmisor que inserta en FT_T_FINR. **Avance 2ª pasada:** El consumidor es el propio workflow AltaRolEmisor (v13), llamado de forma síncrona con JMSTextMessage; flujo y validaciones documentados en §6.7. | Export del blob statements de los nodos 'Acciones Issuer', 'query STARMADRID' y 'query ORGID' del workflow AltaRolEmisor |
-| H-DDR-02 | parcial | refinitivFilter.jar (com.bbva.kytl.MainProcess, modo ONLINE/batch) nombrado pero no analizado. **Avance 3ª pasada (estaticos):** Invocacion exacta de refinitivFilter.jar (MainProcess BATCH <dir> .txt <dir> <old> DELETE), classpath y logs refinitivDataFilter[Online].log. Spec §6.8.B-C. | Codigo de refinitivFilter.jar: criterio de filtrado, ficheros que crea y codigos de salida. |
-| H-DDR-03 | parcial | openFigiEnricher.jar (com.bbva.kytl.EnricherProcess) nombrado pero no analizado; genera Emisores/Subyacentes/Derivados_Enriquecido. **Avance 3ª pasada (estaticos):** Invocacion exacta de openFigiEnricher.jar (EnricherProcess <env> <log> <dir> Split_Derivados_Filtrado_ <dir> DELETE <old> DERIVADO) con XMASToken; logs. Spec §6.8.B-C. | Codigo de openFigiEnricher.jar y de XMASToken-0.0.1.jar (algoritmo, reintentos y codigos de salida). |
-| H-DDR-04 | abierta | RDR_Refinitiv_Request.jar (clase Request) que pide los datos a Refinitiv en jobs 5/6: se dice 'confirmado' en otro proceso, pero allí tampoco se recibió. | código de RDR_Refinitiv_Request.jar (invocado por Refinitiv_Request_Response.wkf) |
+| H-DDR-02 | parcial | refinitivFilter.jar (com.bbva.kytl.MainProcess, modo ONLINE/batch) nombrado pero no analizado. **Avance 3ª pasada (estaticos):** Invocacion exacta de refinitivFilter.jar (MainProcess BATCH <dir> .txt <dir> <old> DELETE), classpath y logs refinitivDataFilter[Online].log. Spec §6.8.B-C. **Avance 4ª pasada (objetosgs):** Línea ONLINE exacta de refinitivFilter.jar en Refinitiv_Request_Response v31. | Código del jar. |
+| H-DDR-03 | parcial | openFigiEnricher.jar (com.bbva.kytl.EnricherProcess) nombrado pero no analizado; genera Emisores/Subyacentes/Derivados_Enriquecido. **Avance 3ª pasada (estaticos):** Invocacion exacta de openFigiEnricher.jar (EnricherProcess <env> <log> <dir> Split_Derivados_Filtrado_ <dir> DELETE <old> DERIVADO) con XMASToken; logs. Spec §6.8.B-C. **Avance 4ª pasada (objetosgs):** Línea exacta de openFigiEnricher.jar (prefijo Derivados_Filtrado_) en v31. | Código del jar y de XMASToken. |
+| H-DDR-04 | parcial | RDR_Refinitiv_Request.jar (clase Request) que pide los datos a Refinitiv en jobs 5/6: se dice 'confirmado' en otro proceso, pero allí tampoco se recibió. **Avance 4ª pasada (objetosgs):** Línea exacta de RDR_Refinitiv_Request.jar (com.bbva.kytl.main.Request) y classpath en v31. | Código del jar. |
 | H-DDR-05 | abierta | PositionsTemplate/UnderlyingPositionsTemplate (constantes de índice de los 45 campos de Derivados_Enriquecido) no decompiladas. | código de PositionsTemplate y UnderlyingPositionsTemplate (usadas por ListedDerivativesService) |
 | H-DDR-06 | abierta | StaticData (mapas de divisas, CFI, geografía, mercados) y ConexionBD.jar usados por el loader no recibidos; ExceptionService tampoco (P-DDR-03). | código de StaticData, ExceptionService y ConexionBD.jar (invocados por refinitivDerivativesLoader.jar) |
-| H-DDR-07 | parcial | Motor 'Standard File Load' con feeds Refinitiv_Issue_Response / Refinitiv_Identifiers_Response y layout issueRequestOutput en FT_T_PAR1: no analizados. **Avance 2ª pasada:** Standard File Load y Parallel File Load Sub analizados; feeds Refinitiv_Issue_Response/Identifiers_Response = LineByLine con mapping .mdx identificado (§6.7). | Contenido de Refinitiv_Issues.mdx y Refinitiv_Identifiers.mdx y fila issueRequestOutput de FT_T_PAR1 (REFINITIV_PARAMS) |
-| H-DDR-08 | parcial | Sub-workflow/feed Carga_Listed_MIC (asocia MIC a emisiones nuevas con CargaListedMIC_*.xml) no analizado. **Avance 2ª pasada:** Feed Carga_Listed_MIC = XmlSplitter con CargaListedMIC.mdx (3.375 B); workflow Carga_Listed_MIC (v6) analizado y diferenciado (lo usa Bloomberg_Response). §6.7. | Contenido de CargaListedMIC.mdx |
-| H-DDR-09 | abierta | Procedimiento PL/SQL PRC_ESCOBA_SUBYACENTES() (limpieza de subyacentes) invocado al final de los jobs 5/6 no analizado. | código de PRC_ESCOBA_SUBYACENTES (invocado por Refinitiv_Request_Response.wkf) |
-| H-DDR-10 | parcial | Clases ProcesoCLS, ReportesRDR y QuerysConfig del Barrido/Cocinado de alertas no vistas; sub-workflow AlertasEnvioExcepciones y ServerMailConfig.xml tampoco. **Avance 2ª pasada:** Recibidos ReportesRDR/ReporteRDR (Cocinado) y AlertasEnvioExcepciones; estructura de ServerMailConfig.xml deducida del workflow Mail. §6.7. **Avance 3ª pasada (estaticos):** Estructura de ServerMailConfig.xml (root/server[id]/host,user; host y cuenta enmascarados), logs AlertasBarrido/Cocinado y cadena Property+AOSRDR. Spec §6.8.D. | alertaspck.ProcesoCLS, QuerysConfig/QuerysStr, DocumentGenerator, ConDB, blobs de consultas de AlertasEnvioExcepciones y host/cuenta reales por entorno. |
+| H-DDR-07 | parcial | Motor 'Standard File Load' con feeds Refinitiv_Issue_Response / Refinitiv_Identifiers_Response y layout issueRequestOutput en FT_T_PAR1: no analizados. **Avance 2ª pasada:** Standard File Load y Parallel File Load Sub analizados; feeds Refinitiv_Issue_Response/Identifiers_Response = LineByLine con mapping .mdx identificado (§6.7). **Avance 4ª pasada (objetosgs):** Refinitiv_Issues.mdx (64 campos, 14 mensajes) y Refinitiv_Identifiers.mdx analizados campo a campo; §6.9.C. | Valor de FT_T_PAR1 (REFINITIV_PARAMS) issueRequestOutput/issueSearchOutput (lista de columnas). |
+| H-DDR-09 | parcial | Procedimiento PL/SQL PRC_ESCOBA_SUBYACENTES() (limpieza de subyacentes) invocado al final de los jobs 5/6 no analizado. **Avance 4ª pasada (objetosgs):** Solo la invocación (nodo Escoba, PLSQLprocedure sin parámetros, jdbc/GSDM-1). | Código de PRC_ESCOBA_SUBYACENTES (no está en scriptsSQL ni en el repositorio). |
+| H-DDR-10 | parcial | Clases ProcesoCLS, ReportesRDR y QuerysConfig del Barrido/Cocinado de alertas no vistas; sub-workflow AlertasEnvioExcepciones y ServerMailConfig.xml tampoco. **Avance 2ª pasada:** Recibidos ReportesRDR/ReporteRDR (Cocinado) y AlertasEnvioExcepciones; estructura de ServerMailConfig.xml deducida del workflow Mail. §6.7. **Avance 3ª pasada (estaticos):** Estructura de ServerMailConfig.xml (root/server[id]/host,user; host y cuenta enmascarados), logs AlertasBarrido/Cocinado y cadena Property+AOSRDR. Spec §6.8.D. **Avance 4ª pasada (objetosgs):** Consultas y asuntos de AlertasEnvioExcepciones v30 (3 procesos) leídos; §6.9.E. | Clases Java alertaspck.ProcesoCLS, QuerysConfig, DocumentGenerator, ConDB y ServerMailConfig.xml real. |
 | H-DDR-13 | parcial | Contradicción: patrón de fichero del job 1 en cadena P es *.REF...[0-9].txt.zip (R1) pero la cadena P usa .INT. (§6.5 y job 3). **Avance 3ª pasada (estaticos):** WEEKLY solo procesa *.INT.*.zip y el borrado del job 3 de P tambien usa .INT.: el patron .REF. de R1 para la cadena P parece errata. Spec §6.8.B. | Ficha o definicion Control-M de MEKYTL1081_RECOGE (patron real del job 1 de la cadena P). |
 | H-DDR-14 | abierta | Línea sintética de swap (43 campos, debe ampliarse a 45) y ninguna muestra real de SWAP: layout real de swap sin verificar (TC-010). | muestra real de Derivados_Enriquecido con tipo SWAP |
 | H-DDR-15 | abierta | SF_MEGENV0001_*.mod (módulos de MEGENV0001.sh, que ejecuta el job 2) no analizados. | código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-DDR-16 | abierta | raiseEvent.sh (invocado por executeBbvaEvent.sh, que lanza el workflow de los jobs 5/6) no analizado. | código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
 | H-DDR-17 | abierta | Fichas/exports primarios de Control-M (14+ PDFs) no recibidos; topología tomada del documento consolidado. | fichas EX-005-03 y exports de las 2 cadenas |
 | H-DDR-20 | abierta | refinitivInitialReportMerger.jar (com.bbva.kytl.refinitivinitialreportmerger.MergerProcess), lanzado por Run_InitialReportMerger.sh en el paso 1B de WEEKLY, no analizado: une informes Initial por suscripcion (asset/quote/organization); salida y codigos desconocidos. | Codigo de refinitivInitialReportMerger.jar (MergerProcess) y de su log4j (LOG_PATH). |
+| H-DDR-21 | abierta | Workflow Refinitiv_Derivados (v1) carga Emisores/Subyacentes/Derivados con LoadBulkFile_RDR y tres MessageType (Refinitiv_Emisores_Derivados, Refinitiv_Subyacentes_Derivados, Refinitiv_Derivados) sin feed ni mdx ni evento en develop. | Confirmar si se usa en producción y aportar los feeds/mdx de esos tres tipos de mensaje. |
 
-### No bloqueantes (8)
+### No bloqueantes (10)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | P-DDR-05 | resuelta | Código fuente completo de Refinitiv_Derivados_Batch.sh: carpeta de Emisores/Subyacentes/Derivados, tratamiento de .zip, retención de old/ y lake/. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Refinitiv_Derivados_Batch.sh leido entero: carpetas Daily/Weekly, old/, lake/, Emisores/Subyacentes/Derivados en la misma carpeta, tar.gz --remove-files a old/, sin purga. Spec §6.8.B. |
 | P-DDR-06 | resuelta | El .properties de alertas aportado tiene rutas de integración (/fichtemcomp/ei/...). ¿Cómo llega el entorno pr en producción? | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Plantilla: los .properties de alertas llevan @@ENV@@ que el plan de despliegue sustituye por pr/pp/ei/de; las rutas /ei/ del fichero aportado eran las del entorno ei. Spec §6.8.D. |
 | P-DDR-07 | abierta | ¿Se corrige el defecto de setVreqStatus() (marca PROCESSED sin comprobar las cargas)? ¿Hay control manual hoy? | Decisión de mejora; el defecto está confirmado por código y su comportamiento descrito |
+| P-DDR-08 | resuelta | Muestra de Emisores* resuelta (un orgId por línea). Sigue abierto el consumidor del mensaje JMS AltaRolEmisor que inserta en FT_T_FINR. **Avance 2ª pasada:** El consumidor es el propio workflow AltaRolEmisor (v13), llamado de forma síncrona con JMSTextMessage; flujo y validaciones documentados en §6.7. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Scripts Acciones Issuer, query STARMADRID, query ORGID, Acciones previas alta y RRM1 Duplicados de AltaRolEmisor v13 leídos enteros (develop); §6.9.B. |
 | H-DDR-01 | resuelta | Pipeline de 5 pasos, troceado en 4 partes, segmentación DAILY en hasta 96 partes y comprobarError() solo descritos por el documento fuente (el .sh no se ha visto). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Pipeline confirmado con el codigo: pasos 1-5 (+1B en WEEKLY), split en 4, 96 segmentos, comprobarError. Corrige: sin .zip el job 4 sale en rojo (255). §6.8.B, TC-003/019/020. |
+| H-DDR-08 | resuelta | Sub-workflow/feed Carga_Listed_MIC (asocia MIC a emisiones nuevas con CargaListedMIC_*.xml) no analizado. **Avance 2ª pasada:** Feed Carga_Listed_MIC = XmlSplitter con CargaListedMIC.mdx (3.375 B); workflow Carga_Listed_MIC (v6) analizado y diferenciado (lo usa Bloomberg_Response). §6.7. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): CargaListedMIC.mdx leído entero: MKIS no primarios por MIC, RLT1 y alertas si el MIC no existe; §6.9.D. |
 | H-DDR-11 | resuelta | Posible cierre no ejecutado de FT_T_TPG1 por el Barrido: incidencias repetidas en cada ejecución del job 7 (hipótesis; comprobar END_TMS). | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): Código de main.Ppal del Barrido analizado: marcaUsadosTPG1 enlaza parámetros con la lista ya vaciada, get(-1) se captura y el UPDATE no corre. Escrito en §6.4 y §6.7; versión desplegada sin comprobar. |
 | H-DDR-12 | resuelta | Paso de idType/requestType/vreqOid de jobs 5/6 al workflow por efecto de arrays no limpiados de GSProcess.sh: deducido, no observado; id=MULTI puede perderse. | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): Volcado: Refinitiv_Request_Response declara id/idType/requestType/vreqOid como entradas obligatorias y GSProcess pasa el .properties original; hipótesis de arrays descartada. §6.7, §9.1, TC-017. |
 | H-DDR-18 | abierta | Función exacta del job 2 ('probable control de seguridad antes de exponer el fichero'): hipótesis. | Qué hace (reenvía a la pasarela) está descrito; solo falta su finalidad |
@@ -705,25 +712,25 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan la extracción que ejecutan las cadenas 2 y 3, el código de los 4 jars/PL-SQL/workflow de las cadenas 4, 5 y 7, ExtraccionGenericaEMISI.jar, el layout de dictionaryMarkets.csv, el IDX de MEKYTL0857 y los calendarios reales.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** El volcado de GoldenSource permite describir el workflow de la Cadena 7 (SelectivePublish) y cambia el diagnóstico del correo de la Cadena 1: el evento SendMailReport arranca Mail, no SendMailReport, por lo que DEF-EMIS-001 queda sin confirmar. Se anota también que un fallo del workflow no llega al job (R14 de GSProcess).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Con la plantilla se leen entero Cuenta_Emisiones.sh y RDR_Procesar_Emisiones.sh y los .properties de las cadenas 1,2/3,4,5 y 7: se cierran H-EMI-05/06/08 y se corrige la deteccion de errores de la Cadena 5 (el log que examina no lo escribe nadie). DEF-EMIS-001 no se da en la plantilla (parcial, falta verificar produccion); siguen abiertos jars, PL/SQL, DictionaryMarkets.sql, raiseEvent.sh, IDX y Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierra H-EMI-03 (DictionaryMarkets.sql con su layout) y se documentan las nueve consultas de emisiones como candidatas de P-EMI-02/03. Develop confirma SendMailReport->Mail y SelectivePublish v12.  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-EMI-01 | abierta | Días reales de las cadenas 3 y 6 (Avanzado 1,2,3,4,0) y 2 y 4 (1,2,3,4,5): ¿qué día es cada número? | Contrastar nombres de día en Control-M en vivo |
-| P-EMI-02 | abierta | ¿Qué extracción de emisiones (y a qué fichero) ejecuta planifGenerico en las cadenas 2 y 3? No hay ninguna en el inventario del Planificador. | Filas FT_T_ATE1/QPF1 activas a esas horas y su query |
-| P-EMI-03 | parcial | Código de ExtraccionGenericaEMISI.jar (productor de emisiones.xml / emisiones.resto.xml) y su comportamiento ante errores. **Avance 3ª pasada (estaticos):** Plantilla: ExtraccionGenericaEMISI_ALL/_RESTO.properties (jars, clase Ppal, args, ficheros de salida, logs). Spec §6.8.F. | ExtraccionGenericaEMISI.jar (consulta, diferencia real ALL/RESTO, comportamiento y codigo de salida ante errores) y ConexionBD.jar. |
-| P-EMI-04 | abierta | Columnas y consumidores de dictionaryMarkets.csv y línea IDX de RAMERC0068.sh para MEKYTL0857 (¿mueve o copia?). | Layout de dictionaryMarkets.csv y línea IDX de MEKYTL0857 |
+| P-EMI-02 | parcial | ¿Qué extracción de emisiones (y a qué fichero) ejecuta planifGenerico en las cadenas 2 y 3? No hay ninguna en el inventario del Planificador. **Avance 4ª pasada (objetosgs):** Nueve consultas emisiones_RE*.sql (ALL/RESTO, futuros, opciones por tramos, vencidas) como candidatas. | Filas FT_T_ATE1/QPF1 activas de las cadenas 2 y 3. |
+| P-EMI-03 | parcial | Código de ExtraccionGenericaEMISI.jar (productor de emisiones.xml / emisiones.resto.xml) y su comportamiento ante errores. **Avance 3ª pasada (estaticos):** Plantilla: ExtraccionGenericaEMISI_ALL/_RESTO.properties (jars, clase Ppal, args, ficheros de salida, logs). Spec §6.8.F. **Avance 4ª pasada (objetosgs):** emisiones_RE.sql y emisiones_RE_resto.sql encajan con ALL/RESTO (deducción). | Código de ExtraccionGenericaEMISI.jar y ConexionBD.jar. |
+| P-EMI-04 | parcial | Columnas y consumidores de dictionaryMarkets.csv y línea IDX de RAMERC0068.sh para MEKYTL0857 (¿mueve o copia?). **Avance 4ª pasada (objetosgs):** Layout del CSV deducido de DictionaryMarkets.sql. | Línea IDX de MEKYTL0857 (RAMERC0068.sh) y consumidores del CSV. |
 | P-EMI-05 | abierta | Nombre real del backup de RE: emisiones_ddmmyyyy.xml.tar.gz (ficha MEKYTL0536) frente a emisiones_DDMMYYYY.xml.gz (Cuenta_Emisiones.sh). | Nombre real del fichero en ReportingEngine/Backup/ |
-| P-EMI-06 | parcial | Código de ProcesoFusion.jar, RDR_Emisiones_PLSQL.jar, RDR_CrearIndices_Emisiones.jar y RDR_Borrado_Emisiones.jar, y del workflow RDR_SelectivePublish ('cajas negras'). **Avance 2ª pasada:** Workflow RDR_SelectivePublish (evento -> SelectivePublish v13) analizado: marcas SELPUSH de FT_T_RLT1, filtro IS_PUBLISH, consulta RDR_ME_PushSecuritiesByIds, cola RDR.SECURITIES.PUBLISH, cierre a OK. Escrito en §6.7, tabla de fallos y TC-015. **Avance 3ª pasada (estaticos):** Plantilla: .properties literales de ProcesoFusion, RDR_Emisiones_PLSQL (INAC/INCR/ELI), Crear/BorrarIndices y Borrado_Emisiones con args y logs (§6.8.C-D). | Codigo de ProcesoFusion.jar, RDR_Emisiones_PLSQL.jar, RDR_CrearIndices_Emisiones.jar y RDR_Borrado_Emisiones.jar, y de los procedimientos PL/SQL HIST_INACTIVADOR_EMISIONES e INCR_HISTORIFICACION_EMISIONES. |
+| P-EMI-06 | parcial | Código de ProcesoFusion.jar, RDR_Emisiones_PLSQL.jar, RDR_CrearIndices_Emisiones.jar y RDR_Borrado_Emisiones.jar, y del workflow RDR_SelectivePublish ('cajas negras'). **Avance 2ª pasada:** Workflow RDR_SelectivePublish (evento -> SelectivePublish v13) analizado: marcas SELPUSH de FT_T_RLT1, filtro IS_PUBLISH, consulta RDR_ME_PushSecuritiesByIds, cola RDR.SECURITIES.PUBLISH, cierre a OK. Escrito en §6.7, tabla de fallos y TC-015. **Avance 3ª pasada (estaticos):** Plantilla: .properties literales de ProcesoFusion, RDR_Emisiones_PLSQL (INAC/INCR/ELI), Crear/BorrarIndices y Borrado_Emisiones con args y logs (§6.8.C-D). **Avance 4ª pasada (objetosgs):** SelectivePublish v12 en develop con RDR_ME_PushSecuritiesByIds y cierre de marcas SELPUSH. | Código de los 4 jars y de los procedimientos PL/SQL. |
 | H-EMI-01 | abierta | Cadena 1: usuario, ruta, programación y días de CUENTA_EMISIONES y ENVIO_REPORTE_EMISIONES, y sus eventos IN_OK/CUENTA_EMISIONES_OK 'no confirmados literalmente' (por patrón). | Captura de Control-M de CUENTA_EMISIONES y ENVIO_REPORTE_EMISIONES |
 | H-EMI-02 | abierta | Cadena 5: día 6 interpretado como sábado; la numeración 0=domingo o lunes está abierta (comun_ctmfw P-CFW-02); el documento funcional dice diario. | Contrastar nombre del día en Control-M en vivo |
-| H-EMI-03 | abierta | DictionaryMarkets.sql (fila 8 del Planificador, genera dictionaryMarkets.csv) no recibida. | SQL de DictionaryMarkets.sql (invocada por el Planificador Genérico) |
 | H-EMI-04 | abierta | Procedimientos PL/SQL HIST_INACTIVADOR_EMISIONES e INCR_HISTORIFICACION_EMISIONES (invocados por RDR_Emisiones_PLSQL.jar) sin analizar. | código de los procedimientos HIST_INACTIVADOR_EMISIONES e INCR_HISTORIFICACION_EMISIONES |
 | H-EMI-07 | abierta | raiseEvent.sh de GoldenSource (invocado por executeBbvaEvent.sh en los workflows SendMailReport y RDR_SelectivePublish) no recibido. | código de raiseEvent.sh y credentials.xml (invocados por executeBbvaEvent.sh) |
-| H-EMI-11 | parcial | DEF-EMIS-001 (asunto/adjunto/destinatarios del correo de la Cadena 1) no está confirmado: en la tabla de eventos del volcado el evento SendMailReport arranca el workflow Mail (Destination/Subject/Mail obligatorios), no el workflow SendMailReport analizado; el correo real depende de EnvioReporteEmisiones.properties. **Avance 3ª pasada (estaticos):** EnvioReporteEmisiones.properties.<env> usa los parametros del workflow Mail (asunto 'Reporte cuenta Emisiones - Emisores.'); DEF-EMIS-001 descartado en plantilla (§6.8.A). | Verificar en produccion el EnvioReporteEmisiones.properties instalado, los destinatarios reales (direcciones no incluidas en la plantilla) y que el evento SendMailReport arranca el workflow Mail. |
+| H-EMI-11 | parcial | DEF-EMIS-001 (asunto/adjunto/destinatarios del correo de la Cadena 1) no está confirmado: en la tabla de eventos del volcado el evento SendMailReport arranca el workflow Mail (Destination/Subject/Mail obligatorios), no el workflow SendMailReport analizado; el correo real depende de EnvioReporteEmisiones.properties. **Avance 3ª pasada (estaticos):** EnvioReporteEmisiones.properties.<env> usa los parametros del workflow Mail (asunto 'Reporte cuenta Emisiones - Emisores.'); DEF-EMIS-001 descartado en plantilla (§6.8.A). **Avance 4ª pasada (objetosgs):** Develop confirma evento SendMailReport -> workflow Mail. | EnvioReporteEmisiones.properties instalado y destinatarios reales. |
 
-### No bloqueantes (12)
+### No bloqueantes (13)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -734,6 +741,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | GAP-EMIS-006 | resuelta | Duplicidad en Cuenta_Registros_MMYYYY.csv: append incondicional confirmado por código (RISK-EMIS-001). | Resuelta con código real. |
 | GAP-EMIS-007 | resuelta | Destinatarios y asunto/adjunto reales del correo: confirmados en el .wkf de SendMailReport (DEF-EMIS-001). | Resuelta con el workflow real. |
 | GAP-EMIS-008 | resuelta | Soft-failure de RDR_MARKETS_EXTRAC_FW: acotado a código 7 → OK, confirmado por captura. | Resuelta con captura de Acciones Si. |
+| H-EMI-03 | resuelta | DictionaryMarkets.sql (fila 8 del Planificador, genera dictionaryMarkets.csv) no recibida. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): scriptsSQL/DictionaryMarkets.sql leído: columnas MIC, MUREX_ID, BBEXCH, CORP_ID y dos riesgos (ORA-01427, BBEXCH sin filtro de estado); §6.A. |
 | H-EMI-05 | resuelta | Contenido literal de los .properties de la cadena 5 (5 GSProcess), ProcesoDeFusion y selectivePublishEmisiones; solo se citan parámetros sueltos. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Plantilla: .properties literales de las 5 acciones de la Cadena 5, ProcesoDeFusion y selectivePublishEmisiones (jars, clases, args, logs). Spec §6.8.C-E. |
 | H-EMI-06 | resuelta | RDR_Procesar_Emisiones.sh (script propio de la cadena 5) solo descrito; ni su código ni los criterios exactos de 'error' en el log se muestran. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Script leido entero: el grep de 'error' va sobre RDR_Procesar_Emisiones_<fecha>.log (nadie lo escribe); solo cuenta el exit de cada GSProcess. §6.8.D, RISK-EMIS-002, TC-017. |
 | H-EMI-08 | resuelta | Script traducir_creden y planificador.properties (planifGenerico, cadenas 2 y 3) solo citados, no mostrados. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): traducir_creden (Generico.sh) reescribe planificador.properties (jdbc.*) desde credentials.xml <database>; plantilla solo con marcadores. planifGenerico.properties literal en §6.8.B. |
@@ -868,14 +876,13 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan la línea IDX de MEKYTL1022, el .properties y los SQL de la extracción, las clases del jar (MyThreadCpty, ConDB...), PAR1/URL_OUTPUT_FILE, el calendario real y la decisión sobre R-13.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla cierra P-SCIS-02 (properties y log4j) y aporta la historificacion Hist*/XSL (Dummy, no ejecutada, nueva 6.9). No hay IDX, SQL, codigo Java ni credentials.xml: P-SCIS-01/03/04/06/09, H-SCIS-01/02/03 siguen abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados P-SCIS-03 y P-SCIS-04 con el SQL de develop; nuevos hallazgos: STP lee VAL_DATE (P-SCIS-12, no bloqueante), fechas DateFrom/DateTo sin TO_CHAR, ORA-01427 omite SCIs en silencio (RG-18/19). Anadido TC-16 y actualizado TC-14; siguen abiertos IDX, PAR1/ATE1, jar, calendario y R-13.  
 
-### Huecos bloqueantes (11)
+### Huecos bloqueantes (9)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-SCIS-01 | abierta | Línea de MEKYTL1022 en INFORMACION_HISTORIFICACIONES.IDX de producción (qué archiva, desde/hacia dónde, operación, si falla sin fichero; ¿operación BD?). | Línea IDX de producción de MEKYTL1022 |
-| P-SCIS-03 | abierta | SQL literal de ExtraccionSCIs.sql y ExtraccionContingenciaSCIs.sql (exclusión A15, subconsultas, rownum). | SQL de ExtraccionSCIs.sql y ExtraccionContingenciaSCIs.sql (invocadas por el jar) |
-| P-SCIS-04 | abierta | ¿Se emite realmente dos veces Colony en cada MailingInf? | SQL de ExtraccionContingenciaSCIs.sql |
 | P-SCIS-06 | abierta | Valores de FT_T_PAR1 (ROOT_TAG de ExtraccionContingenciaSCIs.sql) y de FT_T_ATE1.URL_OUTPUT_FILE. | Filas FT_T_PAR1 y FT_T_ATE1 de producción |
 | P-SCIS-07 | abierta | Folder PLAN_1300 con WEEKDAYS 0,1,2,3,4: ¿hora de orden y días naturales reales (dom-jue o lun-vie)? | Hora de orden PLAN_1300 y nombres de día en Control-M |
 | P-SCIS-08 | abierta | R-13 exige fallo sin SCIs pero el código termina en OK con fichero solo con raíz: ¿se mantiene el requisito o se acepta el comportamiento? | Decisión funcional del usuario |
@@ -885,11 +892,13 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-SCIS-03 | abierta | Hipótesis: MEKYTL1022 mueve SCIS/ a SCIS/backup y el nombre del fichero es fijo o con fecha; sin verificar. | Línea IDX de MEKYTL1022 y URL_OUTPUT_FILE |
 | H-SCIS-06 | abierta | Numeración de días del calendario Avanzado: la spec afirma 0=domingo, pero comun_ctmfw P-CFW-02 deja abierto si 0=lunes (fichas LMXJV=0-4); la ficha de la purga dice L-V. | Contrastar nombre del día en Control-M en vivo |
 
-### No bloqueantes (6)
+### No bloqueantes (8)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | P-SCIS-02 | resuelta | ExtraccionGenericaSCIs.properties literal y el log4j que declara (hilos, rutas, tipo, más acciones). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): ExtraccionGenericaSCIs.properties y log4jExtraccionGenericaSCIs.properties de la plantilla: 20 hilos, tipo SCIS, temporal .xml.tmp, log 100MB x3; spec 5.3, 6.2, 6.7 |
+| P-SCIS-03 | resuelta | SQL literal de ExtraccionSCIs.sql y ExtraccionContingenciaSCIs.sql (exclusión A15, subconsultas, rownum). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Texto integro de ExtraccionSCIs.sql y ExtraccionContingenciaSCIs.sql (develop) en spec 6.3/6.5: A15 sin estado de asignacion, escalares sin ROWNUM, filtros por bloque. |
+| P-SCIS-04 | resuelta | ¿Se emite realmente dos veces Colony en cada MailingInf? | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Confirmado en el SQL de develop: Colony se emite dos veces seguidas por MailingInf (mismo origen NEIGHBORHOOD_NME). |
 | P-SCIS-05 | abierta | ¿Por qué cuatro campos normalizan ';' a ','? | Motivo de negocio; el comportamiento ya está descrito. |
 | P-SCIS-10 | abierta | ¿Debe seguir activo un proceso sin consumidores? | Decisión de negocio futura; no cambia el comportamiento. |
 | P-SCIS-11 | abierta | Volumen y duración de una ejecución normal. | Dato estadístico de contexto. |
@@ -1099,19 +1108,20 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan los 2 .properties de jobs 1/3, Refinitv_Ratings.jar, RDR_Refinitiv_Request.jar, feed Standard File Load, BBG_Send_Error_Mail y confirmar versión de Sub_CalculateREU y comportamiento del bucle/FAILED.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se cierran BBG_Send_Error_Mail, el bucle de BBG_Refinitiv_Batch (solo procesa el primer rating, confirmado por código del motor), el efecto de los fallos en Control-M y el destino de RDR_CalculateREU_Inherit; se descubre que el job 3 nunca envía los correos de errores (no pasa JOB_ID). Siguen abiertos los jars Java, los mappings .mdx del feed, FT_T_PAR1 y el origen de las marcas CALCULATE_REU.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Con la plantilla se resuelve P-BER-01 (los dos .properties de los jobs 1 y 3 coinciden con lo declarado) y se avanza en H-BER-04 (estructura de ServerMailConfig.xml y log4j de ratings). Los jars Java, los .mdx y la fila de FT_T_PAR1 siguen sin material.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se lee entero Refinitiv_Issuers_Batch.mdx y se localiza el origen de las marcas Updated counterparty FINS ID (PENDING_ESB, difusión), con un desajuste de filtro en BBG_Refinitiv_Batch. P-BER-07 y P-BER-09 avanzan; los jars siguen abiertos.  
 
 ### Huecos bloqueantes (8)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-BER-02 | parcial | Columnas del layout issuerRequestOutput de FT_T_PAR1 y tablas que escribe el feed Refinitiv_Issuer_Batch_Response (Standard File Load) **Avance 2ª pasada:** Feed Refinitiv_Issuer_Batch_Response = LineByLine, mapping Refinitiv_Issuers_Batch.mdx (8.794 B) y motor Standard File Load/Parallel File Load Sub analizados en §6.10. | Contenido de Refinitiv_Issuers_Batch.mdx y fila issuerRequestOutput de FT_T_PAR1 |
+| P-BER-02 | parcial | Columnas del layout issuerRequestOutput de FT_T_PAR1 y tablas que escribe el feed Refinitiv_Issuer_Batch_Response (Standard File Load) **Avance 2ª pasada:** Feed Refinitiv_Issuer_Batch_Response = LineByLine, mapping Refinitiv_Issuers_Batch.mdx (8.794 B) y motor Standard File Load/Parallel File Load Sub analizados en §6.10. **Avance 4ª pasada (objetosgs):** Refinitiv_Issuers_Batch.mdx leído entero: 21 campos, mensajes IRGU/IRST/IRCL/FRCL/RLT1, bloqueos BBGCR/REFCHACO/RECHENSU; §6.A. | Valor de FT_T_PAR1 REFINITIV_PARAMS issuerRequestOutput. |
 | P-BER-03 | abierta | Qué hace Refinitv_Ratings.jar (Ppal): tablas de carga, qué escribe en RLT_DIF_STAT si falla, quién genera el CSV de fallos | Código/descripción de Refinitv_Ratings.jar |
-| P-BER-07 | parcial | ¿Quién crea y devuelve a PENDING las filas BATCH_ISSUER y BATCH_RATINGS de FT_T_VREQ? **Avance 2ª pasada:** Ningún workflow del volcado crea/reinicia las filas BATCH_*; UPDATE por OID es no-op si falta; Process_Pending_Issues las marca Expired timeout a los 2 días. | Proceso/SQL externo que crea y reinicia FT_T_VREQ BATCH_ISSUER/BATCH_RATINGS |
+| P-BER-07 | parcial | ¿Quién crea y devuelve a PENDING las filas BATCH_ISSUER y BATCH_RATINGS de FT_T_VREQ? **Avance 2ª pasada:** Ningún workflow del volcado crea/reinicia las filas BATCH_*; UPDATE por OID es no-op si falta; Process_Pending_Issues las marca Expired timeout a los 2 días. **Avance 4ª pasada (objetosgs):** Confirmado que solo Refinitiv_Request_Response referencia BATCH_ISSUER/BATCH_RATINGS. | Proceso/SQL externo que crea y reinicia las filas. |
 | P-BER-08 | abierta | Qué emisores pide RDR_Refinitiv_Request.jar con BATCH_ISSUER y qué ratings con BATCH_RATINGS (universo, consulta) | Código de RDR_Refinitiv_Request.jar |
-| P-BER-09 | parcial | Sub_CalculateREU llega en estado DEVELOPMENT (v20); ¿es la versión que corre en producción? **Avance 2ª pasada:** Volcado: Sub_CalculateREU última v11 RELEASED (12/04/2025); mismas 159 transiciones que la v20 DEV y un único texto distinto (Inactivate REU Local sin guarda Manual). Escrito en §6.9, R-14. | Confirmar de qué entorno es el volcado y la versión de Sub_CalculateREU en producción |
-| P-BER-10 | parcial | ¿Qué proceso inserta en FT_T_RLT1 las marcas CALCULATE_REU con origen REFINITIV? ¿Refinitv_Ratings.jar? **Avance 2ª pasada:** La marca 'Updated counterparty FINS ID' no la inserta ningún workflow del volcado ni rdrRules.jar; solo BBG_Refinitiv_Batch la retira. | Código de Refinitv_Ratings.jar o trigger/proceso que inserta la marca CALCULATE_REU con origen REFINITIV |
+| P-BER-09 | parcial | Sub_CalculateREU llega en estado DEVELOPMENT (v20); ¿es la versión que corre en producción? **Avance 2ª pasada:** Volcado: Sub_CalculateREU última v11 RELEASED (12/04/2025); mismas 159 transiciones que la v20 DEV y un único texto distinto (Inactivate REU Local sin guarda Manual). Escrito en §6.9, R-14. **Avance 4ª pasada (objetosgs):** Develop trae Sub_CalculateREU v11 (171 nodos), igual a la RELEASED del volcado. | Versión que corre en cada entorno. |
+| P-BER-10 | parcial | ¿Qué proceso inserta en FT_T_RLT1 las marcas CALCULATE_REU con origen REFINITIV? ¿Refinitv_Ratings.jar? **Avance 2ª pasada:** La marca 'Updated counterparty FINS ID' no la inserta ningún workflow del volcado ni rdrRules.jar; solo BBG_Refinitiv_Batch la retira. **Avance 4ª pasada (objetosgs):** Marca insertada por el mapping como PENDING_ESB/REPORTES/M (difusión), no CALCULATE_REU; filtro de BBG_Refinitiv_Batch no casa; §6.B. | Disparador o proceso externo que convierta PENDING_ESB en CALCULATE_REU, o confirmar filtro desfasado. |
 | H-BER-03 | abierta | ConexionBD.jar y XMASToken-0.0.1.jar (classpath de RDR_Refinitiv_Request.jar y Refinitv_Ratings.jar) no analizados | código de ConexionBD.jar y XMASToken (invocados por los jars Java) |
-| H-BER-04 | parcial | ServerMailConfig.xml (leído por el sub-workflow Mail) y log4jRefinitivRatings.properties no aportados **Avance 2ª pasada:** Estructura de ServerMailConfig.xml deducida del workflow Mail (/root/server[@id=env]/host,user; sustituto por defecto de desarrollo). **Avance 3ª pasada (estaticos):** log4jRefinitivRatings.properties literal (RefinitivRatings.log, info, 100000 KB x3) y estructura de ServerMailConfig.xml (root/server[id]/host,user); host y cuenta enmascarados. Spec §6.13. | Host SMTP y cuenta remitente reales por entorno (enmascarados en la plantilla); contenido no verificado del ServerMailConfig.xml instalado en produccion. |
+| H-BER-04 | parcial | ServerMailConfig.xml (leído por el sub-workflow Mail) y log4jRefinitivRatings.properties no aportados **Avance 2ª pasada:** Estructura de ServerMailConfig.xml deducida del workflow Mail (/root/server[@id=env]/host,user; sustituto por defecto de desarrollo). **Avance 3ª pasada (estaticos):** log4jRefinitivRatings.properties literal (RefinitivRatings.log, info, 100000 KB x3) y estructura de ServerMailConfig.xml (root/server[id]/host,user); host y cuenta enmascarados. Spec §6.13. **Avance 4ª pasada (objetosgs):** Asunto y cuerpo del correo BATCH_REFINITIV_EMISORES con sus consultas (AlertasEnvioExcepciones v30). | Host SMTP y cuenta remitente reales por entorno. |
 
 ### No bloqueantes (6)
 
@@ -1130,6 +1140,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan fillingRules_CN460.csv, Contrato460.properties literal (Stop), IDX de historificación, código de CONC460 y de los 2 workflows de baja, y aclarar ruta de Huérfanos, calendario y posible cola MQ/correo.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Los dos workflows de baja y la cola MQ real quedan analizados (BajaClientela460, BajaCodTesBDIGesC460, SendBDIRequest, Sub_SendMessageToMQQueue) y el jar RDR_PLSQL.jar confirma y precisa ConContrato460. Siguen abiertos CONC460, fillingRules, IDX, Contrato460.properties literal y el calendario.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrados Stop=OK (GSProcess solo para con 'Ok') y el log4j de GestionCpartyC460; fillingRules_CN460 analizado (CCLIEN 9 caracteres) y circuito EnvioReporteMail descubierto. Siguen abiertos IDX, CONC460, calendario y verificacion de lo instalado.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** No hay CONC460 en el repositorio de objetos; lo analizado confirma los dos workflows de baja de la spec y completa los scripts de envioReporteMail y Mail (correo condicionado a plantilla xlsx y filas EC460). Duplicados.sh no se toca por decision del usuario.  
 
 ### Huecos bloqueantes (6)
 
@@ -1139,8 +1150,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-C460-01 | parcial | Contenido de fillingRules_CN460.csv (reglas por columna de las 12 columnas) **Avance 3ª pasada (estaticos):** fillingRules_CN460.csv de la plantilla: CCLIEN NULL+POSICION(9)+USAR, FOLIO USAR; spec 6.10, TC-018 nuevo y datos de TC con CCLIEN de 9 cifras. | Confirmar con diff que /pr/.../dat/properties/fillingRules_CN460.csv instalado en produccion coincide con la plantilla. |
 | P-C460-03 | parcial | ¿'Gestion Huerfanos/' (ficha MEKYTL0611) y 'GestionHuerfanos/' (RDR_Report.jar) son el mismo directorio? **Avance 3ª pasada (estaticos):** La plantilla confirma el lado informe: clave select.properties y paso 10 usan Contratos460/Reportes/GestionHuerfanos (sin espacio). | Linea del IDX de MEKYTL0611 (ruta de origen con o sin espacio). |
 | P-C460-04 | parcial | IDX de historificación de MEKYTL0609/0610/0611/0642: operación literal y 'falla si no hay fichero' **Avance 3ª pasada (estaticos):** IDX no esta en la plantilla; Duplicados.sh solo crea CN460_ConCabecera.csv_REPES con claves repetidas, lo que condiciona MEKYTL0642 (nuevo TC-019). | Lineas IDX de MEKYTL0609/0610/0611/0642 (operacion y falla-si-no-hay-fichero). |
-| P-C460-07 | parcial | Código y comportamiento de CONC460 y de los workflows RDR_BajaContratos460 y RDR_BajaCodTesBDIGesC460 **Avance 2ª pasada:** Workflows analizados en fileloading: RDR_BajaContratos460=BajaClientela460 (TOTAL) y RDR_BajaCodTesBDIGesC460=BajaCodTesBDIGesC460 -> SendBDIRequest BAJAC460; envian PENDING por MQ. Spec 6.8. **Avance 3ª pasada (estaticos):** CONC460 no existe como .sql/script en la plantilla (sql/ solo trae utilidades); sin avance. | Export PL/SQL del procedimiento CONC460, incluido el origen de B460C y EC460. |
-| H-C460-02 | parcial | Hipótesis: no se sabe qué proceso envía por correo Reportes_Contratos460.csv (workflow envioReporteMail con variante C460) **Avance 2ª pasada:** Existe el evento RDR_Reporte_LEI_C460 -> envioReporteMail (informe de modificaciones de contratos 460); ningun paso del .properties lo invoca. Spec 6.6. **Avance 3ª pasada (estaticos):** EnvioReporteMail.properties.* lanza RDR_Reporte_LEI_C460 y adjunta Reportes_Errores_Contratos460.csv (EC460) y LEI, no Reportes_Contratos460.csv; spec 6.6 ampliada. | Job de Control-M que lanza EnvioReporteMail, destinatarios reales (enmascarados), RDR_Envio_Reportes.jar, dat/Templates y BeanShell del workflow. |
+| P-C460-07 | parcial | Código y comportamiento de CONC460 y de los workflows RDR_BajaContratos460 y RDR_BajaCodTesBDIGesC460 **Avance 2ª pasada:** Workflows analizados en fileloading: RDR_BajaContratos460=BajaClientela460 (TOTAL) y RDR_BajaCodTesBDIGesC460=BajaCodTesBDIGesC460 -> SendBDIRequest BAJAC460; envian PENDING por MQ. Spec 6.8. **Avance 3ª pasada (estaticos):** CONC460 no existe como .sql/script en la plantilla (sql/ solo trae utilidades); sin avance. **Avance 4ª pasada (objetosgs):** BajaClientela460/BajaCodTesBDIGesC460 de develop coinciden con la spec 6.8; ningun objeto develop inserta B460C ni EC460; CONC460 no existe en scriptsSQL. | Export PL/SQL del procedimiento CONC460 (origen de B460C y EC460). |
+| H-C460-02 | parcial | Hipótesis: no se sabe qué proceso envía por correo Reportes_Contratos460.csv (workflow envioReporteMail con variante C460) **Avance 2ª pasada:** Existe el evento RDR_Reporte_LEI_C460 -> envioReporteMail (informe de modificaciones de contratos 460); ningun paso del .properties lo invoca. Spec 6.6. **Avance 3ª pasada (estaticos):** EnvioReporteMail.properties.* lanza RDR_Reporte_LEI_C460 y adjunta Reportes_Errores_Contratos460.csv (EC460) y LEI, no Reportes_Contratos460.csv; spec 6.6 ampliada. **Avance 4ª pasada (objetosgs):** envioReporteMail.gsp y Mail.gsp (develop): BeanShell completos; variante C460 exige plantilla xlsx y Select1 con filas; adjunto opcional; SMTP puerto 25. | Job de Control-M que lanza EnvioReporteMail, destinatarios reales y RDR_Envio_Reportes.jar. |
 
 ### No bloqueantes (14)
 
@@ -1167,18 +1178,17 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan Sub_BajaCpartiesGL, eventos RDR_Reporte/RDR_ErroresCSV, IDX de MEKYTL0351/0945/0352, los .mod de MEGENV0001 y confirmar la resolución de @@ENV@@.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sub_BajaCpartiesGL y los eventos RDR_Reporte/RDR_ErroresCSV quedan documentados desde el volcado (spec, prerrequisitos y TC-004/TC-010). P-BNI-03/04/05 y H-BNI-01 no tienen material nuevo.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrado P-BNI-05 (resolucion de @@ENV@@ por el plan de despliegue). bajaniveles.properties de la plantilla coincide con la spec (sin Stop) y select.properties no tiene clave bajaniveles; el resto de huecos (workflows, IDX, .mod) siguen sin material.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Recuperadas las sentencias completas de Sub_BajaCpartiesGL y la consulta/cabecera del reporte de bajas. Hallazgos: la cascada solo escribe fila REPORTES de la GLOBAL (no del local), los rechazos LOCAL son ERRORES y no salen en el reporte, y FIRL nunca se inactiva.  
 
-### Huecos bloqueantes (5)
+### Huecos bloqueantes (3)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-BNI-01 | parcial | Qué hace Sub_BajaCpartiesGL: tablas que actualiza, auditoría, traza que alimenta el reporte **Avance 2ª pasada:** Spec 6: Sub_BajaCpartiesGL baja FIID/FINS (LOCAL, GLOBAL) y FLG1 (GLOBAL), baja GLOBAL en cascada, traza en FT_T_RLT1, llama a BajaClientela460; nuevo TC-010. | Texto completo (multilinea) de los querySQL de los nodos Update/Insert RLT1 de Sub_BajaCpartiesGL y SELECT de bajaniveles en GenerateReports |
-| P-BNI-02 | parcial | Columnas y consulta del evento RDR_Reporte para Reporte_bajaniveles.csv y qué produce RDR_ErroresCSV **Avance 2ª pasada:** Spec 6: bajaniveles -> Reporte_bajaniveles.csv via GenerateReports (sin filas: una linea de texto); ErroresCSV no genera fichero con File/MessageType vacios (deducido); TC-004 ajustado. | Blob 'statements' del nodo 'Initialize Variables' de GenerateReports v20 (SELECT y cabecera de bajaniveles) |
 | P-BNI-03 | abierta | Línea IDX de MEKYTL0351 y MEKYTL0945 en el IDX de historificación (operación, falla si no hay fichero) | líneas MEKYTL0351 y MEKYTL0945 de INFORMACION_HISTORIFICACIONES.IDX |
 | P-BNI-04 | abierta | Configuración MEKYTL0352.idx (protocolo, FALLA_NO_FICHERO, destino real) y cómo se materializa 'A DUMMY' | MEKYTL0352.idx de producción (invocado por MEGENV0001.sh) |
 | H-BNI-01 | abierta | Módulos SF_MEGENV0001_XCOM/CD/SFTP/PARAMS.mod invocados por MEGENV0001.sh (MEKYTL0352) no recibidos | código de los 4 .mod (invocados por MEGENV0001.sh) |
 
-### No bloqueantes (8)
+### No bloqueantes (10)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1187,6 +1197,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | G3 | resuelta | ¿Sub_BajaCpartiesGL hace baja física o lógica? | Resuelta: baja lógica (DATA_STAT_TYP='INACTIVE') |
 | G4 | resuelta | ¿Incluir caso de prueba de duplicidad del SELECT DISTINCT? | Resuelta: se incluye TC-007 |
 | G5 | resuelta | ¿Aplica el patrón transversal sin integridad/concurrencia a esta cadena? | Resuelta: sí, por defecto (R9) |
+| P-BNI-01 | resuelta | Qué hace Sub_BajaCpartiesGL: tablas que actualiza, auditoría, traza que alimenta el reporte **Avance 2ª pasada:** Spec 6: Sub_BajaCpartiesGL baja FIID/FINS (LOCAL, GLOBAL) y FLG1 (GLOBAL), baja GLOBAL en cascada, traza en FT_T_RLT1, llama a BajaClientela460; nuevo TC-010. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Sub_BajaCpartiesGL.gsp (develop): sentencias completas; baja lógica FIID (salvo FINSID)/FINS/FLG1; RLT1 con REPORTES/ERRORES/PROCESO(B460); rama CLIENTELAID confirmada por ids. |
+| P-BNI-02 | resuelta | Columnas y consulta del evento RDR_Reporte para Reporte_bajaniveles.csv y qué produce RDR_ErroresCSV **Avance 2ª pasada:** Spec 6: bajaniveles -> Reporte_bajaniveles.csv via GenerateReports (sin filas: una linea de texto); ErroresCSV no genera fichero con File/MessageType vacios (deducido); TC-004 ajustado. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): GenerateReports.gsp (develop): bajaniveles usa arrayStringSelects[15], cabecera FINSID;Legal Name;Level;Current Data Status;Message; consulta sobre RLT1 REPORTES del último job. |
 | P-BNI-05 | resuelta | ¿Cómo se resuelve @@ENV@@ en Ruta si GSProcess.sh sustituye $ENV? | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): @@ENV@@ lo sustituye el plan de despliegue CIR_RDRDO_DE_EI_PP_PR_GLOBAL; GSProcess.sh solo sustituye $ENV y $CONF (verificado en la plantilla). Spec 4, 6 y 6.1 actualizadas. |
 | H-BNI-02 | resuelta | Workflow Sub_BajaCpartiesGL y eventos RDR_Reporte/RDR_ErroresCSV: sin .wkf ni definición; solo se conoce BajaCpartiesGL | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): Sub_BajaCpartiesGL v3 reconstruido con wf.py (tablas, cascada, rechazos, BajaClientela460); RDR_Reporte->GenerateReports y RDR_ErroresCSV->ErroresCSV documentados en spec 6 y comun_gsprocess 6.5.1. |
 | H-BNI-03 | abierta | Ficheros y cadena RDR_BLOQ_DESBLOQ_LOPD_new/MEKYTL0143 citados por el usuario no existen en el repositorio | Descartados como evidencia; no forman parte del proceso especificado |
@@ -1254,8 +1266,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan TradPlazas.properties (pipeline completo, Stop), línea IDX de MEKYTL0129, origen real de TradPlazas.csv, calendario RDR_FEST_HOST_PREV, comando /pp/ vs /pr/ y las dependencias con RDR_CARGA_PLAZAS.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Las 19 capturas de Control-M corroboran el export y cierran la errata /pp/ y el periodo de actividad; el volcado de GoldenSource aporta el feed Plaza (PLZTRAD) como destino probable. Sin avance: TradPlazas.properties, Stop, linea IDX MEKYTL0129, origen del CSV y dependencias con RDR_CARGA_PLAZAS.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** TradPlazas.properties y fillingRules de la plantilla confirman la inferencia (ControlCase y MDX de TradPlazas_processed.csv, sin Stop ni informe) y se documenta el modulo plazas vecino; los huecos exigen produccion, por lo que quedan parciales. Nuevo TC-008 de reglas.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrado el mapeo de TradPlazas: el proceso solo asocia el codigo CPLAZA como identificador CORPORATEID a plazas ya existentes buscadas por nombre, y descarta sin rastro las demas. Nuevo TC-009; plazas.mdx confirma la dependencia con RDR_CARGA_PLAZAS.  
 
-### Huecos bloqueantes (8)
+### Huecos bloqueantes (7)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -1263,12 +1276,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-TPL-02 | parcial | ¿Hay algún Stop…=Ok en TradPlazas.properties? **Avance 3ª pasada (estaticos):** La plantilla no lleva ninguna clave Stop* en TradPlazas.properties; spec 6.3. | Confirmar el .properties instalado en produccion. |
 | P-TPL-03 | abierta | Línea de MEKYTL0129 en INFORMACION_HISTORIFICACIONES.IDX (mover/copiar, falla si no hay fichero) | línea MEKYTL0129 del IDX de historificación de producción |
 | P-TPL-04 | abierta | ¿Quién genera/deposita TradPlazas.csv y por qué mecanismo (¿RDR_CARGA_PLAZAS?) | Proceso/job que deposita TradPlazas.csv |
-| P-TPL-05 | parcial | Significado del calendario RDR_FEST_HOST_PREV (días festivos en que no se ejecuta) **Avance 2ª pasada:** Capturas: calendario RDR_FEST_HOST_PREV con 'Deshabilitar Ejecutar' y desplazar 0 (=SHIFT Ignore Job): solo se ordenan dias 0-4 marcados, sin mover. Spec 6.1. | Export del calendario RDR_FEST_HOST_PREV (dias marcados) y significado de _PREV |
+| P-TPL-05 | parcial | Significado del calendario RDR_FEST_HOST_PREV (días festivos en que no se ejecuta) **Avance 2ª pasada:** Capturas: calendario RDR_FEST_HOST_PREV con 'Deshabilitar Ejecutar' y desplazar 0 (=SHIFT Ignore Job): solo se ordenan dias 0-4 marcados, sin mover. Spec 6.1. **Avance 4ª pasada (objetosgs):** CCPPOS, CCOMUN, CCDPOS, DNOMB3 y PLZBAN no se usan en el mapeo: su semantica no afecta a la carga. | Export del calendario RDR_FEST_HOST_PREV (dias marcados). |
 | H-TPL-01 | abierta | R7: dependencias de negocio (predecesor RDR_CARGA_PLAZAS, sucesor 'Carga de nombres legales') descritas en la ficha pero sin INCOND/OUTCOND en Control-M | Confirmar cómo se coordinan RDR_CARGA_PLAZAS y la carga de nombres legales |
-| H-TPL-02 | parcial | Cadena RDR_CARGA_PLAZAS (predecesor de negocio) nombrada y no analizada; incierto si es de otra familia **Avance 2ª pasada:** El mismo feed Plaza trae el tipo PLZ (plazas_processed.csv, plazas.mdx): indicio de que RDR_CARGA_PLAZAS carga ese tipo y de la dependencia de negocio. Solo indicio, spec 6.2. **Avance 3ª pasada (estaticos):** Modulo plazas de la plantilla (Delta Si, MDX PLZ, Errores, CtpdaModifPlaza.jar) = probable pipeline de RDR_CARGA_PLAZAS; spec 6.3. | Export de Control-M de RDR_CARGA_PLAZAS, CtpdaModifPlaza.jar y confirmar la dependencia de negocio. |
-| H-TPL-07 | abierta | Mapeo TraduccionPlazas.mdx (2.385 B) del tipo PLZTRAD del feed Plaza: no se sabe que campos de TradPlazas.csv van a que tablas de GoldenSource | Export del recurso db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx |
+| H-TPL-02 | parcial | Cadena RDR_CARGA_PLAZAS (predecesor de negocio) nombrada y no analizada; incierto si es de otra familia **Avance 2ª pasada:** El mismo feed Plaza trae el tipo PLZ (plazas_processed.csv, plazas.mdx): indicio de que RDR_CARGA_PLAZAS carga ese tipo y de la dependencia de negocio. Solo indicio, spec 6.2. **Avance 3ª pasada (estaticos):** Modulo plazas de la plantilla (Delta Si, MDX PLZ, Errores, CtpdaModifPlaza.jar) = probable pipeline de RDR_CARGA_PLAZAS; spec 6.3. **Avance 4ª pasada (objetosgs):** plazas.mdx (develop) crea las GeographicUnit PLAZA (CITY_NME=DES_PLINTVER) que TradPlazas busca por nombre: dependencia funcional real con el tipo PLZ. | Export de Control-M de RDR_CARGA_PLAZAS y CtpdaModifPlaza.jar. |
 
-### No bloqueantes (5)
+### No bloqueantes (6)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1277,6 +1289,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-TPL-04 | abierta | Significado funcional de CCPPOS, CCOMUN y PLZBAN de TradPlazas.csv | Significado de nombres de campo; estructura, anchos y valores ya medidos |
 | H-TPL-05 | abierta | Normas de rearranque sin rellenar en 2 de las 3 fichas EX-005-03 | Defecto de la ficha fuente; el rearranque manual vía ANS RDR ya consta |
 | H-TPL-06 | abierta | Ruta concreta del log de GSProcess.sh para esta cadena no consta (depende de credentials.xml) | Mecánica del log descrita en spec común; solo falta la ruta del entorno |
+| H-TPL-07 | resuelta | Mapeo TraduccionPlazas.mdx (2.385 B) del tipo PLZTRAD del feed Plaza: no se sabe que campos de TradPlazas.csv van a que tablas de GoldenSource | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): TraduccionPlazas.mdx (develop): usa solo CPLAZA y DNOMB1/DNOMB2; busca plaza PLAZA por CITY_NME en FT_T_GUNT y carga FT_T_GUID CORPORATEID; sin plaza = descarte silencioso. |
 
 ## rdr_carga_refinitiv_multi
 
@@ -1284,8 +1297,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan comandos y config de los 3 primeros jobs (file watchers y MEKYTL1058), RDR_Refinitiv_Request.jar, AltaRolEmisor, feeds/Standard File Load, PRC_ESCOBA_SUBYACENTES, eventos de enlace, layout del CSV y versión del .wkf desplegada.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Cerrado el efecto de los fallos de negocio del workflow sobre Control-M (P-RFM-07) y analizados Standard File Load, Parallel File Load Sub y AltaRolEmisor con el volcado de GoldenSource. Quedan abiertos los mappings .mdx, la fila FT_T_PAR1, los scripts BeanShell de AltaRolEmisor y todo lo de Control-M/jars.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla confirma RefinitivIssueMultiRequest.properties (ya recogido en la spec) y localiza el lanzador GestionAlertasAOSRDR.properties de las alertas PETICION_REFINITIV_EMISIONES (H-RFM-07, no bloqueante). Ningun hueco bloqueante se cierra: faltan el cliente Java, los .mdx, AltaRolEmisor, PRC_ESCOBA_SUBYACENTES y Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierran H-RFM-02 y H-RFM-03 y avanzan P-RFM-05, P-RFM-06, P-RFM-08 y H-RFM-01 con el mapping, AltaRolEmisor y Request_Response v31. Se confirma por código que IS_EXTF marca la petición WARNING.  
 
-### Huecos bloqueantes (13)
+### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -1293,17 +1307,15 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-RFM-02 | abierta | Comando real y parámetros ctmfw de FICHERO_REFINITIV_FW y FICHERO_RDR_REFINITIV_FW; regla '7 → OK'; qué pasa si no aparece | Definición Control-M de ambos file watchers (comando y reglas ON) |
 | P-RFM-03 | abierta | Cómo usa RDR_Refinitiv_Request.jar el REFINITIV_MULTI_ISSUE.csv (formato) y qué pasa con el CSV después | Código de RDR_Refinitiv_Request.jar y diccionario del CSV |
 | P-RFM-04 | abierta | Ficha de MEKYTL1058: dice que se modifica el nombre pero indica el mismo nombre en destino; ¿nombre real? | Nombre real en destino (config de MEKYTL1058) |
-| P-RFM-05 | parcial | Columnas del layout issueRequestOutput de FT_T_PAR1 y tablas donde escribe el feed Refinitiv_Issue_Response **Avance 2ª pasada:** Feed Refinitiv_Issue_Response = LineByLine, tipo de mensaje y mapping Refinitiv_Issues.mdx (29.474 B) documentados en §6.8; motor Standard File Load analizado. | Contenido de Refinitiv_Issues.mdx (recurso db://resource/RDR/mapping/issues/) y fila issueRequestOutput de FT_T_PAR1 (REFINITIV_PARAMS) |
-| P-RFM-06 | parcial | ¿Quién crea la fila MULTI_ISSUE de FT_T_VREQ y la devuelve a PENDING en cada ciclo? **Avance 2ª pasada:** Ningún workflow del volcado crea o reinicia MULTI_ISSUE; los UPDATE por VND_RQST_OID son no-op si falta la fila; Process_Pending_Issues pone FAILED a PENDING >2 días. Escrito en §4.2 y R-10. | Quién (SQL/proceso externo) crea la fila MULTI_ISSUE y la devuelve a PENDING |
-| P-RFM-08 | parcial | ¿Cuál de las dos versiones de Refinitiv_Request_Response.wkf está desplegada en cada entorno? **Avance 2ª pasada:** Versión 18 'NFQ-ADA v4' (última del volcado) comparada con los dos .wkf: mismas 68 transiciones; Prepare java call (4.936 B) equivale a javahome+JAVA+clase com.bbva...Request; Set Output Ratings y set Error XML difieren. Escrito en §6.4. | Confirmar de qué entorno es el volcado y qué variante corre en cada entorno; export del blob statements de Prepare java call de la v18 |
-| H-RFM-01 | abierta | RDR_Refinitiv_Request.jar (com.bbva.kytl.main.Request) y sus jars ConexionBD.jar y XMASToken-0.0.1.jar no recibidos | código de RDR_Refinitiv_Request.jar, ConexionBD.jar y XMASToken (invocados por el workflow) |
-| H-RFM-02 | parcial | Sub-workflow AltaRolEmisor (y consumidor del mensaje PtyDetlListUpd) que da de alta el rol de emisor: no recibido **Avance 2ª pasada:** AltaRolEmisor v13 analizado en §6.9: llamada síncrona (JMSTextMessage), validaciones, peticiones BE a Refinitiv, ACK/NACK, REU/difusión/publicación. El consumidor es el propio workflow. | Export del blob statements de los nodos 'Acciones Issuer', 'query STARMADRID' y 'query ORGID' (y 'Check FINSID and ORGID/BBG xml', 'RRM1 Duplicados') del workflow AltaRolEmisor |
-| H-RFM-03 | parcial | Motor Standard File Load y feeds Refinitiv_Issue_Response y Carga_Listed_MIC no recibidos **Avance 2ª pasada:** Standard File Load y Parallel File Load Sub analizados (§6.8); feeds Refinitiv_Issue_Response y Carga_Listed_MIC identificados (LineByLine/XmlSplitter) con su mapping. | Contenido de Refinitiv_Issues.mdx y CargaListedMIC.mdx |
+| P-RFM-05 | parcial | Columnas del layout issueRequestOutput de FT_T_PAR1 y tablas donde escribe el feed Refinitiv_Issue_Response **Avance 2ª pasada:** Feed Refinitiv_Issue_Response = LineByLine, tipo de mensaje y mapping Refinitiv_Issues.mdx (29.474 B) documentados en §6.8; motor Standard File Load analizado. **Avance 4ª pasada (objetosgs):** Mapping Refinitiv_Issues.mdx leído: tablas escritas y reglas de rechazo; §6.C. | Valor de FT_T_PAR1 REFINITIV_PARAMS issueRequestOutput (lista de columnas). |
+| P-RFM-06 | parcial | ¿Quién crea la fila MULTI_ISSUE de FT_T_VREQ y la devuelve a PENDING en cada ciclo? **Avance 2ª pasada:** Ningún workflow del volcado crea o reinicia MULTI_ISSUE; los UPDATE por VND_RQST_OID son no-op si falta la fila; Process_Pending_Issues pone FAILED a PENDING >2 días. Escrito en §4.2 y R-10. **Avance 4ª pasada (objetosgs):** Confirmado que solo Refinitiv_Request_Response referencia MULTI_ISSUE; Process_Pending_Issues caduca PENDING a 2 días. | Proceso/SQL externo que crea y reinicia la fila MULTI_ISSUE. |
+| P-RFM-08 | parcial | ¿Cuál de las dos versiones de Refinitiv_Request_Response.wkf está desplegada en cada entorno? **Avance 2ª pasada:** Versión 18 'NFQ-ADA v4' (última del volcado) comparada con los dos .wkf: mismas 68 transiciones; Prepare java call (4.936 B) equivale a javahome+JAVA+clase com.bbva...Request; Set Output Ratings y set Error XML difieren. Escrito en §6.4. **Avance 4ª pasada (objetosgs):** Versión 31 de develop (javahome, com.bbva.kytl.main.Request, ruta Multi_Request) documentada. | Qué variante corre en cada entorno. |
+| H-RFM-01 | parcial | RDR_Refinitiv_Request.jar (com.bbva.kytl.main.Request) y sus jars ConexionBD.jar y XMASToken-0.0.1.jar no recibidos **Avance 4ª pasada (objetosgs):** Línea de comandos y classpath exactos del cliente en v31. | Código de RDR_Refinitiv_Request.jar, ConexionBD.jar, XMASToken. |
 | H-RFM-04 | abierta | Procedimiento PRC_ESCOBA_SUBYACENTES: código no recibido, no se sabe qué limpia | código de PRC_ESCOBA_SUBYACENTES (invocado por Refinitiv_Request_Response) |
 | H-RFM-05 | abierta | Los nombres de los eventos entre los 4 jobs no constan en la documentación | Eventos/condiciones IN y OUT de los 4 jobs en Control-M |
 | H-RFM-06 | abierta | Quién y cómo genera REFINITIV_MULTI_ISSUE.csv en la carpeta de red de Equities (no documentado) | Proceso/área que deposita el CSV y su layout |
 
-### No bloqueantes (7)
+### No bloqueantes (9)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1313,6 +1325,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | G5 | resuelta | ¿Qué hace GSProcess.sh RefinitivIssueMultiRequest? | Resuelta con el .properties real y los workflows reales (§6.4) |
 | G6 | resuelta | ¿Esta cadena y la batch son la misma integración? | Resuelta: son independientes |
 | P-RFM-07 | resuelta | Si el workflow marca FAILED, ¿el evento termina con error para executeBbvaEvent.sh (job NOTOK) o bien (OK)? | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): Grafo de Refinitiv_Request_Response (v18) y código de CommandLine/WaitForFiles: las ramas FAILED acaban en Stop sin excepción; el evento termina bien y con R14 el job queda OK. §4.2, §6.4, R-04. |
+| H-RFM-02 | resuelta | Sub-workflow AltaRolEmisor (y consumidor del mensaje PtyDetlListUpd) que da de alta el rol de emisor: no recibido **Avance 2ª pasada:** AltaRolEmisor v13 analizado en §6.9: llamada síncrona (JMSTextMessage), validaciones, peticiones BE a Refinitiv, ACK/NACK, REU/difusión/publicación. El consumidor es el propio workflow. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): AltaRolEmisor v13: Acciones Issuer, query STARMADRID, query ORGID, Check FINSID, RRM1 Duplicados y Acciones previas alta leídos enteros (develop); §6.B. |
+| H-RFM-03 | resuelta | Motor Standard File Load y feeds Refinitiv_Issue_Response y Carga_Listed_MIC no recibidos **Avance 2ª pasada:** Standard File Load y Parallel File Load Sub analizados (§6.8); feeds Refinitiv_Issue_Response y Carga_Listed_MIC identificados (LineByLine/XmlSplitter) con su mapping. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Refinitiv_Issues.mdx (64 campos, 14 mensajes) y CargaListedMIC.mdx analizados completos; feeds Refinitiv_Issue_Response/Carga_Listed_MIC. |
 | H-RFM-07 | abierta | Mecanismo de alertas que recoge las filas de TABLEALERTGENER con PROCESO='PETICION_REFINITIV_EMISIONES' | Proceso aguas abajo ajeno a la cadena; la fila escrita ya está definida |
 
 ## rdr_cargalei_new
@@ -1321,22 +1335,21 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan gleif.sh, LEI.sh, Comprobar_fichero_LEI.sh, la XSL, el layout MDX y workflows de carga/errores, IDX/idx de MEKYTL0349/0944/1237, config del informe Excel, aviso_LEI.properties, Control-M de los 6 jobs y LEI.properties de producción.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se corrige que el evento MDX no ejecuta ParseMDXLayout y se documenta ErroresCSV/MarcaRegErroneo (Delta=Si si tiene efecto) con ruta y formato del fichero de errores. Nuevo riesgo RISK-LEI-007 (ventana de 1 hora) y TC-012.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** gleif.sh, LEI.sh, Comprobar_fichero_LEI.sh, la XSL y errores_to_file.sh quedan analizados; se corrige que Comprobar sí repone old/LEI.csv y que los fallos de descarga no producen código distinto de 0. Siguen abiertos MDX, idx/IDX, Control-M y configuración BD de alertas.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados P-LEI-03 (mapeo cargaLEI.mdx completo: estados, FT_T_LEI1, filas REPORTES) y H-LEI-01. Nuevos RISK-LEI-011 (LEI pendientes descartados), TC-014 y posible defecto de comparacion de fechas de renovacion.  
 
-### Huecos bloqueantes (9)
+### Huecos bloqueantes (7)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-LEI-03 | parcial | Layout MDX del feed CargaLEI; qué hace ParseMDXLayout con un LEI.csv solo con cabecera; quién escribe FT_T_RLT1 REPORTES/CARGALEI y FT_T_JBLG **Avance 2ª pasada:** Feed CargaLEI usa SkipHeaderReadByLineUTF8.xml y mapeo cargaLEI.mdx; el evento MDX es Standard File Load (crea el job en FT_T_JBLG); solo-cabecera no genera mensajes (deducido). | Contenido de db://resource/RDR/mapping/LEI/cargaLEI.mdx y del XML del feed; quien escribe FT_T_RLT1 REPORTES/CARGALEI |
 | P-LEI-04 | abierta | Configuración .idx de MEKYTL0349 en MEGENV0001.sh (protocolo, máquinas, FALLA_NO_FICHERO, renombrado, historificación) | MEKYTL0349.idx de producción (invocado por MEGENV0001.sh) |
 | P-LEI-05 | abierta | Líneas de INFORMACION_HISTORIFICACIONES.IDX de MEKYTL0944 y MEKYTL1237; el .zip no encaja con la compresión de RAMERC0068.sh (gzip, .gz) | líneas MEKYTL0944 y MEKYTL1237 del IDX de producción |
-| P-LEI-06 | parcial | Reporte_GLEIF_Entity_Status.properties y configuración en BD del proceso (FT_T_REP1, FT_T_ALR1/ALU1) e incidencias en FT_T_TPG1 **Avance 3ª pasada (estaticos):** Reporte_GLEIF_Entity_Status.properties y GestionAlertas.properties leídos y escritos en §6.8 (coinciden con la spec). | Filas FT_T_REP1/FT_T_ALR1/FT_T_ALU1 del proceso Reporte_GLEIF_Entity_Status (QUERY, RUTA, plantilla, destinatarios) y escritor de FT_T_TPG1. |
+| P-LEI-06 | parcial | Reporte_GLEIF_Entity_Status.properties y configuración en BD del proceso (FT_T_REP1, FT_T_ALR1/ALU1) e incidencias en FT_T_TPG1 **Avance 3ª pasada (estaticos):** Reporte_GLEIF_Entity_Status.properties y GestionAlertas.properties leídos y escritos en §6.8 (coinciden con la spec). **Avance 4ª pasada (objetosgs):** rep1 de develop no incluye la consulta de Reporte_GLEIF_Entity_Status | Filas FT_T_REP1/ALR1/ALU1 del proceso Reporte_GLEIF_Entity_Status |
 | P-LEI-07 | parcial | Contenido de aviso_LEI.properties(.pr); SendMailReport.wkf v16 tiene destinatarios, asunto y adjunto fijos distintos de los documentados **Avance 3ª pasada (estaticos):** aviso_LEI.properties.{de,ei,pp,pr} leídos (Destination, FileMail, Mail, NameFile, Subject; Destination de pr enmascarado); evento Workflow SendMailReport; §6.5. | Versión de SendMailReport desplegada en producción y confirmación de que lee Destination/Subject/Mail/NameFile/FileMail (la v16 recibida usa valores fijos). |
 | P-LEI-08 | abierta | Definición Control-M de los 6 jobs: usuario, hora exacta, condiciones de entrada/salida, reglas ante NOTOK | Export/fichas de Control-M de los 6 jobs |
 | P-LEI-09 | parcial | Copia de producción de LEI.properties (la recibida es de integración, con rutas ei) **Avance 3ª pasada (estaticos):** La plantilla trae LEI.properties único con @@ENV@@ y sin JDKV; documentado en §6.2 con Corrección sobre Java 17. | Copia de LEI.properties instalada en el servidor de producción para contrastarla con la plantilla. |
-| H-LEI-01 | parcial | Workflows LoadMDX.gsp, ParseMDXLayout, ErroresCSV, MarcaRegErroneo y HistoricizeFiles descritos sin .wkf; efecto de SuccessAction=LEAVE no documentado **Avance 2ª pasada:** Standard File Load, ParseMDXLayout (no lanzado por la cadena), ErroresCSV, HistoricizeFiles y MarcaRegErroneo reconstruidos; efecto de SuccessAction=LEAVE explicado con EndFile; spec 6.2/6.6. **Avance 3ª pasada (estaticos):** MarcaRegErroneo + errores_to_file.sh (rama CargaLEI) analizados: marca ERROR- en old/LEI.csv y borra db_errores.txt; defectos en RISK-009. §6.6. | Texto de rmCommand/rmOldCommand de HistoricizeFiles (blob del nodo Prepare commands, H-GSP-07). |
-| H-LEI-03 | parcial | Directorio de trabajo de gleif.sh (ZIP/XML) y ruta del Excel (FT_T_REP1.RUTA) no constan **Avance 3ª pasada (estaticos):** Directorio de trabajo de gleif.sh = /fichtemcomp/<env>/descargas/kytl/LEI/ (ZIP y XML); escrito en §6.3 y §6.9. | FT_T_REP1.RUTA del proceso Reporte_GLEIF_Entity_Status (ruta del Excel). |
+| H-LEI-03 | parcial | Directorio de trabajo de gleif.sh (ZIP/XML) y ruta del Excel (FT_T_REP1.RUTA) no constan **Avance 3ª pasada (estaticos):** Directorio de trabajo de gleif.sh = /fichtemcomp/<env>/descargas/kytl/LEI/ (ZIP y XML); escrito en §6.3 y §6.9. **Avance 4ª pasada (objetosgs):** Sin cambios; rep1 no trae la ruta del Excel | FT_T_REP1.RUTA del proceso |
 
-### No bloqueantes (5)
+### No bloqueantes (7)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1344,6 +1357,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | GAP-LEI-004 | resuelta | Query de Reporte_LEI.csv | Cerrado: está en select.properties, clave LEI, copiada en §6.4 |
 | P-LEI-01 | resuelta | Código de gleif.sh, LEI.sh y Comprobar_fichero_LEI.sh: códigos de salida, rutas de restauración de LEI_old.csv, si restaura old/LEI.csv | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): gleif.sh, LEI.sh y Comprobar_fichero_LEI.sh leídos enteros: rutas, restauración de old/ y códigos de salida (nunca !=0 por fallo de descarga). Escrito en §6.3, §6.5, RISK-008/010. |
 | P-LEI-02 | resuelta | Contenido de GLEIF_traductor_New.xsl (valor de cada una de las 18 columnas de LEI.csv y separador) | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): GLEIF_traductor_New.xsl leída entera: valor de las 18 columnas, prioridad es/en, separador \|. Escrito en nueva §6.3.1. |
+| P-LEI-03 | resuelta | Layout MDX del feed CargaLEI; qué hace ParseMDXLayout con un LEI.csv solo con cabecera; quién escribe FT_T_RLT1 REPORTES/CARGALEI y FT_T_JBLG **Avance 2ª pasada:** Feed CargaLEI usa SkipHeaderReadByLineUTF8.xml y mapeo cargaLEI.mdx; el evento MDX es Standard File Load (crea el job en FT_T_JBLG); solo-cabecera no genera mensajes (deducido). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): cargaLEI.mdx, feed CargaLEI y SkipHeaderReadByLineUTF8 analizados: 18 campos, traduccion de estado, upsert FT_T_LEI1 y filas REPORTES; spec 6.6.1 |
+| H-LEI-01 | resuelta | Workflows LoadMDX.gsp, ParseMDXLayout, ErroresCSV, MarcaRegErroneo y HistoricizeFiles descritos sin .wkf; efecto de SuccessAction=LEAVE no documentado **Avance 2ª pasada:** Standard File Load, ParseMDXLayout (no lanzado por la cadena), ErroresCSV, HistoricizeFiles y MarcaRegErroneo reconstruidos; efecto de SuccessAction=LEAVE explicado con EndFile; spec 6.2/6.6. **Avance 3ª pasada (estaticos):** MarcaRegErroneo + errores_to_file.sh (rama CargaLEI) analizados: marca ERROR- en old/LEI.csv y borra db_errores.txt; defectos en RISK-009. §6.6. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): HistoricizeFiles.gsp (rm old, mv, rm dummy) y MarcaRegErroneo.gsp (SELECT RLT1+TRID, comando) documentados; spec 6.6 |
 | H-LEI-02 | resuelta | Nombre y ruta del fichero de errores que escribe el evento Errores no constan | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): ErroresCSV v6 reconstruido: escribe <Ruta>LEI/LEI_errores.csv (dummy+mv), cabecera y SQL conocidos, solo si hay errores y carga iniciada en la ultima hora; spec 6.6 y RISK-LEI-007, TC-012. |
 
 ## rdr_cargasectoada
@@ -1389,35 +1404,36 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan clientes.properties, fillingRules_clientes.csv, evento RDR_Reporte y mapeo de salida clientes.mdx, .idx de MEKYTL0147/0148, líneas IDX de MEKYTL0136/0939, los .mod de MEGENV0001 y el export de Control-M.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Los tres eventos de GoldenSource (StandardFileLoad, RDR_ErroresCSV, RDR_Reporte) pasan de caja negra a workflows descritos en la spec, con feed, ficheros, formato y casos sin datos; se añade TC-009. Queda abierta la consulta del reporte (blob) y el mensaje de salida del mapeo.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrado H-CIB-07 (errores_to_file.sh no se ejecuta con Delta=No y CLX no tiene case) y avanzadas P-CIB-01/02 con clientes.properties y fillingRules de la plantilla (Delta=No, MDX sobre clientes_processed.csv, sin DUPL). Siguen abiertos el reporte (query), idx, origen y export Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Recuperada la consulta del reporte de clientes y el mensaje de salida de clientes.mdx, con tres defectos (compartidos y altas no llegan al reporte; tipo inesperado sin definir). Añadidos §6.3.1.1, TC-011 y ajustados TC-009, RK10 y RK13.  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (9)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| G3 | parcial | Diccionario de clientes.csv (cerrado: 12 columnas) y de Reporte_clientes_dos.csv (abierto, P-CIB-04) **Avance 2ª pasada:** Formato de Reporte_clientes.csv conocido (título fijo, ';' y ';' final, 'La select no devuelve valores' sin filas); columnas dependen de una consulta no recuperable. | Export del blob statements del nodo 'Initialize Variables' del workflow GenerateReports v20 (27.736 B; consulta = elemento 8). |
-| P-CIB-01 | parcial | clientes.properties completo: argumento de Delta.sh, ficheros de ControlCargaDatos, fichero/feed del evento MDX, Stop=Ok **Avance 2ª pasada:** Feed clientes declara patron clientes_processed.csv y tipo CLX (indicio de que se carga la salida de la validación); parámetros Ruta/Servicio/File/Delta de los eventos aún sin ver. **Avance 3ª pasada (estaticos):** clientes.properties de la plantilla: Delta=No, ControlCase sobre clientes.csv, MDX carga clientes_processed.csv (feed clientes, CLX), sin Stop*; spec 6.3.3 y filas P-CIB-01. | Confirmar que clientes.properties instalado en produccion coincide con la plantilla (diff). |
+| P-CIB-01 | parcial | clientes.properties completo: argumento de Delta.sh, ficheros de ControlCargaDatos, fichero/feed del evento MDX, Stop=Ok **Avance 2ª pasada:** Feed clientes declara patron clientes_processed.csv y tipo CLX (indicio de que se carga la salida de la validación); parámetros Ruta/Servicio/File/Delta de los eventos aún sin ver. **Avance 3ª pasada (estaticos):** clientes.properties de la plantilla: Delta=No, ControlCase sobre clientes.csv, MDX carga clientes_processed.csv (feed clientes, CLX), sin Stop*; spec 6.3.3 y filas P-CIB-01. **Avance 4ª pasada (objetosgs):** Feed clientes.gsp (develop) confirma patron clientes_processed.csv, CLX, clientes.mdx, SkipHeaderReadByLine (salta 1 línea, ISO-8859-1). | Diff de clientes.properties instalado frente a la plantilla. |
 | P-CIB-02 | parcial | fillingRules_clientes.csv completo (cabecera y reglas NULL/USAR/POSICION/DUPL) **Avance 3ª pasada (estaticos):** fillingRules_clientes.csv de la plantilla: NULL+POSITION(9) en COD_CCLIEN, NULL+POSITION(1) en COD_TIPOCLI, USAR en las 12, sin DUPL; TC-010 nuevo. | Confirmar con diff que el fillingRules_clientes.csv de produccion coincide con la plantilla. |
 | P-CIB-03 | abierta | Qué sistema deposita clientes.csv, a qué hora, con cabecera, codificación y volumen | Origen, hora, cabecera y codificación de clientes.csv |
-| P-CIB-04 | parcial | Qué hace el evento RDR_Reporte (workflow, query, columnas, nombre del fichero); ¿genera Reporte_clientes.csv que Unix2Dos convierte en _dos? **Avance 2ª pasada:** RDR_Reporte = workflow GenerateReports rama clientes: fichero, carpeta, cabecera, rotación a old/ y caso sin filas escritos en §6.3.2. Falta la consulta (columnas). | Export del blob statements del nodo 'Initialize Variables' del workflow GenerateReports v20 (elemento 8 de la lista de consultas). |
 | P-CIB-05 | abierta | Contenido de MEKYTL0147.idx y MEKYTL0148.idx (rutas, renombrado, FALLA_NO_FICHERO); ¿ruta MVP00G219 con espacio o sin él? | MEKYTL0147.idx y MEKYTL0148.idx de producción (MEGENV0001.sh) |
 | P-CIB-06 | abierta | Líneas de INFORMACION_HISTORIFICACIONES.IDX de MEKYTL0136 y MEKYTL0939 (máscara, renombrado, campo 5, operación) | líneas MEKYTL0136 y MEKYTL0939 del IDX de producción |
 | P-CIB-09 | abierta | Mecanismo del entorno de pruebas para forzar el fallo de un job (TC-002/005/006) y acceso a destinos XCOM de pruebas (TC-004/008) | Mecanismo de fallo forzado y destinos XCOM de pruebas |
-| P-CIB-10 | parcial | Campos y tablas de destino del mensaje de salida de clientes.mdx; trato de la cabecera y de COD_TIPOCLI distinto de C/E **Avance 2ª pasada:** La cabecera la salta el feed clientes (SkipHeaderReadByLine.xml), no el mapeo; ROLLBACK_ON_ERROR=N. Siguen sin verse el mensaje de salida y el trato de COD_TIPOCLI inesperado. | Contenido del mapeo db://resource/RDR/mapping/clientes/clientes.mdx (3.864 B) con el mensaje de salida y la definición SkipHeaderReadByLine.xml |
+| P-CIB-10 | parcial | Campos y tablas de destino del mensaje de salida de clientes.mdx; trato de la cabecera y de COD_TIPOCLI distinto de C/E **Avance 2ª pasada:** La cabecera la salta el feed clientes (SkipHeaderReadByLine.xml), no el mapeo; ROLLBACK_ON_ERROR=N. Siguen sin verse el mensaje de salida y el trato de COD_TIPOCLI inesperado. **Avance 4ª pasada (objetosgs):** clientes.mdx (develop) analizado: usa solo COD_CCLIEN y COD_TIPOCLI; carga FT_T_FRCL (CLIEX Exclusive/Shared) y RLT1; defectos D1-D3. | Comportamiento de Translate con COD_TIPOCLI distinto de C/E y confirmar que el mdx instalado coincide con develop. |
 | H-CIB-02 | abierta | No se ha recibido el export de la cadena: acciones ante códigos distintos de 0 y 7 solo conocidas para el paso 1 | Export/Acciones de Control-M de los 7 jobs |
 | H-CIB-03 | abierta | Módulos SF_MEGENV0001_XCOM/CD/SFTP/PARAMS.mod invocados por MEGENV0001.sh (MEKYTL0147/0148) no recibidos | código de los 4 .mod (invocados por MEGENV0001.sh) |
-| H-CIB-06 | abierta | Consulta del reporte de clientes (elemento 8 de arrayStringSelects de GenerateReports): objeto binario no recuperable del volcado. | Export del blob statements del nodo 'Initialize Variables' del workflow GenerateReports v20 (27.736 B) |
 
-### No bloqueantes (8)
+### No bloqueantes (11)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | G1 | resuelta | ¿Qué pasa si KYTL_CLI_GSPROCESS_FW agota los 240 minutos? | Resuelto con captura de Acciones: código 7 → evento _KO y job OK |
 | G2 | resuelta | ¿MEKYTL0148 transforma el fichero al cambiar la extensión a .txt? | Resuelto: MEGENV0001.sh solo transporta; es un renombrado |
+| G3 | resuelta | Diccionario de clientes.csv (cerrado: 12 columnas) y de Reporte_clientes_dos.csv (abierto, P-CIB-04) **Avance 2ª pasada:** Formato de Reporte_clientes.csv conocido (título fijo, ';' y ';' final, 'La select no devuelve valores' sin filas); columnas dependen de una consulta no recuperable. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Diccionario del reporte: una columna de texto con ';' final; cierra la parte abierta de Reporte_clientes_dos.csv. |
+| P-CIB-04 | resuelta | Qué hace el evento RDR_Reporte (workflow, query, columnas, nombre del fichero); ¿genera Reporte_clientes.csv que Unix2Dos convierte en _dos? **Avance 2ª pasada:** RDR_Reporte = workflow GenerateReports rama clientes: fichero, carpeta, cabecera, rotación a old/ y caso sin filas escritos en §6.3.2. Falta la consulta (columnas). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Reporte_clientes.csv definido completo: título fijo + 4 títulos + mensajes; nunca 'sin filas'; sin filtro de job cerrado ni ventana. |
 | P-CIB-07 | abierta | ¿Alguna otra cadena o monitorización consume el evento _KO? ¿Se quiere alerta cuando clientes.csv no llega? | Decisión de negocio/mejora; el comportamiento actual (sin alerta) ya está descrito |
 | P-CIB-08 | abierta | Qué hacer con Reporte_clientes.csv, clientes_processed.csv y _noprocessed.csv, que ninguna historificación retira | Residuos: la spec ya describe que nadie los retira; la decisión es de mejora (riesgo ligado a P-CIB-01) |
 | H-CIB-01 | resuelta | Eventos StandardFileLoad, RDR_ErroresCSV y RDR_Reporte de GoldenSource no recibidos (fichero y ruta de errores desconocidos) | Cerrado en la 2ª pasada (ramas personales y volcado fileloading, 02/10): Workflows Standard File Load, ErroresCSV, GenerateReports (y subworkflows) de fileloading analizados; feed clientes, clientes_errores.csv y Reporte_clientes.csv escritos en §6.3.2. |
 | H-CIB-04 | abierta | Uso que hacen MVP00G215 y MVP00G219 del reporte | Consumo aguas abajo; contenido y entrega del fichero ya claros |
 | H-CIB-05 | abierta | Las historificaciones actúan sobre el almacenamiento asociado a la IP de datos 22.156.148.85 según la ficha | Las rutas locales origen/destino ya están definidas; la IP es dato de infraestructura |
+| H-CIB-06 | resuelta | Consulta del reporte de clientes (elemento 8 de arrayStringSelects de GenerateReports): objeto binario no recuperable del volcado. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Consulta arrayStringSelects[8] de GenerateReports.gsp (develop) recuperada: 1 columna, 4 secciones tituladas sobre FT_T_RLT1 (CLIENTES_EXCLUSIVOS, REPORTES, estados 1-4). |
 | H-CIB-07 | resuelta | errores_to_file.sh (lo invoca MarcaRegErroneo con Delta=Si) no recibido. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): errores_to_file.sh de la plantilla analizado: con Delta=No (clientes.properties) MarcaRegErroneo no corre y MessageType CLX no tiene case; no se ejecuta/marca nada. Spec 6.3.3. |
 
 ## rdr_conc_oficinas_new
@@ -1462,14 +1478,15 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan CONBDI2, Plantilla_ReportMail, generador del Excel SWIFT, IDX de 0132/0361/0812, .idx de 0135, regla del código 7, codificación de entrada y jars/JDK desplegados.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Los jars de la rama confirman la lógica pero no son los de producción.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrados H-CBD-08 (log4jReportMail) y H-CBD-10 (@@ENV@@ lo sustituye el despliegue). Plantilla_ReportMail se documenta (RDR_ReportMail.jar CONNECTIVITY + ComposeEmail) y se corrige la forma de los marcadores; el generador del Excel SWIFT sigue sin identificar (hipotesis).  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se analiza ComposeEmail (config en FT_T_INCL, un unico fichero UTD1 por tipo, marcado CONNECTIVITY a OK) y la consulta RDR_Reporte_SWIFT_CS_01. P-CBD-03 y P-CBD-04 avanzan pero siguen parciales: no esta RDR_ReportMail.jar ni CONBDI2.  
 
 ### Huecos bloqueantes (16)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-CBD-01 | abierta | Código PL/SQL del procedimiento CONBDI2 (quien actualiza GoldenSource e inserta las incidencias REPORTES/BDI). | Export PL/SQL de CONBDI2 |
-| P-CBD-03 | parcial | Contenido de Plantilla_ReportMail.properties: qué ejecuta y produce el sub-módulo del paso 9 (argumentos ya conocidos). **Avance 3ª pasada (estaticos):** Plantilla_ReportMail: Java RDR_ReportMail.jar (main/ReportMail, CONNECTIVITY, POI) + workflow ComposeEmail; marcadores con guion bajo (corregido). TC-014. | RDR_ReportMail.jar y workflow ComposeEmail (que produce y envia CONNECTIVITY) y la plantilla instalada en produccion. |
-| P-CBD-04 | parcial | Qué programa genera Reporte_ConBDI_SWIFT_<fecha>.xlsx y qué contiene; ningún paso del .properties lo crea. **Avance 3ª pasada (estaticos):** Hipotesis: el paso 9 (RDR_ReportMail.jar tipo CONNECTIVITY con POI) podria generar el Excel SWIFT; ningun paso del .properties lo crea. | Identificar el generador del Excel SWIFT (codigo de RDR_ReportMail.jar/ComposeEmail o confirmacion del equipo) y su layout. |
+| P-CBD-03 | parcial | Contenido de Plantilla_ReportMail.properties: qué ejecuta y produce el sub-módulo del paso 9 (argumentos ya conocidos). **Avance 3ª pasada (estaticos):** Plantilla_ReportMail: Java RDR_ReportMail.jar (main/ReportMail, CONNECTIVITY, POI) + workflow ComposeEmail; marcadores con guion bajo (corregido). TC-014. **Avance 4ª pasada (objetosgs):** ComposeEmail.gsp analizado: solo adjunta y envia el fichero registrado en FT_T_UTD1; config en FT_T_INCL; spec 6.12 ter | RDR_ReportMail.jar (tipo CONNECTIVITY) y plantilla instalada |
+| P-CBD-04 | parcial | Qué programa genera Reporte_ConBDI_SWIFT_<fecha>.xlsx y qué contiene; ningún paso del .properties lo crea. **Avance 3ª pasada (estaticos):** Hipotesis: el paso 9 (RDR_ReportMail.jar tipo CONNECTIVITY con POI) podria generar el Excel SWIFT; ningun paso del .properties lo crea. **Avance 4ª pasada (objetosgs):** Consulta RDR_Reporte_SWIFT_CS_01 (filas CONNECTIVITY de RLT1) encaja con el Excel SWIFT; hipotesis, ComposeEmail no lo genera | Codigo de RDR_ReportMail.jar o confirmacion del equipo |
 | P-CBD-05 | abierta | Líneas IDX de MEKYTL0132, MEKYTL0361 y MEKYTL0812 (campo 5, máscara, operación). | IDX de producción de RAMERC0068 para las 3 claves |
 | P-CBD-06 | abierta | Configuración .idx de MEGENV0001 para MEKYTL0135 y si el job es Job o Dummy en Control-M. | MEKYTL0135.idx de producción |
 | P-CBD-07 | abierta | Si KYTL_CONBDI_GSPROCESS_FW tiene regla código 7 -> OK o queda NOTOK. | Definición Control-M del job FW (ON COMPSTAT) |
@@ -1541,21 +1558,20 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan comando/regla 7 de los FW, dictionaryIndex.properties, layout del TOTAL.csv, config de MEKYTL0860/0861/0876, productor semanal y SQL real/planificador.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se incorpora el literal de dictionaryIndex.properties (una acción Cortar, sin Stop) y el script ficheroDiccionarioRDR.sh, que confirma los nombres _dia_/_sem_ frente a la máscara _semanal_ del filewatcher semanal (H-DICT-04, no bloqueante, resuelta en parte). Siguen abiertos los comandos ctmfw, el formato de TOTAL.csv, idx/IDX y módulos de MEGENV0001.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados H-DICT-05/07 con DictionaryIndex.sql de develop. Se documenta el workflow FicheroDiccionarioRDR (diccionario de contrapartidas, 6 columnas, diario incremental/semanal completo) y su desajuste de carpeta y nombre con el filewatcher semanal.  
 
-### Huecos bloqueantes (16)
+### Huecos bloqueantes (14)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-DICT-01 | parcial | Comando literal de los filewatchers diario y semanal y si tienen regla código 7 -> OK (solo se conoce la intención del semanal). | Export Control-M de RDR_DICTIONARY_INDEX_FW y FIC_DAT_DICT_WEEKLY_SEND_FW |
 | P-DICT-02 | parcial | Contenido de dictionaryIndex.properties (acciones, Stop, @@ENV@@ o $ENV). **Avance 3ª pasada (estaticos):** dictionaryIndex.properties de la plantilla: una sola acción Script Cortar (TOTAL->DictionaryIndex.csv, 1-4), sin Stop, con @@ENV@@. Escrito literal en §5.3. | Verificar que el dictionaryIndex.properties instalado en pr coincide con la plantilla. |
-| P-DICT-03 | abierta | Formato de DictionaryIndex_TOTAL.csv: cabecera, separador, nº de columnas. | muestra real de DictionaryIndex_TOTAL.csv |
+| P-DICT-03 | parcial | Formato de DictionaryIndex_TOTAL.csv: cabecera, separador, nº de columnas. **Avance 4ª pasada (objetosgs):** 4 columnas confirmadas por la query; cabecera/separador dependen del motor del Planificador | Muestra real de DictionaryIndex_TOTAL.csv |
 | P-DICT-04 | abierta | Configuración de MEKYTL0860 (protocolo, usuario, sin fichero) y de MEKYTL0861 (clave/IDX, nombres en old/). | config de MEKYTL0860 y línea IDX/script de MEKYTL0861 |
-| P-DICT-06 | parcial | Cadena semanal: quién produce FicheroDiccionarioRDR_semanal_, contenido y si se reactiva o se da de baja. **Avance 3ª pasada (estaticos):** ficheroDiccionarioRDR.sh (§5.7) nombra los ficheros _dia_ y _sem_; ningún productor conocido escribe _semanal_, máscara del filewatcher semanal. | Quién debía producir FicheroDiccionarioRDR_semanal_, contenido y layout, y decisión de reactivar o dar de baja; workflow FicheroDiccionarioRDR de GoldenSource. |
+| P-DICT-06 | parcial | Cadena semanal: quién produce FicheroDiccionarioRDR_semanal_, contenido y si se reactiva o se da de baja. **Avance 3ª pasada (estaticos):** ficheroDiccionarioRDR.sh (§5.7) nombra los ficheros _dia_ y _sem_; ningún productor conocido escribe _semanal_, máscara del filewatcher semanal. **Avance 4ª pasada (objetosgs):** Workflow FicheroDiccionarioRDR y Sub_DiccionarioContrapartidas analizados: cabecera, consultas diaria/semanal, carpeta Ruta; spec 5.7 | Quien lanza el script, decision de reactivar o baja, y carpeta real que vigila el filewatcher |
 | H-DICT-01 | parcial | Nombre en destino de MEKYTL0876 contradictorio en el formulario (_dia_ en destino vs mismo nombre _semanal_ en observación). **Avance 3ª pasada (estaticos):** El nombre _dia_ del destino de MEKYTL0876 es el del modo diario de ficheroDiccionarioRDR.sh; el formulario parece copiado del diario. §5.7. | Configuración vigente (.idx) de MEKYTL0876 con el nombre real en destino. |
 | H-DICT-02 | abierta | Configuración actual de MEKYTL0876 no comprobada: solo se tiene el formulario de 2019. | config vigente de MEKYTL0876 (job y .idx de MEGENV0001) |
 | H-DICT-03 | abierta | Periodicidad de la cadena semanal ambigua: ficha con 'D' (diaria) vs texto 'una vez a la semana'; spec la trata como semanal. | calendario real de la cadena semanal en Control-M |
-| H-DICT-05 | abierta | Fichero DictionaryIndex.sql real: su contenido procede del análisis de la Fase 1, no se ha visto el fichero/CLOB desplegado. | DictionaryIndex.sql real (invocado por el Planificador) |
-| H-DICT-07 | abierta | Planificador: texto real de la query (CLOB_VALUE de FT_T_QPF1) no recibido; la spec lo copia de un documento de análisis. | contenido de la query real en BD (invocado por el Planificador Genérico) |
 | H-DICT-08 | abierta | Planificador: planificación exacta de RDR_SW_PLANIFICADOR_new (P-PLA-03) y entorno del inventario (P-PLA-01) sin confirmar. | planificación del motor e inventario de producción (comun_planificador P-PLA-01/03) |
 | H-DICT-09 | abierta | Planificador: método cleanSchedules() nombrado pero no descrito y BD usada por el motor (P-PLA-06/08). | código de cleanSchedules() y config de BD (invocado por el motor del Planificador) |
 | H-DICT-10 | abierta | Módulo SF_MEGENV0001_XCOM.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_XCOM.mod (invocado por MEKYTL0876 / MEGENV0001.sh) |
@@ -1563,14 +1579,16 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-DICT-12 | abierta | Módulo SF_MEGENV0001_SFTP.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_SFTP.mod (invocado por MEKYTL0876 / MEGENV0001.sh) |
 | H-DICT-13 | abierta | Módulo SF_MEGENV0001_PARAMS.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_PARAMS.mod (invocado por MEKYTL0876 / MEGENV0001.sh) |
 
-### No bloqueantes (4)
+### No bloqueantes (6)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | P-DICT-05 | abierta | Hora real observada de creación de DictionaryIndex_TOTAL.csv y margen del Planificador (P-PLA-03). | Dato estadístico; la ventana y la extracción de las 15:00 están definidas |
 | P-DICT-07 | abierta | Protocolo de actuación de soporte ante fallo de RDRKYTL001 sin confirmar por ANS RDR. | Procedimiento operativo de soporte; el comportamiento ante fallo está descrito |
 | H-DICT-04 | abierta | Hipótesis no confirmada: la cadena semanal duerme porque la extracción del Planificador está inactiva o la máscara _semanal_ no coincide con _sem_. | Explica el porqué; el comportamiento sin fichero lo cubren P-DICT-01/06 |
+| H-DICT-05 | resuelta | Fichero DictionaryIndex.sql real: su contenido procede del análisis de la Fase 1, no se ha visto el fichero/CLOB desplegado. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): DictionaryIndex.sql de scriptsSQL (develop) coincide con la consulta de la spec (4 columnas, sin ORDER BY) |
 | H-DICT-06 | abierta | Sistema receptor de la cadena semanal (lpops302 / Datio) y destino Calypso: funcionamiento interno fuera de alcance. | Consumo aguas abajo; contenido y entrega ya definidos |
+| H-DICT-07 | resuelta | Planificador: texto real de la query (CLOB_VALUE de FT_T_QPF1) no recibido; la spec lo copia de un documento de análisis. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Texto de la query tomado del script develop; documentado en 5.2 |
 
 ## rdr_duco_cpty
 
@@ -1578,8 +1596,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan PARM1/.properties, queries y filas ATE1/PAR1, clases del jar (MyThreadCpty, ConDB...), MEKYTL1151.idx, LPFTPEXCA0000/0002, IDX de MEKYTL1150 y nombre del evento.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta .properties y log4j de DUCOCPTY (P-DCP-01 parcial). No hay nada de MEGENV0001/LPFTPEXCA/.mod/IDX/queries/PAR1/ATE1 ni codigo del jar: el resto sigue abierto.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** La spec tenia mal el mapa de las 26 plazas (codigos desplazados) y el orden de ALIAS_ID/ALIAS_TYPE; corregido con el SQL de develop. Nuevo: se exige jerarquia padre-abuelo en ft_t_firl y rol activo para salir (RK-DCP-10, TC-011); faltan HEADER y URL_OUTPUT_FILE y el resto de huecos no GS.  
 
-### Huecos bloqueantes (21)
+### Huecos bloqueantes (20)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -1588,7 +1607,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-DCP-03 | abierta | LPFTPEXCA0000.sh, LPFTPEXCA0002.sh y configuración de la pasarela para MEKYTL1151 (máquina/ruta final en DUCO). | scripts LPFTPEXCA y config de pasarela para MEKYTL1151 |
 | P-DCP-04 | abierta | Línea del IDX de producción para MEKYTL1150 (operación MG/GM, renombrado, fallo sin fichero). | línea IDX de producción de MEKYTL1150 |
 | P-DCP-05 | abierta | Nombre literal del evento que espera MEKYTL1150 (RDR_DUCO_CPTY_... vs RDR_DUCOCPTY_...). | export Control-M de MEKYTL1150 (prerrequisito) y evento de _DEL |
-| P-DCP-06 | abierta | Texto de ExtraccionDUCOCPTY.sql, ExtraccionAdhocDUCOCPTY.sql, cabecera FT_T_PAR1 y URL_OUTPUT_FILE; valores de las 26 plazas. | filas FT_T_ATE1/FT_T_PAR1 con las queries y HEADER |
+| P-DCP-06 | parcial | Texto de ExtraccionDUCOCPTY.sql, ExtraccionAdhocDUCOCPTY.sql, cabecera FT_T_PAR1 y URL_OUTPUT_FILE; valores de las 26 plazas. **Avance 4ª pasada (objetosgs):** Texto de las queries de lista y detalle incorporado (spec 5.3 y 6.2.1); corregidos orden ALIAS_ID/ALIAS_TYPE y mapa de las 26 plazas. | Filas de FT_T_PAR1 (HEADER) y FT_T_ATE1 (URL_OUTPUT_FILE) de produccion |
 | P-DCP-07 | abierta | Comportamiento del programa si falla la conexión a BD (clase ConDB no recibida). | código de ConDB (invocado por ExtraccionGenericaOtherEntities.jar) |
 | H-DCP-01 | abierta | Clase MyThreadCpty de ExtraccionGenericaOtherEntities.jar (escribe las líneas y decide qué hace ante fallo): no recibida. | código de MyThreadCpty (invocado por Ppal) |
 | H-DCP-02 | abierta | Clase Querys (de esta versión) de ExtraccionGenericaOtherEntities.jar: no recibida. | código de Querys (invocado por Ppal) |
@@ -1597,21 +1616,21 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-DCP-05 | abierta | LPFTPEXCA0000.sh (transmisión por Connect:Direct de MEKYTL1151_SND): no recibido, su efecto se deduce de la ficha. | código de LPFTPEXCA0000.sh (invocado por MEKYTL1151_SND) |
 | H-DCP-06 | abierta | LPFTPEXCA0002.sh (limpieza en pasarela de MEKYTL1151_DEL): no recibido. | código de LPFTPEXCA0002.sh (invocado por MEKYTL1151_DEL) |
 | H-DCP-07 | abierta | Configuración de la pasarela/Connect:Direct para el identificador MEKYTL1151: no recibida (fuera de alcance declarado). | config pasarela MEKYTL1151 (invocada por LPFTPEXCA0000/0002.sh) |
-| H-DCP-08 | abierta | Filas de configuración FT_T_ATE1 (query de lista y de detalle con URL_OUTPUT_FILE) y FT_T_PAR1 HEADER: no se han visto. | export de FT_T_ATE1/FT_T_PAR1 de producción |
-| H-DCP-09 | abierta | Cómo construye la query de detalle la línea completa y la columna RESULT (nota técnica: no se ha visto). | ExtraccionAdhocDUCOCPTY.sql real |
+| H-DCP-08 | parcial | Filas de configuración FT_T_ATE1 (query de lista y de detalle con URL_OUTPUT_FILE) y FT_T_PAR1 HEADER: no se han visto. **Avance 4ª pasada (objetosgs):** Texto de las dos queries visto en develop; falta la parte de configuracion. | Export de FT_T_ATE1 (URL_OUTPUT_FILE) y FT_T_PAR1 HEADER de produccion |
 | H-DCP-10 | abierta | Módulo SF_MEGENV0001_XCOM.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_XCOM.mod (invocado por MEGENV0001.sh) |
 | H-DCP-11 | abierta | Módulo SF_MEGENV0001_CD.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_CD.mod (invocado por MEGENV0001.sh) |
 | H-DCP-12 | abierta | Módulo SF_MEGENV0001_SFTP.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_SFTP.mod (invocado por MEGENV0001.sh) |
 | H-DCP-13 | abierta | Módulo SF_MEGENV0001_PARAMS.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_PARAMS.mod (invocado por MEGENV0001.sh) |
 | H-DCP-14 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas) sin confirmar (P-RAM-01): difieren variables disponibles para el IDX. | versión desplegada de RAMERC0068.sh (invocado por los jobs de historificación) |
 
-### No bloqueantes (3)
+### No bloqueantes (4)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | P-DCP-08 | abierta | Si existe purga de .../DUCOCPTY/old/. | El histórico crece un fichero diario; no cambia el comportamiento de la cadena |
 | Gap-1 | resuelta | Criticidad F de la cadena (aviso día siguiente incluso festivo). | Resuelto y no relevante para el comportamiento |
 | Gap-2 | parcial | Normas de rearranque de MEKYTL1151_SND/_DEL: confirmado como hueco real (plantilla sin rellenar). | Instrucción operativa de soporte; no cambia comportamiento ni pruebas |
+| H-DCP-09 | resuelta | Cómo construye la query de detalle la línea completa y la columna RESULT (nota técnica: no se ha visto). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): ExtraccionAdhocDUCOCPTY.sql (develop): RESULT concatena 41 columnas entre comillas con \| y acaba en TO_CHAR(sysdate,'yyyymmdd'); SELECT DISTINCT interno. |
 
 ## rdr_envio_cliex
 
@@ -1619,21 +1638,20 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el .properties del tratamiento, origen y formato de CLIEXCLU.csv/.txt, .idx de 0783/0784, IDX de 0955/0956, export Control-M y regla del código 7.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** ClientesExclusivos.properties revela que el tratamiento reconstruye CLIEXCLU.txt desde el CSV (primer campo, sin cabecera, CRLF), sobrescribe el .txt de entrada y borra el .csv, lo que contradice la historificación del .csv de la ficha. Siguen abiertos CSV/query, idx/IDX, regla del código 7 y export Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados H-CLX-03 y H-CLX-04: la query RDR_CLIEXCLU genera lineas de 328 caracteres y por tanto CLIEXCLU.txt lleva la linea completa. P-CLX-03 queda parcial.  
 
-### Huecos bloqueantes (16)
+### Huecos bloqueantes (14)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-CLX-01 | parcial | .properties real de KYTL_CLIEXC_GSPROCESS (módulo y argumentos de cada una de las 8 funciones); la ficha da 'Clientes Exclusivos' con espacio. **Avance 3ª pasada (estaticos):** Módulo real ClientesExclusivos (sin espacio) con las 8 funciones y argumentos, sin Stop; §6.3. CortarGen borra CLIEXCLU.csv y MoverFichero sobrescribe CLIEXCLU.txt. | PARM1 literal del job KYTL_CLIEXC_GSPROCESS en Control-M y verificar el .properties instalado en pr. |
 | P-CLX-02 | parcial | Quién deposita CLIEXCLU.txt y con qué formato; la cadena lo espera antes de ejecutar el job que supuestamente lo genera. **Avance 3ª pasada (estaticos):** El CLIEXCLU.txt enviado lo genera el job desde el CSV (1.er campo, sin cabecera, CRLF) y sobrescribe al de entrada; este solo es condición de arranque. §6.3. | Quién deposita el CLIEXCLU.txt previo que espera FIC_CLIEXC_RDR_TXT_FW y a qué hora. |
-| P-CLX-03 | abierta | Origen real de CLIEXCLU.csv (Planificador RDR_CLIEXCLU.sql diario vs sistemas origen), su query y formato, y qué días no hay fichero. | query RDR_CLIEXCLU.sql real y origen confirmado de CLIEXCLU.csv |
+| P-CLX-03 | parcial | Origen real de CLIEXCLU.csv (Planificador RDR_CLIEXCLU.sql diario vs sistemas origen), su query y formato, y qué días no hay fichero. **Avance 4ª pasada (objetosgs):** Query y formato conocidos; el origen Planificador es consistente con el script | Confirmar CLOB_VALUE instalado y dias sin fichero |
 | P-CLX-04 | abierta | Acción en Control-M de los dos file watchers ante código 7 de ctmfw (la ficha pide no error pero detener); export no visto. | export Control-M de FIC_CLIEXC_RDR_FW y _TXT_FW |
 | P-CLX-05 | abierta | Contenido de los .idx de MEKYTL0783 y MEKYTL0784 (FALLA_NO_FICHERO, historificación, destino). | MEKYTL0783.idx y MEKYTL0784.idx de producción |
 | P-CLX-06 | parcial | Líneas IDX de MEKYTL0955 y MEKYTL0956 y versión de RAMERC0068.sh instalada. **Avance 3ª pasada (estaticos):** Sin cambio de IDX, pero el .properties implica que CLIEXCLU.csv ya no existe al ejecutar MEKYTL0956 (CortarGen lo borra); escrito en §6.3/§6.5 y RK3. | Línea IDX de MEKYTL0955/0956 (campo 5, máscara, renombrado) y versión de RAMERC0068.sh instalada. |
 | P-CLX-07 | abierta | Mecanismo de pruebas para forzar el fallo de un job (TC-005), borrar un fichero entre jobs (TC-003/004) y leer los destinos XCOM (TC-006). | procedimiento de entorno de pruebas para forzar fallos y leer destinos |
 | H-CLX-01 | abierta | Export de Control-M de la cadena no recibido: se desconocen las acciones ante códigos distintos de 0 en los 8 jobs. | export Control-M del folder RDR_ENVIO_CLIEX_new |
-| H-CLX-03 | abierta | Query RDR_CLIEXCLU.sql (CLOB_VALUE del Planificador): columnas y separador desconocidos. | RDR_CLIEXCLU.sql real (invocado por el Planificador) |
-| H-CLX-04 | abierta | Planificador: texto real de la query (CLOB_VALUE de FT_T_QPF1) no recibido; la spec lo copia de un documento de análisis. | contenido de la query real en BD (invocado por el Planificador Genérico) |
 | H-CLX-05 | abierta | Planificador: planificación exacta de RDR_SW_PLANIFICADOR_new (P-PLA-03) y entorno del inventario (P-PLA-01) sin confirmar. | planificación del motor e inventario de producción (comun_planificador P-PLA-01/03) |
 | H-CLX-06 | abierta | Planificador: método cleanSchedules() nombrado pero no descrito y BD usada por el motor (P-PLA-06/08). | código de cleanSchedules() y config de BD (invocado por el motor del Planificador) |
 | H-CLX-07 | abierta | Módulo SF_MEGENV0001_XCOM.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_XCOM.mod (invocado por MEGENV0001.sh) |
@@ -1641,13 +1659,15 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-CLX-09 | abierta | Módulo SF_MEGENV0001_SFTP.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_SFTP.mod (invocado por MEGENV0001.sh) |
 | H-CLX-10 | abierta | Módulo SF_MEGENV0001_PARAMS.mod que carga MEGENV0001.sh: no recibido ni analizado (transmisión, historificación o parámetros). | código de SF_MEGENV0001_PARAMS.mod (invocado por MEGENV0001.sh) |
 
-### No bloqueantes (3)
+### No bloqueantes (5)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
 | G1 | resuelta | MEKYTL0783 estricto (código 60) y MEKYTL0784 tolerante, confirmado con el código de MEGENV0001.sh. | Mecanismo confirmado con código; los .idx se piden en P-CLX-05 |
 | G2 | resuelta | Es intencionado que CLIEXCLU.csv no se transmita; solo el .txt es producto de salida. | Respuesta del usuario consistente con la spec |
 | H-CLX-02 | resuelta | Posición exacta de las líneas que borran Eliminar_fila y qué fichero recibe cada función (CortarGen, MoverFichero): 'probablemente' / 'no confirmado'. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): ClientesExclusivos.properties leído: 8 Script con argumentos reales (Eliminar_fila fila 1, CortarGen col 1 a _cortado, MoverFichero _cortado_dos -> CLIEXCLU.txt). Tabla en §6.3. |
+| H-CLX-03 | resuelta | Query RDR_CLIEXCLU.sql (CLOB_VALUE del Planificador): columnas y separador desconocidos. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): RDR_CLIEXCLU.sql (scriptsSQL develop): 1 columna de ancho fijo de 328 caracteres, 10 campos, filtro 0182; spec 6.2 |
+| H-CLX-04 | resuelta | Planificador: texto real de la query (CLOB_VALUE de FT_T_QPF1) no recibido; la spec lo copia de un documento de análisis. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Texto de la query tomado del script develop (puede diferir del CLOB instalado); documentado en 6.2 |
 
 ## rdr_extraccion_ducomasterdata
 
@@ -1655,23 +1675,23 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el .properties, la query/cabecera/ruta reales, las líneas IDX de 1299/1300, el mecanismo de purga a 6 meses, el jar desplegado y el nombre real en DataX.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta el .properties y el log4j: P-DMD-01 pasa a parcial (6.2) y se anota que el argumento 4 de la plantilla coincide con el caso del jar antiguo (P-DMD-05). Sin IDX, query, filas PAR1/ATE1 ni codigo: resto abierto.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** La query de develop coincide con el diccionario; precisa que ORDER BY 1 ordena por la linea completa (orden determinista por seccion) y confirma que salen INACTIVE. Anadido TC-016; siguen abiertos IDX, purga, jar y cabecera/ruta.  
 
-### Huecos bloqueantes (10)
+### Huecos bloqueantes (9)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-DMD-01 | parcial | ExtraccionDUCOMASTERDATA.properties (arg. 2 log4j, DirJava, StopJava): es lo que ejecuta GSProcess.sh. **Avance 3ª pasada (estaticos):** Plantilla: ExtraccionDUCOMASTERDATA.properties (5 args como el log de integracion, sin DirJava/StopJava, jar Unificada, Principal con paquete) y log4j (logs/ExtraccionDUCOMASTERDATA.log, 10MB x3, UTF-8); spec 6.2 | Verificar en el servidor de produccion que el .properties instalado coincide con la plantilla |
 | P-DMD-02 | abierta | Líneas IDX de producción de MEKYTL1299 y MEKYTL1300 (operación, nombre, campo 5). | líneas IDX de MEKYTL1299 y MEKYTL1300 |
 | P-DMD-03 | abierta | Quién borra del backup los ficheros de más de 6 meses (RAMERC0068 admite una operación por clave). | mecanismo/job de purga a 6 meses |
-| P-DMD-04 | abierta | Texto literal en producción de la query (CLOB_VALUE), cabecera (PAR1_VALUE_CLOB) y URL_OUTPUT_FILE. | filas FT_T_ATE1/FT_T_PAR1 de producción |
+| P-DMD-04 | parcial | Texto literal en producción de la query (CLOB_VALUE), cabecera (PAR1_VALUE_CLOB) y URL_OUTPUT_FILE. **Avance 4ª pasada (objetosgs):** Texto de la query incorporado y coincide con el diccionario; orden corregido (por linea completa). | PAR1_VALUE_CLOB (HEADER), URL_OUTPUT_FILE y CLOB_VALUE de produccion para contrastar |
 | P-DMD-05 | abierta | Versión del jar desplegada en producción (la de nov-2025 escribía en subdirectorio duplicado). | versión de ExtraccionGenericaUnificada.jar desplegada |
 | P-DMD-06 | abierta | Nombre en datax: ExtraccionDUCOMASTERDATA.csv (wiki) o 'Extraccion DUCOMASTERDATA.csv' con espacio (ficha MEKYTL1299). | línea IDX de MEKYTL1299 y nombre en DataX |
 | H-DMD-01 | abierta | Clase ConexionDB del jar ExtraccionGenericaUnificada: no recibida. | código de ConexionDB (invocado por Principal) |
 | H-DMD-02 | abierta | Clase ConfiguracionCredenciales del jar ExtraccionGenericaUnificada: no recibida. | código de ConfiguracionCredenciales (invocado por Principal) |
-| H-DMD-04 | abierta | No confirmado con la query literal si se filtra por DATA_STAT_TYP (salen INACTIVE) ni el orden/UNION ALL exacto. | ExtraccionDUCOMASTERDATA.sql real (invocado por el jar) |
 | H-DMD-05 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas) sin confirmar (P-RAM-01): difieren variables disponibles para el IDX. | versión desplegada de RAMERC0068.sh (invocado por los jobs de historificación) |
 
-### No bloqueantes (7)
+### No bloqueantes (8)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1682,6 +1702,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | G8 | resuelta | MEKYTL1299 copia (no mueve). | Resuelto por evidencia cruzada; la línea IDX se pide en P-DMD-02 |
 | G9 | resuelta | No existe cadena DataX en Control-M que consuma el fichero. | Confirmado por el usuario |
 | H-DMD-03 | abierta | Esquema/transformación que DataX aplica al fichero y funcionamiento de la transferencia de DUCO: fuera de alcance. | Consumo aguas abajo; contenido y entrega en el directorio están claros |
+| H-DMD-04 | resuelta | No confirmado con la query literal si se filtra por DATA_STAT_TYP (salen INACTIVE) ni el orden/UNION ALL exacto. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): ExtraccionDUCOMASTERDATA.sql (develop): no filtra DATA_STAT_TYP, UNION ALL de 4 bloques y ORDER BY 1 sobre la linea completa (Calendar, DAYBASISTYPE, Index, Products). |
 
 ## rdr_extraccionssis
 
@@ -1689,8 +1710,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan ExtraccionGenericaSSIs.properties, IDX de MEKYTL1024, ROOT_TAG/URL_OUTPUT_FILE, SQL de detalle completo, clases del jar (MyThreadCpty, ConDB...) y export Control-M con reglas ON.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta properties/log4j (parcial P-SSI-02) y la historificacion Hist*/XSL heredada y no ejecutada (nueva 6.1). Sin IDX, SQL, filas PAR1/ATE1 ni codigo del jar: resto de bloqueantes abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrado H-SSI-04: el SQL de detalle coincide con el diccionario y revela A15 sin filtro de estado, escalares sin ROWNUM (SSI omitida en silencio) y SettStartDT/SettEndDT sin TO_CHAR ni estado. Anadidos TC-010/TC-011 y ajustado TC-002; siguen abiertos IDX, ROOT_TAG/URL, clases del jar y Control-M (no estan en develop).  
 
-### Huecos bloqueantes (11)
+### Huecos bloqueantes (10)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -1701,12 +1723,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-SSI-01 | abierta | Clase MyThreadCpty del jar (hilo de escritura): no recibida. | código de MyThreadCpty (invocado por Ppal) |
 | H-SSI-02 | abierta | Clase ConDB del jar ExtraccionGenericaOtherEntities: no recibida. | código de ConDB (invocado por Ppal) |
 | H-SSI-03 | abierta | Clase Constants del jar ExtraccionGenericaOtherEntities: no recibida. | código de Constants (invocado por Ppal) |
-| H-SSI-04 | abierta | Texto íntegro de ExtraccionContingenciaSSIs.sql (solo fragmento y diccionario del documento). | ExtraccionContingenciaSSIs.sql completo (invocado por el jar) |
 | H-SSI-05 | abierta | Export de Control-M de la cadena no recibido; nombres de evento y condiciones proceden de fichas. | export Control-M del folder RDR_EXTRACCIONSSIS |
 | H-SSI-06 | abierta | Clase ConfigCredentials de OtherEntities (credenciales) no recibida. | código de ConfigCredentials (invocado por Ppal) |
 | H-SSI-08 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas) sin confirmar (P-RAM-01): difieren variables disponibles para el IDX. | versión desplegada de RAMERC0068.sh (invocado por los jobs de historificación) |
 
-### No bloqueantes (9)
+### No bloqueantes (10)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -1718,6 +1739,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | Gap-5 | resuelta | MEKYTL1025/1047 ya son Dummy en Control-M. | Confirmado en vivo |
 | Gap-6 | resuelta | Uso de usuario root en MEKYTL1024 y MANT. | Decisión aceptada por el usuario |
 | Gap-7 | resuelta | SSI_OID único (NOT EXISTS) y Participants sin DISTINCT. | Confirmado con el SQL real |
+| H-SSI-04 | resuelta | Texto íntegro de ExtraccionContingenciaSSIs.sql (solo fragmento y diccionario del documento). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Texto integro de ExtraccionContingenciaSSIs.sql y ExtraccionSSIs.sql en scriptsSQL (develop); incorporado en spec 6.2 con filtros de estado, escalares sin ROWNUM y fechas. |
 | H-SSI-07 | abierta | Documentación teórica de historificación CSV de MEKYTL1025/1047: no se ejecuta (Dummy). | Sin comportamiento real; solo trazabilidad histórica |
 
 ## rdr_informe_mifid_new
@@ -2008,6 +2030,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el sistema origen y el layout de Refundicion.csv, el calendario real y la regla del código 7, los .idx de MEKYTL0107/0121, MarcaRegErroneo y el nombre de errores.csv, y varios artefactos invocados no analizados.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Cerrados 3 huecos con fileloading y el jar de Eduardo (compilación 2026). Siguen sin recibirse errores_to_file.sh, CONC460 PL/SQL y la versión de producción del jar.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cerrado P-REF-04 con errores_to_file.sh (marca ERROR- en la referencia del Delta y borra db_errores.txt; corregido que se acumulara). Refundicion.properties, fillingRules y select de la plantilla coinciden con la copia ei salvo Java 17; el resto de huecos exigen produccion.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** El bloque PL/SQL REFUNDICION y Sub_Load de develop coinciden con lo ya especificado; se completan el formato exacto de los mensajes A460/B460 y el mecanismo de H-REF-14. Los huecos restantes (idx, calendario, jar y properties de produccion) no estan en el repositorio de objetos.  
 
 ### Huecos bloqueantes (10)
 
@@ -2022,7 +2045,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-REF-10 | abierta | raiseEvent.sh (invocado por executeBbvaEvent.sh) no recibido: qué devuelve si el workflow termina con error (P-EBE-01). | Código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
 | H-REF-11 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos (envío de MEKYTL0107). | Código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-REF-12 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas, P-RAM-01) para MEKYTL0121. | Copia de RAMERC0068.sh instalada en producción |
-| H-REF-14 | abierta | Subqueries CODBAN/CODOFI de SUB_GET_FOLIO sin filtro de estado: con varias filas falla la baja (comportamiento deducido, no probado). | Datos reales de FT_T_EERL/FT_T_SUST o prueba |
+| H-REF-14 | parcial | Subqueries CODBAN/CODOFI de SUB_GET_FOLIO sin filtro de estado: con varias filas falla la baja (comportamiento deducido, no probado). **Avance 4ª pasada (objetosgs):** SUB_GET_FOLIO.gsp (develop) confirma subconsultas CODBAN/CODOFI sin filtro de estado (ORA-01427 con varias filas; NULL sin filas, baja enviada con blancos). | Datos reales de FT_T_EERL/FT_T_SUST o prueba con oficina con varias filas. |
 
 ### No bloqueantes (11)
 
@@ -2046,8 +2069,9 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan Reubicacion.properties, el formato de Reubicacion.csv, fillingRules_Reubicacion.csv, el evento .gsp, el calendario RDR_CIERREOFI, la ruta de producción del informe, los .idx/línea IDX y los módulos de MEGENV0001.sh.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Con Reubicacion.properties, fillingRules_Reubicacion.csv, RDR_Reubicacion.gsp y select.properties de Carlos se cierran 4 huecos; las columnas que llegan al PL/SQL son ya sin alternativas la 2 y la 6. Sin avance: calendario RDR_CIERREOFI, idx/IDX de MEKYTL0111/0122/0233/0234, raiseEvent.sh, modulos MEGENV0001 y version de RAMERC0068.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla de despliegue coincide exactamente con lo ya analizado (Reubicacion.properties, fillingRules, select.properties, LimpiarReubicacion), por lo que no se cierra ningun hueco. Se documentan los modulos vecinos Reubicacion_SSIS(_FILTER) (cambio de cuenta, no esta cadena).  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierra H-REUB-15 con la definicion de lectura y se confirma que el bloque PL/SQL REUBICACION de develop coincide con la spec (columnas 2 y 4 de la linea validada). El resto de huecos son de produccion (calendario, idx, jars, scripts).  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -2055,16 +2079,15 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-REUB-05 | abierta | Qué días marca el calendario RDR_CIERREOFI. | Calendario RDR_CIERREOFI de Control-M |
 | P-REUB-08 | abierta | Campo 5 de la línea IDX MEKYTL0122, FALLA_NO_FICHERO/protocolo de MEKYTL0111/0233/0234 y cómo se materializa el 'A DUMMY' de MEKYTL0234. | Líneas/.idx de MEKYTL0122, 0111, 0233, 0234 o logs |
 | H-REUB-02 | abierta | .idx de producción de MEKYTL0111, 0233, 0234 y línea IDX de MEKYTL0122: el usuario indica que no se pueden obtener. | Los 3 .idx y la línea MEKYTL0122 del IDX de producción |
-| H-REUB-06 | parcial | Qué hace PLSQL_Load con un código de oficina >9 caracteres (error no capturado por el bloque REUBICACION; nodo con salida 'error'). **Avance 2ª pasada:** Carga PL de Sub_Load solo tiene goto-next, haltOnError=N, retries 0; el motor envuelve la excepcion y la propaga. La validacion no limita longitud. Spec 6.4.3. | Log de una ejecucion real/prueba con codigo de oficina >9 caracteres: estado de PLSQL_Load y si llega a Close Job |
+| H-REUB-06 | parcial | Qué hace PLSQL_Load con un código de oficina >9 caracteres (error no capturado por el bloque REUBICACION; nodo con salida 'error'). **Avance 2ª pasada:** Carga PL de Sub_Load solo tiene goto-next, haltOnError=N, retries 0; el motor envuelve la excepcion y la propaga. La validacion no limita longitud. Spec 6.4.3. **Avance 4ª pasada (objetosgs):** Sub_Load/PLSQL_Load develop: haltOnError=false, retries 0, Carga PL sin salida error; identico a la spec. | Log de ejecucion real con codigo de oficina >9 caracteres. |
 | H-REUB-07 | parcial | Versión de producción de ControlCargaDatos.jar (clase sin paquete en otros .properties de producción, P-CCD-04). **Avance 2ª pasada:** Reubicacion.properties confirma ControlCase sin paquete ni JDKV=17; con el jar analizado falla (ClassNotFound). Spec 6.3.1/6.4.2 y RISK-REUB-016. **Avance 3ª pasada (estaticos):** Reubicacion.properties de la plantilla identico al de la spec (ControlCase sin paquete, sin JDKV); confirma que la copia analizada es la plantilla pre-Java 17. Spec 6.10. | ControlCargaDatos.jar desplegado en produccion (version y clase). |
 | H-REUB-08 | parcial | Versión de producción de RDR_Report.jar (P-REP-01); el select.properties analizado es de integración. **Avance 2ª pasada:** Reubicacion.properties confirma CreateReport sin paquete (jar analizado: rdr_report.CreateReport, falla con ClassNotFound). select.properties = plantilla igual salvo ruta. Spec 6.4.4. **Avance 3ª pasada (estaticos):** select.properties (clave Reubicacion) y CreateReport sin paquete de la plantilla coinciden con la spec; spec 6.10. | RDR_Report.jar desplegado en produccion (version y clase). |
 | H-REUB-09 | abierta | raiseEvent.sh (invocado por executeBbvaEvent.sh) no recibido: qué devuelve si el workflow termina con error (P-EBE-01). | Código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
 | H-REUB-10 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos. | Código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-REUB-11 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas, P-RAM-01) para MEKYTL0122. | Copia de RAMERC0068.sh instalada en producción |
-| H-REUB-12 | parcial | Riesgos sin confirmar: cabecera cargada como reubicación (RISK-011) y códigos >9 caracteres (RISK-012). **Avance 2ª pasada:** RISK-011: feed Reubicacion usa SkipHeaderReadByLine y CCD escribe la cabecera (se salta, por nombre). RISK-012: reglas no limitan longitud (confirmado). Spec 6.4.2-6.4.3. | XML SkipHeaderReadByLine.xml, muestra de Reubicacion.csv con longitud de codigos y efecto en PLSQL_Load (H-REUB-06) |
-| H-REUB-15 | abierta | Definicion de lectura SkipHeaderReadByLine.xml (253 B) del feed Reubicacion: por su nombre salta la cabecera de Reubicacion_processed.csv; el XML no esta en el volcado | Export del recurso db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml |
+| H-REUB-12 | parcial | Riesgos sin confirmar: cabecera cargada como reubicación (RISK-011) y códigos >9 caracteres (RISK-012). **Avance 2ª pasada:** RISK-011: feed Reubicacion usa SkipHeaderReadByLine y CCD escribe la cabecera (se salta, por nombre). RISK-012: reglas no limitan longitud (confirmado). Spec 6.4.2-6.4.3. **Avance 4ª pasada (objetosgs):** RISK-011 confirmado: skipLines=1 salta siempre la primera linea; RISK-012 sigue (sin limite de longitud). | Muestra de Reubicacion.csv con longitud real de codigos. |
 
-### No bloqueantes (11)
+### No bloqueantes (12)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -2079,14 +2102,16 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-REUB-05 | resuelta | Nombre del sistema receptor de MEKYTL0233. | Pregunta retirada por el usuario; consta el destino técnico. |
 | H-REUB-13 | resuelta | Cadena de difusión del cierre (RDR_DIFUSION_BATCH_IN, KYTL_DIF_BATCH_GSPROCESS, MEKYTL0251) en otro folder no recibido. | Consumidor aguas abajo del evento de fin; fuera de alcance declarado. |
 | H-REUB-14 | resuelta | Quién genera Reubicacion.csv (no consta). | Origen externo; el contenido se cubre en P-REUB-02. |
+| H-REUB-15 | resuelta | Definicion de lectura SkipHeaderReadByLine.xml (253 B) del feed Reubicacion: por su nombre salta la cabecera de Reubicacion_processed.csv; el XML no esta en el volcado | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): SkipHeaderReadByLine.xml (develop): ISO-8859-1, LineSplitter, EmptyMessageFilter, skipLines=1; feed Reubicacion.gsp identico a Refundicion salvo nombre/fichero. |
 
 ## rdr_sendbbg_asset
 
 **Spec:** `salidas_pendientes/rdr_sendbbg_asset/rdr_sendbbg_asset_spec.md`  
 **Qué le falta:** Faltan la configuración (.idx) de las 4 claves MEKYTL0967-0970, los módulos de MEGENV0001.sh, la máscara real de búsqueda de .req, el formato de <fecha>, las condiciones entre jobs y los códigos de salida del script.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** El script RDR_Asset_Control.sh de la plantilla permite describir mascara, fecha y codigos de salida (3 parciales) y se identifican los scripts que dejan los .req online (parcial P-SBA-06). No hay .idx, MEGENV0001 ni .mod: P-SBA-01/02/05 y H-SBA-09/10/11 siguen abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrado P-SBA-06: identificados invocadores y nombres de los .req online (Bloomberg_FileW lanza el script sin esperar, kk=hora 1-24, sin anio). Riesgos R-09/R-10 nuevos; el resto (idx, MEGENV0001, Control-M) no esta en develop.  
 
-### Huecos bloqueantes (10)
+### Huecos bloqueantes (9)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
@@ -2095,16 +2120,16 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-SBA-03 | parcial | Máscara exacta que busca RDR_Asset_Control.sh por directorio: *.req o BBVA_*.req (los nombres reales conocidos no cumplen BBVA_*.req). **Avance 3ª pasada (estaticos):** RDR_Asset_Control.sh de la plantilla: find *.req; BBVA_*.req es codigo muerto; spec 6.2 | Confirmar que la copia instalada en produccion coincide con la plantilla |
 | P-SBA-04 | parcial | Formato de <fecha> en los .tar y el log, y si es fecha de ejecución (tras 00:00) o de proceso. **Avance 3ª pasada (estaticos):** Plantilla: date +'%Y%m%d' en ejecucion (fecha natural, 00:30); nombres de .tar y log escritos en 6.2 | Confirmar copia instalada en produccion |
 | P-SBA-05 | abierta | Eventos/condiciones que enlazan los 5 jobs y qué ocurre con los siguientes si uno termina en error. | Export de Control-M del folder (INCOND/OUTCOND y reglas ON) |
-| P-SBA-06 | parcial | Qué procesos generan los .req de ONLINEISSUES y ONLINEISSUER y con qué nombre. **Avance 3ª pasada (estaticos):** Bloomberg_Filew_V2.sh (ONLINEISSUES, BK_<FILENAME>) y BBG_sftp.sh (ONLINEISSUER, purga >3 dias incluido old/) identificados; spec 5.1 | Proceso/workflow que invoca ambos scripts y nombre real de los .req (no estan en la plantilla) |
 | P-SBA-07 | parcial | Código de salida de RDR_Asset_Control.sh con usuario/entorno no esperados y cuándo termina distinto de 0. **Avance 3ª pasada (estaticos):** Plantilla: exit -2 sin entorno, exit -1 usuario incorrecto, resto 0 salvo fallo del ultimo echo al log; 6.2 | Confirmar copia instalada en produccion |
 | H-SBA-09 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos: no se sabe la orden de transmisión exacta (P-MEG-01). | Código de SF_MEGENV0001_XCOM/CD/SFTP/PARAMS.mod (invocados por MEGENV0001.sh) |
 | H-SBA-10 | abierta | No se sabe si algún módulo define binJava/ficheroJar, es decir, si el .idx sale de la BD o siempre de idx/bck (P-MEG-02). | Definición de binJava/ficheroJar en los módulos de MEGENV0001.sh |
 | H-SBA-11 | abierta | Ruta de MEGENV0001.sh: la ficha dice /pr/pl/envioweb/scrt/ y la spec común /<env>/pl/scrt/; se adopta la de la ficha. | Ruta real de MEGENV0001.sh en producción |
 
-### No bloqueantes (8)
+### No bloqueantes (9)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-SBA-06 | resuelta | Qué procesos generan los .req de ONLINEISSUES y ONLINEISSUER y con qué nombre. **Avance 3ª pasada (estaticos):** Bloomberg_Filew_V2.sh (ONLINEISSUES, BK_<FILENAME>) y BBG_sftp.sh (ONLINEISSUER, purga >3 dias incluido old/) identificados; spec 5.1 | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Workflows Bloomberg_main_activity/main_MultiRequest -> Bloomberg_FileW -> Bloomberg_Filew_V2.sh (BK_BBVARDR_MMdd_kkmmss.req) y BBG_Issuer_Request -> BBG_sftp.sh (BBVARDR_MMdd_kkmmss.req). |
 | H-SBA-01 | resuelta | Qué determina que un envío a Asset Control sea correcto. | Resuelta por el usuario: correcto = MEGENV0001.sh termina sin error. |
 | H-SBA-02 | resuelta | Qué pasa si una categoría no tiene .req. | Resuelta con el código del script: no se genera .tar y no es error. |
 | H-SBA-03 | resuelta | Si un fallo en una categoría bloquea las demás dentro del script. | Resuelta con el código: las 4 funciones se llaman sin comprobar $?. |
@@ -2119,6 +2144,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_sma_products_pro/rdr_sma_products_pro_spec.md`  
 **Qué le falta:** Faltan la clase Java de transformación y su XSL, los .idx de los 3 envíos y la fecha 'p1', la línea IDX de MEKYTL0406, la query y el nombre real del fichero del Planificador, y varios módulos/librerías no analizados.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta el script integro y productos.xsl (3 parciales). mentorProducts.sh, ProductsMDX.properties y los publish/*.xml no pertenecen a esta cadena. Sin .idx, IDX, MEGENV0001/.mod, jar ni query: P-PROD-01/02/03/05 y H-PROD-06/08-14 siguen abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** P-PROD-05 pasa a parcial: query real incorporada (campos, filtros, una fila CLOB, sin ORDER BY, prefijo CANONICO: en Canonico_Value); quedan URL_OUTPUT_FILE y todo lo no-GS (idx, jar, MEGENV0001, Control-M).  
 
 ### Huecos bloqueantes (15)
 
@@ -2128,7 +2154,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-PROD-02 | abierta | Qué fecha lleva productos_<DDMMAAAA>p1.xml en Big Data (día natural, hábil siguiente u otra) y dónde se calcula. | MEKYTL0404.idx y SF_MEGENV0001_PARAMS.mod |
 | P-PROD-03 | abierta | Línea de MEKYTL0406 en INFORMACION_HISTORIFICACIONES.IDX (máscara, destino, falla sin fichero, tipo, días, operación MG/GM). | Línea MEKYTL0406 del IDX de producción |
 | P-PROD-04 | parcial | Código de BatchProductos.Transformaciones_PRODUCTOS (RDR_Transformacion_PRODUCTOS.jar), hoja XSL que aplica y copia instalada del script. **Avance 3ª pasada (estaticos):** Plantilla: RDR_Transformacion_PRODUCTOS.sh con comillas intactas (coincide con la lectura de la spec) y productos.xsl analizada (entrada Canonico_*/System_*, salida CanonicValue/SubProductos, derivados Murex/Star/Casa Bolsa); spec 6.3 y 6.3.1 | Codigo de BatchProductos.Transformaciones_PRODUCTOS (jar) para confirmar que aplica productos.xsl, nombre/fecha de salida y codigo de error |
-| P-PROD-05 | abierta | URL_OUTPUT_FILE real de productos.sql: productossinfiltrar.xml (FW) o productosinfiltrar.xml (inventario); texto de la query. | Valor real de URL_OUTPUT_FILE (ACT1_OID 0152F5B19) y CLOB_VALUE de productos.sql |
+| P-PROD-05 | parcial | URL_OUTPUT_FILE real de productos.sql: productossinfiltrar.xml (FW) o productosinfiltrar.xml (inventario); texto de la query. **Avance 4ª pasada (objetosgs):** Texto literal de productos.sql (develop) en spec 5.2: una sola fila CLOB (XMLAGG), sin ORDER BY, Canonico_Value con prefijo CANONICO:, SubProductos siempre presente; RISK-PROD-010 acotado. | Valor real de URL_OUTPUT_FILE (ACT1_OID 0152F5B19) en FT_T_ATE1 de produccion |
 | H-PROD-05 | parcial | Hoja(s) XSL de /dat/properties/ que usa la clase de transformación: ni siquiera se conoce su nombre. **Avance 3ª pasada (estaticos):** productos.xsl es la unica hoja de productos en la plantilla y sus campos de entrada coinciden con 5.2; inferencia, no demostrada | Codigo del jar que la invoque |
 | H-PROD-06 | abierta | RDRCommon.jar en el classpath de la transformación: no recibido; su papel depende de la clase. | Código de RDRCommon.jar (invocado por Transformaciones_PRODUCTOS) |
 | H-PROD-07 | parcial | Copia del script RDR_Transformacion_PRODUCTOS.sh con comillas invertidas perdidas; se supone la versión instalada. **Avance 3ª pasada (estaticos):** La plantilla trae el script con las comillas invertidas integras; confirma la interpretacion adoptada | Verificar que la copia instalada en produccion coincide con la plantilla |

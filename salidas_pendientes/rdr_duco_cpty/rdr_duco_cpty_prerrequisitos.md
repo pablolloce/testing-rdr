@@ -8,7 +8,7 @@
 
 | Origen | Alimenta | Casos |
 |---|---|---|
-| Tablas de contrapartidas de RDR en pruebas (`fins`, `fiid`, `frid`, identificadores de rol y alias, LEI de la entidad global, `ft_t_enfr`, clasificación regulatoria) | Query de detalle `ExtraccionAdhocDUCOCPTY.sql` | TC-001, TC-002, TC-004, TC-005, TC-007, TC-009, TC-010 |
+| Tablas de contrapartidas de RDR en pruebas (`fins`, `fiid`, `frid`, `ft_t_firl` con la cadena operativa-padre-abuelo, identificadores de rol y alias, LEI de la entidad global, `ft_t_enfr`, clasificación regulatoria) | Query de detalle `ExtraccionAdhocDUCOCPTY.sql` | TC-001, TC-002, TC-004, TC-005, TC-007, TC-009, TC-010, TC-011 |
 | `FT_T_ATE1`: filas `ExtraccionDUCOCPTY.sql` (lista) y `ExtraccionAdhocDUCOCPTY.sql` (detalle, con `URL_OUTPUT_FILE` terminado en `DUCOCPTY.csv`); `FT_T_PAR1`: fila `HEADER` `ACTIVE` | Configuración que lee el programa | Todos; TC-003 modifica temporalmente la de lista |
 
 ## Datos mínimos
@@ -20,6 +20,7 @@
 - **TC-005**: 1 contrapartida `CPTY005` con 3 roles (`MUREXID`, `MARKITBIC`, `STARID`) y un alias.
 - **TC-007**: 3 contrapartidas `CPTY010`-`CPTY012` con el mismo LEI `DUPLICATELEI001`.
 - **TC-009**: 2 contrapartidas `CPTY020`, `CPTY021`.
+- **TC-011**: `CPTY021` con rol `MUREXID` y sin abuelo en `ft_t_firl`; `CPTY022` con jerarquía completa y solo `ALIASID`; `CPTY023` de control con jerarquía completa y rol `MUREXID`. (Todas las contrapartidas de los demás casos necesitan padre y abuelo en `ft_t_firl`.)
 - **TC-010**: un `DUCOCPTY.csv.tmp` residual de 3 líneas conocidas y los datos de TC-001.
 - **TC-006**: un `DUCOCPTY.csv` en `.../DUCOCPTY/`.
 
