@@ -173,25 +173,25 @@
 
   <casoDePrueba id="TC-009" tipo="datos_sinteticos">
     <nombre>Formato del reporte y del fichero de errores generados por los workflows de GoldenSource</nombre>
-    <objetivo>Comprobar el formato de Reporte_clientes.csv y clientes_errores.csv que producen GenerateReports y ErroresCSV (spec 6.3.2), incluido el día en que la consulta del reporte no devuelve filas.</objetivo>
+    <objetivo>Comprobar el formato de Reporte_clientes.csv y clientes_errores.csv que producen GenerateReports y ErroresCSV (spec 6.3.2), incluido el día en que no hay cambios que informar (la consulta siempre devuelve los títulos).</objetivo>
     <precondiciones>
       <precondicion>Entorno de prueba con clientes.properties equivalente al de producción y workflows GenerateReports, ErroresCSV y Standard File Load en estado RELEASED.</precondicion>
       <precondicion>Directorio de la cadena con un Reporte_clientes.csv y un clientes_errores.csv de una ejecución anterior.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="clientes.csv (caso A)" valor="cabecera + 3 clientes válidos + 1 cliente con COD_NIF vacío que ControlCargaDatos.jar rechaza o GoldenSource rechaza al cargar"/>
-      <dato campo="clientes.csv (caso B)" valor="cabecera y ningún cliente exclusivo, de modo que la consulta del reporte no devuelve filas"/>
+      <dato campo="clientes.csv (caso B)" valor="cabecera y solo clientes cuyo tipo coincide con el ya cargado en RDR, de modo que no hay cambios que informar"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Caso A: ejecutar KYTL_CLI_GSPROCESS y abrir Reporte_clientes.csv y clientes_errores.csv.</paso>
-      <paso numero="2">Verificar que el Reporte_clientes.csv anterior está en old/ (una sola copia) y que el nuevo empieza por la línea «Reporte Clientes Exclusivos», seguida de una línea por fila con columnas separadas por ; y ; final, sin la palabra null.</paso>
+      <paso numero="2">Verificar que el Reporte_clientes.csv anterior está en old/ (una sola copia) y que el nuevo empieza por la línea «Reporte Clientes Exclusivos», seguida de los títulos «Clientes que pasan a Exclusivos», «Clientes que pasan a Compartidos», «Nuevos Clientes Exclusivos» y «Nuevos Clientes Compartidos», una línea por mensaje (una sola columna, ; final), sin la palabra null.</paso>
       <paso numero="3">Verificar que clientes_errores.csv empieza por la cabecera RECORD_SEQ_NUM;ERROR_TYPE;MAIN_ENTITY_NME;MESSAGE_RLT;CRRNT_SEVERITY_CDE;RLT_FIELD;RLT_OID;TRN_ID;JOB_ID;NOTFCN_ID;NOTFCN_SHORT_TXT; y contiene una línea de tipo Funcional o Tecnico para el cliente rechazado.</paso>
       <paso numero="4">Caso B: repetir con el fichero sin clientes exclusivos y abrir Reporte_clientes.csv, Reporte_clientes_dos.csv y lo que reciben los dos destinos.</paso>
     </pasos>
-    <resultadoEsperado>Caso A: formato descrito arriba. Caso B: Reporte_clientes.csv contiene únicamente la línea «La select no devuelve valores», Reporte_clientes_dos.csv la misma con CRLF y los dos destinos la reciben sin error en Control-M.</resultadoEsperado>
+    <resultadoEsperado>Caso A: formato descrito arriba. Caso B: Reporte_clientes.csv contiene la línea de título y los cuatro títulos de sección sin mensajes (no la línea «La select no devuelve valores»), Reporte_clientes_dos.csv lo mismo con CRLF y los dos destinos lo reciben sin error en Control-M.</resultadoEsperado>
     <tipoValidacion>Inspección de ficheros (cabecera, separadores, línea final, ausencia de null) y de los ficheros recibidos en destino.</tipoValidacion>
-    <criterioAceptacion>Los dos formatos coinciden con la spec; el caso B documenta que un día sin datos llega a los destinos como un reporte con una línea de texto (RK10).</criterioAceptacion>
-    <posibilidadFallo>Las columnas reales del reporte dependen de una consulta que no se ha visto (P-CIB-04): el caso no valida su contenido, solo el formato. Si el job de carga tarda más de una hora en cerrarse, clientes_errores.csv no se genera (RK11).</posibilidadFallo>
+    <criterioAceptacion>Los dos formatos coinciden con la spec; el caso B documenta que un día sin cambios llega a los destinos como un reporte solo con títulos (RK10).</criterioAceptacion>
+    <posibilidadFallo>La consulta del reporte es la de la rama develop (§6.3.2): confirmar que coincide con lo instalado. Si el job de carga tarda más de una hora en cerrarse, clientes_errores.csv no se genera (RK11).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-010" tipo="borde">
@@ -221,6 +221,31 @@
     <tipoValidacion>Inspección de ficheros de salida, del log de resumen y de la carga en GoldenSource.</tipoValidacion>
     <criterioAceptacion>Los recuentos del log coinciden con los dos CSV y ningún rechazado llega a GoldenSource.</criterioAceptacion>
     <posibilidadFallo>Si el fichero llega en UTF-8 con vocales acentuadas o ñ, se rechazan por la regla USAR. El fillingRules instalado en producción no está verificado frente a la plantilla (P-CIB-02). El tratamiento de COD_TIPOCLI distinto de C/E en el mapeo sigue sin conocerse (P-CIB-10).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="datos_sinteticos">
+    <nombre>Lógica de clientes.mdx: altas, cambios de tipo, cliente inexistente y tipo inesperado</nombre>
+    <objetivo>Comprobar la clasificación CLIEX que carga clientes.mdx (spec 6.3.1.1) y las líneas que deja en FT_T_RLT1 para el reporte y para clientes_errores.csv, incluidos los defectos D1 y D2.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con la clasificación CLIEX definida (valores Exclusive y Shared en FT_T_INCL) y los clientes del caso dados de alta en RDR con identificador CLIENTELAID.</precondicion>
+      <precondicion>Cliente CL_A con clasificación CLIEX = Shared; CL_B con Exclusive; CL_C sin clasificación CLIEX; CL_D sin identificador CLIENTELAID.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CL_A" valor="COD_CCLIEN de CL_A con COD_TIPOCLI=E (pasa de compartido a exclusivo)"/>
+      <dato campo="CL_B" valor="COD_CCLIEN de CL_B con COD_TIPOCLI=C (pasa de exclusivo a compartido)"/>
+      <dato campo="CL_C" valor="COD_CCLIEN de CL_C con COD_TIPOCLI=E (alta de clasificación)"/>
+      <dato campo="CL_D" valor="COD_CCLIEN inexistente en RDR con COD_TIPOCLI=C"/>
+      <dato campo="CL_E" valor="cliente con la clasificación ya igual al tipo recibido"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el fichero con la cadena KYTL_CLI_GSPROCESS (acción StandardFileLoad).</paso>
+      <paso numero="2">Consultar FT_T_FRCL (INDUS_CL_SET_ID=CLIEX, DATA_STAT_TYP=ACTIVE) de CL_A, CL_B, CL_C y CL_E.</paso>
+      <paso numero="3">Consultar FT_T_RLT1 (DATA_SRC_APP=CLIENTES_EXCLUSIVOS) del job y abrir Reporte_clientes.csv y clientes_errores.csv.</paso>
+    </pasos>
+    <resultadoEsperado>CL_A queda Exclusive y CL_B Shared; CL_C recibe Exclusive; CL_E no cambia ni genera línea. FT_T_RLT1 contiene una línea REPORTES con RLT_STATUS=1 para CL_A y una línea ERRORES «El codigo de clientela ... no esta en RDR» para CL_D. Según el objeto develop (D1 y D2) no hay líneas con RLT_STATUS 2, 3 ni 4, de modo que el reporte solo trae mensaje bajo «Clientes que pasan a Exclusivos».</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_FRCL y FT_T_RLT1 en la base de pruebas e inspección de los dos ficheros.</tipoValidacion>
+    <criterioAceptacion>El contenido coincide con la spec; cualquier línea de RLT_STATUS 2, 3 o 4 indica que lo instalado difiere de develop y debe anotarse.</criterioAceptacion>
+    <posibilidadFallo>Si la clasificación CLIEX no está definida en FT_T_INCL, la carga falla para todos los registros. El tipo inesperado (X) se prueba en TC-010.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

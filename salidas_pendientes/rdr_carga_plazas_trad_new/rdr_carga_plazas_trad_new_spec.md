@@ -88,8 +88,8 @@ P-TPL-06 (comando `/pp/` frente a `/pr/`) queda **resuelta el 02/10/2026** con l
 | P-TPL-02 (resuelta en parte, 3ª pasada) | ¿Hay algún `Stop…=Ok` en ese `.properties`? **La plantilla no lleva ninguna clave `Stop*`** (§6.3): un fallo intermedio no corta la carga; falta verificar lo instalado en producción | Decide si un fallo intermedio corta la carga o si el resto de acciones se ejecuta igualmente |
 | P-TPL-03 | Línea de `MEKYTL0129` en `INFORMACION_HISTORIFICACIONES.IDX` de producción (operación mover/copiar, campo 5 "falla si no hay fichero", tipo de selección) | Determina si el job falla cuando no hay `TradPlazas.csv` y si el fichero desaparece de origen |
 | P-TPL-04 | ¿Quién genera/deposita `TradPlazas.csv` y por qué mecanismo (¿lo deja `RDR_CARGA_PLAZAS`?) | Define el prerrequisito real de la prueba y la hora esperada de llegada |
-| P-TPL-05 (resuelta en parte) | Significado de `CCPPOS`, `CCOMUN`, `PLZBAN` y del calendario `RDR_FEST_HOST_PREV`. De cómo actúa el calendario sobre los jobs ya se sabe lo que muestra la consola (§6.1: solo se ordenan los días marcados, directiva "Deshabilitar Ejecutar", sin desplazamiento); falta qué días marca el calendario y qué significa `_PREV` | Necesario para interpretar el fichero y saber en qué días festivos no se ejecuta |
-| H-TPL-07 | Texto del mapeo `db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx` (2.385 bytes) del tipo de mensaje `PLZTRAD` del feed `Plaza`: qué campos de `TradPlazas.csv` van a qué tablas de GoldenSource (§6.2) | Sin él no se puede decir qué entidad y tablas actualiza la carga |
+| P-TPL-05 (resuelta en parte) | Significado de `CCPPOS`, `CCOMUN`, `PLZBAN` y del calendario `RDR_FEST_HOST_PREV`. **4ª pasada:** `CCPPOS`, `CCOMUN`, `CCDPOS`, `DNOMB3` y `PLZBAN` no las usa el mapeo (§6.2.1), de modo que su significado no condiciona la carga. De cómo actúa el calendario sobre los jobs ya se sabe lo que muestra la consola (§6.1: solo se ordenan los días marcados, directiva "Deshabilitar Ejecutar", sin desplazamiento); falta qué días marca el calendario y qué significa `_PREV` | Necesario para saber en qué días festivos no se ejecuta |
+| H-TPL-07 | **Resuelta (4ª pasada, 03/10/2026).** Texto del mapeo `db://resource/RDR/mapping/plazas/TraduccionPlazas.mdx` del tipo de mensaje `PLZTRAD`: solo usa `CPLAZA` y `DNOMB1`/`DNOMB2`; busca la plaza por nombre en `FT_T_GUNT` y le asocia el código en `FT_T_GUID` (contexto `CORPORATEID`); plaza inexistente = descarte silencioso (§6.2.1). Falta confirmar que el mapeo instalado coincide con develop | Define qué entidad y tablas actualiza la carga |
 | H-TPL-02 (parcial, 3ª pasada) | Cadena `RDR_CARGA_PLAZAS` (predecesor de negocio): la plantilla trae el módulo `plazas` de `GSProcess.sh` (`Delta.sh Si`, carga MDX `PLZ`, evento `Errores` y `CtpdaModifPlaza.jar`, §6.3), que parece su pipeline; falta el export de Control-M de `RDR_CARGA_PLAZAS` y el jar | Confirmar la dependencia de negocio y quién deposita `TradPlazas.csv` (P-TPL-04) |
 
 ## 5. Especificación funcional
@@ -231,7 +231,17 @@ mensajes solo en caso de `ERROR`. Existe además una copia anterior del mapeo en
 `TradPlazas/TradPlazas.csv` (así se forman en el resto de cadenas de esta familia), de modo que la acción `GSProcess.sh` de esta
 cadena cargaría ese fichero con el tipo de mensaje `PLZTRAD`; y el tipo `PLZ` del mismo feed correspondería al fichero `plazas` que
 deja la cadena predecesora `RDR_CARGA_PLAZAS` (H-TPL-02), lo que daría sentido a la dependencia de negocio R7. El texto de los
-mapeos MDX no está en el volcado: qué campos de `TradPlazas.csv` van a qué tablas sigue sin conocerse.
+mapeos MDX consta desde la 4ª pasada (§6.2.1).
+
+#### 6.2.1 Lógica del mapeo `TraduccionPlazas.mdx` (4ª pasada)
+
+Procedencia: objetos `plazas/TraduccionPlazas.mdx` (el que usa el feed, versión `1.0.0.0`, Mapping Designer `8.7.1.12`, cambio 2020-05-27) y `TraduccionPlazas/TraduccionPlazas.mdx` (copia anterior, 2014, Mapping Designer `8.4.1`) del repositorio de objetos de GoldenSource, rama develop, más el objeto del feed `Plaza.gsp` (que confirma `PLZTRAD` → `TradPlazas_processed.csv` → `mapping/plazas/TraduccionPlazas.mdx`, `commitMode=None`, `rollbackOnError=false`, solo mensajes erróneos). Entrada: 8 campos de texto (`CPLAZA`, `CCPPOS`, `CCOMUN`, `CCDPOS`, `DNOMB1`, `DNOMB2`, `DNOMB3`, `PLZBAN`), delimitador `;`, recorte de espacios en ambos extremos (por eso el relleno de anchos fijos del fichero no molesta), sin comillas ni carácter de escape. La cabecera estándar del mensaje usa `DATASOURCE=CORPORATIVE`, `MAIN_ENTITY_NME` = el valor de `CPLAZA` y `MAIN_ENTITY_TBL_TYP=GUID`.
+
+Flujo por registro:
+1. **Busca la plaza por nombre**: `SELECT PRNT_GU_ID FROM FT_T_GUNT WHERE CITY_NME = <nombre> AND CITY_CDE_TYP = 'PLAZA'`, con `<nombre>` = `TakeFirst(DNOMB1, DNOMB2)` (el primero de los dos que tenga valor). `DNOMB3`, `CCPPOS`, `CCOMUN`, `CCDPOS` y `PLZBAN` **no se usan en ningún sitio del mapeo**.
+2. **Si no hay ninguna plaza con ese nombre, no hace nada**: ni carga, ni fila de error en `FT_T_RLT1`, ni notificación (descarte silencioso). Las plazas buscadas son las que da de alta la carga `plazas.mdx` (tipo `PLZ`, `GeographicUnit` con `CITY_CDE_TYP='PLAZA'` y `CITY_NME` = `DES_PLINTVER`): `TradPlazas` solo traduce plazas que ya existen por ese nombre.
+3. **Si existe**, genera un segmento `GeographicUnitIdentifier` (`FT_T_GUID`, acción `UNKNOWN` = inserta o actualiza) con `GEO_UNIT_ID=CPLAZA` (el código de plaza del fichero), `GU_ID_CTXT_TYP='CORPORATEID'`, `GU_TYP='CITY'`, `GU_CNT=1`, `GU_ID` = el `PRNT_GU_ID` de la plaza encontrada y `DATA_STAT_TYP='ACTIVE'`. El `GUID_OID` es el del identificador ya existente (`GEO_UNIT_ID=<CPLAZA>`, `GU_TYP='CITY'`, contexto `CORPORATEID`) o uno nuevo: la carga es **idempotente** (repetirla no duplica identificadores). La versión del feed (2020) añade un segmento hijo `GeographicUnit` de tipo `REFERENCE` (copia de `GUNT_OID`) que enlaza con la fila `FT_T_GUNT` de la plaza (`CITY_CDE_TYP='PLAZA'`, `PRNT_GU_ID`); la copia de 2014 no lo lleva.
+Consecuencias: (a) el efecto de la cadena es **asociar a cada plaza existente uno o varios códigos corporativos (`CPLAZA`)**; (b) varias filas del fichero con el mismo nombre y distinto `CPLAZA` cuelgan todas de la misma plaza; (c) si dos plazas comparten `CITY_NME`, `Select` toma la primera fila sin avisar (comportamiento del motor, no probado aquí); (d) un nombre del fichero que no coincida exactamente con `DES_PLINTVER` (acentos, mayúsculas, espacios internos) se pierde sin rastro; (e) los campos `CCPPOS`/`CCOMUN`/`PLZBAN` solo viajan en el fichero, de modo que su significado no afecta a la carga.
 
 ### 6.3 Pipeline real de `GSProcess.sh TradPlazas` y módulos vecinos, según la plantilla de despliegue (3ª pasada)
 
@@ -333,7 +343,7 @@ cruzadas de negocio descritas solo por texto (R7).
   inserta/actualiza el maestro de plazas. Hasta tener el `.properties`, es pregunta abierta (P-TPL-01), no un
   hecho.
 * **Significado funcional exacto de los campos `CCPPOS`/`CCOMUN`** de `TradPlazas.csv` — estructura y ejemplo
-  real confirmados (§5), semántica de negocio exacta no.
+  real confirmados (§5), semántica de negocio exacta no; el mapeo de carga no los usa (§6.2.1, 4ª pasada).
 * **Días que marca el calendario `RDR_FEST_HOST_PREV` y significado de su sufijo** — distinto del `RDR_FEST_HOST` usado en
   `RDR_CONC_OFICINAS_new`. La consola de Control-M confirma cómo se aplica (solo se ordenan los días marcados; sin desplazamiento, §6.1),
   pero no su contenido; el sufijo `_PREV` no está explicado en el material disponible.

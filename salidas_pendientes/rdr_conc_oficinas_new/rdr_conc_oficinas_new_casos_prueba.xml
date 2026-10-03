@@ -288,7 +288,7 @@
     </pasos>
     <resultadoEsperado>La línea A no aparece en el delta; la línea B aparece 2 veces, con una línea en blanco entre ambas (defecto de formato de compare.jar) y sin salto de línea final. El log indica "2 registros diferentes".</resultadoEsperado>
     <tipoValidacion>Log de GSProcess.sh + contenido del delta.</tipoValidacion>
-    <criterioAceptacion>Se cumple el resultado. ControlCargaDatos no elimina la línea B duplicada (fillingRules_oficinas.csv no tiene DUPL); lo que haga la carga MDX con ella depende de oficinas.mdx (P-CONOFI-03) y se anota.</criterioAceptacion>
+    <criterioAceptacion>Se cumple el resultado. ControlCargaDatos no elimina la línea B duplicada (fillingRules_oficinas.csv no tiene DUPL); la carga MDX no comprueba duplicados dentro del fichero: una oficina con una sola contrapartida BDLOCAL=O se recarga como modificación (spec 6.4.4.1) y se anota el resultado.</criterioAceptacion>
     <posibilidadFallo>No ejecutar en producción.</posibilidadFallo>
   </casoDePrueba>
 
@@ -360,6 +360,34 @@
     <tipoValidacion>Ficheros + consulta a FT_T_JBLG/FT_T_RLT1 + salida del job.</tipoValidacion>
     <criterioAceptacion>Se cumplen los pasos 1 a 5. No ejecutar en producción.</criterioAceptacion>
     <posibilidadFallo>Según el script de la plantilla (spec 6.4.5 bis) un identificador que no aparezca en la referencia marca todas las líneas, y uno que coincida con varias líneas no marca ninguna: anotar el antes y el después y el formato real de MAIN_ENTITY_ID. El script instalado en el servidor no está verificado frente a la plantilla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="funcional">
+    <nombre>Mapeo oficinas.mdx: alta, modificación, reactivación, cierre y duplicada</nombre>
+    <objetivo>Comprobar las decisiones del mapeo de la carga OFC (spec 6.4.4.1): qué oficinas se cargan, qué estado reciben y qué filas de FT_T_RLT1 dejan, incluida la marca RLT_STATUS=3 que lee el informe.</objetivo>
+    <precondiciones>
+      <precondicion>GoldenSource de pruebas con el mapeo oficinas.mdx de la rama develop y las clasificaciones CLS_MAD, SALAMAD, TYPFOMAD, RESIDENT, ACC_TYPE y BDE_CODE definidas.</precondicion>
+      <precondicion>Oficinas preparadas: O1 inexistente; O2 existente con una contrapartida BDLOCAL=O activa; O3 igual pero con la institución INACTIVE; O4 con dos contrapartidas BDLOCAL=O; O5 inexistente con FCIERR distinto de 000000.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="O1" valor="CODCSB=0182, CODOFI nuevo, FCIERR=000000, CODPLA existente, CODPOS válido"/>
+      <dato campo="O2 modificación" valor="CODOFI existente, FCIERR=000000, DNOMCO cambiado"/>
+      <dato campo="O2 cerrada" valor="mismo CODOFI con FCIERR=20260101 (otro ciclo)"/>
+      <dato campo="O3" valor="CODOFI de la institución inactiva, FCIERR=000000"/>
+      <dato campo="O4" valor="CODOFI con dos BDLOCAL=O, FCIERR=000000"/>
+      <dato campo="O5" valor="CODOFI nuevo, FCIERR=20260101"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar cada oficina por separado (o en el mismo fichero) con la carga OFC y consultar FT_T_FINS, FT_T_SUBD, FT_T_SUFR y FT_T_RLT1 del job.</paso>
+      <paso numero="2">Comprobar para O1: alta con estado ACTIVE, STARID 0&lt;CODCSB&gt;&lt;CODOFI&gt;, MUREXID, ALIASID y las filas FSA1; fila RLT1 REPORTES RLT_STATUS=3 «La oficina ha sido dada de alta.» y señal PENDING con RLT_DIF_ACC=A.</paso>
+      <paso numero="3">Comprobar para O2: modificación (RLT_DIF_ACC=M, «La oficina ha sido actualizada.»); para O2 cerrada: no se carga nada y salen «Pendiente de BAJA» (ERRORES) y la fila de informe de baja.</paso>
+      <paso numero="4">Comprobar para O3: reactivación (RLT_DIF_ACC=M y fila DICT, «La oficina ha sido reactivada.»); para O4: «La oficina esta duplicada» (ERRORES) y la fila de informe de duplicada, sin carga; para O5: no hace nada.</paso>
+      <paso numero="5">Generar Reporte_oficinas.csv y comprobar que contiene las filas con RLT_STATUS=3 y que las señales de difusión PENDING no aparecen.</paso>
+    </pasos>
+    <resultadoEsperado>Cada oficina termina como indica la tabla de decisión de la spec 6.4.4.1; el informe contiene solo las filas con RLT_STATUS=3 y oficinas_errores.csv las de RLT_PURP_TYP=ERRORES.</resultadoEsperado>
+    <tipoValidacion>Consulta a la base de pruebas e inspección de los dos ficheros generados.</tipoValidacion>
+    <criterioAceptacion>El resultado coincide con la tabla de decisión; cualquier diferencia indica que el mapeo instalado no es el de develop y debe anotarse.</criterioAceptacion>
+    <posibilidadFallo>Una fecha de cierre futura se trata como cierre (el mapeo no compara fechas); el mapeo instalado puede diferir de develop.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

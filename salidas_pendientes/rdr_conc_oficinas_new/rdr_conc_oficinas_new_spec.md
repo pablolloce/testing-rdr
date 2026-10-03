@@ -66,8 +66,7 @@ Paso 4  MEKYTL0243                 MEGENV0001.sh: Reporte_oficinas_dos.csv → X
 - `oficinas.properties` (el fichero que dice a `GSProcess.sh` qué hacer) ya está analizado (§6.3.1): la carga
   es **incremental** (`Delta Si`), lo que se carga en GoldenSource es el fichero **ya validado**
   (`oficinas_processed.csv`) y **ninguna acción lleva `Stop`**, así que un fallo intermedio no detiene las
-  siguientes. El evento `Errores` también está analizado (§6.4.5). Lo que sigue sin conocerse es el mapeo interno de la
-  carga MDX (P-CONOFI-03); el script `errores_to_file.sh` ya está analizado (H-CONOFI-19 cerrada, §6.4.5 bis).
+  siguientes. El evento `Errores` también está analizado (§6.4.5). El mapeo interno de la carga MDX consta desde la 4ª pasada (§6.4.4.1, P-CONOFI-03); el script `errores_to_file.sh` ya está analizado (H-CONOFI-19 cerrada, §6.4.5 bis).
 - Si `oficinas.csv` llega vacío (0 bytes), `ControlCargaDatos.jar` no regenera `oficinas_processed.csv` y **la
   carga MDX vuelve a cargar el fichero validado del día anterior** (§6.4.3, RISK-CONOFI-014).
 
@@ -128,9 +127,9 @@ el resto de claves es idéntico a la copia de integración, §6.4.6).
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-CONOFI-03 (resuelta en parte) | Del feed `Oficina` y del workflow estándar ya se conoce la configuración (§6.4.4). Falta el texto del recurso `db://resource/RDR/mapping/Oficinas/oficinas.mdx` (mapeo de campos de `oficinas.csv` a tablas de GoldenSource) y qué pieza escribe en `FT_T_RLT1` las filas `DATA_SRC_APP='OFICINAS'` con `RLT_STATUS='3'` que lee el informe; qué significa `RLT_STATUS='3'` | Sin ello no se puede decir qué columnas de qué tablas cambian ni qué es exactamente una "discrepancia" del informe |
+| P-CONOFI-03 (resuelta, 4ª pasada) | Del feed `Oficina`, del workflow estándar y del mapeo `oficinas.mdx` (rama develop) consta todo (§6.4.4 y §6.4.4.1): solo 14 de las 134 columnas se usan; qué tablas carga; las filas de `FT_T_RLT1` y que `RLT_STATUS='3'` es la marca de línea de informe. Falta confirmar que el mapeo instalado coincide con develop y el subworkflow `Parallel File Load Sub` | Define qué cambia en GoldenSource y qué es una "discrepancia" del informe |
 | H-CONOFI-19 | **Resuelta (3ª pasada).** Script `errores_to_file.sh` que `MarcaRegErroneo` invoca con el tipo de mensaje, `old/oficinas.csv` y `db_errores.txt`: analizado en §6.4.5 bis (antepone `ERROR-` a la línea `CODCSB-CODOFI` de la referencia; si el identificador no aparece, a todas las líneas) | Con él se sabe qué cambia en la referencia de `Delta.sh` y qué registros reentran al día siguiente |
-| H-CONOFI-18 | Definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` (253 bytes) del feed `Oficina`: por su nombre salta la primera línea de `oficinas_processed.csv` (la fila de nombres de columna), pero el XML no está en el volcado | Si no la saltara, la cabecera se cargaría como una oficina |
+| H-CONOFI-18 | **Resuelta (4ª pasada).** `SkipHeaderReadByLine.xml` (rama develop): `ISO-8859-1`, `LineSplitter`, `EmptyMessageFilter` y `skipLines=1`; salta siempre la primera línea de `oficinas_processed.csv` | Si el fichero validado llegara sin cabecera, se perdería la primera oficina |
 | P-CONOFI-06 | ¿Qué días marca el calendario `RDR_FEST_HOST`? | Decide qué días de martes a sábado no se ejecuta la cadena |
 | P-CONOFI-07 | Línea real de `MEKYTL0242` en el IDX y configuración de `MEKYTL0243` (protocolo, `FALLA_NO_FICHERO`, destino): el usuario indicó que no pueden obtenerse. ¿Hay otra vía (captura, extracto) para confirmar que el IDX tiene el campo 5 distinto de `0` y que `MEKYTL0243` usa `FALLA_NO_FICHERO=NO` o `PROTOCOLO=NOENVIO`? | Sin ello, el comportamiento "que no falle" de las fichas es una intención de diseño no verificada (§6.5, §6.6) |
 
@@ -172,7 +171,7 @@ el resto de claves es idéntico a la copia de integración, §6.4.6).
   de §6.4.1 actúa sobre ella); `CODOFI` código de oficina; `DNOMCO`/`DNOMAB` nombre completo y abreviado;
   `DDOMIC`/`CODPOS` domicilio y código postal; `CTEL01`, `CTEL02`, `CFAX` teléfonos y fax; `SSWITF` código
   SWIFT; `FAPERT`/`FCIERR` fechas de apertura y cierre. El resto no tiene significado documentado en las
-  fuentes; como su tratamiento lo decide la carga MDX (P-CONOFI-03), no se interpretan aquí.
+  fuentes; la carga MDX solo usa 14 de las 134 columnas (§6.4.4.1) y el resto no se interpreta.
 
 ### 5.3 Qué hace, paso a paso (visión funcional)
 
@@ -549,8 +548,7 @@ de `credentials.xml`; termina con 1 si no puede lanzarlo o se agota el tiempo.
 - El tipo de mensaje es `OFC` (el informe busca el último job con `JOB_MSG_TYP='OFC'`).
 - **Definición del feed `Oficina`** (volcado de la base de workflows de GoldenSource): origen de datos `RDR`;
   definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` (por su nombre, lee línea a línea
-  saltando la primera, que en `oficinas_processed.csv` es la fila de nombres de columna; el XML de 253 bytes no
-  está en el volcado); patrón de fichero `oficinas_processed.csv`; tipo de mensaje `OFC`; mapeo
+  saltando la primera, que en `oficinas_processed.csv` es la fila de nombres de columna; contenido del XML en §6.4.4.1); patrón de fichero `oficinas_processed.csv`; tipo de mensaje `OFC`; mapeo
   `db://resource/RDR/mapping/Oficinas/oficinas.mdx` (recurso MDX de 24.077 bytes, última modificación 06/07/2026);
   modo de commit `None`; `ROLLBACK_ON_ERROR=N` (el error de un registro no deshace los demás);
   `VDDB_PROPAGATION`, `ALLOW_BUS_ENTITY` y trazabilidad de datos a `N`; `WRITE_NOTFCN_TYP`, `SAVE_INPUT_MSG_TYP`,
@@ -562,13 +560,52 @@ de `credentials.xml`; termina con 1 si no puede lanzarlo o se agota el tiempo.
   configuración, el tipo de mensaje del feed; llama al subworkflow `Parallel File Load Sub` (en una o varias ramas
   paralelas), que procesa los mensajes del fichero y cuyo contenido no está en el volcado; `Close Job`; `End the FileLoad` (con `SuccessAction=LEAVE`
   no mueve el fichero). Esta secuencia explica de dónde sale el job `OFC` cerrado que usa el informe.
-- **Qué tablas y columnas actualiza y con qué reglas concilia** depende del texto de `oficinas.mdx` y del
-  subworkflow de carga, que no están en el volcado (P-CONOFI-03, resuelta en parte). Lo
-  único observable es que la conciliación deja filas en `FT_T_RLT1` con `RLT_PURP_TYP='REPORTES'`,
+- **Qué tablas y columnas actualiza y con qué reglas concilia:** descrito en §6.4.4.1 (4ª pasada, según `oficinas.mdx` de la rama develop). El subworkflow `Parallel File Load Sub` sigue sin constar, pero no cambia el resultado del mapeo. La conciliación deja filas en `FT_T_RLT1` con `RLT_PURP_TYP='REPORTES'`,
   `DATA_SRC_APP='OFICINAS'`, `RLT_FIELD` = mnemónico de la institución, `SRC_VALUE` = CSB, `GS_VALUE` = oficina
   y `MESSAGE_RLT` = mensaje, que es lo que lee el informe.
 - Si el evento termina con error pero `raiseEvent.sh --querystatus` devuelve 0, `GSProcess.sh` no lo detecta
   (pregunta general P-EBE-01 de la spec común).
+
+#### 6.4.4.1 Lógica del mapeo `oficinas.mdx` (4ª pasada)
+
+Procedencia: objeto `Oficinas/oficinas.mdx` del repositorio de objetos de GoldenSource, rama develop (puede diferir de lo instalado; el volcado de producción lo describía como un recurso de 24 KB), y objeto del feed `Oficina.gsp` (patrón `oficinas_processed.csv`, tipo `OFC`, `commitMode=None`, `rollbackOnError=false`, solo mensajes erróneos). Definición de lectura `SkipHeaderReadByLine.xml` (H-CONOFI-18, resuelta): codificación `ISO-8859-1`, divisor `LineSplitter` (una línea = un registro), filtro `EmptyMessageFilter` (descarta líneas vacías) y `skipLines=1` (salta siempre la primera línea, sin comprobar que sea la cabecera). Entrada: las 134 columnas de `oficinas.csv`, delimitador `;`, recorte de espacios por ambos extremos, sin comillas ni escape. **El mapeo solo usa 14 de las 134 columnas:** `CODCSB`, `CODOFI`, `FCIERR`, `DNOMCO`, `DNOMAB`, `DDOMIC`, `CODPOS`, `CODPLA`, `CACT07`, `CTEL01`, `CTEL02`, `CFAX`, `CTELEX` y `DES_DIRECNET`. El resto (incluidas `CBAMUT`/`CBACOM`, `SSWITF`, `FAPERT`…) se valida pero no se carga. La cabecera del mensaje fija `MAIN_ENTITY_ID=<CODCSB>-<CODOFI>`, contexto `BBVAID`, `MAIN_ENTITY_NME=CODCSB-CODOFI`, `DATASOURCE=CORPORATIVE`, usuario `BBVA:CUSTOMER` y sin cambio de modelo.
+
+**1. Qué hace con cada oficina (solo si `CODCSB='0182'`; cualquier otro banco se ignora sin rastro).** Consulta la subdivisión de la oficina (`FT_T_SUBD`, `SUBDIV_TYP='RETAIL'`, organización `0182`) y, según el resultado, decide `LOAD` (carga), `DIFUSION` (`A` alta, `M` modificación, `R` reactivación, `B` baja) y el estado a grabar. `FCIERR='000000'` significa «sin fecha de cierre»; **cualquier otro valor se trata como oficina cerrada**, aunque la fecha de cierre sea futura (el mensaje habla de «fecha de cierre inferior a la fecha actual» pero el mapeo no compara fechas).
+
+| Situación de la oficina en GoldenSource | `FCIERR` | Resultado |
+|---|---|---|
+| No existe como subdivisión (ni `RETAIL` ni de otro tipo) | `000000` | **Alta**: carga completa con estado `ACTIVE`, `DIFUSION=A` |
+| No existe | otro | No hace nada |
+| Existe como subdivisión de otro tipo (no `RETAIL`) | cualquiera | No hace nada |
+| Existe `RETAIL` y su organización no es `A1` | cualquiera | No hace nada |
+| Existe en `A1` con **una** contrapartida `BDLOCAL='O'` (comprobada por `IS_OFFI`/`OWNENT`) y la institución `ACTIVE` | `000000` | **Modificación**: recarga con `ACTIVE`, `DIFUSION=M` |
+| Igual, institución `ACTIVE` | otro | **Baja pendiente**: no carga nada; escribe las dos filas de `FT_T_RLT1` «Pendiente de BAJA» (error) y «La oficina tiene fecha de cierre inferior…» (informe). `STATUS=INACTIVEPEND` y `DIFUSION=B` se calculan pero **no se aplican** (no hay carga) |
+| Igual, institución **no** `ACTIVE` | `000000` | **Reactivación**: recarga con `ACTIVE`, `DIFUSION=R` |
+| Igual, institución no `ACTIVE` | otro | Si la subdivisión está `ACTIVE`, solo las dos filas «Pendiente de BAJA»; si no, nada |
+| Existe en `A1` sin contrapartida `BDLOCAL='O'`, y sin ninguna contrapartida `BDLOCAL` distinta de `O` | `000000` | **Alta** (`DIFUSION=A`) |
+| Existe en `A1` con alguna `BDLOCAL` distinta de `O` | `000000` | No hace nada |
+| Existe en `A1` y **más de una** `BDLOCAL='O'` | `000000` | **Duplicada**: no carga; fila de error «La oficina esta duplicada» y fila de informe «La oficina no se ha actualizado por encontrarse duplicados.» |
+
+La baja de una oficina, por tanto, **no la hace esta carga**: solo la avisa. La pasa a `INACTIVEPEND`/`INACTIVE` el proceso de reubicación (`rdr_reubicacion_new`).
+
+**2. Qué carga cuando `LOAD=Yes`** (todas las acciones son `UNKNOWN` = inserta o actualiza; el estado de cada fila es el calculado `STATUS`):
+- `FT_T_FINS`: institución con nombre `OFA1<CODOFI>`, descripción `DNOMCO`, `SUBSIDIARY_IND='S'`, idioma `SPANISH`; el mnemónico es el de la contrapartida existente o uno nuevo.
+- `FT_T_FINR`: roles `CPARTY` y `OWNENT` (este último solo si no existe); `FT_T_FRCL`: clasificación `BDLOCAL`=`O` del rol `CPARTY`; `FT_T_FIST`: estadísticas `MAINROL`=`CPARTY` y `COMMENT`=`DNOMCO`.
+- `FT_T_FAB1` (clasificaciones por organización `0182`): `CLS_MAD`=`0`, `SALAMAD`=`001820000` y `TYPFOMAD`=`5`.
+- `FT_T_FIID`/`FT_T_FRID`: identificadores `STARID` (valor `0<CODCSB><CODOFI>`, fuente `STAR_MADRID`), `MUREXID` (fuente `MUREX`) y `ALIASID` (fuente `STAR_MADRID`, distinto del alias de MGC); en reactivación recompone el `MGCGLOID`. Si ya existe un identificador activo (o inactivo sin fecha de fin) en esa u otra contrapartida, **no lo repite** y deja filas de aviso (ver más abajo).
+- `FT_T_FIRL`: relaciones `OPERATIVE` de la contrapartida y del `OWNENT` consigo mismos.
+- `FT_T_SUBD`: subdivisión `RETAIL` (organización `A1`, `SUBDIV_ID=CODOFI`, nombre `DNOMAB`, descripción `DNOMCO`); `FT_T_SUFR`: relación `IS_OFFI` (y, solo en alta, `TRADES_WITH`); `FT_T_FSA1`: solo en alta, atributos `RESIDENT`=`N`, `ACC_TYPE`=`R`, `BDE_CODE`=`O` y estadística `ACTVECOM`=`01`; `FT_T_ENFR`: relación `OPE_BRANCH` de ambos roles; `FT_T_ATB1`: difusión a `STAR`.
+- Geografía (`FT_T_FIGU`, `FT_T_SUGU`): el país (`CACT07`, traducido a ISO por el GU corporativo) y la plaza (`CODPLA` de 9 dígitos, como ciudad `ORIGTOWN`) solo si existen en GoldenSource; si no existe la plaza internacional, deja «Pendiente de introducir Plaza Internacional.».
+- Dirección fiscal (`FT_T_MADR`/`FT_T_ADTP`): `DDOMIC` como línea 1, ciudad, código postal `CODPOS` (si es `00000` o vacío y el país es España, no carga y avisa «Pendiente de introducir el codigo postal.»), provincia deducida de los dos primeros dígitos de `CODPLA` (tabla `PROVINCIAS`) y país; en modificación/reactivación inactiva la dirección anterior. Direcciones electrónicas (`FT_T_EADR`): teléfonos `CTEL01`/`CTEL02`, fax `CFAX`, télex `CTELEX` y correo `DES_DIRECNET` (solo si no está vacío).
+
+**3. Filas de `FT_T_RLT1` que escribe** (todas con `DATA_SRC_APP='OFICINAS'`, `GS_FIELD='COD_OFI'`, `SRC_FIELD='COD_CSB'`, `MAIN_ENTITY_NME='CODCSB-CODOFI'`; las de informe llevan `RLT_PURP_TYP='REPORTES'`, **`RLT_STATUS='3'`** y `RLT_FIELD` = mnemónico, que es lo que lee `Reporte_oficinas.csv`; las de error llevan `RLT_PURP_TYP='ERRORES'` y alimentan `oficinas_errores.csv`):
+- Informe: «La oficina ha sido dada de alta.», «La oficina ha sido actualizada.», «La oficina ha sido reactivada.», «La oficina tiene fecha de cierre inferior a la fecha actual, por lo que es necesario que se de de baja.», «La oficina no se ha actualizado por encontrarse duplicados.», «Pendiente de introducir Plaza Internacional.», «Pendiente de introducir el codigo postal.» y, para `STARID`, `MUREXID` y `ALIASID`, «El <id> <valor> ya esta en uso por otra oficina/contrapartida» o «… ya esta en uso INACTIVO …».
+- Error (pareja de cada aviso anterior salvo los de alta/modificación/reactivación): «La oficina esta duplicada», «Pendiente de BAJA», «Pendiente de Plaza Internacional», «Pendiente de introducir el codigo postal.» y los avisos de `STARID`/`MUREXID`/`ALIASID`.
+- **Señales de difusión** (sin `RLT_STATUS`, por tanto **no salen en el informe**): una fila `REPORTES` con `RLT_DIF_STAT='PENDING'`, `RLT_DIF_ACC` = `A`/`M`/`R` (la reactivación se difunde como `M`) y mensaje «Datos correctamente cargados en la contrapartida», con `RLT_FIELD` = mnemónico, `SRC_VALUE` = `CODOFI`, `GS_VALUE` = el `FINSID` activo y `MAIN_ENTITY_ID` = `<mnemónico>_<CODOFI>`; en reactivación, además, otra con `RLT_DIF_ACC='DICT'` (publicación). Solo se escriben si no hubo aviso que impida la difusión (`OK='YES'`). Las consumen los workflows de difusión.
+
+**Significado de `RLT_STATUS='3'`:** en este mapeo es la marca de «línea para el informe de oficinas» (resultado legible para el usuario: alta, modificación, reactivación, baja pendiente, duplicado o aviso de dato pendiente). No es un estado de proceso.
+
+**Consecuencias para las pruebas y el informe:** (a) el informe mezcla resultados correctos (altas/modificaciones) y avisos; (b) una modificación sin cambios reales también genera la línea «ha sido actualizada» (el mapeo no compara los datos, solo el estado) y por tanto la señal de difusión `M`; (c) como `Delta.sh` solo deja pasar las líneas nuevas o cambiadas, el informe refleja las oficinas del delta; (d) los datos fuera de las 14 columnas no afectan a la carga.
 
 #### 6.4.5 `Evento Errores`
 
@@ -677,8 +714,7 @@ busca el paso 4. La invocación (`oficinas.properties`) pasa `$CONF/select.prope
 | `OFICINA` | `FT_T_RLT1.GS_VALUE` | `N/A` |
 | `MENSAJE` | `FT_T_RLT1.MESSAGE_RLT` | `N/A` |
 
-Filtro: filas de conciliación de oficinas (`REPORTES`/`OFICINAS`) con `RLT_STATUS='3'` (significado no
-documentado, P-CONOFI-03), creadas desde el inicio del último job de carga `OFC` cerrado (`FT_T_JBLG`,
+Filtro: filas de conciliación de oficinas (`REPORTES`/`OFICINAS`) con `RLT_STATUS='3'` (en el mapeo es la marca de «línea del informe», §6.4.4.1), creadas desde el inicio del último job de carga `OFC` cerrado (`FT_T_JBLG`,
 `JOB_STAT_TYP='CLOSED'`). Orden: por `OFICINA` ascendente. Una fila de `FT_T_RLT1` cuya institución no tenga
 identificador `FINSID` no aparece (unión interna con `FT_T_FIID`).
 
@@ -805,7 +841,7 @@ Ningún paso de la cadena purga `old/`: los `oficinas_yyyymmdd.csv` se acumulan.
 | `ControlCargaDatos.jar` + `javacsv.jar` | `GSProcess.sh` | Sí | §6.4.3; `comun_controlcargadatos` |
 | `fillingRules_oficinas.csv` | `ControlCargaDatos.jar` | Sí (rama de Carlos) | §6.4.3 |
 | `executeBbvaEvent.sh` / `raiseEvent.sh` | `GSProcess.sh` | Sí / no | §6.4.4; `comun_executebbvaevent` |
-| Carga MDX `Oficina`/`OFC` (`StandardFileLoad`) | `executeBbvaEvent.sh` | Feed y workflow sí; `oficinas.mdx` **no** | §6.4.4; P-CONOFI-03 |
+| Carga MDX `Oficina`/`OFC` (`StandardFileLoad`) | `executeBbvaEvent.sh` | Feed, workflow y `oficinas.mdx` sí (develop, 4ª pasada) | §6.4.4 y §6.4.4.1 |
 | Workflow `RDR_ErroresCSV` (`ErroresCSV`, `SubErroresCSV`, `HistoricizeFiles`, `MarcaRegErroneo`) | `executeBbvaEvent.sh` | Sí (volcado de workflows) | §6.4.5 |
 | `errores_to_file.sh` | `MarcaRegErroneo` | Sí (plantilla de despliegue) | §6.4.5 bis |
 | `RDR_Report.jar` + `select.properties` | `GSProcess.sh` | Sí (integración y plantilla `@@ENV@@`) | §6.4.6; `comun_rdr_report` |
@@ -912,8 +948,7 @@ quedan como artefactos relacionados sin analizar a fondo (los jars no están en 
 
 **Duplicidades.** Dentro del fichero no hay control propio: una línea repetida e idéntica a otra de la
 referencia no se recarga; una línea repetida nueva sale tantas veces como aparezca en el delta. `fillingRules_oficinas.csv` no tiene reglas `DUPL`, así que
-`ControlCargaDatos.jar` tampoco los elimina; lo que haga la carga MDX con una oficina repetida depende de
-`oficinas.mdx` (P-CONOFI-03). No hay protección contra dos ejecuciones simultáneas del paso 2 (comparten ficheros y
+`ControlCargaDatos.jar` tampoco los elimina; lo que haga la carga MDX con una oficina repetida: si ya existe una contrapartida `BDLOCAL='O'` la recarga como modificación (el mapeo solo detecta duplicado cuando hay más de una `BDLOCAL='O'`, §6.4.4.1). No hay protección contra dos ejecuciones simultáneas del paso 2 (comparten ficheros y
 `LOG_DIA`).
 
 ## 10. Conclusión y requisitos de cierre
@@ -928,7 +963,6 @@ Con el material del 02/10/2026 quedan resueltos `oficinas.properties` (carga inc
 `oficinas_processed.csv`, sin `Stop`), las reglas de validación de `fillingRules_oficinas.csv` y la ruta del informe de
 producción; el workflow de errores (`RDR_ErroresCSV`) queda analizado con sus consultas y scripts.
 
-**Para cerrar la especificación faltan** el mapeo de la carga MDX (`oficinas.mdx`, P-CONOFI-03, sin el que no se puede
-decir qué cambia en GoldenSource campo a campo), el contenido del calendario
+**Para cerrar la especificación faltan** (el mapeo de la carga MDX, `oficinas.mdx`, consta desde la 4ª pasada, §6.4.4.1) el contenido del calendario
 `RDR_FEST_HOST` (P-CONOFI-06), las configuraciones de `MEKYTL0242`/`MEKYTL0243` (P-CONOFI-07) y las versiones de
 producción de los jars y scripts comunes (H-CONOFI-11 a 17).

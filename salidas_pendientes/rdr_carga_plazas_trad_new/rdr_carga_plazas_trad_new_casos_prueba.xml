@@ -164,7 +164,30 @@
     <resultadoEsperado>2 filas rechazadas con su motivo y 3 aceptadas (la válida duplicada y la de la Ñ); el paso termina con código 0 y la carga MDX recibe solo las aceptadas.</resultadoEsperado>
     <tipoValidacion>Inspección de los CSV de salida y del log de resumen, y de la carga en GoldenSource de pruebas.</tipoValidacion>
     <criterioAceptacion>Los recuentos del log coinciden con los dos CSV y ninguna fila rechazada llega a GoldenSource.</criterioAceptacion>
-    <posibilidadFallo>Si el fichero llegara en UTF-8, MUÑOZ se rechazaría. Lo que hace el mapeo TraduccionPlazas.mdx con las filas casi vacías no se conoce (H-TPL-07). El fillingRules instalado en producción no está verificado frente a la plantilla.</posibilidadFallo>
+    <posibilidadFallo>Si el fichero llegara en UTF-8, MUÑOZ se rechazaría. El mapeo TraduccionPlazas.mdx solo usa CPLAZA y DNOMB1/DNOMB2 (spec 6.2.1): las filas con nombre vacío o de plaza inexistente se descartan sin rastro (TC-009). El fillingRules instalado en producción no está verificado frente a la plantilla.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-009" tipo="borde">
+    <nombre>Mapeo TraduccionPlazas.mdx: plaza existente, plaza inexistente y repetición de la carga</nombre>
+    <objetivo>Comprobar que la carga PLZTRAD asocia el código CPLAZA a la plaza existente (FT_T_GUID, CORPORATEID), que descarta sin rastro las filas cuyo nombre no coincide con ninguna plaza y que repetirla no duplica identificadores (spec 6.2.1).</objetivo>
+    <precondiciones>
+      <precondicion>GoldenSource de pruebas con la plaza «MADRID» cargada por el tipo PLZ (FT_T_GUNT con CITY_CDE_TYP=PLAZA y CITY_NME=MADRID) y sin ninguna plaza «NOEXISTE».</precondicion>
+      <precondicion>TradPlazas_processed.csv de pruebas con 3 filas válidas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="fila_1" valor="CPLAZA=010010001, DNOMB1=MADRID, DNOMB2 vacío"/>
+      <dato campo="fila_2" valor="CPLAZA=010010002, DNOMB1 vacío, DNOMB2=MADRID"/>
+      <dato campo="fila_3" valor="CPLAZA=010010003, DNOMB1=NOEXISTE"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Cargar el fichero con el evento StandardFileLoad (feed Plaza, tipo PLZTRAD).</paso>
+      <paso numero="2">Consultar FT_T_GUID con GU_ID_CTXT_TYP=CORPORATEID y GU_TYP=CITY para los tres códigos.</paso>
+      <paso numero="3">Repetir la carga y volver a consultar.</paso>
+    </pasos>
+    <resultadoEsperado>Los códigos 010010001 y 010010002 quedan asociados a la plaza MADRID (GU_ID = su PRNT_GU_ID, GU_CNT=1, ACTIVE); 010010003 no genera ningún registro ni fila en FT_T_RLT1 ni error visible; tras repetir la carga no aparecen filas nuevas.</resultadoEsperado>
+    <tipoValidacion>Consulta de FT_T_GUID, FT_T_RLT1 y del job de carga en la base de pruebas.</tipoValidacion>
+    <criterioAceptacion>El resultado coincide con la spec; el job de carga termina sin mensajes de error aunque la fila 3 no se cargue.</criterioAceptacion>
+    <posibilidadFallo>Si hay dos plazas con el mismo nombre, el comportamiento depende de la primera fila que devuelva la consulta. Debe confirmarse que el mapeo instalado coincide con el de develop.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

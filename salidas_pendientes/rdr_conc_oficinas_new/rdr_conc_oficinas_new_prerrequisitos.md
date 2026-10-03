@@ -12,7 +12,7 @@ TC-008 y TC-010, que solo leen.
 | `oficinas.csv` (134 columnas separadas por `;`, cabecera, banco en la 1.ª columna `CODCSB`) | Todo el proceso | TC-001, TC-003, TC-009, TC-011, TC-012, TC-013, TC-014, TC-015 |
 | `old/oficinas.csv` (referencia del día anterior, filtrada) | `Delta.sh` | TC-001, TC-009, TC-013 |
 | `FT_T_RLT1`, `FT_T_FIID`, `FT_T_JBLG` (GoldenSource, `jdbc/GSDM-1`) | Informe `Reporte_oficinas.csv` y comprobación de la carga | TC-001, TC-002, TC-010 |
-| Tablas de la entidad `Oficina` (sin identificar, P-CONOFI-03) | Carga MDX | TC-001, TC-012 |
+| Tablas de la entidad `Oficina`: `FT_T_FINS`, `FINR`, `FRCL`, `FIST`, `FAB1`, `FIID`/`FRID`, `FIRL`, `SUBD`, `SUFR`, `FSA1`, `ENFR`, `ATB1`, `MADR`/`ADTP`, `EADR`, `FIGU`/`SUGU` y `FT_T_RLT1` (spec 6.4.4.1) | Carga MDX | TC-001, TC-012, TC-017 |
 
 ## 2. Datos mínimos por caso
 

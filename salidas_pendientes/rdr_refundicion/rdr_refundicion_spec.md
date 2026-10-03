@@ -241,7 +241,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
   `Custom/RDR/Integracion_MGC-GS/Refundicion-Reubicacion`) arranca con `Create Job`, que crea el job en `FT_T_JBLG`
   con `JOB_INPUT_TXT = File` (`.../Refundicion/Refundicion_processed.csv`) y `JOB_MSG_TYP = MessageType`
   (`Refundicion`); abre el fichero con la definición de feed del `BusinessFeed` (`Refundicion`), que en la tabla de
-  patrones de feeds es `SkipHeaderReadByLine` (salta la cabecera y lee línea a línea), patrón de fichero
+  patrones de feeds es `SkipHeaderReadByLine` (4ª pasada, según el objeto de la rama develop: codificación `ISO-8859-1`, `LineSplitter`, filtro `EmptyMessageFilter` que descarta líneas vacías y `skipLines=1`, que salta siempre la primera línea sin comprobar que sea cabecera; el feed `Refundicion` del objeto `Refundicion.gsp` es idéntico al de `Reubicacion` salvo nombre y fichero), patrón de fichero
   `Refundicion_processed.csv`, tipo de mensaje `Refundicion`, sin confirmación parcial (`None`), sin
   *rollback* y guardando solo los mensajes en error; trocea el fichero en bloques (`File Split Condition`), lanza
   `Sub_Load` por cada mensaje en paralelo, espera a que acabe el bloque (`Synchronize`) y pide el siguiente;
@@ -382,6 +382,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       `'B460_Cli'`, `DATA_SRC_ID='CLIENTELA'`) con 2 filas adicionales de estado "esperando respuesta" tras
       el envío — confirma que el ciclo con Clientela es **asíncrono** (petición por MQ, respuesta a
       verificar más tarde, sin que este workflow la espere).
+      **Formato exacto de los mensajes (4ª pasada, objeto `SendClientelaRequest.gsp`, develop):** identificador `C` + `NEW_OID` + 4 cifras de la marca de tiempo + literal de acción (`ACLIA460` para `A460`, `BCLIB460` para `B460`), seguido de campos rellenados con espacios por la derecha: `A460` = `CCLIEN`(9) `CODBAN`(4) `CODOFI`(4) `CODPAIS`(4, `0011` si viene vacío); `B460` = `CODBAN`(4) `CODOFI`(4) `FOLIO`(14). Un campo nulo se sustituye por blancos (una baja con `CODBAN`/`CODOFI` nulos se envía igualmente, con esos huecos en blanco). El mensaje se pasa a mayúsculas antes de publicarlo. El `CCLIEN` de `A460` no se rellena con ceros a la izquierda (sí en la consulta `CONS`), de modo que un `COD_CCLIEN` de menos de 9 caracteres iría con blancos a la derecha.
     - **`BAJA_460_CLI`** (versión 5, `haltOnError=false`) admite `NIVEL` en `GLOBAL`/`LOCAL`/`OPERATIVO`
       (3 valores reales) — pero `BajaClientela460` **siempre lo invoca con `NIVEL=LOCAL`**, por lo que las
       ramas `GLOBAL`/`OPERATIVO` son código real pero **no alcanzable desde este pipeline** (posible
@@ -402,7 +403,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       llama a `SendClientelaRequest` con `ACCION=B460`: **un mensaje de baja por cada folio activo**, sin la
       deduplicación de hermanos operativos que sí hace la rama `OPERATIVO` de `BAJA_460_CLI`. Las subconsultas de
       `CODBAN` y `CODOFI` no filtran por estado ni limitan filas: si hubiera más de una fila, la consulta fallaría
-      y no se enviaría la baja de ese folio.
+      y no se enviaría la baja de ese folio. **Confirmado en el código (4ª pasada, objeto `SUB_GET_FOLIO.gsp`, develop; H-REF-14 parcial):** una sola consulta `SELECT ... FROM DUAL` con cuatro subconsultas escalares por folio (`FAB1_OID`); `BRANCH` y `FOLIO` filtran `FT_T_FAB1` por `DATA_STAT_TYP='ACTIVE'`, pero `CODBAN` (`FT_T_EERL`, `RL_TYP='BRANCH'`) y `CODOFI` (`FT_T_SUST`, `STAT_DEF_ID='MAINOFFI'`) no filtran estado: con dos o más filas Oracle devuelve un error de subconsulta de varias filas (ORA-01427) y ese folio no se baja; con ninguna fila el valor es `NULL` y la baja sí se envía con banco y oficina en blanco (§ formato de mensajes). Falta solo comprobar con datos reales si existen oficinas con varias filas `EERL`/`SUST`.
     - **`Sub_check_CCLIENIDFISCAL_GS`** (mismo grupo, versión 4, `RELEASED`, `haltOnError=false`; parámetros `CCLIEN`,
       `IDFISCAL`, salida `ERROR`, que vale `OK` por defecto): comprobación previa de la consulta (`CONS`) a
       Clientela. Rellena `CCLIEN` con ceros hasta 9 dígitos y busca una contraparte local (`FT_T_FIRL`
@@ -418,6 +419,7 @@ está en las fuentes (P-REF-05). *`RLT_DIF_STAT='PENDING'`*: la señal aún no s
       tiene `haltOnError=true` (una excepción interna sí se propagaría), pero ni `BajaClientela460` ni
       `GSProcess.sh` (sin `StopEve=Ok`, arriba) detendrían la cadena por ello — la fila de `FT_T_RLT1`
       simplemente no se marcaría `OK` y se reintentaría al día siguiente.
+* **Workflows de la misma carpeta que este proceso no usa (4ª pasada, rama develop):** `Sub_Report` (informe `Reporte_Refundicion.csv` con `Estado;Cliente a Refundir;ID;Cliente sobre el que refunde;ID`, sobre `FT_T_RLT1` con `RLT_STATUS='4'` del job) y `Pr_Ej1`. Ningún evento ni workflow del repositorio los invoca, y `Sub_Report` filtra `RLT_STATUS='4'` mientras `REFUNDICION` escribe `1` en sus filas de informe; el informe real es el de `RDR_Report.jar` con `select.properties` (clave `Refundicion`).
 * **Nota aparte — `ConContrato460.java`/`ConDB.java`/`ThreadComprobacion.java`: ajenos a esta cadena; las dos
   primeras pertenecen a `RDR_C460`.** Estas clases, aportadas en rondas anteriores bajo la hipótesis de que
   implementaban `Workflow(RDR_Clientela460)`, quedan descartadas de esa asociación por la evidencia del `.wkf` real

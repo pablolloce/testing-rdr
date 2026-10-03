@@ -43,8 +43,7 @@ Dentro: espera del fichero, preprocesado y carga en GoldenSource, generación de
 las dos historificaciones y el cierre.
 
 Fuera: quién genera `clientes.csv` (no documentado, P-CIB-03); el uso que hacen `MVP00G215` y `MVP00G219`
-del reporte; el texto de la consulta que construye el reporte y el contenido del mapeo de salida (P-CIB-04,
-P-CIB-10); el resto de cadenas de P-021. Los workflows de GoldenSource de los eventos `StandardFileLoad`,
+del reporte; el resto de cadenas de P-021. (La consulta del reporte y el mensaje de salida del mapeo se recuperaron en la 4ª pasada: §6.3.1.1 y §6.3.2.) Los workflows de GoldenSource de los eventos `StandardFileLoad`,
 `RDR_ErroresCSV` y `RDR_Reporte` sí se describen (§6.3.2).
 
 ## 3. Requisitos detectados
@@ -70,7 +69,7 @@ P-CIB-10); el resto de cadenas de P-021. Los workflows de GoldenSource de los ev
 |-----|----------|-----------|-------|
 | G1 | ¿Qué pasa si `KYTL_CLI_GSPROCESS_FW` agota los 240 minutos? | Captura real de la pestaña "Acciones" del job: "Cuando código de retorno de OS igual a 0: Agregar evento [RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_OK_new, Fecha de ejecución]"; "Cuando código de retorno de OS igual a 7: Agregar evento [RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO, Fecha de ejecución]; Marcar como OK". Gestión de la salida: "Ninguno". → R2. | 23/09/2026 |
 | G2 | ¿`MEKYTL0148` transforma el fichero al cambiar la extensión a `.txt`? | Usuario: "Ambos jobs de transferencia comparten el mismo fichero fuente generado en el paso previo (Reporte_clientes_dos.csv). La inspección del script ejecutor MEGENV0001.sh confirma que este actúa exclusivamente como pasarela de transporte multiprotocolo (XCOM/SFTP/CD). Por tanto, la asignación de la extensión .txt en el envío a MVP00G219 (CLIEXCLU_yyyymmdd.txt) es un mero renombrado de parámetro en destino que no altera la estructura, delimitadores ni el contenido de los datos con respecto al envío .csv de MVP00G215." | 23/09/2026 |
-| G3 | ¿Hay diccionario de `clientes.csv` y de `Reporte_clientes_dos.csv`? | Entrada: el usuario confirma las 12 columnas de R7 "a través del archivo de configuración fillingRules_clientes.csv". Salida: el usuario indica que "no existe una consulta SQL estática (queryclientes) en select.properties" y que el fichero "es compilado y extraído directamente por el motor MDX de GoldenSource", por lo que lo da como "gap de documentación técnica aceptado". **Corrección:** según el código de `GSProcess.sh`, la acción `Reporte` no es la carga MDX: lanza el evento de GoldenSource `RDR_Reporte` (§6.3). El reporte lo genera ese evento, que no se ha recibido; el diccionario sigue abierto como P-CIB-04. **Actualización 02/10/2026:** el workflow del evento (`GenerateReports`) ya se conoce (§6.3.2): `Reporte_clientes.csv` lleva como primera línea el texto fijo `Reporte Clientes Exclusivos`, una línea por fila con columnas separadas por `;` y `;` al final; las columnas las define la consulta del reporte, que el volcado no permite recuperar. (El mapeo `clientes.mdx` recibido después es el de la **entrada** de la carga, §6.3.1, no el del reporte.) Se ha comprobado que las dos copias de `select.properties` del repositorio (21 claves) no tienen clave `clientes`. | 23/09/2026 |
+| G3 | ¿Hay diccionario de `clientes.csv` y de `Reporte_clientes_dos.csv`? | Entrada: el usuario confirma las 12 columnas de R7 "a través del archivo de configuración fillingRules_clientes.csv". Salida: el usuario indica que "no existe una consulta SQL estática (queryclientes) en select.properties" y que el fichero "es compilado y extraído directamente por el motor MDX de GoldenSource", por lo que lo da como "gap de documentación técnica aceptado". **Corrección:** según el código de `GSProcess.sh`, la acción `Reporte` no es la carga MDX: lanza el evento de GoldenSource `RDR_Reporte` (§6.3). El reporte lo genera ese evento, que no se ha recibido; el diccionario sigue abierto como P-CIB-04. **Actualización 02/10/2026:** el workflow del evento (`GenerateReports`) ya se conoce (§6.3.2): `Reporte_clientes.csv` lleva como primera línea el texto fijo `Reporte Clientes Exclusivos`, una línea por fila con columnas separadas por `;` y `;` al final; el reporte es una sola columna de texto generada por la consulta `arrayStringSelects[8]` (4ª pasada, §6.3.2). (El mapeo `clientes.mdx` recibido después es el de la **entrada** de la carga, §6.3.1, no el del reporte.) Se ha comprobado que las dos copias de `select.properties` del repositorio (21 claves) no tienen clave `clientes`. | 23/09/2026 |
 
 ### 4.2 Preguntas pendientes al usuario
 
@@ -79,13 +78,13 @@ P-CIB-10); el resto de cadenas de P-021. Los workflows de GoldenSource de los ev
 | P-CIB-01 | ¿Se puede obtener `clientes.properties` completo (el que ejecuta `GSProcess.sh clientes`)? | **Resuelta en parte (3ª pasada).** La plantilla de despliegue (repositorio `estaticos`, rama `develop`) trae el fichero completo (§6.3.3): `Delta=No` y `Delta.sh No`; `ControlCargaDatos` sobre `clientes/clientes.csv` con log `clientes_preprocess_summary.log` y reglas `fillingRules_clientes.csv`; el evento MDX carga `clientes/clientes_processed.csv` con `BusinessFeed=clientes` y `MessageType=CLX`; `Ruta`/`Servicio`/`File` de los eventos de errores y reporte; ninguna clave `Stop`. **Sigue pendiente** verificar que lo instalado en producción coincide con la plantilla. Antes de la 3ª pasada: se conocía el mapeo MDX (§6.3.1) pero no esta parte. | Sin ello no se sabría si los registros rechazados por la validación se cargan igualmente: con la plantilla, el MDX lee solo `clientes_processed.csv`. |
 | P-CIB-02 | ¿Se puede obtener `fillingRules_clientes.csv` completo (cabecera y filas de reglas)? | **Resuelta en parte (3ª pasada).** Contenido completo según la plantilla de despliegue (§6.3.3): cabecera de las 12 columnas; `NULL` en `COD_CCLIEN` y `COD_TIPOCLI`; `POSITION(9)` en `COD_CCLIEN` y `POSITION(1)` en `COD_TIPOCLI` (longitud exacta); `USAR` en las 12 columnas; **sin `DUPL`** (no hay control de duplicados). Falta verificar la copia instalada en producción. | Las reglas deciden qué registros se rechazan. Es también la pregunta P-CCD-01 de la spec común. |
 | P-CIB-03 | ¿Qué sistema deposita `clientes.csv`, a qué hora, con cabecera o sin ella, en qué codificación y con qué volumen normal? | Es la entrada del proceso. `ControlCargaDatos.jar` exige que la primera línea sea la cabecera con los nombres de `fillingRules_clientes.csv` en el mismo orden, y rechaza vocales acentuadas y `ñ` si el fichero viene en UTF-8 (ver su spec, §4.3). |
-| P-CIB-04 | **Resuelta en parte (02/10/2026).** ¿Qué hace el evento `RDR_Reporte` con `clientes.properties` (workflow, query, columnas y nombre del fichero que genera)? ¿Es correcto que genera `Reporte_clientes.csv` y que `Unix2Dos` lo convierte en `Reporte_clientes_dos.csv`? Resuelto: workflow `GenerateReports`, fichero `Reporte_clientes.csv` en `<Ruta>clientes/`, formato, cabecera fija y comportamiento sin filas (§6.3.2); la conversión de `Unix2Dos` queda confirmada por el nombre. **Sigue pendiente:** el texto de la consulta (elemento 8 de la lista de consultas del nodo `Initialize Variables` de `GenerateReports`, objeto binario no recuperable) y, con ella, las columnas. | Es el fichero que se envía a los dos destinos; hoy no hay diccionario de sus columnas. El usuario lo atribuyó al "motor MDX", lo que no cuadra con el código de `GSProcess.sh` (G3). |
+| P-CIB-04 | **Resuelta en parte (02/10/2026).** ¿Qué hace el evento `RDR_Reporte` con `clientes.properties` (workflow, query, columnas y nombre del fichero que genera)? ¿Es correcto que genera `Reporte_clientes.csv` y que `Unix2Dos` lo convierte en `Reporte_clientes_dos.csv`? Resuelto: workflow `GenerateReports`, fichero `Reporte_clientes.csv` en `<Ruta>clientes/`, formato, cabecera fija y comportamiento sin filas (§6.3.2); la conversión de `Unix2Dos` queda confirmada por el nombre. **Resuelta (4ª pasada, 03/10/2026):** la consulta (elemento 8 de `Initialize Variables` de `GenerateReports`, según el objeto `GenerateReports.gsp` de la rama develop) devuelve una sola columna de texto con cuatro secciones tituladas (§6.3.2); el caso «sin filas» no se da en clientes; las secciones de compartidos y altas salen vacías por los defectos D1/D2 del mapeo (§6.3.1.1). Falta solo confirmar que lo instalado coincide con develop. | Es el fichero que se envía a los dos destinos; hoy no hay diccionario de sus columnas. El usuario lo atribuyó al "motor MDX", lo que no cuadra con el código de `GSProcess.sh` (G3). |
 | P-CIB-05 | ¿Cuál es el contenido de `MEKYTL0147.idx` y `MEKYTL0148.idx` (protocolo, máquinas, rutas, `FICHERO_ORIGEN` con su renombrado a `Reporte_clientes_<yyyymmdd>.csv`/`CLIEXCLU_<yyyymmdd>.txt`, `FALLA_NO_FICHERO`, historificación local)? ¿La ruta de `MVP00G219` es `\\S00371F2\DATOS TRANSMI\MVP00G219\` (con espacio, como dice la ficha) o `\\S00371F2\DATOS\TRANSMI\MVP00G219\`? | Decide qué se envía, con qué nombre (la fecha `yyyymmdd`, de qué día) y qué pasa si falta el reporte. |
 | P-CIB-06 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0136` y `MEKYTL0939` (máscara, renombrado, campo 5, operación)? | Decide si se mueve o copia, si se comprime, cómo se forma el sufijo `_yyyymmdd` y si el job falla cuando no hay fichero. |
 | P-CIB-07 | ¿Alguna otra cadena o monitorización consume el evento `RDR_CLIENTES_CIB_KYTL_CLI_GSPROCESS_FW_KO`? ¿Se quiere una alerta cuando `clientes.csv` no llega? | Hoy un día sin fichero termina en verde sin aviso (R2). |
 | P-CIB-08 | ¿Qué se hace con `Reporte_clientes.csv` (la versión sin `_dos`, si existe) y con `clientes_processed.csv`/`clientes_noprocessed.csv` (si los genera la validación)? Ningún job de la cadena los historifica ni los borra (salvo que `Reporte_clientes.csv` lo rota el workflow `GenerateReports` a `old/` en la siguiente generación). | Residuos en el directorio; y, por el riesgo R4 de `ControlCargaDatos.jar`, un `_processed.csv` antiguo puede volver a cargarse. |
 | P-CIB-09 | ¿Qué mecanismo hay en el entorno de pruebas para forzar el fallo de un único job (TC-002, TC-005, TC-006) y qué acceso hay a los destinos XCOM de pruebas (TC-004, TC-008)? | Sin ello esos casos solo se pueden verificar por lectura de configuración. |
-| P-CIB-10 | ¿Cuáles son los campos y las tablas de destino del mensaje de salida de `clientes.mdx` (las capturas solo muestran la raíz `STREET_REF` y un aviso de nodos sin XSD)? ¿Cómo descarta el mapeo la línea de cabecera y qué hace con un `COD_TIPOCLI` distinto de `C` y `E`? **Resuelta en parte (02/10/2026):** la cabecera no la descarta el mapeo sino el feed `clientes`, cuya definición de lectura es `SkipHeaderReadByLine.xml` (§6.3.2). **Sigue pendiente** el mensaje de salida y el trato de `COD_TIPOCLI` inesperado. | Decide qué datos de GoldenSource cambia realmente la carga y qué ocurre con registros con tipo de cliente inesperado; sin ello solo se conoce la entrada. |
+| P-CIB-10 | ¿Cuáles son los campos y las tablas de destino del mensaje de salida de `clientes.mdx` (las capturas solo muestran la raíz `STREET_REF` y un aviso de nodos sin XSD)? ¿Cómo descarta el mapeo la línea de cabecera y qué hace con un `COD_TIPOCLI` distinto de `C` y `E`? **Resuelta en parte (02/10/2026):** la cabecera no la descarta el mapeo sino el feed `clientes`, cuya definición de lectura es `SkipHeaderReadByLine.xml` (§6.3.2). **Resuelta en parte (4ª pasada, 03/10/2026):** el mensaje de salida está descrito completo en §6.3.1.1 (según `clientes.mdx`, develop): solo se usan `COD_CCLIEN` y `COD_TIPOCLI`; se carga `FT_T_FRCL` (clasificación `CLIEX` `Exclusive`/`Shared`) y líneas de `FT_T_RLT1`; defectos D1/D2. **Sigue pendiente** el comportamiento exacto de `Translate` con un `COD_TIPOCLI` distinto de `C`/`E` (D3; se prueba con TC-010). | Decide qué datos de GoldenSource cambia realmente la carga y qué ocurre con registros con tipo de cliente inesperado; sin ello solo se conoce la entrada. |
 
 ## 5. Especificación funcional
 
@@ -181,8 +180,7 @@ Consecuencias que hay que conocer:
   `Reporte_clientes.csv` del día anterior en el directorio, `Unix2Dos` lo convertiría y se enviaría el reporte de
   ayer. Si el workflow sí arranca, lo primero que hace es mover el fichero anterior a `old/` (§6.3.2), con lo que
   el riesgo queda acotado a ese caso (P-CIB-08).
-- Un día sin clientes que informar no deja el reporte vacío: el fichero contiene la línea
-  `La select no devuelve valores`, se convierte a CRLF y se envía a los dos destinos (RK10).
+- Un día sin clientes que informar no deja el reporte vacío: la consulta siempre devuelve sus cuatro títulos, así que el fichero lleva `Reporte Clientes Exclusivos` y los títulos de las cuatro secciones sin mensajes; se convierte a CRLF y se envía a los dos destinos (RK10). La línea `La select no devuelve valores` no se produce en este proceso.
 - Si falta `credentials.xml`, `GSProcess.sh` termina con 0 sin hacer nada (R1 de su spec).
 
 Logs: `execute_clientes_<AAAAMMDD>.log` (detalle, `ESTADO-0-`/`ESTADO-1-`), `execute_<AAAAMMDD>.log`
@@ -208,13 +206,13 @@ Versión de mapeo `1.0.0.0`, traductor `8.1.1.1`, Mapping Designer `8.7.1.12`, �
 | Salida | Codificación `UTF-8`; atributo `VENDOR_MNEMONIC` añadido; sin indicadores de zona horaria; fechas de salida `%M-%D-%Y %H:%I:%S %A` |
 | `Keystreaming` | Desactivado |
 | Tabla de traducción `CExclusivos` | `C` → `Shared` y `E` → `Exclusive` |
-| Mensaje de salida | El árbol visible solo muestra la raíz `STREET_REF` bajo `MappingFragments` y un aviso de Mapping Designer ("uno o más nodos de mensaje de referencia no están asociados a su XSD"); el detalle de los campos de salida no aparece en las capturas |
+| Mensaje de salida | **Resuelto (4ª pasada, según el objeto `clientes.mdx` de la rama develop)**: mensaje `STREET_REF` con cabecera fija (`USERID=BBVA:CUSTOMER`, `MAIN_ENTITY_ID=COD_CCLIEN`, `MAIN_ENTITY_NME=COD_CCLIEN`, `MAIN_ENTITY_TBL_TYP=FRCL`, sin cambio de modelo) y tres tipos de segmento (`FinsRoleClassification`, `RegisterLogTable`, `FINSFinancialInstitutionRole`); lógica en §6.3.1.1. La salida de `Mapping Designer` no es un árbol plano de campos: es un flujo con consultas SQL a GoldenSource |
 
 Consecuencias:
 - **`COD_TIPOCLI` solo tiene dos valores traducibles: `C` (compartido, `Shared`) y `E` (exclusivo,
   `Exclusive`).** Es la regla que da sentido al nombre del proceso ("clientes exclusivos de CIB"): el
   mapeo distingue los clientes exclusivos de los compartidos. Qué ocurre con cualquier otro valor
-  depende de cómo use el mapeo la tabla (no visible, P-CIB-10).
+  depende de cómo use el mapeo la tabla: ver §6.3.1.1 (4ª pasada), que describe el flujo completo y sus defectos (D1 a D3).
 - El recorte de espacios lo hace también `ControlCargaDatos.jar`, de modo que el fichero llega recortado
   dos veces sin efecto adicional.
 - La entrada es la misma de 12 columnas que declara el usuario, con lo que R7 queda confirmado por dos
@@ -222,6 +220,33 @@ Consecuencias:
 - Las capturas del mapeo no muestran ningún filtro que descarte la primera línea. Como `ControlCargaDatos.jar`
   conserva la cabecera en `clientes_processed.csv`, la descarta el feed `clientes` (definición de lectura
   `SkipHeaderReadByLine.xml`, §6.3.2) antes de que el mapeo vea el fichero.
+
+#### 6.3.1.1 Lógica del mensaje de salida de `clientes.mdx` (4ª pasada)
+
+Procedencia: objeto `clientes.mdx` del repositorio de objetos de GoldenSource, rama develop (puede diferir de lo instalado; versión `1.0.0.0`, último cambio 2020-05-27). El mapeo no copia las 12 columnas: solo usa `COD_CCLIEN` y `COD_TIPOCLI`; el resto (`COD_NIF`, `COD_BDI`, `DES_NOMCLI`, `COD_BANCO`, `COD_OFICINA`, `COD_CONTRATO`, `COD_CFOLIO`, `COD_CNAE5`, `DES_CNAE5`, `DES_RESTO`) se valida y se lee pero **no se carga ni se usa en ningún sitio**. El objetivo del proceso es mantener una clasificación `CLIEX` (`Exclusive`/`Shared`) por cliente.
+
+Flujo por registro:
+1. **Localizar el cliente.** `SELECT INST_MNEM FROM FT_T_FIID WHERE FINS_ID_CTXT_TYP='CLIENTELAID' AND DATA_STAT_TYP='ACTIVE' AND FINS_ID=<COD_CCLIEN>`. Si no existe: no se carga nada y se escribe un `RegisterLogTable` de error (`RLT_PURP_TYP=ERRORES`, `DATA_SRC_APP=CLIENTES_EXCLUSIVOS`, `GS_FIELD=FINS_ID`, `MESSAGE_RLT` = «El codigo de clientela <COD_CCLIEN> no esta en RDR», con `JOB_ID`, nº de registro y `TRN_ID`). Ese es el error `Funcional` que luego recoge `clientes_errores.csv` (§6.3.2).
+2. **Comparar con lo que hay.** Busca la clasificación actual: `SELECT CL_VALUE FROM FT_T_FRCL WHERE DATA_STAT_TYP='ACTIVE' AND INST_MNEM=<inst> AND INDUS_CL_SET_ID='CLIEX'`.
+   - **No existe** (alta): marca `LOAD1=FRCL` y `REPORTES=INSERT`.
+   - **Existe y coincide** con `Translate(CExclusivos, COD_TIPOCLI)` (`Exclusive`/`Shared`): **no hace nada** (ni carga ni línea de reporte).
+   - **Existe y difiere**: marca `LOAD1=FRCL`, `CARGA=UPDATE` y `REPORTES=OK`, y recupera el `FINR_CLSF_OID` existente para actualizarlo.
+3. **Carga** (si `LOAD1=FRCL`): segmento `FinsRoleClassification` (acción `UNKNOWN`: inserta o actualiza) con `INDUS_CL_SET_ID=CLIEX`, `FINS_RL_TYP=CUSTOMER`, `INST_MNEM` del cliente, `CL_VALUE=Translate(CExclusivos, COD_TIPOCLI)`, `CLSF_OID` = `SELECT CLSF_OID FROM FT_T_INCL WHERE INDUS_CL_SET_ID='CLIEX' AND DATA_STAT_TYP='ACTIVE' AND CL_VALUE=<valor traducido>`, `DATA_STAT_TYP=ACTIVE`, `START_TMS`/`LAST_CHG_TMS` = `SYSDATE`, `LAST_CHG_USR_ID=BBVA:CUSTOMER`, y `FINR_CLSF_OID` el existente (UPDATE) o uno nuevo (`NEW_OID` de `DUAL`). Cuelga un segmento `FINSFinancialInstitutionRole` de tipo `REFERENCE` que enlaza con el `FINR_OID` activo del rol `CUSTOMER` del cliente. Tabla de destino: `FT_T_FRCL`.
+4. **Líneas del reporte** (`RegisterLogTable` con `RLT_PURP_TYP=REPORTES`, `DATA_SRC_APP=CLIENTES_EXCLUSIVOS`, `GS_FIELD` = identificador canónico `FINSID` del cliente; `MESSAGE_RLT` es la línea que verá el reporte):
+
+| `RLT_STATUS` | Mensaje | Cuándo debería escribirse | ¿Es alcanzable? |
+|---|---|---|---|
+| 1 | «El cliente con canonico <FINSID> ha pasado a ser cliente exclusivo» | `REPORTES=OK` y `COD_TIPOCLI='E'` | Sí |
+| 2 | «El cliente con canonico <FINSID> ha pasado a ser cliente compartido» | `REPORTES=OK` y `COD_TIPOCLI='C'` | **No** (defecto D1) |
+| 3 | «El cliente con canonico <FINSID>  es un nuevo cliente exclusivo» | `REPORTES=INSERT` y exclusivo | **No** (defecto D2) |
+| 4 | «El cliente con canonico <FINSID>  es un nuevo cliente compartido» | `REPORTES=INSERT` y compartido | **No** (defecto D2) |
+
+Defectos observados en el objeto develop (hay que confirmar si lo instalado es igual):
+- **D1.** La condición externa del bloque de reportes es `REPORTES='OK' Y COD_TIPOCLI='E'`; la rama interior de «cliente compartido» (`COD_TIPOCLI='C'`) cuelga del `Else` del `If` interior y por tanto queda dentro de una condición que exige `E`: nunca se ejecuta. Un cliente que pasa de exclusivo a compartido se actualiza en `FT_T_FRCL` pero **no** aparece en «Clientes que pasan a Compartidos».
+- **D2.** Las altas (`REPORTES=INSERT`) comparan `Translate(CExclusivos, ...)` con `Exclusivo` y `Compartido`, pero la tabla traduce a `Exclusive` y `Shared`: ninguna condición se cumple y los segmentos 3 y 4 no se generan. Las secciones «Nuevos Clientes Exclusivos» y «Nuevos Clientes Compartidos» del reporte salen siempre solo con su título.
+- **D3.** Un `COD_TIPOCLI` distinto de `C`/`E` (que `ControlCargaDatos.jar` deja pasar, §6.3.3) hace que `Translate` no encuentre entrada: el comportamiento exacto depende de lo que devuelva `Translate` en ese caso (no observable en el objeto). La consulta de `FT_T_INCL` con ese valor no devolverá `CLSF_OID` y la carga a `FT_T_FRCL` fallará o dejará la clasificación vacía; el error se vería en `clientes_errores.csv` como `Tecnico`. En ningún caso se escribe línea de reporte. Debe verificarse con TC-010 (registro `X`).
+- **D4.** Los mensajes de altas llevan un espacio doble antes de «es un nuevo cliente...».
+- El mapeo no controla un `COD_TIPOCLI` vacío en origen (la validación de `ControlCargaDatos.jar` ya lo exige de 1 carácter).
 
 #### 6.3.2 Los tres eventos de GoldenSource de las acciones 3, 4 y 5 (workflows)
 
@@ -260,13 +285,20 @@ directorio que `clientes.csv`):
 
 **Acción 5, evento `RDR_Reporte` → workflow `GenerateReports`.** Recibe `Servicio` y `Ruta`. Un conmutador sobre `Servicio`
 elige la rama (`clientes`, `OFAC`, `LOPD`, `cedro`, `nlegales`, `informeMIFID`, etc.; cualquier otro valor termina sin hacer nada). La rama `clientes`:
-- Fichero `Reporte_clientes.csv`, consulta = elemento 8 de una lista de consultas definida dentro del propio workflow (texto de 27.736 bytes que el volcado guarda como objeto binario **no recuperable**: la consulta del reporte no se conoce).
+- Fichero `Reporte_clientes.csv`, consulta = elemento 8 (`arrayStringSelects[8]`) de la lista de consultas que inicializa el nodo `Initialize Variables` del propio workflow (**texto recuperado en la 4ª pasada**, objeto `GenerateReports.gsp` de la rama develop; ver más abajo).
 - Cabecera: el texto fijo `Reporte Clientes Exclusivos` (se deduce de las constantes del workflow, porque los doce nodos de llamada tienen el mismo nombre en el volcado). Por tanto la primera línea del fichero no es una lista de columnas.
 - Llama al subworkflow `Sub_GenerateReports`: carpeta `<Ruta>clientes/`, ejecuta la consulta contra `jdbc/GSDM-1` y:
   - **Con filas** (`Sub_DevelopReport`): mueve el `Reporte_clientes.csv` anterior a `old/` (sustituyendo el que hubiera allí y borrando el provisional), escribe `dummyReporte_clientes.csv` con la cabecera y una línea por fila (todas las columnas unidas con `;` y un `;` final; el texto `null` se borra de todos los valores) y lo renombra a `Reporte_clientes.csv` al terminar.
-  - **Sin filas:** mueve igualmente el anterior a `old/` y deja un `Reporte_clientes.csv` cuya única línea es `La select no devuelve valores` (sin cabecera). `Unix2Dos` lo convierte y los dos envíos lo transportan como si fuera el reporte.
+  - **Sin filas:** mueve igualmente el anterior a `old/` y deja un `Reporte_clientes.csv` cuya única línea es `La select no devuelve valores` (sin cabecera). **Para `clientes` este caso no se da nunca**: la consulta (abajo) arranca cada sección con un `SELECT '<título>' FROM DUAL`, de modo que siempre devuelve al menos 4 filas (los títulos). RK10 queda reducido a un día sin clientes que informar: el reporte llevaría solo los títulos.
 
-Con esto el reporte es un CSV de columnas desconocidas separadas por `;`, con `;` final y la línea de título como primera línea, y el fichero de `old/` es siempre el del día anterior (`Reporte_clientes.csv` ya no queda sin historificar; `MEKYTL0939` solo mueve la versión `_dos`).
+**La consulta del reporte (`arrayStringSelects[8]`, 4ª pasada).** Una sola columna (`REPORTE_CLIENTES_EXCLUSIVOS`) formada por cinco bloques unidos con `UNION ALL` y sin `ORDER BY`. El nombre del fichero de entrada con el que identifica la última carga se construye con el entorno detectado por el propio nodo (existencia de `/pr|pp|ei|de/kytl/online/multipais/multicanal/cfg/entorno/`):
+1. Título `Clientes que pasan a Exclusivos`, seguido de los `MESSAGE_RLT` (convertidos a `VARCHAR(256)`) de `FT_T_RLT1` con `RLT_STATUS='1'`.
+2. Título `Clientes que pasan a Compartidos` y las líneas con `RLT_STATUS='2'`.
+3. Título `Nuevos Clientes Exclusivos` y las líneas con `RLT_STATUS='3'`.
+4. Título `Nuevos Clientes Compartidos` y las líneas con `RLT_STATUS='4'`.
+En todos los bloques el filtro común es `DATA_SRC_APP='CLIENTES_EXCLUSIVOS'`, `RLT_PURP_TYP='REPORTES'` y `JOB_ID` = el job más reciente (`order by 4 desc` sobre `FT_T_JBLG`, es decir, la cuarta columna de la tabla) con `job_input_txt='/fichtemcomp/<entorno>/descargas/kytl/clientes/clientes_processed.csv'` y `job_msg_typ='CLX'`. A diferencia de `RDR_ErroresCSV`, **no** exige que el job esté `CLOSED` ni limita la ventana de tiempo: si hoy no hubo carga, el reporte repite el contenido de la última carga histórica. Los estados 2, 3 y 4 no se generan por los defectos D1/D2 de §6.3.1.1, de modo que el contenido útil del reporte es solo el bloque 1.
+
+Con esto el reporte es un CSV de **una columna** (línea de texto por fila), con `;` final en cada línea (`Sub_DevelopReport`) y la línea `Reporte Clientes Exclusivos` como primera línea; después vienen los cuatro títulos y, bajo el primero, las frases «El cliente con canonico <FINSID> ha pasado a ser cliente exclusivo». El fichero de `old/` es siempre el del día anterior (`Reporte_clientes.csv` ya no queda sin historificar; `MEKYTL0939` solo mueve la versión `_dos`).
 
 ### 6.4 `MEKYTL0147` y `MEKYTL0148` — envíos con `MEGENV0001.sh`
 
@@ -309,7 +341,7 @@ histórico de ese día.
 | `ControlCargaDatos.jar` + `javacsv.jar` | `GSProcess.sh` (acción `Java`) | Sí (otras evidencias) | `salidas_pendientes/comun_controlcargadatos/comun_controlcargadatos_spec.md`; §6.3 |
 | `fillingRules_clientes.csv` | `ControlCargaDatos.jar` | **No** (solo nombres de columna) | Gap P-CIB-02 |
 | `executeBbvaEvent.sh` | `GSProcess.sh` (acción `Evento`) | Sí (otras evidencias) | `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md` |
-| Eventos `StandardFileLoad`, `RDR_ErroresCSV`, `RDR_Reporte` (GoldenSource) | `executeBbvaEvent.sh` | Workflows sí (volcado de GoldenSource); consulta del reporte y `errores_to_file.sh` **no** | §6.3.2; gap P-CIB-04 |
+| Eventos `StandardFileLoad`, `RDR_ErroresCSV`, `RDR_Reporte` (GoldenSource) | `executeBbvaEvent.sh` | Workflows sí (volcado de GoldenSource y rama develop); consulta del reporte sí (4ª pasada); `errores_to_file.sh` ver §6.3.3 | §6.3.2 |
 | `Generico.sh` (`Unix2Dos`) | `GSProcess.sh` | Sí | `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md` §4.2 |
 | `MEGENV0001.sh` y sus `.idx` `MEKYTL0147`/`MEKYTL0148` | Jobs 3 y 4 | Script sí; `.idx` **no** | Spec común; gap P-CIB-05 |
 | `RAMERC0068.sh` y sus líneas IDX `MEKYTL0136`/`MEKYTL0939` | Jobs 5 y 6 | Script sí; líneas **no** | Spec común; gap P-CIB-06 |
@@ -387,7 +419,7 @@ doble), más un end-to-end. Los casos están en `rdr_clientes_cib_casos_prueba.x
 - TC-005 y TC-006 (conflicto de integridad) comprueban las dos condiciones AND (R5, R6).
 - TC-007 (regresión) comprueba que los históricos de días distintos no se pisan.
 - TC-008 (e2e) recorre el flujo completo.
-- TC-009 (datos sintéticos) comprueba el formato de `Reporte_clientes.csv` y de `clientes_errores.csv`, y el día en que la consulta del reporte no devuelve filas (RK10, RK11).
+- TC-009 (datos sintéticos) comprueba el formato de `Reporte_clientes.csv` (una columna, cuatro títulos, mensajes de cambio a exclusivo) y de `clientes_errores.csv`, y el día sin cambios (solo títulos) (RK10, RK11). TC-011 comprueba la lógica de `clientes.mdx` (altas, cambios, cliente inexistente y defectos D1/D2).
 - TC-010 (borde) comprueba las reglas de `fillingRules_clientes.csv` de la plantilla: obligatoriedad y longitud de `COD_CCLIEN` y `COD_TIPOCLI`, caracteres no permitidos y ausencia de control de duplicados (§6.3.3).
 
 Confirmaciones:
@@ -395,8 +427,7 @@ Confirmaciones:
   TC-006 necesitan un mecanismo para forzar el fallo de un job (P-CIB-09); hasta tenerlo se verifican por
   lectura de la definición de la cadena.
 - **Cobertura**: la suma de casos cubre las 7 transiciones y las 3 condiciones de control del grafo. **No
-  están cubiertos**: el contenido (las columnas) del reporte (P-CIB-04); el formato del reporte y el caso de
-  consulta sin filas sí se cubren en TC-009. La validación campo a campo de `ControlCargaDatos.jar` y la ausencia de control de duplicados se cubren con TC-010 (reglas de la plantilla, pendiente de verificar la copia instalada, P-CIB-02), y `Delta=No` queda reflejado en TC-007 (sin referencia delta).
+  están cubiertos**: la verificación de que el `clientes.mdx` y la consulta instalados coinciden con develop; el formato del reporte y el día sin cambios se cubren en TC-009 y la lógica del mapeo en TC-011. La validación campo a campo de `ControlCargaDatos.jar` y la ausencia de control de duplicados se cubren con TC-010 (reglas de la plantilla, pendiente de verificar la copia instalada, P-CIB-02), y `Delta=No` queda reflejado en TC-007 (sin referencia delta).
 
 ## 8. Validaciones de casos de prueba
 
@@ -426,7 +457,8 @@ Confirmaciones:
 | RK7 | Fichero en UTF-8 con columnas `USAR`: se rechazan registros con `é`, `í`, `ó`, `ñ` (P-CIB-03). | Medio |
 | RK8 | Máximo de relanzamientos 0: sin reintento automático. | Bajo |
 | RK9 | Históricos sin compresión ni purga documentada. | Bajo |
-| RK10 | Un día sin filas en la consulta del reporte genera `Reporte_clientes.csv` con la única línea `La select no devuelve valores`; se convierte, se envía a los dos destinos y se historifica como si fuera un reporte válido (§6.3.2). | Medio |
+| RK10 | Un día sin cambios de tipo de cliente genera un `Reporte_clientes.csv` formado solo por los títulos (la consulta no devuelve mensajes, pero siempre devuelve los títulos); se convierte, se envía a los dos destinos y se historifica como si fuera un reporte válido. Además, la consulta no filtra por fecha ni por estado del job: si no hay carga hoy, repite el reporte de la última carga (§6.3.2). | Medio |
+| RK13 | Defectos del mapeo `clientes.mdx` (develop, §6.3.1.1): los cambios a compartido y las altas no llegan al reporte (D1, D2); un `COD_TIPOCLI` distinto de `C`/`E` puede dejar la clasificación vacía o fallar (D3). Los clientes que pasan a compartidos nunca se notifican a los destinos. | Alto |
 | RK11 | `clientes_errores.csv` solo se genera si hay un job de carga cerrado en la última hora; si la carga tarda más o `File`/`MessageType` no coinciden con `job_input_txt`/`job_msg_typ`, no hay fichero de errores y nadie lo nota. Tampoco lo consume ningún job de la cadena. | Medio |
 | RK12 | `Delta=Si` más `MarcaRegErroneo` depende de un script (`errores_to_file.sh`) que se invoca por `sh` sin comprobar su resultado: un fallo no impide el resto del evento. Con la plantilla (`Delta=No`) no aplica a este proceso. | Bajo |
 
@@ -436,8 +468,9 @@ duplicados: una línea repetida que no estaba en la carga anterior sale tantas v
 
 ## 10. Conclusión y requisitos de cierre
 
-Revisión 02/10/2026: los workflows de GoldenSource de los tres eventos ya están descritos (§6.3.2). Quedan abiertos la
-consulta del reporte (P-CIB-04) y el mensaje de salida del mapeo (P-CIB-10).
+Revisión 02/10/2026: los workflows de GoldenSource de los tres eventos ya están descritos (§6.3.2).
+
+Revisión 4ª pasada (03/10/2026, repositorio de objetos de GoldenSource, rama develop): la consulta del reporte (P-CIB-04, H-CIB-06, G3) y el mensaje de salida del mapeo (P-CIB-10) están analizados (§6.3.1.1 y §6.3.2). El reporte es de una columna; el mapeo carga `FT_T_FRCL` con la clasificación `CLIEX` y presenta tres defectos (D1 a D3) que dejan sin notificar los cambios a compartido y las altas. Queda abierto verificar que lo instalado coincide con develop.
 
 G1 y G2 están cerrados con evidencia (captura de Control-M y respuesta del usuario). G3 está cerrado para
 los nombres de columna de la entrada y corregido en cuanto al origen del reporte, que no es la carga MDX

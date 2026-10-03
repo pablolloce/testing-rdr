@@ -75,7 +75,7 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar KYTL_BNIVEL_GSPROCESS con la BD sin candidatos.</paso>
-      <paso numero="2">Verificar que el job termina OK y genera los 2 reportes, aunque estén vacíos o sin filas de detalle. Si la SELECT del informe no devuelve filas, Reporte_bajaniveles.csv existe con una única línea de texto (La select no devuelve valores), no está ausente, y Reporte_bajaniveles_dos.csv es su copia con CRLF.</paso>
+      <paso numero="2">Verificar que el job termina OK y genera los 2 reportes, aunque estén vacíos o sin filas de detalle. La SELECT del informe solo devuelve las filas REPORTES del último job de baja; sin candidatos no hay ninguna y Reporte_bajaniveles.csv existe con una única línea de texto (La select no devuelve valores), sin la cabecera FINSID;Legal Name;Level;Current Data Status;Message, no está ausente, y Reporte_bajaniveles_dos.csv es su copia con CRLF.</paso>
       <paso numero="3">Comprobar que no se crea bajaniveles_errores.csv (RDR_ErroresCSV no encuentra ningún job de carga de fichero para este servicio).</paso>
     </pasos>
     <resultadoEsperado>La cadena completa se ejecuta con normalidad; los reportes reflejan 0 bajas realizadas.</resultadoEsperado>
@@ -200,9 +200,9 @@
       <paso numero="3">Caso C: ejecutar la baja y comprobar que no se inactiva nada, que el workflow termina sin error y que OUTPUT indica que la baja falló porque hay una hija activa.</paso>
       <paso numero="4">En los tres casos, comprobar las filas insertadas en FT_T_RLT1 para el job y, en la rama de LOCAL con CLIENTELAID, la llamada a BajaClientela460.</paso>
     </pasos>
-    <resultadoEsperado>Caso A: LOCAL y GLOBAL inactivos en la misma llamada. Caso B: solo el LOCAL inactivo. Caso C: ninguna tabla cambia y el rechazo queda registrado, sin error.</resultadoEsperado>
+    <resultadoEsperado>Caso A: LOCAL y GLOBAL inactivos en la misma llamada; en FT_T_RLT1 solo una fila REPORTES «Contrapartida dada de baja a nivel GLOBAL» (con el mnemónico de la GLOBAL) y, si el LOCAL tenía CLIENTELAID, una fila PROCESO/B460 PENDING. Caso B: solo el LOCAL inactivo y una fila REPORTES «Contrapartida dada de baja a nivel LOCAL». Caso C (llamada directa con relTyp=LOCAL): ninguna tabla cambia y se registra una fila ERRORES «No existen contrapartidas sin OPERATIVE» (no sale en el reporte); con relTyp=GLOBAL y un LOCAL activo, fila REPORTES «La contrapartida tiene nivel Local activo» y OUTPUT «Inactivation failed. Local is actived.».</resultadoEsperado>
     <tipoValidacion>Consulta a BD antes y después, y revisión de la salida del workflow.</tipoValidacion>
-    <criterioAceptacion>Los tres casos se comportan como se indica; se documentan las columnas reales de FT_T_RLT1.</criterioAceptacion>
+    <criterioAceptacion>Los tres casos se comportan como se indica; las filas de FT_T_RLT1 coinciden con la spec (columnas RLT_PURP_TYP, DATA_SRC_APP=BAJA_CPARTY, MAIN_ENTITY_NME, RLT_FIELD) y el reporte contiene las filas REPORTES del job con la cabecera de cinco columnas.</criterioAceptacion>
     <posibilidadFallo>Que los dos LOCAL de un mismo GLOBAL, procesados en paralelo, no den de baja la GLOBAL en la fase LOCAL (la fase GLOBAL la recoge después); que la rama con CLIENTELAID no sea la deducida de las transiciones.</posibilidadFallo>
   </casoDePrueba>
 

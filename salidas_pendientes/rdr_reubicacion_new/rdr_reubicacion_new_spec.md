@@ -140,7 +140,7 @@ es idéntico a la copia de integración, §6.4.4). **P-REUB-02** queda resuelta 
 | P-REUB-05 | ¿Qué días marca el calendario `RDR_CIERREOFI`? | Decide cuándo se ejecuta la cadena |
 | P-REUB-07 | ¿Qué proceso pasa la oficina de `INACTIVEPEND` a `INACTIVE` y qué uso tiene la fila `FT_T_RLT1` "Oficina actualizada a Inactive Pending" (`RLT_DIF_STAT='PENDING'`, `RLT_DIF_ACC='B'`)? | Es el estado final que deja este proceso; quien lo consume no está en las fuentes |
 | P-REUB-08 | ¿Hay otra vía para confirmar el campo 5 de la línea `MEKYTL0122` del IDX y `FALLA_NO_FICHERO`/protocolo de `MEKYTL0111`, `MEKYTL0233` y `MEKYTL0234`? ¿Cómo se materializa el "A DUMMY" de `MEKYTL0234`? | Con la regla NOTOK → OK, su fallo no se ve; solo se sabría mirando logs (§6.5, §6.6) |
-| H-REUB-15 | Definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` (253 bytes) del feed `Reubicacion`: por su nombre salta la primera línea de `Reubicacion_processed.csv` (la fila de nombres de columna), pero el XML no está en el volcado | Si no la saltara, la cabecera se procesaría como una reubicación (RISK-REUB-011) |
+| H-REUB-15 | **Resuelta (4ª pasada, 03/10/2026).** Definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml` del feed `Reubicacion`: según el objeto de la rama develop es definición de lectura con codificación `ISO-8859-1`, divisor de mensajes `LineSplitter` (una línea = un mensaje), filtro `EmptyMessageFilter` (descarta las líneas vacías) y `skipLines=1` (salta incondicionalmente la primera línea, sin comprobar que sea una cabecera). El feed `Reubicacion` (objeto `Reubicacion.gsp`, develop) es idéntico al de `Refundicion` salvo nombre y fichero: patrón `Reubicacion_processed.csv`, sin mapeo, `commitMode=None`, `rollbackOnError=false`, guarda solo mensajes erróneos | Con `skipLines=1` la cabecera no se procesa como reubicación (RISK-REUB-011); pero si `Reubicacion_processed.csv` llegara sin cabecera se perdería la primera reubicación |
 
 ## 5. Especificación funcional
 
@@ -430,7 +430,7 @@ GoldenSource 8.7.1.118) es un `com.j2fe.event.GenericEvent` con la lista de par�
 2. `Open File` (`ReadFile`): abre el fichero `File` del `.properties`, `Reubicacion_processed.csv`, con la definición del
    business feed `Reubicacion` (origen `RDR`; definición de lectura `db://resource/RDR/xml/feeds/SkipHeaderReadByLine.xml`,
    que por su nombre lee línea a línea saltando la primera, la fila de nombres de columna que escribe
-   `ControlCargaDatos.jar`; el XML de 253 bytes no está en el volcado; patrón de fichero `Reubicacion_processed.csv`; tipo de
+   `ControlCargaDatos.jar`; contenido de la definición: `SkipHeaderReadByLine.xml` (4ª pasada, según el objeto del repositorio de objetos de GoldenSource, rama develop): definición de lectura con codificación `ISO-8859-1`, divisor de mensajes `LineSplitter` (una línea = un mensaje), filtro `EmptyMessageFilter` (descarta las líneas vacías) y `skipLines=1` (salta incondicionalmente la primera línea, sin comprobar que sea una cabecera); patrón de fichero `Reubicacion_processed.csv`; tipo de
    mensaje `Reubicacion`; sin mapeo MDX; modo de commit `None`; `ROLLBACK_ON_ERROR=N`; notificaciones y copias de mensajes
    solo en `ERROR`, salvo `WRITE_NOTFCN_TYP=WARNING`). Si la apertura falla, `PLSQL_Load` cierra el job sin cargar nada.
 3. `File Split Condition`: lo trocea en lotes de **500** líneas (`bulk=500`), base de datos `jdbc/GSDM-1`.
@@ -492,6 +492,7 @@ Detalles que importan:
   determinar con el material disponible (H-REUB-06, resuelta en parte).
 - Si la oficina cerrada ya no estaba `ACTIVE` en `FT_T_FINS`, se reasigna sin dejar ninguna fila de éxito.
 - La rama `Refundicion` del mismo `Sub_Load` no se ejecuta en este proceso.
+- **Workflows de la misma carpeta que este proceso no usa (4ª pasada, rama develop):** `Sub_Report` (informe `Reporte_Reubicacion.csv` con las columnas `Estado;Oficina a reubicar;ID;Oficina sobre la que refunde;ID`, sobre `FT_T_RLT1` con `RLT_STATUS='4'` del job) y `Pr_Ej1` (pone la institución de una oficina en `INACTIVEPEND` si su relación `IS_OFFI` está inactiva y tiene `BDLOCAL`). Ningún evento ni workflow del repositorio los invoca; además `Sub_Report` filtra `RLT_STATUS='4'` mientras `REUBICACION` escribe `1`, de modo que, aunque se activara, no encontraría filas. El informe real es `RDR_Report.jar` con `select.properties` (§6.4.4).
 
 **Cómo termina**: `executeBbvaEvent.sh` devuelve 0 cuando la consulta de estado del evento devuelve 0; si el
 workflow termina con error y la consulta devuelve 0, `GSProcess.sh` no lo ve (pregunta general P-EBE-01 de la
@@ -618,7 +619,7 @@ con `pr` son valores de producción según la plantilla, no una copia verificada
   variables `Servicio=reubicacionSSIS`, `BusinessFeed=Reubicacion_SSIS`, `MessageType=Reubicacion_SSIS`, `File=.../reubicacionSSIS/CAMBIOCUENTA.txt`, `Workflow=Si` y el evento `Workflow` `RDR_Reubi_SSIS`; el `_FILTER` solo lanza el jar.
   Por el nombre de fichero tratan un **cambio de cuenta** (baja/alta) distinto de la reubicación de oficinas; ni los 7 jobs de §6.1 ni `Reubicacion.properties` los invocan, y el jar y el workflow `RDR_Reubi_SSIS` no están en el material.
   Quedan como artefactos vecinos sin analizar.
-- No hay información de la plantilla sobre el calendario `RDR_CIERREOFI` (P-REUB-05), los `.idx` de `MEKYTL0111`/`0233`/`0234`, la línea IDX de `MEKYTL0122`, `SkipHeaderReadByLine.xml` ni los módulos `SF_MEGENV0001_*.mod`.
+- No hay información de la plantilla sobre el calendario `RDR_CIERREOFI` (P-REUB-05), los `.idx` de `MEKYTL0111`/`0233`/`0234`, la línea IDX de `MEKYTL0122` ni los módulos `SF_MEGENV0001_*.mod` (`SkipHeaderReadByLine.xml` consta desde la 4ª pasada).
 
 ## 7. Especificación de testing
 
@@ -685,7 +686,7 @@ TC-017 y TC-018 actuales se añadieron el 02/10/2026.
 | RISK-REUB-007 | La oficina queda `INACTIVEPEND`; si ya no estaba activa, la reasignación se hace sin filas de éxito | Medio |
 | RISK-REUB-008 | `LimpiarReubicacion` une líneas que solo difieren en las columnas 3/4 | Medio, según el significado de esas columnas (P-REUB-02) |
 | RISK-REUB-010 | Si falta `Reubicacion.csv` al ejecutar 2a, `LimpiarReubicacion` deja `Reubicacion.tmp` vacío y devuelve 0 | Bajo (el paso 1 garantiza el fichero) |
-| RISK-REUB-011 | La cabecera de `Reubicacion_processed.csv` se procesaría como una reubicación más ("Oficina de cierre no encontrada" con `COD-OFICO`, que justo mide 9 caracteres) | Bajo: el feed `Reubicacion` usa la definición `SkipHeaderReadByLine`, que por su nombre salta la primera línea (el XML no está en el volcado) |
+| RISK-REUB-011 | La cabecera de `Reubicacion_processed.csv` se procesaría como una reubicación más ("Oficina de cierre no encontrada" con `COD-OFICO`, que justo mide 9 caracteres) | Bajo: el feed `Reubicacion` usa `SkipHeaderReadByLine` (4ª pasada: `skipLines=1`, salta siempre la primera línea). Contrapartida: si el fichero validado no llevara cabecera, se descartaría sin aviso la primera reubicación |
 | RISK-REUB-012 | Códigos de oficina de más de 9 caracteres provocan un error no capturado por el bloque `REUBICACION`, y la validación no limita la longitud (`fillingRules_Reubicacion.csv` solo tiene `NULL` y `USAR`) | Medio; la longitud real de los códigos y el efecto del error en el workflow siguen sin confirmar (P-REUB-02, H-REUB-06) |
 | RISK-REUB-013 | Si `RDR_Report.jar` no conecta, `MEKYTL0111` envía el informe del cierre anterior | Medio |
 | RISK-REUB-014 | Con `Reubicacion.csv` vacío o ausente, `ControlCargaDatos.jar` no regenera `Reubicacion_processed.csv` y el workflow vuelve a cargar el del cierre anterior, sin ningún aviso (el programa termina con 0). Si no hay uno anterior, la apertura falla y el job se cierra sin cargar | Medio: relectura de reubicaciones antiguas (en su mayoría sin efecto, porque la oficina ya está `INACTIVEPEND`) |
