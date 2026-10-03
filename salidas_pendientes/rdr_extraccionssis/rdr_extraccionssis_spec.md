@@ -94,7 +94,7 @@ código fuente SQL o documentación del gestor documental. No queda ninguna hip�
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-SSI-01 | **Resuelta.** Lista completa de campos planos de `SettInstruction` y de los 8 bloques, con tabla/columna de origen | Resuelta con el diccionario de campos del documento original del proceso (rama de Miguel; el mismo texto figura en la rama de Víctor). Está en §6 (24 campos planos, no ~40, y 8 bloques; Participants con 13 subcampos). |
-| P-SSI-02 | Contenido de `ExtraccionGenericaSSIs.properties` (argumentos 1-7 del jar: nivel de log, fichero log4j, número de hilos, ubicación de credenciales; claves `Stop*`) | Dónde está el log del jar, que es la única señal de fallo |
+| P-SSI-02 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.1).** Contenido de `ExtraccionGenericaSSIs.properties` (argumentos 1-7 del jar: nivel de log, fichero log4j, número de hilos, ubicación de credenciales; claves `Stop*`) | Dónde está el log del jar, que es la única señal de fallo |
 | P-SSI-03 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` para la clave `MEKYTL1024` (máscara de origen, ruta, operación mover, renombrado, `FALLASINOFICH`) | Qué hace si no hay fichero y cómo se forma exactamente el nombre del backup |
 | P-SSI-04 | **Resuelta en parte.** Nombres de eventos, condiciones de entrada y criticidad: resueltos (ver §5, tabla de orden y eventos; `GS_EXTRACCION_CONT` y `MEKYTL1024` = criticidad S, «Aviso día siguiente incluso si es festivo»; todas las condiciones de entrada con «Eliminar en No»; `MANT_RDR_EXTRACCION_SSIS` espera `…_MEKYTL1025_OK` Y `…_MEKYTL1047_OK`), según las fichas del documento original del proceso (rama de Miguel). **Sigue pendiente:** reglas `ON` (si las hay) y, con ello, qué ocurre exactamente cuando un job falla a mitad de la cadena (las fichas no las describen) | Poder afirmar qué ocurre cuando un job falla en mitad de la cadena |
 | P-SSI-05 | Valores de `ROOT_TAG` y `URL_OUTPUT_FILE` de `ExtraccionContingenciaSSIs.sql` en `FT_T_PAR1`/`FT_T_ATE1` | Forma exacta del XML y nombre del fichero publicado |
@@ -242,6 +242,30 @@ Al terminar la cadena queda: el XML del día en `backup/`, los de los 7 días pr
   existe diccionario de campos para esos CSV porque nunca se generan. Se documentan en esta
   especificación solo a efectos de trazabilidad histórica, no como comportamiento funcional
   vigente.
+
+### 6.1 Parámetros de la extracción según la plantilla de despliegue
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama develop); son valores de plantilla, no copia verificada de producción,
+y la plantilla es anterior a la migración a Java 17 (clase `Ppal` sin paquete; las copias migradas llevan `JDKV=17` y
+`extracciongenericaotherentities.Ppal`).
+
+- `ExtraccionGenericaSSIs.properties` es idéntico al de SCIs salvo el nombre: `NomPaquete1=ExtraccionGenericaOtherEntities.jar`,
+  `NomClaseJava=Ppal`, `ServicioJava=ExtraccionGenericaSSIs_log`; argumentos: `2` (nivel de log), `log4jExtraccionGenericaSSIs.properties`
+  (en `dat/properties`), `20` hilos, directorio `/fichtemcomp/<env>/descargas/kytl/extracciongenerica`, temporal
+  `ExtraccionContingenciaSSIs.xml.tmp` en ese directorio, tipo `SSIS`, directorio de credenciales `<ruta>/cfg/entorno`. Librerías:
+  `ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`, `commons-pool-1.5.4`.
+  Una sola acción `Java`; **no hay claves `Stop*`** (no existen en la plantilla) ni `DirJava`, así que valen las opciones por defecto de `GSProcess.sh`.
+- Log del jar (`log4jExtraccionGenericaSSIs.properties`): `<ruta>/logs/ExtraccionGenericaSSIs.log`, nivel `info`, rotación a 100 MB con
+  3 copias, formato `[fecha] nivel clase:línea - mensaje`. Es donde hay que mirar para detectar los errores que el jar traga con código 0.
+- Historificación heredada, no ejecutada: `HistSSIs.properties` y `HistSSIsINACT.properties` (jobs `Dummy` `EXTRACCION_SSIS_XML` y
+  `EXTRACCION_SSIS_XML_INACT`) describen `QuitarNulos` sobre `SSIS/ExtraccionContingenciaSSIs.xml`, `XSLT_TO_XML` con
+  `RDR_SSIs_Compass.xsl` (activas, `Status='ACTIVE'`) o `RDR_SSIs_CompassINACT.xsl` (inactivas) hacia `SSIS/RDR_SSIS.csv` o
+  `SSIS/RDR_SSIS_INACT.csv` (CSV con `;`, más de 40 columnas desde `ActualDate`; solo las `SettInstruction` con
+  `Branches/Branch/BranchCod = 'A15'`, es decir COMPASS), y `Historificar` y `Borrar` de esos ficheros (en `HistSSIsINACT` solo el CSV
+  INACT). Esto explica los nombres `RDR_SSIS_YYYYMMDD.csv` de las fichas de `MEKYTL1025/1047`, que no se ejecutan. Nota: el XSL de SSIs
+  busca la etiqueta `BranchCod` (sin `e`) mientras el de SCIs usa `BranchCode`; no afecta hoy porque no se ejecuta.
+- No se encuentra en la plantilla la línea `MEKYTL1024` del IDX, ni `ExtraccionContingenciaSSIs.sql`, ni filas `FT_T_PAR1`/`FT_T_ATE1`,
+  ni código del jar: P-SSI-03, P-SSI-05, H-SSI-01 a 04 y 06 siguen abiertos.
 
 ## 7. Especificación de testing
 

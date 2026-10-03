@@ -36,7 +36,7 @@ Alternativa para pruebas: copiar a mano un `productossinfiltrar.xml` preparado (
 | `RDR_Transformacion_PRODUCTOS.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` (en otros entornos `xakytl1d`/`xakytl1i`/`xakytl1w`) | 001, 003, 011, 015 |
 | `RDR_Transformacion_PRODUCTOS.jar`, `RDRCommon.jar` | `/pr/kytl/online/multipais/multicanal/jar/` | `xakytl1p` | 001, 003 |
 | `ojdbc8.jar`, `xalan-2.7.1.jar`, `serializer-2.7.2.jar`, `ucp.jar` | `/pr/kytl/online/multipais/multicanal/lib/` | `xakytl1p` | 001, 003 |
-| Hoja(s) XSL (nombre desconocido, P-PROD-04) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | `xakytl1p` | 001, 003 |
+| Hoja `productos.xsl` (según la plantilla de despliegue; que la clase la aplique es inferencia, P-PROD-04) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | `xakytl1p` | 001, 003 |
 | Java cuyo `bin/` esté primero en el `PATH` de `xakytl1p`, que acepte las opciones `-XX` del script | — | `xakytl1p` | 003 |
 | `MEGENV0001.sh` y sus módulos `SF_MEGENV0001_*.mod` | `/pr/pl/envioweb/scrt/` | `xsramer1` | 001, 004, 006-009, 013 |
 | `RAMERC0068.sh` | `/pr/pl/scrt/` | `xsramer1` | 001, 005, 010, 013 |

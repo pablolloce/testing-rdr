@@ -94,7 +94,7 @@ otro programa (`ExtraccionGenericaOtherEntities.jar`) y otro calendario. Compart
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-DMD-01 | ¿Se puede obtener `ExtraccionDUCOMASTERDATA.properties` (el que lee `GSProcess.sh`)? | Es lo que se ejecuta. Sin él no se conocen el segundo argumento del Java (configuración de log4j: dónde escribe su log), si lleva directivas `DirJavaN` (que quitarían `-Dfile.encoding=iso-8859-1` y cambiarían la codificación del CSV) ni si tiene `StopJava`. Del log real solo se conocen los argumentos 1, 3, 4 y 5. |
+| P-DMD-01 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.2). Falta verificar en el servidor de producción que lo instalado coincide.** ¿Se puede obtener `ExtraccionDUCOMASTERDATA.properties` (el que lee `GSProcess.sh`)? | Es lo que se ejecuta. Sin él no se conocen el segundo argumento del Java (configuración de log4j: dónde escribe su log), si lleva directivas `DirJavaN` (que quitarían `-Dfile.encoding=iso-8859-1` y cambiarían la codificación del CSV) ni si tiene `StopJava`. Del log real solo se conocen los argumentos 1, 3, 4 y 5. |
 | P-DMD-02 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de producción para las claves `MEKYTL1299` y `MEKYTL1300`? | Deciden la operación real (copia o movimiento), el nombre exacto en destino, si falla cuando no hay fichero (campo 5) y si se sobrescribe un histórico del mismo día. Hoy se conocen solo por las fichas. |
 | P-DMD-03 | ¿Quién borra del backup los ficheros de más de 6 meses? | `RAMERC0068.sh` admite **una sola línea y una sola operación por clave** (`salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md` §4 y §7): con la clave `MEKYTL1300` no puede a la vez mover el fichero y borrar los antiguos. Si no hay otro mecanismo, el histórico crece sin límite. |
 | P-DMD-04 | ¿Cuál es el texto literal, en producción, de la query (`CLOB_VALUE` de `ExtraccionDUCOMASTERDATA.sql`), de la cabecera (`PAR1_VALUE_CLOB`) y de `URL_OUTPUT_FILE`? | El diccionario de §5.3 procede del análisis de la query hecho en el documento fuente; la query, la cabecera y la ruta de producción no se han visto. La ruta de integración sí (§6.2). |
@@ -223,10 +223,22 @@ el log):
 | Arg. | Significado | Valor observado (integración) |
 |---|---|---|
 | 1 | Nivel de log (`1` DEBUG, `2` INFO, `3` ERROR, `4` FATAL) | `2` |
-| 2 | Configuración de log4j (decide dónde se escribe el log) | No visible (P-DMD-01) |
+| 2 | Configuración de log4j (decide dónde se escribe el log) | Según la plantilla: `/<env>/kytl/online/multipais/multicanal/dat/properties/log4jExtraccionDUCOMASTERDATA.properties` |
 | 3 | Tipo de extracción | `DUCOMASTERDATA` |
 | 4 | Directorio de salida. **En la versión actual no se usa** (la ruta sale de `URL_OUTPUT_FILE`) | `/fichtemcomp/ei/descargas/kytl/extracciongenerica/DUCOMASTERDATA` |
 | 5 | Fichero de credenciales | `/ei/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml` |
+
+**Según la plantilla de despliegue (repositorio `estaticos`, rama develop; valores de plantilla, no copia verificada de producción).**
+`ExtraccionDUCOMASTERDATA.properties`: `MOD_EJECUCION=ExtraccionDUCOMASTERDATA`, `NomPaquete1=ExtraccionGenericaUnificada.jar`,
+`NomClaseJava=com.bbva.kytl.extraccion.Principal` (ya con paquete: este jar es posterior al de OtherEntities),
+`ServicioJava=ExtraccionDUCOMASTERDATA_log`; exactamente los 5 argumentos del log de integración (`2`; log4j con ruta absoluta;
+`DUCOMASTERDATA`; `/fichtemcomp/<env>/descargas/kytl/extracciongenerica/DUCOMASTERDATA`; `<ruta>/cfg/entorno/credentials.xml`);
+librerías `ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`, `commons-pool-1.5.4`; una sola
+acción `Java`; **sin `DirJava` ni `StopJava`**, de modo que valen las opciones por defecto de `GSProcess.sh` (incluida la codificación
+ISO-8859-1 de la JVM, que afecta al CSV; ver 5.3). Log del jar (`log4jExtraccionDUCOMASTERDATA.properties`): fichero
+`<ruta>/logs/ExtraccionDUCOMASTERDATA.log`, nivel `INFO`, rotación a 10 MB con 3 copias, codificación UTF-8, formato
+`[fecha] nivel clase:línea - mensaje`. Nota sobre P-DMD-05: el argumento 4 de la plantilla termina en `DUCOMASTERDATA`, justo la
+combinación que con el jar de noviembre de 2025 escribía en `.../DUCOMASTERDATA/DUCOMASTERDATA/`; con el jar actual el argumento se ignora.
 
 Con menos de 5 argumentos el programa lanza `IllegalArgumentException` y termina con error.
 
@@ -315,7 +327,7 @@ salida del job. Si el nombre de máquina no permite deducir el entorno, trabaja 
 | Ejecutable | Lo invoca | ¿Aportado? | Dónde está analizado / gap |
 |---|---|---|---|
 | `GSProcess.sh` | Job `EXTRACCIONDUCOMASTERDATA` | Sí (componente común) | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; uso aquí en §6.2 |
-| `ExtraccionDUCOMASTERDATA.properties` | `GSProcess.sh` | **No** | P-DMD-01 |
+| `ExtraccionDUCOMASTERDATA.properties` y `log4jExtraccionDUCOMASTERDATA.properties` | `GSProcess.sh` / el jar | Sí (plantilla de despliegue) | 6.2; P-DMD-01 resuelta en parte |
 | `ExtraccionGenericaUnificada.jar` (`Principal`, `OperacionesDB`) | Acción `Java` del `.properties` | Código fuente de las 2 clases funcionales; no `ConexionDB` ni `ConfiguracionCredenciales` | §6.2 y `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §3 |
 | Query `ExtraccionDUCOMASTERDATA.sql` (`FT_T_ATE1.CLOB_VALUE`) | El jar | Analizada en el documento fuente; texto literal **no** recibido | §5.3; P-DMD-04 |
 | `RAMERC0068.sh` | Jobs `MEKYTL1299`, `MEKYTL1300` | Sí (componente común) | `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md`; uso aquí en §6.3 |
@@ -380,6 +392,6 @@ los 3 jobs, lógica completa del programa de extracción (código fuente), confi
 datos, diccionario de las 4 secciones, destino DataX con su DataObject y comportamiento ante cada error.
 
 Quedan **6 preguntas abiertas** (§4.2). Las que más afectan a las pruebas son P-DMD-01 (el `.properties`
-que se ejecuta), P-DMD-02 (las líneas IDX de `MEKYTL1299` y `MEKYTL1300`) y P-DMD-03 (la purga a 6
+ya se conoce por la plantilla; falta contrastarlo con el servidor), P-DMD-02 (las líneas IDX de `MEKYTL1299` y `MEKYTL1300`) y P-DMD-03 (la purga a 6
 meses). Mientras no se respondan, TC-006 y TC-012 se ejecutan condicionados a lo que digan sus
 precondiciones y el resto de casos no se ve afectado.

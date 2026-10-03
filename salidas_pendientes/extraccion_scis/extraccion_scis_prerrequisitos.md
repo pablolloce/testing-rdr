@@ -62,7 +62,7 @@ Referencia de producción, máquina `pr-rdr.igrupobbva`:
 | Elemento | Ruta (producción) | Usuario | Casos |
 |---|---|---|---|
 | `GSProcess.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | Todos los de extracción |
-| `ExtraccionGenericaSCIs.properties` (nombre exacto, con `SCIs`; contenido pendiente, P-SCIS-02) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | Todos los de extracción |
+| `ExtraccionGenericaSCIs.properties` (nombre exacto, con `SCIs`; contenido según la plantilla de despliegue, spec 6.2; verificar que coincide en el servidor) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | Todos los de extracción |
 | `ExtraccionGenericaOtherEntities.jar` y sus librerías | `.../multicanal/jar/` y `.../multicanal/lib/` | — | Todos los de extracción |
 | `credentials.xml` | `.../multicanal/cfg/entorno/` | — | Todos los de extracción |
 | `RAMERC0068.sh` | `/pr/pl/scrt/` | `root` | TC-01, TC-06, TC-09, TC-15 |

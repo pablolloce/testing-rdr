@@ -88,7 +88,7 @@ documentan las fichas; la historificación.
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-DCP-01 | ¿Cuál es el valor literal de `PARM1` del job `RDR_DUCOCPTY_GSPROCESS` y el contenido de `ExtraccionGenericaDUCOCPTY.properties`? | La ficha escribe `PARM1: ExtraccionGenerica DUCOCPTY` (dos palabras). `GSProcess.sh` exige exactamente un parámetro y con dos termina con código 1 sin hacer nada; como la cadena funciona, el valor real tiene que ser otro (probablemente `ExtraccionGenericaDUCOCPTY`). Indicio adicional (cadenas hermanas que usan el mismo `GSProcess.sh`): en `RDR_EXTRACCIONSSIS` el `PARM1` es `ExtraccionGenericaSSIs` y en `RDR_ExtraccionDUCOMASTERDATA` es `ExtraccionDUCOMASTERDATA`, ambos en una sola palabra (en esta última la ficha escribe el comando con un espacio pero la variable `PARM1` sin él), lo que apoya que el espacio de la ficha de DUCOCPTY sea un artefacto documental; sigue sin confirmarse el literal vigente. Del `.properties` dependen además el número de hilos, el nombre del temporal, el directorio de trabajo y la configuración del log. |
+| P-DCP-01 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.2): el `.properties` se llama `ExtraccionGenericaDUCOCPTY.properties` (una palabra), lo que respalda que el espacio de la ficha es un artefacto; falta confirmar el `PARM1` literal de Control-M y que lo instalado coincide con la plantilla.** ¿Cuál es el valor literal de `PARM1` del job `RDR_DUCOCPTY_GSPROCESS` y el contenido de `ExtraccionGenericaDUCOCPTY.properties`? | La ficha escribe `PARM1: ExtraccionGenerica DUCOCPTY` (dos palabras). `GSProcess.sh` exige exactamente un parámetro y con dos termina con código 1 sin hacer nada; como la cadena funciona, el valor real tiene que ser otro (probablemente `ExtraccionGenericaDUCOCPTY`). Indicio adicional (cadenas hermanas que usan el mismo `GSProcess.sh`): en `RDR_EXTRACCIONSSIS` el `PARM1` es `ExtraccionGenericaSSIs` y en `RDR_ExtraccionDUCOMASTERDATA` es `ExtraccionDUCOMASTERDATA`, ambos en una sola palabra (en esta última la ficha escribe el comando con un espacio pero la variable `PARM1` sin él), lo que apoya que el espacio de la ficha de DUCOCPTY sea un artefacto documental; sigue sin confirmarse el literal vigente. Del `.properties` dependen además el número de hilos, el nombre del temporal, el directorio de trabajo y la configuración del log. |
 | P-DCP-02 | ¿Se puede obtener `MEKYTL1151.idx` (configuración de `MEGENV0001.sh`)? | Decide sentido, protocolo, tipo de envío (`GATE`/`TIPO`), si falla cuando no hay fichero (`FALLA_NO_FICHERO`) y si se historifica en local. Hoy solo se conocen los datos de la ficha (§6.3). |
 | P-DCP-03 | ¿Se pueden obtener `LPFTPEXCA0000.sh`, `LPFTPEXCA0002.sh` y la configuración de la pasarela para el identificador `MEKYTL1151` (máquina y ruta final en DUCO)? | Sin ellos no se sabe a qué máquina y ruta de DUCO llega el fichero, qué códigos de salida dan ni qué borra exactamente la limpieza (pregunta común P-LPF-01). |
 | P-DCP-04 | ¿Cuál es la línea de `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL1150`? | Decide la operación (`MG` o `GM`), el renombrado, si falla sin fichero (campo 5) y por tanto qué códigos de error da y si una reejecución es posible (TC-006). |
@@ -205,10 +205,23 @@ su evento y la cadena se detiene ahí.
 ### 6.2 Paso 1: `GSProcess.sh` y `ExtraccionGenericaOtherEntities.jar` (tipo `DUCOCPTY`)
 
 **Mapa de llamadas:** Control-M → `GSProcess.sh <módulo>` (P-DCP-01) → lee
-`/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaDUCOCPTY.properties` (**no
-recibido**) → acción `Java` → `extracciongenericaotherentities.Ppal` con 7 argumentos (nivel de log,
+`/pr/kytl/online/multipais/multicanal/dat/properties/ExtraccionGenericaDUCOCPTY.properties` (contenido
+según la plantilla, ver abajo) → acción `Java` → `extracciongenericaotherentities.Ppal` con 7 argumentos (nivel de log,
 log4j, número de hilos, directorio, temporal, tipo `DUCOCPTY`, directorio de credenciales). Según el
 documento, el temporal es `DUCOCPTY.csv.tmp` en `/fichtemcomp/<env>/descargas/kytl/extracciongenerica`.
+
+**Parámetros según la plantilla de despliegue (repositorio `estaticos`, rama develop; valores de plantilla, no copia verificada de
+producción; plantilla anterior a la migración a Java 17: `Ppal` sin paquete, las copias migradas llevan `JDKV=17` y
+`extracciongenericaotherentities.Ppal`).** `ExtraccionGenericaDUCOCPTY.properties`: `MOD_EJECUCION=ExtraccionGenericaDUCOCPTY`,
+`NomPaquete1=ExtraccionGenericaOtherEntities.jar`, `NomClaseJava=Ppal`, `ServicioJava=ExtraccionGenericaDUCOCPTY_log`; argumentos:
+`2` (nivel de log), `log4jExtraccionGenericaDUCOCPTY.properties` (en `dat/properties`), `20` hilos,
+`/fichtemcomp/<env>/descargas/kytl/extracciongenerica`, temporal `DUCOCPTY.csv.tmp` en esa misma carpeta, tipo `DUCOCPTY`,
+`<ruta>/cfg/entorno`; librerías `ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`,
+`commons-pool-1.5.4`; una sola acción `Java`, sin `DirJava` ni `StopJava`. Log del jar (`log4jExtraccionGenericaDUCOCPTY.properties`):
+`<ruta>/logs/ExtraccionGenericaDUCOCPTY.log`, nivel `info`, rotación a 100 MB con 3 copias, formato `[fecha] nivel clase:línea - mensaje`.
+Como el nombre del `.properties` que lee `GSProcess.sh` es el valor de `PARM1`, la plantilla apoya que `PARM1` sea
+`ExtraccionGenericaDUCOCPTY` (una palabra). La plantilla no contiene nada de `MEKYTL1151`, `MEKYTL1150`, `MEGENV0001.sh`,
+`LPFTPEXCA0000/0002.sh`, los `.mod`, las queries ni filas `FT_T_ATE1`/`FT_T_PAR1`: esos huecos siguen abiertos.
 
 **Qué hace en este proceso** (algoritmo genérico en
 `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.3):
@@ -286,7 +299,7 @@ del `mv`, el `.csv` queda sin comprimir en `old/`, el job termina con 16 y una r
 | Ejecutable | Lo invoca | ¿Aportado? | Análisis / gap |
 |---|---|---|---|
 | `GSProcess.sh` | `RDR_DUCOCPTY_GSPROCESS` | Sí (común) | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; uso en §6.2 |
-| `ExtraccionGenericaDUCOCPTY.properties` | `GSProcess.sh` | **No** | P-DCP-01 |
+| `ExtraccionGenericaDUCOCPTY.properties` y `log4jExtraccionGenericaDUCOCPTY.properties` | `GSProcess.sh` / el jar | Sí (plantilla de despliegue) | 6.2; P-DCP-01 resuelta en parte |
 | `ExtraccionGenericaOtherEntities.jar` | Acción `Java` | `Ppal.java`, `FicheroExtraccion.java`; **no** `MyThreadCpty`, `Querys` de esta versión, `ConDB`, `Constants` | §6.2; P-DCP-07 |
 | Queries `ExtraccionDUCOCPTY.sql`, `ExtraccionAdhocDUCOCPTY.sql` | El jar | Analizadas en el documento fuente; texto **no** recibido | §5.3; P-DCP-06 |
 | `MEGENV0001.sh` + `MEKYTL1151.idx` | `MEKYTL1151` | Script sí (común); `.idx` **no** | §6.3; P-DCP-02 |

@@ -25,7 +25,7 @@ Cada uno de estos directorios debe tener su subcarpeta `/old` ya creada, con per
 
 Para que `MEKYTL0967`-`MEKYTL0970` puedan enviar los `.tar` a Asset Control, debe existir la configuración de cada clave en `/<env>/pl/envioweb/idx/<CLAVE>.idx` o en su copia de respaldo `idx/bck/<CLAVE>.idx` (no está confirmado que la generación desde base de datos esté desactivada; ver la spec común de `MEGENV0001.sh`, P-MEG-02). Su contenido no se ha recibido (P-SBA-02 de la spec): para TC-001, TC-003 y TC-008 hay que leer antes, en el entorno de prueba, `FICHERO_ORIGEN`, `RUTA_ORIGEN`, `FALLA_NO_FICHERO`, `PROTOCOLO` y `MAQUINA_DESTINO` de cada clave, y saber qué categoría envía cada una (P-SBA-01). Quien ejecute TC-003 necesita lectura de `/<env>/pl/envioweb/idx/bck/` y `/<env>/pl/envioweb/log/`.
 
-**Nombres de los `.req` de prueba (TC-001, TC-002, TC-004, TC-006, TC-008):** deben cumplir la máscara que busca el script (P-SBA-03). Los ficheros reales se llaman `BK_All_BBVARDR_<ddmm>_<hhmmss>.req` en Batch Issues y `BBVARDR_MM_dd_yyyy.req` en Batch Issuer.
+**Nombres de los `.req` de prueba (TC-001, TC-002, TC-004, TC-006, TC-008):** deben acabar en `.req` (el script de la plantilla de despliegue busca `*.req`; spec 6.2). Los ficheros reales se llaman `BK_All_BBVARDR_<ddmm>_<hhmmss>.req` en Batch Issues y `BBVARDR_MM_dd_yyyy.req` en Batch Issuer.
 
 **Purga ajena en Batch Issuer:** el script `Batch_BBG_sftp.sh` de `RDR_DAILY_BBG_REQ_new` borra los ficheros de más de 3 días de `riesgoemisorBatch/Backup/` y sus subdirectorios. Las pruebas que dejen datos ahí no deben depender de ficheros con más de 3 días.
 

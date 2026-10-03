@@ -121,7 +121,7 @@ están guardadas en la tabla `FT_T_ATE1`.
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-SCIS-01 | ¿Cuál es la línea de `MEKYTL1022` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` de producción? (`grep ^MEKYTL1022@ /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` en `pr-rdr.igrupobbva`) | Es lo único que dice qué archiva `MEKYTL1022`, desde dónde, hacia dónde, con qué operación y si falla cuando no hay fichero. Sin ella no se sabe si el fichero acaba en `SCIS/backup` (lo único que purga la cadena) ni si la línea tiene la operación destructiva `BD`. Aceptado como no bloqueante (29/09/2026) |
-| P-SCIS-02 | ¿Se puede obtener `ExtraccionGenericaSCIs.properties` literal (y el `log4j` que declara)? | Es la configuración ejecutada. Solo se conoce su descripción en prosa: no se sabe el número de hilos, el fichero de log4j (dónde escribe el log el programa), las rutas exactas, el texto literal del tipo, ni si tiene más acciones |
+| P-SCIS-02 | **Resuelta (3ª pasada, plantilla de despliegue `estaticos`, develop).** ¿Se puede obtener `ExtraccionGenericaSCIs.properties` literal (y el `log4j` que declara)? | Hilos 20, log4j `log4jExtraccionGenericaSCIs.properties` (log `logs/ExtraccionGenericaSCIs.log`, 100 MB x3), tipo `SCIS`, una sola acción `Java`; ver 6.2. Verificar en el servidor que lo instalado coincide con la plantilla |
 | P-SCIS-03 | ¿Se puede obtener el SQL literal de `ExtraccionSCIs.sql` y de `ExtraccionContingenciaSCIs.sql`? | El diccionario procede de una descripción en prosa. Sin SQL no se puede confirmar el `Colony` duplicado, si la exclusión `A15` mira el estado de la asignación, ni hay subconsultas escalares o `rownum` problemáticos |
 | P-SCIS-04 | ¿Se emite realmente dos veces `Colony` en cada `MailingInf`? | Lo afirma el documento; sin SQL no se ha confirmado (TC-14) |
 | P-SCIS-05 | ¿Por qué cuatro campos normalizan `;` a `,`? | Se altera el dato de origen sin motivo registrado |
@@ -182,8 +182,11 @@ de domingo a jueves o de lunes a viernes depende de la hora de orden del folder 
 (el nombre distingue mayúsculas: `SCIs`) y ejecuta su acción `Java`. Según el documento de
 análisis, ese `.properties` lanza `ExtraccionGenericaOtherEntities.jar`, clase `Ppal`, con tipo
 de extracción `SCIS` y temporal `ExtraccionContingenciaSCIs.xml.tmp` en
-`/fichtemcomp/$env/descargas/kytl/extracciongenerica`. Su contenido literal no se ha recibido
-(P-SCIS-02).
+`/fichtemcomp/$env/descargas/kytl/extracciongenerica`. Su contenido literal es el de la plantilla de despliegue (repositorio `estaticos`, rama develop;
+ver 6.2): `ArgJava1=2` (nivel de log), `ArgJava2=log4jExtraccionGenericaSCIs.properties`, `ArgJava3=20` (hilos),
+`ArgJava4=/fichtemcomp/<env>/descargas/kytl/extracciongenerica`, `ArgJava5=ExtraccionContingenciaSCIs.xml.tmp` (en esa
+misma carpeta), `ArgJava6=SCIS`, `ArgJava7=<ruta>/cfg/entorno`, con una sola acción `Java` y siete librerías.
+Puede diferir de lo instalado en producción (valores de la plantilla, no copia verificada).
 
 > **Corrección.** La versión anterior escribía el parámetro como `ExtraccionGenericaSCIS`. El
 > export real de Control-M da `%%PARM1="ExtraccionGenericaSCIs"` (minúscula final), que es el
@@ -355,7 +358,17 @@ Con las opciones por defecto de `GSProcess.sh` (si el `.properties` no declara d
   SCIS <dir credenciales>
 ```
 
-Los valores entre `<>` que dependen del `.properties` están pendientes (P-SCIS-02). La salida
+**Parámetros según la plantilla de despliegue (repositorio `estaticos`, rama develop; P-SCIS-02, resuelta en la 3ª pasada).**
+`ExtraccionGenericaSCIs.properties`: `MOD_EJECUCION=ExtraccionGenericaSCIs`, `NomPaquete1=ExtraccionGenericaOtherEntities.jar`,
+`NomClaseJava=Ppal` (sin paquete en la plantilla, anterior a la migración a Java 17; las copias migradas llevan
+`extracciongenericaotherentities.Ppal` y `JDKV=17`), `ServicioJava=ExtraccionGenericaSCIs_log`; argumentos: nivel `2`,
+log4j `log4jExtraccionGenericaSCIs.properties` (en `dat/properties`), `20` hilos, directorio `.../descargas/kytl/extracciongenerica`,
+temporal `ExtraccionContingenciaSCIs.xml.tmp`, tipo `SCIS`, directorio de credenciales `<ruta>/cfg/entorno`; librerías `ojdbc8.jar`,
+`commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar`.
+No declara `DirJava`: valen las opciones por defecto de `GSProcess.sh`. Log del jar (`log4jExtraccionGenericaSCIs.properties`):
+`<ruta>/logs/ExtraccionGenericaSCIs.log`, nivel `info`, rotación a 100 MB con 3 copias, formato `[fecha] nivel clase:línea - mensaje`.
+El nombre `ExtraccionContingenciaSCIs.xml` (sin `.tmp`) y la subcarpeta `SCIS/` coinciden con lo que esperan los `.properties`
+de historificación de la plantilla (6.9). Los valores entre `<>` son ya los anteriores. La salida
 estándar del Java (un `SCIS_OID` por línea procesada) va a la salida del job; la de error, al log
 de `GSProcess.sh` `execute_ExtraccionGenericaSCIs_<AAAAMMDD>.log` (directorio `<logs>` de
 `credentials.xml`), que termina con `ESTADO-0-` si todo fue bien.
@@ -477,10 +490,10 @@ con el nombre de `URL_OUTPUT_FILE`.
 | Ejecutable | Quién lo invoca | ¿Aportado? | Análisis / gap |
 |---|---|---|---|
 | `GSProcess.sh` | `GS_EXTRACCIONSCIS` | Sí (spec común) | `comun_gsprocess`; uso en §5.3 |
-| `ExtraccionGenericaSCIs.properties` | `GSProcess.sh` | **No** (solo descripción) | P-SCIS-02 |
+| `ExtraccionGenericaSCIs.properties` y `log4jExtraccionGenericaSCIs.properties` | `GSProcess.sh` / el jar | Sí (plantilla de despliegue) | 6.2; P-SCIS-02 resuelta |
+| `HistSCIs.properties`, `HistSCIsINACT.properties`, `RDR_SCIs_Compass.xsl`, `RDR_SCIs_CompassINACT.xsl` | Dummy `EXTRACCION_SCIS_XML(_INACT)` (no se ejecutan) | Sí (plantilla) | 6.9 |
 | `ExtraccionGenericaOtherEntities.jar` | Acción `Java` | Código parcial (`Ppal`, `Querys`, `FicheroExtraccion`) | §5.3-§5.4 y `comun_extraccion_generica`; faltan `MyThreadCpty`, `ConDB`, `ConfigCredentials`, `Constants` (P-EXG-01 de la spec común) |
 | `ExtraccionSCIs.sql`, `ExtraccionContingenciaSCIs.sql` | El jar | **No** (solo prosa) | §6.3, §6.5; P-SCIS-03 |
-| Configuración log4j del jar | El jar | **No** | P-SCIS-02 |
 | `RAMERC0068.sh` | `MEKYTL1022` | Sí (spec común) | §5.5 |
 | Línea `MEKYTL1022` del IDX de producción | `RAMERC0068.sh` | **No** | P-SCIS-01 |
 | `find ... -exec rm -r` | `MANT_RDR_EXTRACCION_SCIS` | Comando literal | §5.7 |
@@ -500,6 +513,17 @@ con el nombre de `URL_OUTPUT_FILE`.
 | ANS RDR | Grupo de soporte de RDR (BZG03906, `ans_rdr.es@bbva.com`) |
 
 ---
+
+### 6.9 Historificación declarada y no ejecutada (plantilla de despliegue)
+
+Los Dummy `EXTRACCION_SCIS_XML` y `EXTRACCION_SCIS_XML_INACT` apuntan a `HistSCIs` y `HistSCIsINACT`; como son Dummy no ejecutan nada,
+pero la plantilla de despliegue (repositorio `estaticos`, rama develop) trae sus `.properties`, que describen lo que haría `GSProcess.sh`
+si se activaran: `QuitarNulos` sobre `SCIS/ExtraccionContingenciaSCIs.xml`; `XSLT_TO_XML` con `RDR_SCIs_Compass.xsl` (activas) o
+`RDR_SCIs_CompassINACT.xsl` (inactivas) para producir `SCIS/RDR_SCIS.csv` o `SCIS/RDR_SCIS_INACT.csv` (CSV con `;`, cabecera de 17+
+columnas desde `ActualDate` hasta `STP`, solo las `ConfInstruction` con `Branches/Branch/BranchCode = 'A15'`, es decir COMPASS);
+`Historificar` del XML y del CSV; y `Borrar` de ambos. En producción esto no ocurre: el archivado de los CSV
+(`MEKYTL1023`/`MEKYTL1049`) también es Dummy, y `MEKYTL1022` archiva lo que exista. Esto confirma que el nombre `RDR_SCIS_YYYYMMDD.csv`
+de la ficha viene de esta historificación heredada. Estos `.properties` no cambian el comportamiento actual del proceso.
 
 ## 7. Especificación de testing
 
@@ -535,7 +559,7 @@ prerrequisitos; TC-06 y TC-15 llevan condiciones de seguridad explícitas.
 
 ### 7.3 Huecos de cobertura conocidos
 
-- Sin SQL literal (P-SCIS-03) ni `.properties` (P-SCIS-02).
+- Sin SQL literal (P-SCIS-03). El `.properties` ya se conoce (plantilla, P-SCIS-02 resuelta).
 - Línea del IDX de `MEKYTL1022` (P-SCIS-01).
 - Caída de Oracle (P-SCIS-09).
 - CSV de la rama desactivada: fuera de alcance.
@@ -609,7 +633,7 @@ extraen, archivan y purgan un XML que nadie consume. Lo esencial:
 3. **Ningún paso de la cadena comprueba el fichero**: el programa Java termina en verde aunque
    pierda SCIs o no encuentre ninguna, y el requisito R-13 no se cumple hoy.
 
-**Para cerrar faltan**: la decisión sobre R-13 (P-SCIS-08), el `.properties` (P-SCIS-02), el SQL
+**Para cerrar faltan**: la decisión sobre R-13 (P-SCIS-08), el SQL
 literal (P-SCIS-03), los valores de `FT_T_PAR1`/`URL_OUTPUT_FILE` (P-SCIS-06) y la hora de orden
 (P-SCIS-07). La línea del IDX de `MEKYTL1022` (P-SCIS-01) quedó aceptada como gap no bloqueante
 por decisión del usuario; el resto de preguntas no bloquea.

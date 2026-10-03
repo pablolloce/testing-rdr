@@ -350,7 +350,7 @@ Origen en los tres casos: `productos_<DDMMAAAA>.xml` en `/fichtemcomp/pr/descarg
 | P-PROD-01 | ¿Se puede obtener el contenido de `/pr/pl/envioweb/idx/bck/MEKYTL0404.idx`, `MEKYTL0405.idx` y `MEKYTL1030_CLOUD.idx`, o la pestaña "Salida" de una ejecución de cada job (como la que se tiene para los envíos de portfolios), con `PROTOCOLO`, `USUARIO`, `FICHERO_ORIGEN` y su renombrado, `RUTA_DESTINO`, `FALLA_NO_FICHERO`, `ACCION_REMOTA`, `FUNCION_BCP`, `COMANDO_PRE`/`COMANDO_POST`? | Sin ella no se sabe con qué protocolo y usuario se envía, cómo se construye el nombre en destino, si un envío sin fichero falla o termina en verde, ni qué pasa si el fichero ya existe en destino (relanzamientos) |
 | P-PROD-02 | ¿Qué fecha lleva exactamente `productos_<DDMMAAAA>p1.xml` en Big Data: día natural siguiente, día hábil siguiente u otra? ¿Dónde se calcula (variable del `.idx`, módulo `SF_MEGENV0001_PARAMS.mod`)? | Es el nombre que recibe el consumidor; los fines de semana y festivos dan resultados distintos |
 | P-PROD-03 | ¿Cuál es la línea de `MEKYTL0406` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` (máscara, destino, campo "falla si no hay fichero", tipo de selección, días, operación)? | Decide qué ficheros se archivan (uno o todos los `productos_*.xml`), si falla sin fichero, y qué ocurre al relanzar el mismo día si ya existe el `.gz` |
-| P-PROD-04 | ¿Se puede obtener el código (o el jar para decompilar) de `BatchProductos.Transformaciones_PRODUCTOS` en `RDR_Transformacion_PRODUCTOS.jar`, la hoja XSL que aplica y una copia del script tal como está instalado? | Es el único paso que cambia el contenido del fichero: hace falta saber qué lee, qué XSL aplica, qué cambia, qué fecha pone en el nombre, si consulta base de datos, dónde escribe su log y qué código devuelve si falla (un error capturado que termine con 0 dejaría la cadena en verde sin fichero nuevo). La copia recibida del script ha perdido las comillas invertidas de las sustituciones de órdenes (ver §6.3) |
+| P-PROD-04 | **Resuelta en parte (3ª pasada, plantilla de despliegue `estaticos`, develop; ver 6.3).** Se tiene el script con las comillas invertidas íntegras y la hoja `productos.xsl` (la única candidata, por nombre y por coincidir con los campos de entrada de 5.2); sigue sin código del jar. ¿Se puede obtener el código (o el jar para decompilar) de `BatchProductos.Transformaciones_PRODUCTOS` en `RDR_Transformacion_PRODUCTOS.jar`, la hoja XSL que aplica y una copia del script tal como está instalado? | Es el único paso que cambia el contenido del fichero: hace falta saber qué lee, qué XSL aplica, qué cambia, qué fecha pone en el nombre, si consulta base de datos, dónde escribe su log y qué código devuelve si falla (un error capturado que termine con 0 dejaría la cadena en verde sin fichero nuevo). La copia recibida del script ha perdido las comillas invertidas de las sustituciones de órdenes (ver §6.3) |
 | P-PROD-05 | ¿El valor real de `URL_OUTPUT_FILE` de la extracción `productos.sql` (`ACT1_OID 0152F5B19`) es `.../productos/productossinfiltrar.xml` (como espera el FW) o `.../productos/productosinfiltrar.xml` (como dice el inventario del Planificador)? ¿Se puede obtener el texto de la query (`CLOB_VALUE`)? | Si fuera el segundo, el FW procesaría siempre un fichero antiguo; sin la query no se puede especificar campo a campo el contenido del fichero ni comprobar si tiene `ORDER BY` (riesgo de filas repetidas o perdidas en la paginación del Planificador) |
 | P-PROD-06 | ¿Hay algo fuera de esta cadena que borre o renombre `productossinfiltrar.xml`? Si no, ¿es aceptable que, cuando el Planificador falla, la cadena reenvíe el fichero del día anterior en verde? | El FW no distingue un fichero nuevo de uno antiguo (RISK-PROD-006) |
 | P-PROD-07 | ¿Qué sistema es "SMA" y cuál de los tres destinos le corresponde? ¿Quién es el responsable de cada destino? | Saber a quién afecta un fallo de cada envío y a quién avisar |
@@ -447,9 +447,9 @@ Consecuencia: la cadena puede terminar en verde sin haber entregado nada a nadie
 | Ejecutable | Lo invoca | ¿Aportado? | Dónde está analizado / gap |
 |---|---|---|---|
 | `ctmfw` (utilidad de Control-M) | `FW_RDR_SMA_PRODUCTS_PRO` | Utilidad estándar de BMC | §1.3 paso 2; genérico en `comun_ctmfw` |
-| `RDR_Transformacion_PRODUCTOS.sh` | `RDR_Transformacion_PRODUCTOS` | Sí (copia con comillas invertidas perdidas) | §6.3 |
+| `RDR_Transformacion_PRODUCTOS.sh` | `RDR_Transformacion_PRODUCTOS` | Sí (copia recibida con comillas perdidas y versión íntegra de la plantilla de despliegue) | §6.3 |
 | `RDR_Transformacion_PRODUCTOS.jar`, clase `BatchProductos.Transformaciones_PRODUCTOS` | El script anterior | **No** | P-PROD-04 |
-| Hoja(s) XSL en `/pr/kytl/online/multipais/multicanal/dat/properties/` | La clase anterior | **No** (ni su nombre) | P-PROD-04 |
+| `productos.xsl` en `/pr/kytl/online/multipais/multicanal/dat/properties/` | La clase anterior (por inferencia; el código del jar no se tiene) | Sí (plantilla de despliegue) | §6.3.1; P-PROD-04 resuelta en parte |
 | `RDRCommon.jar` | Classpath de la clase | No | Librería común; su papel depende de la clase (P-PROD-04) |
 | `MEGENV0001.sh` | `MEKYTL0404`, `MEKYTL0405`, `MEKYTL1030` | Sí (spec común) | §1.3 pasos 4-6; genérico en `comun_megenv0001` |
 | Módulos `SF_MEGENV0001_*.mod` | `MEGENV0001.sh` | No | P-MEG-01 de la spec común |
@@ -502,6 +502,8 @@ java -Xms128M -Xmx8G -XX:SurvivorRatio=10 -XX:NewRatio=1 -XX:+UseParallelGC -XX:
 
 **Qué campos de la salida afecta:** todo el contenido de `productos_<DDMMAAAA>.xml` y su nombre los produce la clase Java; el script solo decide con qué directorios se ejecuta.
 
+**Contraste con la plantilla de despliegue (repositorio `estaticos`, rama develop; P-PROD-04, H-PROD-07).** La versión de la plantilla del script conserva las comillas invertidas y coincide línea a línea con la lectura de esta sección: `actual_user=\`whoami\``, `cred=\`awk ...\``, `FILESEXGEN` y `FILESMENTOR` = `.../descargas/kytl/productos/`, `JAR_FILE=RDR_Transformacion_PRODUCTOS.jar`, la misma orden Java y los mismos códigos 255/254. Por tanto el usuario se compara con el nombre real de usuario, se confirma la interpretación adoptada y no hay diferencia con la copia recibida salvo las comillas. Sigue siendo la plantilla, no la copia instalada en producción.
+
 **Riesgo de detección de entorno:** se elige el primer `/fichtemcomp/<env>` que exista en el orden `de`, `ei`, `pp`, `pr`. En una máquina donde existan los directorios de varios entornos se usaría el primero, con el usuario esperado de ese entorno, y el job fallaría por usuario.
 
 ### 6.4 Configuración de `MEGENV0001.sh` por clave
@@ -538,6 +540,27 @@ java -Xms128M -Xmx8G -XX:SurvivorRatio=10 -XX:NewRatio=1 -XX:+UseParallelGC -XX:
 | `MEKYTL1030` | `..._MEKYTL0405_OK_new` | `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` |
 | `MEKYTL0406` | `RDR_SMA_PRODUCTS_PRO_new_MEKYTL1030_OK` | `RDR_SMA_PRODUCTS_PRO_MEKYTL0406_OK_new` |
 | `RDR_SMA_PRODUCTS_PRO_OUT` | `..._MEKYTL0406_OK_new` | `RDR_SMA_PRODUCTS_PRO_RDR_SMA_PRODUCTS_PRO_OUT_OK_new` |
+
+### 6.3.1 Hoja `productos.xsl` (plantilla de despliegue)
+
+Fuente: plantilla de despliegue (repositorio `estaticos`, rama develop). `productos.xsl` es la única hoja relacionada con productos en `dat/properties`, y el
+directorio del 4.º argumento del Java es justamente `dat/properties/`; **no hay código que demuestre que la clase la aplica**, por lo que se trata como
+inferencia fuerte, no como hecho. Qué hace (XSLT 1.0, salida XML con sangrado y sin declaración XML; parámetro `sep` por defecto `:`):
+
+- **Entrada:** `/Productos/Producto` con `Canonico_Value`, `Canonico_Description` y `SubProductos/SubProducto` con `System_Name`, `System_Value`, `System_Description`.
+  Son exactamente los nombres de campo de 5.2, lo que confirma que son etiquetas XML del fichero del Planificador.
+- **Salida:** `<Productos>` con un `<Producto>` por cada entrada: `CanonicValue`, `ProductDescription` y `<SubProductos>` con un `<SubProducto>` por cada subproducto.
+  Cada `SubProducto` lleva `SystemName`, `SystemValue` y `Description` y, según el sistema, campos derivados troceando `System_Value` por `:`:
+  - `MUREX`: `FamilyMurex` (1.er trozo), `GroupMurex` (2.º), `TypeMurex` (3.º) y `SkeletMurex` (todo lo que sigue al 3.er separador).
+  - `STAR`, `STAR_MEXICO`, `STAR_MADRID`: `GroupStar` (2.º trozo) y `ProductCodeStar` (3.º).
+  - `CASA BOLSA`: `Family` (1.º), `Group` (2.º) y `Type` (todo lo que sigue al 2.º separador).
+  - Cualquier otro sistema: solo `SystemName`, `SystemValue` y `Description`.
+- **Detalle que afecta a las pruebas:** `TypeMurex` y `ProductCodeStar` usan `substring-before` sobre el resto, así que salen **vacíos** si el valor tiene
+  exactamente 3 trozos sin `:` final; el sistema se compara de forma exacta (mayúsculas, espacios y sufijos cuentan); el resto de campos se copian tal cual.
+  La hoja no filtra ni ordena productos (el nombre del fichero final, la fecha y cualquier filtrado siguen sin conocerse: P-PROD-04 y P-PROD-05).
+- **Ficheros de la plantilla que no pertenecen a esta cadena:** `mentorProducts.sh` y `ProductsMDX.properties` tratan las exclusiones de acuerdos
+  (`agreements/exclusions.csv` a `exclusiones.xml`, feed `MitigantsBBVA`), y `publish/dictionaryproducts.xml` y `publish/securities.xml` son peticiones SOAP de
+  publicación inicial de Golden Source (colas `RDR.DICTIONARY.INITIALLOAD` y `RDR.SECURITIES.INITIALLOAD`). Ninguno participa en `RDR_SMA_PRODUCTS_PRO`.
 
 ## 7. Especificación de testing
 

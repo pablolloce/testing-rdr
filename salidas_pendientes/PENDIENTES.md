@@ -10,7 +10,7 @@ Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
-- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 134 resueltos en parte, 6 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
+- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 142 resueltos en parte, 6 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -18,20 +18,20 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 
 | Material | Huecos | Procesos afectados |
 |---|---|---|
-| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 114 | 45 |
-| Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 84 | 43 |
+| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 113 | 44 |
+| Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 85 | 43 |
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 81 | 47 |
-| Otros | 79 | 40 |
+| Otros | 77 | 39 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
-| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 59 | 37 |
+| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 61 | 38 |
 | Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 40 | 24 |
-| .properties y configuración de producción (dat/properties, cfg/entorno) | 18 | 13 |
+| .properties y configuración de producción (dat/properties, cfg/entorno) | 17 | 13 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
 | Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 17 | 8 |
 | raiseEvent.sh (lo invoca executeBbvaEvent.sh) | 16 | 15 |
 | Versión de RAMERC0068.sh instalada en producción | 15 | 15 |
+| Workflows y subworkflows de GoldenSource | 14 | 12 |
 | Layout o muestra de ficheros | 13 | 12 |
-| Workflows y subworkflows de GoldenSource | 13 | 11 |
 | Confirmación funcional del usuario | 10 | 6 |
 
 Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, la carpeta `/pr/pl/envioweb/idx/bck/*.idx`, los módulos `/pr/pl/envioweb/scrt/*.mod`, `raiseEvent.sh`, `LPFTPEXCA0000/0002.sh`, los exports XML de las carpetas de Control-M, una consulta a `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1`, y la verificación en los servidores de que lo instalado coincide con la plantilla `estaticos` (versión de `GSProcess.sh`, jars con o sin paquete, `.properties` efectivos). Del volcado `fileloading` faltan los scripts BeanShell (`statements`) de los nodos listados al final.
@@ -1577,12 +1577,13 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_duco_cpty/rdr_duco_cpty_spec.md`  
 **Qué le falta:** Faltan PARM1/.properties, queries y filas ATE1/PAR1, clases del jar (MyThreadCpty, ConDB...), MEKYTL1151.idx, LPFTPEXCA0000/0002, IDX de MEKYTL1150 y nombre del evento.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta .properties y log4j de DUCOCPTY (P-DCP-01 parcial). No hay nada de MEGENV0001/LPFTPEXCA/.mod/IDX/queries/PAR1/ATE1 ni codigo del jar: el resto sigue abierto.  
 
 ### Huecos bloqueantes (21)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-DCP-01 | abierta | Valor literal de PARM1 de RDR_DUCOCPTY_GSPROCESS y contenido de ExtraccionGenericaDUCOCPTY.properties (la ficha lleva dos palabras). | PARM1 literal y ExtraccionGenericaDUCOCPTY.properties |
+| P-DCP-01 | parcial | Valor literal de PARM1 de RDR_DUCOCPTY_GSPROCESS y contenido de ExtraccionGenericaDUCOCPTY.properties (la ficha lleva dos palabras). **Avance 3ª pasada (estaticos):** Plantilla: ExtraccionGenericaDUCOCPTY.properties (7 args, 20 hilos, temporal DUCOCPTY.csv.tmp, tipo DUCOCPTY) y log4j (logs/ExtraccionGenericaDUCOCPTY.log, 100MB x3); nombre en una palabra apoya PARM1 sin espacio; spec 6.2 | Valor literal de PARM1 en Control-M y verificar el .properties instalado en produccion |
 | P-DCP-02 | abierta | MEKYTL1151.idx (configuración de MEGENV0001.sh): sentido, protocolo, FALLA_NO_FICHERO, historificación. | MEKYTL1151.idx de producción |
 | P-DCP-03 | abierta | LPFTPEXCA0000.sh, LPFTPEXCA0002.sh y configuración de la pasarela para MEKYTL1151 (máquina/ruta final en DUCO). | scripts LPFTPEXCA y config de pasarela para MEKYTL1151 |
 | P-DCP-04 | abierta | Línea del IDX de producción para MEKYTL1150 (operación MG/GM, renombrado, fallo sin fichero). | línea IDX de producción de MEKYTL1150 |
@@ -2083,6 +2084,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 
 **Spec:** `salidas_pendientes/rdr_sendbbg_asset/rdr_sendbbg_asset_spec.md`  
 **Qué le falta:** Faltan la configuración (.idx) de las 4 claves MEKYTL0967-0970, los módulos de MEGENV0001.sh, la máscara real de búsqueda de .req, el formato de <fecha>, las condiciones entre jobs y los códigos de salida del script.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** El script RDR_Asset_Control.sh de la plantilla permite describir mascara, fecha y codigos de salida (3 parciales) y se identifican los scripts que dejan los .req online (parcial P-SBA-06). No hay .idx, MEGENV0001 ni .mod: P-SBA-01/02/05 y H-SBA-09/10/11 siguen abiertos.  
 
 ### Huecos bloqueantes (10)
 
@@ -2090,11 +2092,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 |---|---|---|---|
 | P-SBA-01 | abierta | ¿Qué categoría envía cada clave MEKYTL0967-0970? La correspondencia por orden de la cadena es solo 'previsible'. | Correspondencia clave-categoría (contenido de los .idx) |
 | P-SBA-02 | abierta | Contenido de idx/bck/MEKYTL0967-0970.idx (sentido, protocolo, máquinas, rutas, FICHERO_ORIGEN, FALLA_NO_FICHERO, historificación, usuario). | Los 4 ficheros MEKYTL0967.idx a MEKYTL0970.idx de producción |
-| P-SBA-03 | abierta | Máscara exacta que busca RDR_Asset_Control.sh por directorio: *.req o BBVA_*.req (los nombres reales conocidos no cumplen BBVA_*.req). | Máscara real en RDR_Asset_Control.sh de producción |
-| P-SBA-04 | abierta | Formato de <fecha> en los .tar y el log, y si es fecha de ejecución (tras 00:00) o de proceso. | Formato de fecha en RDR_Asset_Control.sh (variable de fecha) |
+| P-SBA-03 | parcial | Máscara exacta que busca RDR_Asset_Control.sh por directorio: *.req o BBVA_*.req (los nombres reales conocidos no cumplen BBVA_*.req). **Avance 3ª pasada (estaticos):** RDR_Asset_Control.sh de la plantilla: find *.req; BBVA_*.req es codigo muerto; spec 6.2 | Confirmar que la copia instalada en produccion coincide con la plantilla |
+| P-SBA-04 | parcial | Formato de <fecha> en los .tar y el log, y si es fecha de ejecución (tras 00:00) o de proceso. **Avance 3ª pasada (estaticos):** Plantilla: date +'%Y%m%d' en ejecucion (fecha natural, 00:30); nombres de .tar y log escritos en 6.2 | Confirmar copia instalada en produccion |
 | P-SBA-05 | abierta | Eventos/condiciones que enlazan los 5 jobs y qué ocurre con los siguientes si uno termina en error. | Export de Control-M del folder (INCOND/OUTCOND y reglas ON) |
-| P-SBA-06 | abierta | Qué procesos generan los .req de ONLINEISSUES y ONLINEISSUER y con qué nombre. | Procesos y nombres de .req de las categorías online |
-| P-SBA-07 | abierta | Código de salida de RDR_Asset_Control.sh con usuario/entorno no esperados y cuándo termina distinto de 0. | Códigos de salida reales de RDR_Asset_Control.sh |
+| P-SBA-06 | parcial | Qué procesos generan los .req de ONLINEISSUES y ONLINEISSUER y con qué nombre. **Avance 3ª pasada (estaticos):** Bloomberg_Filew_V2.sh (ONLINEISSUES, BK_<FILENAME>) y BBG_sftp.sh (ONLINEISSUER, purga >3 dias incluido old/) identificados; spec 5.1 | Proceso/workflow que invoca ambos scripts y nombre real de los .req (no estan en la plantilla) |
+| P-SBA-07 | parcial | Código de salida de RDR_Asset_Control.sh con usuario/entorno no esperados y cuándo termina distinto de 0. **Avance 3ª pasada (estaticos):** Plantilla: exit -2 sin entorno, exit -1 usuario incorrecto, resto 0 salvo fallo del ultimo echo al log; 6.2 | Confirmar copia instalada en produccion |
 | H-SBA-09 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos: no se sabe la orden de transmisión exacta (P-MEG-01). | Código de SF_MEGENV0001_XCOM/CD/SFTP/PARAMS.mod (invocados por MEGENV0001.sh) |
 | H-SBA-10 | abierta | No se sabe si algún módulo define binJava/ficheroJar, es decir, si el .idx sale de la BD o siempre de idx/bck (P-MEG-02). | Definición de binJava/ficheroJar en los módulos de MEGENV0001.sh |
 | H-SBA-11 | abierta | Ruta de MEGENV0001.sh: la ficha dice /pr/pl/envioweb/scrt/ y la spec común /<env>/pl/scrt/; se adopta la de la ficha. | Ruta real de MEGENV0001.sh en producción |
@@ -2116,6 +2118,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 
 **Spec:** `salidas_pendientes/rdr_sma_products_pro/rdr_sma_products_pro_spec.md`  
 **Qué le falta:** Faltan la clase Java de transformación y su XSL, los .idx de los 3 envíos y la fecha 'p1', la línea IDX de MEKYTL0406, la query y el nombre real del fichero del Planificador, y varios módulos/librerías no analizados.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla aporta el script integro y productos.xsl (3 parciales). mentorProducts.sh, ProductsMDX.properties y los publish/*.xml no pertenecen a esta cadena. Sin .idx, IDX, MEGENV0001/.mod, jar ni query: P-PROD-01/02/03/05 y H-PROD-06/08-14 siguen abiertos.  
 
 ### Huecos bloqueantes (15)
 
@@ -2124,11 +2127,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-PROD-01 | abierta | Contenido de MEKYTL0404.idx, MEKYTL0405.idx y MEKYTL1030_CLOUD.idx (o salida de una ejecución): protocolo, usuario, FICHERO_ORIGEN, FALLA_NO_FICHERO, ACCION_REMOTA, FUNCION_BCP, COMANDO_PRE/POST. | Los 3 .idx de producción o la pestaña Salida de cada job |
 | P-PROD-02 | abierta | Qué fecha lleva productos_<DDMMAAAA>p1.xml en Big Data (día natural, hábil siguiente u otra) y dónde se calcula. | MEKYTL0404.idx y SF_MEGENV0001_PARAMS.mod |
 | P-PROD-03 | abierta | Línea de MEKYTL0406 en INFORMACION_HISTORIFICACIONES.IDX (máscara, destino, falla sin fichero, tipo, días, operación MG/GM). | Línea MEKYTL0406 del IDX de producción |
-| P-PROD-04 | abierta | Código de BatchProductos.Transformaciones_PRODUCTOS (RDR_Transformacion_PRODUCTOS.jar), hoja XSL que aplica y copia instalada del script. | RDR_Transformacion_PRODUCTOS.jar (invocado por el .sh), su XSL y el script instalado |
+| P-PROD-04 | parcial | Código de BatchProductos.Transformaciones_PRODUCTOS (RDR_Transformacion_PRODUCTOS.jar), hoja XSL que aplica y copia instalada del script. **Avance 3ª pasada (estaticos):** Plantilla: RDR_Transformacion_PRODUCTOS.sh con comillas intactas (coincide con la lectura de la spec) y productos.xsl analizada (entrada Canonico_*/System_*, salida CanonicValue/SubProductos, derivados Murex/Star/Casa Bolsa); spec 6.3 y 6.3.1 | Codigo de BatchProductos.Transformaciones_PRODUCTOS (jar) para confirmar que aplica productos.xsl, nombre/fecha de salida y codigo de error |
 | P-PROD-05 | abierta | URL_OUTPUT_FILE real de productos.sql: productossinfiltrar.xml (FW) o productosinfiltrar.xml (inventario); texto de la query. | Valor real de URL_OUTPUT_FILE (ACT1_OID 0152F5B19) y CLOB_VALUE de productos.sql |
-| H-PROD-05 | abierta | Hoja(s) XSL de /dat/properties/ que usa la clase de transformación: ni siquiera se conoce su nombre. | Hoja(s) XSL (invocadas por Transformaciones_PRODUCTOS) |
+| H-PROD-05 | parcial | Hoja(s) XSL de /dat/properties/ que usa la clase de transformación: ni siquiera se conoce su nombre. **Avance 3ª pasada (estaticos):** productos.xsl es la unica hoja de productos en la plantilla y sus campos de entrada coinciden con 5.2; inferencia, no demostrada | Codigo del jar que la invoque |
 | H-PROD-06 | abierta | RDRCommon.jar en el classpath de la transformación: no recibido; su papel depende de la clase. | Código de RDRCommon.jar (invocado por Transformaciones_PRODUCTOS) |
-| H-PROD-07 | abierta | Copia del script RDR_Transformacion_PRODUCTOS.sh con comillas invertidas perdidas; se supone la versión instalada. | Copia instalada de RDR_Transformacion_PRODUCTOS.sh |
+| H-PROD-07 | parcial | Copia del script RDR_Transformacion_PRODUCTOS.sh con comillas invertidas perdidas; se supone la versión instalada. **Avance 3ª pasada (estaticos):** La plantilla trae el script con las comillas invertidas integras; confirma la interpretacion adoptada | Verificar que la copia instalada en produccion coincide con la plantilla |
 | H-PROD-08 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos. | Código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-PROD-09 | abierta | Se desconoce si la config. de los envíos sale de BD o de idx/bck (P-MEG-02); no hay salida real de estos jobs. | Definición de binJava/ficheroJar en los módulos de MEGENV0001.sh |
 | H-PROD-10 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas, P-RAM-01) para MEKYTL0406. | Copia de RAMERC0068.sh instalada en producción |
