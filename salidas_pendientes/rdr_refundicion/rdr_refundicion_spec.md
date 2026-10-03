@@ -582,6 +582,8 @@ copia verificada de producción. La plantilla es la base **anterior a la migraci
   fichero llamado `1` y la condición es siempre cierta), por lo que cada ejecución deja un fichero vacío `1` en el directorio de trabajo del proceso que
   lo lanza; no devuelve ningún código de error propio.
 
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana busca, en el resultado de la consulta periódica de cargas del día, una línea para el directorio `*/Refundicion/` («Carga Refundición», también los lunes); solo indica que la carga de ayer quedó registrada.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 4 transiciones lineales, el Fan-Out real hacia la cadena externa, la tolerancia a

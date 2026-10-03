@@ -25,6 +25,10 @@ condiciones siguientes:
 - La cadena `RDR_SW_PLANIFICADOR_new` debe estar activa en Control-M (Server MERCADOS-4) y
   lanzarse con frecuencia de 30-60 minutos de forma que alcance el slot de las 15:00.
 
+## 1 bis. Configuración de `GSProcess.sh` (plantilla de despliegue)
+
+`/<env>/kytl/online/multipais/multicanal/dat/properties/dictionaryIndex.properties` con una sola acción `Script` `Cortar` (`DictionaryIndex_TOTAL.csv` → `DictionaryIndex.csv`, columnas `1-4`, rutas `/fichtemcomp/<env>/descargas/kytl/index`), sin `Stop`, finales de línea CRLF; `Generico.sh` con la función `Cortar`. Cuando el `.properties` se instala desde la plantilla, `@@ENV@@` ya está sustituido por el entorno.
+
 ## 2. Base de datos GoldenSource
 
 La query `DictionaryIndex.sql` accede a la base de datos Oracle `BKYTL003` (host `LDORA605`,

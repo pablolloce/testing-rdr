@@ -34,8 +34,8 @@ equivalentes del entorno (`ei`, `pp`…).
 
 ## 4. Configuración
 
-- `ExtraccionAltamiraSend.properties` del entorno (no recibido, P-AACS-01) y su
-  `log4jAltamiraColombiaConciliacion.properties` (para saber dónde está el log del Java): TC-002, TC-005.
+- `ExtraccionAltamiraSend.properties` del entorno (la plantilla de despliegue lo trae con `@@ENV@@`, que sustituye el plan de despliegue; comprobar el instalado, P-AACS-01) y su
+  `log4jAltamiraColombiaConciliacion.properties` (el log del Java es `<env>/kytl/online/multipais/multicanal/logs/AltamiraColombiaConciliacion.log`, compartido con la recepción y vaciado por `Archivo_Logs_XA.sh`; spec §6.7): TC-002, TC-005.
 - Comando completo del file watcher (P-AACS-02): TC-005, TC-010.
 - Configuración de `MEKYTL1044` en las dos máquinas (P-AACS-03, P-AACS-04): TC-001, TC-003, TC-013.
 - Línea del IDX de `MEKYTL1045` (P-AACS-06). Antes de ejecutar, comprobar que no es `BD`: TC-004.

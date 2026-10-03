@@ -40,7 +40,8 @@
 - Carpeta de salida `extracciongenerica/` y carpetas `Fircosoft/`, `sire_files/` y `sire_files/old/` con permisos de
   escritura para `xakytl1p`/`xsramer1`; carpeta `/unload/transmisiones/RDR/` en `lpftp503` accesible para
   `xsramer1`/`xtsftp1`.
-- Fichero `EventSireEmisi.properties` presente en el directorio de properties que indique `credentials.xml`.
+- Fichero `EventSireEmisi.properties` presente en el directorio de properties que indique `credentials.xml`. Según la plantilla de despliegue lleva `Service=sireEmisi`, `QueryHeader=noheader`, `PathRDR=/fichtemcomp/<env>/descargas/kytl/sire_files` y `FileDescription=emisi` (el plan de despliegue sustituye el entorno).
+- Para el paso de transformación de Fircosoft: `xsltproc` instalado, `Batch_FircoSoft.xsl` y `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` en `dat/properties`, y la carpeta `/fichtemcomp/<env>/descargas/kytl/Fircosoft/` creada y con permiso de escritura de `xakytl1p`: si no existe, el script no falla y no deja fichero. El XML `KYTL_RDR_EXTRACTION_CPARTYS_<AAAAMMDD>.xml` del día debe existir; el script tolera hasta 3 días de antigüedad sin avisar, así que en pruebas hay que retirar los antiguos para provocar el fallo.
 
 ## Roles y permisos
 

@@ -27,7 +27,7 @@ El proceso consume el servicio externo **SHIVA** (autenticación vía `POST toke
 ## Configuración
 
 - `credentials.xml` (`/<entorno>/kytl/online/multipais/multicanal/cfg/entorno/credentials.xml`, nodo `<shiva><apiKey>`) debe existir con un `apiKey` válido para TC-001, TC-003 a TC-009 (TC-002 exige justamente lo contrario, en entorno de test).
-- `ValuationForResolution.properties` debe tener `ArgJava4=ISDA` para que el proceso use el modo real (API REST), no el modo de contingencia por ficheros.
+- `ValuationForResolution.properties` debe tener el contenido de §6 de la spec (plantilla de despliegue: `ArgJava3` con el entorno, sin `Stop`, `NomPaquete2` con `:` final) y en `lib/` las librerías `httpcore-4.4.13.jar`, `httpclient-4.5.12.jar`, `commons-logging-1.2.jar`, `gson-2.6.2.jar`, `json-simple-1.1.jar` y `json-20160212.jar`, y en `jar/` `XMASToken-0.0.1.jar`; además `log4jValuationForResolution.properties` y la carpeta de logs escribible. Debe tener `ArgJava4=ISDA` para que el proceso use el modo real (API REST), no el modo de contingencia por ficheros.
 - `FT_T_PAR1` debe tener, según el caso: la fila `JUNCTION`/`ValuationForResolution` con la URL SHIVA activa (todos salvo TC-004), y las filas `PUBLISH`/`VFR_PUBLISH_ESB` (contexto `CARGA_VFR`) con los valores que exige cada caso.
 
 ## Sistema de ficheros

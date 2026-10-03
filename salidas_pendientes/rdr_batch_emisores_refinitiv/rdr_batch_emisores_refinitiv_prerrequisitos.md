@@ -19,6 +19,8 @@
   (UUAA `KYTL0000`).
 - Directorio de ejecución `/pr/kytl/online/multipais/multicanal/scrt/` disponible con permisos para el
   usuario `xakytl1p` en los 3 jobs.
+- `.properties` desplegados en `/pr/kytl/online/multipais/multicanal/dat/properties/`: `RefinitivIssuerBatchRequest.properties`, `RDR_Refinitiv_REQ_RES.properties`, `RDR_BBG_Refinitiv_Batch.properties` (sin variante por entorno) y `log4jRefinitivRatings.properties` (el plan de despliegue sustituye `@@ENV@@`); deben ser CRLF.
+- `ServerMailConfig.xml` con un bloque `<server id="<env>">` con `host` y `user` (remitente) del servidor de correo, para el sub-workflow `Mail` (host y cuenta no están en la plantilla).
 
 ## Roles y permisos
 

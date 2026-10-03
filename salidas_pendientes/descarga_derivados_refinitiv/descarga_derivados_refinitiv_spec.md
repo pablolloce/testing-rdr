@@ -18,6 +18,10 @@
 > `Carga_Listed_MIC`, `AlertasEnvio`, `AlertasEnvioExcepciones`, eventos y parámetros de entrada) y código Java de las
 > clases de alertas `Ppal` (Barrido y Cocinado), `ReportesRDR` y `ReporteRDR` (rama de Eduardo); §6.7.
 >
+> Pasada de cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`): código
+> completo de `Refinitiv_Derivados_Batch.sh` y `Run_InitialReportMerger.sh`, `.properties` de los jobs 5, 6 y 7, `log4j` de los jars,
+> `GestionAlertasAOSRDR.properties` y estructura de `ServerMailConfig.xml`; §6.8. **Corrige que la ausencia de fichero deja el job 4 en rojo, no en verde.**
+>
 > **Estado:** topología de las 2 cadenas (7 jobs cada una), el pipeline interno de 5 pasos del script de carga,
 > y el catálogo de 20 tablas Oracle (grupos A-D) con sus columnas confirmados con alta confianza (bytecode JPA
 > citado como "verificado, no inferido" por el documento fuente). Quedan sin confirmar: el contenido de los 3
@@ -74,7 +78,7 @@ ANS RDR.
 | R5 | `REFINITIV_ENRIQUECIMIENTO_EMISIONES_SIMPLES_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_issues`, `.properties` real confirmado) debe invocar el workflow GoldenSource **`Refinitiv_Request_Response`** con `idType=UNDLY`, `requestType=issueRequest`, `vreqOid=UNDLY_ISSUES_ENRICHMENT`. Ver desglose real en §6.2. |
 | R6 | `REFINITIV_ENRIQUECIMIENTO_DERIVADOS_{D\|P}` (`GSProcess.sh Refinitiv_Undly_Enrichment_futures`, `.properties` real confirmado) debe invocar el **mismo workflow `Refinitiv_Request_Response`** que R5, con `idType=OPTFUT`, `requestType=optionsfuturesRequest`, `vreqOid=OPTIONS_FUTURES_ENRICHMENT`. Ver desglose real en §6.2. |
 | R7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_{D\|P}` (`GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV`, `.properties` real confirmado) debe instanciar el motor genérico de alertas **`GestionAlertas`** (ya confirmado en otros procesos de este audit) filtrado por el proceso `DERIVADOS_REFINITIV`, como último paso de la cadena. Ver desglose real en §6.3. |
-| R8 | `comprobarError()` (dentro de `Refinitiv_Derivados_Batch.sh`) debe tratar como "no hay ficheros que procesar" (warning o exit tolerante, según flag `EXIT`/`NOEXIT`) los mensajes `"No zipfiles found"`/`"No such file or directory"`; cualquier otro error debe registrar log de error y terminar con `exit -1`. |
+| R8 | `comprobarError()` (dentro de `Refinitiv_Derivados_Batch.sh`) debe tratar como "no hay ficheros que procesar" (warning o exit tolerante, según flag `EXIT`/`NOEXIT`) los mensajes `"No zipfiles found"`/`"No such file or directory"`; cualquier otro error debe registrar log de error y terminar con `exit -1`. **Corrección (cierre 3, §6.8.B):** en el código de la plantilla, esos dos mensajes solo se toleran en las llamadas marcadas `NOEXIT`; en el `unzip` del primer paso la marca es `EXIT`, de modo que la ausencia de `.zip` termina el script con `exit -1` (255) y deja el job 4 en rojo. |
 | R9 | En modo `DAILY`, el script debe segmentar el fichero en hasta 96 partes y repetir el pipeline de 5 pasos por segmento; en modo `WEEKLY`, debe ejecutar una pasada única sin segmentación. |
 
 ## 4. Gaps identificados y preguntas pendientes (con las respuestas obtenidas del usuario)
@@ -95,12 +99,28 @@ ANS RDR.
 |---|---|---|
 | P-DDR-01 | ¿Qué script y qué lógica ejecuta el job 1 (`MEKYTL1080_RECOGE` / `MEKYTL1081_RECOGE`)? El diagrama del documento fuente dice `LPFTPEXCA0004`; su tabla dice "sin .sh propio". ¿Qué código de salida da si no hay fichero en Refinitiv? ¿Descarga todos los ficheros que casan el patrón o solo uno? | Sin esto no se sabe si la ausencia del fichero se detecta en el job 1 o solo en el 4, ni qué hacer ante un fallo SFTP |
 | P-DDR-02 | Línea de configuración (`.idx`) de las claves `MEKYTL1080`/`MEKYTL1081` de `MEGENV0001.sh` y sus códigos de salida | Define el origen exacto y qué hace el job 2 si no hay fichero |
-| P-DDR-03 | Los workflows de los jobs 5/6 insertan alertas con `PROCESO='PETICION_REFINITIV_EMISIONES'`, pero el job 7 solo procesa `DERIVADOS_REFINITIV`. ¿Qué job/proceso envía las de `PETICION_REFINITIV_EMISIONES` desde esta cadena? Además, ¿en qué tabla/código de proceso escribe `ExceptionService` del jar (clase no recibida)? | Si el código no coincide, las alertas de error de los jobs 5/6 y del jar podrían no llegar nunca a nadie por esta cadena **Resuelta en parte (cierre 2, 02/10/2026):** `TABLEALERTGENER` no es una tabla aparte, sino la propia `FT_T_ALG1` (el `Insert ALG1` de los workflows escribe en ella y `Reload_Baskets_Sponsors_Email` y `AlertasEnvioExcepciones` leen esas mismas filas en `FT_T_ALG1`; §6.7). El Barrido no interviene (lee `FT_T_TPG1`). Las filas `PETICION_REFINITIV_EMISIONES` (`TIPO='CELDAEXCEL'`, `PROCESADO='N'`) las recoge el Cocinado cuando se ejecuta para ese proceso o para todos (`PROCESOS`) y exige un informe activo en `FT_T_REP1`; el job 7 de esta cadena solo lo ejecuta para `DERIVADOS_REFINITIV`. **Sigue abierto** qué job lo lanza para `PETICION_REFINITIV_EMISIONES` y dónde escribe `ExceptionService` (clase no recibida). |
-| P-DDR-04 | Definición Control-M exacta de las 2 cadenas: condiciones de entrada/salida, reintentos, si hay regla de aceptación de códigos de salida (p. ej. si el job 3 se pone en verde cuando `rm` no encuentra fichero), calendario real de `KYTL001P` y quién la lanza | Determina qué fallo detiene la cadena y cuál se ignora |
-| P-DDR-05 | Código fuente completo de `Refinitiv_Derivados_Batch.sh` (la fuente solo trae su descripción): carpeta donde deja `Emisores*`/`Subyacentes*`/`Derivados_Enriquecido*`, qué hace con los `.zip` ya procesados, retención/purga de `old/` y de `lake/` | Permite saber qué queda en disco y si crece sin límite |
-| P-DDR-06 | El `.properties` de alertas aportado tiene rutas de integración (`/fichtemcomp/ei/...`). ¿Cómo llega el entorno correcto (`pr`) en producción (`$ENV` / sustitución)? | Si no se sustituye, el job 7 podría apuntar a rutas de otro entorno (relacionado con P-GSP-01 de `comun_gsprocess`) |
+| P-DDR-03 | Los workflows de los jobs 5/6 insertan alertas con `PROCESO='PETICION_REFINITIV_EMISIONES'`, pero el job 7 solo procesa `DERIVADOS_REFINITIV`. ¿Qué job/proceso envía las de `PETICION_REFINITIV_EMISIONES` desde esta cadena? Además, ¿en qué tabla/código de proceso escribe `ExceptionService` del jar (clase no recibida)? **Avance cierre 3 (02/10/2026):** la plantilla trae `GestionAlertasAOSRDR.properties`, un lanzador que ejecuta el ciclo Barrido+Cocinado+Envío para nueve procesos, entre ellos `PETICION_REFINITIV_EMISIONES`, `PETICION_REFINITIV_IDENTIFICADORES` y `BATCH_REFINITIV_EMISORES` (§6.8.D). Falta saber qué job de Control-M ejecuta `GSProcess.sh GestionAlertasAOSRDR` y cuándo, y la clase `ExceptionService`. | Si el código no coincide, las alertas de error de los jobs 5/6 y del jar podrían no llegar nunca a nadie por esta cadena **Resuelta en parte (cierre 2, 02/10/2026):** `TABLEALERTGENER` no es una tabla aparte, sino la propia `FT_T_ALG1` (el `Insert ALG1` de los workflows escribe en ella y `Reload_Baskets_Sponsors_Email` y `AlertasEnvioExcepciones` leen esas mismas filas en `FT_T_ALG1`; §6.7). El Barrido no interviene (lee `FT_T_TPG1`). Las filas `PETICION_REFINITIV_EMISIONES` (`TIPO='CELDAEXCEL'`, `PROCESADO='N'`) las recoge el Cocinado cuando se ejecuta para ese proceso o para todos (`PROCESOS`) y exige un informe activo en `FT_T_REP1`; el job 7 de esta cadena solo lo ejecuta para `DERIVADOS_REFINITIV`. **Sigue abierto** qué job lo lanza para `PETICION_REFINITIV_EMISIONES` y dónde escribe `ExceptionService` (clase no recibida). |
+| P-DDR-04 | Definición Control-M exacta de las 2 cadenas: condiciones de entrada/salida, reintentos, si hay regla de aceptación de códigos de salida (p. ej. si el job 3 se pone en verde cuando `rm` no encuentra fichero), calendario real de `KYTL001P` y quién la lanza **Cierre 3:** la plantilla no contiene definiciones de Control-M; sí confirma que el job 4 sale en rojo si no hay `.zip` (§6.8.B), lo que responde a la parte de "si el job 3/4 se ponen verdes sin fichero" solo para el job 4. | Determina qué fallo detiene la cadena y cuál se ignora |
+| P-DDR-05 | Código fuente completo de `Refinitiv_Derivados_Batch.sh` (la fuente solo trae su descripción): carpeta donde deja `Emisores*`/`Subyacentes*`/`Derivados_Enriquecido*`, qué hace con los `.zip` ya procesados, retención/purga de `old/` y de `lake/` **Resuelta (cierre 3, 02/10/2026):** código completo de `Refinitiv_Derivados_Batch.sh` en la plantilla (§6.8.B): los `Emisores*`, `Subyacentes*` y `Derivados_Enriquecido*` se generan y consumen en la propia carpeta `Daily/` o `Weekly/` y se empaquetan con `tar --remove-files` en `old/`; los `.zip` originales van a `old/`; ni `old/` ni `lake/` se purgan. | Permite saber qué queda en disco y si crece sin límite |
+| P-DDR-06 | El `.properties` de alertas aportado tiene rutas de integración (`/fichtemcomp/ei/...`). ¿Cómo llega el entorno correcto (`pr`) en producción (`$ENV` / sustitución)? **Resuelta (cierre 3, 02/10/2026):** en la plantilla ambos `.properties` (el lanzador `GestionAlertas_DERIVADOS_REFINITIV` y la plantilla `GestionAlertas`) llevan el marcador `@@ENV@@`; el plan de despliegue lo sustituye por `pr`, `pp`, `ei` o `de`. Las rutas `/fichtemcomp/ei/...` del fichero aportado eran las del entorno `ei` ya instalado (§6.8.D). | Si no se sustituye, el job 7 podría apuntar a rutas de otro entorno (relacionado con P-GSP-01 de `comun_gsprocess`) |
 | P-DDR-07 | Decisión: ¿se corrige el defecto de `setVreqStatus()` (marca `PROCESSED` sin comprobar las cargas)? ¿Hay un control manual hoy? | Es un falso positivo funcional confirmado por código |
 | P-DDR-08 | **Resuelta en parte.** Ya hay una muestra real de `Emisores*.txt` con altas (`Emisores_20220330_162424.txt`, de un lote de marzo de 2022): contiene una única línea, `28311` + salto de línea, sin cabecera, sin `\|` y sin espacios, es decir un `orgId` numérico por línea, tal como lo lee `IssuersService` (§6.6). **Cierre 2 (02/10/2026): el consumidor es el propio workflow `AltaRolEmisor`**, que `Refinitiv_Bloomberg_AltaRolEmisor` llama como sub-workflow síncrono con el XML en la variable `JMSTextMessage` (no se publica ningún mensaje JMS; §6.7). **Sigue abierto** el texto de los `INSERT` de rol `ISSUER` (scripts BeanShell `Acciones Issuer`, `query STARMADRID` y `query ORGID`, no incluidos en el volcado) | Cierra el punto no verificado del alta de rol `ISSUER` |
+
+### 4.3 Cierre 3 (02/10/2026): estado de los huecos con la plantilla de despliegue
+
+Procedencia: según la plantilla de despliegue (repositorio `estaticos`, rama `develop`); lo que lleva `.pr` son valores de producción según la plantilla, no una copia verificada del servidor. Detalle en §6.8.
+
+| Id | Estado | Qué aporta la plantilla / qué falta |
+|---|---|---|
+| P-DDR-05, H-DDR-01 | Resuelta | Código completo del script de carga (§6.8.B): pipeline de 5 pasos más un paso 1B en `WEEKLY`, 4 trozos, hasta 96 segmentos, `comprobarError` y destino de los ficheros |
+| P-DDR-06 | Resuelta | Marcador `@@ENV@@` sustituido por el plan de despliegue (§6.8.D) |
+| P-DDR-03 | Resuelta en parte | `GestionAlertasAOSRDR.properties` lanza `PETICION_REFINITIV_EMISIONES` (§6.8.D); falta el job de Control-M y `ExceptionService` |
+| H-DDR-02 | Resuelta en parte | Invocación, argumentos, classpath y logs de `refinitivFilter.jar` (§6.8.B-C); falta el jar |
+| H-DDR-03 | Resuelta en parte | Invocación, argumentos, classpath (con `XMASToken-0.0.1.jar`) y logs de `openFigiEnricher.jar`; falta el jar |
+| H-DDR-10 | Resuelta en parte | Estructura de `ServerMailConfig.xml` y logs de Barrido y Cocinado (§6.8.D); faltan `ProcesoCLS`, `QuerysConfig`, `DocumentGenerator`, `ConDB`, los blobs de consultas y host/cuenta (enmascarados) |
+| H-DDR-13 | Resuelta en parte | El script de la cadena P procesa solo `*.INT.*.zip` (§6.8.B): el patrón `.REF.` de R1 para P parece una errata de la ficha; falta la ficha de `MEKYTL1081_RECOGE` |
+| H-DDR-20 (nuevo) | Abierta | `refinitivInitialReportMerger.jar` (clase `MergerProcess`), invocado por `Run_InitialReportMerger.sh` en `WEEKLY`, no está en la plantilla |
+| P-DDR-01, P-DDR-02, P-DDR-04, P-DDR-08, H-DDR-04..09, H-DDR-14..17 | Abierta | Dependen de scripts de pasarela, IDX, Control-M, jars, mapping `.mdx`, procedimientos o `.mod` que la plantilla no contiene |
 
 ## 5. Especificación funcional
 
@@ -158,8 +178,8 @@ el job 1 no recibe nada y la ausencia se descubre en el job 4 ("No zipfiles foun
 | 7 | `REFINITIV_REPORTE_CARGA_DERIVADOS_D` / `_P` | `GSProcess.sh GestionAlertas_DERIVADOS_REFINITIV` (§6.4) | Incidencias del proceso | Correo de alertas (si las hay) |
 
 **Cómo saber si fue bien o mal.** Control-M solo ve el código de salida de cada job. Job 4: verde si el script
-termina sin error (también cuando no hay fichero: "No zipfiles found" se tolera); rojo (`exit -1`, que
-Control-M recibe como 255) ante cualquier otro error del pipeline. Jobs 5-7 (`GSProcess.sh`): sin clave
+termina sin error; rojo (`exit -1`, que Control-M recibe como 255) ante cualquier error del pipeline, **incluida la
+ausencia de `.zip` en `Daily/` o `Weekly/`** (corrección del cierre 3, §6.8.B: en la versión inicial de esta spec se daba por tolerada). Jobs 5-7 (`GSProcess.sh`): sin clave
 `Stop*=Ok` en el `.properties` los pasos siguientes se ejecutan aunque falle uno, la acción `Property`
 (job 7) nunca detecta el fallo del submódulo, y la acción `Evento` (jobs 5/6) lanza el workflow vía
 `executeBbvaEvent`; el estado funcional real de una solicitud a Refinitiv está en
@@ -174,8 +194,8 @@ fallo del job 1-3 el fichero puede quedarse en `Daily/`/`Weekly/` o en la pasare
 queda el `.zip` sin historificar (o los `.txt` intermedios) y hay que relanzar la cadena desde el job 4.
 Relanzar un job 4 ya completado no duplica filas de emisores ni de subyacentes (ambos servicios buscan antes
 de insertar) y los derivados se tratan como alta o modificación (`insertDerivativeData` /
-`updateDerivativeData`); pero dará "No zipfiles found" (verde, sin cargar nada) si el `.zip` ya se historificó
-en `old/`.
+`updateDerivativeData`); pero dará "No zipfiles found" y el job 4 terminará en rojo (`exit -1`, sin cargar nada) si el `.zip` ya se historificó
+en `old/` (corrección del cierre 3, §6.8.B).
 
 ### 6.2 El jar `refinitivDerivativesLoader.jar` — carga real en Oracle, confirmada con los 4 servicios reales (ronda 2026-10-01)
 
@@ -577,6 +597,64 @@ Qué escribe cada uno (tablas y columnas) no se puede saber sin el contenido de 
 - Envío: `AlertasEnvio` (evento `RDR_AlertasEnvio`) recorre los informes con `SEND_PEND='Y'` y, por proceso, llama a `AlertasEnvioExcepciones`, que personaliza asunto y cuerpo solo para tres procesos (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`; para `REGU_PDTE_LEI_EMISIONES` cuenta las alertas `PETICION_REFINITIV_EMISIONES` cuyo mensaje empieza por `LEI` y cuyo LEI no tiene la jerarquía completa global-local-operativa de un emisor `ISSUER` activo no subsidiario); `DERIVADOS_REFINITIV` y `PETICION_REFINITIV_EMISIONES` usan el asunto y cuerpo estándar. Los scripts de asunto y las consultas de esos tres casos son blobs no incluidos en el volcado.
 - `Mail` lee servidor y remitente de `ServerMailConfig.xml` (`/root/server[@id='<env>']`, elementos `host` y `user`) y, si falta, usa valores de desarrollo; el contenido por entorno sigue sin recibirse.
 
+### 6.8 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`)
+
+**Cómo leer este apartado.** La plantilla no es la copia de un entorno: el plan de despliegue sustituye `@@ENV@@` por `de`, `ei`, `pp` o `pr`, y los ficheros `.pr/.pp/.ei/.de` son variantes por entorno que el plan instala como `X.properties`. Los valores `.pr` son "valores de producción según la plantilla", no una copia verificada. Es la base anterior a la migración a Java 17 (`GSProcess.sh` sin `JDKV`, clases sin paquete). Hosts y credenciales no están incluidos. Cuando la plantilla y una evidencia de entorno difieran, se anotan las dos.
+
+#### 6.8.A Ficheros de la plantilla que intervienen
+
+`scrt/Refinitiv_Derivados_Batch.sh` (job 4), `scrt/Run_InitialReportMerger.sh` (paso 1B de `WEEKLY`), `Refinitiv_Undly_Enrichment_issues.properties` y `_futures.properties` (jobs 5 y 6; contenido idéntico a §6.3), `GestionAlertas_DERIVADOS_REFINITIV.properties` (job 7) más `GestionAlertas.properties`, `GestionAlertasAOSRDR.properties`, los `log4j*` de los jars (`log4jrefinitivDataFilter`, `...Enricher`, `...derivativesloader`, `...InitialReportMerger`, sus variantes `Online`, `log4jAlertasBarrido`, `log4jAlertasCocinado`) y `ServerMailConfig.xml`. No hay en la plantilla ningún jar, ni los scripts de pasarela de los jobs 1 a 3, ni `MEGENV0001.sh`.
+
+#### 6.8.B `Refinitiv_Derivados_Batch.sh`, entero (job 4)
+
+**Arranque.** Sin parámetros o con más de uno → `ERROR: INVALID NUMBER OF PARAMETERS`, `exit -1`. Entorno por el prefijo de `hostname` (`lp`→`pr`/`xakytl1p`, `lw`→`pp`/`xakytl1w`, `li`→`ei`/`xakytl1i`, `ld`→`de`/`xakytl1d`; otro prefijo → `exit -1`); usuario distinto del esperado → `exit -1`. Parámetro distinto de `DAILY` o `WEEKLY` → `exit -1`. **Java fijo:** `JAVA64=/usr/local/<env>/jdk1.8.0_152/bin` (Java 8; no lee `<javahome>` de `credentials.xml`). Classpath común de ~50 librerías de `.../lib/` (Spring, Hibernate, Jackson, `ojdbc8`, HTTP client…) más `ConexionBD.jar` de `.../jar/`.
+
+| Elemento | `DAILY` (cadena D) | `WEEKLY` (cadena P) |
+|---|---|---|
+| Carpeta de trabajo (`rutaOrigen`) | `/fichtemcomp/<env>/descargas/kytl/issues/Refinitiv/OpcionesFutures/Daily/` | `.../OpcionesFutures/Weekly/` |
+| Historificación (`old/`) | `Daily/old/` | `Weekly/old/` |
+| Buffer ordenado | `Daily/lake/` | no existe |
+| Patrón de zip / de txt descomprimido | `*.REF.*.zip` / `*.REF.*.txt` | `*.INT.*.zip` / `*.INT.*.txt` |
+| Log | `/<env>/kytl/online/multipais/multicanal/logs/Refinitiv_Derivados_Batch_Daily_<ddmmaaaa>.log` | `..._Weekly_<ddmmaaaa>.log` |
+
+El log se escribe siempre con `>>` (varias ejecuciones del mismo día se acumulan); la salida estándar apenas muestra nada (una línea en blanco al terminar). **H-DDR-13 (patrón de la cadena P):** la cadena P ejecuta `WEEKLY`, que solo procesa `*.INT.*.zip`; si el job 1 de la cadena P (`MEKYTL1081_RECOGE`) trajera ficheros `.REF.` como indica R1, el job 4 no encontraría ningún `.zip` y terminaría en rojo. El borrado del job 3 de la misma cadena también usa `.INT.`; el patrón `.REF.` de R1 para P parece una errata de la ficha (pendiente de la ficha del job 1). Las carpetas `old/` y `lake/` **deben existir**: si falta alguna, el `mv` falla con un mensaje distinto de "No such file or directory" y el script sale con `exit -1`.
+
+**Flujo `DAILY`.** (1) `descomprimir`: `unzip -q "*.REF.*.zip"` en `Daily/`; `mv` de los zip a `old/`; `mv` de los `*.REF.*.txt` a `lake/`. (2) Bucle `i = 1..96` (96 segmentos): `mv lake/*.REF.*.<i>.*.*.txt` a `Daily/`; si el `mv` falla por cualquier motivo, escribe `INFO: No hay ficheros` y sigue con el segmento siguiente; si no, ejecuta para ese segmento los pasos 2 a 5 y, al terminar, empaqueta `Emisores*.txt Subyacentes*.txt Derivados_Enriquecido*.txt` en `old/FicherosDeCarga_<aaaammdd_hhmmss>_Segment_<i>.tar.gz` con `--remove-files`.
+
+**Flujo `WEEKLY`.** (1) `descomprimir` (sin `lake/`). (1B) `UnirInitialReports` (abajo). (2) a (5) una sola vez; el `tar.gz` se llama `FicherosDeCarga_<aaaammdd_hhmmss>.tar.gz`. Si tras el split no hay instrumentos, borra los ficheros y sale con `exit 0`.
+
+**Los pasos (cada uno con `comprobarError`):**
+- **Paso 2, `filtrado`:** `java -Xmx16G -Dorg.jboss.logging.provider=log4j -cp <librerías>:<jar>/refinitivFilter.jar com.bbva.kytl.MainProcess <dat/properties>/log4jrefinitivDataFilter.properties BATCH <rutaOrigen> .txt <rutaOrigen> <old/> DELETE`. Entrada y salida son la misma carpeta; el nombre de los ficheros de salida que espera el resto del script es `Emisores*`, `Subyacentes*` y `Derivados_Filtrado*`. Log: `.../logs/refinitivDataFilter.log` (log4j, nivel `error`).
+- **Paso 3, `OpenFigi_SplitFile`:** `ls Derivados_Filtrado*` (si no hay ninguno, ver más abajo); por cada fichero, si tiene líneas, `split -l<ceil(líneas/4)> --numeric-suffixes=1 --suffix-length=2 --additional-suffix=.txt` a `Split_Derivados_Filtrado_NN.txt` (como máximo 4 trozos); acumula `totalLineasFichero` y borra `Derivados_Filtrado*.txt`. Si el total es 0, borra `Subyacentes*`, `Emisores*` y `Derivados_Filtrado*` y pasa al segmento siguiente (`DAILY`) o termina con `exit 0` (`WEEKLY`).
+- **Paso 4, `Enriquecimiento_OpenFigi`:** `java ... -cp <librerías>:<jar>/XMASToken-0.0.1.jar:<jar>/openFigiEnricher.jar com.bbva.kytl.EnricherProcess <env> <dat/properties>/log4jrefinitivEnricher.properties <rutaOrigen> Split_Derivados_Filtrado_ <rutaOrigen> DELETE <old/> DERIVADO`. Genera `Derivados_Enriquecido*.txt`. Log: `.../logs/refinitivEnricher.log` (nivel `error`).
+- **Paso 5, `CargaDerivados`:** `java ... -cp <librerías>:<jar>/refinitivDerivativesLoader.jar com.bbva.kytl.refinitivderivativesloader.LoaderProcess <dat/properties>/log4jrefinitivderivativesloader.properties BATCH <rutaOrigen> .txt` (4 argumentos, sin `vreqOid`: confirma que `setVreqStatus` no se ejecuta en este job). `LoaderProcess` exige exactamente 3 ficheros `.txt` en la carpeta (§6.2); por eso solo debe haber ese juego en `Daily/` en cada vuelta. Log: `.../logs/refinitivDerivativesLoader.log` (nivel `error`).
+- **Paso 1B, `UnirInitialReports` (solo `WEEKLY`):** ejecuta `Run_InitialReportMerger.sh BATCH <rutaOrigen> <rutaOrigen>`. El lanzador (`set -euo pipefail`) deduce el entorno por `hostname`, usa Java `/usr/local/<env>/jdk1.8.0_152/bin`, el jar `.../jar/refinitivInitialReportMerger.jar` y `log4jrefinitivInitialReportMerger.properties` (si falta cualquiera, o la carpeta de entrada, sale con 2). Si hay `.zip` en la carpeta los descomprime en un directorio temporal; después comprueba si hay algún `.txt`/`.TXT` cuyo nombre contenga, entre separadores `_`, `.` o `-` y sin distinguir mayúsculas, `asset`, `assets`, `quote`, `quotes`, `organization` u `organizations` (los informes Initial por suscripción); si no hay ninguno escribe `WARNING: No initial reports found to merge` y sale con 0 (el script de carga lo anota y continúa con el filtrado). Si los hay, ejecuta `com.bbva.kytl.refinitivinitialreportmerger.MergerProcess <log4j> BATCH <entrada> .txt <salida>`. Tras la unión, el script exige que quede algún `.txt` (`ls *.txt`; si no hay, sale con `exit 0`). Por el nombre y los argumentos, une los informes por suscripción en un único informe Initial; la lógica está en el jar (no recibido, H-DDR-20). El `log4j` del merger escribe en `${LOG_PATH}/refinitivInitialReportMerger.log` y el lanzador no define esa variable (si el jar no la fija, el log no tendría ruta válida).
+
+**`comprobarError` y `error_exit`.** `comprobarError` mira el código de salida del comando anterior; si es 0 vuelca su salida en el log y sigue. Si no, llama a `error_exit(mensaje, función, código, EXIT|NOEXIT)`, que decide por el **texto** del mensaje:
+- contiene `No zipfiles found` o `No such file or directory`: con `EXIT` escribe `ERROR: No hay ficheros a tratar` y sale con el **código del tercer parámetro**; con `NOEXIT` solo escribe un `WARNING` y continúa;
+- cualquier otro mensaje: escribe el error y sale con `exit -1` (255 en Control-M), aunque la llamada fuera `NOEXIT`.
+
+Cómo queda cada punto: `unzip` (`-1`, `EXIT`) → **sin `.zip` el script termina en rojo con 255**; `mv` de zip y de txt a `old/`/`lake/` (`NOEXIT`) → "sin fichero" solo avisa, otros errores (carpeta inexistente) dan 255; filtrado, split, enriquecimiento, carga, `tar` y `rm` (`-1`, `EXIT`) → cualquier fallo da 255 (un `tar` sobre un patrón sin ficheros, p. ej. sin `Subyacentes*.txt`, falla tras haber cargado); **`ls Derivados_Filtrado*` y `ls *.txt` tras el merger (`0`, `EXIT`) → si no hay fichero, el script sale con `exit 0` silenciosamente**. En `DAILY` esa salida con 0 cortaría el procesado de los segmentos restantes si el filtro no dejara `Derivados_Filtrado*` en algún segmento (depende de si el jar crea el fichero vacío; no se sabe).
+
+**Qué queda en disco.** Los `.zip` originales y los `FicherosDeCarga_*.tar.gz` en `old/` (nada del script los purga); en `lake/` solo lo que no encaje en ningún segmento 1 a 96; los `.txt` intermedios los borran el `tar --remove-files` y los `rm`. Si la ejecución falla a medias quedan `.txt` en la carpeta de trabajo y la siguiente no los distingue de los nuevos: hay que limpiar antes de relanzar. **Relanzar un job 4 ya completado termina en rojo ("No zipfiles found"), no en verde.**
+
+#### 6.8.C Logs de los jars
+
+| Jar (mayúsculas del nombre en el log4j) | Fichero de log en `.../logs/` | Nivel |
+|---|---|---|
+| `refinitivFilter` | `refinitivDataFilter.log`; en línea: `refinitivDataFilterOnline.log` | `error` (rotación diaria con sufijo `'.'yyyy-MM-dd-a`) |
+| `openFigiEnricher` | `refinitivEnricher.log`; en línea: `refinitivEnricherOnline.log` | `error` |
+| `refinitivDerivativesLoader` | `refinitivDerivativesLoader.log`; en línea: `refinitivDerivativesLoaderOnline.log` | `error` |
+| `refinitivInitialReportMerger` | `${LOG_PATH}/refinitivInitialReportMerger.log` (consola y fichero) | `INFO` |
+
+Los ficheros `...Online` son los que usan los jobs 5 y 6 a través del workflow (mismos jars en modo en línea); los otros, el job 4. Con nivel `error`, un job 4 correcto apenas escribe en esos logs: la traza del proceso está en `Refinitiv_Derivados_Batch_<Daily|Weekly>_<ddmmaaaa>.log`.
+
+#### 6.8.D Job 7 y alertas: lanzador, plantilla y `ServerMailConfig.xml`
+
+- `GestionAlertas_DERIVADOS_REFINITIV.properties` (plantilla): `MOD_EJECUCION=AlertasDerivadosRefinitiv`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`, `Accion=Property` con `NomProperty=GestionAlertas`, `ArgProp1=GestionAlertas_DERIVADOS_REFINITIV` y `ArgProp2=PROCESOS-DERIVADOS_REFINITIV`. `GestionAlertas.properties` (plantilla): Barrido (`ConexionBD.jar`+`RDR_AlertasBarrido.jar`, `main.Ppal`, argumentos `2`, `log4jAlertasBarrido.properties`, `PROCESOS`), Cocinado (`RDR_AlertasCocinado.jar`, `main.Ppal`, `log4jAlertasCocinado.properties`, `PROCESOS`, librerías POI 3.17) y `Evento` `Workflow` `RDR_AlertasEnvio`. La acción `Property` copia la plantilla a `GestionAlertas_DERIVADOS_REFINITIV_<aaaammddhhmmss>.properties`, sustituye `PROCESOS` por `DERIVADOS_REFINITIV` y **todo literal `GestionAlertas` del fichero** por el nombre temporal (también en `Ruta` y en los `ServicioJava`, sin efecto), ejecuta `GSProcess.sh` sobre él y lo borra; el código de salida que evalúa es el del `rm`, no el de `GSProcess.sh`. Logs: `.../logs/AlertasBarrido.log` y `AlertasCocinado.log` (nivel `info`, 100000 KB × 3).
+- **P-DDR-06:** en la plantilla las rutas llevan `@@ENV@@`, que el plan de despliegue sustituye por el entorno; las rutas `/fichtemcomp/ei/...` del fichero aportado eran las del entorno `ei`.
+- **`GestionAlertasAOSRDR.properties`:** lanzador de nueve acciones `Property` (`GestionAlertas` con los códigos `MIFIR_Derivados`, `MIFIR_No_Derivados`, `CARGA_ONLINE_BLOOMBERG`, `CARGA_CESTA_o_INDICE`, `CALCULO_EMIR_SECT`, `PETICION_REFINITIV_EMISIONES`, `REGU_PDTE_LEI_EMISIONES`, `PETICION_REFINITIV_IDENTIFICADORES`, `BATCH_REFINITIV_EMISORES`). Cada una repite Barrido, Cocinado y Envío, y el Envío manda todos los informes pendientes. Es el mecanismo que barre las alertas `PETICION_REFINITIV_EMISIONES` que escriben los workflows de los jobs 5 y 6 (P-DDR-03, en parte); no consta qué job de Control-M lo lanza. `GestionAlertasEVERISRDR.properties` repite dos veces el código `VALIDACION_CARGA_ONLINE_BLOOMBERG`.
+- **`ServerMailConfig.xml` (workflow `Mail`):** `<root>` con un `<server id="de|ei|pp|pr">` por entorno, cada uno con `<host>` (servidor de correo) y `<user>` (cuenta remitente). En la plantilla host y cuenta están enmascarados (host y credencial no incluidos).
 ## 7. Especificación de testing
 
 La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5 pasos del script de carga
@@ -591,10 +669,11 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
 |------|----------------|---------|
 | `e2e` | Ciclo diario completo (cadena D), de extremo a extremo: SFTP → pasarela → carga Oracle → enriquecimiento → reporte. | TC-001 |
 | `e2e` | Ciclo semanal completo (cadena P), confirmando el mismo comportamiento con `WEEKLY` sin segmentación. | TC-002 |
-| `negativo` | Ausencia de fichero en Refinitiv — `comprobarError()` trata "No zipfiles found"/"No such file" como no-fallo. | TC-003 |
+| `negativo` | Ausencia de fichero en Refinitiv — con el código de la plantilla, el `unzip` sin `.zip` termina con `exit -1` (job 4 en rojo); solo los `mv` sin fichero se toleran (cierre 3). | TC-003 |
 | `error_funcional` | Un error real distinto (no de ausencia de fichero) produce log de error y `exit -1`. | TC-004 |
 | `conflicto_integridad` | Segmentación DAILY (hasta 96 partes): el pipeline se repite por segmento y la carga en Oracle consolida todos los segmentos sin duplicar ni perder datos. | TC-005 |
 | `borde` | Pasada única WEEKLY, sin segmentación — confirma que el mismo pipeline funciona también sin trocear el fichero. | TC-006 |
+| `borde` | Cierre 3: paso 1B del modo `WEEKLY` (informes Initial por suscripción); falta de `old/` o `lake/` (job 4 en rojo). | TC-019, TC-020 |
 | `regresion` | Confirmar que D y P ejecutan el mismo binario (`Refinitiv_Derivados_Batch.sh`) y el mismo jar (`refinitivDerivativesLoader.jar`), con comportamiento idéntico salvo el parámetro de modo. | TC-007 |
 | `happy_path` | Carga real de Emisores: `Emisores*.txt` → `IssuersService` → `FT_T_FINS`/`FT_T_ISSR`. | TC-008 |
 | `happy_path` | Carga real de Subyacentes: `Subyacentes*.txt` → `UnderlyingService` → `FT_T_ISID`/`FT_T_ISSU`/`FT_T_MKIS`. | TC-009 |
@@ -664,6 +743,9 @@ La estrategia cubre el ciclo completo de las 2 cadenas (D y P), el pipeline de 5
   `FT_T_SWCH` incondicionalmente — una opción o un futuro sin divisas nocionales ESMA recibe igualmente una
   fila `FT_T_SWCH` con esos 2 campos a `null`. Confirmado por código, asimetría de diseño respecto a `FT_T_OPCH`.
 
+* **[NUEVO, cierre 3] Sin `.zip`, el job 4 sale en rojo (`exit -1`) en ambas cadenas:** el `unzip` del primer paso lleva la marca `EXIT`. Corrige la lectura anterior ("se tolera"). Un día en que Refinitiv no publica, o un relanzamiento del job 4 ya completado, deja la cadena parada antes de los jobs 5 a 7. Confirmado por el código de la plantilla; no por ejecución.
+* **[NUEVO, cierre 3] Salida con 0 silenciosa en `DAILY`:** `ls Derivados_Filtrado*` sin resultado termina el script con `exit 0` y abandona los segmentos que faltan. Solo ocurre si el filtro no deja el fichero en algún segmento (depende de `refinitivFilter.jar`, no recibido).
+* **[NUEVO, cierre 3] Java 8 fijo y jars sin versión de control:** el script usa `/usr/local/<env>/jdk1.8.0_152` y no `<javahome>`; con la migración a Java 17 en curso conviene comprobar este fichero. `old/` y `lake/` nunca se purgan.
 ### 9.2 Fuera de alcance
 
 * **Texto de los `INSERT` de alta del rol `ISSUER`** (ver §6.3/§6.2/§6.7): el alta no la hace ningún servicio externo, sino el sub-workflow `AltaRolEmisor`, que `Refinitiv_Bloomberg_AltaRolEmisor.wkf` llama de forma síncrona. El workflow está analizado; las sentencias las construyen scripts BeanShell (`Acciones Issuer`, `query STARMADRID`, `query ORGID`) que el volcado de la BD de workflows no incluye.
@@ -698,6 +780,8 @@ explícito. Quedan 3 huecos de evidencia genuinos, ya delimitados con precisión
 nodo a nodo del workflow `Refinitiv_Request_Response`, la atribución de 5 tablas satélite (Grupo E), y el
 mapeo campo a campo del fichero origen. Nuevos TC-017/TC-018; TC-014 ya no bloqueado para los jobs 5/6/7 (solo
 para el detalle interno de `Refinitiv_Request_Response.wkf`).
+
+**Pasada de cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`, base anterior a la migración a Java 17): se lee entero `Refinitiv_Derivados_Batch.sh` y su paso `WEEKLY` con `Run_InitialReportMerger.sh` (P-DDR-05 y H-DDR-01 resueltos; §6.8.B), con la corrección de que sin `.zip` el job 4 sale en rojo; se resuelve P-DDR-06 (`@@ENV@@`); se localiza el lanzador `GestionAlertasAOSRDR.properties` de las alertas `PETICION_REFINITIV_EMISIONES` (P-DDR-03, en parte); y se documenta la estructura de `ServerMailConfig.xml`. Aparece un jar nuevo sin analizar (`refinitivInitialReportMerger.jar`, H-DDR-20). Siguen abiertos los jars, los scripts de pasarela, el IDX, Control-M, los mappings `.mdx`, `PRC_ESCOBA_SUBYACENTES` y `raiseEvent.sh`.
 
 **Ronda adicional (2026-10-01, segunda del día):** el usuario aportó el propio `Refinitiv_Request_Response.wkf`
 real (idéntico, salvo versión y ruta del JDK, al ya analizado nodo a nodo en `RDR_BATCH_EMISORES_REFINITIV`

@@ -42,7 +42,7 @@ extracción del Planificador en ese entorno, para que no sobrescriba el fichero 
 
 | Fichero | Qué hay que conocer | Casos |
 |---|---|---|
-| `.properties` del módulo de `KYTL_CLIEXC_GSPROCESS` (no recibido, P-CLX-01) | Argumentos de cada función; nombre real del módulo | TC-001, TC-007 |
+| `ClientesExclusivos.properties` (plantilla de despliegue, §6.3 de la spec; CRLF, sin `Stop`) y `Generico.sh` con las 8 funciones | Ocho acciones `Script` sobre `/fichtemcomp/<env>/descargas/kytl/cliexclu`; el módulo se llama `ClientesExclusivos`; verificar el instalado en `pr` | TC-001, TC-007, TC-008 |
 | `MEKYTL0783.idx`, `MEKYTL0784.idx` (no recibidos, P-CLX-05) | `FALLA_NO_FICHERO` (`SI` y `NO` según el usuario), protocolo, rutas, renombrado a `CLIEXCLU_RDR.txt`, historificación | TC-003, TC-004, TC-006 |
 | Líneas `MEKYTL0955`/`MEKYTL0956` de `INFORMACION_HISTORIFICACIONES.IDX` (no recibidas, P-CLX-06) | Máscara, renombrado con fecha-hora-minuto, campo 5, operación | TC-001, TC-005 |
 | Parámetros `ctmfw` de los dos file watchers | `CREATE 0 60 10 5 60`: cualquier tamaño, búsqueda cada 60 s, tamaño medido cada 10 s, 5 mediciones iguales, espera máxima 60 minutos | TC-002 |

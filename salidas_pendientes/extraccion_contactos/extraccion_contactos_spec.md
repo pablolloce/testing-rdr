@@ -26,6 +26,14 @@
 
 ---
 
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop), que el plan `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` instala en cada entorno sustituyendo `@@ENV@@` por `de`, `ei`, `pp` o `pr`.
+> Son «valores de la plantilla», no una copia verificada de producción, y la plantilla es anterior a la migración a Java 17. Aporta `HistCONT.properties`
+> (P-CONT-01, resuelta: §5.7 y §5.9), `ExtraccionGenericaCONT.properties` y `log4jExtraccionGenericaCON.properties` (P-CONT-07 en parte y P-CONT-08 resuelta: §6.1),
+> `ExtraccionGenericaDOMI.properties` (§5.6), la hoja `sait.xsl` (idéntica a la analizada en §5.5) y el esquema `Contacts_BBVA_Schema.xsd` con
+> `ValidationContacts.properties` (indicio sobre la raíz del XML, P-CONT-06). **Corrección importante:** `HistCONT` borra el fichero sin fecha
+> `ExtraccionContingenciaCONT.xml` de `CONT/` (§5.7).
+
 ## 1. Resumen ejecutivo
 
 **Qué hace.** Cada día de ejecución de la cadena se genera un fichero XML con **todos** los
@@ -57,8 +65,9 @@ secciones 5, 6 y 9):
   único que hoy hace caer el job es que falle el propio Java en casos muy concretos o que falle
   la transformación `xsltproc` (que sí falla si el XML no está bien formado). Esto corrige lo que
   decía la versión anterior ("el fallo de un hilo aborta la extracción").
-- `EXTRACCION_CONTACTOS_XML` **no es un job Dummy**: ejecuta `GSProcess.sh HistCONT`, cuyo
-  `.properties` no se ha recibido (P-CONT-01).
+- `EXTRACCION_CONTACTOS_XML` **no es un job Dummy**: ejecuta `GSProcess.sh HistCONT`. Según la plantilla de despliegue,
+  `HistCONT.properties` quita los bytes nulos del XML completo, crea la copia fechada `ExtraccionContingenciaCONT_<AAAAMMDD>.xml` y **borra el fichero sin fecha**
+  (§5.7).
 - La cadena se **ordena de domingo a jueves** según el export de Control-M
   (`WEEKDAYS="0,1,2,3,4"`), no de lunes a viernes como dicen las fichas; los días naturales de
   ejecución efectiva dependen de la hora de orden del folder (P-CONT-04).
@@ -78,7 +87,7 @@ secciones 5, 6 y 9):
 | Extracción | `GS_EXTRACCION_CONT` → `GSProcess.sh ExtraccionGenericaCONT` → `ExtraccionGenericaOtherEntities.jar`, tipo `CONT` |
 | Queries | `ExtraccionCONT.sql` (lista) y `ExtraccionContingenciaCONT.sql` (detalle), guardadas en `FT_T_ATE1` |
 | Transformación a SAIT | Acción `Script` `XSLT_TO_XML` con `sait.xsl`, dentro del mismo job de extracción |
-| Paso intermedio | `EXTRACCION_CONTACTOS_XML` → `GSProcess.sh HistCONT` (contenido no recibido) |
+| Paso intermedio | `EXTRACCION_CONTACTOS_XML` → `GSProcess.sh HistCONT` (quita nulos, crea la copia fechada y borra el fichero sin fecha, §5.7) |
 | Disponibilización para IHS Markit | `MEKYTL1177` (`RAMERC0068.sh`, copia a `/unload/kytl/datsal/datax/`) |
 | Envío a SAIT | `MEKYTL1189` (copia a la pasarela `lpftp503`) y `MEKYTL1189_SND` (de la pasarela a `150.100.230.96`), ambos con `MEGENV0001.sh` |
 | Historificación | `MEKYTL1027` (rama del fichero completo) y `MEKYTL1190` (rama SAIT), con `RAMERC0068.sh` |
@@ -151,14 +160,14 @@ secciones 5, 6 y 9):
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-CONT-01 | ¿Se puede obtener `HistCONT.properties` (lo ejecuta `EXTRACCION_CONTACTOS_XML` con `GSProcess.sh HistCONT`)? | Es un ejecutable de la cadena sin analizar. Encaja con que genere la copia fechada `ExtraccionContingenciaCONT_<fecha>.xml` que historifica después `MEKYTL1027` (la función `Historificar` de `Generico.sh` produce exactamente `<nombre>_<AAAAMMDD>.<ext>`), pero **no está confirmado**. Si no la genera, `MEKYTL1027` no encontraría nada que historificar y el fichero completo no se guardaría nunca en `backup/` |
+| P-CONT-01 | **Resuelta.** `HistCONT.properties` (plantilla de despliegue) se analiza en §5.7: `QuitarNulos`, `Historificar` (copia `ExtraccionContingenciaCONT_<AAAAMMDD>.xml`) y `Borrar` (del fichero sin fecha), sobre `CONT/ExtraccionContingenciaCONT.xml`. Genera exactamente la copia fechada que historifica `MEKYTL1027` | Era un ejecutable de la cadena sin analizar |
 | P-CONT-02 | ¿Cuáles son las líneas de `MEKYTL1177`, `MEKYTL1027` y `MEKYTL1190` en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`? (`grep -E '^(MEKYTL1177|MEKYTL1027|MEKYTL1190)@' /pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`) | Es lo único que dice qué hace `RAMERC0068.sh` en cada job: operación (copia/mueve), si falla cuando no hay fichero, renombrado y qué variable de fecha usa. Sin ellas, la operación y el nombre con fecha se toman de las fichas, sin confirmar |
 | P-CONT-03 | ¿Cuál es el contenido de `MEKYTL1189.idx` en `pr-rdr.igrupobbva` y en `lpftp503` (o de su copia `idx/bck/`)? | Cada salto lee la configuración de su propia máquina. Decide protocolo, `FALLA_NO_FICHERO`, renombrado con fecha y usuario remoto. El usuario decidió no perseguirlo (28/09/2026); queda como gap aceptado |
 | P-CONT-04 | El export ordena la cadena con `WEEKDAYS="0,1,2,3,4"` (domingo a jueves) y `FOLDER_ORDER_METHOD="PLAN_1300"`, mientras las fichas dicen "L M X J V". ¿A qué hora se ordena el folder y qué días naturales se ejecuta realmente? | Si el folder se ordena a las 13:00, el día ordenado el domingo correría el lunes a las 04:30 y la ejecución efectiva sería de lunes a viernes; si no, correría de domingo a jueves. Afecta a cuándo recibe SAIT el fichero y a qué fecha llevan los nombres |
 | P-CONT-05 | El código continúa con código 0 si falla el detalle de un contacto (el contacto falta del fichero). ¿Es aceptable un fichero sin ese contacto, o debe tratarse como defecto? ¿Se puede obtener `MyThreadCpty.java` (pregunta P-EXG-01 de la spec común) para saber qué escribe el hilo en ese caso? | La afirmación previa ("falla la extracción") era incorrecta. Sin `MyThreadCpty` no se sabe si queda una línea vacía o nada |
-| P-CONT-06 | ¿Qué valores tienen hoy en producción `FT_T_PAR1` (`ROOT_TAG` activo de `ExtraccionContingenciaCONT.sql`) y `FT_T_ATE1.URL_OUTPUT_FILE` de esa misma query? | Deciden la etiqueta raíz y el nombre del fichero publicado. El código tiene comentada una versión antigua con `<ContactList>`/`</ContactList>`, que no tiene por qué ser la actual |
-| P-CONT-07 | ¿Se puede obtener `ExtraccionGenericaCONT.properties` de producción? | La copia recibida es de integración, con rutas `/ei/` escritas a mano |
-| P-CONT-08 | ¿Qué contiene `log4jExtraccionGenericaCON.properties`, es decir, dónde escribe su log el programa Java? | Es la principal fuente de diagnóstico, porque el programa casi nunca devuelve error |
+| P-CONT-06 | **Resuelta en parte.** Indicio sobre la raíz: la plantilla trae `Contacts_BBVA_Schema.xsd`, cuya raíz es `ContactList` con hijos `Contacts` (0 a n), y `ValidationContacts.properties` (`GenericValidator.sh`, jar `RDR_GenericValidatorXSD.jar`, clase `main.Validate`), que valida `CONT/ExtraccionContingenciaCONT.xml` contra ese esquema; `sait.xsl` es coherente con una raíz `ContactList` (§6.7). El nombre de fichero publicado, `ExtraccionContingenciaCONT.xml`, lo confirman `HistCONT` y `ValidationContacts`. **Sigue abierto** el valor real de `ROOT_TAG` en `FT_T_PAR1` y de `FT_T_ATE1.URL_OUTPUT_FILE` en producción. Ningún job de esta cadena ejecuta `ValidationContacts` | Deciden la etiqueta raíz y el nombre del fichero publicado. El código tiene comentada una versión antigua con `<ContactList>`/`</ContactList>`, que ahora sí se corresponde con el esquema |
+| P-CONT-07 | **Resuelta en parte.** La plantilla de despliegue trae `ExtraccionGenericaCONT.properties` con el marcador `@@ENV@@` en lugar de `/ei/` (§6.1): en producción el plan lo sustituye por `pr`; sin `JDKV` y con `NomClaseJava=Ppal` sin paquete (base anterior a Java 17). **Sigue abierto** comprobar que el instalado en `pr` coincide. ¿Se puede obtener `ExtraccionGenericaCONT.properties` de producción? | La plantilla no es una copia verificada de producción |
+| P-CONT-08 | **Resuelta.** `log4jExtraccionGenericaCON.properties` (plantilla de despliegue): `rootLogger=info`, `RollingFileAppender` en `/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCON.log`, 100 MB por fichero y 3 copias, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n` (§6.1). Es compartido por todas las ejecuciones del tipo `CONT` | Es la principal fuente de diagnóstico, porque el programa casi nunca devuelve error |
 | P-CONT-09 | ¿Es deliberado que el `NOT EXISTS` de la exclusión `A15` no mire `CNTA.DATA_STAT_TYP`? | Un contacto con una asignación a `A15` ya dada de baja queda excluido para siempre (RG-06) |
 | P-CONT-10 | ¿La condición de salida `RDR_DAILY_EXGEN_CPARTYS_new_MEKYTL1021_OK-37` que publica `MEKYTL1027` la consume de verdad alguna cadena? | Si la consume, esta cadena es requisito de otra y un fallo aquí la retrasaría (RG-21) |
 | P-CONT-11 | ¿Qué grupo de soporte atiende esta cadena? Las fichas no nombran ninguno | Sin él, el escalado no está documentado (RG-10) |
@@ -179,7 +188,7 @@ anterior>_OK`, que el anterior solo publica si termina bien:
 ```
 GS_EXTRACCION_CONT            extrae y genera los dos XML (completo y SAIT)
   └─► MEKYTL1177              copia el XML completo al directorio de DataX (IHS Markit)
-        └─► EXTRACCION_CONTACTOS_XML   GSProcess.sh HistCONT (contenido no recibido, P-CONT-01)
+        └─► EXTRACCION_CONTACTOS_XML   GSProcess.sh HistCONT (quita nulos, copia fechada y borra el original, §5.7)
               └─► MEKYTL1027          historifica ExtraccionContingenciaCONT_*.xml en CONT/backup/
                     └─► MANT_RDR_EXTRACCION_CONTACTOS   purga CONT/backup/ (> 7 días)
                           └─► MEKYTL1189                copia el XML de SAIT a la pasarela lpftp503
@@ -264,9 +273,9 @@ código de `Ppal.java` y `Querys.java`; cómo se refleja en este proceso:
 | Falla la query de lista, o no existe la fila `ExtraccionCONT.sql` en `FT_T_ATE1` | Lista vacía: fichero solo con la etiqueta raíz de apertura y cierre | 0 | OK; SAIT recibe un fichero vacío (R-21) |
 | Fila `ExtraccionCONT.sql` en estado `INACTIVE` | **No tiene ningún efecto**: el programa no mira `DATA_STAT_TYP` en `FT_T_ATE1`. Es la situación real desde el 15/09/2025 | 0 | OK, extracción normal |
 | No hay `ROOT_TAG` `ACTIVE` en `FT_T_PAR1` | Log `Error: No se ha podido incluir la etiqueta inicial.`; el fichero sale sin raíz. Con dos o más contactos no es XML bien formado | 0 | **KO**: `xsltproc` no puede leer un XML mal formado y `GSProcess.sh` termina con 1. El fichero mal formado ya está publicado en `CONT/` y `RDR_contactosSAIT.xml` queda vacío, pero la cadena se para y no los distribuye |
-| Hay dos filas con `ACTION_NME='ExtraccionContingenciaCONT.sql'` | Falla la lectura de etiquetas y el programa aborta antes de escribir | ≠ 0 | KO. `GSProcess.sh` ejecuta aun así `xsltproc` sobre el `ExtraccionContingenciaCONT.xml` que hubiera en `CONT/` (el del día anterior, si nadie lo movió) |
+| Hay dos filas con `ACTION_NME='ExtraccionContingenciaCONT.sql'` | Falla la lectura de etiquetas y el programa aborta antes de escribir | ≠ 0 | KO. `GSProcess.sh` ejecuta aun así `xsltproc` sobre el `ExtraccionContingenciaCONT.xml` que hubiera en `CONT/` (el del día anterior normalmente ya no existe porque `HistCONT` lo borra, §5.7; si no existe, `xsltproc` falla) |
 | `URL_OUTPUT_FILE` vacío o fila de detalle inexistente | El programa aborta antes de escribir | ≠ 0 | KO, con el mismo efecto colateral de `xsltproc` |
-| La subcarpeta `CONT/` no existe o el movimiento falla | Log `Error: No se ha podido renombrar el fichero.`; el `.tmp` se queda en `extracciongenerica/` | 0 | Depende de lo que haya en `CONT/`: `xsltproc` transforma el fichero anterior. **La siguiente ejecución añade su contenido detrás del `.tmp` residual** (el temporal se abre en modo añadir), produciendo un XML con dos raíces que `xsltproc` rechazará |
+| La subcarpeta `CONT/` no existe o el movimiento falla | Log `Error: No se ha podido renombrar el fichero.`; el `.tmp` se queda en `extracciongenerica/` | 0 | Depende de lo que haya en `CONT/`: como `HistCONT` borra el fichero sin fecha cada día (§5.7), normalmente no hay nada y `xsltproc` falla; si quedara el anterior, lo transformaría. **La siguiente ejecución añade su contenido detrás del `.tmp` residual** (el temporal se abre en modo añadir), produciendo un XML con dos raíces que `xsltproc` rechazará |
 | No se puede conectar con Oracle | Lo gestiona `ConDB`, no recibido | Desconocido | Desconocido (P-CONT-14) |
 
 > **Corrección.** La versión anterior afirmaba, con la respuesta del usuario del 22/09/2026, que
@@ -369,13 +378,33 @@ directorio pertenece a la máquina `LPRDR501`/`LPRDR602` y al usuario `xtkytl1p`
   (`ExtraccionCONT.sql`): un cambio en esa query afecta a los dos ficheros. Ningún job de esta
   cadena toca ese fichero (la historificación usa máscara y las purgas actúan sobre `backup/` y
   `SAIT/old/`), pero cualquier operación con comodines sobre `CONT/` lo afectaría (RG-18).
+  Según la plantilla de despliegue, `ExtraccionGenericaDOMI.properties` ejecuta el mismo jar (`Ppal`, tipo `DOMI`, 20 hilos, log `ExtraccionGenericaDOMI.log`) con temporal `DOMI.csv.tmp` en
+  `extracciongenerica/`, y a continuación la acción `eliminarLineasDuplicadaCabecera` sobre `CONT/DominiosContactosRDR.csv`: guarda la cabecera, ordena el resto y quita duplicados **sin distinguir
+  mayúsculas** (`sort | uniq -i`, con los temporales `DominiosContactosRDR_tmp1.csv` y `_tmp2.csv`) y reinserta la cabecera. Es un flujo ajeno a esta cadena.
 
 ### 5.7 Paso intermedio `EXTRACCION_CONTACTOS_XML`
 
 Ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh HistCONT` como `xakytl1p` en
-`pr-rdr.igrupobbva`. **Lo que hace lo decide `HistCONT.properties`, que no se ha recibido**
-(P-CONT-01). Si `HistCONT.properties` no existe, `GSProcess.sh` termina con código 1 y la cadena
-se para aquí, antes de la historificación y antes de toda la rama de SAIT.
+`pr-rdr.igrupobbva`. **Lo que hace lo decide `HistCONT.properties`.** Si no existe, `GSProcess.sh`
+termina con código 1 y la cadena se para aquí, antes de la historificación y antes de toda la rama de SAIT.
+
+**Contenido según la plantilla de despliegue** (repositorio `estaticos`, rama develop; fin de línea CRLF, como el resto de `.properties`). Después de
+`VariablesGlobales` (`MOD_EJECUCION=HistCONT`, `Servicio=HistCONT`) tiene tres acciones `Script`, sin `Stop`, las tres sobre
+`/fichtemcomp/<env>/descargas/kytl/extracciongenerica/CONT/ExtraccionContingenciaCONT.xml`:
+
+| Orden | `NomScript` | Qué hace (función de `Generico.sh`) |
+|---|---|---|
+| 1 | `QuitarNulos` | `sed -i 's/\x0//g'`: elimina los bytes nulos del fichero, en su sitio |
+| 2 | `Historificar` | Copia el fichero a `ExtraccionContingenciaCONT_<AAAAMMDD>.xml` en el mismo directorio (`cp -f`, `chmod 664`); la fecha es la del sistema en ese momento |
+| 3 | `Borrar` | `rm -f` del fichero **sin fecha** |
+
+Consecuencias, que **corrigen** supuestos anteriores:
+- Confirma la hipótesis de P-CONT-01: `HistCONT` crea la copia fechada que `MEKYTL1027` historifica (la máscara `ExtraccionContingenciaCONT_*.xml` casa con ella).
+- **Tras `EXTRACCION_CONTACTOS_XML`, `ExtraccionContingenciaCONT.xml` ya no existe en `CONT/`**: solo queda la copia fechada. La versión anterior daba por hecho que el fichero sin fecha se quedaba en `CONT/` hasta que lo sustituyera la extracción del día siguiente.
+  `MEKYTL1177` (que copia a DataX) se ejecuta **antes** y no se ve afectado; pero el fichero de DataX es el anterior a `QuitarNulos`.
+- Una **reejecución** de la cadena desde `MEKYTL1177` en adelante, o de `EXTRACCION_CONTACTOS_XML`, no encuentra el fichero sin fecha: `QuitarNulos` falla (`sed` sobre un fichero inexistente, código 1 de `Generico.sh`), `Historificar` falla (`cp`), y `GSProcess.sh` termina con 1; la copia fechada del primer intento se conserva. Para repetir esa parte hay que volver a ejecutar la extracción.
+- La rama de SAIT (`RDR_contactosSAIT.xml`) no la toca `HistCONT`; se genera en el primer job y la mueve `MEKYTL1190`.
+- Las tres acciones usan `ARG1` sin comillas: la ruta no puede contener espacios (no los tiene).
 
 > **Corrección.** La versión anterior lo describía como "job Dummy (nodo de control)", siguiendo
 > el documento de análisis. El export real de Control-M lo define como un job de sistema
@@ -428,9 +457,8 @@ Puntos a tener en cuenta:
 
 - **El fichero completo `ExtraccionContingenciaCONT.xml` no casa con la máscara**
   `ExtraccionContingenciaCONT_*.xml` (no lleva `_` tras el nombre). Lo que historifica
-  `MEKYTL1027` tiene que ser una copia con sufijo creada antes, previsiblemente por `HistCONT`
-  (P-CONT-01). El fichero sin sufijo se queda en `CONT/` y lo sustituye la extracción del día
-  siguiente.
+  `MEKYTL1027` es la copia con sufijo `_<AAAAMMDD>` que crea `HistCONT` (§5.7, plantilla de despliegue), y el fichero sin sufijo **lo borra
+  el propio `HistCONT`** en el mismo paso: no se queda en `CONT/`.
 - **`-mtime +7`** borra los ficheros cuya antigüedad, contada en días completos, es mayor que 7;
   es decir, a partir de **8 días** de antigüedad. Un fichero de 7 días y unas horas se conserva.
   `-type f` hace que solo se borren ficheros, también dentro de subdirectorios, nunca los
@@ -541,6 +569,15 @@ Accion=Script
 > La de producción no se ha visto (P-CONT-07); se espera que lleve `/pr/`, pero no está confirmado
 > si lleva la ruta escrita o un marcador que sustituya el despliegue.
 
+**Según la plantilla de despliegue** (repositorio `estaticos`, rama develop), `ExtraccionGenericaCONT.properties` es idéntico al de arriba con tres diferencias: el marcador
+`@@ENV@@` (que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`) en lugar de `/ei/`; **sin `JDKV=17`**; y `NomClaseJava=Ppal` **sin paquete** (en lugar de `extracciongenericaotherentities.Ppal`).
+Es la base anterior a la migración a Java 17, que está en curso: las ramas migradas empaquetan la clase y llevan `JDKV=17`. Para cada entorno manda lo que tenga instalado: en integración, la copia
+recibida (con paquete y `JDKV=17`); en el resto, la plantilla hasta que se migre. Los argumentos, el número de hilos (20), las siete librerías y la acción `XSLT_TO_XML` con `sait.xsl` son los mismos. Corrige la corrección anterior:
+el marcador `@@ENV@@` **sí existe**, pero lo sustituye el plan de despliegue al instalar el fichero y no `GSProcess.sh` en ejecución.
+
+El log4j (`log4jExtraccionGenericaCON.properties`, P-CONT-08) escribe en `/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCON.log` (`RollingFileAppender`, 100000 KB, 3 copias, nivel `info`, formato
+`[fecha hora] nivel clase:línea - mensaje`); `stdout` se declara pero no está asociado al `rootLogger`. Es la carpeta de la aplicación, no la de `credentials.xml` (`<logs>`) donde escribe `GSProcess.sh`.
+
 Análisis de cada línea que cambia el resultado:
 
 | Clave | Valor | Qué decide |
@@ -548,7 +585,7 @@ Análisis de cada línea que cambia el resultado:
 | `JDKV=17` | 17 | Se usa el Java de la etiqueta `<javahome17>` de `credentials.xml` |
 | `NomPaquete1` / `NomClaseJava` | `ExtraccionGenericaOtherEntities.jar` / `extracciongenericaotherentities.Ppal` | Programa que se ejecuta (`NomClaseJava` vale por el prefijo `NomClase` que reconoce `GSProcess.sh`) |
 | `ArgJava1=2` | Nivel de log INFO | Qué se escribe en el log |
-| `ArgJava2` | `.../dat/properties/log4jExtraccionGenericaCON.properties` | Configuración de log4j: **decide dónde se escribe el log**; su contenido no se ha recibido (P-CONT-08). El nombre sin `T` es el correcto (usuario) |
+| `ArgJava2` | `.../dat/properties/log4jExtraccionGenericaCON.properties` | Configuración de log4j: **decide dónde se escribe el log**: `.../multicanal/logs/ExtraccionGenericaCON.log` (plantilla, P-CONT-08 resuelta). El nombre sin `T` es el correcto (usuario) |
 | `ArgJava3=20` | 20 | Número de hilos (`NUM_THREADS = Integer.parseInt(args[2])`, `Executors.newFixedThreadPool(NUM_THREADS)`) |
 | `ArgJava4` | `.../extracciongenerica` | Directorio que se pasa al hilo `MyThreadCpty`; su uso no se conoce (clase no recibida) |
 | `ArgJava5` (con `PreArgJava5`) | `.../extracciongenerica/ExtraccionContingenciaCONT.xml.tmp` | Fichero temporal. Determina además el directorio de publicación: el final va a `<directorio del temporal>/CONT/` |
@@ -763,6 +800,13 @@ cierre:
 no dentro. La plantilla `match="Contacts"` de `sait.xsl` se dispara una vez por contacto, y su
 variable `$relevant-contact` evalúa un único `ContactDetail`.
 
+**Esquema XSD de la plantilla de despliegue.** La plantilla trae `Contacts_BBVA_Schema.xsd` (61 nombres de elemento, todos opcionales salvo la estructura): raíz `ContactList`, con
+`Contacts` de 0 a n, y dentro `ActualDate`, `StarDate`, `LastChangeDate` y `ContactDetail` con los bloques `FinancialInstitutions`, `MailingAddress`, `ElectronicAddress`, `Branches`, `Offices`,
+`ExtIdentifiers`, `Functions` y `SubFunctions`. Es coherente con la estructura de arriba y con una raíz `<ContactList>` (P-CONT-06), **pero no declara `AgreementsAssociated` ni `SCIsAssociated`**, que emite hoy la
+query de detalle y que usa `sait.xsl`: el esquema es anterior a esos bloques. `ValidationContacts.properties` (`GenericValidator.sh`, jar `RDR_GenericValidatorXSD.jar`, clase `main.Validate`, argumentos carpeta
+`CONT/`, el esquema y `ExtraccionContingenciaCONT.xml`) existe en la plantilla, pero **ninguno de los 9 jobs de esta cadena la ejecuta** (consistente con la respuesta del usuario: sin validación XSD, deliberado).
+Si se activara contra el fichero actual, fallaría por elementos no declarados.
+
 ### 6.8 Configuración de los jobs en Control-M (export real, 28/09/2026)
 
 | Job | Tipo | Script / comando | `%%PARM1` | Máquina | Usuario | Condición de entrada | Condición de salida |
@@ -810,7 +854,7 @@ en error y para la cadena.
 | Salida del job `GS_EXTRACCION_CONT` en Control-M | Un `CONTCT_OID` por línea; `Creando fichero ...`; `Generando fichero en la ruta: ...`; `Error: No se ha podido renombrar el fichero.` si el movimiento falla |
 | Log de `GSProcess.sh` (directorio `<logs>` de `credentials.xml`): `execute_ExtraccionGenericaCONT_<AAAAMMDD>.log` | Comando Java completo, salida de error del Java, `SubProceso ... finalizado de forma correcta/incorrecta` por acción, y `ESTADO-0-` (bien) o `ESTADO-1-` (alguna acción falló) |
 | Log de `Generico.sh` (el mismo `LOG_GENERICO`) | `Ha ocurrido un error en la linea <n> de Generico.sh, detalle: xsltproc ...` si falla la transformación |
-| Log del Java (lo decide `log4jExtraccionGenericaCON.properties`, P-CONT-08) | `******** INICIO PROCESO EXTRACCION GENERICA ********`, `Cantidad de CONT a tratar: <n>`, `*****Se ha producido un error en ObtenerQueryCpty******** <id> CONT`, `Error: No se ha podido incluir la etiqueta inicial.`, `Proceso finalizado. Tiempo de ejecuccion: ...`, `FIN EXTRACCION GENERICA DE CONT` |
+| Log del Java (`/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCON.log` según `log4jExtraccionGenericaCON.properties`, P-CONT-08) | `******** INICIO PROCESO EXTRACCION GENERICA ********`, `Cantidad de CONT a tratar: <n>`, `*****Se ha producido un error en ObtenerQueryCpty******** <id> CONT`, `Error: No se ha podido incluir la etiqueta inicial.`, `Proceso finalizado. Tiempo de ejecuccion: ...`, `FIN EXTRACCION GENERICA DE CONT` |
 | `RAMERC0068.sh`: `/pr/pl/log/<CLAVE>_<HHMMSS>.log` | `Renombrado ... ---> OK` / `Copiado ...` por fichero |
 | `MEGENV0001.sh`: `/pr/pl/envioweb/log/log.Ope.MEGENV0001.sh_<PROTOCOLO>_MEKYTL1189_<fecha.hora>_<código>.log` en cada máquina | `Ejecucion de Proceso ... finalizada correctamente` |
 
@@ -823,14 +867,15 @@ del Java.
 | Ejecutable | Quién lo invoca | ¿Aportado? | Dónde está analizado / gap |
 |---|---|---|---|
 | `GSProcess.sh` | `GS_EXTRACCION_CONT`, `EXTRACCION_CONTACTOS_XML` | Sí (spec común) | `comun_gsprocess`; uso aquí en §5.3 |
-| `ExtraccionGenericaCONT.properties` | `GSProcess.sh` | Sí (copia `ei`) | §6.1; producción en P-CONT-07 |
+| `ExtraccionGenericaCONT.properties` | `GSProcess.sh` | Sí (copia `ei` y plantilla de despliegue) | §6.1; producción en P-CONT-07 |
 | `ExtraccionGenericaOtherEntities.jar` (`Ppal`, `Querys`, `FicheroExtraccion`) | Acción `Java` | Código parcial | §6.3 y `comun_extraccion_generica`; faltan `MyThreadCpty`, `ConDB`, `ConfigCredentials`, `Constants` (P-CONT-05, P-CONT-14) |
 | `ExtraccionCONT.sql` | El jar (desde `FT_T_ATE1`) | Sí | §6.4 |
 | `ExtraccionContingenciaCONT.sql` | El jar (desde `FT_T_ATE1`) | Sí (en sesión) | §6.5-§6.6 |
-| `log4jExtraccionGenericaCON.properties` | El jar | No | P-CONT-08 (no cambia el fichero; sí el diagnóstico) |
+| `log4jExtraccionGenericaCON.properties` | El jar | Sí (plantilla de despliegue) | §6.1; P-CONT-08 resuelta |
 | `Generico.sh` (`XSLT_TO_XML`) | Acción `Script` | Sí (spec común) | `comun_generico_sh` §4.4; uso en §5.5 |
-| `sait.xsl` | `xsltproc` | Sí (en sesión) | §5.5 |
-| `HistCONT.properties` | `EXTRACCION_CONTACTOS_XML` | **No** | P-CONT-01 |
+| `sait.xsl` | `xsltproc` | Sí (en sesión y plantilla de despliegue, idénticas) | §5.5 |
+| `HistCONT.properties` | `EXTRACCION_CONTACTOS_XML` | Sí (plantilla de despliegue) | §5.7; P-CONT-01 resuelta |
+| `Contacts_BBVA_Schema.xsd` y `ValidationContacts.properties` | Ningún job de la cadena | Sí (plantilla de despliegue) | §6.7 (no declara los bloques de acuerdos y SCIs; nadie los ejecuta) |
 | `RAMERC0068.sh` + líneas IDX de `MEKYTL1177`, `MEKYTL1027`, `MEKYTL1190` | Sus jobs | Script sí (spec común); líneas **no** | §6.9; P-CONT-02 |
 | `MEGENV0001.sh` + `MEKYTL1189.idx` (dos máquinas) + módulos `SF_MEGENV0001_*.mod` | `MEKYTL1189`, `MEKYTL1189_SND` | Script sí; configuración y módulos **no** | §5.8; P-CONT-03 y P-MEG-01 de la spec común |
 | `find ... -exec rm -r` | Los dos jobs de purga | Comando literal | §5.9 |
@@ -873,7 +918,7 @@ los jobs. Cuatro bloques:
 3. **Comportamiento ante fallos**: fallo del detalle de un contacto, fallos de configuración en
    base de datos, dependencias de éxito, residuos de una ejecución anterior (TC-04, TC-05, TC-14,
    TC-15).
-4. **Distribución, historificación y purga** (TC-06, TC-11, TC-12, TC-13), y el flujo completo
+4. **Distribución, historificación y purga** (TC-06, TC-11, TC-12, TC-13, TC-19: reejecución de `HistCONT`), y el flujo completo
    (TC-01).
 
 Los datos sintéticos son viables sobre `KYTL_GC` (usuario). Como el orden de los contactos no es
@@ -890,16 +935,16 @@ a línea.
 | Fallos | TC-04, TC-05, TC-14, TC-15 | Lo que el código permite afirmar; la caída de Oracle queda fuera (P-CONT-14) |
 | IHS Markit | TC-06 | Hasta el directorio de disponibilización |
 | SAIT | TC-11 | Hasta `150.100.230.96`; protocolo y renombrado dependen de configuración no recibida (P-CONT-03) |
-| Historificación y purga | TC-12, TC-13 | La operación exacta de `RAMERC0068.sh` depende de las líneas del IDX (P-CONT-02) y de `HistCONT` (P-CONT-01) |
+| Historificación y purga | TC-12, TC-13, TC-19 | La operación exacta de `RAMERC0068.sh` depende de las líneas del IDX (P-CONT-02); `HistCONT` ya está analizado (§5.7) |
 
 **Cómo se combinan.** TC-01 recorre el flujo entero; los demás casos trocean cada paso con datos
 que hacen fallar la comprobación si el paso no hace lo que debe. No queda ningún job sin caso:
 `GS_EXTRACCION_CONT` (TC-02 a TC-05, TC-07 a TC-10, TC-15 a TC-18), `MEKYTL1177` (TC-06, TC-14),
-`EXTRACCION_CONTACTOS_XML` y `MEKYTL1027` (TC-12), purgas (TC-13), `MEKYTL1189`/`_SND` (TC-11),
+`EXTRACCION_CONTACTOS_XML` y `MEKYTL1027` (TC-12, TC-19), purgas (TC-13), `MEKYTL1189`/`_SND` (TC-11),
 `MEKYTL1190` (TC-12).
 
 **Ejecutabilidad.** Cada caso tiene pasos concretos y un resultado afirmado. Dependen de
-información pendiente: TC-12 (el nombre exacto con fecha y lo que hace `HistCONT`) y TC-11 (el
+información pendiente: TC-12 (el nombre exacto con fecha de la rama de SAIT, línea del IDX) y TC-11 (el
 protocolo). Lo que no se puede afirmar se ha dejado fuera del resultado esperado y está registrado
 en §4.2.
 
@@ -977,7 +1022,7 @@ Trazabilidad requisito ↔ caso:
 | RG-20 | Configuración de envío a SAIT no recibida (dos `.idx`) | No se sabe el protocolo ni si se comprueba el tamaño | Gap aceptado por el usuario (P-CONT-03) |
 | RG-21 | `MEKYTL1027` publica `RDR_DAILY_EXGEN_CPARTYS_new_MEKYTL1021_OK-37` | Esta cadena podría ser requisito de la de contrapartidas | P-CONT-10 |
 | RG-22 | El programa Java devuelve 0 ante casi cualquier error (contactos perdidos, lista vacía) | Ficheros incompletos entregados con todos los jobs en verde | P-CONT-05; TC-04, TC-05 |
-| RG-23 | `HistCONT.properties` sin analizar | No se sabe qué hace un job de la cadena ni si alimenta la historificación | P-CONT-01 |
+| RG-23 | `HistCONT.properties` (resuelto con la plantilla): borra el fichero sin fecha tras copiarlo con fecha | Una reejecución desde `MEKYTL1177` o de `EXTRACCION_CONTACTOS_XML` falla porque ya no existe el fichero sin fecha; el fichero de DataX es el anterior a `QuitarNulos` | §5.7; TC-12 |
 | RG-24 | Días de orden domingo a jueves frente a "L-V" de las fichas | Puede no ejecutarse el día esperado | P-CONT-04 |
 
 ---
@@ -998,7 +1043,7 @@ distinto. Lo más importante para entenderlo:
 4. Dos defectos funcionales: el `rownum = 1` de `AgreementsAssociated` (RG-15) y la ausencia de
    control del fichero vacío de SAIT (RG-02).
 
-**Para cerrar la especificación faltan** (§4.2): `HistCONT.properties` (P-CONT-01), las líneas
+**Para cerrar la especificación faltan** (§4.2): las líneas
 del IDX de `RAMERC0068.sh` (P-CONT-02), la hora de orden y los días reales (P-CONT-04), la
 decisión sobre el fichero sin contactos fallidos y el código de `MyThreadCpty` (P-CONT-05), los
 valores de `FT_T_PAR1`/`URL_OUTPUT_FILE` (P-CONT-06) y el `.properties` de producción

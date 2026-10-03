@@ -36,10 +36,10 @@
     <pasos>
       <paso numero="1">Forzar que baskets.xml no cumpla el esquema XSD.</paso>
       <paso numero="2">Ejecutar VALIDACION_XSD.</paso>
-      <paso numero="3">Verificar el código de retorno real del script y el estado final del job en Control-M.</paso>
+      <paso numero="3">Verificar el código de retorno real del script (0 en el escenario a, 1 en el b) y el estado final del job en Control-M, y revisar el log RDR_Validacion_XSD_AAAAMMDD.log del directorio de logs de credentials.xml.</paso>
       <paso numero="4">Verificar si las 10 ramas de distribución se disparan igualmente.</paso>
     </pasos>
-    <resultadoEsperado>RDR_Validacion_XSD.sh retorna 1 (fallo); Control-M marca el job como OK igualmente (Force OK); las 10 ramas de distribución se ejecutan con normalidad, distribuyendo un fichero potencialmente inválido.</resultadoEsperado>
+    <resultadoEsperado>Dos escenarios. (a) baskets.xml bien formado pero no conforme al XSD (p. ej. ID no entero): según el código de la plantilla (spec §6.2, comprobado) RDR_Validacion_XSD.sh imprime el resultado de la validación con los errores y sus líneas en RDR_Validacion_XSD_AAAAMMDD.log y retorna 0; el job queda OK sin necesitar el Force OK. (b) fallo estructural (fichero ausente o vacío, sin &lt;Securities&gt; o con más de una apertura, sin &lt;Security&gt;): retorna 1; Control-M marca el job como OK igualmente (Force OK). En ambos casos las 10 ramas de distribución se ejecutan con normalidad, distribuyendo un fichero potencialmente inválido.</resultadoEsperado>
     <tipoValidacion>Código de retorno real del script (log) + estado final del job en Control-M + verificación de que las ramas sucesoras arrancan.</tipoValidacion>
     <criterioAceptacion>Job marcado OK pese a fallo real de validación, ramas sucesoras confirmadas en ejecución — comportamiento As-Is documentado, no un defecto.</criterioAceptacion>
     <posibilidadFallo>Resultado esperado y correcto según el requisito de diseño (Force OK); si el job quedara en KO real, indicaría un cambio de configuración respecto a lo documentado.</posibilidadFallo>

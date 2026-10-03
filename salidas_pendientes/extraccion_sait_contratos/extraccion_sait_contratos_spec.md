@@ -211,9 +211,7 @@ plantilla sin relación con Mentor.
 | `AgmtSub` | Datos de custodia/BUC: `AgmtSubCstdyNum`, `AgmtSubBUCNme`, `AgmtSubBUCStartTms`/`EndTms` |
 | `ExternalIdentifiers` (lista) | Identificadores externos de `FT_T_LAID` activos: `ExternalID`, `Data_Src_ID`, excluyendo la fuente `Generic` y los contextos `PRODUCT32`/`Onboarding Digital` |
 
-No se ha visto el contenido de `Sait_Diario.xsl`: no se sabe si filtra o renombra algo de esta estructura
-antes de escribir el fichero transmitido (P-SAIT-04). Como origen y destino de `Batch_Sait` son la misma
-carpeta, lo razonable es una transformación de paso, pero no está confirmado.
+**Cierre 3 (corrección):** `Sait_Diario.xsl` **sí filtra**: conserva solo los contratos con alguna de 16 marcas de modificación igual a `actual_date`, quita esos campos auxiliares y copia los 14 bloques anteriores sin renombrar nada (§6.1). El fichero diario de entrada tiene por tanto una estructura distinta de la de `BATCH_SAIT.sql` (lleva `actual_date` y las 16 marcas por contrato).
 
 ## 3. Requisitos detectados
 
@@ -274,11 +272,18 @@ carpeta, lo razonable es una transformación de paso, pero no está confirmado.
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-SAIT-01 | ¿Qué selecciona exactamente `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?, ¿la misma estructura `<Agreement>` que `BATCH_SAIT.sql`?)? El texto de esa query no se ha recibido; solo el de `BATCH_SAIT.sql` (fila 20) | El diccionario de §1.2 es el de la carga total; saber qué contratos entran cada día define el contenido esperado del fichero y los datos de prueba |
+| P-SAIT-01 | **Resuelta en parte (cierre 3):** `Sait_Diario.xsl` obliga a que la query entregue por contrato `actual_date` y 16 campos `*_last_chg_tms` en el mismo formato de fecha (§6.1); sigue sin verse el texto de `BATCH_SAIT_DIARIO.sql` ni si ya filtra por fecha. ¿Qué selecciona exactamente `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?, ¿la misma estructura `<Agreement>` que `BATCH_SAIT.sql`?)? El texto de esa query no se ha recibido; solo el de `BATCH_SAIT.sql` (fila 20) | El diccionario de §1.2 es el de la carga total; saber qué contratos entran cada día define el contenido esperado del fichero y los datos de prueba |
 | P-SAIT-02 | `MEKYTL0357` y `MEKYTL0949`/`MEKYTL0950` actúan sobre `.../SAIT/`: ¿`RAMERC0068.sh` *mueve* (`M`) o *copia* (`C`) en esas claves?, ¿qué contiene el `.idx` de `MEKYTL0357`? Además la ficha de `MEKYTL0357` dice que envía por Connect:Direct a `lpftp503:/unload/transmisiones/SAIT/`, pero `LISTA` lee de `LPFTP503:/fichtemcomp/pr/descargas/kytl/SAIT/`. Las líneas IDX y la configuración de la pasarela no se han recibido | Las dos ramas (historificación y transmisión) arrancan a la vez tras `MEKYTL0357`; si la historificación mueve el fichero antes de que `LISTA` lo envíe, el envío falla (RISK-SAIT-004) |
 | P-SAIT-03 | ¿Qué ocurre si el Planificador no ha dejado `Diario.xml` cuando arranca la cadena a las 06:00 (la cadena no tiene `ctmfw`), o un día en que no genera (el lunes: el Planificador solo genera de martes a sábado)? | `Batch_Sait` no aborta ni avisa (RISK-SAIT-003); se podría transmitir un fichero ausente, antiguo o vacío |
-| P-SAIT-04 | ¿Qué hace `Sait_Diario.xsl` (filtros, renombrados)? | Define el contenido real del fichero que recibe SAIT |
+| P-SAIT-04 | **Resuelta (cierre 3):** hoja leída entera y ejecutada con datos de prueba; filtra por fecha de modificación y copia 14 bloques (§6.1). ¿Qué hace `Sait_Diario.xsl` (filtros, renombrados)? | Define el contenido real del fichero que recibe SAIT |
 | P-SAIT-05 | Días de ejecución: Control-M muestra `0,1,2,3,4` y la captura se leyó como domingo-jueves, mientras que las fichas EX-005-03 dicen L M X J V. ¿Cuál es el calendario real de `LISTA`/`BORRA`? | Determina si el viernes se transmite y si el domingo hay envío sin fichero nuevo |
+
+**Cierre 3: estado de los huecos con identificador `H-SAIT` (02/10/2026).**
+
+| Id | Estado | Qué lo ha resuelto o qué falta |
+|----|--------|-------------------------------|
+| H-SAIT-03 | Resuelta en parte | `RDR_Transformacion_SAIT.sh` de la plantilla (idéntico al analizado) permite saber qué etiquetas de `credentials.xml` lee: `javahome` y `logs` (usadas) y `gcuser`, `gcpassapp`, `port`, `alias` y `host` (leídas, no usadas); falta el contenido real (§6.1) |
+| H-SAIT-01, H-SAIT-02, H-SAIT-04, H-SAIT-05, H-SAIT-06 | Sin cambios | La plantilla no contiene `LPFTPEXCA*.sh`, módulos `.mod`, el XSD del Planificador ni el export de Control-M |
 
 ## 5. Especificación funcional
 
@@ -349,6 +354,26 @@ Borra /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_2
 ```
 (No borra el fichero sin sufijo.)
 
+### 6.1 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL
+
+**Procedencia y cómo leerla.** Material nuevo: la plantilla de despliegue (repositorio `estaticos`, rama `develop`), que es la base de lo que se instala en cada entorno, no la copia de un entorno. `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` (`GSProcess.sh` solo sustituye `$ENV`); estos ficheros no tienen variantes `.de/.ei/.pp/.pr`. La plantilla es la base **anterior a la migración a Java 17**. Lo que aquí se atribuye a producción son valores de la plantilla, no una copia verificada del servidor.
+
+**`Sait_Diario.xsl` (P-SAIT-04): hoja leída entera y ejecutada.** XSLT 1.0, salida XML con sangrado (`indent="yes"`, UTF-8, con declaración XML). `Batch_Sait` la ejecuta con el procesador que trae el classpath del script (`xalan-2.7.1.jar` y `serializer-2.7.2.jar`). Comportamiento, comprobado con datos de prueba:
+1. Escribe siempre la raíz `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` (la misma cabecera que el Planificador pone al fichero total de la fila 20; el fichero diario de entrada lleva `<AgreementResp>` sin atributos) y la cierra. Con una entrada sin contratos produce solo esa envoltura.
+2. Recorre `/AgreementResp/Agreement`. De cada contrato lee `actual_date` y 16 marcas de última modificación (`lagr_`, `laid_`, `flar_`, `lag1_`, `lat1_`, `laan_`, `lac1_`, `lars_`, `cnta_`, `laap_`, `lacd_`, `lad1_`, `cntc_`, `aclp_`, `acct_` y `lar1_` seguidas de `last_chg_tms`), les quita los guiones (`translate(…,'-','')`) y **conserva el contrato solo si alguna de las 16 es igual, como texto, a `actual_date`**: pasan únicamente los contratos con algún cambio en la fecha de extracción. Es el filtro del «diario».
+3. De cada contrato conservado copia tal cual y en este orden los 14 bloques de §1.2 (`AgreementID`, `AgmtMultiBrInd`, `Pty`, `FinDetls`, `PtySecT`, `Coll`, `AgmtMarket`, `AgmtExeCntc`, `AgmtContacts`, `AgmtPlazas`, `AgmtProdLists`, `AgmtParts`, `AgmtSub`, `ExternalIdentifiers`) y añade un salto de línea. **No copia** `actual_date` ni las 16 marcas: el fichero transmitido solo lleva la parte de negocio. No renombra ni cambia ningún valor.
+4. Consecuencias: (a) la comparación es de texto, así que solo funciona si `actual_date` y las marcas tienen el mismo formato (un valor con hora, por ejemplo `2026-10-02 08:00:00`, no coincide nunca con una fecha); (b) un contrato sin `actual_date` ni marcas compara cadenas vacías y **pasa el filtro**; (c) la entrada de `BATCH_SAIT_DIARIO.sql` tiene que traer por contrato `actual_date` y las 16 marcas, a diferencia de `BATCH_SAIT.sql` (carga total), cuyo diccionario de §1.2 no las lista: la suposición de §1.2 de que la fila 9 «genera la misma estructura» queda corregida. Si la query ya filtra por fecha o devuelve todo el universo no se sabe: **P-SAIT-01 queda en parcial**.
+
+**`RDR_Transformacion_SAIT.sh` y `credentials.xml` (H-SAIT-03).** El script de la plantilla es idéntico al analizado en §1.1 (comparado con `diff`). Del `credentials.xml` del entorno lee, en el bloque `environment`, las etiquetas `javahome` y `logs`, y en el bloque `database`, `gcuser`, `gcpassapp`, `port`, `alias` y `host`. De ellas, la transformación **solo usa el directorio de logs** (pasado como argumento 3 a `Batch_Sait`) y `javahome` para ampliar el `PATH`; los datos de base de datos se leen pero no se usan (`Batch_Sait` no abre ninguna conexión). El primer argumento (`fileloading` o `publishing`) solo se valida. Otros detalles del script: (a) el entorno se decide por la primera carpeta que exista entre `/fichtemcomp/de`, `/ei`, `/pp` y `/pr`, y el usuario que lo ejecuta tiene que ser el de aplicación de ese entorno (`xakytl1p` en `pr`), si no sale con código 255; (b) añade el JDK de `credentials.xml` al **final** del `PATH` y llama a `java` sin ruta, de modo que arranca el primer `java` del `PATH`, no necesariamente el de `credentials.xml`; (c) usa opciones de JVM antiguas (`-XX:+AggressiveOpts`, `-XX:+UseGCTaskAffinity`, `-XX:+BindGCTaskThreadsToCPUs`, `-XX:+UseParallelOldGC`): probado con un JDK 21 (no con 17), esas opciones se rechazan con «Unrecognized VM option» y la JVM no arranca, así que el script solo funciona mientras el `java` del `PATH` sea un JDK antiguo; (d) su código de salida es el del `java`, que es 0 aunque `Batch_Sait` haya capturado un error de transformación (RISK-SAIT-003). El contenido real de `credentials.xml` (sin secretos) no está en la plantilla: **H-SAIT-03 queda en parcial** (se conoce qué etiquetas lee, no sus valores).
+
+**Ficheros SAIT de la plantilla que no pertenecen a esta cadena (sentido contrario o contactos).**
+- `SAITLoading.properties` + `scrt/loadSAIT.sh`: carga **hacia** RDR del fichero `/fichtemcomp/@@ENV@@/descargas/kytl/SAIT/XMLContratos.xml` con tres alimentadores (`SAIT`/tipo de mensaje `Contratos`, `SAIT_Comp`/`Contratos_Comp` y `SAIT_Contc`/`Contratos_Contc`), tamaños de bloque 500, 500 y 1, 2, 2 y 1 ramas en paralelo, `SuccessAction=LEAVE`. `loadSAIT.sh` (dos argumentos: `fileloading|publishing` y `credentials.xml`) comprueba el usuario de aplicación, sustituye `$ENV` en los `.csv`, `.xml` y `.properties`, hace `chmod 664` del `XMLContratos.xml` y lanza `executeBbvaEvent.sh <dominio> SAITLoading <credentials.xml> SAITLoading.properties`; el evento `SAITLoading` ejecuta el workflow `SAIT_Loading` (grupo `Custom/RDR/Fileloading/MitigantsBancomer`). Ver también la spec `legal_agreements_p062`.
+- `SAIT_CORRECCION_CONTACTOS.properties` + `scrt/SAIT_CORRECCION_CONTACTOS.sh`: igual que el anterior para el workflow `SAIT_CORRECCION_CONTACTOS` (alimentador `SAIT_CORRECCION_CONTACTOS`, directorio `.../SAIT/`, bloque 1, `ReProcessProcessedFiles=true`, `SuccessAction=LEAVE`, `VendorDefinition=RDR`).
+- `sait.xsl`: la usa `ExtraccionGenericaCONT.properties` (extracción de contactos) para generar `.../extracciongenerica/CONT/SAIT/RDR_contactosSAIT.xml` a partir de `ExtraccionContingenciaCONT.xml`: conserva los `Contacts` con al menos un `ContactDetail` asociado a un contrato con `AgreementORGID = '1145'` o a una `SCIsInf` con `SCIsBranch = 'MEX'`, y en cada uno deja solo las asociaciones que cumplen esa condición. No interviene en `Diario_20000101.xml`.
+- `sql/QueryAgreements.sql` (que el encargo asocia a SAIT) es una consulta paginada de contratos (`nettingContractArray`), no `BATCH_SAIT_DIARIO.sql`: ver la spec `cesion_contratos_bbva` (§6.3).
+
+**Lo que la plantilla no contiene.** `BATCH_SAIT_DIARIO.sql` (P-SAIT-01), `RDR_Transformacion_SAIT.jar`, `RDRCommon.jar`, los XSD de validación del Planificador (H-SAIT-04), `credentials.xml`, `MEGENV0001.sh`, `RAMERC0068.sh`, `LPFTPEXCA0000/0002.sh`, los `.idx`/IDX, el export de Control-M (calendarios, `PLAN_1300`, nombre del evento cross-chain): P-SAIT-02, -03 y -05 y H-SAIT-01, -02, -04, -05 y -06 siguen igual.
+
 ## 7. Especificación de testing
 
 **Estrategia:** dada la cadena corta (2 jobs) y bien documentada con evidencia literal, los casos cubren el
@@ -367,6 +392,7 @@ Referencia de casos por tipo:
   que el log registre "FINALIZADA" (RISK-SAIT-003).**
 - `conflicto_integridad`: TC-006 (el Planificador deja `KYTL_RDR_EXTRACTION_contratos_Diario.xml` antes de las
   06:00; ver §1.1 y §4).
+- `regresion` (cierre 3): TC-008 (filtro de contratos modificados de `Sait_Diario.xsl`, §6.1).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -408,8 +434,7 @@ Referencia de casos por tipo:
    (`MEKYTL0357_LISTA → MEKYTL0357_BORRA`); ninguna espera a la otra y ambas trabajan sobre
    `/fichtemcomp/pr/descargas/kytl/SAIT/`. Si la historificación *mueve* el fichero antes de que
    `LISTA` lo transmita, `LISTA` no lo encuentra (P-SAIT-02).
-6. **Detalle menor — contenido exacto de `Sait_Diario.xsl`** (P-SAIT-04): no se ha visto si filtra o
-   renombra campos de la estructura de §1.2.
+6. **`Sait_Diario.xsl` (P-SAIT-04, cerrado en el cierre 3).** Filtra por fecha de modificación y quita los campos auxiliares (§6.1); el efecto práctico es que el fichero transmitido solo lleva los contratos modificados el día de `actual_date` (y los que carezcan de esas marcas), no el universo.
 
 ## 10. Conclusión
 

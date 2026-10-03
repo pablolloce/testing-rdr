@@ -14,7 +14,10 @@
   y la hoja `Sait_Diario.xsl` (en `/pr/kytl/online/multipais/multicanal/dat/properties/`) deben estar
   instalados; la clase solo transforma el XML de entrada, no consulta la base de datos. La query
   `BATCH_SAIT.sql` (carga total, fila 20) y su estructura están en la spec §1.2; la de la fila 9 no se ha
-  recibido (P-SAIT-01).
+  recibido (P-SAIT-01). Para probar la transformación, el XML diario de entrada debe llevar por contrato
+  `actual_date` y las 16 marcas `*_last_chg_tms` en el mismo formato de fecha (`Sait_Diario.xsl` filtra por ellas, spec §6.1), y
+  `xalan-2.7.1.jar` y `serializer-2.7.2.jar` deben estar en `lib` (classpath de `RDR_Transformacion_SAIT.sh`). El `java` del `PATH`
+  del usuario `xakytl1p` debe aceptar las opciones de JVM del script (spec §6.1).
 
 ## Configuración e infraestructura
 

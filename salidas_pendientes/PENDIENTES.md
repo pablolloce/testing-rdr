@@ -4,13 +4,13 @@ Esta carpeta contiene las especificaciones que **todavía no están completas**:
 
 Criterio aplicado el 02/10/2026 con la regla "Dos carpetas" de `.github/copilot-instructions.md`. Los huecos **no bloqueantes** (siglas, contexto, confirmaciones de algo ya deducido, mejoras futuras) se listan aparte y no impiden volver a `salidas/`.
 
-**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 664 huecos bloqueantes y 403 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
+**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 652 huecos bloqueantes y 415 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
 
 Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
-- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 52 cerrados, 104 resueltos en parte, 4 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
+- **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 64 cerrados, 108 resueltos en parte, 4 nuevos (recuento parcial mientras la pasada esté en curso). Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -18,20 +18,20 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 
 | Material | Huecos | Procesos afectados |
 |---|---|---|
-| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 126 | 47 |
+| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 118 | 45 |
 | Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 84 | 43 |
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 81 | 47 |
 | Otros | 79 | 41 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
 | Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 48 | 29 |
 | Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 41 | 24 |
-| .properties y configuración de producción (dat/properties, cfg/entorno) | 37 | 19 |
-| Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 19 | 10 |
+| .properties y configuración de producción (dat/properties, cfg/entorno) | 35 | 17 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
+| Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 17 | 8 |
 | raiseEvent.sh (lo invoca executeBbvaEvent.sh) | 16 | 15 |
-| Layout o muestra de ficheros | 15 | 14 |
 | Versión de RAMERC0068.sh instalada en producción | 15 | 15 |
-| Workflows y subworkflows de GoldenSource | 11 | 9 |
+| Layout o muestra de ficheros | 13 | 12 |
+| Workflows y subworkflows de GoldenSource | 13 | 11 |
 | Confirmación funcional del usuario | 10 | 6 |
 
 Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, la carpeta `/pr/pl/envioweb/idx/bck/*.idx`, los módulos `/pr/pl/envioweb/scrt/*.mod`, `raiseEvent.sh`, `LPFTPEXCA0000/0002.sh`, los exports XML de las carpetas de Control-M, una consulta a `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1`, y la verificación en los servidores de que lo instalado coincide con la plantilla `estaticos` (versión de `GSProcess.sh`, jars con o sin paquete, `.properties` efectivos). Del volcado `fileloading` faltan los scripts BeanShell (`statements`) de los nodos listados al final.
@@ -73,8 +73,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`rdr_batch_emisores_refinitiv`](#rdr-batch-emisores-refinitiv) — 8 bloqueantes
 - [`rdr_c460`](#rdr-c460) — 6 bloqueantes
 - [`rdr_carga_baja_niveles`](#rdr-carga-baja-niveles) — 5 bloqueantes
-- [`rdr_carga_bbg_multi_m_new`](#rdr-carga-bbg-multi-m-new) — 10 bloqueantes
-- [`rdr_carga_bbg_multi_t_new`](#rdr-carga-bbg-multi-t-new) — 11 bloqueantes
+- [`rdr_carga_bbg_multi_m_new`](#rdr-carga-bbg-multi-m-new) — 4 bloqueantes
+- [`rdr_carga_bbg_multi_t_new`](#rdr-carga-bbg-multi-t-new) — 5 bloqueantes
 - [`rdr_carga_plazas_trad_new`](#rdr-carga-plazas-trad-new) — 8 bloqueantes
 - [`rdr_carga_refinitiv_multi`](#rdr-carga-refinitiv-multi) — 13 bloqueantes
 - [`rdr_cargalei_new`](#rdr-cargalei-new) — 9 bloqueantes
@@ -1185,26 +1185,27 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_carga_bbg_multi_m_new/rdr_carga_bbg_multi_m_new_spec.md`  
 **Qué le falta:** Faltan BLOOMBERG_PARAMETERS.properties completo, BloombergMultiResponse.properties y workflow Bloomberg_Response, layout de ADR_FILE.csv, MEKYTL0898, códigos de salida/log y solape con la variante T.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se analiza por primera vez el workflow Bloomberg_Response v15 que consume la respuesta (validación, alta de rol, carga estándar, listed MIC y actualización de FT_T_VREQ) y se añade TC-010. Ningún hueco se cierra del todo porque faltan el .mdx, BloombergMultiResponse.properties y los scripts GetISIN/Read Response.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** El codigo de Bloomberg_MultiRequest.sh y los .properties de la plantilla cierran el literal de BLOOMBERG_PARAMETERS (43 campos), el formato de ADR_FILE.csv, los codigos de salida, el log y el archivado, y corrigen R-02: sin .out no se carga nada (exit 0). Siguen abiertos el .mdx, MEKYTL0898 y el solape con la variante T.  
 
-### Huecos bloqueantes (10)
+### Huecos bloqueantes (4)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-BBGM-01 | parcial | Contenido literal completo de BLOOMBERG_PARAMETERS.properties (41 campos en orden y otras líneas de cabecera) **Avance 2ª pasada:** Workflow Bloomberg_Response v15: SECURITY_TYP en pos. 3, lista de mercados en pos. 42, alta de rol con 47 elementos (LEI 21, org 22); incoherencia 41 campos vs 44/47 anotada (§6.8). | Contenido literal de BLOOMBERG_PARAMETERS.properties (41 campos en orden) |
-| P-BBGM-02 | parcial | Contenido de BloombergMultiResponse.properties, cómo recibe cada línea el evento Bloomberg_Response y tablas donde escribe **Avance 2ª pasada:** Analizado nodo a nodo Bloomberg_Response v15 (+Carga_Listed_MIC, AltaRolEmisor, Standard File Load): FT_T_VREQ PROCESSED/FAILED, ISSUES_BBVARDR.txt, feed LineByLine (§6.8). | Mapping FinalLastVersionBBResponse_TI.mdx (49337 B), BloombergMultiResponse.properties y blobs statements de GetISIN y Read Response de Bloomberg_Response |
-| P-BBGM-03 | parcial | Formato exacto de ADR_FILE.csv (separador, cabecera, significado de columnas 1, 2 y 3) **Avance 2ª pasada:** El workflow deduce: col3=ISIN -> 'col1 col2' = ISIN+mercado (>13 car.), si no col1 = BBGLOBAL de 12 car.; búsqueda por los 12 primeros caracteres. | Separador y cabecera de ADR_FILE.csv y significado completo de col2 (muestra real o awk del script) |
-| P-BBGM-04 | abierta | Código de salida de Bloomberg_MultiRequest.sh por situación (SFTP, reintentos agotados, fallos de carga, CSV sin datos) | Códigos de salida reales del script por escenario |
-| P-BBGM-05 | parcial | Qué evita que M y T procesen dos veces el mismo ADR_FILE.csv cuando ambas transmisiones lo dejan el mismo día | Confirmar con MEKYTL0898 (M y T) y operación qué evita el solape |
+| P-BBGM-02 | parcial | Contenido de BloombergMultiResponse.properties, cómo recibe cada línea el evento Bloomberg_Response y tablas donde escribe **Avance 2ª pasada:** Analizado nodo a nodo Bloomberg_Response v15 (+Carga_Listed_MIC, AltaRolEmisor, Standard File Load): FT_T_VREQ PROCESSED/FAILED, ISSUES_BBVARDR.txt, feed LineByLine (§6.8). **Avance 3ª pasada (estaticos):** BloombergMultiResponse.properties = solo Path=.../ADRMultirequest/Backup/FicheroCargaBBVA.txt; el script entrega una linea cada vez en ese fichero (resuelve R-12). Spec §6.9.B. | Mapping FinalLastVersionBBResponse_TI.mdx y scripts GetISIN, Read Response y Convertir XML del workflow Bloomberg_Response (tablas y columnas que escribe la carga). |
+| P-BBGM-05 | parcial | Qué evita que M y T procesen dos veces el mismo ADR_FILE.csv cuando ambas transmisiones lo dejan el mismo día **Avance 3ª pasada (estaticos):** M y T ejecutan el mismo script y comparten ADR_FILE.csv, FicheroCargaBBVA.txt, ...Final.txt y ...Tmp.txt; nada en la plantilla impide que se pisen (§6.9.B, TC-012). | Confirmar con MEKYTL0898 (M y T) y con operacion que evita el solape cuando ambas transmisiones dejan ADR_FILE.csv el mismo dia. |
 | P-BBGM-06 | abierta | Si cada evento de MEKYTL0898 habilita una sola espera de 30 min; significado de la hora límite de la ficha de FICHERO_RDR_FW | Confirmación de calendario/hora límite en Control-M |
-| P-BBGM-07 | parcial | Dónde y con qué nombre escribe el script su log y qué texto distingue final correcto de incorrecto **Avance 2ª pasada:** Bloomberg_Response escribe ISSUES_BBVARDR.txt (processed/failed por emisión) en /fichtemcomp/<env>/descargas/kytl/issues/; evidencia verificable de R7 (§6.8). | Nombre, ruta y texto de fin correcto del log del propio script (código de loadExecute/log) |
 | H-BBGM-01 | abierta | MEKYTL0898 (cadena externa TR_RDR_CARGA_BBG_MULTI_M) genera ADR_FILE.csv: job nombrado y no analizado | definición/IDX de MEKYTL0898 (genera ADR_FILE.csv y publica el evento) |
-| H-BBGM-02 | abierta | Archivado del CSV con sufijo _ddmmyy: no se precisa si renombra o copia ni en qué directorio | Función de archivado de Bloomberg_MultiRequest.sh (ruta y operación) |
-| H-BBGM-03 | abierta | Comportamiento no documentado del script con .out inexistente, número de líneas inesperado o cabecera ausente | Comportamiento real de Bloomberg_MultiRequest.sh en esos casos |
 
-### No bloqueantes (1)
+### No bloqueantes (7)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-BBGM-01 | resuelta | Contenido literal completo de BLOOMBERG_PARAMETERS.properties (41 campos en orden y otras líneas de cabecera) **Avance 2ª pasada:** Workflow Bloomberg_Response v15: SECURITY_TYP en pos. 3, lista de mercados en pos. 42, alta de rol con 47 elementos (LEI 21, org 22); incoherencia 41 campos vs 44/47 anotada (§6.8). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): BLOOMBERG_PARAMETERS.properties literal: 7 lineas de cabecera y 43 campos (no 41); las 4 anclas del workflow (pos. 3, 21, 22, 42) y los 47 elementos coinciden. Spec §6.9.A. |
+| P-BBGM-03 | resuelta | Formato exacto de ADR_FILE.csv (separador, cabecera, significado de columnas 1, 2 y 3) **Avance 2ª pasada:** El workflow deduce: col3=ISIN -> 'col1 col2' = ISIN+mercado (>13 car.), si no col1 = BBGLOBAL de 12 car.; búsqueda por los 12 primeros caracteres. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): awk -F';' de Bloomberg_MultiRequest.sh: separador ';', primera fila siempre ignorada, col3=='ISIN' => 'col1 col2\|ISIN', si no 'col1\|col3'. Spec §6.9.B. |
+| P-BBGM-04 | resuelta | Código de salida de Bloomberg_MultiRequest.sh por situación (SFTP, reintentos agotados, fallos de carga, CSV sin datos) | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Codigos de salida por situacion: 254 entorno, 1 solo si falla el put SFTP, 0 en el resto (sin .out, cargas fallidas, CSV sin datos). Tabla en spec §6.9.B. |
+| P-BBGM-07 | resuelta | Dónde y con qué nombre escribe el script su log y qué texto distingue final correcto de incorrecto **Avance 2ª pasada:** Bloomberg_Response escribe ISSUES_BBVARDR.txt (processed/failed por emisión) en /fichtemcomp/<env>/descargas/kytl/issues/; evidencia verificable de R7 (§6.8). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Log Log/Bloomberg_MultiRequest<ddmmyy>.log (+ .debug); fin correcto 'Proceso de carga/enriquecimiento Bloomberg finalizado'; errores 'ERROR en ...'; por linea 'finished OK\|NOT OK'. §6.9.B. |
+| H-BBGM-02 | resuelta | Archivado del CSV con sufijo _ddmmyy: no se precisa si renombra o copia ni en qué directorio | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): El CSV se MUEVE (mv) a ADRMultirequest/Backup/ADR_FILE.csv_<ddmmyy> (sufijo tras la extension) y solo si hubo .out; un segundo archivado el mismo dia lo sobrescribe. Spec §6.9.B. |
+| H-BBGM-03 | resuelta | Comportamiento no documentado del script con .out inexistente, número de líneas inesperado o cabecera ausente | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): .out inexistente: sin recorte ni carga ni archivado, exit 0; pocas lineas: sed falla/recorte vacio y 1 invocacion con linea vacia; CSV sin cabecera: pierde la 1a fila. §6.9.B, TC-011/013. |
 | H-BBGM-04 | abierta | Qué hace RDR_SENDBBG_ASSET con el .req archivado y qué hace la malla GC_TESO al recibir el evento de fin | Consumo aguas abajo: entrega y contenido del .req/evento ya claros |
 
 ## rdr_carga_bbg_multi_t_new
@@ -1212,27 +1213,28 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_carga_bbg_multi_t_new/rdr_carga_bbg_multi_t_new_spec.md`  
 **Qué le falta:** Faltan BLOOMBERG_PARAMETERS.properties completo, BloombergMultiResponse.properties y workflow Bloomberg_Response, layout de ADR_FILE.csv, MEKYTL0898, códigos de salida/log, hora de PLAN_1200 y solape con la variante M.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se analiza por primera vez el workflow Bloomberg_Response v15 que consume la respuesta (validación, alta de rol, carga estándar, listed MIC y actualización de FT_T_VREQ) y se añade TC-010. Ningún hueco se cierra del todo porque faltan el .mdx, BloombergMultiResponse.properties y los scripts GetISIN/Read Response.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** El codigo de Bloomberg_MultiRequest.sh y los .properties de la plantilla cierran el literal de BLOOMBERG_PARAMETERS (43 campos), el formato de ADR_FILE.csv, los codigos de salida, el log y el archivado, y corrigen R-02: sin .out no se carga nada (exit 0). Siguen abiertos el .mdx, MEKYTL0898 y el solape con la variante M.  
 
-### Huecos bloqueantes (11)
+### Huecos bloqueantes (5)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-BBGT-01 | parcial | Contenido literal completo de BLOOMBERG_PARAMETERS.properties (41 campos en orden y otras líneas de cabecera) **Avance 2ª pasada:** Workflow Bloomberg_Response v15: SECURITY_TYP en pos. 3, lista de mercados en pos. 42, alta de rol con 47 elementos (LEI 21, org 22); incoherencia 41 campos vs 44/47 anotada (§6.8). | Contenido literal de BLOOMBERG_PARAMETERS.properties (41 campos en orden) |
-| P-BBGT-02 | parcial | Contenido de BloombergMultiResponse.properties, cómo recibe cada línea el evento Bloomberg_Response y tablas donde escribe **Avance 2ª pasada:** Analizado nodo a nodo Bloomberg_Response v15 (+Carga_Listed_MIC, AltaRolEmisor, Standard File Load): FT_T_VREQ PROCESSED/FAILED, ISSUES_BBVARDR.txt, feed LineByLine (§6.8). | Mapping FinalLastVersionBBResponse_TI.mdx (49337 B), BloombergMultiResponse.properties y blobs statements de GetISIN y Read Response de Bloomberg_Response |
-| P-BBGT-03 | parcial | Formato exacto de ADR_FILE.csv (separador, cabecera, significado de columnas 1, 2 y 3) **Avance 2ª pasada:** El workflow deduce: col3=ISIN -> 'col1 col2' = ISIN+mercado (>13 car.), si no col1 = BBGLOBAL de 12 car.; búsqueda por los 12 primeros caracteres. | Separador y cabecera de ADR_FILE.csv y significado completo de col2 (muestra real o awk del script) |
-| P-BBGT-04 | abierta | Código de salida de Bloomberg_MultiRequest.sh por situación (SFTP, reintentos agotados, fallos de carga, CSV sin datos) | Códigos de salida reales del script por escenario |
-| P-BBGT-05 | parcial | Qué evita que M y T procesen dos veces el mismo ADR_FILE.csv cuando ambas transmisiones lo dejan el mismo día | Confirmar con MEKYTL0898 (M y T) y operación qué evita el solape |
+| P-BBGT-02 | parcial | Contenido de BloombergMultiResponse.properties, cómo recibe cada línea el evento Bloomberg_Response y tablas donde escribe **Avance 2ª pasada:** Analizado nodo a nodo Bloomberg_Response v15 (+Carga_Listed_MIC, AltaRolEmisor, Standard File Load): FT_T_VREQ PROCESSED/FAILED, ISSUES_BBVARDR.txt, feed LineByLine (§6.8). **Avance 3ª pasada (estaticos):** BloombergMultiResponse.properties = solo Path=.../ADRMultirequest/Backup/FicheroCargaBBVA.txt; el script entrega una linea cada vez en ese fichero (resuelve R-12). Spec §6.9.B. | Mapping FinalLastVersionBBResponse_TI.mdx y scripts GetISIN, Read Response y Convertir XML del workflow Bloomberg_Response (tablas y columnas que escribe la carga). |
+| P-BBGT-05 | parcial | Qué evita que M y T procesen dos veces el mismo ADR_FILE.csv cuando ambas transmisiones lo dejan el mismo día **Avance 3ª pasada (estaticos):** M y T ejecutan el mismo script y comparten ADR_FILE.csv, FicheroCargaBBVA.txt, ...Final.txt y ...Tmp.txt; nada en la plantilla impide que se pisen (§6.9.B, TC-012). | Confirmar con MEKYTL0898 (M y T) y con operacion que evita el solape cuando ambas transmisiones dejan ADR_FILE.csv el mismo dia. |
 | P-BBGT-06 | abierta | Si cada evento de MEKYTL0898 habilita una sola espera de 30 min; significado de la hora límite de la ficha de FICHERO_RDR_FW | Confirmación de calendario/hora límite en Control-M |
-| P-BBGT-07 | parcial | Dónde y con qué nombre escribe el script su log y qué texto distingue final correcto de incorrecto **Avance 2ª pasada:** Bloomberg_Response escribe ISSUES_BBVARDR.txt (processed/failed por emisión) en /fichtemcomp/<env>/descargas/kytl/issues/; evidencia verificable de R7 (§6.8). | Nombre, ruta y texto de fin correcto del log del propio script (código de loadExecute/log) |
 | H-BBGT-01 | abierta | MEKYTL0898 (cadena externa TR_RDR_CARGA_BBG_MULTI_T) genera ADR_FILE.csv: job nombrado y no analizado | definición/IDX de MEKYTL0898 (genera ADR_FILE.csv y publica el evento) |
-| H-BBGT-02 | abierta | Archivado del CSV con sufijo _ddmmyy: no se precisa si renombra o copia ni en qué directorio | Función de archivado de Bloomberg_MultiRequest.sh (ruta y operación) |
-| H-BBGT-03 | abierta | Comportamiento no documentado del script con .out inexistente, número de líneas inesperado o cabecera ausente | Comportamiento real de Bloomberg_MultiRequest.sh en esos casos |
 | P-BBGT-08 | abierta | Hora a la que PLAN_1200 carga el folder en la malla | Hora de carga de PLAN_1200 en Control-M |
 
-### No bloqueantes (1)
+### No bloqueantes (7)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-BBGT-01 | resuelta | Contenido literal completo de BLOOMBERG_PARAMETERS.properties (41 campos en orden y otras líneas de cabecera) **Avance 2ª pasada:** Workflow Bloomberg_Response v15: SECURITY_TYP en pos. 3, lista de mercados en pos. 42, alta de rol con 47 elementos (LEI 21, org 22); incoherencia 41 campos vs 44/47 anotada (§6.8). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): BLOOMBERG_PARAMETERS.properties literal: 7 lineas de cabecera y 43 campos (no 41); las 4 anclas del workflow (pos. 3, 21, 22, 42) y los 47 elementos coinciden. Spec §6.9.A. |
+| P-BBGT-03 | resuelta | Formato exacto de ADR_FILE.csv (separador, cabecera, significado de columnas 1, 2 y 3) **Avance 2ª pasada:** El workflow deduce: col3=ISIN -> 'col1 col2' = ISIN+mercado (>13 car.), si no col1 = BBGLOBAL de 12 car.; búsqueda por los 12 primeros caracteres. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): awk -F';' de Bloomberg_MultiRequest.sh: separador ';', primera fila siempre ignorada, col3=='ISIN' => 'col1 col2\|ISIN', si no 'col1\|col3'. Spec §6.9.B. |
+| P-BBGT-04 | resuelta | Código de salida de Bloomberg_MultiRequest.sh por situación (SFTP, reintentos agotados, fallos de carga, CSV sin datos) | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Codigos de salida por situacion: 254 entorno, 1 solo si falla el put SFTP, 0 en el resto (sin .out, cargas fallidas, CSV sin datos). Tabla en spec §6.9.B. |
+| P-BBGT-07 | resuelta | Dónde y con qué nombre escribe el script su log y qué texto distingue final correcto de incorrecto **Avance 2ª pasada:** Bloomberg_Response escribe ISSUES_BBVARDR.txt (processed/failed por emisión) en /fichtemcomp/<env>/descargas/kytl/issues/; evidencia verificable de R7 (§6.8). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Log Log/Bloomberg_MultiRequest<ddmmyy>.log (+ .debug); fin correcto 'Proceso de carga/enriquecimiento Bloomberg finalizado'; errores 'ERROR en ...'; por linea 'finished OK\|NOT OK'. §6.9.B. |
+| H-BBGT-02 | resuelta | Archivado del CSV con sufijo _ddmmyy: no se precisa si renombra o copia ni en qué directorio | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): El CSV se MUEVE (mv) a ADRMultirequest/Backup/ADR_FILE.csv_<ddmmyy> (sufijo tras la extension) y solo si hubo .out; un segundo archivado el mismo dia lo sobrescribe. Spec §6.9.B. |
+| H-BBGT-03 | resuelta | Comportamiento no documentado del script con .out inexistente, número de líneas inesperado o cabecera ausente | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): .out inexistente: sin recorte ni carga ni archivado, exit 0; pocas lineas: sed falla/recorte vacio y 1 invocacion con linea vacia; CSV sin cabecera: pierde la 1a fila. §6.9.B, TC-011/013. |
 | H-BBGT-04 | abierta | Qué hace RDR_SENDBBG_ASSET con el .req archivado y qué hace la malla GC_TESO al recibir el evento de fin | Consumo aguas abajo: entrega y contenido del .req/evento ya claros |
 
 ## rdr_carga_plazas_trad_new
@@ -1957,6 +1959,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 
 **Spec:** `salidas_pendientes/rdr_pro_sma_portfolios/rdr_pro_sma_portfolios_spec.md`  
 **Qué le falta:** Faltan las líneas IDX de MEKYTL0517/0518, los 7 .idx de envío y los módulos de MEGENV0001.sh, la query/XSD de portfolios.sql y el motor del Planificador, la regla ante el código 7 del FW y la numeración de días del calendario.  
+**3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla no aporta nada que cierre los huecos de esta cadena: publish/portfolios.xml es una petición SOAP de publicación masiva (Book, cola RDR.PORTFOLIO.INITIALLOAD), no la query ni el XSD de portfolios.sql; no hay XSD de Portfolios, ni idx/IDX, ni módulos de MEGENV0001. Se documenta en §5.2 para evitar confundirlos.  
 
 ### Huecos bloqueantes (9)
 

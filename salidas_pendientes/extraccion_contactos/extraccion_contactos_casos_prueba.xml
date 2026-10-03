@@ -7,7 +7,7 @@
     <precondiciones>
       <precondicion>FT_T_ATE1 contiene una única fila con ACTION_NME='ExtraccionCONT.sql' y una única fila con ACTION_NME='ExtraccionContingenciaCONT.sql' con URL_OUTPUT_FILE terminado en ExtraccionContingenciaCONT.xml (el DATA_STAT_TYP de FT_T_ATE1 no influye).</precondicion>
       <precondicion>FT_T_PAR1 contiene una fila ROOT_TAG en estado ACTIVE para el ACT1_OID de ExtraccionContingenciaCONT.sql.</precondicion>
-      <precondicion>HistCONT.properties desplegado en el directorio de properties del entorno (contenido pendiente, P-CONT-01).</precondicion>
+      <precondicion>HistCONT.properties desplegado en el directorio de properties del entorno (QuitarNulos, Historificar y Borrar sobre CONT/ExtraccionContingenciaCONT.xml, spec §5.7).</precondicion>
       <precondicion>No existe ExtraccionContingenciaCONT.xml.tmp en /fichtemcomp/&lt;env&gt;/descargas/kytl/extracciongenerica/.</precondicion>
       <precondicion>Existen al menos 10 contactos vigentes, de los cuales al menos 2 cumplen el filtro de México (ORGID 1145 o SCIsBranch MEX).</precondicion>
       <precondicion>Directorio CONT/ sin ficheros residuales de pasadas anteriores.</precondicion>
@@ -37,7 +37,7 @@
     </pasos>
     <resultadoEsperado>Los nueve jobs terminan en OK y en el orden declarado. El directorio de DataX contiene el fichero completo con los 10 contactos y SAIT recibe el fichero filtrado con los 2 contactos mexicanos. CONT/SAIT/old/ contiene el fichero de SAIT del día y CONT/SAIT/ queda vacío.</resultadoEsperado>
     <tipoValidacion>Estado y orden de ejecución de los jobs en Control-M; existencia y nombre de los ficheros en cada ruta; conteo de contactos en el fichero de DataX y en el de SAIT.</tipoValidacion>
-    <criterioAceptacion>Cadena completa en OK y dos ficheros distintos y correctos en destino. El contenido de CONT/backup/ depende de lo que haga HistCONT (P-CONT-01) y se valida en TC-12.</criterioAceptacion>
+    <criterioAceptacion>Cadena completa en OK y dos ficheros distintos y correctos en destino. El contenido de CONT/backup/ lo determina HistCONT (copia fechada) y se valida en TC-12.</criterioAceptacion>
     <posibilidadFallo>Baja — la cadena es lineal y sin condiciones complejas. El punto de atención es que el fichero de SAIT contenga solo los contactos mexicanos y no los 10.</posibilidadFallo>
   </casoDePrueba>
 
@@ -348,7 +348,7 @@
       <precondicion>Ejecución completa previa con ambos ficheros generados.</precondicion>
       <precondicion>Directorios CONT/backup/ y CONT/SAIT/old/ existentes y con permisos de escritura.</precondicion>
       <precondicion>Script RAMERC0068.sh desplegado con las líneas de MEKYTL1027 y MEKYTL1190 en el IDX del entorno (contenido pendiente, P-CONT-02).</precondicion>
-      <precondicion>HistCONT.properties desplegado (contenido pendiente, P-CONT-01).</precondicion>
+      <precondicion>HistCONT.properties desplegado (spec §5.7).</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="mascara_rama_datax" valor="ExtraccionContingenciaCONT_*.xml"/>
@@ -359,17 +359,17 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Registrar el inventario inicial de CONT/, CONT/backup/, CONT/SAIT/ y CONT/SAIT/old/.</paso>
-      <paso numero="2">Ejecutar EXTRACCION_CONTACTOS_XML y anotar qué ficheros nuevos aparecen en CONT/.</paso>
+      <paso numero="2">Ejecutar EXTRACCION_CONTACTOS_XML y anotar qué ficheros aparecen y desaparecen en CONT/: debe aparecer ExtraccionContingenciaCONT_AAAAMMDD.xml (fecha del sistema) y desaparecer ExtraccionContingenciaCONT.xml.</paso>
       <paso numero="3">Ejecutar MEKYTL1027 y verificar que todos los ficheros ExtraccionContingenciaCONT_*.xml de CONT/ pasan a CONT/backup/.</paso>
-      <paso numero="4">Verificar que ExtraccionContingenciaCONT.xml (sin sufijo, no casa con la máscara) sigue en CONT/.</paso>
+      <paso numero="4">Verificar que ExtraccionContingenciaCONT.xml (sin sufijo) ya no está en CONT/, porque HistCONT lo ha borrado tras copiarlo con fecha, y que la copia fechada ya no está en CONT/ sino en CONT/backup/.</paso>
       <paso numero="5">Ejecutar MEKYTL1190 y verificar que aparece en CONT/SAIT/old/ un fichero RDR_contactosSAIT_AAAAMMDD.xml.</paso>
       <paso numero="6">Verificar que el fichero ha sido MOVIDO y no copiado: CONT/SAIT/ debe quedar sin él.</paso>
       <paso numero="7">Anotar la fecha del nombre y compararla con la fecha del sistema y con el ODATE (RAMERC0068.sh no conoce el ODATE; la variable exacta depende de la línea del IDX, P-CONT-02).</paso>
     </pasos>
-    <resultadoEsperado>CONT/backup/ recibe los ficheros ExtraccionContingenciaCONT_*.xml que hubiera en CONT/; ExtraccionContingenciaCONT.xml se queda en CONT/. El fichero de SAIT queda movido a CONT/SAIT/old/ con fecha en el nombre y CONT/SAIT/ queda vacío.</resultadoEsperado>
+    <resultadoEsperado>CONT/backup/ recibe los ficheros ExtraccionContingenciaCONT_*.xml que hubiera en CONT/ (la copia fechada que creó HistCONT); ExtraccionContingenciaCONT.xml ya no existe en CONT/. El fichero de SAIT queda movido a CONT/SAIT/old/ con fecha en el nombre y CONT/SAIT/ queda vacío.</resultadoEsperado>
     <tipoValidacion>Comparación de inventarios antes y después; verificación de nombres y fechas; comprobación de que el origen de la rama SAIT queda vacío.</tipoValidacion>
     <criterioAceptacion>Un fichero por rama en su histórico, con el nombre y la fecha correctos, y directorio de trabajo de SAIT limpio.</criterioAceptacion>
-    <posibilidadFallo>Alta para la rama del fichero completo: si HistCONT no crea una copia con sufijo, MEKYTL1027 no encuentra nada que mover y, según su línea del IDX, termina en error (código 6) o en OK sin historificar nada.</posibilidadFallo>
+    <posibilidadFallo>Media para la rama del fichero completo: si HistCONT falla (por ejemplo, al reejecutarlo sin el fichero sin fecha), no hay copia con sufijo, MEKYTL1027 no encuentra nada que mover y, según su línea del IDX, termina en error (código 6) o en OK sin historificar nada.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-13" tipo="happy_path">
@@ -564,6 +564,26 @@
     <tipoValidacion>Búsqueda de los contactos por CONTCT_OID en ambos ficheros; consulta a FT_T_ENTR; comprobación del comportamiento del padding en la comparación de ORG_ID.</tipoValidacion>
     <criterioAceptacion>La exclusión se comporta de forma consistente con el SQL y queda documentada con precisión suficiente para detectar una regresión futura, incluida la identidad de la organización afectada.</criterioAceptacion>
     <posibilidadFallo>Media — el comportamiento está confirmado en el SQL, pero el paso 4 evidencia una asimetría que puede no ser intencionada y que excluye contactos de forma permanente por una vinculación ya dada de baja.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-19" tipo="error_funcional">
+    <nombre>Reejecución de EXTRACCION_CONTACTOS_XML: el fichero sin fecha ya no existe</nombre>
+    <objetivo>Verificar el efecto de HistCONT al repetir el paso: la primera ejecución copia con fecha y borra el original; la segunda no encuentra el fichero.</objetivo>
+    <precondiciones>
+      <precondicion>Ejecución completa de GS_EXTRACCION_CONT y EXTRACCION_CONTACTOS_XML ya realizada el mismo día, con ExtraccionContingenciaCONT_AAAAMMDD.xml en CONT/ y sin ExtraccionContingenciaCONT.xml.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="comando" valor="GSProcess.sh HistCONT"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Lanzar de nuevo EXTRACCION_CONTACTOS_XML (o GSProcess.sh HistCONT) sin volver a ejecutar la extracción.</paso>
+      <paso numero="2">Revisar el log de GSProcess.sh (execute_HistCONT_AAAAMMDD.log) y el estado del job.</paso>
+      <paso numero="3">Comprobar que la copia fechada del primer intento sigue intacta en CONT/.</paso>
+    </pasos>
+    <resultadoEsperado>QuitarNulos y Historificar fallan por fichero inexistente y GSProcess.sh termina con código 1; Borrar no falla. El job queda en error y la copia fechada del primer intento no se pierde.</resultadoEsperado>
+    <tipoValidacion>Estado del job y log de GSProcess.sh y de Generico.sh.</tipoValidacion>
+    <criterioAceptacion>Se confirma que repetir este paso exige volver a ejecutar la extracción; si no falla, el comportamiento real difiere de la plantilla y hay que revisar la spec.</criterioAceptacion>
+    <posibilidadFallo>Si el entorno tiene un HistCONT.properties distinto del de la plantilla, el resultado puede variar.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

@@ -10,6 +10,14 @@
 > proceso**, con una sola salida (`extracciones_adhoc_ctpdas_fircosoft_sire_spec.md` + `extracciones_adhoc_ctpdas_fircosoft_sire_prerrequisitos.md` + `extracciones_adhoc_ctpdas_fircosoft_sire_casos_prueba.xml`), pese a cubrir 3 bloques
 > temáticos distintos (extracción SW, envío a Fircosoft, envío a SIRE).
 
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop). Aporta `TransformacionesExtraccionCTPDA.sh` y sus `.properties`, la hoja `Batch_FircoSoft.xsl`,
+> `ExtraccionGenericaCPTY.properties`, `ExtraccionGenericaTHIRDPARTIES.properties` y sus log4j, los lanzadores heredados `RDR_Transformacion_*.sh`
+> y `EventSireCtpda/EventSireEmisi/EventProactive.properties`. El plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye el marcador `@@ENV@@`
+> por `de`, `ei`, `pp` o `pr`; son «valores de la plantilla», no una copia verificada de producción, y la plantilla es anterior a la migración a Java 17.
+> Resueltas: P-ADH-01 (qué hace el script) y P-ADH-02 (los Third Parties no entran en Fircosoft), y la tensión entre `RDR_Transformacion_FS.sh` y
+> `TransformacionesExtraccionCTPDA.sh`; en parte: P-ADH-04, P-ADH-05 y P-ADH-06. Detalle en §1.1, §1.2.1, §1.3 y §9.
+
 ## 1. Resumen ejecutivo
 
 El documento describe **5 cadenas Control-M** agrupadas en 3 bloques:
@@ -93,6 +101,14 @@ jars** (`ExtraccionGenericaCPTY.jar`, `ExtraccionGenericaOtherEntities.jar`), **
 `FILESEXGEN` para Fircosoft) y **mismos tipos** (`CPARTY`/`THIRDPARTIES`). Se confirma que `EXTRACCION_CPTDAS`
 (cadenas `_D`/`_W`) **es** la generación real de `ExtraccionContingencia.xml` y `EXTRACCION_THIRDPARTYS` **es**
 la generación real de `ThirdParties.xml`.
+
+**Según la plantilla de despliegue** (repositorio `estaticos`, rama develop), los dos `.properties` son iguales a los de abajo con `@@ENV@@` donde la copia
+de integración tenía `ei`, **sin `JDKV`** y con `NomClaseJava=Ppal` **sin paquete**: es la base anterior a la migración a Java 17; las ramas migradas empaquetan las clases
+(`extracciongenericacpty.Ppal`, `extracciongenericaotherentities.Ppal`) y llevan `JDKV=17`. En integración manda la copia con paquete (evidencia de entorno recibida); en el resto, la
+plantilla hasta que se migre. En producción el entorno del marcador es `pr`. Los dos módulos no llevan acción `Script` posterior ni `Stop*`. Sus log4j
+(`log4jExtraccionGenericaCPTY.properties` y `log4jExtraccionGenericaTHIRDPARTIES.properties`) son iguales entre sí salvo el nombre del fichero: `rootLogger=info`, un `RollingFileAppender` en
+`/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCPTY.log` y `.../ExtraccionGenericaTHIRDPARTIES.log`, 100 MB por fichero y 3 copias (detalle en
+`salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.6).
 
 **Contenido literal de los dos `.properties`** (copia de integración, por eso las rutas llevan `/ei/`; el de
 producción no se ha recibido, P-ADH-05). Ambos acaban con `Accion=Java`; las claves `ArgJava` son los
@@ -201,12 +217,32 @@ $SCRIPT/Generico.sh LanzaScriptBash TransformacionesExtraccionCTPDA.sh Batch_Fir
 ```
 
 Es decir: script `TransformacionesExtraccionCTPDA.sh`; hoja XSLT `Batch_FircoSoft.xsl`; fichero de salida
-`Fircosoft/Batch_Fircosoft_<fecha>.txt` (con `@@FECHA@@` como marcador de fecha y una barra sobrante, probablemente
-cosmética); prefijo del fichero de origen `KYTL_RDR_EXTRACTION_CPARTYS_` (el XML unificado de la extracción
-genérica, `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml`), con un `ei/` delante que en un `.properties` de producción
-sería anómalo (posible resto de plantilla, P-ADH-01). El contenido de `TransformacionesExtraccionCTPDA.sh` no se
-ha recibido: cómo sustituye `@@FECHA@@` y cómo resuelve las carpetas de origen y destino
-(`/fichtemcomp/<env>/descargas/kytl/extracciongenerica/` y `.../kytl/Fircosoft/`) es una inferencia (P-ADH-01).
+`Fircosoft/Batch_Fircosoft_<fecha>.txt` (con `@@FECHA@@` como marcador de fecha; la barra final separa la extensión);
+prefijo del fichero de origen `KYTL_RDR_EXTRACTION_CPARTYS_` (el XML unificado de la extracción genérica,
+`KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml`). **Corrección (P-ADH-01 resuelta):** el `ei/` que precede al prefijo no es un resto de plantilla ni una
+anomalía: es el marcador `@@ENV@@/` ya sustituido en integración (en la plantilla es `@@ENV@@/KYTL_RDR_EXTRACTION_CPARTYS_` y en producción será
+`pr/KYTL_RDR_EXTRACTION_CPARTYS_`), y el script lo usa como entorno. Cómo sustituye `@@FECHA@@` y cómo resuelve las carpetas de origen y destino
+se explica en §1.2.1, con el código real del script.
+
+#### 1.2.1 Qué hace `TransformacionesExtraccionCTPDA.sh` con los argumentos (plantilla de despliegue)
+
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), `Generico.sh LanzaScriptBash` ejecuta `TransformacionesExtraccionCTPDA.sh <ArgScri2> <ArgScri3> <ArgScri4> <ArgScri5>` (sin comillas; un `ArgScri5` vacío no llega como argumento):
+
+| `ArgScri` | Valor en `…_FIRCOSOFT.properties` | Qué hace el script |
+|---|---|---|
+| 2 | `Batch_FircoSoft.xsl/` | Hoja `Batch_FircoSoft.xsl` de `dat/properties`; el campo tras la barra (XSD) está vacío: **no hay validación XSD** |
+| 3 | `Fircosoft/Batch_Fircosoft_@@FECHA@@/.txt` | Carpeta `/fichtemcomp/<env>/descargas/kytl/Fircosoft/` (debe existir), nombre `Batch_Fircosoft_@@FECHA@@` con `@@FECHA@@` sustituido por `AAAAMMDD` **de hoy**, extensión `.txt` |
+| 4 | `@@ENV@@/KYTL_RDR_EXTRACTION_CPARTYS_` | Primer campo: entorno. Segundo: prefijo del XML de entrada. Sin tercer campo (`-1`), busca primero el de hoy |
+| 5 | vacío | Sin cabecera: el fichero de salida se borra antes de concatenar los trozos |
+
+Algoritmo (completo en `salidas_pendientes/extraccion_generica_contrapartidas/extraccion_generica_contrapartidas_spec.md` §6.9.4): busca en `extracciongenerica/` el XML `KYTL_RDR_EXTRACTION_CPARTYS_<hoy>.xml` y, si no está, el de ayer, hace 2 y hace 3 días;
+lo parte en lotes de 1000 `<GLOBAL>` (el bloque `<OPERATIVES>` de Third Parties cae en el último), aplica `xsltproc` a cada lote con hasta 10 procesos en paralelo, concatena los resultados en `Fircosoft/Batch_Fircosoft_<hoy>.txt` y elimina las líneas en blanco. Log:
+`<logs de credentials.xml>/Batch_Fircosoft_<AAAAMMDD>.log`. Consecuencias para Fircosoft:
+- **El nombre lleva la fecha de hoy aunque el XML de entrada sea de hace hasta 3 días**, y el cambio de entrada solo queda en el log. Si no existe ningún XML de esos 4 días, el script no escribe nada y termina bien: `Fircosoft/` conserva el fichero del día anterior con su nombre, y la regla de selección de `MEKYTL1261` (P-ADH-03) puede volver a enviarlo.
+- **Termina siempre con código 0**: un `xsltproc` roto, una hoja ausente o una carpeta `Fircosoft/` inexistente no cambian el estado del job; la regla `* Código: *` es irrelevante para detectarlo.
+- Con ningún operativo `MEX` el fichero queda vacío (0 bytes) y sigue siendo enviable.
+- **P-ADH-02, resuelta:** en el XML unificado los Third Parties están en `/GLOBALS/OPERATIVES/OPERATIVE` (su raíz es `<OPERATIVES>`, que `unionFicheros.sh` añade tras los `GLOBAL`). `Batch_FircoSoft.xsl` solo recorre `/GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`: **los Third Parties nunca entran en `Batch_Fircosoft_*.txt`**, aunque tengan sucursal `MEX`. Solo se envían a Fircosoft los operativos de contrapartidas.
+- La hoja (XSLT 1.0, salida de texto en UTF-8) es independiente de los ratings: leer el fichero filtrado (que conserva solo cinco conjuntos de rating) o el completo no cambia su resultado.
 
 **Ficha del job `RDR_TRANSFORMACION_FS`** (carpeta `KYTL0000-RDR_DAILY_EXGEN_CPARTYS_new`): tipo OS, host
 `pr-rdr.igrupobbva`, usuario `xakytl1p`, script `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh` con
@@ -230,6 +266,11 @@ sustitución" ya visto en GAP-ADHOC-004) es que `RDR_Transformacion_FS.sh` fuera
 a julio 2024, sustituido después por el script compartido — pero **esto no está confirmado** y se señala aquí
 explícitamente en vez de resolverlo unilateralmente. El contenido literal del `.properties` y su
 interpretación están en el bloque anterior.
+
+**Resolución con la plantilla de despliegue (tensión entre `RDR_Transformacion_FS.sh` y `TransformacionesExtraccionCTPDA.sh`).** La plantilla contiene los dos: `RDR_Transformacion_Fircosoft.sh` (el lanzador heredado de `java … TransformacionFS.BatchFircosoft` del jar
+`RDR_Transformacion_Fircosoft.jar`, con dos argumentos `fileloading|publishing` y la ruta de `credentials.xml`, que pasa al jar las carpetas `extracciongenerica/` y `Fircosoft/`, la de logs y la de hojas) y `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties`. El primero pertenece a la
+familia de lanzadores heredados `RDR_Transformacion_*.sh` (anteriores a julio 2024); el vigente es el segundo, que es el que dice la ficha del job (`PARM1=TransformacionesExtraccionCTPDA_FIRCOSOFT`). Se confirma la hipótesis de «versión anterior sustituida»: ningún job de las cadenas vigentes llama a `RDR_Transformacion_Fircosoft.sh`
+y el jar no está en la plantilla.
 
 El mismo patrón de transformación genérica→específica (vía `TransformacionesExtraccionCTPDA.sh` parametrizado)
 se reutiliza, según lo ya documentado en el proceso hermano, para las 13+ ramas: `fonetics`, `salesforce`,
@@ -442,6 +483,20 @@ desactualizado para este bloque concreto: ya no extrae/envía contrapartidas, si
 La definición del evento `EventSireEmisi` (qué consulta y qué columnas escribe en `emisi.csv`) vive en el motor
 de GoldenSource y no está en ninguno de los ficheros recibidos (P-ADH-04).
 
+**Los `.properties` de eventos según la plantilla de despliegue.** La plantilla contiene tres, con las mismas seis claves (`Service`, `QueryHeader`, `PathRDR`, `FileDescription`, `PathProactive`, `NodeProactive`) y el marcador `@@ENV@@` en la ruta:
+
+| Fichero | `Service` | `PathRDR` | `FileDescription` | Para qué |
+|---|---|---|---|---|
+| `EventSireEmisi.properties` | `sireEmisi` | `/fichtemcomp/@@ENV@@/descargas/kytl/sire_files` | `emisi` | Lo lee `executeBbvaEvent.sh fileloading EventSireEmisi` (`FICHERO_EMISI`) |
+| `EventSireCtpda.properties` | `sireCtpda` | `/fichtemcomp/@@ENV@@/descargas/kytl/sire_files` | `ctpda` | Evento equivalente del proceso decomisado `FICHERO_CPTDA`, que dejaba `ctpda.csv` en la misma carpeta |
+| `EventProactive.properties` | `proactive` | `/fichtemcomp/@@ENV@@/descargas/kytl/proactive_files` | `proactive` | Evento de un envío a «Proactive»; ver más abajo |
+
+En los tres, `QueryHeader=noheader` (sugiere que el CSV no lleva cabecera, pero no consta cómo lo interpreta el evento) y `PathProactive=defaultPath` / `NodeProactive=defaultNode` (valores por defecto, sin uso conocido). Como el plan de despliegue ya sustituye `@@ENV@@`, el `$ENV` que `executeBbvaEvent.sh` sustituye al arrancar
+(paso 4 de la descripción anterior) no tiene nada que sustituir en la copia desplegada. Lo que **no** dan estos ficheros es la definición del evento: la consulta, las columnas y el orden de `emisi.csv` siguen en la configuración de GoldenSource y en el `credentials.xml` (tiempo de espera). Lo que sí confirman: `emisi.csv` se
+escribe en `sire_files/` con el nombre `emisi` (coincide con §6.2) y la ruta de la carpeta es de la UUAA KYTL, compartida con `ctpda.csv` (ver el riesgo de borrado por comodín de `MEKYTL0879_DEL`, en la spec de contrapartidas).
+**`EventProactive.properties`** indica que existe un evento de GoldenSource que deja un fichero para Proactive en `proactive_files/`. Ningún job de las cadenas analizadas lo ejecuta (`MEKYTL0292` es un Dummy), por lo que el destino «Proactive» del documento funcional podría haberse alimentado con ese mecanismo,
+fuera de estas cadenas. Es una hipótesis; no hay job que lo confirme.
+
 **Balance:** ahora se dispone de referencia real y confirmada de `ctpda.csv` (dominio Contrapartidas/Banxico,
 formato de 29 columnas) y de un desacople de mecanismo de invocación aún más marcado entre ambas ramas. Sigue
 faltando el único dato que cerraría el gap con prueba funcional: el `emisi.csv` real, para comparar
@@ -545,12 +600,12 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
 
 | ID | Pregunta | Por qué importa |
 |---|---|---|
-| P-ADH-01 | ¿Qué hace `TransformacionesExtraccionCTPDA.sh` (no recibido) con `ArgScri1-5` de `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties`: cómo sustituye `@@FECHA@@`, de qué carpeta lee `KYTL_RDR_EXTRACTION_CPARTYS_` y por qué lleva el prefijo `ei/`? | Define el nombre exacto del fichero de salida y si el `.properties` de producción apunta a la ruta correcta |
-| P-ADH-02 | `Batch_FircoSoft.xsl` solo recorre `/GLOBALS/GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`. ¿Cómo entran los Third Parties (un único nivel `OPERATIVE`) en el XML unificado? ¿Quedan fuera de Fircosoft? | Determina si Fircosoft recibe o no a los Third Parties con sucursal México |
+| P-ADH-01 | **Resuelta.** `TransformacionesExtraccionCTPDA.sh` está analizado (§1.2.1): `@@FECHA@@` se sustituye por `AAAAMMDD` de hoy, el XML de origen se busca en `/fichtemcomp/<env>/descargas/kytl/extracciongenerica/` (hoy y hasta 3 días antes) y el prefijo `ei/` es el marcador `@@ENV@@/` ya sustituido en integración (en producción, `pr/`). Fuente: plantilla de despliegue | Define el nombre exacto del fichero de salida y si el `.properties` de producción apunta a la ruta correcta |
+| P-ADH-02 | **Resuelta.** En el XML unificado los Third Parties cuelgan de `/GLOBALS/OPERATIVES/OPERATIVE` (raíz `<OPERATIVES>` de `ThirdParties.xml`, añadida por `unionFicheros.sh`), y `Batch_FircoSoft.xsl` solo recorre `GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`: los Third Parties **no** entran en Fircosoft, tengan o no sucursal `MEX` (§1.2.1) | Determina si Fircosoft recibe o no a los Third Parties con sucursal México |
 | P-ADH-03 | Regla de selección de fichero de `MEKYTL1261`: si falta el fichero del día, ¿se envía el último disponible (de otro día) o falla? | Riesgo de enviar a Fircosoft datos antiguos sin aviso |
-| P-ADH-04 | Definición del evento `EventSireEmisi` y contenido de `EventSireEmisi.properties` y de `credentials.xml` (incluido el `timeout`): qué columnas lleva `emisi.csv` | Sin ella no se puede verificar el contenido de `emisi.csv` ni cuánto espera `FICHERO_EMISI` |
-| P-ADH-05 | ¿Qué renombra `ExtraccionContingencia.xml.tmp`/`Thirdparties.xml.tmp` al nombre final y cuál es (`URL_OUTPUT_FILE` de `FT_T_ATE1`)? ¿Qué usa el `.properties` de producción: `pr` literal o `$ENV`? | Si el nombre final difiere en mayúsculas de lo que esperan los filewatchers, la extracción genérica no arranca |
-| P-ADH-06 | ¿Qué imprime `GSProcess.sh` para que la regla `* Código: *` de `RDR_TRANSFORMACION_FS` se active, y se activa también cuando el proceso falla? | Si siempre se activa, un fallo de la transformación nunca se ve y se enviaría un fichero vacío o antiguo |
+| P-ADH-04 | **Resuelta en parte.** La plantilla trae `EventSireEmisi.properties` (`Service=sireEmisi`, `QueryHeader=noheader`, `PathRDR=…/sire_files`, `FileDescription=emisi`, §1.3) y los equivalentes `EventSireCtpda` y `EventProactive`. **Siguen abiertos** la definición del evento en GoldenSource (consulta y columnas de `emisi.csv`) y el `timeout` de `credentials.xml` | Sin ella no se puede verificar el contenido de `emisi.csv` ni cuánto espera `FICHERO_EMISI` |
+| P-ADH-05 | **Resuelta en parte.** Qué usa el `.properties` de producción: la plantilla lleva `@@ENV@@`, que el plan de despliegue sustituye por `pr` (no hay `$ENV` ni `pr` escrito a mano). El renombrado lo hace el propio jar al publicar (spec común §2.3). **Sigue abierto** el `URL_OUTPUT_FILE` de las filas de detalle en `FT_T_ATE1`: las filas históricas del Planificador llevan `ThirdParties.xml` y `ExtraccionContingencia.xml` (spec de contrapartidas, P-EGC-03) | Si el nombre final difiere en mayúsculas de lo que esperan los filewatchers, la extracción genérica no arranca |
+| P-ADH-06 | **Resuelta en parte.** Ningún script ni `.properties` de la plantilla escribe el texto `Código:`; `GSProcess.sh` no lo imprime, y `TransformacionesExtraccionCTPDA.sh` termina siempre con 0 (§1.2.1), de modo que un fallo de la transformación no se ve en Control-M con o sin regla. **Sigue abierto** qué línea de salida activa exactamente la regla de la ficha | Si siempre se activa, un fallo de la transformación nunca se ve y se enviaría un fichero vacío o antiguo |
 | P-ADH-07 | `MEKYTL1261_S` figura como predecesor de `RDR_TRANSFORMACION_FS` en `_FINSEM_S_new` y a la vez espera el OK de ese mismo job: ¿la dependencia es circular o se refiere a ciclos distintos? | Puede bloquear o desordenar el envío semanal |
 | P-ADH-08 | Líneas IDX de `MEKYTL1261`, `MEKYTL0072`, `MEKYTL0072_SND`/`_DEL` y `MEKYTL0933` en `MEGENV0001.sh`/`LPFTPEXCA0002.sh`/`RAMERC0068.sh` (solo se conocen los datos de las fichas EX-005-03) | Permitiría validar rutas, nodo Connect:Direct y si `MEKYTL0933` copia o mueve `emisi.csv` mientras `MEKYTL0072_SND` lo transmite |
 | P-ADH-09 | Nombre completo del evento de salida de la variante diaria de `MEKYTL1261` (truncado en pantalla) y significado del sufijo `_L-J` del job | No se puede esperar el fin de la cadena diaria por evento |
@@ -615,7 +670,7 @@ extracción y de `FICHERO_EMISI`.
 |---|---|---|---|
 | `ExtraccionContingencia.xml.tmp` → `ExtraccionContingencia.xml` | `/fichtemcomp/<env>/descargas/kytl/extracciongenerica/` | `EXTRACCION_CPTDAS` | lo espera el filewatcher de `RDR_DAILY_EXGEN_CPARTYS_*`; nombre final y renombrado: P-ADH-05 |
 | `Thirdparties.xml.tmp` → `ThirdParties.xml` | ídem | `EXTRACCION_THIRDPARTYS` | ídem |
-| log de cada jar | el que fije `log4jExtraccionGenericaCPTY.properties` / `...THIRDPARTIES.properties` (no recibidos) | los jars | consulta de diagnóstico |
+| log de cada jar | `/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCPTY.log` y `.../ExtraccionGenericaTHIRDPARTIES.log` (100 MB x 3 copias, nivel `info`, según los log4j de la plantilla) | los jars | consulta de diagnóstico |
 | `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` | `extracciongenerica/` | proceso `extraccion_generica_contrapartidas` | entrada de la transformación Fircosoft |
 | `Batch_Fircosoft_${AAAAMMDD}.txt` (8 campos separados por el carácter pipe, sin cabecera, UTF-8) | `/fichtemcomp/<env>/descargas/kytl/Fircosoft/` | `RDR_TRANSFORMACION_FS` | lo toma `MEKYTL1261` |
 | copia en la pasarela | `/unload/transmisiones/RDR/` (`lpftp503`) | `MEKYTL1261` (`MEGENV0001.sh`, GATE_EXT) | Connect:Direct `BINARY/PUT/rpl` al nodo `CDLVPAPBTWBMX01` → `fsbrdrmxp.mex.igrupobbva:/Fircosoft_rdr/RDR_Batch/0003/Input/` (ASCII en tránsito, UTF-8 en destino) |
@@ -700,6 +755,10 @@ Referencia de casos por tipo:
    en la captura, no confirmado completo; campo "Grupo de Soporte Responsable" vacío en varias fichas de
    `EXTRACCION_THIRDPARTYS` (se asume herencia de "ANS RDR" por el folder, no confirmado literal).
 
+6. **Tercera pasada de cierre — riesgos del paso de transformación de Fircosoft (plantilla de despliegue).** (a) `TransformacionesExtraccionCTPDA.sh` termina siempre con 0 y usa sin aviso un XML de hasta 3 días de antigüedad dando al
+   fichero el nombre de hoy: `Batch_Fircosoft_<hoy>.txt` puede contener datos de hace días sin ninguna señal (§1.2.1). (b) Si no hay XML de entrada, el fichero anterior queda en `Fircosoft/` y `MEKYTL1261` puede reenviarlo (P-ADH-03). (c) Los Third Parties no llegan a Fircosoft aunque
+   tengan sucursal `MEX` (P-ADH-02 resuelta): confirmar con el equipo funcional que es lo deseado. (d) Dependencia ya señalada en la spec de contrapartidas: la reejecución de `RDR_Transformacion_XSLT.sh` tras un fallo puede reprocesar el XML de un día anterior.
+
 ## 10. Conclusión
 
 Se documentan las 5 cadenas del bloque "Extracciones ad hoc de Contrapartidas: SW, Fircosoft, SIRE" como un
@@ -726,3 +785,6 @@ estructural/técnica, sin llegar a confirmar el contenido exacto de `emisi.csv` 
 lógica vive en la consola de administración de GoldenSource, fuera de alcance). Con este cierre, **los 4 gaps
 del proceso quedan resueltos** (0 gaps abiertos) y quedan 3 riesgos registrados (RISK-ADHOC-001 a 003), ninguno
 bloqueante para el testing funcional documentado en `extracciones_adhoc_ctpdas_fircosoft_sire_casos_prueba.xml`.
+
+**Addendum (tercera pasada de cierre, plantilla de despliegue; no reabre el cierre).** `TransformacionesExtraccionCTPDA.sh` y sus `.properties` ya están analizados (§1.2.1), lo que cierra P-ADH-01 y P-ADH-02 y explica la tensión con `RDR_Transformacion_FS.sh` (lanzador heredado, §1.2).
+P-ADH-04, P-ADH-05 y P-ADH-06 quedan resueltas en parte (§4.1). Siguen abiertos P-ADH-03, P-ADH-07, P-ADH-08 y P-ADH-09 (IDX, capturas de Control-M y comportamiento real de `MEGENV0001.sh`), los módulos `SF_MEGENV0001_*.mod`, `LPFTPEXCA0002.sh`, `raiseEvent.sh`, el código de los jars de extracción y la definición del evento `EventSireEmisi`.

@@ -15,6 +15,7 @@
   (`/fichtemcomp/pr/descargas/kytl/issues/Refinitiv/Multi_Request`).
 - Directorio de ejecución `/pr/kytl/online/multipais/multicanal/scrt/` disponible para `RDR_REFINITIV_REQUEST`
   bajo el usuario `xakytl1p`.
+- `RefinitivIssueMultiRequest.properties` desplegado en `/pr/kytl/online/multipais/multicanal/dat/properties/` (sin variante por entorno; CRLF). Para recibir las alertas de error (`PROCESO='PETICION_REFINITIV_EMISIONES'`) debe ejecutarse periódicamente el ciclo de `GestionAlertasAOSRDR.properties` (qué job lo lanza no consta) y existir un informe activo para ese proceso en `FT_T_REP1`; el correo usa el sub-workflow `Mail` con `ServerMailConfig.xml` del entorno (host y cuenta no están en la plantilla).
 
 ## Roles y permisos
 

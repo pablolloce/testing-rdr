@@ -26,7 +26,7 @@ caduquen. **Si no se ejecuta un mes**, ese aviso no llega y los datos pueden cad
 **No confundir** con otros elementos MiFID de RDR que esta cadena no usa: la extracción del Planificador Genérico
 `RDR_ClientesMifidcec.sql` → `mifidcec/clientesmifid.csv` (fila 18 de su inventario, L-V 21:50) y la clave
 `mifidcec` de `select.properties` (`Reporte_mifidcec.csv`). No hay ninguna evidencia que los relacione con este
-informe.
+informe. (3ª pasada: según la plantilla de despliegue, `mifidcec.properties`/`clientesmifid.properties` son la cadena de clasificación MiFID de clientes y `MIFIR*.properties`/`ME_MIFIR_*.properties` la carga MiFIR de emisiones; ninguno comparte fichero, evento ni job con esta cadena. Resumen en `salidas_pendientes/rdr_mifidmic_new/rdr_mifidmic_new_spec.md` §6.7.)
 
 ## 2. Alcance del proceso
 

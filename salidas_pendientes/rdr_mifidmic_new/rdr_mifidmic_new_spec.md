@@ -6,7 +6,9 @@
 Control-M: RDR_MIFIDMIC_new" ("Envío de Trading Venues a STAR (MIC)"); `mifidmic.properties`, el script
 `RAMERC0068.sh` y las fichas del gestor documental de `MEKYTL0940`/`MEKYTL0941`, aportados en sesión (el
 `.properties` no está en el repositorio); capturas de Control-M; respuestas del usuario en sesión; inventario del
-Planificador Genérico (fila 6) y specs de componente común.
+Planificador Genérico (fila 6) y specs de componente común. **3ª pasada de cierre:** según la plantilla de despliegue
+(repositorio `estaticos`, rama develop) se han leído `mifidmic.properties` (literal en §6.3) y, como contexto, los ficheros MiFID/MiFIR vecinos (§6.7);
+`@@ENV@@` es un marcador que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`, y los valores son "de producción según la plantilla", no una copia verificada de producción.
 
 ## 1. Resumen ejecutivo
 
@@ -88,7 +90,7 @@ Excluye: el tratamiento que hacen Murex y `mcm0501`; lo que ocurre dentro de `/o
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-MIC-01 | ¿Se puede obtener el texto de la query `RDR_ExtraccionMIC.sql` (`FT_T_ATE1.CLOB_VALUE`, `ACT1_OID=01FCD78BF`)? ¿Genera el Planificador una línea de cabecera en `FRMIC.csv`? | Es lo que decide el contenido y las columnas del fichero que se distribuye. Si no hubiera cabecera, `Eliminar_fila` borraría el primer registro real |
-| P-MIC-02 | ¿Cuál es el contenido literal de `mifidmic.properties` (prefijos de ruta, número de fila de `Eliminar_fila`, si hay `Stop`)? | Sin `Stop`, `Cortar` se ejecuta aunque fallen los pasos anteriores (por ejemplo, en un relanzamiento sin fichero nuevo) |
+| P-MIC-02 | **Resuelta en parte (3ª pasada):** literal en §6.3 según la plantilla (rutas `…/mifidmic/`, `Eliminar_fila` con la fila `1`, sin `Stop`); falta verificar el `.properties` instalado en `pr`. ¿Cuál es el contenido literal de `mifidmic.properties` (prefijos de ruta, número de fila de `Eliminar_fila`, si hay `Stop`)? | Sin `Stop`, `Cortar` se ejecuta aunque fallen los pasos anteriores (por ejemplo, en un relanzamiento sin fichero nuevo) |
 | P-MIC-03 | ¿Cuál es la configuración `.idx` de `MEKYTL0890`, `MEKYTL0770` y `MEKYTL0771` (protocolo, usuario remoto, `FALLA_NO_FICHERO`, renombrado, `RUTA_HISTORIFICACION`, `FICHERO_FLAG`)? | Decide cómo se renombran los ficheros, de dónde sale `frmic.flg` y si la historificación de `MEKYTL0770` mueve o copia `FRMIC_1.csv` (si lo moviera, `MEKYTL0940` no lo encontraría) |
 | P-MIC-04 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0940` y `MEKYTL0941`? | Para documentar el renombrado y saber si fallan cuando no hay fichero |
 | P-MIC-05 | ¿Qué es "STAR" en el título del proceso y qué sistema recoge `FRMIC.csv` en `mcm0501`? | Para nombrar al destinatario real del envío a `mcm0501` |
@@ -164,16 +166,34 @@ Hay hora y media de margen entre la extracción (04:30) y el filewatcher (06:00)
 
 ### 6.3 `RDRKYTL001` — `mifidmic.properties`
 
-Tres acciones `Script` de `Generico.sh` (literal pendiente, P-MIC-02), sobre `/fichtemcomp/pr/descargas/kytl/mifidmic/`:
+Contenido literal (3ª pasada), según la plantilla de despliegue (repositorio `estaticos`, rama develop; `dat/properties/mifidmic.properties`, finales de línea CRLF; `@@ENV@@` es un marcador que el
+plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; son valores de producción según la plantilla, no una copia verificada de producción):
+
+```
+MOD_EJECUCION=mifidmic
+Servicio=mifidmic
+Accion=VariablesGlobales
+NomScript=Eliminar_fila   PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/mifidmic   ArgScri1=FRMIC.csv     ArgScri2=1                                   Accion=Script
+NomScript=MoverFichero    PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/mifidmic   ArgScri1=FRMIC.csv
+                          PreArgScri2=/fichtemcomp/@@ENV@@/descargas/kytl/mifidmic   ArgScri2=FRMIC_2.csv                                           Accion=Script
+NomScript=Cortar          PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/mifidmic   ArgScri1=FRMIC_2.csv
+                          PreArgScri2=/fichtemcomp/@@ENV@@/descargas/kytl/mifidmic   ArgScri2=FRMIC_1.csv   ArgScri3=1-7                             Accion=Script
+```
+
+(cada clave va en su propia línea en el fichero). **No hay ninguna clave `Stop*`** ni `Ruta`/`File`/`BusinessFeed`: es un módulo de solo tres acciones `Script`. `GSProcess.sh` añade `/` a cada `PreArgScri*`, de modo que las rutas
+resultan `/fichtemcomp/<env>/descargas/kytl/mifidmic/FRMIC.csv`, etc. (cierra, según la plantilla, los puntos de P-MIC-02: prefijo de ruta, fila `1` de `Eliminar_fila` y ausencia de `Stop`).
+
+Tres acciones `Script` de `Generico.sh` (código leído en la plantilla), sobre `/fichtemcomp/<env>/descargas/kytl/mifidmic/`:
 
 | Paso | Función de `Generico.sh` | Efecto | Si falla |
 |------|--------------------------|--------|----------|
-| 1 | `Eliminar_fila FRMIC.csv 1` | Borra la línea 1 en sitio (`sed`) | Devuelve el código de `sed` (≠ 0 si no existe el fichero) |
-| 2 | `MoverFichero FRMIC.csv FRMIC_2.csv` | `mv -f` y `chmod 664` | Código 1 |
+| 1 | `Eliminar_fila FRMIC.csv 1` | `sed -i "1d"`: borra la línea 1 en sitio | Devuelve el código de `sed` (≠ 0 si no existe el fichero) |
+| 2 | `MoverFichero FRMIC.csv FRMIC_2.csv` | `mv -f` y `chmod 664` | Código 1 (si falla el `mv`, `Generico.sh` sale por su `error_exit`) |
 | 3 | `Cortar FRMIC_2.csv FRMIC_1.csv 1-7` | `cut -f 1-7 -d ";"` **añadiendo** (`>>`) a `FRMIC_1.csv` | Código de `cut` |
 
-Si un paso falla y no hay `Stop`, los siguientes se ejecutan igualmente y `GSProcess.sh` termina con 1 al final
-(`ESTADO-1-` en `execute_mifidmic_<AAAAMMDD>.log`); correcto: `ESTADO-0-`.
+Como no hay `Stop`, si un paso falla los siguientes se ejecutan igualmente y `GSProcess.sh` termina con 1 al final
+(`ESTADO-1-` en `execute_mifidmic_<AAAAMMDD>.log`); correcto: `ESTADO-0-`. Esto confirma, según la plantilla, el escenario de relanzamiento
+sin fichero nuevo de §9 (con `FRMIC.csv` ausente, los pasos 1 y 2 fallan pero el 3 vuelve a añadir `FRMIC_2.csv` a `FRMIC_1.csv`).
 
 Formato de los ficheros: CSV con separador `;`. `FRMIC_2.csv` = `FRMIC.csv` sin su primera línea, todas las
 columnas. `FRMIC_1.csv` = columnas 1 a 7 de cada línea de `FRMIC_2.csv`; una línea con menos de 7 columnas
@@ -203,10 +223,17 @@ no existente en origen o error interno 301. No hay confirmación de recepción p
 |------------|-----------|------------|----------------------|
 | Planificador Genérico (`ProjectMain.jar`, query `RDR_ExtraccionMIC.sql`) | `RDR_SW_PLANIFICADOR_new` | Motor sí (por análisis); query no | `salidas_pendientes/comun_planificador_generico/comun_planificador_generico_spec.md`; fila en §6.2; P-MIC-01 |
 | `ctmfw` | `FW_MIFIDMIC_RDR` | Utilidad BMC | `salidas/comun_ctmfw/comun_ctmfw_spec.md`; parámetros en §4.1 |
-| `GSProcess.sh` + `mifidmic.properties` | `RDRKYTL001` | Script sí; `.properties` descrito, literal no | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; §6.3; P-MIC-02 |
+| `GSProcess.sh` + `mifidmic.properties` | `RDRKYTL001` | Sí (plantilla de despliegue) | `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`; §6.3; P-MIC-02 (resuelta en parte) |
 | `Generico.sh` (`Eliminar_fila`, `MoverFichero`, `Cortar`) | `GSProcess.sh` | Sí | `salidas_pendientes/comun_generico_sh/comun_generico_sh_spec.md` |
 | `MEGENV0001.sh` + 3 `.idx` | `MEKYTL0890/0770/0771` | Script sí; `.idx` no | `salidas_pendientes/comun_megenv0001/comun_megenv0001_spec.md`; P-MIC-03 |
 | `RAMERC0068.sh` + 2 líneas IDX | `MEKYTL0940/0941` | Script sí; líneas no | `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md`; P-MIC-04 |
+
+### 6.7 Ficheros MiFID/MiFIR de la plantilla que no son de esta cadena (3ª pasada)
+
+Para evitar confundirlos con `mifidmic.properties` (según la plantilla de despliegue, repositorio `estaticos`, rama develop):
+
+* `mifidcec.properties` y `clientesmifid.properties`: cadena de **clasificación MiFID de clientes** (`BusinessFeed`/`MessageType` `mifid_class`, `Delta=Si`): `InsertarSep` sobre `clasificacionmifid.txt` (posiciones 6, 16, 36 y 39, separador `;`) → `CortarGen` de las columnas 2, 3 y 4 a `mifidcec.csv` (con una línea `HEADER` delante) → `Delta.sh Si` → eventos `MDX` y `Errores` → `RDR_Report.jar` con la clave `mifidcec` de `select.properties` (`Reporte_mifidcec.csv`) → `mifidcecHisto.sh` → `GestionAlertas` con el proceso `MIFID_CEC`. `clientesmifid.properties` quita la cabecera de `clientesmifid.csv` y deja la primera columna en `clientesmifid.txt`. `mifidcecHisto.sh` mueve (`mv -f`) los `*.xlsx` de `mifidcec/` a `mifidcec/old/` si existen. No comparten fichero ni job con `RDR_MIFIDMIC_new`.
+* `MIFIRDerivados.properties`, `MIFIRnoDerivados.properties`, `mifirNoDerivadosBulk.properties` (listas de campos Bloomberg) y `ME_MIFIR_*.properties` (cargas de ficheros `issues/mifir*`): carga MiFIR de emisiones; `GestionAlertasMIFIR.properties` lanza `GestionAlertas` para `MIFIR_Derivados` y `MIFIR_No_Derivados`. Tampoco pertenecen a esta cadena.
 
 ## 7. Especificación de testing
 
@@ -247,7 +274,7 @@ a esas máquinas; si no, el criterio termina en "envío con código 0".
   cabecera, se pierde un MIC cada día (P-MIC-01).
 - **`Cortar` con `>>`:** un relanzamiento antes de `MEKYTL0940` mezcla datos de dos ejecuciones.
 - **Relanzamiento sin fichero nuevo:** `Eliminar_fila` y `MoverFichero` fallan, pero sin `Stop` `Cortar` vuelve a
-  añadir el `FRMIC_2.csv` existente a `FRMIC_1.csv` (P-MIC-02).
+  añadir el `FRMIC_2.csv` existente a `FRMIC_1.csv` (confirmado por el `.properties` de la plantilla: sin `Stop`, §6.3).
 - **Historificación de `MEKYTL0770`:** si mueve en vez de copiar `FRMIC_1.csv`, `MEKYTL0940` fallaría (P-MIC-03).
 - **Sin control de duplicidad** en ningún punto.
 - **Fallo parcial al final:** un fallo de `MEKYTL0940` o `MEKYTL0941` deja la cadena sin terminar aunque los envíos
@@ -257,6 +284,6 @@ a esas máquinas; si no, el criterio termina en "envío con código 0".
 ## 10. Conclusión y requisitos de cierre
 
 La cadena queda descrita de principio a fin, ahora con su origen (Planificador, fila 6) y con la lectura correcta
-del filewatcher. **No está cerrada**: faltan la query y el formato de `FRMIC.csv` (P-MIC-01), el literal de
-`mifidmic.properties` (P-MIC-02), la configuración de envío e historificación (P-MIC-03, P-MIC-04) y la
+del filewatcher. **No está cerrada**: faltan la query y el formato de `FRMIC.csv` (P-MIC-01), la verificación del
+`mifidmic.properties` instalado frente a la plantilla (P-MIC-02, literal ya en §6.3), la configuración de envío e historificación (P-MIC-03, P-MIC-04) y la
 identificación del sistema destino en `mcm0501` (P-MIC-05).

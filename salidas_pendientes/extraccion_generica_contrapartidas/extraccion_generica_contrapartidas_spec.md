@@ -32,6 +32,16 @@
 > eliminó al incorporar el diccionario real, cerrando GAP-CTPY-003. **Los 7 gaps iniciales del proceso quedan
 > resueltos.**
 
+> **Tercera pasada de cierre (plantilla de despliegue).** Material nuevo: la plantilla de despliegue de la UUAA KYTL
+> (repositorio `estaticos`, rama develop). Aporta el código de `unionFicheros.sh`, `RDR_Transformacion_XSLT.sh`,
+> `RDR_Validacion_XSD.sh`, `TransformacionesExtraccionCTPDA.sh`, `EliminateDuplicates_*.sh`, `ACTUALIZAR_FECHA_PAR1.sh`,
+> `RDR_DeltaEmisores.sh` y los lanzadores heredados `RDR_Transformacion_*.sh`/`RDR_Validacion_Extraccion.sh`; los 14
+> `TransformacionesExtraccionCTPDA_*.properties` y `extraccionEFR.properties`; las hojas XSL y los esquemas XSD del pipeline; los
+> `ExtraccionGenerica*.properties` y sus log4j. Es la base que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` instala sustituyendo `@@ENV@@`
+> por `de`, `ei`, `pp` o `pr`; no es una copia verificada de producción y es anterior a la migración a Java 17. Todo está resumido en la nueva
+> §6.9; las **correcciones** a lo dicho antes están en §1.1 (qué genera cada fichero final), §6.2 y §6.6 (nombres de los ficheros
+> de salida) y §9 (riesgos 10 a 14). No trae código Java (jars, `ConDB`, `MyThreadCpty`), IDX, módulos `.mod` ni filas de las tablas.
+
 ## 1. Resumen ejecutivo
 
 El proceso **Extracción Genérica de Contrapartidas** extrae, valida y redistribuye desde RDR (GoldenSource,
@@ -110,6 +120,17 @@ MEKYTL0336_505/606  MEKYTL0340 → MEKYTL0341_505/606           MEKYTL0337_505/6
                     - KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml         (CON ratings — solo Mentor + backup)
 ```
 
+> **Corrección con la plantilla de despliegue.** El diagrama atribuía a `VALIDACION_EXTRACCION` la generación de los dos
+> ficheros finales. Según `RDR_Transformacion_XSLT.sh` (§6.9.2) los genera **ese script**: renombra el XML unificado
+> (`KYTL_RDR_EXTRACTION_CPARTYS_<fecha>.xml`, resultado de `MEKYTL0338/0342/0339`) a `KYTL_RDR_RTNG_EXTRACTION_<fecha>.xml` (el
+> «con ratings», idéntico al original) y vuelve a crear `KYTL_RDR_EXTRACTION_CPARTYS_<fecha>.xml` aplicando
+> `RDR_XSL_Generico_Rtng.xsl`, que **no elimina todos los ratings**: conserva solo los `RATING` de los conjuntos `BBVA_RTN`, `MEX_RTN`,
+> `EXT_RTN`, `EXT_RTNL` e `INTIFRS9` y descarta los demás (p. ej. los de agencias externas S&P, Moody's, Fitch, DBRS o Scope). Lo que consume el
+> fan-out es el fichero con ese subconjunto de ratings; Mentor y el backup leen el original completo. `VALIDACION_EXTRACCION`
+> (`RDR_Validacion_Extraccion.sh`, lanzador de `RDR_Extraction_CPARTYS.jar`) no crea esos ficheros: es un paso heredado, marcado «Ejecutar
+> como Dummy» en `_new` y Dummy en las semanales (§6.9.10). El pipeline `RDR_Transformacion_XSLT_CPARTY` → `RDR_Validacion_XSD_CPARTY` es, por tanto,
+> el que genera y valida los dos ficheros en las 3 cadenas.
+
 #### 1.1.1 Cómo se generan y se esperan los dos ficheros de origen
 
 Los generan dos jobs de Control-M, `EXTRACCION_THIRDPARTYS` y `EXTRACCION_CPTDAS` (proceso hermano
@@ -128,6 +149,15 @@ producción las rutas `/ei/` son `/pr/`, y ese fichero no se ha recibido):
 | `ArgJava6` tipo | `CPARTY` | `THIRDPARTIES` |
 | `ArgJava7` credenciales de BBDD | `/<env>/kytl/online/multipais/multicanal/cfg/entorno` | igual |
 | Librerías | `ojdbc8`, `commons-io-2.5`, `log4j`, `xdb`, `xmlparserv2-11.1.1.2.0-patched`, `commons-dbcp-1.4`, `commons-pool-1.5.4` | igual |
+
+**Según la plantilla de despliegue** (repositorio `estaticos`, rama develop), `ExtraccionGenericaCPTY.properties` y
+`ExtraccionGenericaTHIRDPARTIES.properties` tienen exactamente los mismos argumentos, con `@@ENV@@` donde la copia de integración tenía `ei`, y
+**dos diferencias** con la tabla anterior: `NomClaseJava=Ppal` (sin paquete) y **sin `JDKV`**. Es la base anterior a la migración a Java 17:
+las ramas migradas empaquetan las clases (`extracciongenericacpty.Ppal`, `extracciongenericaotherentities.Ppal`) y llevan `JDKV=17`; en
+integración manda la copia con paquete, en el resto la plantilla hasta que se migre. Los dos módulos no llevan acción `Script` posterior ni `Stop*`. El log4j de cada uno
+(`log4jExtraccionGenericaCPTY.properties`, `log4jExtraccionGenericaTHIRDPARTIES.properties`) escribe en
+`/<env>/kytl/online/multipais/multicanal/logs/ExtraccionGenericaCPTY.log` y `.../ExtraccionGenericaTHIRDPARTIES.log` (100 MB x 3 copias, nivel `info`; detalle en
+`salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.6).
 
 Funcionamiento (jar `OtherEntities`, cuyo código se conoce; el de `CPTY` no se ha recibido y se presume
 igual): lee de la tabla `FT_T_ATE1` la query de lista (`ExtraccionTHIRDPARTIES.sql`, identifica cada entidad por
@@ -435,19 +465,20 @@ Dudas que ninguna fuente recibida resuelve; el equipo de RDR o el acceso al serv
 |---|---|---|
 | P-EGC-01 | ¿Qué línea IDX tiene cada clave de `MEGENV0001.sh` y `RAMERC0068.sh` (`MEKYTL0279`, `0276`, `0338`, `0781`, etc.): fichero origen, carpeta de destino, sistema receptor, nombre del fichero entregado? | Sin ella no se sabe qué fichero concreto recibe cada uno de los ~55 destinos, con qué nombre ni dónde; solo se conoce el fichero lógico del documento funcional |
 | P-EGC-02 | `MEKYTL1069_SND` (transmisión a MMK/`prmx_apx_batch`) figura en el documento funcional, pero no existe entre los 50 jobs de `_FINSEM_D_new`. ¿Dónde se transmite ese fichero (¿cadena `TRANSMISIONES_CIB_KYTL`?) | Si no hay `_SND`, el diccionario semanal podría no llegar a MMK |
-| P-EGC-03 | ¿Quién convierte `ExtraccionContingencia.xml.tmp`/`Thirdparties.xml.tmp` en el fichero final y con qué nombre exacto (`URL_OUTPUT_FILE` en `FT_T_ATE1`)? Los filewatchers esperan `ThirdParties.xml` con "P" mayúscula | En Linux, una diferencia de mayúsculas haría que el filewatcher no lo encontrara nunca y la cadena se parara a los 195 min |
-| P-EGC-04 | ¿Qué ruta y nombre tiene la salida de `unionFicheros.sh` (sus parámetros PARM1/PARM2 salen truncados) y cómo une los dos XML (raíz `GLOBALS`)? | Es el fichero que renombra `MEKYTL0338/0342/0339` y de él depende todo el resto |
-| P-EGC-05 | `VALIDACION_EXTRACCION` en `_new` tiene marcado "Ejecutar como Dummy" en la pestaña General. ¿Ejecuta de verdad `RDR_Validacion_Extraccion.sh`/`RDR_Extraction_CPARTYS.jar`? ¿Qué job genera entonces `KYTL_RDR_RTNG_EXTRACTION` (con ratings) en cada cadena? ¿Qué hacen `RDR_Transformacion_XSLT.sh` y `RDR_Validacion_XSD.sh` (hojas, esquemas, códigos de salida)? | Define quién produce los 2 ficheros finales y qué es un fallo de validación |
-| P-EGC-06 | Contenido de `TransformacionesExtraccionCTPDA.sh` y de los `.properties` de las transformaciones (solo se conoce el de Fircosoft): hojas XSL, ficheros de salida, formatos | Sin ellos los ficheros de la sección 6.6 solo se conocen por nombre |
+| P-EGC-03 | **Resuelta en parte.** Quién publica el fichero final: lo hace el propio jar, que mueve el `.tmp` a `<directorio>/<nombre de URL_OUTPUT_FILE>` (algoritmo de la spec común §2.3); no hay un renombrado externo. Las filas históricas del Planificador que genera la plantilla (`parseClob_ThirdParties.sh`, `parseClob_ExtraccionContingencia.sh`) llevan `URL_OUTPUT_FILE` = `ThirdParties.xml` (con «P» mayúscula) y `ExtraccionContingencia.xml`, en línea con lo que esperan los filewatchers. **Sigue abierto** el `URL_OUTPUT_FILE` de las filas de detalle en uso (`ExtraccionContingenciaTHIRDPARTIES.sql` y la de `CPARTY`) en `FT_T_ATE1` de producción. ¿Con qué nombre exacto se publica? | En Linux, una diferencia de mayúsculas haría que el filewatcher no lo encontrara nunca y la cadena se parara a los 195 min |
+| P-EGC-04 | **Resuelta.** `unionFicheros.sh` (4 líneas) está analizado en §6.9.1: modifica **in situ** el primer fichero (`PARM1`, según la ficha `ExtraccionContingencia.xml`): le quita las líneas con `</GLOBALS>`, le añade el contenido de `ThirdParties.xml` (`PARM2`) sin su declaración XML más un `</GLOBALS>` final y borra `PARM2`. La salida es, por tanto, `extracciongenerica/ExtraccionContingencia.xml` ya unificado, que renombran `MEKYTL0338/0342/0339`. Los Third Parties quedan en `/GLOBALS/OPERATIVES/OPERATIVE` (su raíz es `<OPERATIVES>`). Supuesto: el orden de `PARM1`/`PARM2` sale de la ficha, truncada en pantalla | Es el fichero que renombra `MEKYTL0338/0342/0339` y de él depende todo el resto |
+| P-EGC-05 | **Resuelta en parte.** `RDR_Transformacion_XSLT.sh` y `RDR_Validacion_XSD.sh` están analizados (§6.9.2 y §6.9.3). El primero renombra el unificado a `KYTL_RDR_RTNG_EXTRACTION_<fecha>.xml` (el «con ratings») y genera `KYTL_RDR_EXTRACTION_CPARTYS_<fecha>.xml` con `RDR_XSL_Generico_Rtng.xsl`; el segundo valida el «con ratings» contra `RDR_XSD_Generico.xsd` y **no hace fallar el job por errores de validación**. Quién genera el RTNG queda así respondido. `RDR_Validacion_Extraccion.sh` es solo un lanzador de la clase `rdrconcurrente.Validacion_Extraccion` de `RDR_Extraction_CPARTYS.jar` (§6.9.10). **Sigue abierto** el código de ese jar y si `VALIDACION_EXTRACCION` se ejecuta de verdad en `_new` (casilla «Dummy» marcada en la ficha). | Define qué hace el job `VALIDACION_EXTRACCION` y si puede pisar los dos ficheros finales |
+| P-EGC-06 | **Resuelta.** `TransformacionesExtraccionCTPDA.sh` y los 14 `TransformacionesExtraccionCTPDA_*.properties`, más `extraccionEFR.properties`, están analizados (§6.9.4 y §6.9.5), con la hoja XSL, la carpeta y el nombre de salida, la cabecera y el contenido de cada `RDR_TRANSFORMACION_*` (la tabla de §6.6 queda corregida). Fuente: plantilla de despliegue | Sin ellos los ficheros de la sección 6.6 solo se conocen por nombre |
 | P-EGC-07 | ¿`MONITOR_BKYTL001_505-606` es un único job compartido por `_S` y `_D` o hay una instancia en cada folder? En `_D` espera a `MEKYTL0335`; ¿en `_S` espera a `MEKYTL0340` o es predecesor de él? | Determina el orden de arranque y si una cadena puede disparar la otra |
 | P-EGC-08 | Evento de salida (pestaña Acciones sin captura) de `MEKYTL0836`, `MEKYTL1093_DEL`, `MEKYTL1277`, `MEKYTL0282_SND`; ¿publican algo y quién los espera? | No se puede verificar su fin por evento |
 | P-EGC-09 | Nombres completos de los 2 eventos de salida de `RDR_TRANSFORMACION_DCD` (ambos truncados como `RDR_TRANSFORMACION_DC…`) | Se desconoce si es uno duplicado o hay un segundo consumidor |
 | P-EGC-10 | ¿Qué destino o función tienen `MEKYTL1062`, `MEKYTL1148`, `MEKYTL1156`, `MEKYTL1164`, `MEKYTL1204` y `MEKYTL1242`? No aparecen en la tabla de cesiones del documento funcional | No se sabe qué se entrega ni a quién |
 | P-EGC-11 | En `_FINSEM_D_new`, `MEKYTL0285` (MSC diario) y `MEKYTL0292` (Proactive) son Dummy en Control-M aunque el documento funcional los describe como envíos. ¿El envío MSC diario del domingo se hace de otra forma? | Hoy ese día no se envía nada a MSC diario ni a Proactive desde Control-M |
 | P-EGC-12 | Programación real de `_FINSEM_S_new` (21 jobs sin capturas): días, horas, usuarios, recursos y eventos exactos | Solo se conoce por el documento funcional |
-| P-EGC-13 | ¿Qué imprime `GSProcess.sh`/el script de transformación para que la regla "salida con `* Código: *` → marcar OK" de las transformaciones se active, y se activa también cuando el Java falla? | Si siempre se activa, un fallo de transformación nunca se ve en Control-M |
+| P-EGC-13 | **Resuelta en parte.** Ningún script ni `.properties` de la plantilla escribe el texto `Código:` (ni `GSProcess.sh`, ni `Generico.sh`, ni `TransformacionesExtraccionCTPDA.sh`): la sentencia `* Código: *` no la genera ningún programa de RDR, así que la produce Control-M (cabecera o cola del `sysout`) o un literal que la plantilla no contiene. Además `TransformacionesExtraccionCTPDA.sh` **termina siempre con código 0** (también cuando falla `xsltproc` o la validación XSD, §6.9.4), de modo que, con o sin regla, un fallo de la transformación no se ve en Control-M. **Sigue abierto** qué línea de salida activa exactamente la regla (definición de la ficha) | Si siempre se activa, un fallo de transformación nunca se ve en Control-M |
 | P-EGC-14 | Destinos activos en el documento funcional sin job en las fichas reales: `MEKYTL0268` (FENERGO), `MEKYTL0876` (Soporte DataHub CIB, diccionario), `MEKYTL0888` (sucesor de `USA_CLIENT`) | Pueden ser envíos desactivados no documentados |
-| P-EGC-15 | ¿Qué comprueba `monitor_BBDD.sh BKYTL003` y qué significan sus códigos 0 (rama 505) y 1 (rama 606)? | Decide en qué base de datos se actualiza la fecha y con qué recurso |
+| P-EGC-15 | ¿Qué comprueba `monitor_BBDD.sh BKYTL003` y qué significan sus códigos 0 (rama 505) y 1 (rama 606)? **Sin cambios con la plantilla:** `monitor_BBDD.sh` vive en `/pr/pl/scrt/` y no está en la plantilla de la UUAA KYTL. Lo único parecido que trae, `monitor_services.sh`, vigila el proceso `ServicesRDR` y no tiene relación (§6.9.11). Lo que sí se sabe de los jobs que cuelgan del monitor: `ACTUALIZAR_FECHA_PAR1.sh` no recibe argumentos y conecta con el alias de `credentials.xml`, por lo que las instancias 505 y 606 ejecutan **exactamente el mismo** `UPDATE` y solo se diferencian en el recurso de Control-M (§6.9.8) | Decide en qué base de datos se actualiza la fecha y con qué recurso |
+| H-EGC-14 | **Nueva (tercera pasada).** `RDR_TRANSFORMACION_EFR_PROPERTIES` (`GSProcess.sh extraccionEFR`) depende de `TaductorXML.jar` (clase `traduce.Traduce`), que no está en la plantilla, y ningún `.properties` de la plantilla consume su resultado (`KYTL_RDR_EXTRACTION_CPARTYS_EFR_<fecha>.xml`, §6.9.6). ¿Qué hace exactamente el jar con la hoja `removeCtm.xsl` y quién lee el fichero EFR? | Sin el jar no se puede afirmar cómo se aplica la hoja, qué pasa si falla ni quién consume el fichero (la ficha lo presenta como «catálogo EFR») |
 
 ## 5. Especificación funcional
 
@@ -623,9 +654,9 @@ Directorio de trabajo en la VIPA `pr-rdr.igrupobbva` (máquinas `lprdr501`/`lprd
 | `ExtraccionContingencia.xml` (se escribe como `.tmp` y se publica al terminar) | `extracciongenerica/` | `EXTRACCION_CPTDAS` (jar `ExtraccionGenericaCPTY.jar`, tipo `CPARTY`) | filewatcher `DAILY_EXTRACCION_CONTINGENCIA_FW`; lo une `DAILY_UNION_FICHEROS` |
 | `ThirdParties.xml` | `extracciongenerica/` | `EXTRACCION_THIRDPARTYS` (jar `ExtraccionGenericaOtherEntities.jar`, tipo `THIRDPARTIES`) | filewatcher `DAILY_THIRDPARTIES_FW`; lo une `DAILY_UNION_FICHEROS` |
 | `control_inicio.txt` (contiene la fecha `yyyymmdd`) | `extracciongenerica/` | `MEKYTL0334` (`_new`), `MEKYTL0340` (`_S`), `MEKYTL0335` (`_D`) | lo borra `MEKYTL0338_BORRA` / `MEKYTL0342_BORRA` / `MEKYTL0339_BORRA` |
-| XML unificado | `extracciongenerica/` | `DAILY_UNION_FICHEROS` (`unionFicheros.sh`; nombre y ruta de salida no confirmados, P-EGC-04) | `MEKYTL0338` / `MEKYTL0342` / `MEKYTL0339` lo renombran a `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` |
-| `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` (sin ratings) | `extracciongenerica/` | renombrado anterior | base del fan-out: Smart Data, DataHub, transformaciones |
-| `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` (con ratings) | `extracciongenerica/` | pipeline XSLT/XSD y/o `VALIDACION_EXTRACCION` (P-EGC-05) | Mentor y el backup `MEKYTL0781` |
+| XML unificado | `extracciongenerica/` | `DAILY_UNION_FICHEROS` (`unionFicheros.sh`): es `ExtraccionContingencia.xml` modificado in situ, sin el cierre `</GLOBALS>` original, con `ThirdParties.xml` añadido (que se borra) y un `</GLOBALS>` final (§6.9.1) | `MEKYTL0338` / `MEKYTL0342` / `MEKYTL0339` lo renombran a `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` |
+| `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml` (**con ratings filtrados**: solo los conjuntos `BBVA_RTN`, `MEX_RTN`, `EXT_RTN`, `EXT_RTNL` e `INTIFRS9`) | `extracciongenerica/` | el renombrado anterior (con el unificado completo) y, después, `RDR_Transformacion_XSLT.sh`, que lo vuelve a crear filtrado (§6.9.2) | base del fan-out: Smart Data, DataHub, transformaciones |
+| `KYTL_RDR_RTNG_EXTRACTION_yyyyMMdd.xml` (con todos los ratings) | `extracciongenerica/` | `RDR_Transformacion_XSLT.sh`, que renombra con `mv` el unificado antes de filtrarlo (§6.9.2); `VALIDACION_EXTRACCION` no lo crea | Mentor (`MENTOR` y `MENTOR_SINRATING` lo leen), `RDR_Validacion_XSD.sh` y el backup `MEKYTL0781` |
 | `KYTL_RDR_EXTRACTION_CPARTYS_<ODATE>.ctl` | `extracciongenerica/` | `MEKYTL1154` (comando previo `touch`) | señal de fin para XVA |
 | copia comprimida del RTNG | `extracciongenerica/backup/` | `MEKYTL0781` (comprime y mueve; no envía a nadie) | queda como backup local |
 | `EmisoresRDR.csv`, `EmisoresRDR_SinRatings.csv` | `mentor/` | `RDR_TRANSFORMACION_MENTOR` / `_MENTOR_SINRATING`, luego los jobs `ELIMINATEDUPLICATES_*` | `MEKYTL0279`, `MEKYTL1147`; `MEKYTL0280` los historifica |
@@ -852,27 +883,28 @@ indica. "Espera a" = job cuyo OK espera. Los jobs de envío del diccionario sema
 
 Desde julio 2024 las transformaciones `RDR_TRANSFORMACION_*` las lanza `GSProcess.sh` con un `.properties`
 propio que llama al script único `TransformacionesExtraccionCTPDA.sh` (parámetro `TransformacionesExtraccionCTPDA_<sufijo>`).
-Solo se conoce el `.properties` de Fircosoft (ver el proceso `extracciones_adhoc_ctpdas_fircosoft_sire`); el de
-las demás no se ha recibido (P-EGC-06).
+Según la plantilla de despliegue (repositorio `estaticos`, rama develop), el `.properties` de cada transformación, la hoja XSL, la entrada, la carpeta y el nombre de salida y la
+cabecera están en la tabla de §6.9.5 (P-EGC-06 resuelta). **Corrección:** esta tabla daba nombres de salida que no coinciden con los `.properties`;
+los valores correctos son los marcados con «Corrección».
 
 | Job de transformación | Fichero que genera | Predecesor funcional | Sucesores principales |
 |---|---|---|---|
 | `RDR_TRANSFORMACION_MGCYG` | `KYTL_KXMC_RDR_MGCyG_YYYYMMDD.xml` | `EFR_PROPERTIES` | `DEALRECONSTRUCTION` (el envío `MEKYTL0274` está eliminado) |
-| `RDR_TRANSFORMACION_DEALRECONSTRUCTION` | `sf_rdr_counterparties_YYYYMMDD.csv` | `MGCYG` | `MEKYTL0253`, `MEKYTL0315`, `MEKYTL0316`, `MENTOR` |
+| `RDR_TRANSFORMACION_DEALRECONSTRUCTION` | `fonetics/dr_rdr_counterparties_YYYYMMDD.csv` (Corrección: antes `sf_rdr_counterparties_YYYYMMDD.csv`) | `MGCYG` | `MEKYTL0253`, `MEKYTL0315`, `MEKYTL0316`, `MENTOR` |
 | `RDR_TRANSFORMACION_MENTOR` | `EmisoresRDR.csv` (con ratings) | `DEALRECONSTRUCTION` | `SALESFORCE`, `ELIMINATEDUPLICATES_MENTOR` |
-| `RDR_TRANSFORMACION_SALESFORCE` | `.sf_rdr_counterparties_YYYYMMDD.csv` | `MENTOR` | `CTM` |
+| `RDR_TRANSFORMACION_SALESFORCE` | `salesforce/sf_rdr_counterparties_YYYYMMDD.csv` (Corrección: antes `.sf_rdr_counterparties_YYYYMMDD.csv`) | `MENTOR` | `CTM` |
 | `RDR_TRANSFORMACION_CTM` | `contrapartidas_ctm_altbic.txt` | `SALESFORCE` | `SIRE`, `MEKYTL0382` |
-| `RDR_TRANSFORMACION_SIRE` | `ctpdaDDMMYYYYCC.csv` | `SALESFORCE` y `CTM` | `ELIMINATEDUPLICATES_SIRE`, `SICOR`, `MEKYTL0281` |
+| `RDR_TRANSFORMACION_SIRE` | `sire_files/ctpda.csv` (Corrección: la transformación no lleva fecha; `ctpdaDDMMYYYYCC.csv` es el nombre con el que se entrega) | `SALESFORCE` y `CTM` | `ELIMINATEDUPLICATES_SIRE`, `SICOR`, `MEKYTL0281` |
 | `RDR_TRANSFORMACION_SICOR` | `Batch_RDR_PU.txt` | `SIRE` | `FAED`, `MEKYTL0282` |
-| `RDR_TRANSFORMACION_FAED` | `Legal_Entity.txt`, `Legal_Entity_dia_*_dos.txt` | `SICOR` | `FS`, `MEKYTL0285`, `MEKYTL1129` |
+| `RDR_TRANSFORMACION_FAED` | `MSC/Legal_Entity_diario.txt` (Corrección: el nombre `Legal_Entity.txt` y la variante `Legal_Entity_dia_*_dos.txt` son los de entrega y el de `Unix2Dos`) | `SICOR` | `FS`, `MEKYTL0285`, `MEKYTL1129` |
 | `RDR_TRANSFORMACION_FS` | `Batch_Fircosoft_${AAAAMMDD}.txt` (8 campos, solo sucursal `MEX`) | `FAED` | `DCD`, `DCDT` |
 | `RDR_TRANSFORMACION_DCD` | `FicheroDiccionarioRDR_dia_YYYYMMDD*.csv` | `FS` | `ELIMINATE_DUPLICATES_DC`, `USA_CLIENT`, `MEKYTL0272` |
 | `RDR_TRANSFORMACION_DCDT` | diccionario total (variante DCT) | `FS` | `ELIMINATE_DUPLICATES_DCDT` |
 | `RDR_TRANSFORMACION_USA_CLIENT` | ninguno (Dummy) | `DCD` | `MEKYTL0272` |
-| `RDR_TRANSFORMACION_EFR_PROPERTIES` | ninguno (catálogo EFR) | `VALIDACION_EXTRACCION` | `MGCYG` |
+| `RDR_TRANSFORMACION_EFR_PROPERTIES` | `extracciongenerica/KYTL_RDR_EXTRACTION_CPARTYS_EFR_<fecha>.xml` (copia fechada sin los `GLOBAL` con `CTM_OnBoarding='Y'`; §6.9.6) | `VALIDACION_EXTRACCION` | `MGCYG` |
 | `RDR_TRANSFORMACION_MENTOR_SINRATING` | `EmisoresRDR_SinRatings.csv` | `VALIDACION_EXTRACCION` | `ELIMINATEDUPLICATES_MENTOR_SINRATING` |
-| `RDR_TRANSFORMACION_FAET` (solo `_D`) | Fichero de Actividad Económica total | `EFR_PROPERTIES` | `MEKYTL1134`, `MEKYTL0976`, `FAED` |
-| `RDR_TRANSFORMACION_FAMM` (solo `_D`) | `CtpdaInternas_yyyymmdd.csv` | `MEKYTL0435` | `MEKYTL0803` |
+| `RDR_TRANSFORMACION_FAET` (solo `_D`) | `MSC/Legal_Entity_total.txt` (Fichero de Actividad Económica total) | `EFR_PROPERTIES` | `MEKYTL1134`, `MEKYTL0976`, `FAED` |
+| `RDR_TRANSFORMACION_FAMM` (solo `_D`) | `MMK/CtpdaInternas.csv` (Corrección: `CtpdaInternas_yyyymmdd.csv` es el nombre de entrega) | `MEKYTL0435` | `MEKYTL0803` |
 
 En el orden de ejecución real de `_new` (por prerrequisitos de Control-M) las transformaciones forman una
 cadena secuencial: `EFR_PROPERTIES → MGCYG → DEALRECONSTRUCTION → MENTOR → SALESFORCE → CTM → SIRE → SICOR →
@@ -961,6 +993,189 @@ Estado final esperado: los ficheros de trabajo del día quedan en sus carpetas (
 siguiente), `control_inicio.txt` borrado, copia comprimida en `backup/`, ficheros de pasarela limpiados por
 los `_DEL` y fichas de job conservadas 3 días en Control-M.
 
+### 6.9 Scripts, hojas XSL/XSD y propiedades del pipeline (plantilla de despliegue)
+
+Procedencia y regla de lectura: todo lo de esta sección sale de la plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama
+develop), que el plan `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` instala sustituyendo `@@ENV@@` por `de`, `ei`, `pp` o `pr`. Son «valores de la plantilla», no
+una copia verificada de producción; que lo instalado en `pr` coincida con ella está sin comprobar. Esto explica además el prefijo `ei/` del
+`ArgScri4` de `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` en la copia de integración (`ei/KYTL_RDR_EXTRACTION_CPARTYS_`): es el marcador
+`@@ENV@@/` ya sustituido, no un resto de plantilla; en producción es `pr/`. La plantilla es anterior a la migración a Java 17 (no hay `JDKV` ni clases con
+paquete en los `.properties` de Java); estos scripts solo usan `xsltproc`, `xmllint`, `awk`, `sed` y `sort`.
+
+#### 6.9.1 `unionFicheros.sh` (`DAILY_UNION_FICHEROS`)
+
+Cuatro líneas, sin validación ni `set -e`; recibe dos rutas (`PARM1`, `PARM2`):
+
+1. `sed -i '/<\/GLOBALS\>/d' $1`: borra de `PARM1` **toda línea** que contenga `</GLOBALS>`.
+2. `sed -i '/<?xml version="1.0" encoding="UTF-8"?>/d' $2`: borra de `PARM2` toda línea que contenga la declaración XML.
+3. `echo "</GLOBALS>" >> $2`: añade el cierre al final de `PARM2`.
+4. `cat $2 >> $1 && rm -rf $2`: concatena `PARM2` detrás de `PARM1` y borra `PARM2`.
+
+Resultado: `PARM1` queda como XML unificado y `PARM2` desaparece. Con el orden de la ficha (`PARM1` = `ExtraccionContingencia.xml`, `PARM2` = `ThirdParties.xml`;
+las rutas salen truncadas en pantalla) la salida es `extracciongenerica/ExtraccionContingencia.xml` modificado in situ, que `MEKYTL0338`/`0342`/`0339`
+renombran a `KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml`. Para que el resultado tenga una sola raíz, `ThirdParties.xml` **no** puede llevar
+`<GLOBALS>`: su etiqueta raíz es `<OPERATIVES>` (así lo define `parseClob_ThirdParties.sh`, §6.9.11, y lo confirman las hojas `Dicc_contra_*_NEW.xsl` y
+`GenericaToMentor_NEW.xsl`, que leen `GLOBALS/OPERATIVES/OPERATIVE`). Estructura final:
+`<GLOBALS><GLOBAL>…</GLOBAL>…<OPERATIVES><OPERATIVE>…</OPERATIVE>…</OPERATIVES></GLOBALS>`. Los Third Parties son, por tanto, hermanos de los `GLOBAL`, no
+descendientes: `Batch_FircoSoft.xsl` y `Sire.xsl` (que solo recorren `GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`) **no los incluyen**, mientras que los diccionarios y
+Mentor sí. Comportamientos que conviene conocer:
+- **Siempre termina con el estado de `cat … && rm`**, normalmente 0; no comprueba nada.
+- Si falta `ThirdParties.xml`, el `sed` del paso 2 falla en silencio, el paso 3 lo crea con solo `</GLOBALS>` y el resultado es el XML de contrapartidas cerrado **sin Third Parties y sin error**.
+- Si falta `ExtraccionContingencia.xml`, el paso 4 lo crea con el contenido de Third Parties sin apertura `<GLOBALS>`: XML mal formado que `RDR_Transformacion_XSLT.sh` rechaza (§6.9.2).
+- Es **idempotente** si se relanza: `PARM2` ya no existe, se vuelve a crear solo con el cierre y el fichero queda cerrado una vez; pero con esa segunda pasada los Third Parties no se vuelven a añadir (ya están).
+- Si la declaración XML y la etiqueta raíz de `ThirdParties.xml` estuvieran en la **misma línea**, el paso 2 borraría también la etiqueta de apertura. El valor real de `ROOT_TAG` de Third Parties en `FT_T_PAR1` no se ha visto (P-EGC-03).
+
+#### 6.9.2 `RDR_Transformacion_XSLT.sh <entorno> CPARTY` (`RDR_Transformacion_XSLT_CPARTY`)
+
+Con `set -euo pipefail` y trampas `ERR/INT/TERM/QUIT`. Parámetros: `<entorno>` (`de|ei|pp|pr`), `<TIPO>` (solo `CPARTY` está implementado; `ISSUE`, `BASKET`, `CONTACT`,
+`CONTRACT_BBVA` y `CONTRACT_BANCOMER` se reconocen y terminan con «no implementado») y, opcionalmente juntos, un fichero de entrada y uno de salida personalizados. Log:
+`<logs de credentials.xml>/RDR_Transformacion_XSLT_<AAAAMMDD>.log`. Pasos, sobre `/fichtemcomp/<env>/descargas/kytl/extracciongenerica/`:
+
+1. **Búsqueda.** Toma el `KYTL_RDR_EXTRACTION_CPARTYS_*.xml` **más reciente por fecha de modificación** (`ls -t`) y extrae del nombre los 8 dígitos `YYYYMMDD`. Sin fichero, sin fecha válida o fichero vacío: código 1.
+2. **Renombrado.** `mv KYTL_RDR_EXTRACTION_CPARTYS_<f>.xml KYTL_RDR_RTNG_EXTRACTION_<f>.xml`. A partir de aquí el original ya no existe con su nombre.
+3. **Estructura.** Cuenta **líneas**: exactamente una con `<GLOBALS>`, una con `</GLOBALS>`, al menos una con `<GLOBAL>` y las mismas con `</GLOBAL>`. Si no, código 1 (el fichero ya está renombrado).
+4. **Troceado.** Un `awk` parte el fichero en trozos de **1000 registros** `</GLOBAL>`, cada uno con declaración y `<GLOBALS>`…`</GLOBALS>` (`KYTL_RDR_EXTRACTION_CPARTYS_trozo_N.xml`). Las líneas posteriores al último `</GLOBAL>` (el bloque `<OPERATIVES>` de Third Parties) caen en el último trozo.
+5. **Transformación.** `xsltproc RDR_XSL_Generico_Rtng.xsl trozo > …_trozo_xslt_N.xml`, hasta **20 en paralelo** (`wait -n`). Un trozo que falla se registra; si falla alguno, el script termina con 1 y borra los trozos (no restaura el nombre del original).
+6. **Unificación.** Escribe `<?xml version="1.0" encoding="UTF-8"?><GLOBALS>` sin salto de línea, añade cada trozo transformado sin sus 2 primeras líneas ni la última y sin líneas en blanco (orden `sort -V`) y cierra con `</GLOBALS>`: `KYTL_RDR_EXTRACTION_CPARTYS_<f>.xml`. Salida vacía: código 1.
+
+`RDR_XSL_Generico_Rtng.xsl` es una copia de identidad que **elimina los `RATING` cuyo `Rating_Set` no sea `BBVA_RTN`, `MEX_RTN`, `EXT_RTN`, `EXT_RTNL` ni `INTIFRS9`** (`strip-space` sobre `RATINGS`).
+Resultado: `KYTL_RDR_RTNG_EXTRACTION_<f>.xml` = XML original completo y `KYTL_RDR_EXTRACTION_CPARTYS_<f>.xml` = el mismo con ese subconjunto de ratings. Códigos de salida: 0, 1 (error) y
+130 (señal). **Reejecución tras un fallo:** si el script falla después del `mv`, el fichero del día ya no tiene su nombre; al relanzar, `ls -t` puede tomar el
+`KYTL_RDR_EXTRACTION_CPARTYS_*.xml` **de un día anterior** si sigue en la carpeta y reprocesarlo en silencio con su fecha (RISK-CTPY-003, §9).
+
+#### 6.9.3 `RDR_Validacion_XSD.sh <entorno> <TIPO>` (`RDR_Validacion_XSD_CPARTY`)
+
+Mismo esqueleto que el anterior (log `RDR_Validacion_XSD_<AAAAMMDD>.log`). Tipos implementados:
+
+| Tipo | Fichero validado (carpeta de `/fichtemcomp/<env>/descargas/kytl/`) | Esquema (`dat/properties`) | Raíz / registro |
+|---|---|---|---|
+| `CPARTY` | `extracciongenerica/KYTL_RDR_RTNG_EXTRACTION_*.xml` (el más reciente) | `RDR_XSD_Generico.xsd` | `GLOBALS` / `GLOBAL` |
+| `BASKET` | `issues/Baskets/baskets.xml` | `Baskets_Schema.xsd` | `Securities` / `Security` |
+| `ISSUE` | `issues/ReportingEngine/emisiones.xml` | `xsd_emisiones_batch.xsd` | `Securities` / `Security` |
+| `ISSUERESTO` | `issues/ReportingEngine/emisiones.resto.xml` | `xsd_emisiones_batch.xsd` | `Securities` / `Security` |
+
+Comprueba la estructura, trocea en registros de 1000 y valida cada trozo con `xmllint --noout --schema` (hasta 20 en paralelo). Consolida los errores, traduce la línea del trozo a la
+línea del fichero original (fichero `chunk_lines_<TIPO>.meta`), los agrupa por mensaje (máximo 20 líneas de ejemplo por mensaje, ordenados por frecuencia, con `PROCINFO` de `gawk`) y los escribe en el log y por pantalla.
+**Los errores de validación no cambian el código de salida**: el script termina con 0 aunque el XML no cumpla el esquema; solo termina con 1 si falta o está vacío el fichero o si falla la estructura.
+Para `CPARTY` valida el fichero «con ratings» (el original) y no el filtrado. `RDR_XSD_Generico.xsd` tiene raíz `GLOBALS`, 315 nombres de elemento distintos y 596 declaraciones, de las que 574
+son opcionales (`minOccurs="0"`): la validación detecta elementos desconocidos, orden y tipos, pero casi nada obligatorio. `RDR_XSD_Generico_Rtng.xsd` (235 nombres; no declara `RATING` ni
+`TaxCertificates`) **no la usa ningún script de la plantilla**. Esto hace que el paso `RDR_Validacion_XSD_CPARTY` y el `MEKYTL0781` que le cuelga se ejecuten con independencia del resultado de la validación.
+
+#### 6.9.4 `TransformacionesExtraccionCTPDA.sh`
+
+Lo ejecuta `Generico.sh LanzaScriptBash` (sin comillas) desde `GSProcess.sh TransformacionesExtraccionCTPDA_<X>`. Recibe cuatro argumentos, que el `.properties` rellena con `ArgScri2` a `ArgScri5`:
+
+| Arg. | Formato | Significado |
+|---|---|---|
+| 1 (`ArgScri2`) | `hoja.xsl/esquema.xsd` | Hoja XSLT y, opcional, XSD de la carpeta `dat/properties` (solo MGCyG lleva XSD) |
+| 2 (`ArgScri3`) | `carpeta/prefijo/extensión` | Carpeta de `/fichtemcomp/<env>/descargas/kytl/`, nombre sin extensión y extensión. `@@FECHA@@` en el nombre se sustituye por `AAAAMMDD` de hoy |
+| 3 (`ArgScri4`) | `entorno/prefijo del XML[/-1]` | El entorno es el primer campo; el prefijo del XML de entrada (`KYTL_RDR_EXTRACTION_CPARTYS_` o `KYTL_RDR_RTNG_EXTRACTION_`); el tercer campo `-1` cambia el orden de búsqueda |
+| 4 (`ArgScri5`) | texto | Cabecera del fichero de salida; si es vacía, no se escribe cabecera |
+
+Algoritmo:
+1. **Entrada.** Busca en `extracciongenerica/` el fichero `<prefijo><fecha>.xml`: hoy y, si no está, ayer, hace 2 y hace 3 días (con `-1`, primero ayer y luego hoy). **El último intento no se comprueba**: si no existe ninguno, `grep` no encuentra nada y el bucle no hace nada.
+2. **Trozos.** Copia el XML a `<prefijo de salida>cuerpo.xml`, le quita la declaración, `<GLOBALS>` y `</GLOBALS>` y lo parte con `awk` en ficheros de **1000 `<GLOBAL>`** (`…cuerpo_N.xml`); cada uno se envuelve de nuevo en `<GLOBALS>` (`…trozo_N`).
+3. **XSLT.** `xsltproc -stringparam fecha dd/mm/aaaa <hoja> <trozo> > …CSV_N`, en segundo plano; espera a que baje de 10 procesos y, al final, a todos.
+4. **Salida.** Crea `<carpeta>/<nombre><ext>` con la cabecera (si la hay; si no, borra el fichero) y le concatena los `…CSV_N` en el orden de `ls` (**lexicográfico**: `CSV_10` antes que `CSV_2` a partir de 10 trozos), borra los temporales y elimina las líneas en blanco.
+5. **XSD (solo MGCyG).** Quita retornos de carro y declaración, envuelve en `<?xml…?><LOCALS>…</LOCALS>` en una sola línea y valida con `xmllint --noout --schema`. **El resultado solo se escribe en el log.**
+6. Log en `<logs de credentials.xml>/<prefijo><AAAAMMDD>.log`.
+
+**Termina siempre con código 0**: el `if [ "$?" -gt 0 ]` final evalúa el estado del `echo` anterior, no el de la transformación. Ni un `xsltproc` roto, ni una hoja ausente, ni una validación XSD fallida, ni una carpeta de salida inexistente
+(el `>` falla en silencio) cambian el estado del job. Además: si el XML de entrada es de hace 1 a 3 días, se usa **sin aviso** (solo se escribe en el log); si no existe ningún candidato, el script termina bien **sin tocar la salida del día anterior**, que
+sigue en su sitio con el nombre antiguo.
+
+#### 6.9.5 Las 15 transformaciones: `.properties`, hoja, entrada, salida y contenido
+
+`PARM1` de cada job `RDR_TRANSFORMACION_*` (§6.3 y §6.5). Las columnas de cabecera son las de `ArgScri5`. Los nombres de salida son los del `.properties`; los nombres con fecha y secuencia que ven los destinos (`ctpdaDDMMYYYYCC.csv`, `CtpdaInternas_yyyymmdd.csv`, `Legal_Entity.txt`…) los pone el envío (`MEGENV0001.sh`).
+
+| Job | `PARM1` (`.properties`) | Hoja XSL (XSD) | Entrada (prefijo del XML) | Salida (`/fichtemcomp/<env>/descargas/kytl/…`) | Cabecera |
+|---|---|---|---|---|---|
+| `EFR_PROPERTIES` | `extraccionEFR` | `removeCtm.xsl` (vía `TransformacionCTM`, §6.9.6) | `KYTL_RDR_EXTRACTION_CPARTYS_` (ayer; si no, hoy) | `extracciongenerica/KYTL_RDR_EXTRACTION_CPARTYS_EFR_<f>.xml` | — |
+| `MGCYG` | `…_MGC` | `MGCyG.xsl` (`RDR_XSD_MGCyG.xsd`) | `KYTL_RDR_EXTRACTION_CPARTYS_` | `mgcyg/KYTL_KXMC_RDR_MGCyG_<f>.xml` | — |
+| `DEALRECONSTRUCTION` | `…_DEALRECONSTR` | `Fonetics_NEW.xsl` | ídem | `fonetics/dr_rdr_counterparties_<f>.csv` | — |
+| `SALESFORCE` | `…_SALESFORCE` | `Salesforce_NEW.xsl` | ídem | `salesforce/sf_rdr_counterparties_<f>.csv` | — |
+| `MENTOR` | `…_MENTOR` | `GenericaToMentor_NEW.xsl` | `KYTL_RDR_RTNG_EXTRACTION_` (con todos los ratings) | `mentor/EmisoresRDR.csv` (sin fecha) | 114 columnas separadas por `\|` |
+| `MENTOR_SINRATING` | `…_MENTOR_SINRATINGS` | `GenericaToMentor_SinRatings_NEW.xsl` | `KYTL_RDR_RTNG_EXTRACTION_` | `mentor/EmisoresRDR_SinRatings.csv` | 111 columnas separadas por `\|` |
+| `CTM` | `…_CTM` | `CTM_ALT_NEW.xsl` | `KYTL_RDR_EXTRACTION_CPARTYS_`, con `-1` (primero ayer) | `CTM/contrapartidas_ctm_altbic.txt` | `FINSID;STARID;SHTNMEID;STARIDCM;CPTYDES;CTMID;CTM_BIC;CTM_BIC_ALT;FNDMNGR;INDGEST` |
+| `SIRE` | `…_SIRE` | `Sire.xsl` | `KYTL_RDR_EXTRACTION_CPARTYS_` | `sire_files/ctpda.csv` (sin fecha) | — (el fichero no tiene cabecera) |
+| `SICOR` | `…_SICOR` | `SICOR.xsl` | ídem | `batchPU/Batch_RDR_PU.txt` | — |
+| `FAED` | `…_FAED` | `Fich_acti_eco_diario_NEW.xsl` | ídem | `MSC/Legal_Entity_diario.txt` | `CODIGORDR;ENTIDAD;OFICINA;INDRESI;TIPCONT;ACTECOM;IDFISC;CPOST;PAISRES;BDI;CODOFI;CSB;LOCALIZ;CODINSTI;TIPINSTI;PAISORIG;LEGALNME;TIPCTPDA;CODIGOCCLIENT;CODIGOCNAE;` |
+| `FAET` | `…_FAET` | `Fich_acti_eco_total_NEW.xsl` | ídem | `MSC/Legal_Entity_total.txt` | la misma de `FAED` |
+| `FAMM` | `…_FAMM` | `Fich_MoneyMarket_Eurodepos_NEW.xsl` | ídem | `MMK/CtpdaInternas.csv` | `CODIGORDR;OFICINA;TIPCTPDA;` |
+| `FS` | `…_FIRCOSOFT` | `Batch_FircoSoft.xsl` | ídem | `Fircosoft/Batch_Fircosoft_<f>.txt` | — |
+| `DCD` | `…_DCD` | `Dicc_contra_diario_NEW.xsl` | ídem | `FicheroDiccionario/FicheroDiccionarioRDR_dia_<f>.csv` | `DATANAME;CODIGO;TIPO_CODIGO;APLICACION_ORIGEN;CANONICO;ROL` |
+| `DCDT` | `…_DCT` | `Dicc_contra_total_NEW.xsl` | ídem | `FicheroDiccionario/FicheroDiccionarioRDR_sem_<f>.csv` | la misma de `DCD` |
+
+(`<f>` = `AAAAMMDD` de hoy; `…_X` = `TransformacionesExtraccionCTPDA_X`. `USA_CLIENT` es un job Dummy y no tiene `.properties` de esta familia; la hoja `USA_Client.xsl` está en la plantilla pero nada la invoca.)
+
+Contenido de cada hoja (todas XSLT 1.0 de texto, salvo `MGCyG.xsl`):
+- **Fonetics (`DEALRECONSTRUCTION`) y Salesforce:** una línea por cada `OPERATIVE` con todos los campos entre comillas dobles y separados por coma; los bloques repetibles (identificadores de entidad, de rol, alias, co-prestatarios) van precedidos de su recuento. Fonetics recorre **todos** los operativos de todos los `LOCAL`; Salesforce solo los `GLOBAL` con `Personality = 'LEGALENT'` y alguna organización `0182`, los `LOCAL` con `Entity_role = 'CUSTOMER'` y los operativos `ACTIVE` con un `MUREXID` o `STARID` de origen `CPARTY`. Ambos escapan las comillas dobles (`doublequotes`). Codificación `iso-8859-1`.
+- **Mentor (`GenericaToMentor_NEW.xsl`):** una fila por cada `STARID` de contraparte (o una sola si no tiene) de los operativos con rol `ISSUER` (`OTHER_ROLES/OTHER_ROL/Role = 'ISSUER'`), tanto de `GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE` como de `GLOBALS/OPERATIVES/OPERATIVE` (Third Parties); columnas con identificadores (`MGCGLOID`, `STAR_CPARTY`, `STAR_ISSUER`, LEI, Bloomberg, Murex), nombre, sector, país de riesgo y los ratings por agencia (S&P, Moody's, Fitch, DBRS, Scope), los internos `RTN_*` y los sectores por país. `_NEW` añade las columnas `REU_FOREIGN_ORIGIN`, `ORIGIN_ISSUER_FOREIGN` y `SUBSECTOR_FRTB` respecto de la versión sin sufijo. La versión `SinRatings` (111 columnas, solo 6 referencias a `RATINGS`) deja fuera los datos de rating aunque lee el mismo fichero «con ratings».
+- **CTM:** operativos con al menos un `ROLE_IDENTIFIER` de `Data_Source = 'CTM_BIC_ALT'`; separador `;`, las listas internas de identificadores separadas por `\|` y `INDGEST` = `N` si no hay `Fund_Manager`, `Y` en otro caso.
+- **Sire:** 29 campos separados por `;`, un registro por cada `STARID` mexicano (`Data_Source = 'STAR_MEXICO'`) de los operativos `ACTIVE` de la organización `1145` (`BRANCHES/BRANCH/ENTERPRISE`). Orden: `coid`, `STARID`, vacío, `RDR_Code_Operative`, `Entity_Name`, nombre legal, país de origen, plaza internacional, vacío, país de residencia, tipo de cliente (`FINANCIAL`/`NON FINANCIAL` si hay `Client_Type` de la organización `1145`), tres vacíos, LEI, código Altamira, MIDAS, fecha de renovación del LEI, `MUREXID` de la contraparte, regulación `BANXICO` (nombre, clasificación y código), tres campos de restricciones (`ResOpeTyp`, con varios valores separados por `\|`), tres de clasificación (`ClassOpeTyp`) y un campo final vacío (por eso el `ctpda.csv` real tiene 29 columnas). Corrige la lectura de columnas hecha sobre el fichero ofuscado en `extracciones_adhoc_ctpdas_fircosoft_sire`: la 2 es el `STARID` y la 4 el código de operativo.
+- **SICOR:** campos de **longitud fija** rellenados con espacios **a la izquierda** (`str-pad` antepone el relleno; si el valor es más largo lo trunca por la derecha), separados por `\|`; solo los `LOCAL` con identificador de cliente `ALID` (código Altamira) y campos como `CR`, RFC, homoclave, CURP, domicilio, teléfonos y FATCA.
+- **FAED / FAET:** operativos `ACTIVE` con identificador `CALYPSOID` de `CALYPSO` y sucursal `A1`, `A19`, `A5`, `A8` o `A10`, con sus subdivisiones `TRADES_WITH` de esas sucursales; `;` como separador. **FAED es incremental**: solo emite el registro si la fecha de último cambio del dato, de los identificadores de entidad/rol o de la subdivisión coincide con `RDR_Actual_Date`; **FAET es total**. La versión `_NEW` toma `CNAE_CLIENTELA` del `LOCAL` donde la anterior tomaba `CNAE_BDI`.
+- **FAMM:** mismos operativos (`CALYPSOID`/`CALYPSO` y sucursales `A1`…`A10`) y subdivisiones `TRADES_WITH` con clasificación `BDE_CODE` = `I`: tres campos (`RDR_Code_Operative`, subdivisión, `I`) por línea; son las contrapartidas internas que recibe Ábaco.
+- **FS (Fircosoft):** 8 campos separados por `\|`, solo operativos con sucursal `MEX` (§1.2 de la spec de ad hoc). Dentro de `RDR_Transformacion_FS` los Third Parties no entran (están fuera de `GLOBAL/LOCALS/LOCAL`).
+- **DCD / DCDT (diccionarios):** seis columnas; una línea por cada identificador (de entidad, fiscal, de otras entidades, de cliente, de rol y de otros roles) de cada operativo `ACTIVE`, con `DATANAME` fijo `INTERNALID`, el identificador, su tipo, su origen, el `RDR_Code_Operative` canónico y el rol (`ALL`, o `PARTY` en tres bloques); cubre también los operativos de Third Parties (`GLOBALS/OPERATIVES/OPERATIVE`). **El diario es incremental** (solo las entidades con algún cambio con fecha `RDR_Actual_Date` o contadores de cambio en el `GLOBAL`, el `LOCAL` o el operativo); **el total** lo emite todo.
+- **MGCyG:** XML (`<LOCALS><LOCAL>…`) con los `GLOBAL` de personalidad `LEGALENT` y los `LOCAL` de rol `CUSTOMER`: identificadores fiscales y de cliente, dirección fiscal, LEI, fecha de constitución y país de origen, y los identificadores de entidad y de rol de cada operativo. El script lo valida contra `RDR_XSD_MGCyG.xsd` (raíz `LOCALS`) y solo registra el resultado. `xsd_MGCyG.xsd` es una variante casi idéntica (49 frente a 48 elementos) que no referencia ningún `.properties` de esta familia.
+- **Versiones sin `_NEW`** de las mismas hojas (`Fonetics.xsl`, `Salesforce.xsl`, `GenericaToMentor*.xsl`, `Fich_*`, `Dicc_*`, `CTM_ALT.xsl`): llevan la **cabecera dentro de la hoja**, lo que con el troceado en bloques de 1000 la repetiría por trozo; por eso las `_NEW` la quitan y la cabecera la escribe una sola vez el script (`ArgScri5`). Las `_NEW` renombran además las variables de dirección por ámbito (`LOCAL`/`OPER`) para evitar que un valor de un nivel pise al de otro.
+
+Hojas de la lista que **no** pertenecen a este pipeline: `totaltoMentor.xsl` (contratos legales de Mentor, `nettingContractArray`), `RDR_CPARTY_Compass.xsl` y `…INACT.xsl` (52 columnas; ningún `.properties` las invoca; filtran la organización `A15`, COMPASS), `USA_Client.xsl` (Dummy), `RDR_SCIs_Compass*.xsl` y `RDR_SSIs_Compass*.xsl` (historificación de SCIs y SSIs, ver sus procesos).
+
+#### 6.9.6 `extraccionEFR.properties` y `TransformacionCTM` (`RDR_TRANSFORMACION_EFR_PROPERTIES`)
+
+`GSProcess.sh extraccionEFR` ejecuta cuatro acciones `Script`, sin `Stop`: `TransformacionCTM` (aplica `removeCtm.xsl` a `KYTL_RDR_EXTRACTION_CPARTYS_<fecha>.xml` y escribe `KYTL_RDR_EXTRACTION_CPARTYS_EFR.xml`),
+`QuitarNulos` (`sed 's/\x0//g'`), `Historificar` (copia a `KYTL_RDR_EXTRACTION_CPARTYS_EFR_<AAAAMMDD>.xml`, `chmod 664`) y `Borrar` (`rm -f` del `…_EFR.xml`). Queda solo la copia con fecha en `extracciongenerica/`.
+`TransformacionCTM` (función de `Generico.sh`) busca el XML de **ayer** (`--date="-1 day"`) y, si no existe, el de **hoy**; ejecuta `java -Xmx16G -Dfile.encoding=iso-8859-1 -cp TaductorXML.jar traduce.Traduce <entrada> <hoja> <salida>`.
+`removeCtm.xsl` es una identidad que descarta cada `GLOBAL` con algún `LOCAL` con `CTM_OnBoarding = 'Y'` (de ahí la nota «excluye `CTM_Onboarding=Y`»). **Ningún `.properties` de la plantilla consume
+`KYTL_RDR_EXTRACTION_CPARTYS_EFR_<fecha>.xml`** (las demás transformaciones leen el fichero sin `EFR`), y `TaductorXML.jar` no está en la plantilla: ver H-EGC-14. **Efecto colateral:** `TransformacionCTM` ejecuta antes `sustituirENV` y `sustituirCONF`, que reescriben **in situ** todos los `*.properties`, `*.csv` y `*.xml` de `dat/properties` sustituyendo el texto `$ENV` por el entorno y `$CONF` por la ruta; cada ejecución modifica ficheros compartidos por otros procesos.
+
+#### 6.9.7 `EliminateDuplicates_mentor.sh` y `EliminateDuplicates_DC.sh`
+
+Ambos reciben carpeta y fichero (`PARM1`, `PARM2`) y hacen: quitar la primera línea con `sed '1d'`, `sort | uniq` (orden y duplicados exactos, sensibles a mayúsculas y al `LC_COLLATE` de la sesión), sobrescribir el fichero y reinsertar la cabecera en la línea 1. Diferencias:
+- `_mentor` guarda la primera línea del propio fichero (`head -n 1`) y la reinserta; **sirve para cualquier fichero con cabecera**.
+- `_DC` reinserta una cabecera **fija** `DATANAME;CODIGO;TIPO_CODIGO;APLICACION_ORIGEN;CANONICO;ROL`: solo es correcta para los diccionarios.
+- Sin `set -e` ni comprobaciones: su estado es el del último `sed -i`. Con un fichero inexistente no falla de forma visible. La cabecera de ambos dice `Unix2Dos.sh` (copia); no convierten saltos de línea.
+- **Efecto sobre el orden:** el fichero queda **ordenado** alfabéticamente (los envíos no conservan el orden de la hoja).
+- **`ELIMINATEDUPLICATES_SIRE` trata el primer registro de datos como si fuera cabecera.** `ctpda.csv` no tiene cabecera (`ArgScri5` vacío en `…_SIRE.properties`), de modo que la primera línea se aparta, se conserva en su sitio y **no se compara** con las demás: si hay una copia idéntica más abajo, se queda duplicada. El resto sí se ordena y deduplica (RISK-CTPY-004).
+
+#### 6.9.8 `ACTUALIZAR_FECHA_PAR1.sh` (`MEKYTL0336_505/606`, `MEKYTL0341_505/606`, `MEKYTL0337_505/606`)
+
+Sin argumentos. Comprueba que el usuario es el de aplicación del entorno (`xakytl1d|i|w|p`; si no, `exit -1`), lee de `credentials.xml` `oraclehome`, el alias y el usuario y contraseña de la sección `<database>` y ejecuta con `sqlplus -S usuario/contraseña@alias` (**la contraseña
+va en la línea de comandos**, visible en `ps`) con `WHENEVER OSERROR EXIT 9` y `WHENEVER SQLERROR EXIT SQL.SQLCODE`:
+`UPDATE KYTL_GC.parameters_to_use SET par1_value = to_char(sysdate,'YYYYMMDD') WHERE parameter_ctxt_typ='PARAMETER' AND par1_nme=':fecha_actual' AND act1_oid IN (SELECT act1_oid FROM KYTL_GC.ACTIONS_TO_EXECUTE WHERE action_nme IN ('ExtraccionContingencia.sql','ThirdParties.sql')); COMMIT;`
+Escribe en `/<env>/kytl/online/multipais/multicanal/logs/ACTUALIZAR_FECHA_PAR1_<ddmmaaaa>.log`. Devuelve 0 si el `sqlplus` termina bien y `-1` (255) si no. Puntos clave:
+- **No usa ningún `update_fecha_actual.sql`**: el `UPDATE` está dentro del propio script (el nombre de la ficha es solo descriptivo).
+- Actualiza solo las filas de las **extracciones históricas del Planificador** (`ExtraccionContingencia.sql`, `ThirdParties.sql`, §6.9.11), no las queries de detalle que usan hoy los jars (`ExtraccionContingenciaTHIRDPARTIES.sql`…). Si esas filas ya no existen o no se ejecutan, el `UPDATE` afecta a 0 filas y termina igualmente en OK: **el script no comprueba cuántas filas toca**.
+- Las instancias `_505` y `_606` ejecutan exactamente lo mismo (misma credencial de `credentials.xml`): solo cambia el recurso de Control-M (`MAX-LPORA605`/`606`). La regla «código de retorno 1 → marcar OK y eliminar el evento» no corresponde a ningún `exit` del script (devuelve 0, 9, 255 o el `SQLCODE` de Oracle módulo 256).
+
+#### 6.9.9 `RDR_DeltaEmisores.sh fileloading <credentials.xml>` (`RDR_DELTA_EMISORES`)
+
+Lanzador del jar `RDR_DeltaEmisores.jar`, clase `DeltaEmisores.DeltaEmisores`, con dos argumentos: carpeta de origen `/fichtemcomp/<env>/descargas/kytl/mentor/old/` (donde `MEKYTL0280` historifica `EmisoresRDR_<fecha>.csv`) y de destino `/fichtemcomp/<env>/descargas/kytl/PRIIPS/` (donde debe quedar `EmisoresRDR_delta_yyyymmdd.csv` para `MEKYTL0450`).
+Mismo esqueleto que los demás lanzadores heredados (§6.9.10): dos argumentos obligatorios (`fileloading|publishing` y la ruta de `credentials.xml`), usuario de aplicación del entorno (`exit -1` si no coincide, `exit -2` si no hay carpeta compartida), Java 64 bits de `credentials.xml`. Lee las credenciales de base de datos pero **no las pasa** al Java (solo recibe las dos carpetas) y no
+incluye `ConexionBD.jar` en el `-cp`: el delta se calcula con ficheros. **El código del jar no está en la plantilla**: qué compara (¿el `EmisoresRDR_` más reciente frente al anterior de `old/`?), cómo escribe el fichero y qué hace si falta uno. Es un hueco abierto sobre `RDR_DELTA_EMISORES`.
+
+#### 6.9.10 Lanzadores heredados `RDR_Transformacion_*.sh`, `RDR_Validacion_Extraccion.sh` y `RDR_Extraccion_Generica.sh`
+
+La plantilla conserva 20 lanzadores `RDR_Transformacion_<X>.sh`, más `RDR_Validacion_Extraccion.sh` y `RDR_Extraccion_Generica.sh`. Son **anteriores a `TransformacionesExtraccionCTPDA.sh`** (julio 2024): cada uno ejecuta con `java -Xms128M -Xmx8G …` una clase del jar
+`RDR_Extraction_CPARTYS.jar` (`rdrconcurrente.Transformaciones_<X>`, `rdrconcurrente.Validacion_Extraccion`, `rdrconcurrente.extraccion`) pasándole las carpetas de trabajo, la de logs y la de las hojas. Los jobs vigentes de las 3 cadenas llaman a `GSProcess.sh` o a los
+scripts nuevos, **no** a estos lanzadores, con una excepción por confirmar: `VALIDACION_EXTRACCION` (`RDR_Validacion_Extraccion.sh`, Dummy). Esqueleto común: exige 2 argumentos (`fileloading|publishing` y `credentials.xml`), detecta el entorno por la carpeta `/fichtemcomp/{de,ei,pp,pr}` y exige el usuario de aplicación
+(`xakytl1d|i|w|p`), con `exit -1`/`-2`; calcula el Java 64 bits y lee de `credentials.xml` los datos de base de datos. `RDR_Extraccion_Generica.sh` pasa además **usuario y contraseña de base de datos como argumentos del Java** (visible en `ps`).
+Jar y clase por lanzador: la mayoría usa `RDR_Extraction_CPARTYS.jar` (`CMPS`, `DCD`, `DCT`, `DEALRECONSTRUCTION`, `EFR`, `EFR_total`, `FAED`, `FAET`, `FAMM`, `MENTOR`, `MENTOR_SinRatings`, `MGCyG`, `SALESFORCE`, `SICOR`, `SIRE`, `USA_CLIENT`); `Fircosoft` usa `RDR_Transformacion_Fircosoft.jar` (clase `TransformacionFS.BatchFircosoft`),
+`PRODUCTOS` `RDR_Transformacion_PRODUCTOS.jar` (`BatchProductos.Transformaciones_PRODUCTOS`, carpeta `productos/`), `SAIT` `RDR_Transformacion_SAIT.jar` (`Batch_Diario_Sait.Batch_Sait`, carpeta `SAIT/`) y `RGA` `RDR_Load_RGA.jar` (`rgaratings.TransformadorRGA`, carpeta `RGA/`).
+Es la explicación de la tensión señalada en `extracciones_adhoc_ctpdas_fircosoft_sire` (script anterior frente a script vigente): `RDR_Transformacion_Fircosoft.sh` + `RDR_Transformacion_Fircosoft.jar` es la versión **anterior**; la vigente es `TransformacionesExtraccionCTPDA_FIRCOSOFT.properties` con `Batch_FircoSoft.xsl`. Ninguno de los jars está en la plantilla. Resto de errores de la plantilla: `RDR_Transformacion_DCD.sh` deja
+`FILESDCT` apuntando a `/fichtemcomp/pp/` escrito a mano (sin efecto, no lo usa su clase).
+
+#### 6.9.11 Otros ficheros de la lista y su relación con este proceso
+
+- **`parseClob_ThirdParties.sh` y `parseClob_ExtraccionContingencia.sh`:** generan el SQL de alta de las dos extracciones históricas del Planificador Genérico (`ThirdParties.sql` → `ThirdParties.xml`, raíz `<OPERATIVES>`; `ExtraccionContingencia.sql` → `ExtraccionContingencia.xml`, raíz `<GLOBALS>`; planificación `01234` a las 22:00 y `56` a las 03:00; parámetro `:fecha_actual`). Detalle en `salidas_pendientes/comun_planificador_generico/comun_planificador_generico_spec.md` §3.4.
+  Dan el contexto de `ACTUALIZAR_FECHA_PAR1.sh` y del nombre `ThirdParties.xml` con «P» mayúscula, y muestran el diseño anterior a los jars Java de extracción genérica.
+- **`monitor_services.sh`:** no es `monitor_BBDD.sh`. Vigila el proceso `ServicesRDR` del servidor (por el prefijo del `hostname`: `lp`=`pr`, `lw`=`pp`, `li`=`ei`, `ld`=`de`); si no lo encuentra, ejecuta hasta dos veces `services.sh start` y usa `/tmp/STAT_FLAG.txt` como contador (empieza en 9: devuelve 11 si arranca al primer intento y 12 al segundo; si fallan los dos sube a 10 y devuelve 10, y **a partir de ahí deja de intentarlo** y solo registra `CAIDO`; el valor 15 marca «parado manualmente»). Su log es `MONIT_SERVICESRDR_<ddmmaaaa>.log`. Sin relación con estas cadenas.
+- **`comprueba_consumo.sh`:** recoge en `/fichtemcomp/<env>/descargas/kytl/Consu_M/consumo-<host>-…` los 20 procesos que más memoria consumen (`ps`, `free -m`) y la línea de proceso de cada uno, y comprime el fichero de PIDs (`IDs_consumo-<host>`) con `gzip`; es un diagnóstico del servidor, no de este proceso.
+- **`SSIS_TraducirDiaria.sh`, `SSIS_CargaDiaria.sh`, `SSIS_CargaConciSwift.sh` y `SSIS_CargaInicial.sh`:** cargas de SSIs hacia RDR (no extracciones). `SSIS_TraducirDiaria.sh` ejecuta `GSProcess.sh SSIS_TRADCED`, `SSIS_TRADCAM` y `SSIS_TRADEUR` (traducción de Cedro, Cámara y Eurodepósito); `SSIS_CargaDiaria.sh` lo llama y carga `SSIS_EURO` y `SSIS_CEDRO`, más el módulo de caché `CargaCache_SSIS_Diario` y el workflow hacia el ESB `SSI_Query_Workflow_SSIS`; `SSIS_CargaConciSwift.sh` hace la traducción Swift (`SSIS_TRADSWIFT`) y carga `SSIS_CSCLEARING`, `SSIS_CSCORRESP` y `SSIS_CSACCOUNT`; `SSIS_CargaInicial.sh` llama a `SSIS_TraducirInicial.sh` (que **no** está en la plantilla) y carga `SSIS_CORRESP`. **No forman parte de la extracción de SSIs** (`RDR_EXTRACCIONSSIS`).
+- **`RDR_Extraccion_Generica.sh`:** ver §6.9.10 (extracción directa heredada; no la invoca ninguna de las 3 cadenas).
+
 ## 7. Especificación de testing
 
 **Estrategia:** dado el volumen del proceso (3 cadenas, ~170 jobs, 45+ destinos), los casos de prueba se concentran en: (1) el núcleo común, compartido y
@@ -974,7 +1189,8 @@ Referencia de casos por tipo:
 - `borde`: TC-004, TC-006.
 - `error_funcional`: TC-005, TC-010, TC-014.
 - `conflicto_integridad`: TC-008, TC-012.
-- `regresion`: TC-007, TC-009, TC-011, TC-013.
+- `regresion`: TC-007, TC-009, TC-011, TC-013, TC-016.
+- Añadidos en la tercera pasada de cierre (scripts de la plantilla de despliegue, §6.9): TC-015 (`RDR_Transformacion_XSLT.sh`, error de estructura y reejecución), TC-016 (`unionFicheros.sh`), TC-017 (`TransformacionesExtraccionCTPDA.sh`, estado siempre 0 y entrada antigua) y TC-018 (`ELIMINATEDUPLICATES_SIRE` sobre un fichero sin cabecera). Se corrige TC-002 (quién genera los dos ficheros finales).
 
 ## 8. Validaciones de casos de prueba (resumen y trazabilidad)
 
@@ -994,6 +1210,10 @@ Referencia de casos por tipo:
 | MEKYTL1154 (soft-failure genérico) | TC-010 | Confirma que un fallo real de creación del `.ctl` queda enmascarado como OK |
 | GAP-CTPY-004/007 (regresión) | TC-011 | Confirma que `MEKYTL0449`/`RDR_TRANSFORMACION_RGA` siguen sin existir en revisiones futuras |
 | GAP-CTPY-005 (`MEKYTL0781`, backup local, ya resuelto) | TC-013 | Confirma en revisiones futuras que el backup Rating sigue siendo local, sin envío externo |
+| R3 (unión) y 6.9.1 | TC-016 | La unión es idempotente, no falla si falta `ThirdParties.xml` y deja una única raíz `GLOBALS` |
+| R4 (pipeline XSLT/XSD) y 6.9.2 | TC-002, TC-015 | Quién genera los dos ficheros finales, el filtrado de ratings y qué pasa si el script falla tras el renombrado |
+| Transformaciones `RDR_TRANSFORMACION_*` (6.9.4-6.9.5) | TC-017 | El script devuelve siempre 0 y usa entradas de hasta 3 días de antigüedad |
+| R9 (deduplicación) y 6.9.7 | TC-018 | `ELIMINATEDUPLICATES_SIRE` trata el primer registro de un fichero sin cabecera como cabecera |
 
 ## 9. Riesgos, gaps abiertos y decisiones documentadas
 
@@ -1038,7 +1258,18 @@ Referencia de casos por tipo:
    `MEKYTL0449`/`RDR_TRANSFORMACION_RGA`, que estaban eliminados). No se puede descartar que el envío a
    Proactive exista por un mecanismo fuera de Control-M; requiere confirmación funcional externa (ver TC-012).
    Mientras no se confirme, tratar la fila "Proactive" del diccionario semanal como no verificada en el
-   alcance de este intake.
+   alcance de este intake. Dato nuevo de la plantilla de despliegue: existe `EventProactive.properties` (`Service=proactive`,
+   `PathRDR=/fichtemcomp/<env>/descargas/kytl/proactive_files`, `FileDescription=proactive`), es decir, un evento de GoldenSource que deja un
+   fichero para Proactive fuera de estas cadenas (ver la spec de ad hoc, §1.3). Ningún job de las 3 cadenas lo ejecuta; es una hipótesis de dónde
+   podría salir ese envío, no una confirmación.
+
+10. **RISK-CTPY-003 — reejecución de `RDR_Transformacion_XSLT.sh` tras un fallo.** El script renombra el fichero del día a `KYTL_RDR_RTNG_EXTRACTION_<f>.xml` **antes** de validar la estructura y de transformar. Si falla después (estructura, trozo, unificación), el `KYTL_RDR_EXTRACTION_CPARTYS_<f>.xml` del día ya no existe con su nombre; al relanzar, `ls -t` toma el más reciente que quede,
+    que puede ser el de un día anterior, y lo reprocesa en silencio con su fecha. Las transformaciones aguas abajo usan entonces datos antiguos (§6.9.2, §6.9.4).
+11. **RISK-CTPY-004 — `ELIMINATEDUPLICATES_SIRE` no deduplica el primer registro.** Usa `EliminateDuplicates_mentor.sh`, que aparta la primera línea como cabecera, y `ctpda.csv` no tiene cabecera. Una copia idéntica del primer registro queda duplicada en el envío a SIRE (§6.9.7).
+12. **RISK-CTPY-005 — transformación que no puede fallar.** `TransformacionesExtraccionCTPDA.sh` devuelve siempre 0 (también con `xsltproc` roto, carpeta de salida inexistente o XSD de MGCyG no cumplido) y tolera entradas de hasta 3 días de antigüedad sin avisar; si no encuentra ninguna, deja la salida del día anterior y termina bien. Con la regla de Control-M
+    que marca OK, el envío de ese día puede repetir un fichero antiguo sin ninguna señal (§6.9.4).
+13. **RISK-CTPY-006 — validación XSD no bloqueante.** `RDR_Validacion_XSD.sh` y la validación XSD de MGCyG solo escriben los errores en el log; el código de salida es 0. Un XML que no cumple el esquema se envía igualmente (§6.9.3).
+14. **RISK-CTPY-007 — credenciales en la línea de comandos y efectos colaterales.** `ACTUALIZAR_FECHA_PAR1.sh` y el heredado `RDR_Extraccion_Generica.sh` pasan la contraseña de base de datos como argumento (visible con `ps`); `TransformacionCTM` reescribe `dat/properties` completo (§6.9.6, §6.9.8, §6.9.10). Además `ACTUALIZAR_FECHA_PAR1.sh` actualiza filas históricas del Planificador y no comprueba cuántas filas toca.
 
 ## 10. Conclusión
 
@@ -1076,3 +1307,9 @@ que los jobs `EXTRACCION_CPTDAS`/`EXTRACCION_THIRDPARTYS` de `RDR_EXTRACCION_CTP
 real de `ExtraccionContingencia.xml`/`ThirdParties.xml`, con ficha de job real en Control-M. Esto completa una
 pieza que este documento dejaba como "proceso interno RDR sin ficha de job" y corrige el horario aproximado
 "00:05h" por el horario real confirmado (01:00-01:05h diaria, 03:00-03:05h fin de semana) — ver §1.1 y R1.
+
+**Addendum (tercera pasada de cierre, plantilla de despliegue; no reabre el cierre).** La plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama develop) permite analizar el pipeline
+de scripts que antes solo se conocía por nombre: `unionFicheros.sh`, `RDR_Transformacion_XSLT.sh`, `RDR_Validacion_XSD.sh`, `TransformacionesExtraccionCTPDA.sh` con sus 14 `.properties` y sus hojas XSL/XSD, `EliminateDuplicates_*.sh`,
+`ACTUALIZAR_FECHA_PAR1.sh` y `RDR_DeltaEmisores.sh` (§6.9). Quedan resueltas P-EGC-04 y P-EGC-06; en parte P-EGC-03, P-EGC-05 y P-EGC-13; y se corrigen los nombres de salida de §6.6 y la atribución de la generación de los dos ficheros finales (§1.1). Se añade
+H-EGC-14. Siguen abiertos los datos que la plantilla no contiene: líneas IDX, módulos `SF_MEGENV0001_*.mod`, `LPFTPEXCA0000/0002.sh`, filas de `FT_T_ATE1`/`FT_T_PAR1`, código de los jars (`ExtraccionGenericaCPTY.jar`,
+`RDR_Extraction_CPARTYS.jar`, `RDR_DeltaEmisores.jar`, `TaductorXML.jar`), `monitor_BBDD.sh` y las capturas de Control-M de los 21 jobs de `_FINSEM_S_new`.

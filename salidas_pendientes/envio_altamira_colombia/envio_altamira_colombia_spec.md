@@ -85,7 +85,7 @@ recepción (`RDR_ALTAMIRA_COLOMBIA_RECEIVE`, especificada aparte) y su paquete P
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-AACS-01 | ¿Cuál es el contenido real de `ExtraccionAltamiraSend.properties` (argumentos del Java, en particular el tercero, y rutas)? | Sin él se reconstruye la invocación a partir de la respuesta Q3 y del código; no se puede confirmar la ruta de salida exacta ni si hay más acciones |
+| P-AACS-01 | **Resuelta en parte (cierre 3):** la plantilla de despliegue trae el `.properties` (argumento 3 = `20` no usado, ruta `send//CONCILIA_AAAAMMDD.txt`, sin `Stop*` ni `JDKV`); falta comprobar el instalado en `pr` (§6.7). ¿Cuál es el contenido real de `ExtraccionAltamiraSend.properties` (argumentos del Java, en particular el tercero, y rutas)? | Sin él se reconstruye la invocación a partir de la respuesta Q3 y del código; no se puede confirmar la ruta de salida exacta ni si hay más acciones |
 | P-AACS-02 | ¿Cuál es el comando completo de `FW_RDR_ALTAMIRA_COLOMBIA_SEND` (la ficha lo deja vacío y la matriz solo dice `ctmfw .../send/CONCILIA_*.txt CREATE...`)? ¿Tiene una regla "código 7 → OK"? | Fija cuánto espera, si acepta un fichero vacío (`min_size`) y qué pasa si no llega |
 | P-AACS-03 | ¿Cuál es la configuración (`idx/MEKYTL1044.idx`) de `MEGENV0001.sh` en `pr-rdr.igrupobbva` y en `lpftp503`: protocolo, `TIPO_ENVIO`, `FALLA_NO_FICHERO`, `FICHERO_ORIGEN` con su renombrado, `RUTA_HISTORIFICACION`, `COMANDO_POST`? | Decide si falla sin fichero, qué ficheros envía si hay varios, el nombre en destino y si el fichero se historifica (o se mueve) al enviarlo |
 | P-AACS-04 | ¿Con qué nombre llega el fichero a `lpftp503` y a Colombia: `CONCILIA_AAAAMMDD.txt` o `CONCILIA_AAAADDMM.txt` como dicen las fichas? `CONCILIA_20260907.txt` es válido en ambos formatos (7 de septiembre o 9 de julio) | El destino puede depender del nombre |
@@ -95,6 +95,14 @@ recepción (`RDR_ALTAMIRA_COLOMBIA_RECEIVE`, especificada aparte) y su paquete P
 | P-AACS-08 | ¿Existe un procedimiento de escalado distinto del aviso a ANS RDR (Q14)? | Solo hay evidencia de ANS RDR |
 | P-AACS-09 | ¿Se puede aportar la configuración NTP y la validación de desfase de 200 ms de los dos servidores? | R8 está declarado por el usuario, sin evidencia |
 | P-AACS-10 | ¿Qué es la entidad `9020` (`FT_T_ENFR.ORG_ID`) y la relación `ENT_OWN`? | Es el filtro de negocio de la query; su significado no está documentado |
+
+**Cierre 3: estado de los huecos con identificador `H-AACS` (02/10/2026).**
+
+| Id | Estado | Qué lo ha resuelto o qué falta |
+|----|--------|-------------------------------|
+| H-AACS-01 | Resuelta | `log4jAltamiraColombiaConciliacion.properties` de la plantilla: log `AltamiraColombiaConciliacion.log`, compartido con la recepción y vaciado por `Archivo_Logs_XA.sh` (§6.7) |
+| H-AACS-02, H-AACS-03, H-AACS-04 | Sin cambios | La plantilla no contiene el export de Control-M ni los módulos de `MEGENV0001.sh` |
+| H-AACS-05, H-AACS-06 | Sin cambios | Fuera de alcance (no bloqueantes) |
 
 ## 5. Especificación funcional
 
@@ -180,8 +188,8 @@ Un fallo en cualquier job detiene la cadena: los siguientes no se ejecutan.
 Comando: `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh ExtraccionAltamiraSend`
 (`PARM1 = ExtraccionAltamiraSend`), como `xakytl1p` en `pr-rdr.igrupobbva`. Consume 1 unidad del
 recurso cuantitativo `MAX-LPRDR501` (total 100), que limita cuántos jobs corren a la vez en la
-máquina. El `.properties` no se ha recibido (P-AACS-01); según la respuesta Q3, su acción Java usa el
-JDK 17, la clase `rdr_conciliacolombia.ColombiaEnvio`, los jars `RDR_ConciliaColombia.jar` y
+máquina. El `.properties` no se había recibido (P-AACS-01; **cierre 3:** la plantilla de despliegue lo trae, sin `JDKV` y con la clase `ColombiaEnvio` sin paquete; §6.7); según la respuesta Q3, su acción Java usa el
+JDK 17, la clase `rdr_conciliacolombia.ColombiaEnvio` (forma de la copia ya migrada), los jars `RDR_ConciliaColombia.jar` y
 `ConexionBD.jar`, el fichero de log4j `log4jAltamiraColombiaConciliacion.properties` y la plantilla
 de salida `/fichtemcomp/<env>/descargas/kytl/AltamiraColombia/send/CONCILIA_AAAAMMDD.txt`. El
 código de `GSProcess.sh` es 0 si el Java devuelve 0 y 1 si no.
@@ -309,6 +317,20 @@ Códigos (spec común): 0 correcto; 5 no existe `backup/`; 6 no hay fichero (si 
   salud de las conexiones en `lpftp503`; y si `MEKYTL1044_SND` aborta, no relanzar `MEKYTL1044` sin
   comprobar que `CONCILIA_*.txt` sigue en `send/` y no ha sido sustituido.
 - Sin bloqueo contra ejecuciones simultáneas.
+
+### 6.7 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL
+
+**Procedencia y cómo leerla.** Material nuevo: la plantilla de despliegue (repositorio `estaticos`, rama `develop`), que es la base de lo que se instala en cada entorno, no la copia de un entorno. `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` (`GSProcess.sh` solo sustituye `$ENV`); estos ficheros no tienen variantes `.de/.ei/.pp/.pr`. Lo que aquí se atribuye a producción son valores de la plantilla, no una copia verificada del servidor. La plantilla es la base **anterior a la migración a Java 17** (en curso).
+
+**`ExtraccionAltamiraSend.properties` (P-AACS-01).** Contenido de la plantilla (acción `Java` de `GSProcess.sh`, sin ninguna otra acción): `MOD_EJECUCION=ExtraccionAltamiraColombiaSend`, `Servicio=ExtraccionAltamiraColombiaSend`; paquetes `ConexionBD.jar` y `RDR_ConciliaColombia.jar`; clase `ColombiaEnvio` **sin paquete**; `ServicioJava=ExtraccionAltamiraColombiaSend_log`; argumento 1 = `2` (nivel de log, información); 2 = `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties/log4jAltamiraColombiaConciliacion.properties`; 3 = `20` (**no lo usa** `ColombiaEnvio`, §6.2.1); 4 = `/fichtemcomp/@@ENV@@/descargas/kytl/AltamiraColombia/send/` + `CONCILIA_AAAAMMDD.txt` (como la parte previa ya termina en `/` y el motor añade otra, la ruta lleva `//`, inocuo); librerías `ojdbc8.jar`, `commons-lang3.jar` y `log4j.jar`. **No lleva `Stop*` ni `JDKV`.** Diferencias con lo que decía §6.2.1 (que reconstruía el fichero a partir de la respuesta Q3 del usuario): la plantilla tiene la clase `ColombiaEnvio` sin paquete y no declara `JDKV` (usa el JDK de la etiqueta `<javahome>` de `credentials.xml`); la forma `rdr_conciliacolombia.ColombiaEnvio` con JDK 17 es la de la copia ya migrada. Falta comprobar el fichero instalado en el servidor (**P-AACS-01 pasa a parcial**).
+
+**Nombre del fichero (P-AACS-04, lado generador).** El valor de la plantilla es `CONCILIA_AAAAMMDD.txt`, y `ColombiaEnvio` (código analizado) sustituye `AAAA` por el año, `MM` por el mes y `DD` por el día de la fecha actual en la zona `America/Bogota`: el fichero se genera como `CONCILIA_<año><mes><día>.txt`, nunca como `AAAADDMM`. Sigue sin saberse si el identificador `MEKYTL1044` lo renombra al transmitirlo (el renombrado vive en el `.idx` que no está en la plantilla).
+
+**`log4jAltamiraColombiaConciliacion.properties` (H-AACS-01).** Contenido de la plantilla: `rootLogger=info, R`; `RollingFileAppender` hacia `/@@ENV@@/kytl/online/multipais/multicanal/logs/AltamiraColombiaConciliacion.log`, 100000 KB por fichero, 3 copias, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n` (el appender `stdout` está definido pero fuera del `rootLogger`). Este fichero lo comparten el envío (`ColombiaEnvio`) y la recepción (`ColombiaConciliacion`, spec `recepcion_altamira_colombia`), de modo que **ambos escriben en el mismo log** (es el directorio `logs` del entorno, no el de `credentials.xml`). `AltamiraColombiaConciliacion.log` está en la lista de `Properties_Archivo_logs_XA.properties`: `Archivo_Logs_XA.sh` lo copia a `logs/Backup_Archivado_Logs_XA`, **vacía el original** y comprime las copias, por lo que tras ese archivado el log del día puede aparecer vacío. `log4jAltamiraColombiaService.properties` (`AltamiraColombiaService.log`) existe pero ningún `.properties` de este proceso lo usa. **H-AACS-01 queda resuelta.**
+
+**Ficheros de nombre parecido que no pertenecen a esta cadena.** `RDR_CTMAA_Colombia_Report.properties` invoca la plantilla `GestionAlertas.properties` con la acción `Property` para el proceso de alertas `CTMAA_COLOMBIA` (informe de la asignación automática de CTM, workflows `CTMAA_*` de fondos y contrapartes); no tiene relación con `CONCILIA_*.txt`. Tampoco la tiene la cadena inversa `ExtraccionAltamiraReceive.properties` (spec `recepcion_altamira_colombia`), cuyo contenido se resume allí.
+
+**Lo que la plantilla no contiene.** `RDR_ConciliaColombia.jar` (`ColombiaEnvio`, `util.Utils`), `ConexionBD.jar` (`jdbc.ConDB`), los `.idx` de `MEGENV0001.sh` (`MEKYTL1044`, `MEKYTL1044_SND`), la línea de `MEKYTL1045` del IDX, los módulos `.mod`, el comando de `ctmfw`, el export de Control-M y la configuración NTP: P-AACS-02, -03, -05, -06, -07 y -09 y H-AACS-02, -03 y -04 siguen igual.
 
 ## 7. Especificación de testing
 

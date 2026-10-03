@@ -25,7 +25,8 @@
 - Scripts desplegados y operativos en la pasarela `lpftp501`/`lpftp502`: `LPFTPEXCA0000.sh` y
   `LPFTPEXCA0002.sh` en `/pr/pl/scrt/`.
 - Ficheros `.properties` desplegados en el `CONF` de `GSProcess.sh`: `ExtraccionGenericaBASKETS.properties`,
-  `TransforBaskets.properties`.
+  `TransforBaskets.properties` (la plantilla de despliegue los trae con `@@ENV@@`, que el plan de despliegue sustituye; comprobar tras el despliegue que no queda el marcador y que van con fin de línea CRLF), más `log4jExtraccionGenericaBASKETS.properties`, `log4jTransformBaskets.properties`, `transformacionCestasXslt.xsl` y `Baskets_Schema.xsd` en el mismo directorio, y el jar `Transformar_XML.jar`.
+- `xmllint` instalado en `pr-rdr` (lo usa `RDR_Validacion_XSD.sh`) y carpeta de logs de `credentials.xml` con escritura para `xakytl1p`.
 - Ficheros `.idx` de `MEGENV0001.sh` disponibles para los 9 jobs que lo usan (`MEKYTL0846`, `0847`, `1011`,
   `1063`, `1095`, `1103`, `1116`, `1153`, `1259`, `1132`).
 - Alias de transmisión SFTP `duco_bbva_upload`/`DUCO_BBVA_UPLOAD` operativo en la pasarela para `MEKYTL1132`.

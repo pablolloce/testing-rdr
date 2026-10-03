@@ -151,7 +151,7 @@
       <paso numero="1">Confirmar que cada línea de Batch_Fircosoft_AAAAMMDD.txt tiene exactamente 8 campos separados por '|'.</paso>
       <paso numero="2">Confirmar que el campo 2 es siempre el literal fijo "0074" en todas las líneas.</paso>
       <paso numero="3">Confirmar que los campos 1 y 3 son idénticos entre sí en cada línea (mismo RDR_Code_Operative_Mnem repetido).</paso>
-      <paso numero="4">Confirmar, contra el XML unificado de la extracción genérica (raíz GLOBALS; los Third Parties de un solo nivel no encajan en el recorrido de la hoja, P-ADH-02), que solo aparecen en Batch_Fircosoft.txt los operativos cuya sucursal (BRANCHES/BRANCH/Branch) sea 'MEX' — ningún operativo de otra sucursal debe aparecer.</paso>
+      <paso numero="4">Confirmar, contra el XML unificado de la extracción genérica (raíz GLOBALS; los Third Parties cuelgan de GLOBALS/OPERATIVES/OPERATIVE, fuera del recorrido GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE de la hoja, por lo que no deben aparecer nunca, P-ADH-02 resuelta), que solo aparecen en Batch_Fircosoft.txt los operativos cuya sucursal (BRANCHES/BRANCH/Branch) sea 'MEX' — ningún operativo de otra sucursal debe aparecer.</paso>
       <paso numero="5">Confirmar que el campo 5 (Residence) es la concatenación de los 5 subcampos de FISCAL_ADDRESS en el orden Address, Num_Ext, Num_Int, Colony, Postal_Code, separados por espacio.</paso>
     </pasos>
     <resultadoEsperado>Batch_Fircosoft_AAAAMMDD.txt contiene únicamente el subconjunto de 8 campos definido en Batch_FircoSoft.xsl para operativos con sucursal México — no lleva el diccionario completo de Contrapartidas (305 elementos), sino un extracto específico y reducido para Fircosoft.</resultadoEsperado>
@@ -217,6 +217,26 @@
     <tipoValidacion>Estado de MEKYTL1261 y fichero recibido en el destino de pruebas.</tipoValidacion>
     <criterioAceptacion>Comportamiento documentado; si se transmite un fichero antiguo, abrir incidencia.</criterioAceptacion>
     <posibilidadFallo>Envío silencioso de datos antiguos a Fircosoft.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="error_funcional">
+    <nombre>RDR_TRANSFORMACION_FS con XML de entrada antiguo o ausente: el script no falla</nombre>
+    <objetivo>Verificar que TransformacionesExtraccionCTPDA.sh (módulo TransformacionesExtraccionCTPDA_FIRCOSOFT) termina siempre con código 0, que usa un XML de hasta 3 días de antigüedad dando al fichero la fecha de hoy y que, sin ningún XML, deja intacto el fichero anterior.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con KYTL_RDR_EXTRACTION_CPARTYS_AAAAMMDD.xml de hace 2 días y sin los de hoy ni ayer; fichero Batch_Fircosoft_*.txt del día anterior en Fircosoft/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="módulo" valor="GSProcess.sh TransformacionesExtraccionCTPDA_FIRCOSOFT (ArgScri4 = pr/KYTL_RDR_EXTRACTION_CPARTYS_, ArgScri5 vacío)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el módulo y comprobar en el log Batch_Fircosoft_AAAAMMDD.log qué fichero de entrada se ha usado y el nombre del fichero de salida.</paso>
+      <paso numero="2">Retirar todos los XML de los últimos 4 días y repetir: comprobar el código de salida y que el fichero de Fircosoft/ del día anterior no se ha modificado.</paso>
+      <paso numero="3">Renombrar la carpeta Fircosoft/ y repetir: comprobar que el módulo termina igualmente con código 0.</paso>
+    </pasos>
+    <resultadoEsperado>En los tres pasos el módulo y GSProcess.sh terminan con código 0. En el paso 1 el fichero de salida lleva la fecha de hoy pero se ha generado con el XML de hace 2 días. En el paso 2 no se genera nada nuevo. En el paso 3 se pierde el fichero sin error.</resultadoEsperado>
+    <tipoValidacion>Código de salida, log del script y marcas de tiempo de Fircosoft/.</tipoValidacion>
+    <criterioAceptacion>Comportamiento documentado; si se corrige el script, los pasos 2 y 3 deben terminar con código distinto de 0.</criterioAceptacion>
+    <posibilidadFallo>MEKYTL1261 podría reenviar a Fircosoft un fichero antiguo sin que el entorno lo señale (P-ADH-03).</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

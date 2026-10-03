@@ -454,7 +454,7 @@ ni quién lo recibe; el `Reportes_Contratos460.csv` de §6.4 solo sale por corre
 (un job de Control-M no documentado) lanza `RDR_Reporte_LEI_C460`.
 
 **Quién lo lanza y qué adjunta (3ª pasada, según la plantilla de despliegue).** Existe un módulo propio de `GSProcess.sh`, `EnvioReporteMail`
-(`EnvioReporteMail.properties.{de,ei,pp,pr}`; la variante `Aux` es una versión antigua con consultas más simples y una sola lista de adjuntos),
+(`EnvioReporteMail.properties.{de,ei,pp,pr}`; existe también una variante `EnvioReporteMailAux.properties.*` con consultas más simples y sin plantilla de correo propia para el informe de errores),
 que **sí** lanza el evento: su última acción es `Evento Workflow RDR_Reporte_LEI_C460`. Cadena del módulo `EnvioReporteMail`
 (`Servicio=Contratos460`, `Ruta=/fichtemcomp/@@ENV@@/descargas/kytl/`):
 1. `RDR_Report.jar`/`CreateReport` con la clave `Contratos460` de `select.properties` → `Contratos460/Reportes_Errores_Contratos460.csv`

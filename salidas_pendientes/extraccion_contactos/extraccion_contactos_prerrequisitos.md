@@ -87,7 +87,7 @@ Referencia de producción (máquina `pr-rdr.igrupobbva` salvo indicación):
 | `GSProcess.sh` | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | Todos los que ejecutan `GS_EXTRACCION_CONT` o `EXTRACCION_CONTACTOS_XML` |
 | `Generico.sh` (función `XSLT_TO_XML`, que necesita `xsltproc` instalado) | `/pr/kytl/online/multipais/multicanal/scrt/` | `xakytl1p` | TC-01, TC-03, TC-05, TC-07 a TC-10, TC-15 |
 | `ExtraccionGenericaCONT.properties` (contenido en spec §6.1; con las rutas del entorno de pruebas, finales de línea CRLF) | `/pr/kytl/online/multipais/multicanal/dat/properties/` | — | Todos |
-| `HistCONT.properties` (contenido pendiente, P-CONT-01) | mismo directorio | — | TC-01, TC-12 |
+| `HistCONT.properties` (`QuitarNulos`, `Historificar` y `Borrar` sobre `CONT/ExtraccionContingenciaCONT.xml`, spec §5.7; fin de línea CRLF) | mismo directorio | — | TC-01, TC-12 |
 | `ExtraccionGenericaOtherEntities.jar` | `/pr/kytl/online/multipais/multicanal/jar/` | — | Todos |
 | Librerías `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar`, `commons-pool-1.5.4.jar` | `/pr/kytl/online/multipais/multicanal/lib/` | — | Todos |
 | Java 17 (etiqueta `<javahome17>` de `credentials.xml`) | — | — | Todos |

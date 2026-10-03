@@ -374,6 +374,8 @@ proceso en ningún caso. Detalle del script en la spec de `rdr_refundicion` §6.
 `cliexclu/CLIEXCLU.txt`) comparte nombre funcional con el fichero `CLIEXCLU_<yyyymmdd>.txt` que envía `MEKYTL0148`, pero ningún paso de esta cadena lo invoca ni usa el directorio `cliexclu`; no hay
 evidencia de relación y no se incorpora al alcance (a confirmar con quien conozca el job que lo lanza).
 
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana busca, en el resultado de la consulta periódica de cargas del día, una línea para el directorio `*/clientes/` («Carga Clientes CIB», también los lunes); solo indica que la carga de ayer quedó registrada.
+
 ## 7. Especificación de testing
 
 Estrategia: un caso por transición del grafo y por regla de control (file watcher, Fan-Out, Fan-In

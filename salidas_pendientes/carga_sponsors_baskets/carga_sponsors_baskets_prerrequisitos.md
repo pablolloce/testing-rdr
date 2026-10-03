@@ -26,6 +26,12 @@
 
 ## Configuración e infraestructura
 
+- Ficheros de configuración de la carga en `/{env}/kytl/online/multipais/multicanal/dat/properties/`:
+  `RDR_FormatoUnicoBaskets_config.properties` (layout CSV de cada sponsor, spec §6.6), `baskets_sponsor_split_1.xsl` y
+  `baskets_sponsor_split_2.xsl` (troceo de cestas de más de 400 componentes) y `AutoLoadBasketSponsors.properties`
+  (con `environment` igual al entorno: en la plantilla de despliegue lleva `@@ENV@@`, que el plan de despliegue sustituye;
+  comprobar en el servidor que no queda el marcador ni el valor `ei`). Los `.properties` deben estar con fin de línea
+  CRLF como en la plantilla (el motor recorta el último carácter de cada valor).
 - 3 cadenas Control-M dadas de alta y activas: `KYTL0000-RDR_AUTO_BASKETS_SPONSORS` (05:45 AM),
   `KYTL0000-RDR_HIST_BASKETS_SPONSORS` (método de ejecución `PLAN_1200`), `KYTL0000-RDR_LOAD_SPONSOR_MANUAL`
   (05:00 AM) — todas L-M-X-J-V, servidor `pr-rdr.igrupobbva`.

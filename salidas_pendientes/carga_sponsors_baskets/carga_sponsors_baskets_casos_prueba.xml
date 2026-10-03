@@ -289,7 +289,7 @@
     <pasos>
       <paso numero="1">Ejecutar la carga de una cesta con más de 400 componentes.</paso>
       <paso numero="2">Confirmar que el nodo "Cesta Grande?" evalúa YES y que se usa fileSplittedPath en vez de Ruta.</paso>
-      <paso numero="3">Durante la ejecución, comprobar que junto al XML aparecen _dupli.xml y _splitted.xml, y que _splitted.xml tiene un elemento Baskets por línea y no contiene Baskets_Split (resultado del sed de la spec §6.5).</paso>
+      <paso numero="3">Durante la ejecución, comprobar que junto al XML aparecen _dupli.xml y _splitted.xml, y que _splitted.xml tiene un elemento Baskets por línea y no contiene Baskets_Split (resultado del sed de la spec §6.5). Con una cesta de 900 componentes, _splitted.xml debe tener tres elementos Baskets de 400, 400 y 100 componentes, cada uno con la cabecera Index completa (hojas baskets_sponsor_split_1.xsl y _2.xsl, spec §6.6).</paso>
       <paso numero="4">Confirmar que, tras la carga, los ficheros temporales (splitted/dupli) se eliminan (rm splitted file / rm dupli file).</paso>
       <paso numero="5">Repetir con una cesta de 400 componentes o menos y confirmar que usa la ruta directa (Ruta, SuccessAction=LEAVE).</paso>
     </pasos>

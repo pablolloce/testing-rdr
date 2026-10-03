@@ -21,13 +21,13 @@
       <paso numero="4">Comprobar que MEKYTL0783 termina con código 0 y que su log log.Ope.MEGENV0001.sh_&lt;PROTOCOLO&gt;_MEKYTL0783_&lt;fecha&gt;_0.log contiene "finalizada correctamente".</paso>
       <paso numero="5">Comprobar que MEKYTL0784 termina con código 0 y que su log de envío contiene "finalizada correctamente".</paso>
       <paso numero="6">Comprobar que existe old/CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.txt con la fecha y la hora-minuto de ejecución de MEKYTL0955.</paso>
-      <paso numero="7">Comprobar que existe old/CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.csv con la fecha y la hora-minuto de ejecución de MEKYTL0956.</paso>
+      <paso numero="7">Comprobar si existe old/CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.csv y cómo termina MEKYTL0956: según ClientesExclusivos.properties de la plantilla, CortarGen borra CLIEXCLU.csv en el paso 3 de GSProcess.sh, por lo que no debería existir (RK3).</paso>
       <paso numero="8">Comprobar que RDR_ENVIO_CLIEX_IN se ejecuta después de los dos anteriores y termina en OK.</paso>
       <paso numero="9">Comprobar que en el directorio activo ya no quedan CLIEXCLU.csv ni CLIEXCLU.txt.</paso>
     </pasos>
-    <resultadoEsperado>Los 8 jobs terminan en OK en el orden del grafo; los dos destinos reciben CLIEXCLU_RDR.txt; old/ contiene CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.txt y CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.csv; el directorio activo queda sin los dos ficheros.</resultadoEsperado>
+    <resultadoEsperado>Los 8 jobs terminan en OK en el orden del grafo; los dos destinos reciben CLIEXCLU_RDR.txt (primer campo de cada línea del CSV, sin cabecera, CRLF); old/ contiene CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.txt y, solo si el ClientesExclusivos.properties instalado difiere de la plantilla (o MEKYTL0956 lo toma de otro sitio), CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.csv; el directorio activo queda sin los dos ficheros. Si MEKYTL0956 termina con código 6 por falta del .csv, el Dummy de cierre no se dispara (P-CLX-06).</resultadoEsperado>
     <tipoValidacion>Estado y eventos en Control-M, logs de GSProcess.sh, MEGENV0001.sh y RAMERC0068.sh, listado de directorios.</tipoValidacion>
-    <criterioAceptacion>8/8 jobs OK; 2 ficheros en old/ con el sufijo correcto; 0 ficheros CLIEXCLU.* en el directorio activo.</criterioAceptacion>
+    <criterioAceptacion>8/8 jobs OK; el .txt en old/ con el sufijo correcto y registro de si el .csv está o no en old/ (resultado a contrastar con la plantilla); 0 ficheros CLIEXCLU.* en el directorio activo.</criterioAceptacion>
     <posibilidadFallo>Si KYTL_CLIEXC_GSPROCESS borra CLIEXCLU.csv (función CortarGen, ver spec §6.3), MEKYTL0956 no encontrará el fichero; el caso fallará en el paso 7 y confirmará el riesgo RK3.</posibilidadFallo>
   </casoDePrueba>
 
@@ -137,9 +137,9 @@
       <paso numero="3">Comprobar en los logs de MEKYTL0783 y MEKYTL0784 que el único fichero transmitido es CLIEXCLU.txt.</paso>
       <paso numero="4">Comprobar que CLIEXCLU_&lt;AAAAMMDDhhmm&gt;.csv está en old/.</paso>
     </pasos>
-    <resultadoEsperado>Ningún destino recibe un fichero .csv; el .csv solo está en old/.</resultadoEsperado>
+    <resultadoEsperado>Ningún destino recibe un fichero .csv. El .csv solo estaría en old/ si el ClientesExclusivos.properties instalado no ejecuta CortarGen sobre CLIEXCLU.csv; según la plantilla de despliegue, CortarGen lo borra y no hay .csv en old/ (registrar lo observado).</resultadoEsperado>
     <tipoValidacion>Listado de destinos y logs de MEGENV0001.sh.</tipoValidacion>
-    <criterioAceptacion>0 ficheros .csv en los destinos; 1 .csv en old/.</criterioAceptacion>
+    <criterioAceptacion>0 ficheros .csv en los destinos; registrar si hay 0 o 1 .csv en old/.</criterioAceptacion>
     <posibilidadFallo>Sin acceso a los destinos, el caso se verifica solo con los logs de envío (pasos 3 y 4).</posibilidadFallo>
   </casoDePrueba>
 
@@ -163,6 +163,28 @@
     <tipoValidacion>Estado en Control-M y comparación de ficheros.</tipoValidacion>
     <criterioAceptacion>8/8 jobs OK; 0 diferencias en la comparación.</criterioAceptacion>
     <posibilidadFallo>Un fallo en cualquier paso intermedio impide llegar al cierre dentro de la ventana.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-008" tipo="datos_sinteticos">
+    <nombre>Contenido de CLIEXCLU.txt generado por el tratamiento</nombre>
+    <objetivo>Confirmar que el CLIEXCLU.txt enviado es el primer campo (separador ;) de cada línea de CLIEXCLU.csv, sin cabecera, sin espacios finales y con finales CRLF, y que sobrescribe al CLIEXCLU.txt de entrada (§6.3).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción); cadena detenida antes de MEKYTL0783 (HOLD) para inspeccionar el fichero.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="CLIEXCLU.csv" valor="cabecera + 3 líneas de la forma CODIGO;campo2;campo3 (una con espacios finales en el primer campo y una con un campo vacío)"/>
+      <dato campo="CLIEXCLU.txt de entrada" valor="fichero distinto, de una sola línea, para comprobar que se sobrescribe"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar correr la cadena hasta KYTL_CLIEXC_GSPROCESS y pausar MEKYTL0783.</paso>
+      <paso numero="2">Comprobar que CLIEXCLU.csv ya no existe y que no quedan CLIEXCLU_cortado.csv ni CLIEXCLU_cortado_dos.csv.</paso>
+      <paso numero="3">Inspeccionar CLIEXCLU.txt (cat -A): 3 líneas, solo el primer campo, sin la cabecera ni la línea HEADER, sin espacios finales y terminadas en CRLF.</paso>
+      <paso numero="4">Comprobar que el contenido de entrada del .txt original ha desaparecido.</paso>
+    </pasos>
+    <resultadoEsperado>CLIEXCLU.txt = tres códigos, uno por línea, con CRLF; CLIEXCLU.csv borrado; temporales borrados; el .txt de entrada sobrescrito.</resultadoEsperado>
+    <tipoValidacion>Inspección de ficheros en el directorio cliexclu/ y del log execute_ClientesExclusivos_&lt;AAAAMMDD&gt;.log.</tipoValidacion>
+    <criterioAceptacion>Los cuatro pasos coinciden; cualquier diferencia indica que el ClientesExclusivos.properties instalado no es el de la plantilla de despliegue.</criterioAceptacion>
+    <posibilidadFallo>Que el CSV real use otro separador: si no hay ';', el .txt conserva la línea entera.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

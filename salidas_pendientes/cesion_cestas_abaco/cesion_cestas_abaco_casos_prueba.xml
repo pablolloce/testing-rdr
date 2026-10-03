@@ -62,7 +62,7 @@
       <paso numero="3">Verificar el código de retorno OS y el estado final de RDR_BASKETS_ABACO_NOC_FW.</paso>
       <paso numero="4">Verificar si RDR_ABACO_GSPROCESS se ejecuta a continuación.</paso>
     </pasos>
-    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW retorna código OS 7 (tiempo agotado tras 1 minuto sin fichero); Control-M lo marca como OK (soft-failure); RDR_ABACO_GSPROCESS se ejecuta igualmente y, al no existir el fichero, es previsible que Cortar falle y el job termine en KO real con alerta W a ans_rdr.es@bbva.com (deducción del código de Generico.sh/GSProcess.sh, pendiente de confirmar en producción: P-ABACO-03).</resultadoEsperado>
+    <resultadoEsperado>RDR_BASKETS_ABACO_NOC_FW retorna código OS 7 (tiempo agotado tras 1 minuto sin fichero); Control-M lo marca como OK (soft-failure); RDR_ABACO_GSPROCESS se ejecuta igualmente y, al no existir el fichero, es previsible que Cortar falle y el job termine en KO real con alerta W a ans_rdr.es@bbva.com (deducción del código de Generico.sh/GSProcess.sh, pendiente de confirmar en producción: P-ABACO-03). Por el código de la plantilla (spec §6.4), como cortarFicheroCestasAbaco.properties no tiene Stop*, los dos MoverFichero se ejecutan igualmente y dejan un Baskets_to_ABACO_Extr_Generica_Nocturna.txt de 0 bytes en la ruta de origen: comprobarlo y anotar si el ciclo intradía lo recoge y si MEKYTL0851 envía un FicheroUnificado.txt vacío.</resultadoEsperado>
     <tipoValidacion>Código de retorno del job + estado final en Control-M (Planning/Monitoring) + verificación de correo de alerta + estado de RDR_ABACO_GSPROCESS.</tipoValidacion>
     <criterioAceptacion>Job marcado OK pese al código 7, cadena continúa (DEF-BASK-001 documentado), alerta recibida.</criterioAceptacion>
     <posibilidadFallo>Resultado esperado y correcto según el comportamiento real observado; si la cadena se detuviera realmente, el caso indicaría un cambio de configuración respecto a la evidencia capturada (habría que re-verificar DEF-BASK-001).</posibilidadFallo>
@@ -306,6 +306,29 @@
     <tipoValidacion>Estado OK de todos los jobs de ambas cadenas en cada ciclo + verificación de historificación de los 3 ficheros + confirmación de la ventana horaria de la cadena cíclica.</tipoValidacion>
     <criterioAceptacion>Ambas cadenas completan sin KOs no esperados, los 3 ficheros llegan a destino con su contenido íntegro, y la ventana horaria de la cadena cíclica se respeta.</criterioAceptacion>
     <posibilidadFallo>Cualquier KO no esperado, fichero no procesado en su ciclo, o actividad fuera de la ventana de las 11:40 AM invalida el caso.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="regresion">
+    <nombre>Cabecera de los ficheros en FicheroUnificado.txt (UnificacionFicherosAbaco.sh)</nombre>
+    <objetivo>Comprobar con datos sintéticos qué cabeceras quedan en FicheroUnificado.txt, dado que el sed del script empieza en la línea 2 y la cadena de cabecera lleva punto y coma final (spec §6.4).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de prueba con UnificacionFicherosAbaco.sh (versión de la plantilla de despliegue) y carpeta Backup/Abaco/ creada.</precondicion>
+      <precondicion>FicheroUnificado.txt inexistente al empezar.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Baskets_to_ABACO_a.txt" valor="línea 1: BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME; (con punto y coma final) y una fila de datos"/>
+      <dato campo="Baskets_to_ABACO_b.txt" valor="misma cabecera con punto y coma final y una fila de datos"/>
+      <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.txt" valor="mismo contenido tras un recorte de las columnas 1-11 con cut, es decir, sin punto y coma final en ninguna línea"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Depositar los tres ficheros en la ruta de origen y ejecutar UnificacionFicherosAbaco.sh.</paso>
+      <paso numero="2">Contar en FicheroUnificado.txt las líneas que contienen BASKET_CODE y anotar en qué posición están.</paso>
+      <paso numero="3">Repetir sin el fichero nocturno y con un único fichero a.</paso>
+    </pasos>
+    <resultadoEsperado>Por el código del script: la cabecera del primer fichero concatenado queda en la línea 1 (el sed no toca la línea 1); la cabecera del fichero con punto y coma final que no es el primero se elimina; la del fichero nocturno recortado (sin punto y coma final) se conserva. Resultado a contrastar con una muestra real de FicheroUnificado.txt antes de dar el comportamiento por definitivo (P-ABACO-04).</resultadoEsperado>
+    <tipoValidacion>Inspección del contenido de FicheroUnificado.txt.</tipoValidacion>
+    <criterioAceptacion>El resultado observado coincide con el descrito o, si difiere, se documenta la diferencia y se corrige la spec.</criterioAceptacion>
+    <posibilidadFallo>Una cabecera en mitad del fichero enviado a ABACO sería una fila de datos inválida para el consumidor.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

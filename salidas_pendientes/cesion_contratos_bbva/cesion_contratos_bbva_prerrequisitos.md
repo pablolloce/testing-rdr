@@ -48,6 +48,8 @@ El job `EXTRACCIONGENERICACONTRBBVA` requiere que estén desplegados y accesible
   `ojdbc8.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-io-2.5.jar`,
   `log4j.jar`, `commons-dbcp-1.4.jar` y `commons-pool-1.5.4.jar`.
 - El script `CopiarFichero` invocado en el segundo paso del properties.
+- Según la plantilla de despliegue (repositorio `estaticos`, rama `develop`), los `.properties` de la cadena (`ExtraccionGenericaCONTRBBVA`, `transformarBBVAContracts`, `ValidationBBVAContracts`) llevan `@@ENV@@`, que sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL`; comprobar tras el despliegue que no queda el marcador y que van con fin de línea CRLF. La plantilla de `transformarBBVAContracts.properties` no lleva los pasos de Mentor (la copia de `ei` sí).
+- `xsltproc` instalado en `pr-rdr` (lo ejecutan los pasos `XSLT_TO_XML` de `Generico.sh`), las hojas `Agreements_Nodes.xsl` y `BBVA_Contrats_CSV.xsl` y el esquema `Agreements_BBVA_Schema.xsd` en `dat/properties`, y `RDR_GenericValidatorXSD.jar` con las cinco librerías Xerces/XSD 1.1 en `lib` (spec §6.3).
 - `ctmfw` (usuario `xpctma1`) para el filewatcher y `MEGENV0001.sh` con los `.idx` de cada envío
   (`MEKYTL0900`, `0886`, `0892_CLOUD`, `0543`, `1051`, `1172`, `1246`, `1264`, `1307`, `MEXIRM0022`,
   `MEXIRM0096`).

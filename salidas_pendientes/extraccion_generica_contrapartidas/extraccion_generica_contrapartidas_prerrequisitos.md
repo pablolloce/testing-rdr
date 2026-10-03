@@ -22,13 +22,27 @@
 - Las 3 cadenas dadas de alta y activas en Control-M, aplicación `KYTL`, máquina `pr-rdr.igrupobbva`
   (`lprdr501`/`lprdr602`).
 - Scripts compartidos operativos: `unionFicheros.sh`, `RDR_Transformacion_XSLT.sh`, `RDR_Validacion_XSD.sh`
-  (instancias propias `CPARTY` por cadena, mismo script físico).
-- Jar `RDR_Extraction_CPARTYS.jar` (clase `Validación_extracción`) operativo para `VALIDACION_EXTRACCION` en
-  `_new` (job funcional real en esta cadena, DUMMY en las 2 semanales).
+  (instancias propias `CPARTY` por cadena, mismo script físico). Según la plantilla de despliegue necesitan en el servidor
+  `xsltproc` y `xmllint` (libxml2/libxslt), `gawk` (la validación usa `PROCINFO`) y `bash` 4.3 o superior (`wait -n`), y escriben
+  temporales (trozos de 1000 registros) en `extracciongenerica/`: hace falta espacio libre para varias copias del XML unificado.
+- Hojas y esquemas en `/<env>/kytl/online/multipais/multicanal/dat/properties/`: `RDR_XSL_Generico_Rtng.xsl`, `RDR_XSD_Generico.xsd`,
+  `RDR_XSD_MGCyG.xsd` y las hojas de las transformaciones (`Fonetics_NEW.xsl`, `Salesforce_NEW.xsl`, `GenericaToMentor_NEW.xsl`,
+  `GenericaToMentor_SinRatings_NEW.xsl`, `CTM_ALT_NEW.xsl`, `Sire.xsl`, `SICOR.xsl`, `Fich_acti_eco_diario_NEW.xsl`,
+  `Fich_acti_eco_total_NEW.xsl`, `Fich_MoneyMarket_Eurodepos_NEW.xsl`, `Batch_FircoSoft.xsl`, `Dicc_contra_diario_NEW.xsl`,
+  `Dicc_contra_total_NEW.xsl`, `MGCyG.xsl`, `removeCtm.xsl`) y los `TransformacionesExtraccionCTPDA_*.properties` y `extraccionEFR.properties`.
+- Carpetas de salida existentes y con permiso de escritura de `xakytl1p` en `/fichtemcomp/pr/descargas/kytl/`: `mgcyg`, `fonetics`, `salesforce`,
+  `mentor`, `CTM`, `sire_files`, `batchPU`, `MSC`, `MMK`, `Fircosoft`, `FicheroDiccionario` y `PRIIPS`, además de `extracciongenerica` y su `backup`.
+  Si una no existe, `TransformacionesExtraccionCTPDA.sh` no falla: pierde el fichero y termina con código 0.
+- Para ejecutar una transformación, el XML de entrada de cada una (`KYTL_RDR_EXTRACTION_CPARTYS_<AAAAMMDD>.xml` o `KYTL_RDR_RTNG_EXTRACTION_<AAAAMMDD>.xml`) del día debe
+  existir: el script tolera ficheros de hasta 3 días de antigüedad sin avisar, así que en pruebas hay que borrar los antiguos para provocar el fallo.
+- `RDR_Extraction_CPARTYS.jar` (clase `rdrconcurrente.Validacion_Extraccion`) solo interviene en `VALIDACION_EXTRACCION`, que tiene marcada la casilla «Dummy»
+  en `_new` y es Dummy en las 2 semanales: **no genera** los dos ficheros finales (los genera `RDR_Transformacion_XSLT.sh`).
 - Script único de transformación `TransformacionesExtraccionCTPDA.sh` (desde julio 2024, parametrizado)
-  operativo para las 13+ ramas de `_new`.
-- Script `EliminateDuplicates_mentor.sh` operativo, parametrizable por ruta+fichero, para los 5 jobs de
-  deduplicación de `_new`/`_FINSEM_D_new`.
+  operativo para las 13+ ramas de `_new`; termina siempre con código 0.
+- Scripts `EliminateDuplicates_mentor.sh` y `EliminateDuplicates_DC.sh` operativos, parametrizables por ruta+fichero, para los 5 jobs de
+  deduplicación de `_new`/`_FINSEM_D_new`; ordenan el fichero y, en `ELIMINATEDUPLICATES_SIRE`, tratan el primer registro como cabecera.
+- `ACTUALIZAR_FECHA_PAR1.sh` (`MEKYTL0336/0337/0341`) necesita `credentials.xml` con `oraclehome`, alias y usuario de la sección `<database>` y `sqlplus` accesible; ejecutar como el usuario de aplicación del entorno.
+- `RDR_DeltaEmisores.sh` necesita `RDR_DeltaEmisores.jar` (no incluido en la plantilla) y las carpetas `mentor/old/` y `PRIIPS/`.
 - Conectividad hacia los 45+ sistemas destino (Mentor, SIRE, SICOR, Fircosoft, Salesforce/Fonetic, MGCyG,
   CTM/Deal Manager, DataX, XVA, NOVA, Calypso/KLYO/MSC, Duco, Algorithmics, Smart Data/Cloudera, FENERGO,
   Ibor, PRIIPS, SACCR, Ábaco, Webfocus, DataHub CIB/ADA/DATIO, entre otros).

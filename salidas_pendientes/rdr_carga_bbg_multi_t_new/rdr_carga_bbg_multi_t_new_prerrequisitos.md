@@ -27,7 +27,7 @@ El proceso se dispara por la llegada de `ADR_FILE.csv` en `/fichtemcomp/pr/desca
 
 ## Configuración
 
-- `BLOOMBERG_PARAMETERS.properties` debe existir en `/$ENV/kytl/online/multipais/multicanal/dat/properties/` con el contenido confirmado (cabecera Data License `getdata`, 41 campos) para que la petición se construya correctamente — mismo fichero compartido que `_M_new` (TC-001, TC-004, TC-005, TC-007, TC-009).
+- `BLOOMBERG_PARAMETERS.properties` debe existir en `/$ENV/kytl/online/multipais/multicanal/dat/properties/` con el contenido confirmado (cabecera Data License `getdata`, 43 campos según la plantilla de despliegue; ver spec §6.9.A) para que la petición se construya correctamente — mismo fichero compartido que `_M_new` (TC-001, TC-004, TC-005, TC-007, TC-009).
 - `credentials.xml` debe existir y contener credenciales Bloomberg válidas para el envío/descarga SFTP (TC-001, TC-009).
 - `executeBbvaEvent.sh` y `BloombergMultiResponse.properties` deben estar desplegados y ser invocables para la carga en GoldenSource (TC-001, TC-006, TC-009). El workflow del evento `Bloomberg_Response` está analizado en la spec (§6.8: estado de `FT_T_VREQ` y `ISSUES_BBVARDR.txt`), pero el contenido de `BloombergMultiResponse.properties` y las tablas que escribe el mapping `.mdx` no están documentados (pregunta P-BBGT-02 de la spec): por eso los casos verifican la carga por el log del script y no por base de datos.
 
@@ -46,3 +46,11 @@ La cadena depende externamente de `MEKYTL0898` (cadena `TR_RDR_CARGA_BBG_MULTI_T
 ## Entorno de pruebas
 
 El entorno de test/preproducción usado para TC-003, TC-006 y TC-008 debe permitir invocar `Bloomberg_MultiRequest.sh` de forma aislada, simular fallos de red/FTP y de carga en GoldenSource, sin impacto en el envío real a Bloomberg ni en el directorio `Backup/` compartido con `_M_new` y `rdr_sendbbg_asset` en producción.
+
+## Cierre 3 (02/10/2026): lo que exige la plantilla de despliegue
+
+- `BLOOMBERG_PARAMETERS.properties` y `BloombergMultiResponse.properties` (sin variantes por entorno; el plan de despliegue sustituye `@@ENV@@`) en `/<env>/kytl/online/multipais/multicanal/dat/properties/`; el segundo contiene solo `Path=/fichtemcomp/<env>/descargas/kytl/issues/ADRMultirequest/Backup/FicheroCargaBBVA.txt`. Deben ser CRLF.
+- `lftp` instalado para el usuario de ejecución y `credentials.xml` con la sección `<bloomberg>` (`user`, `pass`).
+- Directorios `ADRMultirequest/`, `Backup/` y `Log/` escribibles por `xakytl1p`; el script no los crea (sin `Log/` pierde su log, y el último `echo` dejaría un 1 de salida).
+- En pruebas, vaciar `Backup/FicheroCargaBBVA.txt`, `FicheroCargaBBVAFinal.txt` y `FicheroCargaBBVATmp.txt`, y no ejecutar a la vez la variante M: comparten esos ficheros.
+- TC-011 a TC-013: entorno de test con capacidad de sustituir el `.out` descargado (TC-011), de preparar un fichero residual (TC-012) y de depositar un CSV sin cabecera (TC-013).

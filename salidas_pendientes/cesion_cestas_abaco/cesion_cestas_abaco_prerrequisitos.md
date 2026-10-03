@@ -11,6 +11,7 @@
 
 - Ambas cadenas Control-M (`KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new` y `KYTL0000-RDR_BASKETS_ABACO_new`) dadas de alta, activas y balanceadas en los nodos `lprdr501`/`lprdr602` de `pr-rdr.igrupobbva` (server MERCADOS-4).
 - Scripts desplegados y operativos en las rutas reales: `GSProcess.sh` y `UnificacionFicherosAbaco.sh` en `/pr/kytl/online/multipais/multicanal/scrt/`; `MEGENV0001.sh` en `/pr/pl/envioweb/scrt/`; `RAMERC0068.sh` en `/pr/pl/scrt/`.
+- Según la plantilla de despliegue (repositorio `estaticos`, rama `develop`), `cortarFicheroCestasAbaco.properties` lleva `@@ENV@@` en las rutas y el plan de despliegue lo sustituye por el entorno; comprobar tras el despliegue que no queda el marcador. Los `.properties` van con fin de línea CRLF (el motor recorta el último carácter de cada valor).
 - Fichero `cortarFicheroCestasAbaco.properties` disponible en el directorio `CONF` de `GSProcess.sh` (`/pr/kytl/online/multipais/multicanal/dat/properties/`), con sus 3 pasos `Accion=Script` (`Cortar` con recorte de columnas `1-11`, y 2×`MoverFichero`) — contenido verificado (ver `cesion_cestas_abaco_spec.md` sección 6.3).
 - Fichero `.idx` de backup de `MEKYTL0851` disponible en `/pr/pl/envioweb/idx/bck/MEKYTL0851.idx` (la generación vía Java está deshabilitada en el código real, por lo que este backup es el que se usa siempre).
 - Clave de historificación `MEKYTL0855` dada de alta en `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX` con operación `M` (mover).

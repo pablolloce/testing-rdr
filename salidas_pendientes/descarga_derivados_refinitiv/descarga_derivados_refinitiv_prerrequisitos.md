@@ -14,7 +14,7 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 |---|---|
 | TC-001 | 1 fichero `.REF.*.zip` válido (cadena D) con al menos 1 emisor, 1 subyacente y 1 derivado |
 | TC-002 | 1 fichero `.zip` válido equivalente para la cadena P (patrón `.INT.`) |
-| TC-003 | Ausencia confirmada de fichero disponible en Refinitiv/área de trabajo |
+| TC-003 | Ausencia confirmada de fichero `.zip` en el área de trabajo (`Daily/` o `Weekly/`), con `old/` y `lake/` existentes; resultado esperado según la plantilla: job 4 en rojo (exit -1) |
 | TC-004 | Capacidad de forzar un error real distinto (p. ej. `.zip` corrupto, fallo de conexión a Oracle) en entorno de test |
 | TC-005 | Fichero DAILY con instrumentos distribuidos en al menos 2 segmentos reales |
 | TC-006 | Fichero WEEKLY de tamaño grande, sin segmentación |
@@ -30,6 +30,8 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 | TC-016 | Muestra real + código fuente de los 5 componentes del jar — **CERRADO AL 100% (2026-10-01):** `DerivativesProcessor.java` resuelve el mapeo campo→columna de las 11 tablas satélite del Grupo C |
 | TC-017 | Acceso a logs de `GSProcess.sh` (`LOG_GENERICO`) o a la instancia del workflow `Refinitiv_Request_Response` en la consola de GoldenSource tras una ejecución real de los jobs 5/6 |
 | TC-018 | Al menos 1 alerta pendiente real asociada al proceso `DERIVADOS_REFINITIV` |
+| TC-019 | Fichero `*.INT.*.zip` cuyo `.txt` no contenga `asset`, `quote` ni `organization` en el nombre, y otro que sí (cierre 3); para el segundo, el jar `refinitivInitialReportMerger.jar` desplegado |
+| TC-020 | Fichero `*.REF.*.zip` válido con la carpeta `old/` (o `lake/`) ausente en un entorno de pruebas |
 
 ## Entorno de ejecución
 
@@ -56,6 +58,7 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
   `/pr/kytl/online/multipais/multicanal/scrt/` (rutas equivalentes con prefijo de entorno en PP/EI/DES).
 - Classpath Java del script debe incluir `ojdbc8.jar` (driver Oracle) y `ConexionBD.jar` (conexión propia
   RDR) para que el paso 5 (`CargaDerivados`) pueda conectar a Oracle.
+- **Plantilla de despliegue (cierre 3):** Java 8 en `/usr/local/<env>/jdk1.8.0_152/bin` (ruta fija, no se lee de `credentials.xml`); jars en `/<env>/kytl/online/multipais/multicanal/jar/`: `refinitivFilter.jar`, `openFigiEnricher.jar`, `XMASToken-0.0.1.jar`, `refinitivDerivativesLoader.jar`, `ConexionBD.jar` y, para `WEEKLY`, `refinitivInitialReportMerger.jar`; `.properties` de log4j (`log4jrefinitivDataFilter`, `...Enricher`, `...derivativesloader`, `...InitialReportMerger` y sus variantes `Online`) en `.../dat/properties/`; el lanzador `Run_InitialReportMerger.sh` en `.../scrt/` con permiso de ejecución. El plan de despliegue sustituye `@@ENV@@` en los `.properties`; en `GestionAlertas*.properties` también. Los `.properties` deben ser CRLF.
 - Acceso real al servicio externo **OpenFigi** (Bloomberg) para TC-001, TC-002, TC-013.
 - `.properties` reales de los 3 jobs GSProcess finales confirmados: `Refinitiv_Undly_Enrichment_issues`/`_futures`
   (invocan el workflow GoldenSource `Refinitiv_Request_Response`, parametrizado por
@@ -83,8 +86,9 @@ de los ficheros de Refinitiv o de los ficheros intermedios generados por el pipe
 ## Sistema de ficheros
 
 - `/fichtemcomp/pr/descargas/kytl/issues/Refinitiv/OpcionesFutures/Daily/` (y su `old/`, `lake/`) para la
-  cadena D.
+  cadena D. Las tres carpetas **deben existir** antes de lanzar el script: sin `old/` o `lake/` el `mv` falla y el job sale en rojo.
 - `/fichtemcomp/pr/descargas/kytl/issues/Refinitiv/OpcionesFutures/Weekly/` (y su `old/`) para la cadena P.
+- `/pr/kytl/online/multipais/multicanal/logs/` con permiso de escritura (log `Refinitiv_Derivados_Batch_<Daily|Weekly>_<ddmmaaaa>.log` y logs de los jars). Nada purga `old/` ni `lake/`.
 - `lpftp501:/unload/transmisiones/KYTL/` como pasarela intermedia (jobs 2 y 3).
 
 ## Orquestación

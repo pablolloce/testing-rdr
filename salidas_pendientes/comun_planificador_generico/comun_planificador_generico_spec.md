@@ -229,7 +229,7 @@ AND act1_oid IN (SELECT act1_oid FROM ACTIONS_TO_EXECUTE WHERE action_nme IN ('E
 contrapartidas por el Planificador (22:00 de domingo a jueves y 03:00 los días 5 y 6 con la numeración de §3.2). **Esas dos extracciones no figuran en el inventario de §5**
 (que tiene 17 scripts y ninguno se llama así); hoy esos ficheros los generan los jars de extracción genérica
 (`ExtraccionGenericaCPTY.jar` y `ExtraccionGenericaOtherEntities.jar`), por lo que el refresco de `:fecha_actual` solo tendría efecto si esas filas siguieran `ACTIVE` y programadas. No
-se ha podido comprobar en base de datos (P-PLA-01, H-PLA-02). Las tablas `ACTIONS_TO_EXECUTE`, `QUERY_PLANIFICATIONS` y `PARAMETERS_TO_USE` son los nombres
+se ha podido comprobar en base de datos (P-PLA-01). Las tablas `ACTIONS_TO_EXECUTE`, `QUERY_PLANIFICATIONS` y `PARAMETERS_TO_USE` son los nombres
 largos de `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1` en el esquema `KYTL_GC`.
 
 ## 4. Funcionamiento del motor (según el análisis del código Java)

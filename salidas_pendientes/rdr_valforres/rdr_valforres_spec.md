@@ -37,13 +37,13 @@ Gaps resueltos durante el análisis, con evidencia (captura de Control-M, ficha 
 | ¿Recursos Cuantitativos? | Consume `MAX-LPRDR501` (cantidad 1 de 100), mismo recurso de concurrencia que otros procesos RDR sobre `LPRDR501`. | Captura de Control-M (pestaña Prerrequisitos). |
 | ¿Lógica exacta de `PUBLISH`/`VFR_PUBLISH_ESB`? | `PUBLISH` es un interruptor on/off de la publicación completa. `VFR_PUBLISH_ESB` es un **tope diario compartido** (no un reparto porcentual): de las entidades tratadas, solo las primeras `N_PUBLISH` (por orden de procesamiento) entran como `PENDING_ESB`; el resto quedan `PENDING_VFR`. Una segunda función (`marcarPublicarPendientes`), ejecutada en la misma pasada, promueve registros `PENDING_VFR` de ejecuciones anteriores hasta completar el mismo tope, si quedó cupo libre. Ver detalle en §6 y hallazgo de off-by-one en §9. | Código fuente real de `marcarPublicar`/`marcarPublicarPendientes` (`Querys.java`), aportado por el usuario. |
 
-Huecos no bloqueantes aceptados: la discrepancia de nombre entre el jar `XMASToken-0.0.1.jar` y su clase real `SHIVAToken` (documental, sin impacto funcional) y el contenido de `log4jValuationForResolution.properties` (configuración de logging genérica).
+Huecos no bloqueantes aceptados: la discrepancia de nombre entre el jar `XMASToken-0.0.1.jar` y su clase real `SHIVAToken` (documental, sin impacto funcional). (3ª pasada: el contenido de `log4jValuationForResolution.properties` ya está leído en la plantilla de despliegue, §6.)
 
 Preguntas pendientes (no hay respuesta en ninguna fuente disponible):
 
 | Id | Pregunta | Por qué importa |
 | :---- | :---- | :---- |
-| P-VFR-01 | **Parcialmente resuelta.** El `.properties` define una única acción Java que invoca los 3 jars (`ValuationForResolution.jar`, `XMASToken-0.0.1.jar`, `ConexionBD.jar`), con `ArgJava1` = nivel de log, `ArgJava2` = `log4jValuationForResolution.properties` y `ArgJava4=ISDA`; el log de la aplicación se llama `ValuationForResolution_log`. **Sigue pendiente** `ArgJava3` y los siguientes, y si declara `Stop*=Ok`. | Define qué argumentos recibe el Java y qué hace `GSProcess.sh` ante un fallo |
+| P-VFR-01 | **Resuelta (3ª pasada).** El literal completo de `ValuationForResolution.properties` (según la plantilla de despliegue, repositorio `estaticos`, rama develop) está en §6: una única acción `Java`, `ArgJava3=@@ENV@@` (el plan lo sustituye por el entorno: `de`, `ei`, `pp` o `pr`; es el argumento `entorno` de `SHIVAToken.loadSHIVAData`), `ArgJava4=ISDA`, sin `Stop*`. (Antes, parcialmente resuelta: el `.properties` define una única acción Java que invoca los 3 jars, con `ArgJava1` = nivel de log, `ArgJava2` = `log4jValuationForResolution.properties` y `ArgJava4=ISDA`; el log de la aplicación se llama `ValuationForResolution_log`.) | Define qué argumentos recibe el Java y qué hace `GSProcess.sh` ante un fallo |
 | P-VFR-02 | Código de salida de `Ppal` en los caminos de error distintos del token (HTTP ≠ 200/201 "aborta"; excepción de BD), y si los cambios en `FT_T_FIST` se confirman por lotes o al final (qué queda si aborta a mitad) | Determina si Control-M ve el fallo (KO) y qué estado parcial queda en las tablas |
 | P-VFR-03 | **Parcialmente resuelta.** Del JSON solo se sabe que `protocoloBailIn`/`protocoloStay` extraen fechas de aceptación/revocación y el LEI de organización y de fondo (el análisis original no llegó al parseo campo a campo, por ser un código muy extenso). Sobre `FT_T_FIST` hay un matiz probable (inferencia a partir de las consultas de otros procesos RDR, no confirmado): la tabla es de tipo clave-valor (`INST_MNEM`, `STAT_DEF_ID`, `STAT_CHAR_VAL_TXT`, `DATA_STAT_TYP`), de modo que `BAILINYN`/`BAILINDT`/`BAILINRT` y `STAYYN`/`STAYDT`/`STAYRT` serían valores de `STAT_DEF_ID` (una fila por institución y estadística), no columnas. **Sigue pendiente** la estructura JSON campo a campo, los valores de motivo (`BAILINRT`/`STAYRT`) y las columnas escritas en `FT_T_RLT1`. | Sin ello no se pueden construir respuestas simuladas ni resultados esperados campo a campo |
 | P-VFR-04 | Valores reales de `PUBLISH` y `VFR_PUBLISH_ESB` en producción, hora exacta de arranque ("después de las 22:30") y qué proceso consume `FT_T_RLT1` en estado `PENDING_ESB`. Indicio parcial sobre el uso aguas abajo de los datos: la extracción genérica de contrapartidas (`salidas_pendientes/extraccion_generica_contrapartidas/`) publica en su bloque `REGULATORY_INFORMATION` los indicadores `BailinProtocol`/`StayProtocol` y sus fechas de aceptación, que encajan con lo que mantiene este proceso en `FT_T_FIST` (no confirmado que provengan de ahí). | Define el volumen diario real y el destino final de los datos |
@@ -89,6 +89,25 @@ Preguntas pendientes (no hay respuesta en ninguna fuente disponible):
 
 ## 6. Especificación técnica
 
+- **`ValuationForResolution.properties` y `log4j` literales (3ª pasada; plantilla de despliegue, repositorio `estaticos`, rama develop; CRLF; `@@ENV@@` es un marcador que el plan sustituye por `de`, `ei`, `pp` o `pr`; valores "de producción según la plantilla", sin verificar en el servidor; la plantilla es la base anterior a la migración a Java 17: clase `Ppal` sin paquete y sin clave `JDKV`):**
+
+  ```
+  MOD_EJECUCION=ValuationForResolution       Servicio=ValuationForResolution       Accion=VariablesGlobales
+  NomPaquete1=ConexionBD.jar
+  NomPaquete2=XMASToken-0.0.1.jar:                      (con dos puntos final)
+  NomPaquete3=ValuationForResolution.jar
+  NomClaseJava=Ppal      ServicioJava=ValuationForResolution_log
+  ArgJava1=2
+  PreArgJava2=/@@ENV@@/kytl/online/multipais/multicanal/dat/properties     ArgJava2=log4jValuationForResolution.properties
+  ArgJava3=@@ENV@@       ArgJava4=ISDA
+  Libreria1=ojdbc8.jar  Libreria2=log4j.jar  Libreria3=httpcore-4.4.13.jar  Libreria4=httpclient-4.5.12.jar
+  Libreria5=commons-logging-1.2.jar  Libreria6=gson-2.6.2.jar  Libreria7=json-simple-1.1.jar  Libreria8=json-20160212.jar
+  Accion=Java
+  ```
+
+  No hay `DirJava*` ni `Stop*`: la JVM arranca con las directivas por defecto de `GSProcess.sh` (`-Xmx16G -Dfile.encoding=iso-8859-1 -DENV=<env> -DpropertiesPath=<dat/properties>`). Argumentos de `Ppal`: `args[0]`=`2` (INFO), `args[1]`=`<dat/properties>/log4jValuationForResolution.properties`, `args[2]`=entorno (`pr`, etc.), `args[3]`=`ISDA`. **Detalle del classpath:** `GSProcess.sh` solo antepone `:` a `NomPaquete2`, no a `NomPaquete3`; por eso el valor de `NomPaquete2` lleva un `:` final, que es el separador que hace que el classpath quede `<jar>/ConexionBD.jar:<jar>/XMASToken-0.0.1.jar:<jar>/ValuationForResolution.jar` (sin ese `:` se pegarían las dos últimas rutas). Es el literal que confirma que el "modo ISDA" real se usa en esta cadena.
+
+  `log4jValuationForResolution.properties` (plantilla): `rootLogger=info, R`; `RollingFileAppender` en `/<env>/kytl/online/multipais/multicanal/logs/ValuationForResolution.log`, 100000 KB por fichero y 3 copias, patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n` (un appender `stdout` definido y sin enlazar). Cierra H-VFR-07.
 - **Folder Control-M:** `KYTL0000-RDR_VALFORRES`. Server `MERCADOS-4`, host `pr-rdr.igrupobbva`. Aplicación `KYTL`, sub-aplicación `RDR_VALFORRES`. Método de ejecución: User Daily específico (`PLAN_1200`). Planificación: L-M-X-J-V-S-D, lanzado después de las 22:30, sin relanzamientos configurados (máximo 0). Criticidad `W`. Grupo de soporte: **sin asignar** (confirmado, no es un hueco). Recurso cuantitativo `MAX-LPRDR501` (1/100).
 - **Job único:** `GS_RDR_VALFORRES` (OS/Script): `GSProcess.sh`, ruta `/pr/kytl/online/multipais/multicanal/scrt/`, parámetro `ValuationForResolution`, usuario `xakytl1p`. Sin predecesor ni sucesor (job único, disparado únicamente por hora).
   - **`ValuationForResolution.jar` (clase `Ppal`, fuente `Ppal.java`+`Querys.java`) — análisis completo:**
@@ -145,4 +164,4 @@ La estrategia combina 8 casos troceados por sub-flujo/condición (`rdr_valforres
 
 ## 10. Conclusión y requisitos de cierre
 
-La especificación es autosuficiente salvo las preguntas pendientes P-VFR-01 a P-VFR-05 de §4. Los gaps resueltos, incluido el mecanismo completo de `PUBLISH`/`VFR_PUBLISH_ESB` (verificado con código fuente real) y su hallazgo de off-by-one asociado, quedan cerrados con evidencia de captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario.
+La especificación es autosuficiente salvo las preguntas pendientes P-VFR-02 a P-VFR-05 de §4 (P-VFR-01 y el `log4j` quedan resueltos en la 3ª pasada con la plantilla de despliegue, §6). Los gaps resueltos, incluido el mecanismo completo de `PUBLISH`/`VFR_PUBLISH_ESB` (verificado con código fuente real) y su hallazgo de off-by-one asociado, quedan cerrados con evidencia de captura de Control-M, ficha del gestor documental, código fuente real, o confirmación explícita del usuario.

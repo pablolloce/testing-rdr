@@ -39,10 +39,10 @@ en el entorno de pruebas se usan las equivalentes con su código de entorno (`ei
 ## 4. Configuración
 
 - `AltamiraMexicoSend.properties` en `/<env>/kytl/online/multipais/multicanal/dat/properties/`, con
-  las rutas del entorno de pruebas (la copia conocida es la de integración, con `/ei/` escrito a
-  mano). Todos los casos que ejecutan el Java.
-- `log4jAltamiraMexicoConciliacion.properties`: hay que saber dónde escribe el log del Java
-  (P-ABM-05). TC-002.
+  las rutas del entorno de pruebas (la plantilla de despliegue lleva `@@ENV@@`, que el plan de
+  despliegue sustituye; la copia conocida es la de integración, ya con `/ei/`; comprobar que no queda el
+  marcador y que el fichero va con fin de línea CRLF). Todos los casos que ejecutan el Java.
+- `log4jAltamiraMexicoConciliacion.properties`: escribe el log del Java en `<env>/kytl/online/multipais/multicanal/logs/AltamiraMexicoConciliacion.log` (plantilla de despliegue, spec §6.7); el directorio `logs` debe existir y ser escribible por `xakytl1p`. TC-002.
 - Línea `MEKYTL1205` del `INFORMACION_HISTORIFICACIONES.IDX` del entorno (P-ABM-01). TC-002, TC-003.
   Antes de ejecutar, comprobar que su operación no es `BD`.
 - Transferencia `transfer_tm_rdr_00` en el espacio `mx.mtmh.app-id-1060487.pro` (o su equivalente de

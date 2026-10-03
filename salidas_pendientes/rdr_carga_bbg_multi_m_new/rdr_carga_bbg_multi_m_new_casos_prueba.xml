@@ -15,7 +15,7 @@
     <pasos>
       <paso numero="1">Depositar ADR_FILE.csv antes de las 11:45 AM.</paso>
       <paso numero="2">Esperar a que FICHERO_RDR_FW lo detecte (código de retorno 0) y dispare RDR_BBG_REQUEST.</paso>
-      <paso numero="3">Verificar que se generó BBVARDR_&lt;ddmm&gt;_&lt;hhmmss&gt;.req con cabecera de 41 campos y una línea de datos con formato "ID1 NombreTest|ISIN".</paso>
+      <paso numero="3">Verificar que se generó BBVARDR_&lt;ddmm&gt;_&lt;hhmmss&gt;.req con cabecera de 43 campos y una línea de datos con formato "ID1 NombreTest|ISIN".</paso>
       <paso numero="4">Verificar que el .req se envió por SFTP y se movió a Backup/BK_All_&lt;nombre&gt;.req.</paso>
       <paso numero="5">Esperar la respuesta de Bloomberg (fichero .out) y verificar que se descarga correctamente.</paso>
       <paso numero="6">Verificar en el log que executeBbvaEvent.sh se invocó con "finished OK" para la línea de respuesta.</paso>
@@ -52,7 +52,7 @@
 
   <casoDePrueba id="TC-003" tipo="error_funcional">
     <nombre>Bloomberg no responde dentro del límite de reintentos</nombre>
-    <objetivo>Validar el comportamiento del script cuando se agotan los 15 reintentos de descarga de la respuesta sin éxito: confirmar que el proceso continúa igualmente hacia el parseo, sin ningún control explícito de ese fallo (riesgo documentado).</objetivo>
+    <objetivo>Validar el comportamiento del script cuando se agotan los reintentos de descarga (primer intento más 15 reintentos, unos 16,4 minutos) sin que aparezca el .out. Según el código de la plantilla (spec §6.9.B), el bloque principal exige que el .out exista: sin él no se recorta ni se carga nada, no se archiva el CSV y el script termina con código 0 (R-02 corregido).</objetivo>
     <precondiciones>
       <precondicion>Entorno de test/preproducción donde se puede simular que Bloomberg nunca entrega el fichero .out correspondiente, sin afectar producción.</precondicion>
     </precondiciones>
@@ -61,14 +61,14 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">En entorno de test, forzar que la descarga del .out correspondiente falle o no exista tras el envío.</paso>
-      <paso numero="2">Dejar que el script agote los 15 reintentos (~16 minutos).</paso>
-      <paso numero="3">Verificar en el log el mensaje "Se ha llegado al limite de peticiones".</paso>
-      <paso numero="4">Verificar si el script intenta ejecutar processResponse() pese al fallo, y con qué resultado.</paso>
+      <paso numero="2">Dejar que el script agote los reintentos (~16 minutos).</paso>
+      <paso numero="3">Verificar en Log/Bloomberg_MultiRequest&lt;ddmmyy&gt;.log los mensajes "Se ha llegado al limite de peticiones" y "ERROR en la recuperación desde Bloomberg".</paso>
+      <paso numero="4">Verificar que no se invocó executeBbvaEvent.sh, que ADR_FILE.csv sigue en ADRMultirequest/ (no hay ADR_FILE.csv_&lt;ddmmyy&gt; en Backup/) y que el código de salida es 0.</paso>
     </pasos>
-    <resultadoEsperado>El log confirma el agotamiento de reintentos; el script continúa su flujo sin ningún bloqueo ni alerta adicional derivados de ESTADO=KO, confirmando que esa variable no se comprueba en ningún punto posterior.</resultadoEsperado>
-    <tipoValidacion>Ejecución controlada en entorno de test + revisión de log — no ejecutar contra producción</tipoValidacion>
-    <criterioAceptacion>Log muestra el mensaje de límite de reintentos alcanzado; ningún mecanismo de alerta o bloqueo adicional se dispara por ello.</criterioAceptacion>
-    <posibilidadFallo>Si en el futuro se añadiera una comprobación de ESTADO, este caso pasaría a fallar (comportamiento distinto al documentado) y habría que actualizar rdr_carga_bbg_multi_m_new_spec.md §9.</posibilidadFallo>
+    <resultadoEsperado>El log confirma el agotamiento de reintentos y el error de recuperación; no hay recorte ni carga; el CSV no se archiva; el script termina con 0 y la cadena sigue en verde (riesgo R-02).</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada en entorno de test + revisión de log y de ficheros — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Log con los dos mensajes, cero invocaciones de executeBbvaEvent.sh, CSV sin archivar y código 0.</criterioAceptacion>
+    <posibilidadFallo>Si el script instalado llegara a recortar y cargar sin .out, la copia difiere de la plantilla y habría que actualizar la spec (§6.9.B y R-02).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="borde">
@@ -226,6 +226,66 @@
     <tipoValidacion>Consulta a base de datos + inspección de fichero, en entorno de test</tipoValidacion>
     <criterioAceptacion>El estado y el texto de cada petición coinciden con los indicados; ninguna otra petición PENDING cambia de estado.</criterioAceptacion>
     <posibilidadFallo>Si el comportamiento real difiere, hay que corregir la spec §6.8 y los riesgos R-11 y R-12 (por ejemplo, si el workflow continuara con la línea siguiente tras una rama de error).</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-011" tipo="borde">
+    <nombre>Respuesta con menos líneas de las esperadas: recorte vacío y una invocación con línea vacía</nombre>
+    <objetivo>Comprobar el cálculo de HEAD_N con un .out más corto de lo esperado (por ejemplo, solo cabecera y pie): el cuerpo queda vacío y el evento se lanza una vez con un fichero de una línea vacía.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test donde se puede sustituir el .out descargado por uno controlado.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ADR_FILE.csv" valor="cabecera + 2 filas de datos"/>
+      <dato campo=".out" valor="1 línea de cabecera y 3 de pie (4 líneas), es decir HEAD_N negativo"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el script con el .out controlado.</paso>
+      <paso numero="2">Revisar el log: una sola invocación de Bloomberg_Response y "finalizado".</paso>
+      <paso numero="3">Comprobar que Backup/FicheroCargaBBVA.txt contenía una línea vacía y que ADR_FILE.csv se archivó como ADR_FILE.csv_&lt;ddmmyy&gt;.</paso>
+    </pasos>
+    <resultadoEsperado>sed falla con HEAD_N negativo, el cuerpo es vacío, se lanza una vez el evento con una línea vacía (el workflow acaba sin hacer nada) y el CSV se archiva; el script termina con 0 y el log dice "Proceso de carga/enriquecimiento Bloomberg finalizado".</resultadoEsperado>
+    <tipoValidacion>Revisión de log y de ficheros en entorno de test — no ejecutar contra producción</tipoValidacion>
+    <criterioAceptacion>Una invocación, CSV archivado, código 0.</criterioAceptacion>
+    <posibilidadFallo>Un fin "correcto" sin ninguna carga real: solo se detecta contando las invocaciones.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-012" tipo="conflicto_integridad">
+    <nombre>Restos de una ejecución interrumpida en FicheroCargaBBVAFinal.txt se vuelven a cargar</nombre>
+    <objetivo>Confirmar que, si una ejecución anterior se interrumpió y dejó Backup/FicheroCargaBBVAFinal.txt con líneas, la siguiente las añade a las suyas y las carga de nuevo (el script añade con &gt;&gt;).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test; Backup/FicheroCargaBBVAFinal.txt creado a mano con 2 líneas de una petición anterior.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="FicheroCargaBBVAFinal.txt" valor="2 líneas de respuesta de una petición anterior"/>
+      <dato campo="ADR_FILE.csv" valor="1 fila de datos nueva"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Dejar el fichero residual y ejecutar el script con una petición nueva de 1 fila.</paso>
+      <paso numero="2">Contar en el log las invocaciones de Bloomberg_Response.</paso>
+    </pasos>
+    <resultadoEsperado>Se invoca el evento 3 veces (las 2 líneas residuales más la nueva) y las líneas residuales se vuelven a cargar.</resultadoEsperado>
+    <tipoValidacion>Recuento de invocaciones en el log en entorno de test.</tipoValidacion>
+    <criterioAceptacion>3 invocaciones.</criterioAceptacion>
+    <posibilidadFallo>Cargas repetidas silenciosas; ocurre también si las variantes M y T se solapan sobre los mismos ficheros auxiliares.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-013" tipo="borde">
+    <nombre>ADR_FILE.csv sin fila de cabecera: se pierde la primera fila de datos</nombre>
+    <objetivo>Confirmar que el awk ignora siempre la primera fila (NR&gt;1) aunque sea un dato.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test; CSV con separador ";" sin cabecera.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="ADR_FILE.csv" valor="ES0000000001;Mercado1;ISIN y ES0000000002;Mercado2;ISIN, sin cabecera"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar hasta la generación del .req (o inspeccionar el BK_All_*.req archivado).</paso>
+      <paso numero="2">Comprobar las líneas entre START-OF-DATA y END-OF-DATA.</paso>
+    </pasos>
+    <resultadoEsperado>Solo aparece "ES0000000002 Mercado2|ISIN"; la primera fila no se pide.</resultadoEsperado>
+    <tipoValidacion>Inspección del .req archivado en Backup/.</tipoValidacion>
+    <criterioAceptacion>Una línea de datos en el .req.</criterioAceptacion>
+    <posibilidadFallo>Un valor de negocio sin pedir ni aviso.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

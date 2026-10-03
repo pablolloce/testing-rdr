@@ -94,16 +94,26 @@ puerto 22, alias `svrtantiapr.co.igrupobbva`.
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-RAC-01 | ¿Cuál es el contenido real de `ExtraccionAltamiraReceive.properties` (argumentos de `ColombiaConciliacion`, en particular la plantilla de nombre del argumento 4 y el fichero SHIVA del argumento 5; cómo invoca las alertas y con qué código de proceso; si hay `Stop`)? | Sin él no se sabe qué fichero exacto busca el Java, ni cómo se encadenan las alertas |
+| P-RAC-01 | **Resuelta en parte (cierre 3):** la plantilla de despliegue trae el `.properties` completo (argumento 4 `CONCILIAYYYYMMDD.TXT`, argumento 5 = entorno, Cocinado con el proceso `AltamiraColombiaConciliacion`, evento `RDR_AlertasEnvio`, sin `Stop*`; §6.9); falta comprobar el instalado en `pr`. ¿Cuál es el contenido real de `ExtraccionAltamiraReceive.properties` (argumentos de `ColombiaConciliacion`, en particular la plantilla de nombre del argumento 4 y el fichero SHIVA del argumento 5; cómo invoca las alertas y con qué código de proceso; si hay `Stop`)? | Sin él no se sabe qué fichero exacto busca el Java, ni cómo se encadenan las alertas |
 | P-RAC-02 | ¿Cuál es la configuración de `MEGENV0001.sh` para la clave `MEKYTL1091` en `LPFTP503` y en `pr-rdr.igrupobbva` (sentido `GET`/`PUT`, protocolo, rutas, `FICHERO_ORIGEN`, `FALLA_NO_FICHERO`)? | Las fichas describen el job 2 enviando de `receive/` a la pasarela, lo que no cuadra con que el fichero llegue a `receive/` |
 | P-RAC-03 | ¿Cuál es el comando real de `MEKYTL1091_BORRADO`? La ficha dice a la vez `MEGENV0001.sh` y `rm /unload/transmisiones/KYTL/CONCILIA*.TXT` | Un `rm` sin `-f` termina con código 1 si no hay ningún fichero: la cadena se pararía aquí y no en el file watcher (§6.2) |
 | P-RAC-04 | ¿Cuál es la línea de producción de `INFORMACION_HISTORIFICACIONES.IDX` para `MEKYTL1046`? En integración (`MEKYTL1046_EI`) la máscara es `CONCILIA_*.txt` | Esa máscara no coincide con `CONCILIAAAAAMMDD.TXT` ni con el `_DES.TXT`; con el campo 5 a `0` el job fallaría con código 6 |
-| P-RAC-05 | ¿Con qué nombre exacto queda el fichero en `receive/`: `CONCILIA_*.txt` (ficha del job 1), `CONCILIAAAAAMMDD.TXT` (ficha del job 2) u otro? | El file watcher busca `CONCILIA*.TXT` (mayúsculas) y el histórico `CONCILIA_*.txt`; en Unix son distintos |
+| P-RAC-05 | **Resuelta en parte (cierre 3):** el nombre que necesita el Java en `receive/` es `CONCILIAYYYYMMDD.TXT` con la fecha de ayer (plantilla; §6.9); sigue sin saberse con qué nombre llega el fichero desde Colombia ni qué renombrado hace `MEKYTL1091`. ¿Con qué nombre exacto queda el fichero en `receive/`: `CONCILIA_*.txt` (ficha del job 1), `CONCILIAAAAAMMDD.TXT` (ficha del job 2) u otro? | El file watcher busca `CONCILIA*.TXT` (mayúsculas) y el histórico `CONCILIA_*.txt`; en Unix son distintos |
 | P-RAC-06 | La cadena corre de martes a viernes y el Java procesa el fichero "de ayer": ¿cuándo se procesa el fichero que corresponde al viernes? | Puede que ese fichero no se procese nunca |
 | P-RAC-07 | ¿En qué codificación cifra Colombia el contenido? | El descifrado lo interpreta como UTF-8 y la lectura posterior como ISO-8859-1: un carácter no ASCII (Ñ, tildes) desplaza los campos (§6.4) |
-| P-RAC-08 | ¿Se puede obtener `PCK_CON_ALT_COL.PR_MAIN`, la clase `SHIVAToken` y el `.properties` de alertas (código de proceso en `FT_T_REP1`/`FT_T_ALR1`, destinatarios, informe)? | Determinan el efecto real en base de datos, el comportamiento de SHIVA ante errores y quién recibe las alertas |
+| P-RAC-08 | **Resuelta en parte (cierre 3):** el código de proceso del Cocinado es `AltamiraColombiaConciliacion` y la cadena no incluye el Barrido (§6.9); siguen sin verse `PCK_CON_ALT_COL.PR_MAIN`, `SHIVAToken`, los destinatarios y el informe. ¿Se puede obtener `PCK_CON_ALT_COL.PR_MAIN`, la clase `SHIVAToken` y el `.properties` de alertas (código de proceso en `FT_T_REP1`/`FT_T_ALR1`, destinatarios, informe)? | Determinan el efecto real en base de datos, el comportamiento de SHIVA ante errores y quién recibe las alertas |
 | P-RAC-09 | ¿Es intencionado que el fichero descifrado `_DES.TXT` (en claro) se quede en `receive/` y pase al histórico? | Riesgo de seguridad: datos personales sin cifrar en disco |
 | P-RAC-10 | ¿Qué hace `ConDB` (`ConexionBD.jar`) si no puede conectar? | El Java no captura esa excepción: decide si el job acaba en error |
+
+**Cierre 3: estado de los huecos con identificador `H-RAC` (02/10/2026).**
+
+| Id | Estado | Qué lo ha resuelto o qué falta |
+|----|--------|-------------------------------|
+| H-RAC-09 | Resuelta en parte | El argumento 5 del Java es el identificador del entorno, no un fichero de datos de SHIVA (§6.9); siguen sin verse la URL base y las credenciales de SHIVA |
+| H-RAC-10 | Resuelta | `log4jAltamiraColombiaConciliacion.properties` de la plantilla (§6.9 y spec `envio_altamira_colombia` §6.7) |
+| H-RAC-13 | Resuelta en parte | Sin cambios respecto a la 2ª pasada; el código de proceso (`AltamiraColombiaConciliacion`) ya es conocido, falta la fila de `FT_T_REP1` y `DocumentGenerator` |
+| H-RAC-14 | Resuelta en parte | `GestionAlertas.properties`, la estructura de `ServerMailConfig.xml` (hosts y remitentes enmascarados) y el paso de Cocinado de este proceso están en la plantilla (§6.9); falta la fila de `FT_T_REP1` y la configuración de destinatarios |
+| H-RAC-06, H-RAC-07, H-RAC-08, H-RAC-11, H-RAC-12, H-RAC-15, H-RAC-16 | Sin cambios | La plantilla no contiene PL/SQL, jars, módulos, `RAMERC0068.sh` ni el export de Control-M |
 
 ## 5. Especificación funcional
 
@@ -115,7 +125,7 @@ puerto 22, alias `svrtantiapr.co.igrupobbva`.
   procedimiento `PCK_CON_ALT_COL.PR_MAIN`; y la configuración de alertas del proceso.
 - En `pr-rdr.igrupobbva`: `/fichtemcomp/pr/descargas/kytl/AltamiraColombia/receive/` y su `backup/`.
 - En la pasarela: `/unload/transmisiones/KYTL/`.
-- El fichero de datos de SHIVA que recibe el Java como argumento 5 (P-RAC-01).
+- Los datos de SHIVA (URL base y credenciales); el argumento 5 del Java es el identificador del entorno, no un fichero (cierre 3, §6.9).
 
 ### 5.2 Fichero recibido
 
@@ -220,7 +230,7 @@ Comando `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh ExtraccionAltami
 2. Java (`ConexionBD.jar`, `RDR_AlertasCocinado.jar`): Cocinado de alertas.
 3. Workflow `RDR_AlertasEnvio`: envío de alertas.
 
-El `.properties` no se ha recibido (P-RAC-01). Si, como en el resto de `.properties` conocidos, no
+El `.properties` no se había recibido (P-RAC-01; **cierre 3:** la plantilla de despliegue lo trae, §6.9, y confirma que no tiene `Stop*`). Como no
 tiene `Stop`, los pasos 2 y 3 se ejecutan aunque falle el 1, y `GSProcess.sh` devuelve 1 al final si
 alguno devolvió distinto de 0 (spec común de `GSProcess.sh` §7).
 
@@ -232,7 +242,7 @@ Argumentos de `ColombiaConciliacion` según su código:
 | 2 | Configuración de log4j |
 | 3 | No se usa |
 | 4 | Plantilla de la ruta del fichero cifrado: se sustituyen `YYYY`, `MM`, `DD` por la fecha de ayer |
-| 5 | Fichero de datos de SHIVA (`SHIVAToken.loadSHIVAData(args[4], …)`) |
+| 5 | Identificador del entorno (`@@ENV@@` en la plantilla; **Corrección, cierre 3:** no es un fichero) que recibe `SHIVAToken.loadSHIVAData(args[4], …)` |
 
 ### 6.4 Lógica de `ColombiaConciliacion` (código)
 
@@ -419,6 +429,27 @@ Se lee: mueve (`M`) todos (`TIPO`, sin límite de días) los `CONCILIA_*.txt` de
 producción (clave `MEKYTL1046`) no se ha recibido (P-RAC-04). Con esa máscara, un fichero llamado
 `CONCILIA20260930.TXT` o `CONCILIA20260930_DES.TXT` **no se movería**. Códigos: 0 correcto; 6 sin
 fichero; 7 error al mover (disco lleno, permisos). Log `/pr/pl/log/MEKYTL1046_<HHMMSS>.log`.
+
+### 6.9 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL
+
+**Procedencia y cómo leerla.** Material nuevo: la plantilla de despliegue (repositorio `estaticos`, rama `develop`), que es la base de lo que se instala en cada entorno, no la copia de un entorno. `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` (`GSProcess.sh` solo sustituye `$ENV`); estos ficheros no tienen variantes `.de/.ei/.pp/.pr`. Lo que aquí se atribuye a producción son valores de la plantilla, no una copia verificada del servidor. La plantilla es la base **anterior a la migración a Java 17** (en curso): sin `JDKV` y con las clases sin paquete.
+
+**`ExtraccionAltamiraReceive.properties` (P-RAC-01): contenido de la plantilla.** `MOD_EJECUCION=ExtraccionAltamiraColombiaReceive`, `Servicio=ExtraccionAltamiraColombiaReceive` y tres acciones, **sin ninguna clave `Stop*`** (por tanto, tal como suponía §6.3, los pasos 2 y 3 se ejecutan aunque falle el 1):
+1. Java `ColombiaConciliacion` (clase sin paquete). Paquetes: `ConexionBD.jar`, `XMASToken-0.0.1.jar:` y `RDR_ConciliaColombia.jar`. Argumentos: 1 = `2` (nivel de log, información); 2 = `.../dat/properties/log4jAltamiraColombiaConciliacion.properties`; 3 = `20` (no se usa); 4 = `/fichtemcomp/@@ENV@@/descargas/kytl/AltamiraColombia/receive/` + `CONCILIAYYYYMMDD.TXT` (ruta con `//`); 5 = `@@ENV@@`. Librerías: `ojdbc8.jar`, `log4j.jar`, `httpcore-4.4.13.jar`, `httpclient-4.5.12.jar`, `commons-logging-1.2.jar`, `gson-2.6.2.jar` y `json-simple-1.1.jar`. El `:` final de `XMASToken-0.0.1.jar:` es necesario: `GSProcess.sh` une los paquetes como `PAQ1` + `:PAQ2` + `PAQ3` y **no antepone `:` al tercero**, así que sin ese `:` el classpath quedaría `...XMASToken-0.0.1.jar/.../RDR_ConciliaColombia.jar` y el jar de la conciliación no se encontraría.
+2. Java `RDR_AlertasCocinado.jar` (`ConexionBD.jar`; clase `main.Ppal`; `ServicioJava=GestionAlertas_AltamiraColombiaConciliacion_cocinado`): argumento 1 = `2`, 2 = `.../dat/properties/log4jAlertasCocinado.properties`, 3 = **`AltamiraColombiaConciliacion`**; diez librerías (`ojdbc8`, `common-lang3`, `log4j`, `apache-commons-lang`, `commons-collections4-4.1`, `poi-ooxml-schemas-3.17`, `poi-3.17`, `poi-ooxml-3.17`, `poi-scratchpad-3.17`, `xmlbeans-2.3.0`).
+3. Evento de workflow `RDR_AlertasEnvio` (sin propiedades adicionales).
+
+**Corrección del argumento 5 (§6.3, tabla de argumentos, y H-RAC-09).** §6.3 lo describía como «fichero de datos de SHIVA». La plantilla pasa `@@ENV@@`, es decir, el **identificador del entorno** (`de`, `ei`, `pp` o `pr`): `SHIVAToken.loadSHIVAData(args[4], false, null)` recibe el entorno, no una ruta de fichero. Cómo lo usa la clase (probablemente para elegir las credenciales y la URL de SHIVA de cada entorno) no se sabe, porque `XMASToken-0.0.1.jar` no está disponible; las credenciales y la URL base de SHIVA no figuran en la plantilla.
+
+**Nombre del fichero que busca el Java (P-RAC-05, parcial).** El argumento 4 de la plantilla es `CONCILIAYYYYMMDD.TXT` (sin guion bajo, `.TXT` en mayúsculas), y `ColombiaConciliacion` sustituye `YYYY`, `MM` y `DD` por la fecha de ayer. Es el nombre que **necesita** el Java en `receive/`, coherente con el patrón del file watcher (`CONCILIA*.TXT`, sensible a mayúsculas) y distinto del que genera el envío (`CONCILIA_AAAAMMDD.txt`, con guion bajo y `.txt`), de modo que en algún punto del transporte desde Colombia o en `MEKYTL1091` hay que renombrar o Colombia ya envía ese nombre; ese dato sigue sin conocerse (configuración de `MEKYTL1091`). Falta además comprobar el `.properties` instalado en `pr`.
+
+**Alertas de este proceso (P-RAC-08, H-RAC-14).** El código de proceso con que el Cocinado de este proceso busca sus informes es `AltamiraColombiaConciliacion` (argumento 3; el Cocinado solo extrae los informes de ese proceso). La cadena **no incluye el Barrido** (`RDR_AlertasBarrido.jar`): en la plantilla, el paso 2 es el Cocinado con el filtro de proceso y el 3, el envío (que es global, §6.7). `GestionAlertas.properties` de la plantilla, en cambio, encadena Barrido, Cocinado y `RDR_AlertasEnvio` con el filtro `PROCESOS` (todos los procesos) y se parametriza con la acción `Property` (por ejemplo `GestionAlertas_BASKETS_SPONSORS.properties`); este proceso no lo usa. `ServerMailConfig.xml` de la plantilla: raíz `<root>` con cuatro `<server id="de|ei|pp|pr">` que llevan `<host>` y `<user>` (remitente); ambos valores están enmascarados en la plantilla (servidor y remitente de correo no incluidos). El log del Cocinado (`log4jAlertasCocinado.properties` de la plantilla) es `/@@ENV@@/kytl/online/multipais/multicanal/logs/AlertasCocinado.log` (100000 KB, 3 copias), que `Archivo_Logs_XA.sh` también archiva y vacía. Sigue sin verse la fila de `FT_T_REP1` de este proceso (`SHORT_PROCESS`, `RUTA`, `QUERY`), la plantilla Excel y los destinatarios.
+
+**Log del Java.** `log4jAltamiraColombiaConciliacion.properties` (plantilla): log `/@@ENV@@/kytl/online/multipais/multicanal/logs/AltamiraColombiaConciliacion.log` (`RollingFileAppender`, 100000 KB, 3 copias, nivel información), compartido con `ColombiaEnvio` de la cadena de envío y archivado/vaciado por `Archivo_Logs_XA.sh` (ver la spec `envio_altamira_colombia`, §6.7). **H-RAC-10 queda resuelta.**
+
+**Ficheros de nombre parecido que no pertenecen a esta cadena.** `RDR_CTMAA_Colombia_Report.properties` (alertas del proceso `CTMAA_COLOMBIA`, asignación automática de CTM) no tiene relación con la conciliación de Altamira.
+
+**Lo que la plantilla no contiene.** `PCK_CON_ALT_COL.PR_MAIN` (está en la base de datos), `XMASToken-0.0.1.jar` (`SHIVAToken`), `RDR_ConciliaColombia.jar`, `ConexionBD.jar`, `RDR_AlertasCocinado.jar` ni `DocumentGenerator`, los `.idx` de `MEKYTL1091`, la línea `MEKYTL1046` del IDX, `RAMERC0068.sh`, los módulos `.mod` ni el export de Control-M: P-RAC-02 a P-RAC-04, P-RAC-06, P-RAC-07, P-RAC-10, H-RAC-06 a H-RAC-08, H-RAC-11, H-RAC-12, H-RAC-15 y H-RAC-16 siguen igual.
 
 ## 7. Especificación de testing
 

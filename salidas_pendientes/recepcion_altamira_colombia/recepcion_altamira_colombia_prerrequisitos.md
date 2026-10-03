@@ -9,7 +9,7 @@ pruebas (`/fichtemcomp/ei/...` en integración).
 | Origen | Alimenta | Casos |
 |---|---|---|
 | Host de Colombia (`82.255.60.120`, `svrtantiapr.co.igrupobbva`), `\\co.igrupobbva\svrfilesystem\TX\RECEPCION_HOST\FINANCIERA\CDD\RDR\` | El fichero cifrado `CONCILIA*.TXT` | TC-002, TC-005, TC-013, TC-014 |
-| Servicio SHIVA (token con el fichero de datos SHIVA del argumento 5 del Java) | Llave 1 | TC-006, y todos los que descifran |
+| Servicio SHIVA (token; el argumento 5 del Java es el identificador del entorno, no un fichero; spec §6.9) | Llave 1 | TC-006, y todos los que descifran |
 | `FT_T_PAR1` (`PARAMETER_CTXT_TYP` `JUNCTION` y `LLAVE2`, `PAR1_NME='ConciliaColombia'`, `DATA_SRC_ID='CONCILIA_COLOMBIA'`, `ACTIVE`) | Ruta del servicio SHIVA y llave 2 | TC-006, y todos los que descifran |
 | `FT_T_FIID`, `FT_T_FINS`, `FT_T_FIRL`, `FT_T_ENFR` | Universo esperado (`ID_ALTAMIRA_COL`, entidad `9020`) | TC-001, TC-003, TC-004, TC-007, TC-008, TC-010, TC-011, TC-016 |
 | `PCK_CON_ALT_COL.PR_MAIN` compilado en la base de datos de pruebas | Conciliación de cada registro | TC-001, TC-009, TC-011, TC-013 |
@@ -53,7 +53,7 @@ registro de 360 caracteres).
 
 | Elemento | Qué hay que conocer | Casos |
 |---|---|---|
-| `ExtraccionAltamiraReceive.properties` | Plantilla del nombre (argumento 4), fichero SHIVA (argumento 5), pasos de alertas (P-RAC-01) | Todos los de ingesta |
+| `ExtraccionAltamiraReceive.properties` | Plantilla del nombre (argumento 4, `CONCILIAYYYYMMDD.TXT` en la plantilla de despliegue), entorno (argumento 5), pasos de alertas (spec §6.9; comprobar el instalado, P-RAC-01) | Todos los de ingesta |
 | Configuración `MEKYTL1091` de `MEGENV0001.sh` | Sentido, rutas y tolerancia sin fichero (P-RAC-02) | TC-002, TC-005 |
 | Línea `MEKYTL1046` del IDX | En integración: `MEKYTL1046_EI@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/@CONCILIA_*.txt@/fichtemcomp/ei/descargas/kytl/AltamiraColombia/receive/backup/@0@TIPO@@M`. Comprobar que el nombre del fichero de prueba cumple la máscara (P-RAC-04) | TC-013, TC-015 |
 | Comando del file watcher | `ctmfw '/fichtemcomp/pr/descargas/kytl/AltamiraColombia/receive/CONCILIA*.TXT' CREATE 0 60 10 3 105` | TC-005 |

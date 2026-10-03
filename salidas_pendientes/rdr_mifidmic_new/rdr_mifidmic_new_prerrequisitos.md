@@ -16,6 +16,8 @@ Durante la espera de `FW_MIFIDMIC_RDR` (desde las 06:00, como máximo 90 minutos
 
 ## Configuración de los motores genéricos
 
+- `mifidmic.properties` en `/<env>/kytl/online/multipais/multicanal/dat/properties/` con el contenido de §6.3 de la spec (según la plantilla de despliegue: tres acciones `Script` `Eliminar_fila`, `MoverFichero` y `Cortar`, sin `Stop`, finales de línea CRLF) y `Generico.sh` con esas funciones.
+
 - Para que `MEKYTL0890`, `MEKYTL0770` y `MEKYTL0771` puedan enviar correctamente, deben existir previamente sus ficheros de configuración `.idx` de `MEGENV0001.sh` (protocolo, ruta y destino remoto hacia Murex/`ap_ejpe_pr` y hacia `mcm0501`).
 - Para que `MEKYTL0940` y `MEKYTL0941` puedan historificar, debe existir la entrada correspondiente en `INFORMACION_HISTORIFICACIONES.IDX` (de producción, `/pr/pl/dat/`) para cada una de sus claves, con la operación de historificación (`M`) correctamente configurada.
 

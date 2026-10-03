@@ -830,6 +830,8 @@ Existen además tres módulos de `GSProcess.sh` en la plantilla que tratan el **
 Cadena probable (deducida de las rutas y nombres, no confirmada): simulación → informe Excel → correo. No consta qué job de Control-M las lanza, ni con qué periodicidad, ni si guarda relación con las oficinas de esta cadena;
 quedan como artefactos relacionados sin analizar a fondo (los jars no están en la plantilla).
 
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana busca, en el resultado de la consulta periódica de cargas del día, una línea para el directorio `*/oficinas/` («Carga Oficinas»; no se comprueba los lunes); solo indica que la carga de ayer quedó registrada.
+
 ## 7. Especificación de testing
 
 **Estrategia.** Las pruebas se hacen en un entorno no productivo con la cadena desplegada (mismos scripts,

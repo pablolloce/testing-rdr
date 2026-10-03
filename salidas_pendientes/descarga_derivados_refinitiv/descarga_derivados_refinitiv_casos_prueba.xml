@@ -48,23 +48,23 @@
   </casoDePrueba>
 
   <casoDePrueba id="TC-003" tipo="negativo">
-    <nombre>Ausencia de fichero en Refinitiv no se trata como fallo</nombre>
-    <objetivo>Confirmar que, cuando no hay ningún fichero disponible en Refinitiv (o ya fue recogido), comprobarError() detecta los mensajes "No zipfiles found"/"No such file or directory" y los trata como "no hay nada que procesar" (warning o exit tolerante según el flag EXIT/NOEXIT), no como un error real.</objetivo>
+    <nombre>Ausencia de fichero en Refinitiv: el job 4 termina en rojo (exit -1) con el código de la plantilla</nombre>
+    <objetivo>Confirmar el tratamiento de la ausencia de fichero en Refinitiv_Derivados_Batch.sh. Según el código de la plantilla de despliegue (spec §6.8.B), el unzip del primer paso lleva la marca EXIT: si no hay ningún .zip en Daily/ o Weekly/, comprobarError() detecta "No zipfiles found", escribe "ERROR: No hay ficheros a tratar" y el script sale con exit -1 (255). Solo los mv sin fichero se toleran (WARNING).</objetivo>
     <precondiciones>
-      <precondicion>No existe ningún fichero disponible en /Bulk_Reports/YYYYMMDD/ de Refinitiv, o el paso de descompresión no encuentra ningún .zip en el área de trabajo.</precondicion>
+      <precondicion>Entorno de pruebas con la carpeta Daily/ (o Weekly/) vacía de .zip, y con old/ y lake/ existentes.</precondicion>
     </precondiciones>
     <datosEmpleados>
       <dato campo="Fichero Refinitiv" valor="ausente"/>
     </datosEmpleados>
     <pasos>
-      <paso numero="1">Ejecutar el ciclo (D o P) sin que exista ningún fichero disponible.</paso>
-      <paso numero="2">Confirmar que comprobarError() detecta el mensaje "No zipfiles found" o "No such file or directory".</paso>
-      <paso numero="3">Confirmar el comportamiento resultante (warning sin detener la cadena, o exit tolerante) según el flag EXIT/NOEXIT configurado para ese punto del script.</paso>
+      <paso numero="1">Ejecutar Refinitiv_Derivados_Batch.sh DAILY (o WEEKLY) sin ningún .zip en la carpeta de trabajo.</paso>
+      <paso numero="2">Comprobar en Refinitiv_Derivados_Batch_Daily_&lt;ddmmaaaa&gt;.log el mensaje "ERROR: No hay ficheros a tratar. Funcion descomprimir() Comando unzip" y el texto "No zipfiles found".</paso>
+      <paso numero="3">Comprobar el código de salida y el estado del job 4 en Control-M, y que los jobs 5 a 7 no se ejecutan.</paso>
     </pasos>
-    <resultadoEsperado>La ausencia de fichero se trata como "nada que procesar", no como un fallo real de la cadena.</resultadoEsperado>
+    <resultadoEsperado>El script sale con exit -1 (255): el job 4 queda en rojo y la cadena se detiene antes de los jobs 5 a 7. Si se espera el comportamiento "tolerante" de la versión inicial de esta spec, el resultado difiere de la plantilla y la copia instalada no coincide con ella.</resultadoEsperado>
     <tipoValidacion>Ejecución controlada + inspección del log del script + estado final del job en Control-M.</tipoValidacion>
-    <criterioAceptacion>El job no termina en un estado de error bloqueante por la sola ausencia de fichero; el log refleja el mensaje tolerado.</criterioAceptacion>
-    <posibilidadFallo>Si la ausencia de fichero produjera un exit -1 bloqueante, contradice el comportamiento documentado de comprobarError() en §4.5 del documento fuente.</posibilidadFallo>
+    <criterioAceptacion>Código 255, log con "ERROR: No hay ficheros a tratar" y cadena detenida. Cualquier otro resultado indica que el script instalado difiere de la plantilla (actualizar la spec §6.8.B).</criterioAceptacion>
+    <posibilidadFallo>Un día sin fichero de Refinitiv, o un relanzamiento del job 4 ya completado, deja la cadena en rojo sin que haya ningún error real de carga.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-004" tipo="error_funcional">
@@ -383,6 +383,45 @@
     <tipoValidacion>Inspección de logs + fichero temporal generado + confirmación de correo recibido.</tipoValidacion>
     <criterioAceptacion>ArgJava3=DERIVADOS_REFINITIV confirmado en el fichero temporal; informe generado y enviado.</criterioAceptacion>
     <posibilidadFallo>Si el filtro no se aplicara correctamente, el informe podría incluir alertas de otros procesos o no incluir las de DERIVADOS_REFINITIV.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-019" tipo="borde">
+    <nombre>Cadena P: sin informes Initial por suscripción el paso 1B avisa y continúa (WEEKLY)</nombre>
+    <objetivo>Verificar el paso 1B del modo WEEKLY: Run_InitialReportMerger.sh solo ejecuta el merger si hay .txt cuyo nombre contenga asset, quote u organization (spec §6.8.B).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas; Weekly/ con un .zip de nombre *.INT.* que, al descomprimirse, deja un .txt sin ninguna de esas palabras en el nombre.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Fichero" valor="X.INT.prueba.1.txt.zip con un txt de nombre sin asset, quote ni organization"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar Refinitiv_Derivados_Batch.sh WEEKLY.</paso>
+      <paso numero="2">Comprobar en el log "WARNING: No se detectaron reportes Initial para fusionar." y que el script sigue con el filtrado.</paso>
+      <paso numero="3">Repetir con un .txt cuyo nombre contenga "asset" y comprobar que se invoca el merger (log INFO del merger).</paso>
+    </pasos>
+    <resultadoEsperado>Sin nombres candidatos, el paso 1B sale con 0 y el proceso continúa; con candidatos, se ejecuta com.bbva.kytl.refinitivinitialreportmerger.MergerProcess y debe quedar al menos un .txt en la carpeta.</resultadoEsperado>
+    <tipoValidacion>Inspección del log del script y del log del merger.</tipoValidacion>
+    <criterioAceptacion>El aviso aparece solo en el primer caso; en el segundo se ejecuta el merger.</criterioAceptacion>
+    <posibilidadFallo>El jar del merger no está en la plantilla (H-DDR-20): el segundo escenario solo se puede ejecutar donde esté desplegado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-020" tipo="negativo">
+    <nombre>Carpetas old/ o lake/ inexistentes: el job 4 sale en rojo</nombre>
+    <objetivo>Confirmar que la falta de old/ (o lake/ en DAILY) detiene el script con exit -1 y no se interpreta como "sin fichero".</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con un .zip válido en Daily/ y sin la carpeta old/ (o sin lake/).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Estructura de carpetas" valor="Daily/ con un .zip *.REF.* válido; old/ ausente"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar Refinitiv_Derivados_Batch.sh DAILY.</paso>
+      <paso numero="2">Revisar el log y el código de salida.</paso>
+    </pasos>
+    <resultadoEsperado>El mv de los zip a old/ falla con un mensaje distinto de "No such file or directory"; error_exit escribe el mensaje y el script sale con exit -1 (255).</resultadoEsperado>
+    <tipoValidacion>Ejecución controlada + log + código de salida.</tipoValidacion>
+    <criterioAceptacion>Código 255 y mensaje del mv en el log.</criterioAceptacion>
+    <posibilidadFallo>Si el script instalado continuara, la copia difiere de la plantilla.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

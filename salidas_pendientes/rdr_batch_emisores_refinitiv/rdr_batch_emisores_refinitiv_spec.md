@@ -3,6 +3,8 @@
 > Usuario: pablo.llorente. Alta: 2026-09-22; workflows reales: 2026-09-24; revisión de autosuficiencia: 2026-10-01.
 > Procedencia de los datos: documento "Carga y enriquecimiento de emisores Refinitiv" (fichas EX-005-02-RDR_BATCH_EMISORES_REFI y EX-005-03 de los 3 jobs, 14/08/2026), el `.properties` real `RDR_Refinitiv_REQ_RES.properties`, los workflows reales de GoldenSource `Refinitiv_Request_Response.wkf`, `Refinitiv_Load_Ratings.wkf` y `BBG_Refinitiv_Batch.wkf` (versión 4), los workflows reales `RDR_UPDATE_REU.wkf` y `Sub_CalculateREU.wkf` y las capturas de Control-M de los 3 jobs (documentos originales del proceso, rama de Carlos; pasada de cierre del 01/10/2026), y las respuestas del usuario en tres rondas de preguntas (22-24/09/2026). Pasada de cierre 2 (02/10/2026): volcado de la BD de workflows de GoldenSource (repositorio `fileloading`: `BBG_Send_Error_Mail`, `Sub_CalculateREU`, `Sub_CalculateREU_Inherit`, `Standard File Load`, `Mail`, catálogo de versiones y eventos) y código del motor de workflows (`goldensource.core.jar`: actividades `ForEach`, `DBQuery`, `CommandLine`). Todo lo necesario para entender el proceso está aquí; las únicas remisiones son a specs de componente común (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` y `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`).
 
+
+> Pasada de cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`): los `.properties` de los jobs 1, 2 y 3, `log4jRefinitivRatings.properties`, la estructura de `ServerMailConfig.xml` y el lanzador de alertas `GestionAlertasAOSRDR.properties`; §6.13.
 ## 1. Resumen ejecutivo
 
 `RDR_BATCH_EMISORES_REFINITIV` es la cadena diaria de Control-M que **actualiza en RDR (GoldenSource) los datos y los ratings de los emisores con lo que devuelve el proveedor Refinitiv**, y después **traslada a los ratings oficiales de cada agencia los ratings recibidos de Bloomberg y Refinitiv**. Son 3 jobs en línea, todos los días:
@@ -48,7 +50,7 @@ No genera ficheros de salida para otros sistemas ni eventos externos: el resulta
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-BER-01 | ¿Se pueden incorporar `RefinitivIssuerBatchRequest.properties` y `RDR_BBG_Refinitiv_Batch.properties`? Hoy su contenido (§6.2) es declaración del usuario, no fichero. | Son la configuración que decide qué workflow y con qué parámetros se ejecuta en los jobs 1 y 3. |
+| P-BER-01 | ¿Se pueden incorporar `RefinitivIssuerBatchRequest.properties` y `RDR_BBG_Refinitiv_Batch.properties`? Hoy su contenido (§6.2) es declaración del usuario, no fichero. **Resuelta (cierre 3, 02/10/2026):** la plantilla de despliegue trae `RefinitivIssuerBatchRequest.properties` y `RDR_BBG_Refinitiv_Batch.properties` y su contenido coincide con lo declarado por el usuario (§6.2 y §6.13); no tienen variantes por entorno. | Son la configuración que decide qué workflow y con qué parámetros se ejecuta en los jobs 1 y 3. |
 | P-BER-02 | ¿Qué columnas tiene el layout `issuerRequestOutput` de `FT_T_PAR1` y en qué tablas escribe el feed `Refinitiv_Issuer_Batch_Response`? | Es lo que carga el job 1. |
 | P-BER-03 | ¿Qué hace `Refinitv_Ratings.jar` (clase `Ppal`): en qué tablas carga los ratings, qué escribe en `FT_T_RLT1.RLT_DIF_STAT` si falla y quién genera `Refinitiv_loadRating_failures_toANS_<MM_dd_yyyy>.csv`? | El sub-workflow solo da por fallida la carga si el Java cambia `RLT_DIF_STAT`; la fila nace ya con `'OK '` (§6.5, riesgo R-03). |
 | P-BER-04 | ¿Se pueden obtener `RDR_UPDATE_REU` y `BBG_Send_Error_Mail`? | **Resuelta (cierre 2, 02/10/2026).** `RDR_UPDATE_REU` y `Sub_CalculateREU` están en §6.8 y §6.9. `BBG_Send_Error_Mail` (volcado de GoldenSource, versión 3) está analizado en §6.11: envía por correo las filas de `FT_T_RLT1` del job indicado cuyo tipo es el de error pedido, al contacto de `FT_T_PAR1`; **pero `BBG_Refinitiv_Batch` no le pasa `JOB_ID`, así que desde este job nunca encuentra filas y no envía nada** (R-13). |
@@ -142,9 +144,9 @@ NomWorkflow=Refinitiv_Request_Response
 Accion=Evento
 ```
 
-`RefinitivIssuerBatchRequest.properties` (según el usuario, fichero no incorporado, P-BER-01): lanza el workflow `Refinitiv_Request_Response` con `requestType=issuerRequest`, `vreqOid=BATCH_ISSUER`, `idType=BATCH`, `id=BATCH`.
+`RefinitivIssuerBatchRequest.properties` (contenido según la plantilla de despliegue, cierre 3; coincide con lo que había declarado el usuario): `MOD_EJECUCION=Refinitiv_Request_Response`, `id=BATCH`, `idType=BATCH`, `requestType=issuerRequest`, `vreqOid=BATCH_ISSUER`, `Accion=VariablesGlobales`, `NomEvento=Workflow`, `NomWorkflow=Refinitiv_Request_Response`, `Accion=Evento`.
 
-`RDR_BBG_Refinitiv_Batch.properties` (según el usuario, fichero no incorporado): lanza directamente el workflow `BBG_Refinitiv_Batch`.
+`RDR_BBG_Refinitiv_Batch.properties` (según la plantilla de despliegue, cierre 3; coincide con lo declarado por el usuario): `MOD_EJECUCION=RDR_BBG_Refinitiv_Batch`, `Accion=VariablesGlobales`, `NomEvento=Workflow`, `NomWorkflow=BBG_Refinitiv_Batch`, `Accion=Evento`; sin parámetros de entrada para el workflow.
 
 Cómo los ejecuta `GSProcess.sh` (funcionamiento genérico en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`): una acción `Variables` y una acción `Evento` de tipo `Workflow`, sin `Stop`. El evento se lanza con `./executeBbvaEvent.sh fileloading <NomWorkflow> <credentials.xml> <módulo>.properties`, de modo que el workflow recibe el `.properties` original completo y de él toma `id`, `idType`, `requestType` y `vreqOid`. `executeBbvaEvent.sh` espera a que el workflow termine (ver `salidas_pendientes/comun_executebbvaevent/comun_executebbvaevent_spec.md`). El job termina con el código de `GSProcess.sh`: 0 si el evento terminó con 0.
 
@@ -246,7 +248,7 @@ El sub-workflow `Mail` (genérico, grupo `Custom/RDR/Common`, versión 6) envía
 |---|---|---|---|
 | `GSProcess.sh` | Los 3 jobs | Sí (spec común) | §6.2 |
 | `RDR_Refinitiv_REQ_RES.properties` | Job 2 | Sí | §6.2 |
-| `RefinitivIssuerBatchRequest.properties`, `RDR_BBG_Refinitiv_Batch.properties` | Jobs 1 y 3 | **No** (declarados) | P-BER-01 |
+| `RefinitivIssuerBatchRequest.properties`, `RDR_BBG_Refinitiv_Batch.properties` | Jobs 1 y 3 | Sí (plantilla de despliegue, cierre 3) | §6.2, §6.13; P-BER-01 resuelta |
 | `executeBbvaEvent.sh` | `GSProcess.sh` | Sí (spec común) | §6.2 |
 | `Refinitiv_Request_Response.wkf` | Jobs 1 y 2 | Sí | §6.3 |
 | `RDR_Refinitiv_Request.jar` | Workflow | **No** | P-BER-08 |
@@ -330,6 +332,28 @@ Quién lo llama: `BBG_Batch_Response` (versiones 1 a 6; la 7 y la 8 ya no) pasab
 
 El evento `RDR_CalculateREU_Inherit` (de tipo evento genérico) arranca el workflow `Sub_CalculateREU_Inherit` (grupo `Custom/RDR/Publishing/Online`, versión 2, `RELEASED`, comentario `RDR_NFQ_08032025_1400`, 29/03/2025, `haltOnError=false`). Recibe `inst_mnem` (la entidad padre cuyo REU acaba de cambiar) y hace, en este orden: escribe una traza a nivel `error`; consulta `select INST_MNEM from FT_T_FRRL where PRNT_INST_MNEM=? and PRNT_FINSRL_TYP='REUINHER' and DATA_STAT_TYP='ACTIVE'` (las hijas que heredan); y, por cada hija, llama al sub-workflow `PartySetupDifusion` con `ACTION='INSERT'` y `MNEM` = la hija, que difunde la entidad hija hacia aguas abajo. Si no hay hijas, termina sin hacer nada. Es la publicación de los REU heredados: `Sub_CalculateREU` ya ha copiado el valor a `FT_T_FIRT` de cada hija (§6.9, paso 7) y este workflow solo la difunde. No escribe en `FT_T_RLT1`.
 
+### 6.13 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL (repositorio `estaticos`, rama `develop`)
+
+**Cómo leer este apartado.** La plantilla no es la copia de un entorno: el plan de despliegue sustituye `@@ENV@@` por `de`, `ei`, `pp` o `pr` y los ficheros `.pr/.pp/.ei/.de` son variantes por entorno. Los valores `.pr` son "valores de producción según la plantilla", no una copia verificada. Es la base anterior a la migración a Java 17 (`GSProcess.sh` sin `JDKV`, clases sin paquete); las copias migradas llevan `JDKV=17`. Hosts, contraseñas y direcciones de correo no están incluidos. Esta cadena no tiene variantes por entorno de sus tres `.properties`.
+
+**Los tres `.properties`, literales** (todos con `Accion=VariablesGlobales` seguido de `NomEvento=Workflow`, `NomWorkflow=...` y `Accion=Evento`, sin clave `Stop`):
+
+| Fichero | Job | Parámetros que lee el workflow | Workflow |
+|---|---|---|---|
+| `RefinitivIssuerBatchRequest.properties` | 1 | `id=BATCH`, `idType=BATCH`, `requestType=issuerRequest`, `vreqOid=BATCH_ISSUER` | `Refinitiv_Request_Response` |
+| `RDR_Refinitiv_REQ_RES.properties` | 2 | `id=MULTI`, `idType=ORG_ID`, `requestType=ratingsRequest`, `vreqOid=BATCH_RATINGS` | `Refinitiv_Request_Response` |
+| `RDR_BBG_Refinitiv_Batch.properties` | 3 | ninguno | `BBG_Refinitiv_Batch` |
+
+`GSProcess.sh` solo usa de ellos `NomEvento`, `NomWorkflow` y las claves de la acción `Variables`; `id`, `idType`, `requestType` y `vreqOid` no son claves que reconozca, pero llegan al workflow porque el evento recibe el `.properties` completo (§6.2). Que `RefinitivIssueMultiRequest.properties` (cadena `RDR_CARGA_REFINITIV_Multi`) use `id=MULTI`, `idType=MULTI`, `vreqOid=MULTI_ISSUE` confirma que las dos cadenas se distinguen por `vreqOid` y `requestType`.
+
+**`log4jRefinitivRatings.properties`** (log de `Refinitv_Ratings.jar`): `rootLogger=info, R`; fichero `/<env>/kytl/online/multipais/multicanal/logs/RefinitivRatings.log` (rotación por tamaño, 100000 KB, 3 copias); patrón `[fecha hora] nivel clase:línea - mensaje`. La plantilla no contiene el jar ni `ConexionBD.jar`.
+
+**`ServerMailConfig.xml`** (lo lee el sub-workflow `Mail`, §6.5): `<root>` con un `<server id="de|ei|pp|pr">` por entorno y, dentro, `<host>` (servidor de correo) y `<user>` (cuenta remitente). En la plantilla ambos valores están enmascarados (host y credencial no incluidos); la estructura coincide con la deducida del workflow.
+
+**Alertas de esta cadena.** `GestionAlertasAOSRDR.properties` incluye un código de proceso `BATCH_REFINITIV_EMISORES`, además de `PETICION_REFINITIV_EMISIONES`, `PETICION_REFINITIV_IDENTIFICADORES` y `CARGA_ONLINE_BLOOMBERG`: un lanzador que ejecuta el ciclo Barrido+Cocinado+Envío del motor `GestionAlertas` para cada código. Esta cadena no lo ejecuta (sus tres jobs son los de §6.1) y no consta qué job de Control-M lo lanza ni quién escribe alertas con ese código; el workflow de carga de ratings envía sus correos por el sub-workflow `Mail` (§6.5), no por `GestionAlertas`.
+
+**Lo que la plantilla no aporta.** `Refinitv_Ratings.jar`, `RDR_Refinitiv_Request.jar`, `ConexionBD.jar`, `XMASToken-0.0.1.jar`, los mappings `.mdx`, la fila `issuerRequestOutput` de `FT_T_PAR1` y el proceso que crea las filas `BATCH_ISSUER`/`BATCH_RATINGS` de `FT_T_VREQ` siguen sin material (P-BER-02, P-BER-03, P-BER-07, P-BER-08, P-BER-10, H-BER-03).
+
 ## 7. Especificación de testing
 
 Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquestación de Control-M (TC-001 encadenamiento, TC-002 fallo que bloquea, TC-004 cruce de medianoche, TC-005 relanzamiento concurrente, TC-006 cambio de `.properties`) con el comportamiento de los workflows (TC-003 respuesta inválida con RC=0, TC-007 doble ejecución del mismo `vreqOid`, TC-008 ciclo completo con verificación en base de datos, TC-009 actualización de `FT_T_FIRT` sin clasificación "Automatic", TC-010 regla del segundo mejor rating del recálculo REU). Los casos que dependen de los programas no recibidos (`Refinitv_Ratings.jar`, `RDR_Refinitiv_Request.jar`) solo pueden comprobar lo que escriben los workflows. La cadena es lineal: la suma de TC-001, TC-002 y TC-008 cubre todas las transiciones; TC-003, TC-007, TC-009 y TC-010 cubren las ramas de datos.
@@ -359,7 +383,7 @@ Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquest
 | R-04 | Sobrescritura de la variable del bucle en `BBG_Refinitiv_Batch` (P-BER-05, confirmada por código): cada ejecución actualiza solo el primer rating con cambio de mapeo | Alto: los demás ratings quedan desactualizados hasta ejecuciones posteriores, de uno en uno |
 | R-05 | Relanzamientos 0 y sin bloqueo contra ejecuciones concurrentes: un relanzamiento manual mientras otra ejecución sigue en curso no se impide | Medio |
 | R-06 | `vreqOid` fijos (`BATCH_ISSUER`, `BATCH_RATINGS`): un relanzamiento el mismo día reutiliza la misma fila de `FT_T_VREQ` | Bajo |
-| R-07 | Dos `.properties` de la cadena solo declarados (P-BER-01) | Medio (trazabilidad) |
+| R-07 | Dos `.properties` de la cadena solo declarados (P-BER-01) | Resuelto en el cierre 3: los trae la plantilla de despliegue (valores de producción según la plantilla, no verificados en el servidor) |
 | R-08 | El `UPDATE` de `FT_T_FIRT` se hace siempre que haya cambio de mapeo, aunque la entidad no sea "Automatic" | Medio: cambia ratings oficiales sin recálculo REU |
 | R-09 | La deducción de entorno de los sub-workflows (directorio escribible) es distinta de la de `GSProcess.sh` (nombre de máquina) | Bajo |
 | R-10 | `RDR_UPDATE_REU` pasa a `CALCULATE_REU_OK` cada marca al volver `Sub_CalculateREU`, aunque no recalculara (REU manual, emisor sin fuente, etc.), y no avisa de las que no pudo calcular | Medio |
@@ -371,3 +395,5 @@ Los casos de `rdr_batch_emisores_refinitiv_casos_prueba.xml` combinan la orquest
 ## 10. Conclusión y requisitos de cierre
 
 La orquestación y los workflows (incluido el recálculo REU, `RDR_UPDATE_REU` y `Sub_CalculateREU`) quedan descritos con el código real. **La spec no puede darse por cerrada** mientras sigan abiertas P-BER-01 a P-BER-03, P-BER-07, P-BER-08 y las partes pendientes de P-BER-09 y P-BER-10; P-BER-04, P-BER-05 y P-BER-06 se resolvieron en la pasada de cierre del 02/10/2026 (con los hallazgos R-04 confirmado y R-13). Las más importantes son P-BER-03 (falso OK de la carga de ratings) y P-BER-02 (qué carga el feed del job 1).
+
+**Pasada de cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`): se resuelve P-BER-01 (los `.properties` de los jobs 1 y 3, y los tres literales en §6.13) y se avanza en H-BER-04 (estructura de `ServerMailConfig.xml` y `log4jRefinitivRatings.properties`; faltan el host y la cuenta de correo, enmascarados en la plantilla). Los jars y los mappings siguen sin material, por lo que P-BER-02, P-BER-03, P-BER-07, P-BER-08, P-BER-09 y P-BER-10 permanecen como estaban.

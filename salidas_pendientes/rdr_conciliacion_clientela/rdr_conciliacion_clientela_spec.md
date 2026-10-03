@@ -450,6 +450,8 @@ consulta de `ConClientela/ReporteLEI`. El módulo es independiente de la cadena 
 Destinatarios: no incluidos en la plantilla (enmascarados en la variante `pr`; vacíos en `de`, `ei` y `pp`, es decir, solo producción envía). Siguen sin constar el job de Control-M que lanza `EnvioReporteMail` y el
 contenido de la plantilla de correo y del jar de envío.
 
+**Comprobación diaria de ANS (`MorningAutomat.sh`).** El script de revisión de la mañana comprueba «Carga Clientela» buscando en el directorio de logs un fichero `*tela*` con la fecha del día (el `execute_ConClientela_<AAAAMMDD>.log` de `GSProcess.sh`); solo demuestra que `GSProcess.sh ConClientela` se ejecutó, no que la conciliación haya terminado bien.
+
 ## 7. Especificación de testing
 
 La estrategia cubre las 4 transiciones lineales, el comportamiento ante ausencia de fichero (con alerta,

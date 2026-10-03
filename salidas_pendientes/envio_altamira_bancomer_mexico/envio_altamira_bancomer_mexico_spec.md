@@ -94,10 +94,19 @@ por el usuario): esta cadena solo genera, copia, historifica y transfiere.
 | P-ABM-02 | ¿Qué ejecuta `MEKYTL1206`? La ficha solo da origen, destino y usuario (`xakytl1p`), sin script. Si es `RAMERC0068.sh`, ¿cuál es su línea del IDX? | Sin el ejecutable no se sabe si mueve o copia, si renombra, ni qué código da si no encuentra el fichero. |
 | P-ABM-03 | ¿Se puede obtener el código de `util.Ficheros.sacarFichero` (dentro de `AltamiraMexicoConciliacion.jar`)? | Es quien escribe el fichero: la cabecera de 30 columnas, el `split("\|")` que afirma el usuario, qué hace con una lista vacía o con un valor nulo y si puede lanzar excepción (lo que cambiaría el código de salida). |
 | P-ABM-04 | ¿Se puede obtener `jdbc.ConDB` (`ConexionBD.jar`)? ¿De dónde lee las credenciales y qué hace si no puede conectar? | Determina si un fallo de conexión deja la lista a `null` (no se genera fichero) o vacía (fichero solo con cabecera). |
-| P-ABM-05 | ¿Cuál es el contenido de `AltamiraMexicoSend.properties` y de `log4jAltamiraMexicoConciliacion.properties` en producción? | La copia recibida es de integración, con rutas `/ei/` escritas a mano; el log4j decide dónde está el log del Java. |
+| P-ABM-05 | **Resuelta en parte (cierre 3):** la plantilla de despliegue trae los dos ficheros (`AltamiraMexicoSend.properties` con `@@ENV@@`, sin `JDKV` y con la clase `MexicoEnvio` sin paquete; `log4jAltamiraMexicoConciliacion.properties` con el log `AltamiraMexicoConciliacion.log`); falta comprobar los instalados en `pr` (§6.7). ¿Cuál es el contenido de `AltamiraMexicoSend.properties` y de `log4jAltamiraMexicoConciliacion.properties` en producción? | La copia recibida es de integración, con rutas `/ei/` escritas a mano; el log4j decide dónde está el log del Java. |
 | P-ABM-06 | ¿Qué fichero recoge exactamente la transferencia `transfer_tm_rdr_00` en `/unload/kytl/datsal/datax/` y con qué fecha? La ficha dice que `gf_odate_date_id` es AAAAMMDD y `DATE` es AAMMDD, pero ambos reciben el mismo `%%$ODATE`. | El nombre del fichero lleva la fecha del servidor, no la ODATE (§6.2.3): si no coinciden (relanzamiento otro día), la transferencia podría buscar un fichero que no existe. |
 | P-ABM-07 | ¿Cuál es el motivo de negocio de excluir los códigos `38112087`, `49027955`, `49584427`, `J9488131`, `J9488087`? | Para saber si la lista debe mantenerse, ampliarse o eliminarse. |
 | P-ABM-08 | La muestra real se llama `RDR_clientes20250726.csv` (26/07/2025 fue **sábado**) y contiene códigos con aspecto de prueba (`TEST`, `1234568`). ¿Fue una ejecución fuera de calendario? ¿Son esos códigos datos reales de producción? | La cadena está planificada solo los viernes; un fichero de sábado indica un relanzamiento o una ejecución manual. Los códigos de prueba llegarían al destino. |
+
+**Cierre 3: estado de los huecos con identificador `H-ABM` (02/10/2026).**
+
+| Id | Estado | Qué lo ha resuelto o qué falta |
+|----|--------|-------------------------------|
+| H-ABM-01 | Resuelta | `log4jAltamiraMexicoConciliacion.properties` de la plantilla: log `AltamiraMexicoConciliacion.log`, 100000 KB, 3 copias, nivel información; lo comparte la cadena inversa (§6.7) |
+| H-ABM-02 | Abierta | La plantilla no contiene nada de DataX ni de `transfer_tm_rdr_00` |
+| H-ABM-03 | Abierta | `util.Ficheros.sacarFichero` está en `AltamiraMexicoConciliacion.jar`, que no está en la plantilla |
+| H-ABM-04 | Sin cambios (fuera de alcance) | Resumen de `AltamiraMexicoConciliacion.properties` por contexto (§6.7) |
 
 ## 5. Especificación funcional
 
@@ -268,7 +277,7 @@ Accion=Java
 
 Qué hace `GSProcess.sh` con él (funcionamiento genérico en su spec común):
 1. Acción `Variables`: fija `MOD_EJECUCION` y `Servicio`. No fija `Stop`.
-2. Acción `Java`, con el JDK 17 (`JDKV=17`, etiqueta `<javahome17>` de `credentials.xml`) y las
+2. Acción `Java`, con el JDK 17 (`JDKV=17`, etiqueta `<javahome17>` de `credentials.xml`; **cierre 3:** esto es la copia ya migrada: la plantilla `develop` no tiene `JDKV` y usa `<javahome>`, §6.7) y las
    opciones por defecto (no hay `DirJava`):
 
 ```
@@ -284,7 +293,7 @@ inocua.) El código de salida de `GSProcess.sh` es 0 si el Java devuelve 0 y 1 s
 
 **Corrección:** la spec anterior decía que el fichero se escribe en `/fichtemcomp/@@ENV@@/...`. El
 `.properties` real recibido tiene las rutas de integración escritas a mano (`/ei/` y
-`/fichtemcomp/ei/`), no un marcador. El de producción no se ha visto (P-ABM-05).
+`/fichtemcomp/ei/`), no un marcador. **Cierre 3:** la plantilla de despliegue sí lleva el marcador `@@ENV@@`; el `ei` de la copia recibida es el resultado de la sustitución del plan de despliegue, no una edición manual (§6.7). El de producción no se ha visto (P-ABM-05).
 
 | Argumento | Valor | Uso en `MexicoEnvio` |
 |---|---|---|
@@ -386,7 +395,7 @@ terminara en error. Por el código, termina con 0: el fallo se ve en el job sigu
 que no encuentra el fichero) o, si la query falla con conexión válida, **en ningún job**: se
 transfiere un fichero sin datos.
 
-Log: el del Java lo decide `log4jAltamiraMexicoConciliacion.properties` (P-ABM-05); el de
+Log: el del Java lo decide `log4jAltamiraMexicoConciliacion.properties` (cierre 3: `logs/AltamiraMexicoConciliacion.log` del entorno, §6.7); el de
 `GSProcess.sh` está en `execute_AltamiraMexicoSend_<AAAAMMDD>.log` del directorio `<logs>` de
 `credentials.xml` (con `ESTADO-0-` al terminar bien).
 
@@ -451,6 +460,25 @@ datax-agent --transferId transfer_tm_rdr_00 --namespace mx.mtmh.app-id-1060487.p
 - No hay bloqueo contra ejecuciones simultáneas (confirmado por el usuario).
 - Relanzamiento: relanzar `GS_CODIGOS_ALTMEX` otro día genera un fichero con la fecha de ese día
   (§6.2.3) y deja en `send/`, `datsal/datax/` y `backup/` ficheros de días distintos.
+
+### 6.7 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL
+
+**Procedencia y cómo leerla.** Material nuevo: la plantilla de despliegue (repositorio `estaticos`, rama `develop`), que es la base de lo que se instala en cada entorno, no la copia de un entorno. `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` (`GSProcess.sh` solo sustituye `$ENV`); estos ficheros no tienen variantes `.de/.ei/.pp/.pr`. Lo que aquí se atribuye a producción son valores de la plantilla, no una copia verificada del servidor. La plantilla es la base **anterior a la migración a Java 17** (en curso).
+
+**`AltamiraMexicoSend.properties`: plantilla frente a la copia de integración de §6.2.1 (P-ABM-05).** La comparación con `diff` da 7 líneas de diferencia (4 líneas distintas):
+- La copia recibida tiene `JDKV=17`; la plantilla **no tiene `JDKV`**. Con `GSProcess.sh` de la plantilla, el JDK sale de la etiqueta `<javahome>` de `credentials.xml` (se busca el directorio hermano más reciente de 64 bits), no de `<javahome17>`. La descripción de §6.2.1 («con el JDK 17») corresponde a la copia ya migrada, no a la plantilla.
+- La copia recibida tiene `NomClaseJava=altamiramexicoconciliacion.MexicoEnvio`; la plantilla, `MexicoEnvio` sin paquete (que es como está el código fuente analizado en §6.2.3). Con la migración a Java 17 en curso conviven las dos formas; el nombre de clase que realmente se ejecute en producción es el que tenga el fichero instalado.
+- Las rutas de `PreArgJava2` y `PreArgJava4` llevan `@@ENV@@` en la plantilla, no `ei`. **Corrección de §6.2.1:** el `ei` de la copia recibida no estaba escrito a mano en el fichero fuente: es el resultado de la sustitución del plan de despliegue; en `pr` el plan pone `pr`.
+- Todo lo demás es idéntico: `MOD_EJECUCION`/`Servicio=AltamiraMexicoSend`, jars `ConexionBD.jar` y `AltamiraMexicoConciliacion.jar`, `ServicioJava=AltamiraMexicoSend_log`, argumentos 1 a 4 (`2`, log4j, `20` —no usado—, `.../AltamiraMexico/send/` + `RDR_clientesYYYYMMDD.csv`), librerías `ojdbc8.jar`, `commons-lang3.jar` y `log4j.jar` y la ausencia de claves `Stop*`.
+Queda por comprobar en el servidor el fichero instalado en `pr` (**P-ABM-05 pasa a parcial**).
+
+**`log4jAltamiraMexicoConciliacion.properties` (H-ABM-01, P-ABM-05).** Contenido de la plantilla: `rootLogger=info, R`; `RollingFileAppender` `R` hacia `/@@ENV@@/kytl/online/multipais/multicanal/logs/AltamiraMexicoConciliacion.log`, 100000 KB por fichero, 3 copias; patrón `[%d{yyyy-MM-dd HH:mm:ss}] %5p %c{1}:%L - %m%n`; el appender `stdout` está definido pero no está en el `rootLogger`. Por tanto el log del Java de esta cadena es `AltamiraMexicoConciliacion.log` en el directorio `logs` del entorno (no el directorio de logs de `credentials.xml`, que es el de `GSProcess.sh`). **El mismo fichero de log4j lo usa `AltamiraMexicoConciliacion.properties` (la cadena inversa, `ConciliacionMex`), de modo que los dos sentidos escriben en el mismo log.** `log4jAltamiraMexicoService.properties` (log `AltamiraMexicoService.log`) existe en la plantilla pero ningún `.properties` de este proceso lo usa. A diferencia de los logs de Colombia, `AltamiraMexicoConciliacion.log` **no** figura en la lista de `Archivo_Logs_XA.properties`, así que el script de archivado de logs no lo vacía: solo lo rota log4j. **H-ABM-01 queda resuelta.**
+
+**Cadena inversa (H-ABM-04, fuera de alcance; resumen por contexto).** `AltamiraMexicoConciliacion.properties` de la plantilla encadena, sin `Stop*`: (1) Java `ConciliacionMex` (`ConexionBD.jar` + `AltamiraMexicoConciliacion.jar`; argumentos `2`, el mismo log4j, `20`, `.../AltamiraMexico/receive/` + `Altamira_concilYYYYMMDD.csv`, y `@@ENV@@` como quinto argumento; librerías `ojdbc8`, `log4j`, `commons-logging-1.2`); (2) Java `RDR_AlertasCocinado.jar` (`main.Ppal`, con `log4jAlertasCocinado.properties` y el proceso `AltamiraMexicoConciliacion` como tercer argumento); (3) el evento de workflow `RDR_AlertasEnvio`. No se analiza más aquí.
+
+**Ficheros de nombre parecido que no pertenecen a este proceso.** `RDR_AuditMex.properties` (Java `RDR_AlertasCocinado.jar` con el proceso `RDR_AuditMex` y evento `RDR_AlertasEnvio`; el evento `RDR_AuditMex` ejecuta el workflow `AuditMex`) y `ManageAuditMex.xslt` (hoja de texto que traduce el tipo de entidad de un mensaje `STREET_REF`: `FINS`→`Counterparty`, `SSIS`→`StandardSettlementInstructions`, `SCIS`→`StandardConfirmationInstruction`) son la auditoría trimestral de México, sin relación con la generación de `RDR_clientes*.csv`.
+
+**Lo que la plantilla no contiene.** `AltamiraMexicoConciliacion.jar` (`util.Ficheros.sacarFichero`, `MexicoEnvio`), `ConexionBD.jar` (`jdbc.ConDB`), el IDX de historificación (`MEKYTL1205`, `MEKYTL1206`), `RAMERC0068.sh`, `MEGENV0001.sh`, la definición de `transfer_tm_rdr_00` de DataX y cualquier fichero de configuración de DataX: P-ABM-01 a P-ABM-04, P-ABM-06, H-ABM-02 y H-ABM-03 siguen igual.
 
 ## 7. Especificación de testing
 

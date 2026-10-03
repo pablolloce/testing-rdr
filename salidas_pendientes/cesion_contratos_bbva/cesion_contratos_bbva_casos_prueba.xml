@@ -117,7 +117,7 @@
       <paso numero="5">Verificar si FW_BBVAContracts_RDR_1 detecta el fichero y si la cadena avanza y distribuye.</paso>
       <paso numero="6">Repetir con la subcarpeta CONTRBBVA/ inexistente o sin permisos: comprobar que el .tmp queda y que la ejecución siguiente lo duplica.</paso>
     </pasos>
-    <resultadoEsperado>El job de extracción termina en OK (código 0) y el log del jar registra el error. Se publica un BBVAContracts.xml con solo las etiquetas de apertura y cierre (o ninguna etiqueta si falta ROOT_TAG); el filewatcher lo detecta, la validación XSD queda OK (Force OK) y la cadena distribuye el fichero vacío. Solo si GSProcess.sh no encuentra el .properties o el jar no arranca, o CopiarFichero no encuentra el origen, el job termina en KO y la cadena se detiene.</resultadoEsperado>
+    <resultadoEsperado>El job de extracción termina en OK (código 0) y el log del jar registra el error. Se publica un BBVAContracts.xml con solo las etiquetas de apertura y cierre (por la spec §6.3 deben ser &lt;ROOT&gt; y &lt;/ROOT&gt;; con ese contenido el XSD se cumple, Agreements_Nodes.xsl lo deja como &lt;ROOT&gt; + salto de línea + &lt;/ROOT&gt; y el CSV tiene solo la cabecera) o ninguna etiqueta si falta ROOT_TAG (entonces el XML no es válido para el XSD ni para xsltproc y MEKYTL0895 falla); el filewatcher lo detecta, la validación XSD queda OK (Force OK) y la cadena distribuye el fichero vacío. Solo si GSProcess.sh no encuentra el .properties o el jar no arranca, o CopiarFichero no encuentra el origen, el job termina en KO y la cadena se detiene.</resultadoEsperado>
     <tipoValidacion>Estado del job en Control-M, log del jar, contenido de los ficheros intermedio y de trabajo, presencia del fichero en destinos.</tipoValidacion>
     <criterioAceptacion>Comportamiento As-Is reproducido (verde con fichero vacío); un KO en este escenario indicaría un cambio respecto al código del jar.</criterioAceptacion>
     <posibilidadFallo>Alta para el negocio: el fallo pasa desapercibido en Control-M. Si el .tmp queda residual, el fichero de la siguiente pasada sale duplicado.</posibilidadFallo>
@@ -144,7 +144,7 @@
       <paso numero="5">Repetir los pasos 2 y 3 con la variante 3 (XML truncado).</paso>
       <paso numero="6">Verificar en las tres variantes que el fichero inválido llega igualmente a los destinos.</paso>
     </pasos>
-    <resultadoEsperado>En las tres variantes el job de validación termina en OK pese al fallo real de validación (Force OK), y la cadena continúa: el fichero inválido llega a los nueve destinos XML — comportamiento confirmado, no un fallo de la prueba. Riesgo real: no hay ningún control de calidad de contenido efectivo en toda la cadena.</resultadoEsperado>
+    <resultadoEsperado>En las tres variantes el job de validación termina en OK pese al fallo real de validación (Force OK). Variantes 1 y 2 (XML bien formado pero no conforme al XSD): la cadena continúa y el fichero inválido llega a los nueve destinos XML — comportamiento confirmado, no un fallo de la prueba. Variante 3 (XML truncado, no bien formado): por el código de la plantilla (spec §6.3), xsltproc falla en el primer paso de MEKYTL0895, que borra el original y deja BBVAContracts.xml vacío y el job en error; las ramas de MEKYTL0895 no reciben su evento OK (o, si arrancan, envían un fichero vacío, pregunta P-CCB-11); solo MEKYTL0900, anterior, habrá enviado el fichero truncado. Riesgo real: el control de calidad de contenido efectivo se limita a que el XML sea legible por xsltproc.</resultadoEsperado>
     <tipoValidacion>Estado del job de validación y de sus sucesores en Control-M; revisión del log de GenericValidator.sh (debe registrar el fallo real aunque el job termine OK); verificación de presencia del fichero inválido en las rutas de destino.</tipoValidacion>
     <criterioAceptacion>Las tres variantes terminan en OK y el fichero llega a los destinos pese a ser inválido — confirma el comportamiento real (Force OK), no lo contrario.</criterioAceptacion>
     <posibilidadFallo>Que el job termine en KO y detenga la cadena, lo que contradiría el export real de Control-M confirmado en sesión.</posibilidadFallo>
@@ -266,7 +266,7 @@
     <objetivo>Verificar que el CSV derivado del XML total contiene la cabecera correcta, una línea por legal agreement y los cuatro campos separados por punto y coma, incluyendo el tratamiento de campos vacíos.</objetivo>
     <precondiciones>
       <precondicion>BBVAContracts.xml generado y validado, con un número conocido de contratos.</precondicion>
-      <precondicion>El juego de datos incluye contratos con idStar vacío y con contractDescription vacía.</precondicion>
+      <precondicion>El juego de datos incluye contratos con idStar vacío y con contractDescription vacía, y un contrato sin bloque cpty (por BBVA_Contrats_CSV.xsl no genera línea; spec §6.3).</precondicion>
       <precondicion>Transformador BBVA_Contrats_CSV.xsl desplegado y referenciado en el properties.</precondicion>
     </precondiciones>
     <datosEmpleados>
@@ -280,14 +280,14 @@
     <pasos>
       <paso numero="1">Ejecutar la cadena hasta que se genere BBVAContracts.csv en LAGR/.</paso>
       <paso numero="2">Verificar que la primera línea del fichero es exactamente RDR_ID;idStar;contractType;contractDescription.</paso>
-      <paso numero="3">Contar las líneas de datos del CSV y comprobar que coinciden con el número de legal agreements del XML.</paso>
+      <paso numero="3">Contar las líneas de datos del CSV y comprobar que coinciden con el número de legal agreements del XML que tienen bloque cpty.</paso>
       <paso numero="4">Verificar que todas las líneas contienen exactamente tres separadores, incluidas aquellas con campos vacíos.</paso>
       <paso numero="5">Localizar un contrato con idStar vacío y comprobar que la línea mantiene el doble separador consecutivo.</paso>
       <paso numero="6">Localizar un contrato con contractDescription vacía y comprobar que la línea termina en separador.</paso>
       <paso numero="7">Contrastar los valores de RDR_ID, idStar, contractType y contractDescription de una muestra de contratos con los del XML de origen.</paso>
       <paso numero="8">Verificar que cada línea termina con un salto de línea.</paso>
     </pasos>
-    <resultadoEsperado>CSV con cabecera correcta y una línea por legal agreement del XML. Todas las líneas presentan tres separadores con independencia de que haya campos vacíos. Los valores coinciden con los del XML de origen. Cada línea finaliza con salto de línea.</resultadoEsperado>
+    <resultadoEsperado>CSV con cabecera correcta y una línea por legal agreement del XML que tenga bloque cpty (los contratos sin cpty no generan línea). Todas las líneas presentan tres separadores con independencia de que haya campos vacíos. Los valores coinciden con los del XML de origen. Cada línea finaliza con salto de línea.</resultadoEsperado>
     <tipoValidacion>Comparación de la cabecera; conteo de líneas del CSV frente a contratos del XML; verificación del número de separadores por línea; diff de una muestra frente al XML.</tipoValidacion>
     <criterioAceptacion>Cero líneas con número de separadores distinto de tres y cero discrepancias de valor en la muestra contrastada.</criterioAceptacion>
     <posibilidadFallo>Media — los campos opcionales vacíos son el punto sensible: una transformación que omitiera el separador desalinearía las columnas en el sistema de reporting.</posibilidadFallo>

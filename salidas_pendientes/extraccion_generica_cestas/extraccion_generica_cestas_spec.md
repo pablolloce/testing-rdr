@@ -130,7 +130,7 @@ de la cadena).
 
 **Paso 3 — `VALIDACION_XSD`.** OS/Script, servidor real `pr-rdr.igrupobbva`, usuario `xakytl1p`, creado por
 `algocmd`. Comando: `RDR_Validacion_XSD.sh pr BASKET` (script modificado en Fast Track 17/02/2026). Valida
-`baskets.xml` contra el esquema XSD; retorna 0 si es correcto, 1 si es incorrecto. Prerrequisito:
+`baskets.xml` contra el esquema XSD; retorna 0 si es correcto y, **según el código de la plantilla (cierre 3, §6.2), también 0 cuando el XML está bien formado pero no cumple el XSD** (los errores solo se escriben en el log); retorna 1 solo ante fallos estructurales o de entorno (corrección de la afirmación original «1 si es incorrecto»). Prerrequisito:
 `RDR_BASKETS_EXTRACCION_new_GS_EXTRACCION_BASKETS_OK`. Programación avanzada L-V, sin hora de inicio propia,
 retención 3 días, consume `MAX-LPRDR501` (1/100). Criticidad **C** (aviso inmediato) — la más alta de la
 cadena, coherente con ser un punto de control de calidad. **Regla especial explícitamente documentada como
@@ -322,7 +322,7 @@ la cadena (ver sección 9).
 |------|------|-----------|----------------------|----------------------|
 | Tramo inicial | `GS_EXTRACCION_BASKETS` | BBDD no disponible, query de `FT_T_ATE1` rota o cesta que falla | El jar registra el error en su log y **sale con 0** (ver 1.2 paso 2): el job queda en OK con un `baskets.xml` vacío (solo etiquetas), incompleto o sin etiquetas | Sin KO: `VALIDACION_XSD` y las 11 ramas arrancan y distribuyen el fichero defectuoso; solo se detecta mirando el log del jar o el contenido del fichero |
 | Tramo inicial | `GS_EXTRACCION_BASKETS` | Fallo del propio `GSProcess.sh` (p. ej. falta `ExtraccionGenericaBASKETS.properties` o el jar no arranca) | `GSProcess.sh` termina con código ≠0 (ver `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §8) | KO real; `VALIDACION_XSD` y las 11 ramas no arrancan ese día |
-| Tramo inicial | `VALIDACION_XSD` | Validación XSD falla (código 1) | Force OK genérico → Marcar como OK | La malla **continúa** hacia las 11 ramas pese al fallo real de validación (requisito de diseño, no defecto) |
+| Tramo inicial | `VALIDACION_XSD` | Fallo estructural del fichero (código 1: ausente, vacío, sin `<Securities>`…; un XML no conforme al XSD pero bien formado acaba con código 0 y solo deja errores en el log, cierre 3) | Force OK genérico → Marcar como OK | La malla **continúa** hacia las 11 ramas pese al fallo real de validación (requisito de diseño, no defecto) |
 | Distribución directa | Cualquiera de las 10 ramas | Fallo real de envío (destino no disponible) | Sin On-Do documentado | KO real de esa rama únicamente; las demás ramas no se ven afectadas; `MEKYTL0856` no se ejecuta hasta resolver el fallo (si la rama forma parte del AND) |
 | Distribución directa | `MEKYTL1116` | Fichero origen no encontrado | Sin On-Do; requisito explícito de error visible | KO real explícito, sin tolerancia — comportamiento deliberadamente distinto al resto |
 | Distribución directa | `MEKYTL1103` | Fallo real de envío a la pasarela IHSM | Sin On-Do documentado | KO real; la cadena externa IHSM no recibe el fichero — no bloquea `MEKYTL0856` (no forma parte del AND) |
@@ -396,11 +396,21 @@ discrepancias con la propia evidencia interna del documento y reglas ya establec
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-CES-01 | ¿`Baskets.sql` (fichero recuperado, paginado) es la query de lista `ExtraccionBASKETS.sql` de `FT_T_ATE1`, o el jar usa otro nombre de `ACTION_NME`? | Determina qué query define el universo y si la ficha describe correctamente "batch + contingencia" |
-| P-CES-02 | ¿Valores literales de `ROOT_TAG` de `BASKETS` en `FT_T_PAR1` (etiqueta de apertura/cierre) y nombre exacto de `URL_OUTPUT_FILE` (se asume `baskets.xml`)? | Sin ellos no se puede validar la forma exacta del XML ni la ruta final |
-| P-CES-03 | ¿Valores de `ArgJava1..7` de `ExtraccionGenericaBASKETS.properties` (hilos, log, credenciales)? | Rendimiento y ubicación del log del jar, que es la única señal fiable de fallo |
-| P-CES-04 | ¿Contenido de `TransforBaskets.properties` y columnas/separador de `baskets_TRS.csv`? | Contrato con DUCO; hoy no se puede verificar el contenido del envío |
+| P-CES-02 | **Resuelta en parte (cierre 3):** el nombre `baskets.xml` y las etiquetas `<Securities>`/`</Securities>` se deducen de los consumidores de la plantilla (`RDR_Validacion_XSD.sh`, `Baskets_Schema.xsd`, `ValidationBaskets.properties`); la fila de `FT_T_PAR1`/`FT_T_ATE1` no se ha visto (§6.2). ¿Valores literales de `ROOT_TAG` de `BASKETS` en `FT_T_PAR1` (etiqueta de apertura/cierre) y nombre exacto de `URL_OUTPUT_FILE` (se asume `baskets.xml`)? | Sin ellos no se puede validar la forma exacta del XML ni la ruta final |
+| P-CES-03 | **Resuelta en parte (cierre 3):** la plantilla trae los 7 argumentos (nivel 2, 20 hilos, directorio `issues`, temporal `Baskets.xml.tmp`, tipo `BASKETS`, `cfg/entorno`) y el log4j (`logs/ExtraccionGenericaBASKETS.log`); falta comprobar el fichero instalado en el servidor (§6.2). ¿Valores de `ArgJava1..7` de `ExtraccionGenericaBASKETS.properties` (hilos, log, credenciales)? | Rendimiento y ubicación del log del jar, que es la única señal fiable de fallo |
+| P-CES-04 | **Resuelta (cierre 3):** `TransforBaskets.properties` de la plantilla (`Transformar_XML.jar`, `ppal.Transformar`, salida `baskets_TRS.csv`) y la hoja `transformacionCestasXslt.xsl` dan el mapeo completo: 13 columnas separadas por barra vertical (§6.2). El comportamiento del jar ante fallos pasa a H-CES-12. ¿Contenido de `TransforBaskets.properties` y columnas/separador de `baskets_TRS.csv`? | Contrato con DUCO; hoy no se puede verificar el contenido del envío |
 | P-CES-05 | ¿Contenido de los `.idx` de `MEGENV0001.sh` (protocolo XCOM/CD/SFTP, rutas) de los 10 jobs de envío y de `RAMERC0068.sh` para `MEKYTL1126/1133/0856`? | Solo se conoce destino y nombre por la ficha del job; no el protocolo ni el código de salida exacto |
-| P-CES-06 | ¿Código de `RDR_Validacion_XSD.sh` (ruta del XSD, dónde deja el resultado)? | Para saber cómo ver si la validación falló, ya que el Force OK oculta el fallo |
+| P-CES-06 | **Resuelta (cierre 3):** `RDR_Validacion_XSD.sh` analizado y ejecutado con la plantilla; XSD `Baskets_Schema.xsd`; resultado en `RDR_Validacion_XSD_AAAAMMDD.log`; sale con 0 aunque falle el XSD (§6.2). ¿Código de `RDR_Validacion_XSD.sh` (ruta del XSD, dónde deja el resultado)? | Para saber cómo ver si la validación falló, ya que el Force OK oculta el fallo |
+
+**Cierre 3: estado de los huecos con identificador `H-CES` (02/10/2026).**
+
+| Id | Estado | Qué lo ha resuelto o qué falta |
+|----|--------|-------------------------------|
+| H-CES-04 | Resuelta | Mapeo campo a campo en `transformacionCestasXslt.xsl` (13 columnas, separador barra vertical); lo que falta del jar pasa a H-CES-12 |
+| H-CES-05 | Resuelta | `Baskets_Schema.xsd` de la plantilla analizado (§6.2) |
+| H-CES-08 | Resuelta en parte | La plantilla no lleva claves `Stop*` en `ExtraccionGenericaBASKETS.properties` ni en `TransforBaskets.properties`; falta comprobar los ficheros instalados |
+| H-CES-12 (nuevo) | Abierta | Código de `Transformar_XML.jar` (`ppal.Transformar`): qué hace con una hoja que falla, con `baskets.xml` vacío o mal formado, qué procesador XSLT usa y con qué codificación escribe `baskets_TRS.csv`. Qué lo cierra: el jar |
+| H-CES-01, H-CES-02, H-CES-03, H-CES-06, H-CES-07, H-CES-09 | Sin cambios | La plantilla no contiene queries, jar de extracción, módulos, scripts de pasarela ni `.idx` |
 
 ## 5. Especificación funcional
 
@@ -437,9 +447,7 @@ contexto `MUREXID` — cualquier cesta sin ese identificador queda fuera de la e
 fragmento `<Security …>` por cesta (orden no determinista, sin salto de línea tras la etiqueta de apertura) +
 etiqueta de cierre.
 
-**Transformación DUCO:** `baskets_TRS.csv` es un fichero plano derivado de `baskets.xml` — su estructura de
-columnas exacta no está detallada en el documento fuente (transformación interna de `GSProcess.sh
-TransforBaskets`, caja negra a nivel de mapeo campo a campo).
+**Transformación DUCO:** `baskets_TRS.csv` es un fichero de texto con separador `|` (aunque la extensión sea `.csv`) y 13 columnas, derivado de `baskets.xml` por la hoja `transformacionCestasXslt.xsl` que aplica `Transformar_XML.jar` (`GSProcess.sh TransforBaskets`): `ID Cesta`, `Full Name`, `Index Associated`, `Security Display Label`, `Security Label`, `Security Code`, `Volumen total de la cesta`, `ID Emision`, `ISIN`, `MurexID`, `RIC`, `Ticker` y `Volumen Componente`, con una fila por componente (y por ticker si hay más de uno) y una sola fila para las cestas sin componentes. La tabla de origen de cada columna, las reglas y las pruebas están en §6.2.
 
 ## 6. Especificación técnica
 
@@ -475,18 +483,59 @@ TransforBaskets`, caja negra a nivel de mapeo campo a campo).
   no `@@ENV@@`, pregunta abierta común P-GSP-01 en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md`). El resto de
   argumentos (nivel de log, fichero log4j, **número de hilos**, directorio de ficheros, ubicación de
   credenciales, librerías) no figuran en la ficha: el resto de procesos que usan el mismo jar emplean el
-  formato descrito en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.1 (P-CES-03).
+  formato descrito en `salidas_pendientes/comun_extraccion_generica/comun_extraccion_generica_spec.md` §2.1 (P-CES-03). **Cierre 3:** la plantilla de despliegue trae los 7 argumentos (20 hilos, log, `issues/Baskets.xml.tmp`; §6.2).
 - Regla general de `GSProcess.sh` (`salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §7): sin clave `Stop*=Ok`
   los pasos siguientes se ejecutan aunque falle uno anterior; las claves `Stop` de estos dos `.properties` no
   constan en las fuentes.
 - `RDR_TRANSFORM_BASKETS_DUCO` → `GSProcess.sh TransforBaskets` carga `TransforBaskets.properties`. Su
   contenido no consta en las fuentes: se sabe solo que lee `baskets.xml` y escribe el plano `baskets_TRS.csv`
-  (ruta de salida, separador y columnas desconocidos, P-CES-04).
+  (ruta de salida, separador y columnas desconocidos, P-CES-04). **Cierre 3:** la plantilla trae el `.properties` y la hoja XSLT con el mapeo completo (§6.2).
 
 **Único On-Do documentado en toda la cadena:** `VALIDACION_XSD` — "Cuándo Job completado No OK -> Marcar como
 OK" (soft-failure genérico, no acotado a un código de retorno específico). Ningún otro job de las 19 tiene
 acción On-Do — un fallo real en cualquiera de las demás ramas detiene esa rama concreta sin afectar a las
 demás (fan-out sin fan-in intermedio, solo el colector final las sincroniza).
+
+### 6.2 Cierre 3 (02/10/2026): plantilla de despliegue de la UUAA KYTL
+
+**Procedencia y cómo leerla.** Material nuevo: la plantilla de despliegue (repositorio `estaticos`, rama `develop`), que es la base de lo que se instala en cada entorno, no la copia de un entorno. `@@ENV@@` es un marcador que el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` sustituye por `de`, `ei`, `pp` o `pr` (`GSProcess.sh` solo sustituye `$ENV`); ninguno de los ficheros de esta cadena tiene variantes `.de/.ei/.pp/.pr`. Lo que aquí se atribuye a producción son valores de la plantilla, no una copia verificada del servidor. La plantilla es la base **anterior a la migración a Java 17** (en curso): `GSProcess.sh` sin clave `JDKV` y clases sin paquete. Aquí eso se nota en que no hay `JDKV` en ningún `.properties` y en que la clase `Ppal` y `ppal.Transformar` están sin cualificar por un paquete de proyecto.
+
+**`ExtraccionGenericaBASKETS.properties` (P-CES-03, H-CES-08).** Contenido literal de la plantilla (acción `Java` con `GSProcess.sh`): `MOD_EJECUCION=ExtraccionGenericaBASKETS`, `Servicio=ExtraccionGenericaBASKETS`, jar `ExtraccionGenericaOtherEntities.jar`, clase `Ppal`, `ServicioJava=ExtraccionGenericaBASKETS_log`. Argumentos del jar, en orden: 1 = `2` (nivel de log, información); 2 = `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties/log4jExtraccionGenericaBASKETS.properties`; 3 = `20` (**20 hilos**, como en la extracción de contratos y de contactos); 4 = `/fichtemcomp/@@ENV@@/descargas/kytl/issues` (directorio de ficheros); 5 = `/fichtemcomp/@@ENV@@/descargas/kytl/issues/Baskets.xml.tmp` (temporal); 6 = `BASKETS` (tipo); 7 = `/@@ENV@@/kytl/online/multipais/multicanal/cfg/entorno` (directorio donde el jar busca las credenciales; el contenido de `credentials.xml` no está en la plantilla). Librerías: `ojdbc8.jar`, `commons-io-2.5.jar`, `log4j.jar`, `xdb.jar`, `xmlparserv2-11.1.1.2.0-patched.jar`, `commons-dbcp-1.4.jar` y `commons-pool-1.5.4.jar`. **No lleva ninguna clave `Stop*`** (tampoco `TransforBaskets.properties`): con `GSProcess.sh` ningún paso detiene a los siguientes y el job solo falla si `GSProcess.sh` suma errores (spec común de `GSProcess.sh`). El log del jar es `/@@ENV@@/kytl/online/multipais/multicanal/logs/ExtraccionGenericaBASKETS.log` (`log4jExtraccionGenericaBASKETS.properties`: nivel información, `RollingFileAppender`, 100000 KB por fichero, 3 copias, patrón `[fecha hora] nivel clase:línea - mensaje`), que es donde buscar `Cantidad de BASKETS a tratar: <n>` y `Proceso finalizado` (§9 punto 7). El script de archivado de logs `Archivo_Logs_XA.sh` incluye `ExtraccionGenericaBASKETS.log` en su lista: copia el log a `logs/Backup_Archivado_Logs_XA`, **vacía el original** y comprime las copias, de modo que tras ese archivado el log del día puede aparecer vacío. Falta comprobar en el servidor el `.properties` instalado (**P-CES-03 y H-CES-08 pasan a parcial**).
+
+**Nombre del fichero y etiqueta raíz (P-CES-02).** Los dos consumidores de `baskets.xml` que hay en la plantilla coinciden: `RDR_Validacion_XSD.sh BASKET` y `ValidationBaskets.properties` leen `/fichtemcomp/<env>/descargas/kytl/issues/Baskets/baskets.xml`, y el temporal del jar es `Baskets.xml.tmp`; por tanto el nombre de `URL_OUTPUT_FILE` es `baskets.xml` (en minúsculas). `RDR_Validacion_XSD.sh` exige que el fichero contenga exactamente una línea con `<Securities>`, una con `</Securities>` y al menos una línea con `<Security>`, y `Baskets_Schema.xsd` tiene como raíz `Securities`: la fila `ROOT_TAG` de `FT_T_PAR1` tiene que producir `<Securities>` y `</Securities>`. Es una deducción de los consumidores; la fila no se ha visto (**parcial**).
+
+**`RDR_Validacion_XSD.sh` (P-CES-06, H-CES-05): analizado y probado.** Script de 463 líneas (ANS RDR, 2025). Se ha ejecutado la plantilla en un entorno de pruebas con el XSD de la plantilla.
+- Parámetros: `<entorno>` (`de|ei|pp|pr`) y `<TIPO>`. Implementados: `CPARTY`, `BASKET`, `ISSUE`, `ISSUERESTO`; `CONTACT`, `CONTRACT_BBVA` y `CONTRACT_BANCOMER` se reconocen pero acaban con «no implementado aún» y código 1. Cualquier otro valor: código 1.
+- Para `BASKET`: carpeta `/fichtemcomp/<env>/descargas/kytl/issues/Baskets/`, fichero `baskets.xml` (sin búsqueda por fecha), XSD `/<env>/kytl/online/multipais/multicanal/dat/properties/Baskets_Schema.xsd`, raíz `Securities`, registro `Security`. De `credentials.xml` solo lee el directorio de logs (`<logs>`); el log es `RDR_Validacion_XSD_AAAAMMDD.log` en ese directorio, que además se escribe por pantalla.
+- Pasos: (1) comprueba que el fichero existe y no está vacío; (2) `estructura_xml`: cuenta **líneas** que contienen `<Securities>` y `</Securities>` (exige una de cada), líneas con `<Security>` (al menos una) y que coincidan con las de `</Security>`; (3) `troceado`: con `awk` parte el fichero en trozos de 1000 registros (`basketstrozo_<n>.xml` en la misma carpeta, con raíz sintética) y guarda en `chunk_lines_BASKET.meta` la línea de inicio de cada trozo; (4) `validacion`: valida cada trozo con `xmllint --noout --schema` (libxml2: XSD 1.0) con hasta 20 procesos en paralelo, borra cada trozo al acabar y consolida los errores prefijándolos con el número de trozo; (5) escribe `RESULTADO VALIDACIÓN XSD: Errores distintos: n, Total de errores: m` seguido de cada error con su frecuencia y hasta 20 números de línea del fichero original (o `No se han encontrado errores de validación`); (6) escribe la duración y el espacio en disco, borra los temporales y sale.
+- **Código de salida (Corrección de §1.2 y §1.8).** Probado: un `baskets.xml` bien formado pero que **no cumple el XSD** (p. ej. `ID` no entero) deja los errores en el log, imprime «El proceso ha terminado correctamente» y **sale con 0**. Sale con **1** solo si: faltan o sobran parámetros o son inválidos; el fichero no existe o está vacío; falta o se repite `<Securities>`/`</Securities>`; no hay ningún `<Security>` o no cuadran las etiquetas de apertura y cierre; o salta un error no controlado (`trap ERR`); con una señal (INT, TERM, QUIT) sale con 130. Por tanto el Force OK de Control-M solo enmascara esos fallos estructurales o de entorno; **el resultado de la validación contra el XSD solo se ve en el log**, nunca en el estado del job. Hay que tener `xmllint` en el servidor.
+- Consecuencia del recuento por líneas: si `baskets.xml` llegara en una única línea (o con `<Security …>` con atributos), el recuento de registros no sería el real. La spec del jar (§1.2) dice que las cestas se escriben seguidas, «sin salto de línea tras la etiqueta de apertura»: cuántas líneas ocupa cada `<Security>` depende de la query y no se ha visto.
+
+**`Baskets_Schema.xsd` (H-CES-05).** Define `Securities` → una o más `Security` en secuencia estricta de elementos (el orden importa): `Src`, `ID` (entero), `Status`, `Group`, `Type` (todos obligatorios), `Category`, `FullName` (opcionales), `LstChngTm` (obligatorio), `IndexAssociated` (con `IndexIdentifier` repetible), uno o más `AID` (`AltIDSrc` y `AltID` obligatorios; `AltIDStatus` y `Exch` opcionales), `ExchGrp` (repetible; solo `Exch` obligatorio), `GeneralInformation` (obligatorio; 15 elementos opcionales: `BasketNature`, `InternalCode`, `Country`, `VolatilityType`, `AdjustmentCoefficientBySecurity`, `Seniority`, `IssueDate`, `NumberIssued`, `NumberOutstanding`, `fxRule`, `BasketPriceFormula`, `BasketPriceComponents`, `RiskType`, `CalculationType`, `IndexDivisor`) y `BasketComponents` (opcional) con `BasketComponent` repetible (`Src`, `ID` entero, `Status`, `AID`, `ExchGrp`, `Weight`, `ComponentType` obligatorio, y `InitialSpot`, `Shares`, `FreeFloat`, `CapFactor`, `WeightFactor`, `CloseUnadjustedLocal`, `CloseAdjustedLocal`, `ExchangeRate`, `MarketCapitalization`, `NumOfShares`). Todos los demás valores son texto. Coincide con el diccionario de §5. Un `Security` sin `GeneralInformation`, un `ID` no numérico o elementos fuera de orden dan error de validación.
+
+**`TransforBaskets.properties` y `transformacionCestasXslt.xsl` (P-CES-04, H-CES-04).** `TransforBaskets.properties` (plantilla; su primera línea es `D_EJECUCION=TransforBaskets`, una clave desconocida que se ignora porque `GSProcess.sh` fija `MOD_EJECUCION` con su primer argumento) lanza con la acción `Java`: jar `Transformar_XML.jar`, clase `ppal.Transformar`, sin librerías externas, con los argumentos `/fichtemcomp/@@ENV@@/descargas/kytl/issues/Baskets/baskets.xml` (entrada), `/@@ENV@@/kytl/online/multipais/multicanal/dat/properties/transformacionCestasXslt.xsl` (hoja), `/fichtemcomp/@@ENV@@/descargas/kytl/issues/Baskets/baskets_TRS.csv` (salida), `3` (por la convención del resto de jars de KYTL, nivel de log: error; no verificado en este jar) y `.../dat/properties/log4jTransformBaskets.properties` (log en `.../logs/TransforBaskets.log`, 100000 KB, 3 copias). Sin `Stop*`. `GSProcess.sh` lo ejecuta con `-Xmx16G -Dfile.encoding=iso-8859-1`, de modo que el CSV se escribe previsiblemente en ISO-8859-1 (el jar no está disponible para confirmarlo).
+
+La hoja es el **mapeo campo a campo** (la salida es texto, separador `|`, saltos de línea LF, aunque el fichero se llame `.csv`). Se ha ejecutado con un `baskets.xml` de prueba (procesador XSLT 1.0 en modo de compatibilidad, equivalente al que traen los JDK; la hoja declara `version="3.0"` pero solo usa funciones de 1.0). Cabecera (13 columnas y `|` final): `ID Cesta|Full Name|Index Associated|Security Display Label|Security Label|Security Code|Volumen total de la cesta|ID Emision|ISIN|MurexID|RIC|Ticker|Volumen Componente|`. Las filas de datos tienen 13 campos (12 `|`) y **no** llevan `|` final.
+
+| # | Columna | Origen en `baskets.xml` |
+|---|---------|-------------------------|
+| 1 | ID Cesta | `Security/ID` |
+| 2 | Full Name | `Security/FullName` |
+| 3 | Index Associated | `Security/IndexAssociated/IndexIdentifier` (varios, unidos por `!`) |
+| 4 | Security Display Label | `Security/AID[AltIDSrc='DISPLAY_LABEL']/AltID` (varios, unidos por `!`) |
+| 5 | Security Label | `Security/AID[AltIDSrc='MUREXID']/AltID` (varios, unidos por `!`) |
+| 6 | Security Code | `Security/GeneralInformation/InternalCode` |
+| 7 | Volumen total de la cesta | `Security/GeneralInformation/BasketPriceComponents/InitialCapitalization` |
+| 8 | ID Emision | `BasketComponent/ID` |
+| 9 | ISIN | `BasketComponent/AID[AltIDSrc='ISIN']/AltID` (varios, unidos por `!`) |
+| 10 | MurexID | `BasketComponent/AID[AltIDSrc='MUREXID']/AltID` (un solo valor) |
+| 11 | RIC | `BasketComponent/AID[AltIDSrc='RIC']/AltID` (varios, unidos por `!`) |
+| 12 | Ticker | `BasketComponent/AID[AltIDSrc='TICKER']/AltID` |
+| 13 | Volumen Componente | `BasketComponent/Weight` |
+
+Reglas: una fila por componente de cada cesta; si un componente tiene **más de un `TICKER`**, se genera una fila por ticker (el resto de columnas se repite); si la cesta no tiene componentes, una única fila con las columnas 1 a 7 y las 6 restantes vacías; las columnas 1 a 7 se repiten en todas las filas de la cesta. La salida respeta el orden de las cestas de `baskets.xml` (no determinista, §9 punto 8). Los valores no se escapan: un `|` o un salto de línea dentro de `FullName` rompería la fila. El `|` y `!` son los separadores que debe esperar DUCO. El procesador y la codificación reales dependen de `Transformar_XML.jar`, que no está disponible (**H-CES-12**).
+
+**Resumen de ficheros de la plantilla que no intervienen en esta cadena.** `ValidationBaskets.properties` (jar `RDR_GenericValidatorXSD.jar`, clase `main.Validate`, argumentos carpeta, `Baskets_Schema.xsd` y `baskets.xml`) es la configuración equivalente para `GenericValidator.sh ValidationBaskets`; el job `VALIDACION_XSD` usa `RDR_Validacion_XSD.sh`, no esta ruta. `publish/baskets.xml` y `publish/dictionaryBaskets.xml` son peticiones SOAP (`RaiseRDR_EntityFullPublishingAsynchron`, lanzadas con `publish.sh`) de publicación masiva de cestas y de su diccionario hacia las colas `RDR.SECURITIES.INITIALLOAD` y `RDR.DICTIONARY.INITIALLOAD` (consultas `RDR_AllSecuritiesPaginatedBaskets` y `RDR_AllDictionaryPaginatedBaskets`, página de 100, 200 ms entre mensajes): carga inicial, no la extracción diaria. `RDR_Transformacion_XSLT.sh` reconoce el tipo `BASKET` pero está «reconocido pero no implementado aún» (solo `CPARTY`), así que no sustituye a `TransforBaskets`. No están en la plantilla `Transformar_XML.jar`, `ExtraccionGenericaOtherEntities.jar`, `MEGENV0001.sh`, `RAMERC0068.sh`, los `.idx`, los módulos `.mod`, `LPFTPEXCA0000/0002.sh` ni las queries `ExtraccionBASKETS.sql`/`ExtraccionContingenciaBASKETS.sql` (el directorio `sql` solo trae consultas de monitorización y limpieza): P-CES-01, P-CES-05, H-CES-02, H-CES-03, H-CES-06, H-CES-07 y H-CES-09 siguen igual.
 
 ## 7. Especificación de testing
 
@@ -526,7 +575,7 @@ Referencia de casos por tipo:
    en Extracción de Emisiones y Mercados (allí con la palabra "BASKETS" apareciendo en la cadena de Mercados;
    aquí es la inversa, "MARKETS" apareciendo en la cadena de Cestas). No bloqueante, pero a vigilar en
    monitorización cruzada.
-2. **Soft-failure genérico obligatorio en `VALIDACION_XSD`.** A diferencia del patrón acotado a un código de
+2. **Soft-failure genérico obligatorio en `VALIDACION_XSD`.** (Cierre 3: `RDR_Validacion_XSD.sh` ya sale con 0 cuando el XML no cumple el XSD; el Force OK solo cubre los fallos estructurales y de entorno, y el resultado de la validación se ve únicamente en `RDR_Validacion_XSD_AAAAMMDD.log`, §6.2.) A diferencia del patrón acotado a un código de
    retorno específico visto en otras cadenas RDR de este intake, aquí el Force OK es explícitamente genérico y
    documentado como obligatorio — no es un defecto a corregir, es un requisito de diseño declarado (mantener
    la distribución activa aunque la validación falle, "hasta nueva instrucción"). Se documenta como

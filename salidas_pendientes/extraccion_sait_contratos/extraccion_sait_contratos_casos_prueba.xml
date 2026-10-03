@@ -148,4 +148,28 @@
     <posibilidadFallo>Requiere control total del entorno de test para forzar el fallo sin afectar la generación real del fichero SAIT.</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-008" tipo="regresion">
+    <nombre>Filtro de contratos modificados en Sait_Diario.xsl</nombre>
+    <objetivo>Comprobar con un XML de entrada sintético qué contratos pasan la hoja Sait_Diario.xsl y qué campos se eliminan (spec §6.1).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de test donde se pueda ejecutar la transformación de forma aislada (nunca en producción).</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="contrato A" valor="actual_date 2026-10-02 y lagr_last_chg_tms 2026-10-02 (resto de marcas con fechas anteriores)"/>
+      <dato campo="contrato B" valor="actual_date 2026-10-02 y todas las marcas anteriores"/>
+      <dato campo="contrato C" valor="sin actual_date ni marcas"/>
+      <dato campo="contrato D" valor="actual_date 2026-10-02 y lagr_last_chg_tms con hora (2026-10-02 08:00:00)"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Preparar un KYTL_RDR_EXTRACTION_contratos_Diario.xml con la raíz AgreementResp y los cuatro contratos.</paso>
+      <paso numero="2">Ejecutar Batch_Sait (o xsltproc con Sait_Diario.xsl) y revisar el fichero de salida.</paso>
+      <paso numero="3">Comprobar qué contratos aparecen y que no hay elementos actual_date ni *_last_chg_tms.</paso>
+      <paso numero="4">Repetir con un XML sin ningún contrato.</paso>
+    </pasos>
+    <resultadoEsperado>Salida con la raíz AgreementResp MsgType="UNTTG2" (ReqID SAIT, ReqRslt 1). Contiene el contrato A y el C (el C pasa porque compara cadenas vacías); no contiene el B ni el D (la hora impide la coincidencia). Los contratos de salida solo llevan los 14 bloques de negocio. Con entrada vacía, solo la envoltura.</resultadoEsperado>
+    <tipoValidacion>Inspección del fichero de salida.</tipoValidacion>
+    <criterioAceptacion>Coincide con el resultado esperado; si difiere, corregir la spec.</criterioAceptacion>
+    <posibilidadFallo>Pérdida de contratos modificados si el formato de fecha de la query incluye hora, o inclusión de contratos sin marcas.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

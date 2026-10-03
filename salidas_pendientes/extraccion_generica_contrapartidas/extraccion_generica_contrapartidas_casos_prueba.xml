@@ -15,7 +15,7 @@
       <paso numero="1">Confirmar la generación de ambos ficheros (01:00-01:05 diaria; 03:00-03:05 fin de semana) en /fichtemcomp/pr/descargas/kytl/extracciongenerica/.</paso>
       <paso numero="2">Para cada una de las 3 cadenas, esperar su disparador propio (MEKYTL0334 en _new; MONITOR_BKYTL001_505-606 en las 2 semanales) en su ventana correspondiente.</paso>
       <paso numero="3">Verificar que DAILY_THIRDPARTIES_FW y DAILY_EXTRACCION_CONTINGENCIA_FW detectan ambos ficheros.</paso>
-      <paso numero="4">Verificar que DAILY_UNION_FICHEROS genera el XML unificado.</paso>
+      <paso numero="4">Verificar que DAILY_UNION_FICHEROS (unionFicheros.sh) deja en ExtraccionContingencia.xml el XML unificado con una única raíz GLOBALS (los Third Parties dentro de GLOBALS/OPERATIVES/OPERATIVE) y que ThirdParties.xml ha desaparecido.</paso>
     </pasos>
     <resultadoEsperado>Las 3 cadenas detectan ambos ficheros dentro de su ventana y generan el XML unificado correctamente, con el mismo comportamiento en las 3.</resultadoEsperado>
     <tipoValidacion>Estado OK de los filewatchers y de DAILY_UNION_FICHEROS en las 3 cadenas + verificación de contenido del XML unificado.</tipoValidacion>
@@ -34,12 +34,12 @@
     </datosEmpleados>
     <pasos>
       <paso numero="1">Ejecutar RDR_Transformacion_XSLT_CPARTY y RDR_Validacion_XSD_CPARTY en cada una de las 3 cadenas.</paso>
-      <paso numero="2">En _new, verificar que VALIDACION_EXTRACCION ejecuta realmente y genera los 2 ficheros finales.</paso>
-      <paso numero="3">En _FINSEM_S_new y _FINSEM_D_new, verificar que VALIDACION_EXTRACCION es DUMMY y que los 2 ficheros finales ya existen antes de su ejecución (generados por el pipeline XSD/XSLT previo).</paso>
+      <paso numero="2">En cada cadena, tras RDR_Transformacion_XSLT_CPARTY, verificar que KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml es el XML unificado original (renombrado con mv, con todos los conjuntos de rating) y que KYTL_RDR_EXTRACTION_CPARTYS_AAAAMMDD.xml se ha vuelto a crear aplicando RDR_XSL_Generico_Rtng.xsl: solo conserva los RATING cuyo Rating_Set es BBVA_RTN, MEX_RTN, EXT_RTN, EXT_RTNL o INTIFRS9.</paso>
+      <paso numero="3">Verificar que VALIDACION_EXTRACCION no crea ni modifica esos ficheros (en _new tiene marcada la casilla Dummy; en _FINSEM_S_new y _FINSEM_D_new es Dummy) y que RDR_Validacion_XSD_CPARTY valida el fichero con todos los ratings contra RDR_XSD_Generico.xsd y deja el resultado en el log RDR_Validacion_XSD_AAAAMMDD.log sin cambiar su código de salida.</paso>
     </pasos>
-    <resultadoEsperado>Las 3 cadenas generan KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml (sin ratings) y KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml (con ratings); VALIDACION_EXTRACCION se comporta como job real solo en _new.</resultadoEsperado>
-    <tipoValidacion>Verificación de presencia y contenido de ambos ficheros finales + confirmación del tipo de job (real/DUMMY) de VALIDACION_EXTRACCION en cada cadena.</tipoValidacion>
-    <criterioAceptacion>Ambos ficheros generados correctamente en las 3 cadenas, comportamiento de VALIDACION_EXTRACCION coherente con lo documentado por cadena.</criterioAceptacion>
+    <resultadoEsperado>Las 3 cadenas generan KYTL_RDR_EXTRACTION_CPARTYS_YYYYMMDD.xml (con los ratings filtrados a cinco conjuntos) y KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml (original completo); ambos los genera RDR_Transformacion_XSLT.sh, no VALIDACION_EXTRACCION.</resultadoEsperado>
+    <tipoValidacion>Verificación de presencia y contenido de ambos ficheros finales (conjuntos de rating presentes en cada uno) + confirmación del tipo de job (Dummy o no) de VALIDACION_EXTRACCION en cada cadena.</tipoValidacion>
+    <criterioAceptacion>Ambos ficheros generados correctamente en las 3 cadenas; el fichero filtrado no contiene ningún Rating_Set fuera de los cinco indicados; VALIDACION_EXTRACCION no altera ningún fichero.</criterioAceptacion>
     <posibilidadFallo>Ninguna esperada en condiciones normales.</posibilidadFallo>
   </casoDePrueba>
 
@@ -283,6 +283,90 @@
     <tipoValidacion>Estado de los jobs en Control-M y ausencia de ficheros nuevos en las carpetas de destino.</tipoValidacion>
     <criterioAceptacion>La cadena se detiene en el filewatcher sin enviar datos parciales.</criterioAceptacion>
     <posibilidadFallo>Si existiese una regla Acciones Si "código de retorno = 7 → marcar OK" no registrada en las capturas, la cadena terminaría en verde sin procesar nada.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-015" tipo="error_funcional">
+    <nombre>RDR_Transformacion_XSLT.sh: error tras el renombrado y reejecución con un fichero de un día anterior</nombre>
+    <objetivo>Verificar que, si RDR_Transformacion_XSLT.sh falla después de renombrar el XML unificado a KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml, la reejecución no reprocesa en silencio un KYTL_RDR_EXTRACTION_CPARTYS_*.xml de un día anterior.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con el XML unificado del día y un KYTL_RDR_EXTRACTION_CPARTYS_AAAAMMDD.xml del día anterior todavía en extracciongenerica/.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="XML unificado" valor="con dos líneas &lt;GLOBALS&gt; (estructura inválida) o con un trozo que provoque fallo de xsltproc"/>
+      <dato campo="comando" valor="RDR_Transformacion_XSLT.sh pr CPARTY"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el script con el XML defectuoso y comprobar que termina con código 1 y que el original ya se ha renombrado a KYTL_RDR_RTNG_EXTRACTION_AAAAMMDD.xml.</paso>
+      <paso numero="2">Comprobar en el log RDR_Transformacion_XSLT_AAAAMMDD.log el mensaje de error y que los trozos temporales se han borrado.</paso>
+      <paso numero="3">Relanzar el script sin corregir nada y anotar qué fichero toma como entrada («Encontrado archivo más reciente»).</paso>
+    </pasos>
+    <resultadoEsperado>La primera ejecución termina con 1. Documentado: la reejecución toma el KYTL_RDR_EXTRACTION_CPARTYS_*.xml más reciente que quede (el del día anterior) y lo procesa con su propia fecha, sin avisar.</resultadoEsperado>
+    <tipoValidacion>Código de salida, log del script y nombres de fichero en extracciongenerica/.</tipoValidacion>
+    <criterioAceptacion>Se confirma o se descarta el riesgo RISK-CTPY-003; si se corrige el script, la reejecución debe fallar o restaurar el nombre del original.</criterioAceptacion>
+    <posibilidadFallo>Si no queda ningún fichero antiguo, la reejecución termina con 1 (no se encuentra ningún archivo); el riesgo solo aparece si hay ficheros de días anteriores sin limpiar.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-016" tipo="regresion">
+    <nombre>unionFicheros.sh: estructura final, ThirdParties.xml ausente y reejecución</nombre>
+    <objetivo>Verificar la unión de ExtraccionContingencia.xml y ThirdParties.xml: una sola raíz GLOBALS, borrado del segundo fichero, tolerancia silenciosa a la ausencia de Third Parties e idempotencia.</objetivo>
+    <precondiciones>
+      <precondicion>Copias de prueba de ambos ficheros (el segundo con raíz OPERATIVES) en un directorio temporal.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="PARM1" valor="ExtraccionContingencia.xml con declaración XML, &lt;GLOBALS&gt;, registros GLOBAL y &lt;/GLOBALS&gt;"/>
+      <dato campo="PARM2" valor="ThirdParties.xml con declaración XML, &lt;OPERATIVES&gt;, registros OPERATIVE y &lt;/OPERATIVES&gt;"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar unionFicheros.sh PARM1 PARM2 y comprobar que PARM1 contiene los GLOBAL seguidos del bloque OPERATIVES y termina con una única línea &lt;/GLOBALS&gt;, y que PARM2 ya no existe.</paso>
+      <paso numero="2">Ejecutar el resultado por RDR_Transformacion_XSLT.sh y comprobar que supera la comprobación de estructura (una línea &lt;GLOBALS&gt; y una &lt;/GLOBALS&gt;).</paso>
+      <paso numero="3">Repetir con ThirdParties.xml ausente: el script debe terminar con estado 0 y dejar el XML cerrado sin Third Parties.</paso>
+      <paso numero="4">Relanzar el script sobre el resultado del paso 1: debe quedar igual (una única línea &lt;/GLOBALS&gt;) y sin duplicar los Third Parties.</paso>
+    </pasos>
+    <resultadoEsperado>Estructura final GLOBALS con GLOBAL y OPERATIVES como hijos; PARM2 borrado; la ausencia de Third Parties no produce error; la reejecución es idempotente.</resultadoEsperado>
+    <tipoValidacion>Inspección de los ficheros, xmllint --noout y código de salida.</tipoValidacion>
+    <criterioAceptacion>Todos los pasos se cumplen; la ausencia silenciosa de Third Parties queda registrada como comportamiento conocido.</criterioAceptacion>
+    <posibilidadFallo>Si la declaración XML y la etiqueta de apertura de ThirdParties.xml están en la misma línea, el borrado de la declaración elimina también la apertura y el XML resultante queda mal formado.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-017" tipo="error_funcional">
+    <nombre>TransformacionesExtraccionCTPDA.sh: código de salida siempre 0 y entrada de días anteriores</nombre>
+    <objetivo>Verificar que un fallo de la transformación (hoja rota, carpeta de salida inexistente, XSD de MGCyG no cumplido) no cambia el estado del job y que el script usa sin avisar un XML de entrada de hasta 3 días de antigüedad.</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas con el XML de entrada del día anterior y sin el del día.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="módulo" valor="GSProcess.sh TransformacionesExtraccionCTPDA_SIRE (hoja Sire.xsl, salida sire_files/ctpda.csv)"/>
+      <dato campo="variante de fallo" valor="1) hoja con error de sintaxis; 2) carpeta sire_files inexistente; 3) MGCyG con XML que no cumple RDR_XSD_MGCyG.xsd"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el módulo con el XML del día anterior y comprobar en el log (nombre del prefijo + AAAAMMDD.log) que usa ese fichero y qué fecha lleva la salida.</paso>
+      <paso numero="2">Repetir con cada variante de fallo y registrar el código de salida del módulo y del job.</paso>
+      <paso numero="3">Repetir sin ningún XML de los últimos 3 días y comprobar si la salida del día anterior queda intacta.</paso>
+    </pasos>
+    <resultadoEsperado>En todos los casos el script termina con código 0 y GSProcess.sh con 0; el fallo solo se ve en el log. Sin XML de entrada, no se genera nada y la salida anterior queda en su sitio.</resultadoEsperado>
+    <tipoValidacion>Código de salida del job en Control-M, contenido del log y marcas de tiempo de los ficheros de salida.</tipoValidacion>
+    <criterioAceptacion>Se documenta el comportamiento observado; si se corrige el script, los fallos deben producir código distinto de 0.</criterioAceptacion>
+    <posibilidadFallo>La regla de Control-M que marca OK ante la sentencia con «Código» podría enmascarar además un fallo futuro del script corregido.</posibilidadFallo>
+  </casoDePrueba>
+
+  <casoDePrueba id="TC-018" tipo="borde">
+    <nombre>ELIMINATEDUPLICATES_SIRE: el primer registro de ctpda.csv se trata como cabecera</nombre>
+    <objetivo>Verificar el comportamiento de EliminateDuplicates_mentor.sh sobre un fichero sin cabecera: el primer registro no se compara con el resto.</objetivo>
+    <precondiciones>
+      <precondicion>Fichero ctpda.csv de prueba sin cabecera, con la primera línea repetida más abajo y otras líneas duplicadas.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="comando" valor="EliminateDuplicates_mentor.sh /fichtemcomp/pr/descargas/kytl/sire_files ctpda.csv"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Ejecutar el script sobre el fichero de prueba.</paso>
+      <paso numero="2">Comprobar que el fichero queda ordenado alfabéticamente salvo la primera línea, que se mantiene en su sitio.</paso>
+      <paso numero="3">Contar las apariciones de la línea que era la primera.</paso>
+    </pasos>
+    <resultadoEsperado>Las líneas duplicadas del resto se eliminan, pero la copia de la primera línea sigue presente (aparece dos veces).</resultadoEsperado>
+    <tipoValidacion>Comparación del fichero antes y después con sort y uniq -d.</tipoValidacion>
+    <criterioAceptacion>Se confirma el riesgo RISK-CTPY-004; con una cabecera real el primer registro quedaría deduplicado.</criterioAceptacion>
+    <posibilidadFallo>Si SIRE añade una cabecera al fichero en el futuro, el comportamiento cambia y el caso debe revisarse.</posibilidadFallo>
   </casoDePrueba>
 
 </casosDePrueba>

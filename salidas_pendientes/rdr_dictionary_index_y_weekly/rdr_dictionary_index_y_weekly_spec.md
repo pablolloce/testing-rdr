@@ -13,6 +13,10 @@
 >     ha leído entero (ficha del filewatcher semanal `FIC_DAT_DICT_WEEKLY_SEND_FW`, definición de la
 >     cadena, formulario de transmisión `MEKYTL0876` con sus campos rellenados y esquema de la cadena);
 >     está incorporado en §5.6 y §6.
+>   - 3ª pasada de cierre (plantilla de despliegue, repositorio `estaticos`, rama develop): `dictionaryIndex.properties`
+>     (§5.3), `ficheroDiccionarioRDR.sh` (§5.7), `RDR_DictionaryRTCE.properties` y `publish/dictionaryindex.xml` (§5.8). `@@ENV@@`
+>     es un marcador que el plan de despliegue sustituye por `de`, `ei`, `pp` o `pr`; los valores son "de producción según la plantilla",
+>     no una copia verificada de producción; la plantilla es la base anterior a la migración a Java 17.
 > - Cuestiones abiertas: protocolo de fallo de `RDRKYTL001` (sin confirmar por ANS RDR) y las preguntas P-DICT-01 a P-DICT-07 — ver §4 y §10
 
 ---
@@ -89,12 +93,14 @@ nunca lo detecta y la cadena para sin error.
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
 | P-DICT-01 | Línea de comando completa de los filewatchers `RDR_DICTIONARY_INDEX_FW` (ventana 14:00-17:00) y `FIC_DAT_DICT_WEEKLY_SEND_FW` (06:00-06:30): `ctmfw '<fichero>' CREATE <min_size> <sleep_int> <mon_int> <min_detect> <wait_time en minutos>` y si tienen alguna regla «código 7 (tiempo agotado) → OK». | **Parcial (solo la intención del semanal).** La ficha del filewatcher semanal dice que, si no encuentra el fichero, "no debe dar fallo en ninguna de las ejecuciones" y que la cadena "debería pararse y no continuar": es decir, el diseño exige que el job termine en verde sin disparar `MEKYTL0876`, lo que equivale a una regla «7 → OK» sin evento de salida. Es la intención documentada, no el export. **Sigue pendiente:** el comando literal de ambos y la regla real del diario (si no hay regla 7→OK, el diario termina NOTOK al agotar la espera, R-08). |
-| P-DICT-02 | Contenido literal de `dictionaryIndex.properties` (`/pr/kytl/online/multipais/multicanal/dat/properties/`): ¿una sola acción `Script` `Cortar` o más? ¿lleva `StopScript=Ok`? ¿Usa `@@ENV@@` o `$ENV` (pregunta común P-GSP-01)? | Define qué pasa si `Cortar` falla y si el path `/fichtemcomp/pr/...` se resuelve bien. |
+| P-DICT-02 | **Resuelta en parte (3ª pasada):** literal en §5.3: una sola acción `Cortar`, sin `Stop`, con `@@ENV@@`; falta verificar el instalado en `pr`. Contenido literal de `dictionaryIndex.properties` (`/pr/kytl/online/multipais/multicanal/dat/properties/`): ¿una sola acción `Script` `Cortar` o más? ¿lleva `StopScript=Ok`? ¿Usa `@@ENV@@` o `$ENV` (pregunta común P-GSP-01)? | Define qué pasa si `Cortar` falla y si el path `/fichtemcomp/pr/...` se resuelve bien. |
 | P-DICT-03 | Formato exacto de `DictionaryIndex_TOTAL.csv`: ¿lleva cabecera?, ¿separador `;`?, ¿cuántas columnas? La query seleccionada devuelve solo 4 columnas, en cuyo caso `Cortar 1-4` sería una copia idéntica. | Sin ello no se puede afirmar qué recorta `Cortar` ni qué recibe MADRE. |
 | P-DICT-04 | Configuración de `MEKYTL0860` (protocolo, usuario, qué hace si no hay fichero) y de `MEKYTL0861` (clave y línea del `INFORMACION_HISTORIFICACIONES.IDX` si usa `RAMERC0068.sh`; nombre exacto en `old/`, p. ej. `DictionaryIndex_20260917.csv` y `DictionaryIndex_TOTAL_20260917.csv`). | El nombre final en `old/` y el comportamiento sin fichero se infieren hoy de la ficha de forma resumida. |
 | P-DICT-05 | Margen real del Planificador: el motor corre cada 30-60 min y la extracción es a las 15:00:00; ¿qué hora real de creación del fichero se ha observado? (pregunta común P-PLA-03). | Determina si el fichero llega con holgura antes de las 17:00. |
-| P-DICT-06 | Cadena semanal: ¿qué extracción, con qué query y columnas, genera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`? ¿Quién lo recibe en `lpops302:/gl/in/staging/rdr/kytl`? ¿Se reactivará o se dará de baja? | **Parcial.** *Receptor:* la definición de la cadena dice que envía "ficheros semanales de diccionario de RDR a Datio"; el documento funcional de la extracción de contrapartidas lista `MEKYTL0876` como "Soporte DataHub CIB" dentro de los destinos del diccionario de contrapartidas (diario y semanal), con lo que el receptor es Datio / DataHub CIB. *Productor:* ninguna extracción activa del inventario del Planificador (spec común del Planificador, §5) escribe en `FicheroDiccionario/` (una fila inactiva no figuraría en ese inventario); el único productor conocido de ficheros `FicheroDiccionarioRDR_*` en ese directorio es la cadena de contrapartidas (`FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv`), cuyos nombres **no coinciden** con la máscara del filewatcher semanal (`FicheroDiccionarioRDR_semanal_`). **Sigue pendiente:** quién debía producir el fichero `_semanal_` y su contenido, y si la cadena se reactiva o se da de baja. |
+| P-DICT-06 | Cadena semanal: ¿qué extracción, con qué query y columnas, genera `FicheroDiccionarioRDR_semanal_yyyyMMdd.csv`? ¿Quién lo recibe en `lpops302:/gl/in/staging/rdr/kytl`? ¿Se reactivará o se dará de baja? | **Parcial.** *Receptor:* la definición de la cadena dice que envía "ficheros semanales de diccionario de RDR a Datio"; el documento funcional de la extracción de contrapartidas lista `MEKYTL0876` como "Soporte DataHub CIB" dentro de los destinos del diccionario de contrapartidas (diario y semanal), con lo que el receptor es Datio / DataHub CIB. *Productor:* ninguna extracción activa del inventario del Planificador (spec común del Planificador, §5) escribe en `FicheroDiccionario/` (una fila inactiva no figuraría en ese inventario); el único productor conocido de ficheros `FicheroDiccionarioRDR_*` en ese directorio es la cadena de contrapartidas (`FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv`), cuyos nombres **no coinciden** con la máscara del filewatcher semanal (`FicheroDiccionarioRDR_semanal_`). **Sigue pendiente:** quién debía producir el fichero `_semanal_` y su contenido, y si la cadena se reactiva o se da de baja. **Avance 3ª pasada:** el script real que lanza esa generación (`ficheroDiccionarioRDR.sh`, §5.7) nombra los ficheros `FicheroDiccionarioRDR_dia_<yyyymmdd>.csv` (modo `diario`) y `FicheroDiccionarioRDR_sem_<yyyymmdd>.csv` (modo `semanal`): confirma por código que ningún productor conocido escribe `_semanal_`. |
 | P-DICT-07 | Protocolo de actuación ante fallo de `RDRKYTL001` (`Cortar`/`GSProcess.sh dictionaryIndex`) — sin confirmar por ANS RDR (BZG03906). | Sin él no se sabe cómo recuperar `DictionaryIndex.csv` (ver §9). |
+| H-DICT-01 | **Resuelta en parte (3ª pasada).** El nombre `FicheroDiccionarioRDR_dia_yyyyMMdd.csv` del campo de destino de `MEKYTL0876` coincide con el que `ficheroDiccionarioRDR.sh diario` da al fichero diario (§5.7); el formulario parece copiado de la transmisión diaria. Falta la configuración vigente de `MEKYTL0876`. | Nombre en destino |
+| H-DICT-04 | **Resuelta en parte (3ª pasada).** La máscara `_semanal_` del filewatcher no coincide con `_sem_` que genera `ficheroDiccionarioRDR.sh semanal` (§5.7); sigue sin saberse si además hay una extracción inactiva. | Cadena semanal dormida |
 
 ---
 
@@ -165,8 +171,24 @@ ejecuta `/pr/kytl/online/multipais/multicanal/scrt/GSProcess.sh dictionaryIndex`
 fichero de salida: si `DictionaryIndex.csv` ya existía (por ejemplo, porque la historificación
 del día anterior falló), el fichero acaba con las filas de los dos días. Su código de salida es el
 de `cut`. `GSProcess.sh` sale con 1 si alguna acción falló y con 0 si todas terminaron con 0;
-si falta `credentials.xml` sale con 0 sin hacer nada (defecto conocido del componente común). El
-contenido literal del `.properties` no se ha recibido (P-DICT-02).
+si falta `credentials.xml` sale con 0 sin hacer nada (defecto conocido del componente común). Contenido literal de
+`dictionaryIndex.properties` (3ª pasada; plantilla de despliegue, CRLF; `@@ENV@@` = entorno):
+
+```
+MOD_EJECUCION=dictionaryIndex_01
+Servicio=dictionaryIndex_02
+Accion=VariablesGlobales
+NomScript=Cortar
+PreArgScri1=/fichtemcomp/@@ENV@@/descargas/kytl/index    ArgScri1=DictionaryIndex_TOTAL.csv
+PreArgScri2=/fichtemcomp/@@ENV@@/descargas/kytl/index    ArgScri2=DictionaryIndex.csv
+ArgScri3=1-4
+Accion=Script
+```
+
+(cada clave en su línea). Es **una sola acción `Script`** (`Cortar`), **sin `Stop*`**, con `@@ENV@@` (no `$ENV`: lo sustituye el plan de despliegue). Los valores `dictionaryIndex_01`/`dictionaryIndex_02` de `MOD_EJECUCION` y
+`Servicio` no coinciden con el nombre del fichero y no se usan en los logs (que llevan el argumento de `GSProcess.sh`, `dictionaryIndex`); el comando resultante es
+`Generico.sh Cortar /fichtemcomp/<env>/descargas/kytl/index/DictionaryIndex_TOTAL.csv /fichtemcomp/<env>/descargas/kytl/index/DictionaryIndex.csv 1-4`, es decir `cut -f 1-4 -d ";" … >> DictionaryIndex.csv`
+(el `cut` interpreta `1-4` como el rango de campos 1 a 4). Responde a P-DICT-02 según la plantilla; falta verificar lo instalado en `pr`.
 
 `DictionaryIndex.csv` es el fichero enviado a Calypso. `DictionaryIndex_TOTAL.csv` permanece
 en el directorio origen hasta que `MEKYTL0861` lo historifica.
@@ -230,7 +252,25 @@ Qué dicen las fichas de la cadena (documentos originales del proceso, rama de V
 
 Consecuencias: el envío no historifica nada (el fichero semanal se queda en `FicheroDiccionario/` hasta que alguien lo retire), no falla si falta el fichero (coherente con la ficha del filewatcher) y sobrescribe el fichero del destino. Los parámetros del formulario son de la solicitud original de 2019; que la configuración actual de `MEKYTL0876` coincida con ellos no se ha comprobado.
 
-**Estado y matiz sobre por qué está dormida.** La cadena sigue sin hacer nada porque no aparece el fichero `_semanal_`. El usuario lo atribuyó a que "seguramente" lo genera el Planificador Genérico y su extracción estaría inactiva; es una suposición. Las fuentes no la confirman (tampoco la desmienten del todo): (a) ninguna extracción activa del inventario del Planificador escribe en `FicheroDiccionario/` ni produce un fichero con ese nombre (el inventario solo recoge filas activas, así que una fila inactiva no figuraría); (b) el directorio y el prefijo `FicheroDiccionarioRDR_` pertenecen al diccionario de contrapartidas, cuyos ficheros diarios y semanales se llaman `FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv` (no `_semanal_`); (c) el documento funcional de esa cadena cita `MEKYTL0876` ("Soporte DataHub CIB") entre los destinos de ese diccionario. Una hipótesis coherente con todo ello, **no confirmada**, es que la cadena se creó en 2019-2020 para enviar a Datio el diccionario de contrapartidas semanal y que la máscara `_semanal_` nunca coincide con el nombre `_sem_` que genera hoy la cadena de contrapartidas. Hasta confirmarlo, hay que tratar el motivo de que la cadena esté dormida como desconocido (P-DICT-06).
+**Estado y matiz sobre por qué está dormida.** La cadena sigue sin hacer nada porque no aparece el fichero `_semanal_`. El usuario lo atribuyó a que "seguramente" lo genera el Planificador Genérico y su extracción estaría inactiva; es una suposición. Las fuentes no la confirman (tampoco la desmienten del todo): (a) ninguna extracción activa del inventario del Planificador escribe en `FicheroDiccionario/` ni produce un fichero con ese nombre (el inventario solo recoge filas activas, así que una fila inactiva no figuraría); (b) el directorio y el prefijo `FicheroDiccionarioRDR_` pertenecen al diccionario de contrapartidas, cuyos ficheros diarios y semanales se llaman `FicheroDiccionarioRDR_dia_<fecha>.csv` y `FicheroDiccionarioRDR_sem_<fecha>.csv` (no `_semanal_`); (c) el documento funcional de esa cadena cita `MEKYTL0876` ("Soporte DataHub CIB") entre los destinos de ese diccionario. (3ª pasada: `ficheroDiccionarioRDR.sh` confirma por código los nombres `_dia_` y `_sem_`, §5.7.) Una hipótesis coherente con todo ello, **no confirmada**, es que la cadena se creó en 2019-2020 para enviar a Datio el diccionario de contrapartidas semanal y que la máscara `_semanal_` nunca coincide con el nombre `_sem_` que genera hoy la cadena de contrapartidas. Hasta confirmarlo, hay que tratar el motivo de que la cadena esté dormida como desconocido (P-DICT-06).
+
+### 5.7 `ficheroDiccionarioRDR.sh`: productor de los ficheros `FicheroDiccionarioRDR_*` (3ª pasada)
+
+Script de la plantilla de despliegue (`scrt/ficheroDiccionarioRDR.sh`, NFOQUE, 15/09/2014; un argumento, `diario` o `semanal`). **No lo ejecuta ningún job de las dos cadenas de este proceso**; es el productor de los ficheros de diccionario de
+contrapartidas que la spec cita en §5.6 (probablemente lo lanzaba la cadena obsoleta `RDR_FICHERO_DICCIONARIO_SEM`, excluida; no confirmado). Qué hace:
+
+1. Calcula el entorno por la existencia de `/fichtemcomp/de|ei|pp|pr` (en ese orden; `exit 1` si no hay ninguno), exporta `CONF=/<env>/kytl/online/multipais/multicanal/dat/properties`, `RUTA=/fichtemcomp/<env>/descargas/kytl` y toma de `credentials.xml` la carpeta de logs; su log es `<logs>/ficheroDiccionarioRDR.log` (un único fichero acumulativo, sin fecha).
+2. Sin argumento: `ESTADO-2-` y `exit 2`. Con `diario`: `FILE=FicheroDiccionarioRDR_dia_<AAAAMMDD>.csv`; con `semanal`: `FILE=FicheroDiccionarioRDR_sem_<AAAAMMDD>.csv`; otro valor: `ESTADO-3-` y `exit 3`.
+3. En `CONF` hace `touch FicheroDiccionarioRDR.properties` y le **añade** (`>>`) tres líneas: `FileName = <FILE>`, `Ruta = <RUTA>` y `ModoEjec = <diario|semanal>`.
+4. Desde el directorio de GoldenSource (`/usr/local/<env>/goldensource_87/Application/Fileloading/Engine/CommandLineTools/scripts`) ejecuta `./executeBbvaEvent.sh fileloading "FicheroDiccionarioRDR" <credentials.xml> FicheroDiccionarioRDR.properties`. El workflow `FicheroDiccionarioRDR` de GoldenSource (que escribe el CSV; no consta en la plantilla) y la carpeta exacta de salida bajo `RUTA` no se conocen.
+5. Con el código real de `executeBbvaEvent.sh`: 0 → `ESTADO-0-`, `exit 0`; ≠ 0 → `ESTADO-4-`, `exit 4`. En ambos casos borra `FicheroDiccionarioRDR.properties`.
+
+Consecuencias: (a) el fichero **semanal** se llama `_sem_`, no `_semanal_`, por lo que el filewatcher de la cadena semanal (máscara `FicheroDiccionarioRDR_semanal_<AAAAMMDD>.csv`) nunca lo recogería (H-DICT-04, P-DICT-06); (b) el nombre `_dia_` del formulario de `MEKYTL0876` es el del modo diario (H-DICT-01); (c) si el script se interrumpe después del `touch` y antes del `rm`, el `.properties` residual acumula líneas duplicadas en la siguiente ejecución; (d) si el workflow falla, el script devuelve 4 pero no quita ningún CSV parcial.
+
+### 5.8 Otros ficheros de diccionario en la plantilla (contexto)
+
+* `RDR_DictionaryRTCE.properties`: dos claves, `FileDirectory=/fichtemcomp/@@ENV@@/descargas/kytl/RTCE/` y `FileName=RDR_DictionaryRTCE.csv`; parámetros de otro flujo de diccionario (RTCE) que lee un workflow de GoldenSource; ninguna de las dos cadenas lo usa.
+* `publish/dictionaryindex.xml` (y `publish/dictionaryportfolio.xml`): cuerpo SOAP para el evento `RaiseRDR_EntityFullPublishingAsynchron` de GoldenSource (**publicación masiva por cola**): entidad `Dictionary`, tipo de mensaje de salida `UDICT2`, consulta `RDR_AllDictionaryPaginatedIndexCurrency` (la de portfolios usa `RDR_AllDictionaryPaginatedPortfolios`), paginación de 100, `limit` 9999999, pausa de 200 ms entre mensajes, `areResultsXpath` `count(/DictionaryResp/DataDict)`, cola `RDR.DICTIONARY.INITIALLOAD` y `reqId` `MassivePublicationDictionaryIndex` (`...Portfolio`). Es una carga inicial/ad hoc por mensajería; no forma parte del envío diario por fichero a Calypso.
 
 ---
 
@@ -361,7 +401,7 @@ Todos los demás requisitos tienen validación asociada, casos de prueba definid
 esperado verificable, y los comportamientos de error/duplicidad/borde están cubiertos. La cadena
 semanal está documentada en su estado real (dormida) y el motor Planificador Genérico se describe
 en su spec común (`salidas_pendientes/comun_planificador_generico/comun_planificador_generico_spec.md`).
-Tras la pasada de cierre (01/10/2026), P-DICT-01 (solo la intención del filewatcher semanal) y
+Tras la 3ª pasada (plantilla de despliegue), P-DICT-02 queda resuelta en parte (literal en §5.3) y se confirma por código el desajuste de nombres `_semanal_`/`_sem_` (§5.7). Tras la pasada de cierre (01/10/2026), P-DICT-01 (solo la intención del filewatcher semanal) y
 P-DICT-06 (receptor y posible productor) quedan parciales gracias a las fichas de la cadena semanal
 (§5.6); P-DICT-02 a P-DICT-05 y P-DICT-07 siguen sin respuesta en ninguna fuente disponible.
 
