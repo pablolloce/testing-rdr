@@ -98,7 +98,7 @@ Excluye: el tratamiento que hacen Murex y `mcm0501`; lo que ocurre dentro de `/o
 **Estado tras la pasada de cierre (documento original del proceso, rama de Miguel):** ninguna de las cinco
 preguntas queda resuelta; el documento original no contiene la query, el literal de los `.properties`/`.idx`
 ni el significado de "STAR". Aporta tres matices, que se recogen aquí sin cambiar el estado:
-- *P-MIC-01 (parcial):* el análisis original describe `Eliminar_fila` como "elimina la fila 1 (cabecera)" y
+- *P-MIC-01 (resuelta en la parte de la query, 4ª pasada; sigue la cabecera):* el análisis original describe `Eliminar_fila` como "elimina la fila 1 (cabecera)" y
   su caso de éxito de pruebas deposita `FRMIC.csv` "con cabecera"; es la intención de diseño de la cadena,
   pero no prueba que el CSV del Planificador incluya cabecera (el texto de la query sigue sin conocerse),
   así que el riesgo de perder un MIC por día se mantiene.
@@ -157,12 +157,27 @@ Folder `KYTL0000-RDR_MIFIDMIC_new`; server `MERCADOS-4`; host `pr-rdr.igrupobbva
 
 El motor (`ProjectMain.jar`, cadena `RDR_SW_PLANIFICADOR_new`, job `RDRKYTL001` con `planifGenerico`) ejecuta la
 query guardada en `FT_T_ATE1.CLOB_VALUE` cuando el día y la hora coinciden con `FT_T_QPF1`, una vez al día, y
-escribe un CSV (formato decidido por la extensión). Sin parámetros en `FT_T_PAR1`. El texto de la query no se
-ha recibido (P-MIC-01): no se puede documentar el contenido de las columnas. Los errores del Planificador solo
+escribe un CSV (formato decidido por la extensión). Sin parámetros en `FT_T_PAR1`. Los errores del Planificador solo
 quedan en su log y no hay reintentos: si la extracción falla, `FRMIC.csv` no se genera y `FW_MIFIDMIC_RDR`
 termina OK por tiempo agotado sin que nadie lo vea.
 
 Hay hora y media de margen entre la extracción (04:30) y el filewatcher (06:00), que espera hasta las 07:30.
+
+**La query `RDR_ExtraccionMIC.sql` (según el fichero `scriptsSQL/RDR_ExtraccionMIC.sql` del repositorio de objetos de GoldenSource, rama develop; puede diferir del `CLOB_VALUE` instalado; 4ª pasada).** Devuelve **7 columnas**, sin `ORDER BY` ni `;` final:
+
+| # | Columna | Origen |
+|---|---|---|
+| 1 | MIC | `FT_T_REI1.SUB_RL_ID` (subidentificador del rol con contexto `MIC`) |
+| 2 | Descripción de la institución | `SUBSTR(FT_T_FINS.INST_DESC, 0, 253)` |
+| 3 | Rol | `FT_T_FRID.FINSRL_TYP` |
+| 4 | Subtipo | `FT_T_REI1.SUB_TYP` |
+| 5 | Descripción del subrol | `FT_T_REI1.SUB_RL_DESC` |
+| 6 | `FINSID` | `FT_T_FIID.FINS_ID` de contexto `FINSID` |
+| 7 | `STARID` | `FINR_ID` de `FT_T_FRID` con contexto `STARID`, `CPARTY`, activo (`ROWNUM <= 1`, sin orden: si hay varios, se elige uno cualquiera) |
+
+Filtro: roles `FT_T_FRID` de tipo `TP_MTF`, `TP_OTF`, `TP_OTC`, `TP_RG` o `TRAVENUE`, con contexto `MIC` o `MIC Operativo`, activos, de instituciones activas con una relación `OPERATIVE` activa (`FT_T_FIRL`, `CPARTY`) y un subidentificador `MIC` activo en `FT_T_REI1` enlazado por `FRID_OID`. Una institución con varios MIC sale en varias filas; con varios `FIID` de contexto `FINSID` activos, repetida.
+
+Consecuencias para la cadena: (a) como la consulta tiene exactamente 7 columnas, **`Cortar 1-7` produce un `FRMIC_1.csv` idéntico a `FRMIC_2.csv`** (el recorte no elimina nada si el motor escribe esas 7 columnas separadas por `;`); (b) si algún texto (descripción de la institución o del subrol) contiene `;`, el motor del Planificador puede desplazar las columnas y el recorte a 7 sí cortaría datos; (c) si el motor escribe cabecera sigue sin constar (comportamiento del motor, no de la consulta).
 
 ### 6.3 `RDRKYTL001` — `mifidmic.properties`
 

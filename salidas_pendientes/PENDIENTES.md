@@ -4,14 +4,14 @@ Esta carpeta contiene las especificaciones que **todavía no están completas**:
 
 Criterio aplicado el 02/10/2026 con la regla "Dos carpetas" de `.github/copilot-instructions.md`. Los huecos **no bloqueantes** (siglas, contexto, confirmaciones de algo ya deducido, mejoras futuras) se listan aparte y no impiden volver a `salidas/`.
 
-**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 606 huecos bloqueantes y 464 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
+**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 599 huecos bloqueantes y 471 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
 
 Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
 - **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 142 resueltos en parte, 6 nuevos Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
-- **4ª pasada (03/10)** — repositorio de objetos de GoldenSource (`objetosgs`, rama develop: workflows `.gsp` con los scripts BeanShell y consultas en línea, `queries/`, `rep1/`, mappings `.mdx`, feeds, xslt, scriptsSQL): 36 cerrados, 63 resueltos en parte, 1 nuevos (recuento parcial mientras la pasada esté en curso).
+- **4ª pasada (03/10)** — repositorio de objetos de GoldenSource (`objetosgs`, rama develop: workflows `.gsp` con los scripts BeanShell y consultas en línea, `queries/`, `rep1/`, mappings `.mdx`, feeds, xslt, scriptsSQL): 43 cerrados, 69 resueltos en parte, 1 nuevos (recuento parcial mientras la pasada esté en curso).
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -19,20 +19,19 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 
 | Material | Huecos | Procesos afectados |
 |---|---|---|
-| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 109 | 42 |
+| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 106 | 40 |
 | Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 85 | 43 |
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 81 | 47 |
-| Otros | 75 | 36 |
+| Otros | 77 | 37 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
-| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 63 | 39 |
+| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 63 | 40 |
 | Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 32 | 23 |
 | .properties y configuración de producción (dat/properties, cfg/entorno) | 17 | 14 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
 | raiseEvent.sh (lo invoca executeBbvaEvent.sh) | 16 | 15 |
 | Versión de RAMERC0068.sh instalada en producción | 15 | 15 |
-| Layout o muestra de ficheros | 14 | 13 |
+| Layout o muestra de ficheros | 12 | 11 |
 | Confirmación funcional del usuario | 10 | 7 |
-| Blobs BeanShell (statements) de nodos de workflow en el volcado fileloading | 4 | 1 |
 | Workflows y subworkflows de GoldenSource | 3 | 2 |
 
 Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, la carpeta `/pr/pl/envioweb/idx/bck/*.idx`, los módulos `/pr/pl/envioweb/scrt/*.mod`, `raiseEvent.sh`, `LPFTPEXCA0000/0002.sh`, los exports XML de las carpetas de Control-M, una consulta a `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1`, y la verificación en los servidores de que lo instalado coincide con la plantilla `estaticos` (versión de `GSProcess.sh`, jars con o sin paquete, `.properties` efectivos). Del volcado `fileloading` faltan los scripts BeanShell (`statements`) de los nodos listados al final.
@@ -40,7 +39,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 ## Índice
 
 - [`carga_sponsors_baskets`](#carga-sponsors-baskets) — 8 bloqueantes
-- [`cesion_cestas_abaco`](#cesion-cestas-abaco) — 6 bloqueantes
+- [`cesion_cestas_abaco`](#cesion-cestas-abaco) — 4 bloqueantes
 - [`cesion_contratos_bbva`](#cesion-contratos-bbva) — 15 bloqueantes
 - [`comun_controlcargadatos`](#comun-controlcargadatos) — 2 bloqueantes
 - [`comun_datax`](#comun-datax) — 1 bloqueantes
@@ -58,10 +57,10 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 - [`envio_altamira_bancomer_mexico`](#envio-altamira-bancomer-mexico) — 8 bloqueantes
 - [`envio_altamira_colombia`](#envio-altamira-colombia) — 11 bloqueantes
 - [`envio_calendarios_modelity`](#envio-calendarios-modelity) — 10 bloqueantes
-- [`envio_guido_roles_eins`](#envio-guido-roles-eins) — 12 bloqueantes
+- [`envio_guido_roles_eins`](#envio-guido-roles-eins) — 8 bloqueantes
 - [`extraccion_contactos`](#extraccion-contactos) — 11 bloqueantes
 - [`extraccion_emisiones_mercados`](#extraccion-emisiones-mercados) — 11 bloqueantes
-- [`extraccion_generica_cestas`](#extraccion-generica-cestas) — 12 bloqueantes
+- [`extraccion_generica_cestas`](#extraccion-generica-cestas) — 11 bloqueantes
 - [`extraccion_generica_contrapartidas`](#extraccion-generica-contrapartidas) — 22 bloqueantes
 - [`extraccion_sait_contratos`](#extraccion-sait-contratos) — 10 bloqueantes
 - [`extraccion_scis`](#extraccion-scis) — 9 bloqueantes
@@ -145,22 +144,23 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/cesion_cestas_abaco/cesion_cestas_abaco_spec.md`  
 **Qué le falta:** Faltan la query BASKETS_TO_ABACO.sql, la hora real del fichero nocturno, el efecto de la regla 7→OK, el origen/layout de los ad-hoc, la línea IDX de MEKYTL0855, la sustitución de @@ENV@@ y el JCL TEBDJCES.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se analiza UnificacionFicherosAbaco.sh y cortarFicheroCestasAbaco.properties con correccion del tratamiento de cabeceras y nuevo caso TC-015. BASKETS_TO_ABACO.sql, hora del nocturno, linea IDX de MEKYTL0855 y JCL TEBDJCES no estan en la plantilla.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierran P-ABACO-01 (BASKETS_TO_ABACO.sql con 11 columnas) y P-ABACO-04 (los ad-hoc los escribe Create_File_Abaco). Se anotan riesgos de la consulta y se ajusta TC-015.  
 
-### Huecos bloqueantes (6)
+### Huecos bloqueantes (4)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-ABACO-01 | abierta | Texto de la query BASKETS_TO_ABACO.sql (Planificador Genérico, fila 15): tablas, filtros, cálculo de WEIGHT y si el CSV crudo trae más de 11 columnas. | Texto de BASKETS_TO_ABACO.sql |
 | P-ABACO-02 | abierta | Hora real de creación del fichero nocturno (Planificador cada 30-60 min, P-PLA-03) y si el lunes 00:10 se procesa el del sábado. | Confirmar hora de generación y calendario martes-sábado vs lunes-viernes |
 | P-ABACO-03 | parcial | Comportamiento real de la regla '7 → OK' en NOC_FW: ¿emite NOC_FW_OK_new y GSPROCESS falla en Cortar? ¿Por qué difiere del FW cíclico? **Avance 3ª pasada (estaticos):** Con el .properties sin Stop*, si NOC_FW marca OK sin fichero queda un .txt de 0 bytes en la ruta del ciclo intradia (deduccion del codigo); 6.4 | Definicion real de las acciones On-Do de NOC_FW en Control-M de produccion |
-| P-ABACO-04 | parcial | ¿Quién y cuándo deposita los ficheros ad-hoc Baskets_to_ABACO_*.txt intradía, y llevan cabecera BASKET_CODE;…;FULL_NAME;? **Avance 3ª pasada (estaticos):** UnificacionFicherosAbaco.sh no purga la linea 1 y exige ; final para purgar cabeceras (Correccion de la spec); TC-015 anyadido; 6.4 | Quien deposita los ad-hoc y si llevan cabecera |
 | P-ABACO-05 | parcial | Línea del INFORMACION_HISTORIFICACIONES.IDX de producción para MEKYTL0855; la operación M es una deducción lógica. | Línea IDX de producción de MEKYTL0855 |
 | P-ABACO-07 | abierta | Qué hace el JCL remoto TEBDJCES (ejecutado tras el envío) y qué hace ABACO con el dataset TE.BDTRE100.DG0TC2.TEBDJCES: carga, validaciones, rechazos. | Contenido del JCL TEBDJCES (invocado por MEKYTL0851/MEGENV0001.sh) |
 
-### No bloqueantes (4)
+### No bloqueantes (6)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-ABACO-01 | resuelta | Texto de la query BASKETS_TO_ABACO.sql (Planificador Genérico, fila 15): tablas, filtros, cálculo de WEIGHT y si el CSV crudo trae más de 11 columnas. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): BASKETS_TO_ABACO.sql leída: 11 columnas, UNION de cestas con y sin componentes, ventana 24 h; riesgos (sin filtro BASKETS en 2º SELECT); §6.A. |
+| P-ABACO-04 | resuelta | ¿Quién y cuándo deposita los ficheros ad-hoc Baskets_to_ABACO_*.txt intradía, y llevan cabecera BASKET_CODE;…;FULL_NAME;? **Avance 3ª pasada (estaticos):** UnificacionFicherosAbaco.sh no purga la linea 1 y exige ; final para purgar cabeceras (Correccion de la spec); TC-015 anyadido; 6.4 | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Los ad-hoc los escribe el workflow Create_File_Abaco v7 (Sub_PublishChanges y Load_Baskets_Mx3), con cabecera con ';' final y filas terminadas en ';'; §6.B. |
 | P-ABACO-06 | resuelta | El .properties usa @@ENV@@ pero GSProcess.sh solo sustituye $ENV (P-GSP-01): ¿quién lo sustituye al desplegar? | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): La plantilla lleva @@ENV@@ en todas las rutas y lo sustituye el plan de despliegue (pr en produccion); GSProcess.sh solo sustituye $ENV; 6.4 |
 | H-ABAC-01 | abierta | DEF-BASK-001: el soft-failure 7→OK de NOC_FW contradice el requisito funcional de parar la cadena; ANS RDR debe evaluar eliminar la acción On-Do. | Decisión de mejora futura; el comportamiento As-Is está documentado como vigente (el hueco real es P-ABACO-03). |
 | H-ABAC-02 | abierta | Sin protección de concurrencia confirmada (lock/PID) entre el ciclo de 10 min y un relanzamiento manual de los 5 jobs (riesgo 7). | Riesgo de diseño; el código de los scripts está analizado y no muestra lock; no cambia el comportamiento descrito. |
@@ -639,34 +639,35 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el origen y layout de GUIDO_IMPORT.csv, el idx de MEKYTL1061, la definición del evento UserRoleFileProcessing (y si la repetición del fichero de roles es real), el arranque real de la cadena y los módulos de MEGENV0001 y raiseEvent.sh.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** El workflow de GoldenSource UserRoleFileProcessing y sus subworkflows se han analizado y escrito en la spec (carga, bajas, ficheros OFP en modo append), con dos riesgos nuevos y TC-006/TC-008 ajustados. Ninguno de los huecos se cierra del todo: faltan el SQL de OFP_ROLES (blob), el .properties del evento y el mapeo .mdx.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** guidoLoad.sh y Audit_Guido.sh quedan analizados y UserRoleFileProcessing.properties incorporado (MOVE a users/backup). Se corrige que egrep sin filas KYTL no vacía el fichero sino que lo deja sin filtrar; sigue abierta la consulta de OFP_ROLES (blob), el mapeo .mdx, idx y raiseEvent. Nuevo hueco no bloqueante P-GUIDO-05 (quién lanza Audit_Guido.sh).  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Cerrados H-GUIDO-07, P-GUIDO-04, GAP-GUIDO-001 y H-GUIDO-03: consulta completa de roles y mapeo con las 3 columnas y la tabla de 28 codigos de rol. Queda el sistema productor de GUIDO_IMPORT.csv y la prueba de doble ejecucion.  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (8)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-GUIDO-01 | abierta | ¿A qué hora arranca realmente RDR_GUIDO_PASO/FW1? Los filewatchers esperan 120 min pero la franja citada es 01:00-06:00. | definición Control-M de RDR_GUIDO_PASO/FW1 (hora mínima/máxima, PLAN_1200) |
-| P-GUIDO-02 | parcial | ¿Qué sistema deposita GUIDO_IMPORT.csv, a qué hora y con qué columnas? ¿Qué lo retira cada día? **Avance 2ª pasada:** Workflow UserRoleFileProcessing: feed UserRoles (GUIDO_IMPORT.csv, LineByLine, tipo Users) y successAction=MOVE por defecto explican quién retira el fichero; escrito en §6 y en P-GUIDO-02. **Avance 3ª pasada (estaticos):** successAction:MOVE a users/backup: GoldenSource retira GUIDO_IMPORT.csv de users/ tras cargarlo. Escrito en sección 6 y en P-GUIDO-02. | Sistema productor y hora de GUIDO_IMPORT.csv; mapeo UserRoleMaintenance.mdx (columnas); verificar el .properties instalado. |
+| P-GUIDO-02 | parcial | ¿Qué sistema deposita GUIDO_IMPORT.csv, a qué hora y con qué columnas? ¿Qué lo retira cada día? **Avance 2ª pasada:** Workflow UserRoleFileProcessing: feed UserRoles (GUIDO_IMPORT.csv, LineByLine, tipo Users) y successAction=MOVE por defecto explican quién retira el fichero; escrito en §6 y en P-GUIDO-02. **Avance 3ª pasada (estaticos):** successAction:MOVE a users/backup: GoldenSource retira GUIDO_IMPORT.csv de users/ tras cargarlo. Escrito en sección 6 y en P-GUIDO-02. **Avance 4ª pasada (objetosgs):** Columnas y feed conocidos (UserRoles/LineByLine/mdx); sigue sin saberse el sistema productor | Sistema productor y hora de GUIDO_IMPORT.csv |
 | P-GUIDO-03 | abierta | Contenido del .idx de backup de MEKYTL1061: valor de FALLA_NO_FICHERO. | idx/bck/MEKYTL1061.idx de producción |
-| P-GUIDO-04 | parcial | ¿Qué SQL/reglas aplica UserRoleFileProcessing para construir OFP_ROLES_RDR.csv y es normal que repita 21-22 veces el bloque de 201 combinaciones? **Avance 2ª pasada:** Workflow UserRoleFileProcessing v15 y 5 subworkflows analizados (§6): OFP escritos con append=true sin vaciar; explica el mecanismo de la repetición. Falta el SQL de OFP_ROLES. | Export del blob querySQL (2.421 B) del nodo 'Select Active Users and Roles' del workflow Sub_ActiveRoleActivityOFP v4. |
-| GAP-GUIDO-001 | parcial | Generación de OFP_ROLES_RDR.csv: guidoLoad.sh delega en el evento UserRoleFileProcessing, tratado como caja negra de GoldenSource. **Avance 2ª pasada:** Evento UserRoleFileProcessing ya no es caja negra: carga por feed, 2 UPDATE de baja, OFP_RDR.csv (SQL literal) y OFP_ROLES_RDR.csv en append; escrito en §6, §4 y §10. | Blob querySQL de Sub_ActiveRoleActivityOFP v4 (nodo 'Select Active Users and Roles') y UserRoleFileProcessing.properties de producción. |
-| GAP-GUIDO-004 | parcial | Diccionario de OFP_ROLES_RDR.csv resuelto con muestra, pero la repetición de 201 combinaciones ~21 veces (4341 líneas) no se sabe si es real; TC-008 del XML sigue 'sin muestra'. **Avance 2ª pasada:** Mecanismo posible de la repetición: append sin truncado (RISK-GUIDO-003); 4341=21x201+120 no cuadra exacto. TC-008 reescrito para comprobarlo con doble ejecución. | Blob querySQL de Sub_ActiveRoleActivityOFP v4 y resultado de TC-008 (doble ejecución del evento). |
+| GAP-GUIDO-004 | parcial | Diccionario de OFP_ROLES_RDR.csv resuelto con muestra, pero la repetición de 201 combinaciones ~21 veces (4341 líneas) no se sabe si es real; TC-008 del XML sigue 'sin muestra'. **Avance 2ª pasada:** Mecanismo posible de la repetición: append sin truncado (RISK-GUIDO-003); 4341=21x201+120 no cuadra exacto. TC-008 reescrito para comprobarlo con doble ejecución. **Avance 4ª pasada (objetosgs):** La repeticion se explica solo por append sin truncar; 21x201+120 sigue sin cuadrar exacto | Resultado de TC-008 (doble ejecucion) |
 | GAP-GUIDO-007 | parcial | Topología resuelta salvo el predecesor exacto de RDR_GUIDO_PASO y qué dispara el arranque diario (PLAN_1200). | definición Control-M de RDR_GUIDO_PASO (predecesores y PLAN_1200) |
 | H-GUIDO-01 | abierta | raiseEvent.sh (invocado por executeBbvaEvent.sh, que llama guidoLoad.sh para UserRoleFileProcessing) no analizado. | código de raiseEvent.sh (invocado por executeBbvaEvent.sh) |
 | H-GUIDO-02 | abierta | SF_MEGENV0001_*.mod (módulos de MEGENV0001.sh, ejecutado por MEKYTL1061; Connect:Direct e historificación) no analizados. | código de SF_MEGENV0001_CD.mod y PARAMS.mod (invocados por MEGENV0001.sh) |
-| H-GUIDO-03 | parcial | Definición del evento nativo UserRoleFileProcessing genera además OFP_RDR.csv; su estructura y la de GUIDO_IMPORT.csv (columnas) no se conocen. **Avance 2ª pasada:** OFP_RDR.csv = usuario,rol sin cabecera, distintos (SQL literal de Sub_ActiveUserRoleOFP v2) escrito en §6. Columnas de GUIDO_IMPORT.csv siguen sin conocerse. | Contenido del mapeo db://resource/RDR/mapping/users/UserRoleMaintenance.mdx (1.598 B) o muestra de GUIDO_IMPORT.csv. |
 | H-GUIDO-06 | parcial | UserRoleFileProcessing.properties (fichero de entrada del evento con 3 argumentos) da valor real a fileDirectory, filePatternString, successAction y outputFileDirectory; no visto (por defecto el workflow busca en /tmp). **Avance 3ª pasada (estaticos):** UserRoleFileProcessing.properties de la plantilla: fileDirectory, filePatternString, outputFileDirectory/reportDirectory=users/backup, successAction:MOVE. Escrito literal en sección 6. | Verificar en el servidor que el UserRoleFileProcessing.properties instalado en pr coincide con la plantilla. |
-| H-GUIDO-07 | abierta | Consulta SQL que construye OFP_ROLES_RDR.csv: objeto binario no recuperable del volcado. | Export del blob querySQL (2.421 B) del nodo 'Select Active Users and Roles' de Sub_ActiveRoleActivityOFP v4 |
 
-### No bloqueantes (6)
+### No bloqueantes (10)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-GUIDO-04 | resuelta | ¿Qué SQL/reglas aplica UserRoleFileProcessing para construir OFP_ROLES_RDR.csv y es normal que repita 21-22 veces el bloque de 201 combinaciones? **Avance 2ª pasada:** Workflow UserRoleFileProcessing v15 y 5 subworkflows analizados (§6): OFP escritos con append=true sin vaciar; explica el mecanismo de la repetición. Falta el SQL de OFP_ROLES. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Consulta conocida; la repeticion de bloques solo viene del append sin truncar (query DISTINCT) |
+| GAP-GUIDO-001 | resuelta | Generación de OFP_ROLES_RDR.csv: guidoLoad.sh delega en el evento UserRoleFileProcessing, tratado como caja negra de GoldenSource. **Avance 2ª pasada:** Evento UserRoleFileProcessing ya no es caja negra: carga por feed, 2 UPDATE de baja, OFP_RDR.csv (SQL literal) y OFP_ROLES_RDR.csv en append; escrito en §6, §4 y §10. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Generacion de OFP_ROLES_RDR.csv completa: evento, workflow y consulta |
 | GAP-GUIDO-002 | resuelta | Mecánica técnica del envío (MEKYTL1061: CD, PUT, rpl, BINARY, xtcibt1p, lpnov503). | Resuelta con captura real de la salida del job |
 | GAP-GUIDO-003 | resuelta | Predecesor/disparador de MEKYTL1061 (FW1→CHMOD→LOAD→FW3→MEKYTL1061). | Resuelta con capturas reales de Control-M |
 | GAP-GUIDO-005 | resuelta | Historificación interna a MEGENV0001.sh (mv simple, sin renombrar, a users/backup/). | Resuelta con captura real; depende además de los módulos (H-GUIDO-02) |
 | GAP-GUIDO-006 | resuelta | Soft-failure genérico (código ≠ 0 → OK) en MEKYTL1061 y los 3 FileWatchers. | Resuelta con capturas reales de Control-M |
+| H-GUIDO-03 | resuelta | Definición del evento nativo UserRoleFileProcessing genera además OFP_RDR.csv; su estructura y la de GUIDO_IMPORT.csv (columnas) no se conocen. **Avance 2ª pasada:** OFP_RDR.csv = usuario,rol sin cabecera, distintos (SQL literal de Sub_ActiveUserRoleOFP v2) escrito en §6. Columnas de GUIDO_IMPORT.csv siguen sin conocerse. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): UserRoleMaintenance.mdx: columnas User, ContentCode, Role (codigos numericos de rol); spec 6.1 |
 | H-GUIDO-04 | abierta | Rama hermana RDR_GUIDO_FW2/MEKYTL1057 (OFP_RDR.csv) documentada solo como contexto; fuera del alcance de testing. | Flujo distinto fuera de alcance explícito; no condiciona OFP_ROLES_RDR.csv |
 | H-GUIDO-05 | abierta | Flujo de extracción SAIT del documento original excluido de la spec (GAP-SAIT-001 a 007). | Proceso distinto con especificación propia (extraccion_sait_contratos) |
+| H-GUIDO-07 | resuelta | Consulta SQL que construye OFP_ROLES_RDR.csv: objeto binario no recuperable del volcado. | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Sub_ActiveRoleActivityOFP.gsp: SELECT DISTINCT sobre UIRE/SRLE/SRPP/SPRF, role_type y traduccion de ventanas; spec 6 |
 
 ## extraccion_contactos
 
@@ -755,17 +756,17 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan las queries y el .properties de la extracción, las clases del jar, ROOT_TAG/URL_OUTPUT_FILE, la transformación DUCO y su layout, RDR_Validacion_XSD.sh y el XSD, y los .idx/IDX y scripts de pasarela de los 13 envíos.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Revisado el volcado de la BD de workflows y las ramas nuevas: no hay material sobre la extracción genérica de cestas (jar de extracción, .properties, XSLT/XSD de cestas ni IDX). Spec sin cambios.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Cierra la transformacion (XSL+properties) y la validacion XSD (script y esquema) y deja parciales ROOT_TAG, argumentos Java y Stop*. Queda abierto el jar Transformar_XML (nuevo H-CES-12) y sin cambios queries, jar de extraccion, .mod, .idx y pasarela.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierra H-CES-02 con el texto de las queries de lista y detalle y P-CES-01 queda en parte: Baskets.sql es una variante paginada, no la de lista. Se corrige el diccionario idéntico.  
 
-### Huecos bloqueantes (12)
+### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-CES-01 | abierta | ¿Baskets.sql (paginado) es la query de lista ExtraccionBASKETS.sql de FT_T_ATE1, o el jar usa otro ACTION_NME? | Texto de ExtraccionBASKETS.sql en FT_T_ATE1 de producción |
+| P-CES-01 | parcial | ¿Baskets.sql (paginado) es la query de lista ExtraccionBASKETS.sql de FT_T_ATE1, o el jar usa otro ACTION_NME? **Avance 4ª pasada (objetosgs):** Baskets.sql es variante paginada de la query de detalle, no la de lista; la de lista es ExtraccionBASKETS.sql. | Fila de FT_T_ATE1 de producción que confirme qué texto usa el jar. |
 | P-CES-02 | parcial | Valores literales de ROOT_TAG de BASKETS en FT_T_PAR1 y nombre exacto de URL_OUTPUT_FILE (se asume baskets.xml). **Avance 3ª pasada (estaticos):** baskets.xml y etiquetas Securities deducidos de los consumidores de la plantilla | Filas FT_T_PAR1/FT_T_ATE1 de pr con ROOT_TAG y URL_OUTPUT_FILE |
 | P-CES-03 | parcial | Valores de ArgJava1..7 de ExtraccionGenericaBASKETS.properties (hilos, log, credenciales). **Avance 3ª pasada (estaticos):** ExtraccionGenericaBASKETS.properties: 7 argumentos (nivel 2, 20 hilos, issues, Baskets.xml.tmp) y log4j | Comprobar el fichero instalado en pr |
 | P-CES-05 | abierta | Contenido de los .idx de MEGENV0001.sh (protocolo, rutas) de los 10 envíos y de RAMERC0068.sh para MEKYTL1126/1133/0856. | .idx de los 10 envíos e IDX de MEKYTL1126/1133/0856 |
 | H-CES-01 | abierta | Calendario: Control-M 'Avanzado 1,2,3,4,5' se lee como L-V, pero la numeración (0=domingo o lunes) está abierta en comun_ctmfw P-CFW-02 y la ficha dice M-S. | Contrastar nombre del día en Control-M en vivo |
-| H-CES-02 | abierta | Texto SQL íntegro de ExtraccionBASKETS.sql y ExtraccionContingenciaBASKETS.sql (solo se documentan campos y filtro). | SQL de ExtraccionBASKETS.sql y ExtraccionContingenciaBASKETS.sql (invocadas por el jar) |
 | H-CES-03 | abierta | Clases MyThreadCpty, Constants, ConDB y ConfigCredentials de ExtraccionGenericaOtherEntities.jar y valor literal del tipo, sin recibir. | código de MyThreadCpty, Constants, ConDB y ConfigCredentials (invocados por Ppal) |
 | H-CES-06 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh (10 envíos) no recibidos. | módulos SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-CES-07 | abierta | LPFTPEXCA0000.sh y LPFTPEXCA0002.sh (MEKYTL1132_SND/_DEL) y la config de pasarela para MEKYTL1132 no recibidos. | código de LPFTPEXCA0000.sh/0002.sh y config pasarela (invocados por MEKYTL1132_SND/_DEL) |
@@ -773,7 +774,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-CES-09 | abierta | RISK-BASK2-001: fichero residual en pasarela si MEKYTL1132_DEL falla tras transmisión OK; 'deducción de la topología, no confirmado'. | Prueba en pasarela o confirmación operativa |
 | H-CES-12 | abierta | Codigo de Transformar_XML.jar (ppal.Transformar): comportamiento ante hoja fallida, baskets.xml vacio/mal formado, procesador XSLT y codificacion de baskets_TRS.csv | El jar Transformar_XML.jar |
 
-### No bloqueantes (11)
+### No bloqueantes (12)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
@@ -784,6 +785,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | DISC-CES-5 | resuelta | Alcance de las cadenas externas IHSM_RDR_BASKETS y XFIN_SOLAR_RDRBASKET: solo hasta el punto de entrega. | Decisión de alcance; consumidores aguas abajo con entrega ya clara. |
 | P-CES-04 | resuelta | Contenido de TransforBaskets.properties y columnas/separador de baskets_TRS.csv. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): TransforBaskets.properties + transformacionCestasXslt.xsl: 13 columnas separadas por barra vertical, salida baskets_TRS.csv; 6.2 |
 | P-CES-06 | resuelta | Código de RDR_Validacion_XSD.sh (ruta del XSD, dónde deja el resultado). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): RDR_Validacion_XSD.sh analizado con Baskets_Schema.xsd; log RDR_Validacion_XSD_AAAAMMDD.log; sale con 0 aunque falle el XSD; 6.2 |
+| H-CES-02 | resuelta | Texto SQL íntegro de ExtraccionBASKETS.sql y ExtraccionContingenciaBASKETS.sql (solo se documentan campos y filtro). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): Texto íntegro de ExtraccionBASKETS.sql (lista INSTR_ID de cestas BASKETS con MUREXID) y ExtraccionContingenciaBASKETS.sql (detalle por instr_id); §6.A-B. |
 | H-CES-04 | resuelta | Programa que ejecuta TransforBaskets para pasar baskets.xml a CSV (XSLT/Java) 'caja negra' sin mapeo campo a campo. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Mapeo campo a campo en transformacionCestasXslt.xsl; 6.2 |
 | H-CES-05 | resuelta | XSD contra el que valida RDR_Validacion_XSD.sh (BASKET) no aportado. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Baskets_Schema.xsd de la plantilla analizado; 6.2 |
 | H-CES-10 | abierta | Cadenas externas IHSM_RDR_BASKETS y XFIN_SOLAR_RDRBASKET y consumo de baskets.xml por los destinos: fuera de alcance. | Consumidores aguas abajo; entrega y contenido ya claros. |
@@ -1933,6 +1935,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan los literales de los .properties, el código de los jars de respuesta y alertas, las posiciones del fichero de 259 caracteres, los códigos de salida del Java, la regla del código 7 de los filewatchers, los días de ejecución y la configuración del correo de alerta.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se documenta el correo de alerta del registro de LEI (rama DEFAULT, Mail, Cocinado) y se aporta evidencia por analogía de dos jars hermanos sobre código de salida y corte de la línea de 259 caracteres. El workflow Main y los DCS_* de fileloading no intervienen en la cadena.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se cierran los literales de los dos .properties (sin Stop) y del log4j, y se analiza Borrar (solo borra el primer .err). Siguen abiertos el patrón del ctmfw, el código del jar y la configuración en BD del correo.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** La consulta del informe RDR_ERROR_LEI_REGISTER se documenta: lee FT_T_VREQ (ventana 12 h, estados distintos de PENDING/LEI_OK) con tabla de 7 codigos de error; el informe no depende de FT_T_TPG1. Destinatarios y ruta siguen pendientes.  
 
 ### Huecos bloqueantes (13)
 
@@ -1943,7 +1946,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-LEIR-03 | parcial | Posiciones de cada campo en la línea de 259 caracteres (RespuestaClientela.segmentaMensaje). **Avance 2ª pasada:** Jar hermano clientelaBDI_Altas_response confirma el corte por listas de longitudes y que una línea de 100-258 caracteres se descarta; posiciones 1-60 deducidas. Falta el reparto del bloque de error. | Código de RespuestaClientela.segmentaMensaje de LEI_Register_response.jar o layout campo a campo del fichero de 259 caracteres. |
 | P-LEIR-04 | parcial | Literal de LEI_Register_response.properties y LEI_Register_alertas.properties y patrón exacto de ctmfw (LEIsReg_* o LEIsReg_*.txt). **Avance 3ª pasada (estaticos):** Literales de LEI_Register_response.properties y LEI_Register_alertas.properties escritos en §6.2/§6.5: 7 args del Java, sin Stop, Borrar sobre Alertas/*.err. | Comando ctmfw literal de REG_LEIS_RESP_FILE_FW (patrón LEIsReg_* o LEIsReg_*.txt) desde Control-M. |
 | P-LEIR-05 | parcial | Código de salida de main.Main si falla la conexión, faltan rutas o hay excepción en un fichero. **Avance 2ª pasada:** Los jars hermanos (clientelaBDI_Altas_response e Investors_Client_Reg_resp, misma plantilla) terminan siempre con 0: Main void sin System.exit; escrito en §6.2 como analogía. | Código de main.Main de LEI_Register_response.jar. |
-| P-LEIR-06 | parcial | Configuración de RDR_ERROR_LEI_REGISTER en FT_T_REP1/FT_T_ALR1/FT_T_ALU1 y quién escribe sus incidencias en FT_T_TPG1. **Avance 2ª pasada:** Cocinado exige ALG1_OID/MENSAJE/TIPO a la consulta de REP1; asunto genérico RDR_ERROR_LEI_REGISTER en DEFAULT; sin escritor de TPG1 el informe saldría sin mensajes. Faltan las filas. | Filas FT_T_REP1/ALR1/ALU1 de RDR_ERROR_LEI_REGISTER y escritor de FT_T_TPG1. |
+| P-LEIR-06 | parcial | Configuración de RDR_ERROR_LEI_REGISTER en FT_T_REP1/FT_T_ALR1/FT_T_ALU1 y quién escribe sus incidencias en FT_T_TPG1. **Avance 2ª pasada:** Cocinado exige ALG1_OID/MENSAJE/TIPO a la consulta de REP1; asunto genérico RDR_ERROR_LEI_REGISTER en DEFAULT; sin escritor de TPG1 el informe saldría sin mensajes. Faltan las filas. **Avance 4ª pasada (objetosgs):** QUERY_RDR_ERROR_LEI_REGISTER.sql (rep1 develop): lee FT_T_VREQ, 4 columnas, ventana 12 h, tabla de 7 codigos; no depende de TPG1; spec 6.5.1 | Filas FT_T_REP1 (ruta, plantilla), FT_T_ALR1/ALU1 destinatarios |
 | P-LEIR-07 | abierta | Con dos peticiones LEI_REG_LINE_SENT del mismo LEI, ¿cuál devuelve identificaCliente? | SQL literal de QuerysStr.identificaCliente |
 | H-LEIR-10 | abierta | Código Java de LEI_Register_response.jar (Main, ProcesaFichero, RespuestaClientela, QuerysStr, QueryExec) no está en el repositorio; la spec lo toma del documento. | Código de LEI_Register_response.jar (invocado por GSProcess.sh) |
 | H-LEIR-11 | abierta | ConexionBD.jar (jdbc.ConDB) no analizado: no se sabe qué hace si falla la conexión. | Código de ConexionBD.jar (invocado por LEI_Register_response.jar) |
@@ -1974,13 +1977,14 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan el literal de LEI_Register_request.properties, el código de salida del Java, el SQL literal de las consultas, el código del jar, y los .idx/línea IDX de MEKYTL0927 y MEKYTL1014 y los módulos de MEGENV0001.sh.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** El jar Investors_Client_Reg_resp de la rama de Eduardo documenta qué crea las peticiones LEI_REGISTER que lee este proceso y da evidencia por analogía del código de salida y del usuario LEI_REQUEST. Los workflows Main (onboarding) y DCS_* de fileloading no pertenecen a la cadena.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se cierra el literal de LEI_Register_request.properties (sin Stop), el log4j y la expansión del comodín de ConvertirUNIXValidaFichero (solo se convierte el primer .req). Siguen abiertos el código del jar, los .idx/IDX de MEKYTL0927/1014 y los módulos de MEGENV0001.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Nada nuevo para el envio: develop no contiene el jar ni workflows que escriban LEI_REGISTER; solo la consulta de informe de la respuesta. Los huecos siguen abiertos.  
 
 ### Huecos bloqueantes (9)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-LEIS-02 | parcial | Código de salida de main.Main si falla la BD o la escritura, y si escribe CRLF. **Avance 2ª pasada:** Investors_Client_Reg_resp.jar (misma plantilla, rama de Eduardo): Main void sin System.exit, termina siempre con 0; escrito en §4 como analogía. No es el jar de la cadena. | Código de main.Main y GenerateLEISFile de LEI_Register_request.jar; finales de línea del fichero. |
-| P-LEIS-03 | parcial | Resuelto el formato de INICVIG/FINVIG, PERSCTPN y FILLER; pendiente el SQL literal de selectClientesAltaPending() y selectAtributos(). | SQL de QuerysStr (selectClientesAltaPending, selectAtributos) de LEI_Register_request.jar |
+| P-LEIS-03 | parcial | Resuelto el formato de INICVIG/FINVIG, PERSCTPN y FILLER; pendiente el SQL literal de selectClientesAltaPending() y selectAtributos(). **Avance 4ª pasada (objetosgs):** Sin cambios: el SQL de selectClientesAltaPending/selectAtributos esta en el jar; develop solo trae workflows y no referencia LEI_REGISTER | SQL de QuerysStr de LEI_Register_request.jar |
 | P-LEIS-04 | abierta | Contenido del .idx de la clave MEKYTL0927 (sentido, protocolo, FICHERO_ORIGEN, FALLA_NO_FICHERO, RUTA_HISTORIFICACION). | MEKYTL0927.idx de producción |
 | P-LEIS-05 | abierta | Línea de INFORMACION_HISTORIFICACIONES.IDX de MEKYTL1014, en concreto el campo 5. | Línea MEKYTL1014 del IDX de historificaciones |
 | H-LEIS-08 | abierta | Código Java de LEI_Register_request.jar (Main, GenerateLEISFile, Peticion, QuerysStr, QueryExec) no está en el repositorio; la spec lo toma del documento. | Código de LEI_Register_request.jar (invocado por GSProcess.sh) |
@@ -2010,6 +2014,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/rdr_pro_sma_portfolios/rdr_pro_sma_portfolios_spec.md`  
 **Qué le falta:** Faltan las líneas IDX de MEKYTL0517/0518, los 7 .idx de envío y los módulos de MEGENV0001.sh, la query/XSD de portfolios.sql y el motor del Planificador, la regla ante el código 7 del FW y la numeración de días del calendario.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla no aporta nada que cierre los huecos de esta cadena: publish/portfolios.xml es una petición SOAP de publicación masiva (Book, cola RDR.PORTFOLIO.INITIALLOAD), no la query ni el XSD de portfolios.sql; no hay XSD de Portfolios, ni idx/IDX, ni módulos de MEGENV0001. Se documenta en §5.2 para evitar confundirlos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** La consulta portfolios.sql de develop confirma 25 campos y que devuelve un unico CLOB, lo que elimina el riesgo de paginacion y de limite de filas para esta cadena. Falta el XSD.  
 
 ### Huecos bloqueantes (9)
 
@@ -2017,7 +2022,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 |---|---|---|---|
 | P-PORT-01 | abierta | Líneas de MEKYTL0517 y MEKYTL0518 en INFORMACION_HISTORIFICACIONES.IDX (máscara, renombrado, destino, falla sin fichero, operación). Reabre GAP-PORT-004. | Líneas MEKYTL0517 y MEKYTL0518 del IDX de producción |
 | P-PORT-02 | abierta | Contenido de los 7 .idx de idx/bck (FICHERO_ORIGEN, FALLA_NO_FICHERO, FUNCION_BCP, COMANDO_PRE/POST), ACCION_REMOTA=new con fichero existente y uso de ODATE/ODATE_DES en MEKYTL0826. | Los 7 .idx (MEKYTL0511-0515, 0826_CLOUD, 0891) |
-| P-PORT-04 | abierta | Texto de la query portfolios.sql (CLOB_VALUE de ACT1_OID 016D9D9BC) y su XSD; ORDER BY único y volumen >20.000 filas. | Query portfolios.sql y XSD de Portfolios |
+| P-PORT-04 | parcial | Texto de la query portfolios.sql (CLOB_VALUE de ACT1_OID 016D9D9BC) y su XSD; ORDER BY único y volumen >20.000 filas. **Avance 4ª pasada (objetosgs):** portfolios.sql (develop) analizado: 1 fila CLOB (XMLAGG), 25 campos, sin ORDER BY; paginacion y limite 20.000 no aplican; spec 5.2 | XSD de Portfolios y CLOB_VALUE instalado |
 | H-PORT-05 | abierta | Módulos SF_MEGENV0001_CD.mod y SF_MEGENV0001_PARAMS.mod no recibidos (P-MEG-01). | Código de SF_MEGENV0001_CD.mod y SF_MEGENV0001_PARAMS.mod (invocados por MEGENV0001.sh) |
 | H-PORT-06 | abierta | No se sabe si algún módulo define binJava/ficheroJar: la config puede salir de BD o de idx/bck (P-MEG-02, RISK-PORT-004). | Definición de binJava/ficheroJar en los módulos de MEGENV0001.sh |
 | H-PORT-07 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas, P-RAM-01) para MEKYTL0517/0518. | Copia de RAMERC0068.sh instalada en producción |

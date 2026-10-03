@@ -65,7 +65,7 @@ La cadena `RDR_GUIDO_PR_new` combina un pipeline de **carga** de usuarios/roles 
 
 * **P-GUIDO-02 — resuelta en parte.** `UserRoleFileProcessing.properties` fija `successAction:MOVE` y `outputFileDirectory:…/users/backup`: tras cargar, GoldenSource **mueve `GUIDO_IMPORT.csv` a `users/backup/`**, de modo que el fichero del día anterior no permanece en `users/` si la carga llega a ejecutarse (sección 6). Sigue pendiente el sistema productor, su hora y las columnas (mapeo `UserRoleMaintenance.mdx`).
 * **H-GUIDO-06 — resuelta en parte.** Literal del `.properties` en la sección 6; falta verificar que lo instalado en `pr` es igual.
-* **GAP-GUIDO-001, P-GUIDO-04 y H-GUIDO-07 siguen abiertos** para la consulta de `Sub_ActiveRoleActivityOFP`: la plantilla no trae esa consulta ni el mapeo `.mdx`.
+* **GAP-GUIDO-001, P-GUIDO-04 y H-GUIDO-07: cerrados en la 4ª pasada** con los objetos `Sub_ActiveRoleActivityOFP.gsp` y `UserRoleMaintenance.mdx` del repositorio de objetos de GoldenSource (rama develop): la consulta completa está en §6 (`OFP_ROLES_RDR.csv`) y el mapeo con las columnas de `GUIDO_IMPORT.csv` en §6.1 (P-GUIDO-02 y H-GUIDO-03 avanzan: las columnas ya se conocen; sigue sin saberse qué sistema deposita el fichero).
 * **RISK-GUIDO-002 corregido** (riesgo 2 de la sección 9): sin filas KYTL el fichero **no se vacía**, se queda sin filtrar.
 * **Nuevo (no bloqueante):** `Audit_Guido.sh` (sección 6) archiva los `OFP_*.csv` de `users/backup/`; no se sabe qué job de Control-M lo lanza (P-GUIDO-05).
 
@@ -160,8 +160,7 @@ no interviene en la ruta de salida de los `OFP_*.csv`, que se escriben en `users
 
 *Feed `UserRoles` (configuración de GoldenSource).* Patrón de fichero `GUIDO_IMPORT.csv`; lectura `LineByLine.xml`
 (cada línea es un mensaje; este feed no salta cabecera); tipo de mensaje `Users`; mapeo
-`UserRoleMaintenance.mdx` (recurso de 1.598 bytes cuyo contenido no está en el volcado, así que las columnas de
-`GUIDO_IMPORT.csv` siguen sin conocerse); modo de commit `None`; `ROLLBACK_ON_ERROR=N`.
+`UserRoleMaintenance.mdx` (recurso de 1.598 bytes cuyo contenido no está en el volcado; se conoce por el objeto de develop, §6.1: columnas `User`, `ContentCode` y `Role`); modo de commit `None`; `ROLLBACK_ON_ERROR=N`.
 
 *Flujo.*
 1. Si `filePatternString` viene informado, lo parte por `;` en una lista de patrones. Escribe en el log
@@ -203,9 +202,12 @@ no interviene en la ruta de salida de los `OFP_*.csv`, que se escriben en `users
   group BY ausr.USR_ID, srle.SEC_ROLE_NME)
   ```
   Solo usuarios y relaciones sin fecha de fin, es decir, el estado que dejan las bajas del paso 5.
-- `OFP_ROLES_RDR.csv`: la consulta de `Sub_ActiveRoleActivityOFP` (versión 4) ocupa 2.421 bytes y el volcado la
-  guarda como objeto binario **no recuperable**; su texto no se conoce. Por la muestra real, cada fila es
-  `rol,módulo,nivel_acceso`.
+- `OFP_ROLES_RDR.csv`: la consulta de `Sub_ActiveRoleActivityOFP` (versión 4, `OFP_ROLES_RDR_v2`) no venía en el volcado; se conoce por el objeto `Sub_ActiveRoleActivityOFP.gsp` de develop (puede diferir de lo instalado). Devuelve una sola columna por fila: `LTRIM(RTRIM(rol)) ||','|| LTRIM(RTRIM(ventana)) ||','|| LTRIM(RTRIM(role_type))`, de un `SELECT DISTINCT` sobre `FT_O_UIRE` (entitlements de interfaz de usuario) unida a `FT_T_SRLE` (rol de seguridad), `FT_T_SRPP` y `FT_T_SPRF` (perfil), todas con `END_TMS IS NULL`, con `ENTLMNT_TYP='MENU'` y un identificador de entitlement sin punto (`ENTLMNT_UNIQ_TXT not like '%.%'`):
+  - `rol` = `FT_T_SRLE.SEC_ROLE_NME`.
+  - `role_type` según los cuatro indicadores del entitlement (`ENTLMNT_NEW_IND`, `ENTLMNT_UPD_IND`, `ENTLMNT_READ_ONLY_IND`, `ENTLMNT_HIDE_IND`): `editable` (`Y`,`Y`,`Y`,`N`), `invisible` (`N`,`N`,`N`,`Y`), `read-only` (`N`,`N`,`Y`,`N`) y `other` en cualquier otra combinación. **Las filas `invisible` se descartan** (`where role_type not like 'invisible'`), de modo que el fichero solo contiene `editable`, `read-only` y `other`.
+  - `ventana` = nombre de la pestaña: traduce `tabAccounts`→`Accounts`, `tabBenchmark`→`Benchmark Master`, `corporateActions`→`Corporate Actions`, `tabCustomers`→`Customer Master`, `tabContacts`→`Contacts`, `DataLineage`→`Data Lineage`, `DataQuality`→`Data Quality`, `DataStaging`→`Data Staging`, `tabFinancialInstitutions`→`Entities`, `tabExceptions`→`Exception Management`, `GenericSetup`→`Generic Setup`, `tabInfoProcessesRDR`→`Instructions`, `tabInternalOrganization`→`Internal Organization`, `tabIssue`→`Issue`, `tabRDR_LegalAgreements`→`Legal Agreements`, `tabMasterData`→`Master Data`, `tabMiscellaneous`→`Miscellaneous`, `tabMyWorkList`→`My WorkList` y `tabSecurities`→`Security Master`; **cualquier otro identificador sale tal cual** (explica los módulos `Admin` y `Prueba` de la muestra real).
+  - Ordenada por nombre de rol dentro de la vista interior; la consulta exterior no tiene `ORDER BY`.
+  El workflow (`haltOnError=N`) calcula la carpeta de salida (`/fichtemcomp/<env>/descargas/kytl/users`: el último de `de`, `ei`, `pp` y `pr` que exista y sea escribible, y `no` si ninguno), y **añade** (`append=true`, sin truncar el fichero previo) una línea por fila con el nombre `OFP_ROLES_RDR.csv`. Sin filas escribe la línea `NO ACTIVE ROLE/ACTIVITY` (también en modo añadir). Consecuencia: como la consulta es `DISTINCT`, cada ejecución añade **un bloque sin repeticiones internas**; las repeticiones de bloques completos observadas (21-22 veces el bloque de 201 combinaciones) solo pueden venir del modo añadir sin que nadie vacíe el fichero entre ejecuciones (RISK-GUIDO-003): el resto de la consulta no puede generarlas. Que el fichero real tenga 21×201+120 líneas es compatible con ejecuciones en fechas en que el número de combinaciones era distinto.
 - La ruta `/tmp` de `reportDirectory` se pasa a los subworkflows pero no interviene en la ruta de salida.
 
 **`Audit_Guido.sh` (3ª pasada; `scrt/Audit_Guido.sh` de la plantilla de despliegue; Oficina Técnica de RDR, 26/10/2019; sin argumentos).** La cabecera dice "cuenta registros en ficheros según condiciones definidas", pero el código **no cuenta nada**: (1) `checkEnviroment` calcula el entorno por `hostname` (`lp*`→`pr`, `lw*`→`pp`, `li*`→`ei`, `ld*`→`de`; si no encaja, `exit -2`) y el usuario esperado (`xakytl1p`, `xakytl1w`, `xakytl1i`, `xakytl1d`); (2) `userExecution` exige que `whoami` coincida con ese usuario (si no, `exit -1`); (3) `guidoAudit` hace `cd /fichtemcomp/<env>/descargas/kytl/users/backup` y ejecuta `tar -czvf Guido_Export_OFP_<AAAA-MM-DD>.tar.gz OFP_ROLES_RDR.csv OFP_RDR.csv --remove-files`. Es decir, **archiva y borra de `backup/` los dos `OFP_*.csv` que `MEGENV0001.sh` historifica allí** tras `MEKYTL1061` y `MEKYTL1057`. Si falta uno de los dos, `tar` avisa ("Cannot stat"), archiva el otro y termina con código 2 (solo borra lo que archivó). No toca `users/` ni `GUIDO_IMPORT.csv`. No hay ningún job conocido de la cadena que lo lance ni ninguna referencia en el resto de la plantilla salvo informes de monitorización (P-GUIDO-05).
@@ -230,6 +232,34 @@ TRANSFERENCIA: lprdr501:/fichtemcomp/pr/descargas/kytl/users/OFP_ROLES_RDR.csv
 HISTORIFICACION: mv /fichtemcomp/pr/descargas/kytl/users/OFP_ROLES_RDR.csv
   /fichtemcomp/pr/descargas/kytl/users/backup/OFP_ROLES_RDR.csv --- [CORRECTA]
 ```
+
+### 6.1 El mapeo `UserRoleMaintenance.mdx` y los códigos de rol (según los objetos de develop; 4ª pasada)
+
+**Feed `UserRoles`** (`vendordefinitions/RDR/UserRoles.gsp`): fichero `GUIDO_IMPORT.csv`, definición `LineByLine.xml` (no salta cabecera), tipo de mensaje `Users`, mapeo `db://resource/RDR/mapping/users/UserRoleMaintenance.mdx`, clave de *streaming* `User` (`isKeyStreaming=true`), sin *rollback* por error, guarda el mensaje de entrada y el procesado solo si hay error.
+
+**Entrada del mapeo:** delimitador `,`, sin comillas, `TrimFields=BOTH`, **tres campos de texto: `User`, `ContentCode` y `Role`**. `ContentCode` no se usa en el mapeo. **Condición de mensaje:** solo se procesa la línea si `User` y `Role` tienen valor (`AllHaveValue(User, Role)`); si no, se descarta sin error. Como el feed no salta la primera línea, una cabecera `User,ContentCode,Role` se procesaría como el usuario `USER` con el rol `Role` (se traduce a sí mismo si no está en la tabla).
+
+**Qué carga, por línea** (todo con acción `UNKNOWN`, es decir, alta o actualización; usuario de proceso `BBVA:CUSTOMER`, fuente `BBVA`):
+1. `ApplicationUser`: `USRID` y `USRNME` = `User` en mayúsculas, `USRTYP='WSTATION'`.
+2. `SecurityRole`: nombre = traducción de `Role` (más abajo), aplicación `SSTATION`; descripción = resultado de la función de base de datos `FT_F_CHANGE_SECROLEDESC(<nombre traducido>, <Role>)`.
+3. `ApplicationUserRoleParticipant`: la relación usuario-rol (referencias al usuario y al rol por `AUSR_OID` y `SRLE_OID`, con `ERROR='N'`), con la descripción igual al nombre del rol.
+
+**El valor `Role` del fichero es un código numérico de dos dígitos**, que la tabla externa `CustomUsersRolesETT` (`USER_ROLE`) traduce al nombre del rol de seguridad (si el código no está en la tabla, el comportamiento depende de `Translate` con valor no encontrado; no se ha probado):
+
+| Código | Rol | Código | Rol | Código | Rol |
+|---|---|---|---|---|---|
+| `00` | `administrators` | `09` | `RDR-CAL_GARANT_MEX` | `24` | `RDR_Securities` |
+| `01` | `readonly` | `10` | `RDR-CAL_VALORES_MEX` | `25` | `RDR_Securities_Consulta` |
+| `02` | `users` | `11` | `RDR-CAL_RIESGOS_MEX` | `26` | `RDR_Agreements` |
+| `03` | `RDR-SCR_DDFF_ESP` | `12` | `RDR-CAL_CONSULTA` | `27` | `RDR_Agreements_Consulta` |
+| `04` | `RDR-SCR_SSIS` | `14` | `RDR-SSI_CONSULTA` | `28` | `FixedIncome_Static_Data` |
+| `05` | `RDR-ON_SITE` | `20` | `MoCA_users` | `29` | `RDR_Securities_MEX` |
+| `06` | `RDR-SCR_CONSULTA` | `21` | `RDR-SSI_DDFF_ESP` | `80` | `OrchEventRaiser` |
+| `07` | `RDR-CAL_DDFF_MEX` | `22` | `RDR_readonly` | `90` | `UserMaintenance` |
+| `08` | `RDR-CAL_HUB_MEX` | `23` | `users_Static_Data` | `91` | `RoleMaintenance` |
+| | | | | `92` | `UserRoleMaintenance` |
+
+Consecuencias: (a) los roles de la muestra real que no están en la tabla (`CHALReviewer`, `CHALVerifier`, `RDR_ROLE_BSI`, `ilog`, `pricing`, `trillium`) no los crea este mapeo (`OFP_ROLES_RDR.csv` lee el contenido real de `FT_T_SRLE`, no lo que carga este mapeo; de dónde salen esos roles no consta en los objetos analizados); (b) el diccionario de códigos de rol es cerrado (28 códigos); un código nuevo exige actualizar la tabla (`CustomUsersRolesETT.ttl`); (c) el mapeo solo da de alta; las bajas de usuarios y relaciones las hacen los dos `UPDATE` del workflow `UserRoleFileProcessing` (§6).
 
 ## 7. Especificación de testing
 

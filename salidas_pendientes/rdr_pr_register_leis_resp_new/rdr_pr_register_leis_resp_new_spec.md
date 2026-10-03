@@ -92,7 +92,7 @@ configuración de conexión a base de datos.
 | P-LEIR-03 | **Resuelta en parte (02/10/2026).** ¿Cuáles son las posiciones de cada campo en la línea de 259 caracteres (`RespuestaClientela.segmentaMensaje`)? Se deduce que las posiciones 1-60 repiten el formato del fichero enviado y que el bloque de error ocupa el resto (§6.2); **sigue pendiente** el reparto por campo del bloque de error (`TIPERROR`, `CODERROR`, `MODULO_ERR`, `PARRAF_ERR`, `TABLA_ERR`, `ACCESS_ERR`, `SQLERR`, `DESC_ERROR`). | Sin ellas no se puede construir un fichero de prueba campo a campo |
 | P-LEIR-04 | **Resuelta en parte (3ª pasada):** literales de `LEI_Register_response.properties` y `LEI_Register_alertas.properties` en §6.2 y §6.5 (sin ninguna clave `Stop`). **Sigue pendiente** el patrón exacto del comando `ctmfw` de `REG_LEIS_RESP_FILE_FW` (`LEIsReg_*` o `LEIsReg_*.txt`, §6.1), que está en Control-M. | Para documentar rutas exactas y comportamiento ante fallos |
 | P-LEIR-05 | **Resuelta en parte (02/10/2026).** ¿Con qué código termina `main.Main` si falla la conexión, si no existen las rutas `receive`/`old`/`Alertas` o si hay una excepción en un fichero? Los dos jars hermanos de la misma plantilla terminan siempre con 0 (§6.2); **sigue pendiente** confirmarlo en el jar real. | Decide si `GSPROC_REG_LEIS_RESP` queda NOTOK en esos casos |
-| P-LEIR-06 | **Resuelta en parte (02/10/2026).** ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? Resuelto: qué exige el Cocinado a la consulta, asunto y cuerpo genéricos del correo (rama `DEFAULT`) y reglas de periodicidad (bloque «Correo de alertas» de §6.5); **sigue pendiente** el contenido de las filas. ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes |
+| P-LEIR-06 | **Resuelta en parte (02/10/2026).** ¿Qué configuración tiene el código `RDR_ERROR_LEI_REGISTER` en `FT_T_REP1` (query, plantilla, ruta, tipo de envío) y `FT_T_ALR1`/`FT_T_ALU1` (destinatarios)? Resuelto: qué exige el Cocinado a la consulta, asunto y cuerpo genéricos del correo (rama `DEFAULT`) y reglas de periodicidad (bloque «Correo de alertas» de §6.5); **sigue pendiente** el contenido de las filas. ¿Quién escribe sus incidencias en `FT_T_TPG1`? El Java de respuesta, según el documento, solo escribe `errores.err` | Sin ello no se sabe qué contiene el correo de alerta ni a quién llega; si nadie escribe en `FT_T_TPG1`, el Barrido no genera mensajes. **4ª pasada:** la consulta de `FT_T_REP1` (`QUERY`) está en el objeto `QUERY_RDR_ERROR_LEI_REGISTER.sql` de develop (§6.5.1); siguen pendientes ruta, plantilla, destinatarios y escritor de `FT_T_TPG1` |
 | P-LEIR-07 | Si dos peticiones `LEI_REG_LINE_SENT` tienen el mismo LEI, ¿cuál devuelve `identificaCliente`? | Decide qué petición recibe la respuesta |
 | H-LEIR-13 | **Resuelta (3ª pasada):** `log4jLEI_Register.properties` leído (§6.2). | Log del jar de respuesta |
 | H-LEIR-15 | **Resuelta en parte (3ª pasada):** `GestionAlertas.properties` (plantilla genérica) y estructura de `ServerMailConfig.xml` leídos (§6.5); host y buzón de envío vienen enmascarados. Falta verificar la copia instalada en producción. | Configuración de la Gestión de alertas y del correo |
@@ -304,6 +304,25 @@ Qué ejecuta (genérico en la spec común de Gestión de alertas):
 Consecuencias en este proceso: `GSPROC_REG_LEIS_ALERTAS` termina en verde aunque falle cualquiera de las tres
 etapas (acción `Property`); los `.err` se borran aunque la alerta no haya salido; qué contiene el correo y
 quién lo recibe está en base de datos (P-LEIR-06).
+
+#### 6.5.1 La consulta del informe `RDR_ERROR_LEI_REGISTER` (según el objeto `QUERY_RDR_ERROR_LEI_REGISTER.sql` de la carpeta `rep1/` del repositorio de objetos de GoldenSource, rama develop; 4ª pasada)
+
+Es el texto de la columna `QUERY` de `FT_T_REP1` para este proceso (puede diferir de lo instalado). **El informe no sale de `FT_T_ALG1`: la consulta lee directamente `FT_T_VREQ`** y devuelve celdas de Excel (`TIPO='CELDAEXCEL'`, una fila por celda con el formato `fila";"columna";"valor`, descrito en `comun_gestion_alertas` §4.5). Por tanto el informe de este proceso **no depende del Barrido ni de `FT_T_TPG1`**: aunque nadie escriba en `FT_T_TPG1` (pregunta de P-LEIR-06), la consulta se evalúa en el Cocinado y el correo sale con los datos de `FT_T_VREQ`.
+
+- **Qué filas.** Peticiones `FT_T_VREQ` con `VND_RQST_XREF_ID_CTXT_TYP='LEI_REGISTER'`, modificadas en las **últimas 12 horas** (`LAST_CHG_TMS > SYSDATE - 0.5`), cuyo estado **no** sea `PENDING` ni `LEI_OK`, con `VND_RQST_CORR_ID` distinto de `DigitalCrossSelling` y que no procedan de un fichero `fondosSA%`.
+- **Cuatro columnas:** (1) referencia de la petición (`VND_RQST_XREF_ID`); (2) estado (`VND_RQST_STAT_TYP`); (3) código de error (`FT_T_UTD1` con uso `FIELD_RESP` y propósito `CODERROR`; `N/A` si no hay); (4) descripción: la de la tabla fija de 7 códigos y, si el código no está en ella, el texto de estado de la petición.
+
+| Código de error | Descripción en el informe |
+|---|---|
+| `00038573` | CODIGO DE PERSONA NO INFORMADO O ERRONEO |
+| `00867046` | CODIGO DE DOCUMENTO NO INFORMADO |
+| `00095762` | ERROR DE FECHAS |
+| `00007024` | YA EXISTE EL REGISTRO |
+| `00039113` | FUNCIONALIDAD RESTRINGIDA A PERSONAS JURIDICAS |
+| `00887070` | NO EXISTE EL CLIENTE EN CLIENTELA |
+| `00001197` | SE HA PRODUCIDO UN ERROR TECNICO |
+
+Consecuencias: (a) el informe lista **todo estado distinto de `PENDING` y `LEI_OK`**, es decir, no solo `LEI_KO`, `NO_RESPONSE` y `ERROR_PROC_RESP`, sino también los estados en curso (`LEI_REG_LINE_SENT`, `PROCESSING`...) de las últimas 12 horas, que aparecerían como filas sin código de error; (b) `VND_RQST_CORR_ID != 'DigitalCrossSelling'` deja fuera las peticiones con `VND_RQST_CORR_ID` nulo (comparación con nulo): si alguna petición `LEI_REGISTER` no lleva ese campo informado, no sale en el informe; (c) si una petición tiene varios `CODERROR` en `FT_T_UTD1`, genera varias filas; (d) la ventana fija de 12 horas hace que una petición con error que se resuelva a mano o quede sin tratar más de 12 horas deje de figurar, y que la misma incidencia se repita en los informes de cada ejecución mientras esté en la ventana; (e) no hay `ORDER BY` (el orden de las filas del Excel viene del número de fila asignado por `ROWNUM`, que no está garantizado).
 
 **Correo de alertas: rama de `AlertasEnvioExcepciones`, envío y generación del informe (revisión 02/10/2026).**
 Procedencia: volcado de la base de workflows de GoldenSource (`AlertasEnvio` v7, `AlertasEnvioExcepciones` v12,

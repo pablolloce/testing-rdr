@@ -89,13 +89,13 @@ bancarización…), que usan otros procesos; lo que hagan los destinatarios con 
 
 | ID | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción **Segunda pasada de cierre:** el volcado de workflows de GoldenSource contiene `GenerateReports` v20, pero el script del nodo `Initialize Variables` que construye el array de SELECT (27.736 bytes) sale como blob sin texto, así que el SQL literal sigue sin estar. Lo que el volcado confirma: la rama `informeMIFID` fija `FileName = Reporte_informeMIFID.csv` y la cabecera de §6.3 (R3) es una constante del workflow |
+| P-INF-01 | ¿Se puede incorporar a la spec el SQL literal de `arrayStringSelects[16]` (rama `informeMIFID`, nodo `id="636"` de `GenerateReports.gsp`)? | Es la lógica de negocio del informe: sin el texto no se pueden verificar las columnas, los cruces ni el filtro de fechas más allá de su descripción **Segunda pasada de cierre:** el volcado de workflows de GoldenSource contiene `GenerateReports` v20, pero el script del nodo `Initialize Variables` que construye el array de SELECT (27.736 bytes) sale como blob sin texto, así que el SQL literal sigue sin estar. Lo que el volcado confirma: la rama `informeMIFID` fija `FileName = Reporte_informeMIFID.csv` y la cabecera de §6.3 (R3) es una constante del workflow **4ª pasada:** el texto está en §6.3.1 (objeto `GenerateReports.gsp` de develop). |
 | P-INF-02 | ¿Cuál es el contenido literal de `informeMIFID.properties.pr` (nombre del evento de correo, argumentos del Java, `Stop`)? | Decide si el correo sale cuando falla el Java y con qué argumentos se llama `InformeMIFID.jar`. **Resuelta en parte (3ª pasada): literal en §6.2 según la plantilla de despliegue — sin `Stop`, jar `RDR_InformeMIFID.jar`, dos eventos de tipo `Workflow`; falta verificar el `.properties` instalado en `pr` y los destinatarios reales.** Antes, resuelta en parte (pasada de cierre): el análisis original del proceso confirma las tres etapas, el evento `RDR_Reporte`, el evento `RDR_InformeMIFID` y que el Java recibe el CSV y el nombre base `Reporte_informeMIFID`; nombra el jar de dos formas (`InformeMIFID.jar` y `RDR_InformeMIFID.jar`, clase `InformeMIFID`; por la convención `RDR_*.jar` de otras cadenas, el nombre real probablemente es `RDR_InformeMIFID.jar`, sin confirmar). Siguen sin constar el literal, `Stop` y el nombre exacto del jar |
 | P-INF-03 | ¿Con qué script historifican `MEKYTL0353` y `MEKYTL0362` (¿`RAMERC0068.sh`?) y con qué configuración? | Para saber si fallan cuando falta el fichero |
 | P-INF-04 | Los Excel observados (`_20260729`, `_20260827`, `_20260901`) se generaron en miércoles, jueves y martes, no en tercer lunes de mes. ¿Fueron ejecuciones manuales o la planificación real es otra? | Contradice R1; decide cuándo hay que esperar el informe |
 | P-INF-05 | ¿Cómo maneja `InformeMIFID.java` el fallo de escritura final (código de salida)? | La spec recoge que el error se captura sin propagarse: el job podría terminar OK sin Excel |
 | H-INF-04 | **Resuelta en parte (3ª pasada).** Nombre real del jar: `RDR_InformeMIFID.jar` según `NomPaquete1` de la plantilla (§6.2); falta verificar el jar desplegado. | Nombre del jar |
-| H-INF-07 | ¿Qué calcula el script `Inicializa variables` del workflow `InformeMIFID` (`ruta`, `fileMail`, `nameFile`, `mail`)? | Decide qué fichero se adjunta (¿el Excel con fecha del día?), con qué nombre y con qué cuerpo. El texto (1.520 bytes) no viene en el volcado de workflows; sin él no se puede afirmar qué adjunto lleva el correo ni si sale sin adjunto cuando falta el Excel del día |
+| H-INF-07 | ¿Qué calcula el script `Inicializa variables` del workflow `InformeMIFID` (`ruta`, `fileMail`, `nameFile`, `mail`)? | Decide qué fichero se adjunta (¿el Excel con fecha del día?), con qué nombre y con qué cuerpo. El texto (1.520 bytes) no viene en el volcado de workflows; sin él no se puede afirmar qué adjunto lleva el correo ni si sale sin adjunto cuando falta el Excel del día **4ª pasada:** el script está descrito en §6.5 (objeto `InformeMIFID.gsp` de develop). |
 
 ## 5. Especificación funcional
 
@@ -171,7 +171,7 @@ Como no hay `Stop`, un fallo del `Java` (por ejemplo, plantilla ausente) no impi
 
 `GenerateReports` es un workflow de GoldenSource compartido por muchos informes; cada informe es una rama elegida
 por el parámetro `Servicio`. La rama `informeMIFID` (nodo `id="636"`) ejecuta la consulta `arrayStringSelects[16]`
-(texto: P-INF-01). Según su análisis:
+(texto en §6.3.1). Según su análisis:
 
 | Tabla | Uso |
 |-------|-----|
@@ -216,6 +216,32 @@ CSV ausente o antiguo, y el Java fallaría después al no encontrarlo (P-INF-05)
 | `Exercise date` | `EXERDATE` |
 | `Expiration date` | `EXPDATE` |
 
+#### 6.3.1 El SQL de `arrayStringSelects[16]` (según el objeto `GenerateReports.gsp` del repositorio de objetos de GoldenSource, rama develop; 4ª pasada)
+
+El nodo `Initialize Variables` de `GenerateReports` v20 (comentario `RDR_UGS87_ASYN_v2`) define la consulta (posición 16 del array) con el comentario «Select para informe contrapartidas con datos económicos cerca de expirar». La rama `informeMIFID` toma `FileName = "Reporte_informeMIFID.csv"` y `Select = arrayStringSelects[16]`, con la cabecera de 10 columnas de arriba (comprobado en el objeto). Contenido literal, resumido por columnas (el texto exacto es una `SELECT` de 10 columnas sobre `FT_T_FIST`, `FT_T_FIID`, `FT_T_FINS`, `FT_T_FIRL` y `FT_T_IDMV`, terminada en `order by 1`):
+
+| # | Columna | Origen |
+|---|---|---|
+| 1 | `Entity Name` | `FT_T_FINS.INST_NME` |
+| 2 | `FINSID` | `FT_T_FIID.FINS_ID` con contexto `FINSID` de la institución |
+| 3 | `Fiscal Identifier type` | `FT_T_IDMV.INTRNL_DMN_VAL_NME`: descripción del tipo de identificador fiscal; se obtiene traduciendo el contexto (`FINS_ID_CTXT_TYP`) del identificador de la fuente `CLIENTELA` con el dominio `FIID`/`FINS_ID_CTXT_TYP`, propósito `FIID_FS`, campo `00101059` |
+| 4 | `Identifier` | `FT_T_FIID.FINS_ID` de la fuente `CLIENTELA` (activo), de cualquier contexto cuyo valor esté en el dominio anterior |
+| 5 | `MGC Identifiers` | `FINS_ID` de contexto `MGCGLOID` (activo) de una institución **hija** (`FT_T_FIRL.REL_TYP='OPERATIVE'`, activa, con `PRNT_INST_MNEM` = la institución del informe): **un solo MGCGLOID por fila**, no una lista |
+| 6 | `Resources` | `FT_T_FIST.STAT_VAL_CAMT` con `STAT_DEF_ID='RRPP'` (activo, sin fecha de fin), formateado con `FM99G999G999G999G999G999G990D99999999999` y sin el separador decimal final (los separadores de miles y decimal dependen del idioma de la sesión Oracle) |
+| 7 | `Annual Turnover` | Igual con `STAT_DEF_ID='CRNEGO'` |
+| 8 | `Total Assets` | Igual con `STAT_DEF_ID='ATOTAL'` |
+| 9 | `Exercise date` | `STAT_VAL_DTE` de `STAT_DEF_ID='EXERDATE'` (activo, sin fecha de fin, **`rownum = 1` sin orden**: Hallazgo B), formato `dd/mm/yyyy` |
+| 10 | `Expiration date` | `STAT_VAL_DTE` de `STAT_DEF_ID='EXPDATE'`, formato `dd/mm/yyyy` |
+
+Filtros: institución `FINS` activa; `FIST` `EXPDATE` activo y sin fecha de fin con `trunc(STAT_VAL_DTE) >= trunc(last_day(sysdate)+1)` (primer día del mes siguiente) y `<= trunc(last_day(add_months(sysdate,1)))` (último día del mes siguiente): **vencimientos del mes siguiente al de la ejecución**. Ordenación final: `order by 1` (nombre de la entidad).
+
+Consecuencias comprobadas en el texto:
+- **Una fila por cada combinación** de identificador `CLIENTELA` (columnas 3-4) × institución hija con `MGCGLOID` (columna 5) × fila `EXPDATE` activa: una institución con dos identificadores fiscales y tres hijas sale seis veces. Es el origen del Hallazgo A (instituciones repetidas), más amplio que «una vez por relación».
+- Las subconsultas de `RRPP`, `CRNEGO` y `ATOTAL` **no llevan `rownum = 1`**: si una institución tuviera dos filas activas sin fecha de fin para el mismo atributo, la consulta completa fallaría («una subconsulta de una sola fila devuelve más de una fila») y el informe saldría con `La select no devuelve valores` o no saldría (según cómo trate `Sub_GenerateReports` el error de la `DBQuery`; no probado). Solo `EXERDATE` tiene `rownum = 1`.
+- No filtra por tipo de institución ni por país; no hay `ORDER BY` secundario (las filas repetidas de una entidad salen en orden indeterminado).
+- Los importes salen como texto formateado: el Excel final (§6.4) los recibe como cadenas.
+- La consulta no se ejecuta con el límite de filas de `Sub_GenReportHost` sino con el de `Sub_GenerateReports`: **25.000 filas** (`maxResult`), más que suficiente para un mes.
+
 ### 6.4 `InformeMIFID.jar`
 
 Clase `InformeMIFID` (código analizado en sesión; el jar es `RDR_InformeMIFID.jar` según el `.properties` de la plantilla de despliegue, §6.2; el nombre `InformeMIFID.jar` del análisis original era la abreviatura de la clase). Sin lógica de negocio ni SQL: lee el CSV, abre la plantilla
@@ -232,8 +258,7 @@ Destinatarios fijos en el parámetro `Destination` de `informeMIFID.properties` 
 
 **Qué hace el workflow (reconstruido del volcado de workflows de GoldenSource, versión 3 de `InformeMIFID`, 05/11/2022).** El evento
 `RDR_InformeMIFID` ("Informe contrapartidas con datos economicos cerca de expirar") lanza `InformeMIFID`, de solo
-dos pasos: `Inicializa variables` (un script que calcula `ruta`, `fileMail`, `nameFile` y `mail`: el cuerpo, el fichero a adjuntar y su nombre; su texto, 1.520 bytes,
-no viene en el volcado) y la llamada al subworkflow `Mail` con `Destination`, `Subject`, `FileMail`, `NameFile` y `Mail`.
+dos pasos: `Inicializa variables` (un script que calcula `ruta`, `fileMail`, `nameFile` y `mail`; su texto se conoce por el objeto `InformeMIFID.gsp` de develop: detecta el entorno por la carpeta `/<pr|pp|ei|de>/kytl/online/multipais/multicanal/cfg/entorno/` —en ese orden—, fija `ruta = /fichtemcomp/<entorno>/descargas/kytl/`, `nameFile = Reporte_informeMIFID_<fecha de hoy aaaaMMdd>.xlsx`, `fileMail = <ruta>informeMIFID/<nameFile>` y el cuerpo «Buenos días, Se adjunta el informe en el que se incluyen las contrapartidas con datos económicos, cuyo vencimiento tendrá lugar el próximo mes. Un saludo.»; la fecha es la **del momento de ejecución del workflow**, de modo que si el Java generó el Excel el día anterior —por ejemplo pasada la medianoche— el nombre calculado no coincide con el fichero y el correo sale sin adjunto; en el objeto el texto del cuerpo está guardado con los acentos mal codificados, lo que puede verse en el correo) y la llamada al subworkflow `Mail` con `Destination`, `Subject`, `FileMail`, `NameFile` y `Mail`.
 Por defecto `Servicio` vale `informeMIFID` y `Subject` el asunto anterior.
 
 **Subworkflow `Mail` v6 (`Custom/RDR/Common`, texto completo disponible):**

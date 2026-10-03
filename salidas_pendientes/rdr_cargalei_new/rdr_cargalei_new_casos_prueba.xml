@@ -295,4 +295,26 @@
     <posibilidadFallo>Que la ruta o los argumentos con que MarcaRegErroneo invoca errores_to_file.sh difieran de los deducidos (el texto del comando no viene en el volcado de workflows).</posibilidadFallo>
   </casoDePrueba>
 
+  <casoDePrueba id="TC-014" tipo="borde">
+    <nombre>LEI en estado de registro pendiente: no se carga y no deja informe</nombre>
+    <objetivo>Confirmar que el mapeo cargaLEI.mdx descarta los LEI con estado PENDING_VALIDATION, TRANSFERRED, PENDING_ARCHIVAL o PENDING_TRANSFER y que no genera filas REPORTES (RISK-LEI-011).</objetivo>
+    <precondiciones>
+      <precondicion>Entorno de pruebas (no producción).</precondicion>
+      <precondicion>Un LEI de prueba ya cargado en FT_T_LEI1 con estado ISSUED.</precondicion>
+    </precondiciones>
+    <datosEmpleados>
+      <dato campo="Línea de LEI.csv" valor="el LEI de prueba con RegistrationStatus=PENDING_TRANSFER"/>
+    </datosEmpleados>
+    <pasos>
+      <paso numero="1">Anotar REGISTRATION_STATUS, DATA_STAT_TYP y LAST_CHG_TMS del LEI en FT_T_LEI1.</paso>
+      <paso numero="2">Cargar un LEI.csv con ese LEI en estado PENDING_TRANSFER (evento MDX con el feed CargaLEI).</paso>
+      <paso numero="3">Comprobar que FT_T_LEI1 no ha cambiado para ese LEI y que no hay filas nuevas en FT_T_RLT1 con DATA_SRC_APP='CARGALEI' y MAIN_ENTITY_ID igual al LEI.</paso>
+      <paso numero="4">Repetir con RegistrationStatus=LAPSED y comprobar que el LEI queda ACTIVE y que la fila REPORTES (Registration Status) aparece solo si el estado anterior era distinto.</paso>
+    </pasos>
+    <resultadoEsperado>El LEI pendiente no se modifica ni deja traza; el LEI LAPSED se carga como ACTIVE.</resultadoEsperado>
+    <tipoValidacion>Consulta a FT_T_LEI1 y FT_T_RLT1.</tipoValidacion>
+    <criterioAceptacion>Los pasos 3 y 4 coinciden con lo descrito; si el LEI pendiente se actualiza, la versión instalada del mapeo difiere de develop.</criterioAceptacion>
+    <posibilidadFallo>Que el mapeo instalado (3.912 bytes según el documento de análisis) no tenga el filtro de estado.</posibilidadFallo>
+  </casoDePrueba>
+
 </casosDePrueba>

@@ -397,6 +397,23 @@ Consecuencias para operar y probar:
 - Las líneas comentadas que apuntan a una ruta local de desarrollo (Windows) son restos y no tienen efecto.
 - Si la carpeta `logs/` no existe o no es escribible, log4j no escribe y el programa sigue (el error se ve solo en consola).
 
+### 4.5 Consultas de informe de la rama develop (`rep1/`) y lanzadores de los jars (workflows `Bash/`)
+
+**Consultas `rep1/`.** El repositorio de objetos de GoldenSource (rama develop) contiene diez ficheros `QUERY_<PROCESO>.sql` que son el texto de la columna `QUERY` de `FT_T_REP1` de los informes de alertas basados en celdas de Excel. Todos siguen el mismo contrato, que es el que consume `DocumentGenerator.generaExcelPorCeldas` (§4.2.2): una cláusula `WITH CONTENT AS (...)` que calcula las filas del informe y una `UNION` de una SELECT por columna con la forma `SELECT '' AS ALG1_OID, <fila> || '";"<n.º de columna>";"' || <valor> AS MENSAJE, 'CELDAEXCEL' AS TIPO`. La fila (`ROWNUM AS FILA`) y la columna son los números de celda de la plantilla. Varias consultas añaden una fila ficticia con `FILA=99999999` y todo vacío (`UNION SELECT '' ... FROM DUAL`): su finalidad (deducida, no documentada en la consulta) es que la consulta nunca devuelva cero filas y que el informe se genere aunque no haya datos. Los valores nulos se concatenan como vacío. Las consultas leen directamente las tablas de negocio (`FT_T_VREQ`, `FT_T_UTD1`, `FT_T_RLT1`, `FT_T_FIID`...) y **no** pasan por `FT_T_ALG1`; el Cocinado las ejecuta y trata cada fila devuelta como una celda.
+
+| Fichero (`PROCESO`) | Qué informa | Ventana y filtros destacados |
+|---|---|---|
+| `QUERY_CARGADOR_ROLES_SUBACCOUNTS` | Resultado de la carga de roles de subcuentas: por línea `VND_RQST_XREF_ID`, fichero (`VND_RESP_FILE_NME`), estado (`FAILED` si hay `NACK` en `FT_T_RLT1`) y texto (línea insertada, error de fichero/línea/mnemónico/FINSID/conexión, o «La subcuenta … ha sido dada de alta correctamente») | `FT_T_VREQ` padre con `FILE_DATE` y fichero `fondosSA%`, últimas 8 horas |
+| `QUERY_RDR_ERROR_LEI_REGISTER` | Errores del registro de LEI: referencia, estado, código y descripción de error (tabla fija de 7 códigos: persona no informada, documento no informado, error de fechas, ya existe el registro, restringido a personas jurídicas, no existe el cliente en clientela, error técnico) | `FT_T_VREQ` con `LEI_REGISTER`, últimas 12 horas (`SYSDATE-0.5`), estado distinto de `PENDING` y `LEI_OK`, excluye `DigitalCrossSelling` y los ficheros `fondosSA%` |
+| `QUERY_RDR_ALTA_FONDOS` | Fondos dados de alta: referencia, nombre, `FINSID`, `BDIID`, `CCLIENT` (del padre) y `STARID` | `FundLEI` en estado `GENERATED_FUND`, últimas 8 horas |
+| `QUERY_RDR_ALTA_FONDOS_ERROR` | Fondos en estados intermedios o de error (`PROCESSING_CLIENT`, `ALTA_FONDO_PEND`, `ERROR_CLI_REG_RESP`, `GENERATING_CSV_LINE`, `ERROR_CSV_LINE_GEN`, `CUADRANDO_FONDO`, `FUND_LOADED`, `FUND_GENERATE_KO`, `PROCESSING_AUTOCALC`...) | `FundLEI`, últimas 8 horas |
+| `QUERY_REG_FONDOS_ALTA_FONDOS`, `QUERY_SOLICITUD_ALTA_FONDOS`, `QUERY_VALIDACIONES_ALTA_FONDOS`, `QUERY_WARNINGS_ALTA_FONDOS` | Registros de un fichero de fondos: no válidos, resumen por solicitud (cuenta OK/KO), validaciones distintas de `OK` y avisos (se excluye el aviso `EXISTS_CTMID`/`NO`) | `FILE_DATE`, últimas 8 horas, sin `DigitalCrossSelling` |
+| `QUERY_BATCH_REFINITIV_EMISORES`, `QUERY_CTMAA_COLOMBIA` | Informes de `rdr_batch_emisores_refinitiv` y de la carga CTMAA de Colombia (no analizados aquí) | véase la spec de cada proceso |
+
+Efecto práctico: estos informes **dependen de la hora**, no del lote. Con una ventana fija de 8 o 12 horas, si el Cocinado se ejecuta más tarde (o el proceso se repite) las filas ya salidas de la ventana no aparecen, y las nuevas se repiten en cada ejecución mientras sigan dentro de ella.
+
+**Lanzadores `Bash/AlertasBarrido` y `Bash/AlertasCocinado` (v1, comentario `v1.0`, `haltOnError=N`).** Son workflows de GoldenSource que lanzan los dos jars directamente, sin pasar por `GSProcess.sh`: crean un job `EJECUTAR`, comprueban con `ListFiles` que `jarNombre` existe en `jarRuta` (si no existe cierran el job sin error), componen `java -Dfile.encoding=iso-8859-1 -DENV=<ENV> -DpropertiesPath=<ruta de propiedades> -cp <ConexionBD.jar>:<jar>:<librerías> main.Ppal 2 <log4j...properties> <proceso>` (el primer argumento `2` y el proceso, como en §3; el proceso por defecto es `ALERT_IP_SSI`), lo ejecutan con `CommandLine` esperando al final y escriben la salida en `/tmp/bash_ejecucionJava.log` (`chmod 0777`). El Barrido usa `ojdbc6`, `common-lang3` y `log4j`; el Cocinado añade las librerías de Apache POI 3.17, `xmlbeans-2.3.0`, `commons-collections4` y `apache-commons-lang`. **Tras el Cocinado, `AlertasCocinado` lanza el evento `RDR_AlertasEnvio`** (actividad `RaiseEvent`), es decir, encadena solo el Envío. Defectos: `ENV` (por defecto `ei`) y `jarRuta` vienen fijos en las variables del workflow, y la ruta de Java es `/usr/local/<ENV>/jdk1.8.0_152/bin/java` (versión concreta del JDK); si el entorno no coincide, el comando falla y el workflow no lo detecta (no evalúa el código de retorno).
+
 ## 5. Etapa 3: el envío (`AlertasEnvio`) es global
 
 El workflow **no recibe ningún parámetro**. Al arrancar consulta en `FT_T_REP1` **todos** los
@@ -477,6 +494,8 @@ Detalle menor: el script de validación del correo (`Validate MAIL`) escribe en 
 (`mailOK`) que el workflow no declara; si el intérprete la tratara como error, ese paso fallaría
 siempre. Como el mecanismo se usa en producción, es más probable que no afecte, pero conviene
 comprobar en el log de una ejecución de integración que se llega a `Send Mail`.
+
+**Localización exacta (según los objetos `AlertasEnvio.gsp` y `Mail.gsp` del repositorio de objetos de GoldenSource, rama develop).** El nodo `Validate MAIL` no está en el subworkflow `Mail` (v6, que solo tiene los nodos `HOST - USER` y el envío SMTP), sino en `AlertasEnvio` v7 (comentario `AOS_BASKETS_v1`). Comprueba destino, asunto y cuerpo no vacíos y `enviar='S'`, y escribe en el log (nivel `ERROR`, logger `AlertasEnvio - Validate mail`) `Destination OK`, `Subject OK` y `Body OK : ` + `mailOK`; `mailOK` no se pasa como variable al script (solo `body`, `destination`, `env`, `enviar`, `subject` y `validaemail`). Es la única referencia a `mailOK` y no condiciona el resultado (`validaemail` se calcula antes). Además, el log dice «Body OK» pero imprime una variable inexistente en lugar de `bodyOK`. Con el comportamiento habitual de BeanShell una variable no definida provoca un error de evaluación en ese nodo, lo que impediría **todos** los envíos; como el envío funciona, se concluye que el intérprete de GoldenSource lo tolera, pero no se ha comprobado en ejecución.
 
 ### 5.2 Personalización por proceso: subworkflow `AlertasEnvioExcepciones` (`.wkf` real, rama de Eduardo)
 
@@ -587,7 +606,7 @@ Que el job de Control-M termine en verde **no** lo garantiza (§2).
 variantes `GestionAlertas*.properties` (§3.1). Parciales: P-ALE-02 (contenido de producción) y P-ALE-03 (valores de
 `ServerMailConfig.xml`). Siguen abiertos, porque la plantilla no trae código Java ni workflows: `report.DocumentGenerator`,
 `alertaspck.ProcesoCLS`, `jdbc.ConDB`, `ConexionBD.jar`, `QuerysConfig` del Barrido, el jar desplegado del Barrido
-(P-ALE-04, defectos de §4.3) y el comportamiento de `Mail` ante `mailOK` (§5.1). No cambia ningún comportamiento descrito
+(P-ALE-04, defectos de §4.3) y el comportamiento del nodo `Validate MAIL` de `AlertasEnvio` ante `mailOK` (§5.1, localizado en la cuarta pasada con el objeto de develop). No cambia ningún comportamiento descrito
 en el resto de la spec; la única corrección es que `GestionAlertasEVERISRDR.properties` ejecuta dos veces el mismo código (§3.1).
 
 ## 10. Procesos que lo usan

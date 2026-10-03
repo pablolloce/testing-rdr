@@ -110,7 +110,7 @@ de `Legal_Opinion_Cargador.jar` queda documentado como contexto técnico en §6.
 | P-OPLEG-01 | `LegalOpinion.sql` usa `sysdate-1` (y `sysdate-2` si hoy es lunes), pero la fila 17 del Planificador solo corre de martes a sábado. ¿Qué ocurre con lo modificado en sábado y domingo? Con esta planificación el martes solo recoge el lunes y el lunes nunca se ejecuta | Los cambios de fin de semana podrían no llegar nunca a Mentor |
 | P-OPLEG-02 | **Resuelta en parte (3ª pasada):** con el fichero ausente `MEKYTL0930` crea uno con solo la cabecera y termina NOTOK (§6.2); falta el orden real de ejecución con el Planificador. La cadena 1 empieza a las 14:00, la misma hora a la que el Planificador (que revisa cada 30-60 min) escribe el CSV, y no hay `ctmfw` antes de `MEKYTL0930`. ¿Qué hace `MEKYTL0930` si el CSV aún no existe o es el del día anterior? | El pipeline de formateo podría trabajar sobre un fichero ausente o antiguo y el filewatcher posterior no lo distinguiría |
 | P-OPLEG-03 | **Resuelta en parte (3ª pasada):** los códigos de proceso son `Legal_Opinion_Response` y `Legal_Opinion_Response1` (§6.3); falta la configuración en base de datos. De las alertas de la cadena 2: ¿códigos de proceso que usan los `GestionAlertas_Legal_Opinion_Response`/`...1`?, ¿qué query y qué plantilla Excel hay en `FT_T_REP1` para el informe?, ¿quién recibe el correo (`FT_T_ALR1`/`FT_T_ALU1`)?, ¿quién escribe las incidencias en `FT_T_TPG1`, si el jar solo escribe en `FT_T_RLT1`? Dato conocido: el `.properties` tiene dos pasos `Property` consecutivos, `GestionAlertas_Legal_Opinion_Response` («alerta de proceso») y `GestionAlertas_Legal_Opinion_Response1` («segunda alerta»), pero no se sabe qué hace cada uno | Sin ello no se sabe a quién llega el informe ni de dónde salen sus datos (§6.5) |
-| P-OPLEG-04 | **Resuelta en parte (3ª pasada: literales de `LegalOpinion.properties`, `LegalOpinionResponse.properties` y `CabeceraLegalOpinion.csv` en §6.2 y §6.3; sin `Stop`; sigue pendiente solo el texto completo de `LegalOpinion.sql`).** Resuelto: nombres y origen de las 12 columnas que devuelve `LegalOpinion.sql` (§6.1), nombres de los ficheros intermedios del pipeline de la cadena 1 (§6.2) y secuencia de 5 pasos de `LegalOpinionResponse.properties` (§6.3), según el documento original del proceso (rama de Miguel). **Sigue pendiente:** contenido literal de ambos `.properties` (rutas completas, si hay `Stop`), contenido de `CabeceraLegalOpinion.csv` (nombres de columna de la cabecera fija y separador; no se sabe si coinciden con los alias del SQL) y el texto completo de `LegalOpinion.sql` | Sin los ficheros no se pueden fijar los nombres exactos de la cabecera ni las rutas intermedias |
+| P-OPLEG-04 | **Resuelta en parte (3ª pasada: literales de `LegalOpinion.properties`, `LegalOpinionResponse.properties` y `CabeceraLegalOpinion.csv` en §6.2 y §6.3; sin `Stop`; sigue pendiente solo el texto completo de `LegalOpinion.sql`).** Resuelto: nombres y origen de las 12 columnas que devuelve `LegalOpinion.sql` (§6.1), nombres de los ficheros intermedios del pipeline de la cadena 1 (§6.2) y secuencia de 5 pasos de `LegalOpinionResponse.properties` (§6.3), según el documento original del proceso (rama de Miguel). **Sigue pendiente:** contenido literal de ambos `.properties` (rutas completas, si hay `Stop`), contenido de `CabeceraLegalOpinion.csv` (nombres de columna de la cabecera fija y separador; no se sabe si coinciden con los alias del SQL) y el texto completo de `LegalOpinion.sql` | Sin los ficheros no se pueden fijar los nombres exactos de la cabecera ni las rutas intermedias **4ª pasada:** el texto completo de `LegalOpinion.sql` (develop) está resumido en §6.1.1; falta verificar el `CLOB_VALUE` instalado y los `.properties` de producción. |
 | P-OPLEG-05 | **Resuelta (3ª pasada):** el paso 8 (`dos2unix`) deja el fichero final en formato Unix (LF), anulando el `Unix2Dos` de los pasos 5 a 7 (§6.2). (Pregunta original:) El paso 8 del pipeline de la cadena 1 es `ConvertirUNIX` tras `Unix2Dos`: ¿deja el fichero final en formato Unix aunque se dice que Mentor lo exige en formato DOS? | Formato de salida real del fichero que recibe Mentor |
 | P-OPLEG-06 | **Resuelta en parte (3ª pasada: la plantilla pasa al jar la ruta `agreements/old/` como `args[2]`, sin que se vea qué hace con ella).** La descripción del pipeline en el documento original del proceso (rama de Miguel) dice que el paso `Borrar` elimina únicamente `Legal_Opinion_Response.xlsx`, y que el paso Java «mueve los ficheros procesados a `old/`»; no menciona que se borre `loadLegalOpinionLog.csv`. Queda por confirmar si el jar mueve el log a `old/` (con qué nombre) antes de que `MEKYTL0978` lo historifique a `.../old/loadLegalOpinionLog_YYYYMMDD.rar` y qué hace `MEKYTL0978` si ya no está. | Si algo lo retira antes, `MEKYTL0978` no encuentra nada que historificar |
 | P-OPLEG-07 | **Resuelta en parte.** Comando (fichas del documento original del proceso, rama de Miguel): `ctmfw '/fichtemcomp/pr/descargas/kytl/agreements/loadLegalOpinionLog.csv' CREATE 0 60 10 3 240`, host `pr-rdr.igrupobbva`, usuario `xpctma1` (ver §5.2). Sigue pendiente confirmar cómo se fija el límite de las 23:00 en Control-M (el documento solo indica «activo 18:00-23:00») y a qué hora arranca realmente el job | Define cuándo se considera completo el log y a qué hora vence el job si no llega |
@@ -180,9 +180,8 @@ Diaria M-S (no lunes), 14:00, criticidad W.
 
 ### 6.1 `LegalOpinion.sql` — consulta de la extracción (ejecutada por el Planificador Genérico, fila 17)
 
-Filtra `FT_T_LAGR` (tipo ISDA, organización `0182`) modificados el día anterior (`sysdate-1`, o
-`sysdate-2` en lunes, para cubrir el fin de semana), con contraparte externa activa y clasificación
-"Legal Opinion" activa en `FT_T_LLD1`. Lee **17 tablas** de `KYTL_GC` en modo solo lectura (`FT_T_LAGR`,
+Filtra `FT_T_LAGR` (tipo ISDA, organización `0182`) cuyo **detalle de opinión legal del país (`FT_T_LLD1`) se modificó** el día anterior (`sysdate-1`, o
+`sysdate-2` si ayer fue lunes), con contraparte externa activa y clasificación "Legal Opinion" activa en `FT_T_LLD1`. *Corrección de la 4ª pasada (objeto `LegalOpinion.sql` de develop): la fecha filtra `LLD1.LAST_CHG_TMS`, no la fecha de modificación del acuerdo; ver §6.1.1.* Lee **17 tablas** de `KYTL_GC` en modo solo lectura (`FT_T_LAGR`,
 `FT_T_LAID`, `FT_T_LAAN`, `FT_T_LAAP`, `FT_T_LAT1`, `FT_T_LAL1`, `FT_T_LLD1`, `FT_T_LARS`, `FT_T_FLAR`,
 `FT_T_FIRL`, `FT_T_FIGU`, `FT_T_FRID`, `FT_T_FND1`, `FT_T_INCL`, `FT_T_ISTY`, `FT_T_ISCD`, `FT_T_EIST`).
 Genera 12 columnas por fila (ID del acuerdo en RDR y en Mentor, indicadores de Legal Opinion a 3 niveles
@@ -204,9 +203,38 @@ orígenes:
 | `LO_AGR_FUND` | `FT_T_FND1.LEGAL_OPINION_IND` / derivado | Indicador de Legal Opinion a nivel de fondo |
 | `LO_COLL_FUND` | `FT_T_FND1.COLL_LEGAL_OPINION_IND` / derivado | Indicador de Legal Opinion del colateral a nivel de fondo |
 
-La consulta es de solo lectura (no escribe en Oracle). El texto completo de las 843 líneas no se ha incluido en
-este documento (P-OPLEG-04). Detalle del filtro de fecha: `sysdate-1` de martes a sábado y `sysdate-2` los lunes,
+La consulta es de solo lectura (no escribe en Oracle). El texto completo (843 líneas) está en el fichero `LegalOpinion.sql` del repositorio de objetos de GoldenSource (carpeta `scriptsSQL`, rama develop; puede diferir del `CLOB_VALUE` instalado) y se resume en §6.1.1. Detalle del filtro de fecha: `sysdate-1` de martes a sábado y `sysdate-2` los lunes,
 pero el Planificador no corre los lunes (P-OPLEG-01).
+
+#### 6.1.1 Qué hace exactamente la consulta (según `LegalOpinion.sql` de develop; 4ª pasada)
+
+**Forma del resultado.** La consulta devuelve **una sola columna**: la `SELECT` externa concatena las 12 columnas con comas (`ID_LAGR_RDR||','||ID_LAGR_MNTR||','||...||LO_COLL_FUND`), sin comillas ni escapes, de modo que cada fila es una línea de texto separada por comas (los nulos quedan como cadena vacía; los productos van separados por `|` dentro de su campo). Por eso el pipeline de §6.2 (que corta por `;`) deja la línea intacta. Termina en `;` y se ordena por la parte numérica de `ID_LAGR_RDR` (`ORDER BY to_number(regexp_substr(ID_LAGR_RDR,'^[0-9]+'))`; un `ID_LAGR_RDR` nulo o sin dígitos da un orden nulo y esas filas quedan al final, sin error). Si el motor del Planificador **no escribe cabecera**, el paso 2 del pipeline (`sed 1d`) descarta cada día la primera fila de datos.
+
+**Qué filas selecciona (CTE `LAGRS`).** Parejas (acuerdo, parte externa) de acuerdos `ISDA` (`LAGRTYP` con padre `ISDA`) de la organización `0182`, activos, con una parte `EXTERNAL` y una `INTERNAL` activas, cuya contraparte externa tiene una relación `OPERATIVE` con un padre residente en un país (`FIGU` con `RESID_CO`) que tiene una opinión legal activa (`FT_T_LAL1`/`FT_T_LLD1` con `INDUS_CL_SET_ID3='LEGALOPINI'`) **modificada ayer** (`LLD1.LAST_CHG_TMS > sysdate-1`, o `sysdate-2` si ayer fue lunes). Seis ramas unidas con `UNION`, según el nivel cuyo indicador de opinión legal sea **`L` o nulo** (es decir, «calcular por país»; un valor explícito `Y`/`N` en el nivel no entra por esa rama):
+1. y 2. nivel acuerdo (`LAGR.LEGAL_OPINION_IND`): con coincidencia por tipo de entidad (`FT_T_LAT1`/`MENTTYPE`) y sin ella (`LLD1.INDUS_CL_SET_ID` nulo: opinión del país sin tipo de entidad).
+3. y 4. nivel anexo de colateral (`FT_T_LAAN.LEGAL_OPINION_IND`), igual desdoblamiento.
+5. y 6. nivel fondo (`FT_T_FND1`): `LEGAL_OPINION_IND='L'`, o `COLL_LEGAL_OPINION_IND='L'`, o ambos nulos con las condiciones del acuerdo o `COLL_APPLIES_IND='Y'`.
+
+**Cómo calcula cada columna.**
+
+| Columna | Cálculo |
+|---|---|
+| `ID_LAGR_RDR`, `ID_LAGR_MNTR` | `LEGAL_AGRMNT_ID` de `FT_T_LAID` activo con contexto `RDR` (fuente `Generic`) y `MENTOR` (fuente `MENTOR`) |
+| `LO_LAGR` | Si el acuerdo tiene indicador `L` o nulo: `Y` si la opinión del país (`LLD1.CL_VALUE3='1'`, acuerdo `ISDA`, mismo tipo de entidad) es positiva, `N` en otro caso (también `N` si no hay opinión). Si no: el valor explícito de `LEGAL_OPINION_IND` |
+| `PROD_RDR_LAGR`, `PROD_MENTOR_LAGR` | Productos RDR (`FT_T_ISTY.ISS_TYP_NME`) y Mentor (`FT_T_EIST.EXT_ISS_TYP_TXT`, fuente `MENTOR`) del acuerdo con opinión positiva en el país (`CL_VALUE3='1'`), unidos con `|`. Si el acuerdo **no** tiene restricciones de producto «incluidos» (`FT_T_LARS` con `RST_TYP='PRODUCT'`, `RST_REAS_TYP='Prod_Inc'`, sin anexo), se listan todos los productos con opinión positiva; si las tiene, solo los incluidos que además tienen opinión positiva |
+| `ID_COLL_RDR` | `LAAN_OID` del anexo (solo anexos con indicador `L` o nulo; vacío si no hay) |
+| `LO_COLLATERAL` | Solo si el indicador del anexo es `L`: `Y`/`N` según la opinión del país para el tipo de anexo (`CSA UK`, `CSA NY` y `CSA IM` se normalizan a `CSA_UK`, `CSA_NY`, `CSA_IM`), `N` si no hay. **Con un valor explícito (`Y`/`N`) la columna sale vacía** (no hay rama `ELSE`) |
+| `PROD_RDR_COLL`, `PROD_MENTOR_COLL` | Igual que los del acuerdo, pero sobre el anexo (`FT_T_LAAN`) |
+| `STAR_ID` | `FINR_ID` de `FT_T_FRID` con contexto `STARID`, fuente `STAR_MADRID`, `CPARTY`, del fondo (`FT_T_FND1` con `AGRMNT_INVL_PARTY_TYP='FUND'`); vacío si no hay fondo |
+| `LO_AGR_FUND`, `LO_COLL_FUND` | Solo si el indicador del fondo es `L` (acuerdo) o `COLL_LEGAL_OPINION_IND='L'` (colateral): `Y`/`N` por la opinión del país; **vacío con valor explícito** (sin `ELSE`) |
+
+**Consecuencias y defectos.**
+- **El fichero contiene únicamente acuerdos cuyo indicador se calcula por país y cuya opinión de país cambió ayer.** No es un fichero de acuerdos modificados: un acuerdo cuyo propio indicador cambia (o cuya fecha de modificación es reciente) no sale si la opinión del país no se tocó. Los indicadores explícitos no se envían.
+- **Producto cartesiano:** las uniones por la izquierda con anexos y fondos (`LEFT JOIN`) generan una fila por cada combinación acuerdo × anexo × fondo; un acuerdo con varios anexos y varios fondos repite las columnas del acuerdo en todas las combinaciones.
+- **Ventana con hueco:** el Planificador ejecuta la fila 17 de martes a sábado a las 14:00 y la ventana es de 24 horas (48 horas solo si ayer fue lunes, es decir, el martes). Las opiniones modificadas entre el sábado a las 14:00 y el domingo a las 14:00 **no quedan cubiertas por ninguna ejecución** (el sábado no las ve; el martes mira desde el domingo a las 14:00). Se deduce de las dos condiciones; no se ha comprobado con datos.
+- **`FT_T_LAL1.LAGR_TYPE='ISDA'` fijo:** las opiniones de colateral (CSA) se buscan con `LAGR_TYPE` normalizado, pero las de acuerdo y fondo solo para `ISDA`.
+- **Esquema escrito en el texto:** las tablas llevan el prefijo `kytl_gc.`, por lo que la consulta solo funciona con ese nombre de esquema (en otros entornos con otro esquema fallaría).
+- **Marcadores de paginación:** no tiene (la consulta devuelve todo de una vez); termina en `;` (véase `comun_planificador_generico` §5.1).
 
 ### 6.2 `LegalOpinion.properties` — pipeline de formateo (`MEKYTL0930`, sin SQL)
 
@@ -383,7 +411,7 @@ calcula, para un acuerdo legal, si existe opinión legal positiva de BBVA:
 
 Su única utilidad para este documento es confirmar el modelo de datos: las opiniones legales viven en `FT_T_LAL1` (cabecera por país
 y tipo de acuerdo) y `FT_T_LLD1` (detalle por tipo de entidad), con el resultado en un conjunto de clasificaciones `LEGALOPINI`.
-No cambia ningún requisito ni caso de prueba.
+No cambia ningún requisito ni caso de prueba. (4ª pasada: el objeto `LegalOpinion.gsp` de develop coincide con esta descripción, v1, `DEVELOPMENT`, última modificación 05/11/2022. Observación: el borrador decide «positiva» por el nombre `Positive` de la clasificación `LEGALOPINI`, mientras que `LegalOpinion.sql` lo hace por `CL_VALUE3='1'` (§6.1.1); se asume que ambos son la misma clasificación.)
 
 ### 6.7 Aclaración sobre `nlegales` (3ª pasada)
 

@@ -358,8 +358,41 @@ Parámetros activos (los cuatro son la etiqueta raíz de un XML):
 | `0152F5B1B` | `productos.sql` | `<Productos>` | `</Productos>` |
 | `0134FA84A` | `BATCH_SAIT.sql` | `<AgreementResp MsgType="UNTTG2"><ReqID>SAIT</ReqID><ReqRslt>1</ReqRslt>` | `</AgreementResp>` |
 
-El texto de las queries (`CLOB_VALUE`) **no se ha recibido** para ninguna extracción en este
-documento; cada spec de proceso que use una de ellas debe incluir su query o declararla como gap.
+El texto de las queries (`CLOB_VALUE`) no venía en el documento de análisis; se conoce por los ficheros de la carpeta
+`scriptsSQL` del repositorio de objetos de GoldenSource (rama develop), que contiene los 17 scripts activos (§5.1).
+Cada spec de proceso que use una de ellas debe incluir su query o declararla como gap.
+
+### 5.1 Texto de las queries activas (según `scriptsSQL`, rama develop)
+
+Los 17 scripts del inventario existen en develop con el mismo nombre que `ACTION_NME`. **Pueden diferir del `CLOB_VALUE` instalado** (rama develop, no producción): lo que sigue es el contenido de los ficheros. La carpeta tiene otros 49 scripts (por ejemplo `RDR_ExtraccionSW2.sql`, `RDR_ExtraccionSW3.sql`, `RDR_ExtraccionSW4.sql`, `RDR_ExtraccionSW_FV.sql`, `Calendario.sql` y las extracciones de contingencia) que no tienen fila activa en el inventario.
+
+| Script | Qué extrae | Forma del resultado | `ORDER BY` final |
+|---|---|---|---|
+| `RDR_ExtraccionSW.sql` | Maestro de contrapartidas para Sales Warehouse: unas 92 columnas de ancho fijo (`RPAD`/`LPAD`; identificadores `MGCGLOID`, `STARID`, entidad, clasificación MiFID, LEI, direcciones, contactos regulatorios...) en una consulta de unas 1.900 líneas con 10 `UNION` | una fila por contrapartida; solo las que **tienen** `STARID` (`WHERE LENGTH(TRIM(starid)) != 0`) | **`ORDER BY canonico`** |
+| `RDR_ExtraccionSW_on.sql` | Igual que la anterior, pero solo contrapartidas **creadas hoy** (`fins.start_tms` entre `TRUNC(SYSDATE)` y `SYSDATE`) | idem | **ninguno** |
+| `RDR_ExtraccionSW_COB.sql` | Mismo maestro pero para las contrapartidas **sin** `STARID` (`WHERE LENGTH(TRIM(STARID)) IS NULL`); orden de columnas ligeramente distinto (`CLASIFICACION_MIFID` antes) | idem | ninguno (hay 8 `ORDER BY` internos) |
+| `RDR_ExtraccionSW_COB_ON.sql` | Igual que `_COB` limitado a las creadas hoy | idem | ninguno |
+| `RDR_Calendarios_Modelity.sql` | Festivos de calendario (`FT_T_CADF`, `FT_T_CADP`, `FT_T_DTDF`): divisa/calendario, día `yyyy-mm-dd` y la marca `HOLIDAY`, con una `UNION` que añade los fines de semana posteriores a hoy | CSV de 3 columnas | `ORDER BY currency, cal_day` |
+| `RDR_ExtraccionMIC.sql` | Subroles de mercado (`FT_T_REI1`) de contrapartes operativas con rol `TP_MTF`, `TP_OTF`, `TP_OTC`, `TP_RG` o `TRAVENUE` y contexto `MIC`: sub-rol, descripción (253 caracteres), tipo, `FINSID` y `STARID` | una fila por MIC | ninguno |
+| `RDR_CLIEXCLU.sql` | Clientes exclusivos/compartidos de mercados: clientelaid, oficina principal, clasificación (`COMPARTIDO MERCADOS`, `EXCLUSIVO MERCADOS`, `NO MERCADOS`), MiFID y datos fiscales; solo entidad `0182` y sucursal operativa | una fila por cliente | `ORDER BY` número de `clientelaid` (no es clave única si hay duplicados) |
+| `DictionaryMarkets.sql` | Mercados por MIC: grupo, país y corporate id (subconsultas escalares sobre `FT_T_MKID`, `FT_T_MTGR`, `FT_T_MTGP`) | `SELECT DISTINCT` | ninguno |
+| `DictionaryIndex.sql` | Índices: tipo y valor de identificador, sistema y canónico (`FT_T_ISID` + `FT_T_ISSU`, `iss_usage_typ='INDEX'`, activos) | `SELECT DISTINCT` de 4 columnas | ninguno |
+| `ACK_NACK_MX3.sql` | ACK/NACK de la carga de cestas de Murex en el último día: NACK desde los mensajes de error de los jobs `Load_Baskets_Mx3` (el nombre de la cesta se extrae de `<securityLabel>` del mensaje binario, primeros 1.200 bytes) y desde `FT_T_RLT1` (`last_chg_usr_id='BBVA:CUSTOMER:BASKET'`, `KO`); ACK desde `FT_T_RLT1` con `OK` | `UNION ALL` de cesta, `ACK`/`NACK` y fecha | ninguno |
+| `BASKETS_TO_ABACO.sql` | Cestas con código, estado, tipo, mercado de Murex y país (`FT_T_ISID`, `FT_T_ISSU`, `FT_T_MKID`, `FT_T_MKIS`, geografía) | `SELECT DISTINCT` con una `UNION` | ninguno |
+| `LegalOpinion.sql` | Acuerdos legales con su opinión legal y fondos asociados (CTE `LAGRS` y 9 `UNION`; esquema `kytl_gc` escrito en la consulta) | una fila por acuerdo | `ORDER BY` parte numérica de `ID_LAGR_RDR` |
+| `RDR_ClientesMifidcec.sql` | Clientes MiFID: `RPAD('ES0182'||CCLIENT, 125)` para cada clientelaid con mnemónico local activo | una columna de 125 caracteres | ninguno |
+| `productos.sql` | XML de productos: un único elemento `Producto` agregado con `XMLAGG` por tipo `CANONICO:%` (`FT_T_ISTY`, `FT_T_ISCD`, `FT_T_EIST`), con sus subproductos | **una sola fila** CLOB (`getClobVal()`) | no aplica |
+| `portfolios.sql` | XML de carteras: elemento `Portfolio` agregado con `XMLAGG` por cuenta `PORTFLIO` activa (`FT_T_ACCT`, `FT_T_ACID`, `FT_T_AIT1` con `CANONICO`) | **una sola fila** CLOB | no aplica |
+| `BATCH_SAIT.sql` | XML `Agreement` completo de acuerdos legales (`FT_T_LAGR` con `data_src_id` distinto de `Sentry` y `MENTOR`): unos 210 `XMLELEMENT` con identificadores, partes, contactos, productos, cuentas y condiciones (`FT_T_LAID`, `LAG1`, `LAT1`, `LAC1`, `LARS`, `LAR1`...) | una fila por acuerdo, **paginada con marcadores** `:paginacionResultado`, `:paginacionInicio` y `:paginacionFinal` escritos en el propio script | ninguno |
+| `BATCH_SAIT_DIARIO.sql` | Igual que `BATCH_SAIT.sql` más 15 elementos de marcas de tiempo (`actual_date` y la última modificación de cada tabla del acuerdo: `lagr_last_chg_tms`, `laid_...`, `flar_...`...) y `rownum = 1` en la subconsulta de provincia (`STATE`) | idem | ninguno |
+
+Conclusiones que afectan a las preguntas abiertas:
+
+- **P-PLA-09 (parcialmente cerrada).** Solo cuatro scripts llevan `ORDER BY` final (`RDR_ExtraccionSW`, `RDR_Calendarios_Modelity`, `RDR_CLIEXCLU` y `LegalOpinion`), y de ellos solo `RDR_ExtraccionSW` ordena por una clave probablemente única (`canonico`) y `LegalOpinion` por el identificador del acuerdo. Los demás ficheros de más de 1.000 filas (`_on`, `_COB`, `_COB_ON`, `DictionaryMarkets`, `DictionaryIndex`, `ACK_NACK_MX3`, `BASKETS_TO_ABACO`, `RDR_ClientesMifidcec`, `RDR_ExtraccionMIC`) **no tienen orden**, de modo que si el motor los pagina por `ROWNUM` (R10), pueden salir filas repetidas o perdidas. Queda sin confirmar si el motor pagina esas consultas: **solo los dos scripts SAIT traen los marcadores de paginación**, y ninguno de los dos tiene `ORDER BY`; el análisis decía que el motor los insertaba. `productos.sql` y `portfolios.sql` devuelven una sola fila, así que el orden no importa.
+- **P-PLA-05 (en parte).** Los dos únicos XML por filas (SAIT) llevan marcadores de paginación; `productos.sql` y `portfolios.sql` devuelven una sola fila y por tanto el límite de 20.000 filas no les afecta (sí podría afectar el tamaño del CLOB, no verificado). Sigue sin saberse qué ocurre en un XML sin paginación que supere 20.000 filas, pero ninguna extracción activa está en ese caso.
+- **Diferencia SAIT total frente a diario:** la consulta «diaria» **no filtra por fecha**: devuelve los mismos acuerdos que la total (solo añade las marcas de última modificación para que el consumidor decida qué cambió). Quien espere un fichero incremental recibe un fichero completo.
+- **Punto y coma final.** Siete de los 17 scripts activos (`DictionaryMarkets`, `ACK_NACK_MX3`, `BASKETS_TO_ABACO`, `LegalOpinion`, `productos` y los dos SAIT) terminan en `;`. Una sentencia con `;` final falla en JDBC con `ORA-00911`. Como en producción funcionan, o el motor elimina el `;` o el `CLOB_VALUE` instalado no lo lleva; no se ha podido comprobar y debe tenerse en cuenta al copiar un script a un `CLOB_VALUE`.
+- **Distinción por `STARID`.** La extracción de Sales Warehouse se parte en dos juegos de ficheros: los que tienen `STARID` (`FICHERO_RDR*.csv`, filas 1-4) y los que no (`FICHERO_RDR_COB*.csv`, filas 10-13). Cada uno tiene una versión nocturna completa (21:50) y una incremental de contrapartidas creadas el mismo día (07:00-07:01, 15:00 y 17:00).
 
 ## 6. Riesgos conocidos
 
@@ -402,6 +435,8 @@ planificador genérico no se programa dentro de GoldenSource sino desde fuera (e
 `RDR_SW_PLANIFICADOR_new` sigue siendo P-PLA-03). Lo único que toca `FT_T_ATE1`/`FT_T_PAR1` en el
 volcado es un workflow de otro proceso que lee un parámetro `ESPERA_STAR` de `FT_T_PAR1`, sin relación con
 este motor.
+
+**Cuarta pasada de cierre (repositorio de objetos de GoldenSource, rama develop): H-PLA-03 queda resuelto (texto de las 17 queries, §5.1), P-PLA-09 y P-PLA-05 avanzan en parte (§5.1). El motor (`ProjectMain.jar`), las capturas de tablas y los XSD de SAIT, productos y carteras siguen sin aparecer: la carpeta de objetos no contiene ningún XSD de estas extracciones ni referencias a `FT_T_ATE1`/`FT_T_QPF1`, y P-PLA-01 a P-PLA-04 y P-PLA-06 a P-PLA-08 siguen abiertas.**
 
 **Tercera pasada de cierre (plantilla de despliegue): ninguna pregunta de P-PLA-01 a P-PLA-09 queda cerrada.** La plantilla no trae el
 motor, ni las queries, ni las capturas de `FT_T_ATE1`/`FT_T_QPF1`. Sí se incorporan: el mecanismo exacto de generación de

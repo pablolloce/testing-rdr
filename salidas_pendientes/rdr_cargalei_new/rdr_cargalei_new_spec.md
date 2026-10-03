@@ -146,14 +146,14 @@ Control-M (L-V, ≥14:30)
 |----|----------|-----------------|
 | P-LEI-01 | **Resuelta (3ª pasada):** scripts leídos enteros, §6.3 y §6.5. (Pregunta original:) ¿Se pueden obtener `gleif.sh`, `LEI.sh` y `Comprobar_fichero_LEI.sh`? En concreto: ¿con qué código terminan si la descarga falla, si el XML no tiene registros o si `LEI.csv` está vacío? ¿De qué ruta exacta restaura `LEI_old.csv` y a qué fichero lo copia? ¿Restaura también `LEI/old/LEI.csv`? | Son ejecutables de la cadena que no están en el repositorio. Con `Stop=Ok`, su código de salida decide si se ejecuta la carga, el informe y el aviso; y la restauración decide qué carga el delta del día siguiente (RISK-LEI-002) |
 | P-LEI-02 | **Resuelta (3ª pasada):** hoja XSL leída entera, valor de cada columna en §6.3.1. (Pregunta original:) ¿Se puede obtener `GLEIF_traductor_New.xsl`? | Decide el valor de cada una de las 18 columnas de `LEI.csv` y su separador; sin ella no se puede afirmar qué dato de GLEIF va en cada columna |
-| P-LEI-03 | ¿Cuál es el layout MDX del feed `CargaLEI` y qué hace `ParseMDXLayout` con un `LEI.csv` que solo tiene la cabecera? ¿Qué componente escribe en `FT_T_RLT1` las filas `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='CARGALEI'` y en `FT_T_JBLG` el job `CargaLEI`? | **Resuelta en parte (2ª pasada de cierre).** (1) El evento `MDX` no ejecuta `ParseMDXLayout`, sino `Standard File Load` (§6.2 paso 4); `ParseMDXLayout` solo registra la estructura de un MDX en la configuración y no se lanza en esta cadena. (2) El job de `FT_T_JBLG` lo crea `Standard File Load` (primer nodo, con el fichero y el tipo de mensaje `CargaLEI`). (3) El feed `CargaLEI` usa la definición `SkipHeaderReadByLineUTF8.xml` (por su nombre: descarta la cabecera y lee por líneas en UTF-8) y el tipo de mensaje `CargaLEI` el mapeo `db://resource/RDR/mapping/LEI/cargaLEI.mdx` (3.912 bytes, modificado el 09/09/2023 por `kytl_ir`). Con un `LEI.csv` de solo cabecera no hay mensajes que procesar y el workflow cierra el job sin cargar nada y sin error (deducido). Siguen sin constar el **contenido** del MDX (columna → campo) y qué componente escribe las filas `REPORTES`/`CARGALEI` de `FT_T_RLT1`: ni el XML del feed ni el MDX vienen en el volcado |
+| P-LEI-03 | ¿Cuál es el layout MDX del feed `CargaLEI` y qué hace `ParseMDXLayout` con un `LEI.csv` que solo tiene la cabecera? ¿Qué componente escribe en `FT_T_RLT1` las filas `RLT_PURP_TYP='REPORTES'`, `DATA_SRC_APP='CARGALEI'` y en `FT_T_JBLG` el job `CargaLEI`? | **Resuelta en parte (2ª pasada de cierre).** (1) El evento `MDX` no ejecuta `ParseMDXLayout`, sino `Standard File Load` (§6.2 paso 4); `ParseMDXLayout` solo registra la estructura de un MDX en la configuración y no se lanza en esta cadena. (2) El job de `FT_T_JBLG` lo crea `Standard File Load` (primer nodo, con el fichero y el tipo de mensaje `CargaLEI`). (3) El feed `CargaLEI` usa la definición `SkipHeaderReadByLineUTF8.xml` (por su nombre: descarta la cabecera y lee por líneas en UTF-8) y el tipo de mensaje `CargaLEI` el mapeo `db://resource/RDR/mapping/LEI/cargaLEI.mdx` (3.912 bytes, modificado el 09/09/2023 por `kytl_ir`). Con un `LEI.csv` de solo cabecera no hay mensajes que procesar y el workflow cierra el job sin cargar nada y sin error (deducido). **Resuelta en la 4ª pasada** con los objetos del repositorio de objetos de GoldenSource (rama develop): el feed `CargaLEI` (`vendordefinitions/RDR/CargaLEI.gsp`), la definición `SkipHeaderReadByLineUTF8.xml` y el mapeo `cargaLEI.mdx` están analizados en §6.6.1; las filas `REPORTES`/`CARGALEI` de `FT_T_RLT1` las escribe el propio mapeo (nodo `RegisterLogTable`). Un `LEI.csv` solo con cabecera sigue sin generar mensajes (la definición salta una línea y filtra las vacías) |
 | P-LEI-04 | ¿Cuál es la configuración (`.idx`) de la clave `MEKYTL0349` de `MEGENV0001.sh`: protocolo, máquinas, `FALLA_NO_FICHERO`, renombrado y ruta de historificación local? | Decide si el envío falla o no cuando falta `Reporte_LEI.csv` y cómo se renombra a `Reporte_LEI_AAAAMMDD.csv` |
 | P-LEI-05 | ¿Cuáles son las líneas de `INFORMACION_HISTORIFICACIONES.IDX` de `MEKYTL0944` y `MEKYTL1237`? | Deciden operación (mover, comprimir), rutas y si fallan cuando no hay fichero. El `.zip` de `MEKYTL0944` no encaja con las operaciones de compresión de `RAMERC0068.sh` (que usa `gzip`, `.gz`) |
 | P-LEI-06 | **Resuelta en parte (3ª pasada):** `Reporte_GLEIF_Entity_Status.properties` ya es conocido (§6.8); falta la configuración en base de datos. ¿Cuál es el contenido de `Reporte_GLEIF_Entity_Status.properties` y la configuración en base de datos del código de proceso `Reporte_GLEIF_Entity_Status` (`FT_T_REP1`: `QUERY`, `CABECERA`, `RUTA`, `EXCEL_TEMPLATE`, `EXCEL_SHEET`, `SHORT_PROCESS`; `FT_T_ALR1`/`FT_T_ALU1`: destinatarios)? ¿Quién escribe sus incidencias en `FT_T_TPG1`? | Sin ello no se puede especificar ni el contenido del Excel ni sus destinatarios ni su nombre exacto |
 | P-LEI-07 | **Resuelta en parte (3ª pasada):** contenido de `aviso_LEI.properties.{de,ei,pp,pr}` según la plantilla en §6.5; sigue la duda de qué versión de `SendMailReport` lo interpreta. ¿Cuál es el contenido de `aviso_LEI.properties` (`.pr`)? El `SendMailReport.wkf` recibido (versión 16) tiene destinatarios, asunto ("Informe diario carga contrapartidas") y nombre de adjunto (`Report.csv`) **fijos**, que no coinciden con lo que el documento atribuye al aviso (`ans_rdr.es@bbva.com`, "Reporte error carga de LEIs", `LEI.csv`) | Decide quién recibe realmente el aviso de fichero vacío y con qué asunto |
 | P-LEI-08 | ¿Cuál es la definición de Control-M de los 6 jobs: usuario de ejecución, hora exacta, condiciones de entrada y salida, reglas ante NOTOK? | Para saber si `MEKYTL0349` e `INFORME_GLEIF` se ejecutan cuando `RDRKYTL001` termina mal |
 | P-LEI-09 | **Resuelta en parte (3ª pasada):** la plantilla trae `LEI.properties` único con `@@ENV@@` (no hay variantes `.pr/.ei`), §6.2; falta verificar en el servidor lo instalado. ¿Cuál es la copia de producción de `LEI.properties`? | La recibida es la de integración, con rutas `ei` escritas a mano (`Ruta`, `File`, `PreArgJava1`) |
-| H-LEI-01 | **Resuelta en parte (3ª pasada):** `MarcaRegErroneo` + `errores_to_file.sh` (rama `CargaLEI`) analizados en §6.6: marca con `ERROR-` las líneas de `old/LEI.csv` para que reentren al día siguiente. Falta el texto de `rmCommand`/`rmOldCommand` de `HistoricizeFiles` | Qué se borra de las carpetas de trabajo y de `old/` |
+| H-LEI-01 | **Resuelta en parte (3ª pasada):** `MarcaRegErroneo` + `errores_to_file.sh` (rama `CargaLEI`) analizados en §6.6: marca con `ERROR-` las líneas de `old/LEI.csv` para que reentren al día siguiente. **Cerrada en la 4ª pasada:** `HistoricizeFiles` (develop) borra `old/<fichero>`, mueve el fichero a `old` y borra `dummy<fichero>` (§6.6); `MarcaRegErroneo` (develop) incluye también errores técnicos en la selección | Qué se borra de las carpetas de trabajo y de `old/` |
 | H-LEI-03 | **Resuelta en parte (3ª pasada):** el directorio de trabajo de `gleif.sh` es `/fichtemcomp/<env>/descargas/kytl/LEI/` (§6.3, §6.9). Falta `FT_T_REP1.RUTA` del Excel (base de datos) | Dónde queda el Excel que historifica `MEKYTL1237` |
 
 ## 5. Especificación funcional
@@ -411,8 +411,7 @@ línea LF, primera línea la cabecera literal.
 Filtro: filas de `FT_T_RLT1` con `RLT_PURP_TYP='REPORTES'` y `DATA_SRC_APP='CARGALEI'` y `START_TMS` igual o
 posterior al inicio del **último job `CargaLEI` cerrado** (`FT_T_JBLG`, `JOB_MSG_TYP='CargaLEI'`,
 `JOB_STAT_TYP='CLOSED'`). Si la carga de hoy cerró, son los cambios de hoy; si no llegó a cerrarse, el informe
-incluye también los de la carga anterior. Sin `ORDER BY`: el orden de las filas no está garantizado. Quién
-escribe esas filas (la carga `CargaLEI`) no está documentado (P-LEI-03).
+incluye también los de la carga anterior. Sin `ORDER BY`: el orden de las filas no está garantizado. Esas filas las escribe el propio mapeo `cargaLEI.mdx` (§6.6.1): solo se generan para LEI ya cargados cuyo estado de registro o fecha de renovación han cambiado.
 
 Comportamiento del jar (genérico en `comun_rdr_report`): antes de escribir comprime el informe anterior en
 `LEI/old/Reporte_LEI.zip` (solo guarda la última versión); siempre termina con 0; con 0 filas el informe solo
@@ -484,7 +483,7 @@ uno está en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.
   (`FT_T_JBLG`, con el fichero y `CargaLEI` como tipo de mensaje), abre el fichero con la definición del feed,
   procesa cada línea (`ProcessFeedMessage`, 500 por bloque, 2 ramas en paralelo por defecto) y cierra el job.
   Los errores por registro no abortan la carga: quedan en la transacción de ese registro. Un `LEI.csv` de solo
-  cabecera no genera mensajes (P-LEI-03).
+  cabecera no genera mensajes (§6.6.1).
 * **Evento Errores (paso 7) → `ErroresCSV` v6.** Recibe `Ruta`, `Servicio=LEI`, `File`, `MessageType=CargaLEI`
   y `Delta=Si`. Escribe **`/fichtemcomp/<env>/descargas/kytl/LEI/LEI_errores.csv`** (carpeta `Ruta`+`Servicio`+`/`,
   mismo directorio que `LEI.csv`), separado por `;`, con cabecera
@@ -500,9 +499,10 @@ uno está en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.
   job en `FT_T_RLT1`, escribe cada uno en `LEI/db_errores.txt` y ejecuta el comando de shell `errores_to_file`.
   Por la descripción del parámetro `Delta` en el workflow, su finalidad es marcar los registros erróneos en el
   fichero de entrada para que **al día siguiente pasen otra vez por el proceso** en la comparación diferencial.
-  Es el único de estos workflows con `haltOnError=Y`. El texto del comando no viene en el volcado; según el workflow
-  real de otros procesos que usan el mismo evento, es `errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv
-  <Ruta><Servicio>/db_errores.txt`, que aquí sería `errores_to_file.sh CargaLEI /fichtemcomp/<env>/descargas/kytl/LEI/old/LEI.csv
+  Es el único de estos workflows con `haltOnError=Y`. Según el objeto `MarcaRegErroneo.gsp` (develop) la selección es
+  la unión de `FT_T_RLT1` (`RLT_PURP_TYP='ERRORES'`) y de `FT_T_TRID` (severidad mayor que 39), es decir, **incluye también los errores técnicos**;
+  los identificadores se escriben en **una sola línea** de `db_errores.txt` (modo añadir) y el comando es
+  `sh /<env>/kytl/online/multipais/multicanal/scrt/errores_to_file.sh <MessageType> <Ruta><Servicio>/old/<Servicio>.csv <Ruta><Servicio>/db_errores.txt`, que aquí es `errores_to_file.sh CargaLEI /fichtemcomp/<env>/descargas/kytl/LEI/old/LEI.csv
   /fichtemcomp/<env>/descargas/kytl/LEI/db_errores.txt`. **`errores_to_file.sh`** (NFOQUE/DCY, 07/07/2014; leído en la
   plantilla de despliegue, `scrt/errores_to_file.sh`), rama `CargaLEI`: para cada identificador de `db_errores.txt`
   (separados por espacio) busca con `cut -f1 -d";" | grep -n <id>` las líneas de `old/LEI.csv` que lo contienen (con `|`
@@ -516,11 +516,54 @@ uno está en `salidas_pendientes/comun_gsprocess/comun_gsprocess_spec.md` §6.5.
   siguiente sería el fichero completo (RISK-LEI-009); (c) si aparece en varias líneas, `NL` contiene varios números de
   línea y el `sed` falla sin marcar nada. Esto acota RISK-LEI-002: ante errores de carga, el delta del día siguiente
   reincorpora esos registros.
-* **`HistoricizeFiles`.** Mueve (`mv -f`) el fichero indicado a la subcarpeta `old` con el mismo nombre
-  (sin fecha, sobrescribiendo el del día anterior) y borra ficheros provisionales y antiguos; los comandos de
-  borrado no vienen en el volcado (`rmCommand`, `rmOldCommand`; pendiente, común a todos los procesos con `GSProcess.sh`).
+* **`HistoricizeFiles`.** Según el objeto `HistoricizeFiles.gsp` (develop) ejecuta, por este orden, `rm -f <Carpeta>old/<fichero>`,
+  `mv -f <Carpeta><fichero> <Carpeta>old` y `rm -f <Carpeta>dummy<fichero>`: mueve el fichero indicado a `old` con el mismo nombre
+  (sin fecha, sobrescribiendo el del día anterior) y borra el provisional; no hay borrado por antigüedad (común a todos los procesos con `GSProcess.sh`, spec de `comun_gsprocess`).
 * **Qué NO hace `ErroresCSV`:** no historifica `LEI.csv` (la versión anterior de esta spec decía que "historifica
   el fichero de origen"; el fichero que historifica es el de errores).
+
+### 6.6.1 El feed `CargaLEI` y el mapeo `cargaLEI.mdx` (según los objetos de develop; cierra P-LEI-03)
+
+**Feed.** El `BusinessFeed` `CargaLEI` (fuente `RDR`) tiene un solo tipo de mensaje, `CargaLEI`, con la definición de feed `db://resource/RDR/xml/feeds/SkipHeaderReadByLineUTF8.xml` (codificación UTF-8, `LineSplitter` con `skipLines=1` y filtro de mensajes vacíos: **salta la primera línea y descarta las vacías**) y el mapeo `db://resource/RDR/mapping/LEI/cargaLEI.mdx`. Configuración del tipo de mensaje: sin *rollback* por error (`rollbackOnError=false`), `commitMode=None`, no publica y guarda el mensaje de entrada y el procesado solo si hay error (`saveInputMessage=ERROR`, `saveProcessedMessage=ERROR`, notificaciones desde `WARNING`). Un `LEI.csv` solo con cabecera no produce ningún mensaje.
+
+**Entrada.** Delimitador `|`, sin comillas, `TrimFields=BOTH`, 18 campos de texto en este orden, que coincide con las 18 columnas de §6.3.1: `LEI` (40), `LEGAL_NAME`, `REGISTRATIONSTATUS`, `LEISucesor`, `VALIDATIONSOURCES`, `CIF`, `ENTITY_STATUS`, `REGISTRATION_DATE`, `NEXT_RENEWAL_DTE`, `ADDRESS_LINE`, `CITY`, `REGION`, `COUNTRY`, `POSTAL_CODE`, `LEGAL_JURISDICTION`, `LEGAL_FORM`, `LEGAL_OTHERFORM` y `LAST_UPD_DATE` (255 cada uno). La clave de streaming es `LEI`.
+
+**Traducción del estado.** La tabla `REGISTRATION_STATUS` convierte el estado de GLEIF en el estado de la fila (`DATA_STAT_TYP`):
+
+| Estado de GLEIF | Estado en RDR |
+|---|---|
+| `ISSUED`, `LAPSED` | `ACTIVE` |
+| `CANCELLED`, `ANNULLED`, `RETIRED`, `MERGED`, `DUPLICATE` | `INACTIVE` |
+| `PENDING_VALIDATION`, `TRANSFERRED`, `PENDING_ARCHIVAL`, `PENDING_TRANSFER` | `INVALIDO` (no se carga) |
+
+**Regla principal.** Si el estado traducido es `INVALIDO` el mapeo **no genera ningún registro**: el LEI no se inserta ni se actualiza y no deja ninguna fila `REPORTES`. Si hubiera estado cargado antes como `ACTIVE` y pasara a `PENDING_TRANSFER` (por ejemplo), la fila se queda con el estado antiguo. Un estado que no esté en la tabla depende del comportamiento de la función `Translate` con valor no encontrado (segundo parámetro `true`); no se ha probado.
+
+**Registro `LegalEntityIdentifiers` (alta o actualización).** Para el resto de estados, el mapeo emite un registro de tipo `LegalEntityIdentifiers` con acción `UNKNOWN` (inserta o actualiza). La tabla destino es `FT_T_LEI1` (se deduce de las consultas `LEI1_OID`, `START_TMS` y `REGISTRATION_STATUS` que el propio mapeo hace sobre ella). Campos:
+
+| Campo del registro | Valor |
+|---|---|
+| `LEI`, `LEGALNAME` | `LEI`; `LEGAL_NAME` recortado a 255 |
+| `LEI1OID` | `LEI1_OID` existente de `FT_T_LEI1` para ese LEI; si no existe, un `NEW_OID` nuevo |
+| `STARTTMS` | `START_TMS` existente; si no existe, la fecha del sistema |
+| `LASTCHGTMS`, `LASTCHGUSRID` | fecha del sistema y `CARGALEI` |
+| `DATASTATTYP` | el estado traducido (`ACTIVE` o `INACTIVE`) |
+| `REGISTRATIONSTATUS`, `ENTITYSTATUS`, `CIF` | `REGISTRATIONSTATUS`, `ENTITY_STATUS`, `CIF` tal cual |
+| `VALIDATIONSOURCES` | `VALIDATIONSOURCES` recortado a 20 caracteres |
+| `REGISTRATIONDATE`, `NEXTRENEWALDATE`, `LASTUPDDATE` | los 10 primeros caracteres del campo, como fecha `AAAA-MM-DD` |
+| `ADDRESSLINE`, `CITY`, `REGION`, `POSTALCODE` | `ADDRESS_LINE` (255), `CITY`, `REGION`, `POSTAL_CODE` |
+| `LEICOUNTRY`, `LEGALJURISDICTION` | `COUNTRY`, `LEGAL_JURISDICTION` |
+| `LEGALFORM`, `LEGALOTHERFORM` | `LEGAL_FORM` recortado a 10 caracteres, `LEGAL_OTHERFORM` |
+
+`LEISucesor` no se guarda en `FT_T_LEI1`: solo aparece en el texto del mensaje de cambio de estado (más abajo). Los nodos de cabecera fijan `USERID=GUEST`, `MAIN_ENTITY_ID=LEI`, `MAIN_ENTITY_ID_CTXT_TYP=LEIID` y `MAIN_ENTITY_NME=LEI`.
+
+**Filas de informe (`RegisterLogTable`, las que lee `Reporte_LEI.csv`, §6.4).** Antes de escribir, el mapeo obtiene el mnemónico de la contraparte asociada al LEI (`FT_T_FIID` con `LEIID` activo), su identificador canónico global (`FINSID` activo del mismo mnemónico) y los valores que ya hay en `FT_T_LEI1`. Genera filas de `FT_T_RLT1` (`DATA_SRC_APP='CARGALEI'`, `RLT_PURP_TYP='REPORTES'`, `MAIN_ENTITY_NME='LEI'`, `MAIN_ENTITY_ID`= LEI, `GS_FIELD='FT_T_FIID.FINS_ID'`, `GS_VALUE`= canónico global, `RLT_FIELD`= mnemónico, `JOB_ID` del job de la carga, `LAST_CHG_USR_ID='CARGALEI'`) en dos casos, **solo si el LEI ya estaba en `FT_T_LEI1` con ese dato informado y el del fichero también lo está y son distintos**:
+
+1. **Cambio de `REGISTRATION_STATUS`:** mensaje `Modificacion correcta ;Registration Status ;<valor anterior> ;<valor nuevo> ;<LEI sucesor>` (lista separada por ` ;`).
+2. **Cambio de `NEXT_RENEWAL_DATE`:** mensaje `Modificacion correcta ;Next Renewal Date Status ;<valor anterior> ;<valor nuevo>`.
+
+Si el LEI está asociado a una contraparte (hay mnemónico), la fila lleva además `RLT_DIF_ACC='M'` y `RLT_DIF_STAT='PENDING'` (pendiente de difundir); si no está asociado, se escribe sin esos dos campos. Un LEI nuevo (no existente en `FT_T_LEI1`) **no genera fila de informe**, y tampoco un LEI sin cambios de estado ni de fecha.
+
+Observaciones: (a) la comparación de la fecha de renovación es de texto contra texto: el valor anterior sale de una consulta sobre una columna de fecha y el nuevo es el texto del fichero (`AAAA-MM-DD` con posible hora), por lo que, si los formatos no coinciden, **todos los LEI ya cargados parecerían haber cambiado de fecha** y el informe los incluiría a diario; no se ha comprobado con datos; (b) la versión instalada del mapeo pesa 3.912 bytes (según el documento de análisis) y la de develop 52.701: pueden no coincidir; (c) `LEISucesor` solo se ve en el informe, no en la base de datos.
 
 ### 6.7 `MEKYTL0349` / `MEKYTL0944`
 
@@ -555,7 +598,7 @@ IDX no recibida, P-LEI-05).
 
 | Tabla | Uso en este proceso |
 |-------|---------------------|
-| Tablas de GoldenSource del feed `CargaLEI` | Destino de la carga (mapeo no recibido, P-LEI-03) |
+| Tablas de GoldenSource del feed `CargaLEI` | Destino de la carga: `FT_T_LEI1` y filas `REPORTES` en `FT_T_RLT1` (mapeo `cargaLEI.mdx`, §6.6.1) |
 | `FT_T_RLT1` | Filas `REPORTES`/`CARGALEI` que lee `Reporte_LEI.csv`; errores que lee `ErroresCSV` |
 | `FT_T_JBLG` | Último job `CargaLEI` cerrado, que fija el inicio del informe |
 | `FT_T_TRID` | Errores técnicos por transacción (`CRRNT_SEVERITY_CDE > 39`) |
@@ -631,6 +674,7 @@ Casos (detalle en `rdr_cargalei_new_casos_prueba.xml`):
 | R8, RISK-LEI-007 | TC-002, TC-012 | Errores técnicos de la carga, fichero `LEI_errores.csv` y ventana de una hora |
 | R9, R10 | TC-001, TC-004 | Envío XCOM, Excel y su historificación |
 | R11, RISK-LEI-008 | TC-010 | Un fallo de descarga no devuelve código ≠ 0: no hay parada y el aviso es la única señal |
+| RISK-LEI-011 | TC-014 | Un LEI en estado pendiente no se carga ni deja fila de informe |
 | R8, RISK-LEI-009 | TC-013 | Marca `ERROR-` de la referencia del delta con `Delta=Si` y su efecto en el delta siguiente |
 | Topología | TC-008 | Detecta cambios en la cadena o en el orden de `LEI.properties` |
 
@@ -671,8 +715,9 @@ Casos (detalle en `rdr_cargalei_new_casos_prueba.xml`):
 * **RISK-LEI-010 [media]: concatenación sin sincronizar.** `LEI.sh` lanza `xsltproc` en segundo plano y solo espera en el
   penúltimo, el último y los múltiplos de 10; un trozo lento puede entrar truncado en `LEI.csv` sin error (con 120.000
   registros hay 3 trozos; con la carga completa, unos 60).
+* **RISK-LEI-011 [media]: los LEI en estado de registro pendiente no se cargan ni se actualizan.** El mapeo descarta `PENDING_VALIDATION`, `TRANSFERRED`, `PENDING_ARCHIVAL` y `PENDING_TRANSFER` sin dejar traza (§6.6.1); un LEI que pase a esos estados conserva el anterior.
 * **Duplicidades:** un mismo LEI repetido en `LEI.csv` (dos líneas idénticas nuevas) sale dos veces en el
-  delta; el tratamiento en la carga depende del layout MDX (P-LEI-03). El informe no deduplica.
+  delta; la carga lo trata como un upsert por `LEI1_OID` (el segundo registro actualiza el primero o falla por clave, según el momento de la consulta; no probado). El informe no deduplica.
 * **Configuración de integración:** la copia de `LEI.properties` lleva rutas `ei` escritas a mano (P-LEI-09).
 
 ## 10. Conclusión y requisitos de cierre
