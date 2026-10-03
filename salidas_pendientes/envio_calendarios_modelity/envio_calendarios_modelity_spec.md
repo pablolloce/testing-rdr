@@ -5,6 +5,8 @@
 > (duplicado exacto del anterior, sin contenido adicional), más 4 rondas de resolución de gaps
 > con el usuario (18 preguntas).
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: texto de `RDR_Calendarios_Modelity.sql` (P-CALM-04, H-CALM-04), con las diferencias respecto del fichero real de producción observado; §6.2.
+
 ## 1. Resumen ejecutivo
 
 El proceso `ENVIO_CAL_MODELITY_new` detecta, captura y distribuye el fichero maestro `Calendarios.csv` desde el ecosistema RDR hacia la plataforma Modelity y 5 unidades de negocio satélite (XERG, BONT, CSCF, Mentor, TFIT), garantizando que todas ellas dispongan de la misma referencia de días no hábiles (fines de semana y festivos) por divisa. **Confirmado por export real de Control-M (`INCOND`/`OUTCOND` de cada job):** la cadena es **estrictamente secuencial** — no hay ramas paralelas independientes; cada destino depende de la finalización del anterior.
@@ -37,7 +39,7 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 
 - **Clave de negocio real del fichero:** `CURRENCY + CAL_DAY`, no `MARKET_CODE + CALENDAR_DATE` (campos que ni siquiera existen en el CSV real; `MARKET_CODE`/`CAL_ID` son internos de GoldenSource y no viajan en el fichero).
 - **Diccionario de datos:** el original (`MARKET_CODE`, `CALENDAR_DATE`, `IS_HOLIDAY`, `HOLIDAY_NAME`) era incorrecto; la estructura real es `CURRENCY;CAL_DAY;HOLIDAY;RNUM`.
-- **Control de duplicados:** no es un constraint de Oracle; se delega a la lógica de la query/ETL de extracción en GoldenSource — si detecta duplicado de clave, la query falla.
+- **Control de duplicados:** no es un constraint de Oracle; se delega a la lógica de la query/ETL de extracción en GoldenSource — si detecta duplicado de clave, la query falla. **Actualizado en el cierre 4 (§6.2):** en la versión de develop la query no falla ni filtra: un festivo en fin de semana genera la clave repetida (`HOLIDAY` y `WEEKEND`).
 - **Fallback ante viernes festivo (CSCF/TFIT):** se envía igual, sin posponer ni adelantar; decisión de negocio confirmada por el usuario, con el comportamiento diseñado de que el sistema destino lo reflejará en su próximo día lectivo (ver nota de verificación en sección 9).
 - **Contenido de `HOLIDAY`:** enum cerrado de 2 valores (`WEEKEND`, `HOLIDAY`), sin nulos ni terceros valores en los 251.874 registros observados.
 - **Fallos de transferencia:** aviso por correo (R8), sin reintento automático. **Corrección de atribución de script (2026-09-25, confirmado por export real de Control-M, `MEMNAME` en `Workspace_136_ENVIO_CAL_MODELITY_new.xml`):** el script que ejecutan los 5 jobs de envío (`MEKYTL1090`, `MEKYTL1113`, `MEKYTL1184`, `MEKYTL1266`, `MEKYTL1311`) es `MEGENV0001.sh`, no `RAMERC0068.sh` — este último es el `MEMNAME` exclusivo de `MEKYTL0863` (historificación), no de ningún job de envío. Los códigos `7/11/68` citados en la documentación fuente original (`resolucion_preguntas_ronda1.md`) no aparecen en `MEGENV0001.sh` (el script se leyó íntegro durante el análisis; el comportamiento genérico está en `salidas_pendientes/comun_megenv0001/comun_megenv0001_spec.md` y los códigos reales se resumen en la sección 6) y no han podido verificarse; los códigos de salida reales confirmados en el script se documentan en la sección 6. Se deja constancia de la discrepancia en vez de repetir el dato no verificable.
@@ -52,9 +54,17 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 | P-CALM-01 | **Sin cambios (cierre 3):** la plantilla de despliegue no contiene el IDX ni ninguna clave `MEKYTL1320` (§6.1). ¿Existe en producción un job `MEKYTL1320` (o su clave equivalente en el `INFORMACION_HISTORIFICACIONES.IDX` de pr) que copie `Calendarios.csv` a `/unload/kytl/datsal/datax/`? El único rastro es la línea `MEKYTL1320_EI` del IDX de **integración** (ver sección 6, «Copia a DataX»); el export de Control-M de esta cadena (11 jobs) no contiene ningún job con esa clave. Si existe, ¿en qué cadena, a qué hora y antes o después de la historificación `MEKYTL0863`? | Si `MEKYTL0863` mueve el fichero a `/old/` antes de que la copia a DataX se ejecute, la copia fallaría por «fichero no encontrado»; además no se sabe quién consume el fichero en DataX (ver P-DTX-01 en `salidas_pendientes/comun_datax/comun_datax_spec.md`). |
 | P-CALM-02 | ¿Qué detiene realmente a `KYTL_CAL_MODELITY_FW` a las 23:00? El export no tiene `TIMETO` ni regla «7 → NOTOK»; solo `RERUN` ante código 7. | Sin ese límite, ante un fichero que no llega el job se relanzaría cada 60 min sin parar y nunca daría KO ni alerta. |
 | P-CALM-03 | Línea completa del `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL0863` (directorio de origen, máscara, renombrado a `Calendarios_AAAAMMDD.csv`, operación mover/copiar, `FALLA_SI_NO_FICH`) y `.idx` de `MEGENV0001.sh` de cada uno de los 5 envíos (protocolo, máscara, `FALLA_NO_FICHERO`). | Define si el fichero sigue en `Modelity/` tras la historificación (copia) o desaparece (mover), qué pasa al día siguiente si la generación falla (¿el filewatcher detectaría el fichero antiguo?) y si la ausencia del fichero bloquea cada envío. |
-| P-CALM-04 | **Sin cambios (cierre 3):** la plantilla no contiene `RDR_Calendarios_Modelity.sql`; el Planificador solo aparece como configuración de conexión (§6.1). Texto de la query `RDR_Calendarios_Modelity.sql` (fila 5 del Planificador) y entorno/horas de ejecución reales (la generación empieza a las 22:00, igual que la ventana del filewatcher). | Si la query tarda más de ~60 min o falla, el filewatcher da timeout; hoy no se conoce la duración de la generación de las 251.874 filas. |
+| P-CALM-04 | **Sin cambios (cierre 3):** la plantilla no contiene `RDR_Calendarios_Modelity.sql`; el Planificador solo aparece como configuración de conexión (§6.1). Texto de la query `RDR_Calendarios_Modelity.sql` (fila 5 del Planificador) y entorno/horas de ejecución reales (la generación empieza a las 22:00, igual que la ventana del filewatcher). **Resuelta en parte (cierre 4, 03/10/2026):** `RDR_Calendarios_Modelity.sql` está en develop, pero esa versión no produce el fichero observado en producción (sin `RNUM`, solo fechas futuras, sin recorte de 6 años; §6.2). Falta el texto instalado. | Si la query tarda más de ~60 min o falla, el filewatcher da timeout; hoy no se conoce la duración de la generación de las 251.874 filas. |
 
 **Cierre 3 (02/10/2026): estado de los huecos `H-CALM`.** La plantilla de despliegue (repositorio `estaticos`, rama `develop`) no contiene nada de esta cadena (§6.1); H-CALM-01 a H-CALM-06 siguen abiertos con la misma necesidad (`.idx` de `MEGENV0001.sh`, IDX de `MEKYTL0863`, módulos `SF_MEGENV0001_*.mod`, reglas On-Do de Control-M, `RDR_Calendarios_Modelity.sql`, resolución de P-PLA-02/P-PLA-03).
+
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-CALM-04 | Resuelta en parte | Texto de develop leído (§6.2.A), pero no coincide con la muestra de producción (sin `RNUM`, solo futuro, sin recorte); falta el texto instalado |
+| H-CALM-04 | Resuelta en parte | En la versión de develop la query no falla ni filtra duplicados (festivo en fin de semana); falta la versión instalada |
+| P-CALM-01..03, H-CALM-01..03, H-CALM-05, H-CALM-06 | Abierta | IDX, Control-M, módulos `.mod`, checksum y Planificador: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -124,6 +134,30 @@ Se realizaron 18 preguntas en 4 rondas. Resumen de las decisiones clave que reem
 - `publish/calendars.xml`, `publish/CalendarCAMEL.xml` y `publish/dictionarycalendars.xml`: peticiones SOAP `RaiseRDR_EntityFullPublishingAsynchron` que lanza `publish.sh` (evento `RDR_EntityFullPublishing`) para la **publicación masiva** de calendarios: consulta `RDR_AllCalendarsPaginated`, tipo de mensaje `UCAL2`, cola `RDR.CALENDAR.INITIALLOAD` (`calendars.xml`: sin pausa entre mensajes y hasta 9.999.999 elementos; `CalendarCAMEL.xml`: 1.000 elementos y 200 ms de pausa) y, para el diccionario, `RDR_AllDictionaryPaginatedCalendar`, tipo `UDICT2`, cola `RDR.DICTIONARY.INITIALLOAD` (páginas de 100 en todos los casos). Es la ruta de carga inicial por colas hacia los consumidores en línea; no tiene relación con el envío de ficheros a Modelity.
 - `GestionAlertas.properties` y `ServerMailConfig.xml` (estructura: `<root>` con cuatro `<server id="de|ei|pp|pr">` con `<host>` y `<user>`, ambos enmascarados en la plantilla) pertenecen al mecanismo común de alertas por informe; esta cadena no tiene ningún paso que los use (los avisos de fallo de transferencia son los de Control-M, R8).
 
+### 6.2 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL`). Es `develop`: puede diferir de lo instalado; no consta qué texto contiene la fila 5 del Planificador en producción.
+
+#### 6.2.A `RDR_Calendarios_Modelity.sql` (P-CALM-04, H-CALM-04)
+
+Texto de develop (15 líneas, sin parámetros ni paginación): un `SELECT * FROM (...) ORDER BY currency, cal_day ASC` sobre la unión (`UNION ALL`) de dos consultas, con tres columnas:
+
+| Columna | Origen |
+|---|---|
+| `CURRENCY` | `FT_T_CADF.CAL_ID` de los calendarios de tipo `D` (`CAL_TYP='D'`) activos |
+| `CAL_DAY` | fecha `yyyy-mm-dd` |
+| `HOLIDAY` | literal `HOLIDAY` o `WEEKEND` |
+
+- **Festivos (`HOLIDAY`):** filas activas de `FT_T_CADP` (por `CAL_ID`) del calendario activo con fecha posterior a hoy.
+- **Fines de semana (`WEEKEND`):** fechas de `FT_T_DTDF` cuyo día de la semana (`DAY_OF_WK_NUM_TYP`) coincide con el inicio o el fin de fin de semana del calendario (`WEEKEND_START_NUM_TYP`, `WEEKEND_END_NUM_TYP`), posteriores a hoy y comprendidas entre la primera y la última fecha de `FT_T_CADP` de ese calendario (el horizonte lo marca, por tanto, el máximo de `FT_T_CADP`, confirmando lo de §5).
+- No hay `DISTINCT` ni deduplicación entre las dos partes.
+
+**Diferencias con el fichero real de producción (muestra del 17/09/2026, §5):** la muestra empieza en `AED;2022-09-23;WEEKEND;1`, tiene una columna `RNUM` correlativa y sus fechas máximas están recortadas 6 años respecto de `FT_T_CADP`. La consulta de develop (a) solo devuelve fechas posteriores a hoy, de modo que no puede producir filas de 2022; (b) no tiene columna `RNUM`; y (c) no recorta el horizonte. Por tanto, **la versión de develop no es la que generó la muestra** (o hay una capa posterior que añade `RNUM` y recorta, que el repositorio no contiene): el texto instalado en la fila 5 de `FT_T_ATE1` sigue sin conocerse y P-CALM-04 solo se cierra en parte.
+
+**Duplicados de clave (H-CALM-04):** con el texto de develop, la consulta **no falla ni filtra**: si un festivo de `FT_T_CADP` cae en sábado o domingo, la misma pareja `CURRENCY`+`CAL_DAY` sale dos veces (`HOLIDAY` y `WEEKEND`), y dos filas activas de `FT_T_CADP` con la misma fecha del mismo calendario también se repiten. La afirmación de §4 («si detecta duplicado de clave la query falla») no se cumple en esta versión; en la instalada no se puede verificar. Para las pruebas, TC-005 debe esperar una clave repetida salvo que el texto instalado la filtre.
+
+Otra consulta del directorio, `Calendario.sql`, genera un XML `<Calendario>` (`Process_Date`, `Calendar_Label`, `Calendar_Description` y fechas `HOLIDAY`/`WEEKEND` por calendario desde el año en curso) que no es este fichero ni este envío.
+
 ## 7. Especificación de testing
 
 **Estrategia:** combinación de una prueba end-to-end completa (TC-011) que cubre el ciclo semanal completo (día laborable con 3 destinos + viernes con 5 destinos + historificación), más pruebas troceadas por sub-flujo/condición que cubren individualmente cada punto de fallo, borde y validación de negocio que la prueba E2E no ejerce en un único pase. Los casos completos, con los 10 campos exigidos, están definidos en `envio_calendarios_modelity_casos_prueba.xml`.
@@ -179,3 +213,5 @@ a los equipos propietarios de esos sistemas.
 ## 10. Conclusión y requisitos de cierre
 
 La especificación se cierra con evidencia documental y respuestas confirmadas por el usuario en sesión para todos los puntos bloqueantes (clave de negocio, estructura real del fichero, gestión de errores, integridad, concurrencia, roles, fallback de viernes festivo, rango temporal de vigencia y topología real del grafo de jobs). La **topología del árbol de jobs queda resuelta con evidencia real** (export XML de Control-M con `INCOND`/`OUTCOND` de cada job): la cadena es estrictamente secuencial, sin Fan-Out/Fan-In, con 2 puntos de alternancia por calendario (CSCF y TFIT). Esto revela un riesgo más severo que el documentado originalmente (punto 5 de la sección 9: fallo único bloquea toda la cadena posterior). El límite de reintentos automáticos del filewatcher ante timeout, que se abrió como gap nuevo tras ese mismo hallazgo, quedó **cerrado el 2026-09-24** con la ficha real del job (punto 6 de la sección 9: no es un contador, es la ventana horaria). El fallback de viernes festivo queda documentado como decisión de diseño confirmada, con un procedimiento de verificación futura pendiente de ejecutar (ver nota en sección 9), no como riesgo abierto. El rango temporal de vigencia queda cerrado con evidencia real cruzada (tabla `FT_T_CADP` + fichero de producción) y confirmación del usuario sobre el motivo del recorte de 6 años.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.2): se lee `RDR_Calendarios_Modelity.sql` (P-CALM-04 y H-CALM-04, en parte): la versión de develop devuelve solo fechas futuras sin `RNUM` ni recorte de 6 años, por lo que no es la que generó la muestra de producción, y no impide claves duplicadas (festivo en fin de semana). Siguen abiertos el texto instalado, los IDX, Control-M y el checksum.

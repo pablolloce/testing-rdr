@@ -1,5 +1,7 @@
 # Especificación — RDR_ISSUES_RE_PRO_new
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: las nueve consultas `emisiones_RE*.sql` de `scriptsSQL` como candidatas de la consulta de `ExtraccionGenericaEMISI.jar` y su correspondencia con `xsd_emisiones_batch.xsd`; §6.4.
+
 ## 1. Resumen ejecutivo
 
 Cadena Control-M de mayor complejidad del sistema documental analizado (30 jobs). Genera y distribuye la
@@ -81,7 +83,7 @@ correcto** en ambos bloques — no se ha detectado el patrón de riesgo "Fan-Out
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-IRP-01 | Código de `ExtraccionGenericaEMISI.jar` (clase `Ppal`) y contenido de sus `.properties` `ExtraccionGenericaEMISI_ALL`/`_RESTO`: qué query ejecuta, qué diferencia a `emisiones.xml` de `emisiones.resto.xml`, qué escribe en `emisionesErrores.xml`/`emisiones.restoErrores.xml` y con qué código sale ante un error **Resuelta en parte (cierre 3, 02/10/2026):** `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` de la plantilla dan jar, clase, argumentos, ficheros de salida y logs (§6.3.A); sigue sin recibirse el jar (consulta, diferencia real entre modos, errores y código de salida). | Es el origen de todos los datos de la cadena; sin código no se sabe si un fallo parcial deja un fichero incompleto con salida 0 |
+| P-IRP-01 | Código de `ExtraccionGenericaEMISI.jar` (clase `Ppal`) y contenido de sus `.properties` `ExtraccionGenericaEMISI_ALL`/`_RESTO`: qué query ejecuta, qué diferencia a `emisiones.xml` de `emisiones.resto.xml`, qué escribe en `emisionesErrores.xml`/`emisiones.restoErrores.xml` y con qué código sale ante un error **Resuelta en parte (cierre 3, 02/10/2026):** `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` de la plantilla dan jar, clase, argumentos, ficheros de salida y logs (§6.3.A); sigue sin recibirse el jar (consulta, diferencia real entre modos, errores y código de salida). **Cierre 4 (03/10/2026):** `scriptsSQL` trae nueve consultas `emisiones_RE*.sql` cuya estructura coincide con el XSD (§6.4); asociarlas al jar sigue siendo una deducción. | Es el origen de todos los datos de la cadena; sin código no se sabe si un fallo parcial deja un fichero incompleto con salida 0 |
 | P-IRP-02 | La cabecera de la cadena habla de una ventana de disparo a las 15:25 y de un sucesor `MEKYTL1128` de `MEKYTL0981`, y la ficha de `MEKYTL1105` fija las 22:00h; ninguno tiene job propio entre los 30. ¿Existen en Control-M? | Podría haber ejecuciones o dependencias no documentadas |
 | P-IRP-03 | Líneas de configuración (IDX) de `MEGENV0001.sh` y `RAMERC0068.sh` para las 22 claves de envío/historificación de la cadena (¿`RAMERC0068` mueve o copia?, ¿borra el original?) | Hoy origen/destino salen de las fichas, no de la configuración real |
 | P-IRP-04 | Nombre real del backup de `MEKYTL0536`: `emisiones_ddmmyyyy.xml.tar.gz` (ficha) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh` del proceso `extraccion_emisiones_mercados`) | Si difieren, el conteo diario de emisiones RE sale siempre 0 |
@@ -102,6 +104,14 @@ Procedencia: según la plantilla de despliegue (repositorio `estaticos`, rama `d
 | H-IRP-04, H-IRP-08 | Abierta | `ConexionBD.jar` y `ExtraccionGenericaEMISI.jar` no están en la plantilla; nada de ella describe `emisionesErrores.xml` ni `emisiones.restoErrores.xml` |
 | H-IRP-05 | Abierta | Ningún script de la plantilla crea los `.flag.rdr` de `MEKYTL0997`/`MEKYTL1010` (`Genera_Bandera.sh` es de otra cadena) |
 | P-IRP-02..05, H-IRP-06, H-IRP-07, H-IRP-10..14 | Abierta | Dependen de Control-M, del IDX de `MEGENV0001.sh`/`RAMERC0068.sh` o de los módulos `.mod`; la plantilla no los contiene |
+
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-IRP-01 | Resuelta en parte | Nueve consultas `emisiones_RE*.sql` candidatas, con estructura coincidente con el XSD (§6.4.A); falta el jar, su configuración, los errores y el código de salida |
+| H-IRP-08 | Abierta | El repositorio no contiene el código de la extracción; el contenido de los ficheros de errores sigue sin constar |
+| P-IRP-02..05, H-IRP-01, H-IRP-04..07, H-IRP-10..14 | Abierta | Control-M, IDX, `.mod`, jars y scripts: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -279,6 +289,26 @@ Consecuencia para R20: como todos los campos son texto, una violación de esquem
 
 El script de la plantilla (463 líneas, ANS RDR 2025) coincide con lo descrito en §6.2 y G7 (tipos `CPARTY`, `BASKET`, `ISSUE`, `ISSUERESTO`; trozos de 1000 registros; 20 procesos como máximo; `set -euo pipefail` y `trap` de errores). Detalles adicionales: los trozos se llaman `emisionestrozo_<n>.xml` (ISSUE) y `emisiones.restotrozo_<n>.xml` (ISSUERESTO) y viven en `ReportingEngine/` mientras dura la validación; el log es `<logs>/RDR_Validacion_XSD_<AAAAMMDD>.log`; entorno no válido o tipo no válido → `exit 1`; tipos `CONTACT`, `CONTRACT_BBVA` y `CONTRACT_BANCOMER` están reconocidos pero devuelven error "no implementado". `ValidatorEmisiones.properties` (jar `EmisionesValidation.jar`, clase `main.Validate`, argumentos: la carpeta `ReportingEngine/` y el XSD) es otro validador que ninguna acción de la plantilla invoca.
 
+### 6.4 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (directorio `scriptsSQL`). Es `develop`: puede diferir de lo instalado. En el repositorio no hay ningún jar, `.properties` de extracción, XSLT ni XSD de este proceso; solo estas consultas.
+
+#### 6.4.A Consultas `emisiones_RE*.sql` y su correspondencia con `emisiones.xml`/`emisiones.resto.xml`
+
+Hay nueve ficheros que generan un XML de emisiones con un `XMLELEMENT("Security", ...)` por emisión activa de `FT_T_ISSU` (`DATA_STAT_TYP='ACTIVE'`), devuelto como `CLOB` (`.getClobVal() xmlResult`) y paginado con los marcadores `:paginacionResultado`, `:paginacionFinal` y `:paginacionInicio`. Se distinguen solo por el filtro de tipo y de vencimiento:
+
+| Fichero | Filtro de `ISS_TYP` y vencimiento |
+|---|---|
+| `emisiones_RE.sql` | `COMMON`, `EQINDEX`, `ETF`, `FUND`, `FUTURES`, `OPTIONS`, `RECEIPTS`, `RIGHTS`, `WARRANTS`, `UNIT`, `REALESTA`; sin filtro de vencimiento (candidata del modo `ALL`) |
+| `emisiones_RE_resto.sql` | los mismos sin `FUTURES` ni `OPTIONS`, con `PFD` (candidata del modo `RESTO`) |
+| `emisiones_RE_no.venc.fut.sql` / `emisiones_RE_no_venc.opc.sql` | `FUTURES` / `OPTIONS` con `MAT_EXP_TMS` nulo o posterior a hoy |
+| `emisiones_RE_no_venc.opc1.sql` ... `opc4.sql` | `OPTIONS` por tramos: hasta 50 días, de 50 a 200, de 200 a 400, y más de 400 días o sin fecha |
+| `emisiones_RE_venc.futyopc.sql` | `FUTURES` y `OPTIONS` con `MAT_EXP_TMS` anterior a hoy |
+
+**Correspondencia con el XSD (§6.3.B).** Los elementos que generan las consultas son un subconjunto del esquema y respetan su orden de bloques: `Security` (`ID` = `INSTR_ID`, `Typ`, `Name`, `LstChngTm`), `Instrmt` (`Src`, `ID`, `Sym`, `Status`, `Desc`, `StrkMult`, `Issued`, `Rgstry`, `IssCtry`, `ToTV`, `FrstTradDt`, `MtrtyDt`, las variantes `UK...`, `StartDt`, `Mat`, `PutCall`, `OptExerStyle`, `StrkPr`, `StrkPrCurr`, `Notional1`, `Notional2`, `DeliType`, `ContractSize`, `AID`, `InsrtType`, `ClasificationType`, `WarrTyp`, `WarrUndlyTyp`, `Volatility90`, `Volatility360`, `CicCategory`, `CfiCode`, `SftrSecurityType`, `CountryISO`, `MarketCap`, `FundTicker`, `LastDlvDt`, `MrktStatus` y los datos de fondo), `ExchGrp` (`Exch`, `Ccy`, `RequestDT`, `Primary`, `Instrmt`), `SecClsfnGrp` (`Nm`, `Val`), `InstrmtExt` (`RndMeth`), `Undly` (con `uToTV`, `uFrstTradDt`, `uMtrtyDt`, sus variantes `UK`, `FirstExcerciseDate`, `UnderlyingType`, `LastExcerciseDate`, `uIndex`, `BuySell`, `uIndexMat`) e `Issuer` (`Finsid`, `LEI`, `BBGCID`, `SFTRJurisdiction`, `FiscalIdentifier`, `FiscalIdentifierValue`). Todos los campos obligatorios de `Security` e `Instrmt` del XSD están en la consulta; no genera `RegulatedMarket`, `BasketAssociated`, `QIS`, `StrgLin`, `PortUndly` ni el bloque `Mx`, que son opcionales. Un comentario de la consulta indica que se unificaron la extracción genérica y la publicación online de emisiones (se añadió el elemento `Status`).
+
+**Alcance de la conclusión.** Que estas consultas sean las que ejecuta `ExtraccionGenericaEMISI.jar` (y cuál va a `emisiones.xml` y cuál a `emisiones.resto.xml`) es una deducción por coincidencia de estructura, de nombre y de tipos de emisión; el repositorio no contiene el jar, sus `.properties` ni la fila de configuración que las enlace. No resuelve el comportamiento ante errores ni el contenido de `emisionesErrores.xml`/`emisiones.restoErrores.xml` (H-IRP-08).
+
 ## 7. Especificación de testing
 
 Dada la complejidad del grafo (2 bloques paralelos, fan-out de 5 y 8 ramas, sub-convergencia de 3 ramas y
@@ -367,3 +397,5 @@ bloques paralelos, la sub-convergencia interna, el cierre final común, y el nue
 XSD sin efecto sobre el resultado del job.
 
 **Cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`): el diccionario de datos de los tres XML queda dado por `xsd_emisiones_batch.xsd` y la vinculación `RDRKYTL001`↔`Extraccion_Emisiones.xsl` queda confirmada por `TransforEmisiones.properties` (G7 resuelto, H-IRP-02 y H-IRP-03 cerrados, §6.3); la hoja filtra duplicados y los tipos FUTURES, OPTIONS, WARRANTS y EQINDEX (TC-022). El XSD valida solo estructura, orden y obligatoriedad (todos los campos son texto). Siguen abiertos los jars (`ExtraccionGenericaEMISI.jar`, `Transformar_XML.jar`, `ConexionBD.jar`), el IDX de las 22 claves, los módulos `SF_MEGENV0001_*.mod`, la versión de `RAMERC0068.sh`, los flags de Terminals y todo lo que depende de Control-M.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.4): se localizan nueve consultas `emisiones_RE*.sql` cuya estructura coincide con `xsd_emisiones_batch.xsd`, como candidatas de la consulta del jar `ExtraccionGenericaEMISI.jar` (P-IRP-01, en parte; la asociación es una deducción). El resto de huecos (Control-M, IDX, módulos `.mod`, jars) no tiene material en el repositorio.

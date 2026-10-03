@@ -15,6 +15,8 @@
 
 ---
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: texto íntegro de `ExtraccionCONTRBBVA.sql` (P-CCB-01), cotejo de la query de detalle de 4.679 líneas y de `QueryAgreementBBVA.sql`; §6.4.
+
 ## 1. Resumen ejecutivo
 
 El proceso "Cesión de Contratos BBVA" extrae de la plataforma GoldenSource RDR (esquema Oracle
@@ -136,7 +138,7 @@ Preguntas sin respuesta en ninguna fuente disponible:
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-CCB-01 | Texto y filtros de la query de lista `ExtraccionCONTRBBVA.sql` (columna `LAGR_OID`) | Define el universo real de contratos; sin ella R-05 ("universo completo") no es verificable |
+| P-CCB-01 | Texto y filtros de la query de lista `ExtraccionCONTRBBVA.sql` (columna `LAGR_OID`) **Resuelta (cierre 4, 03/10/2026):** `ExtraccionCONTRBBVA.sql` está en `scriptsSQL` de develop; universo = contratos de `ORG_ID='0182'` con parte interna y externa activas (§6.4.A). | Define el universo real de contratos; sin ella R-05 ("universo completo") no es verificable |
 | P-CCB-02 | **Resuelta en parte (cierre 3):** el nombre `ExtraccionContingenciaCONTRBBVA.xml` se confirma por el paso `CopiarFichero` de la plantilla; la etiqueta raíz tiene que ser `ROOT` (no `nettingContractArray`), por el XSD y los XSL; las filas de `FT_T_ATE1`/`FT_T_PAR1` no se han visto (§6.3). Valor de `URL_OUTPUT_FILE` y de `ROOT_TAG` (`nettingContractArray`) en `FT_T_ATE1`/`FT_T_PAR1` para `CONTRBBVA` | Nombre del fichero intermedio y etiqueta raíz; hoy se asumen |
 | P-CCB-03 | **Resuelta en parte (cierre 3):** la plantilla trae el `.properties` completo (20 hilos, sin `Stop*`, `CopiarFichero`); falta comprobar el fichero instalado en el servidor (§6.3). Contenido de `ExtraccionGenericaCONTRBBVA.properties` (argumentos 1-7 del jar, hilos, `Stop*`, paso `CopiarFichero`) | Log del jar, rendimiento y qué ocurre si falla un paso |
 | P-CCB-04 | **Resuelta en parte (cierre 3):** `GenericValidator.sh` y `Agreements_BBVA_Schema.xsd` analizados (ruta del XSD, logs, código de salida; §6.3); falta el jar `RDR_GenericValidatorXSD.jar` (H-CCB-10). Código de `GenericValidator.sh` y ruta del XSD `ValidationBBVAContracts`; dónde deja el resultado | Con Force OK, el log es la única señal de fallo |
@@ -158,6 +160,15 @@ Preguntas sin respuesta en ninguna fuente disponible:
 | H-CCB-07 | Resuelta en parte | Un `<ROOT></ROOT>` vacío cumple el XSD y da un CSV con solo la cabecera; un XML truncado hace fallar `xsltproc` en `MEKYTL0895` (§6.3); falta la observación real y la fila `ROOT_TAG` |
 | H-CCB-10 (nuevo) | Abierta | Código de `RDR_GenericValidatorXSD.jar` (`main.Validate`): código de salida ante un XML no conforme, mensajes y soporte real de las aserciones XSD 1.1. Qué lo cierra: el jar |
 | H-CCB-04, H-CCB-05, H-CCB-06 | Sin cambios | La plantilla no contiene nada de `MEKYTL1053`, del inventario de 30 pasos ni de las rutas destino |
+
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-CCB-01 | Resuelta | `ExtraccionCONTRBBVA.sql` leída entera: universo `ORG_ID='0182'`, parte interna y externa activas; riesgo de duplicados (§6.4.A) |
+| P-CCB-02, P-CCB-03 | Resuelta en parte | Sin cambios: faltan las filas de `FT_T_ATE1`/`FT_T_PAR1` de producción (la query de detalle de develop coincide en 4.679 líneas, §6.4.B) |
+| P-CCB-04, H-CCB-10 | Abierta | Falta el código de `RDR_GenericValidatorXSD.jar` |
+| P-CCB-06..09, P-CCB-11, H-CCB-01, H-CCB-04..07 | Abierta | Control-M, IDX, pasarela y propiedades instaladas: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -244,7 +255,7 @@ Contenido literal de ambos `.properties` (argumentos 1-7 del jar, hilos, `Stop`)
 `ExtraccionContingenciaCONTRBBVA.sql` es la query de **detalle** del jar (ver 4.2): un único `SELECT` de 4.679
 líneas que construye el XML de un contrato (el pasado como parámetro por el jar) mediante
 `XMLELEMENT`/`XMLFOREST` anidados. La query de lista `ExtraccionCONTRBBVA.sql`, que decide qué contratos entran
-(universo), no se ha recibido (P-CCB-01). Características relevantes para el diseño de pruebas:
+(universo), no se ha recibido (P-CCB-01). Características relevantes para el diseño de pruebas: **Actualizado en el cierre 4 (§6.4.A):** la query de lista ya consta.
 
 - **Tabla conductora:** `KYTL_GC.FT_T_LAGR` (el contrato marco). Un contrato sin fila en
   `FT_T_LAGR` no aparece en la salida bajo ninguna circunstancia.
@@ -659,7 +670,24 @@ fichas no figura en él). Sin reintentos (`MAXRERUN=0`).
 
 **Efecto sobre TC-04, TC-05 y TC-10 (consecuencias deducidas de lo anterior).** (a) Un `BBVAContracts.xml` solo con `<ROOT></ROOT>` cumple el XSD, sale de `Agreements_Nodes.xsl` como `<ROOT>` + salto + `</ROOT>` y da un CSV de una sola línea (la cabecera): la hipótesis del caso de «extracción fallida con fichero vacío» se confirma si `ROOT_TAG` produce `<ROOT>`; si falta la fila `ROOT_TAG`, el fichero queda sin raíz y es no válido para el XSD y para `xsltproc`. (b) Un XML bien formado pero que no cumple el XSD (etiqueta obligatoria ausente, tipo inválido) atraviesa el Force OK y también `Agreements_Nodes.xsl`, de modo que la distribución sigue; un XML **truncado** (no bien formado) hace fallar `xsltproc` en el paso 1 de `MEKYTL0895`, que deja `BBVAContracts.xml` vacío (0 bytes) y acaba en error: las ramas que cuelgan de `MEKYTL0895` no recibirían su evento `_OK` (si aun así arrancan depende de P-CCB-11: el export exige el evento, el usuario afirma que el sucesor arranca tras un KO) y, si arrancan, enviarían un fichero vacío; solo `MEKYTL0900`, que va antes, habrá enviado el fichero truncado. Esto matiza la variante 3 de TC-05 («el fichero inválido llega a los nueve destinos»). (c) El número de líneas de datos del CSV es el de contratos con `cpty`.
 
-**Otros ficheros de la plantilla.** `sql/QueryAgreements.sql` (205 líneas) **no es** `ExtraccionCONTRBBVA.sql` ni la detalle de 4.679 líneas: es una consulta paginada (`:paginacionResultado`) que construye con `XMLELEMENT` un `nettingContractArray` mucho más reducido (datos generales, participantes `bbva` y `cpty` por `FT_T_FLAR`, operaciones, productos, identificadores externos y anexos con umbrales y colateral). Como pista del universo, filtra `FT_T_LAGR.ORG_ID IN ('0182','GRP')`, partes `FT_T_FLAR` internas y externas `ACTIVE` sin `END_TMS`, y toma el `RDR_ID` de `FT_T_LAID` con fuente `Generic`; no tiene invocación en la plantilla (versión antigua o auxiliar). La query de lista `ExtraccionCONTRBBVA.sql` (P-CCB-01) sigue sin estar. `loadAgreements.sh` (carga de `contracts.xml` y `exclusiones.xml` de Sentry con el workflow `RDR_MitigantsBBVAFileUploading`, `RDRProcessFile.jar` y `es.bbva.kytl.scripts.PreprocessSentry`) es la carga **hacia** RDR de contratos de origen Sentry y no interviene en esta cadena de extracción. No están en la plantilla `RDR_GenericValidatorXSD.jar`, `ExtraccionGenericaOtherEntities.jar`, `LPFTPEXCA0000/0002.sh`, `MEGENV0001.sh`, `RAMERC0068.sh` ni ningún `.idx`/IDX: P-CCB-01, -06 a -09 y -11, H-CCB-04 a H-CCB-07 (salvo lo anotado) siguen igual.
+**Otros ficheros de la plantilla.** `sql/QueryAgreements.sql` (205 líneas) **no es** `ExtraccionCONTRBBVA.sql` ni la detalle de 4.679 líneas: es una consulta paginada (`:paginacionResultado`) que construye con `XMLELEMENT` un `nettingContractArray` mucho más reducido (datos generales, participantes `bbva` y `cpty` por `FT_T_FLAR`, operaciones, productos, identificadores externos y anexos con umbrales y colateral). Como pista del universo, filtra `FT_T_LAGR.ORG_ID IN ('0182','GRP')`, partes `FT_T_FLAR` internas y externas `ACTIVE` sin `END_TMS`, y toma el `RDR_ID` de `FT_T_LAID` con fuente `Generic`; no tiene invocación en la plantilla (versión antigua o auxiliar). La query de lista `ExtraccionCONTRBBVA.sql` (P-CCB-01) sigue sin estar. `loadAgreements.sh` (carga de `contracts.xml` y `exclusiones.xml` de Sentry con el workflow `RDR_MitigantsBBVAFileUploading`, `RDRProcessFile.jar` y `es.bbva.kytl.scripts.PreprocessSentry`) es la carga **hacia** RDR de contratos de origen Sentry y no interviene en esta cadena de extracción. No están en la plantilla `RDR_GenericValidatorXSD.jar`, `ExtraccionGenericaOtherEntities.jar`, `LPFTPEXCA0000/0002.sh`, `MEGENV0001.sh`, `RAMERC0068.sh` ni ningún `.idx`/IDX: P-CCB-01, -06 a -09 y -11, H-CCB-04 a H-CCB-07 (salvo lo anotado) siguen igual. **Actualizado en el cierre 4:** ya consta en develop (§6.4.A); `QueryAgreements.sql` de la plantilla corresponde a la versión paginada `QueryAgreementBBVA.sql` de develop (§6.4.B).
+
+### 6.4 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL`). Es `develop`: puede diferir de lo instalado; no consta qué fila de `FT_T_ATE1` de producción contiene cada texto.
+
+#### 6.4.A Query de lista `ExtraccionCONTRBBVA.sql` (P-CCB-01) y universo real
+
+Texto íntegro: `select lagr.lagr_oid from ft_t_lagr LAGR, ft_t_flar FLAR_INT, ft_t_flar FLAR_EXT where LAGR.leg_agrmnt_id = FLAR_INT.leg_agrmnt_id and LAGR.leg_agrmnt_id = FLAR_EXT.leg_agrmnt_id and FLAR_INT.DATA_STAT_TYP = 'ACTIVE' and FLAR_INT.rl_typ = 'INTERNAL' and FLAR_EXT.DATA_STAT_TYP = 'ACTIVE' and FLAR_EXT.rl_typ = 'EXTERNAL' and LAGR.ORG_ID IN ('0182') and lagr.end_tms is null`. Una sola columna (`LAGR_OID`), sin parámetros ni paginación. Es decir:
+
+- **Universo:** contratos marco de la organización `0182` (solo esa; `GRP` no entra) sin fecha fin, que tengan al menos una parte interna (`INTERNAL`) y una externa (`EXTERNAL`) activas en `FT_T_FLAR`. Confirma R-05 (sin ventana `daybefore` ni exclusión CLS/SWIFT).
+- **No filtra** el estado del propio contrato (`FT_T_LAGR.DATA_STAT_TYP`): un contrato inactivo sin fecha fin sale. Tampoco comprueba la fecha fin de las partes `FT_T_FLAR`.
+- **Riesgo de duplicados (por lectura):** no lleva `DISTINCT` y relaciona las partes solo por `LEG_AGRMNT_ID` (no por `ORG_ID` ni `LAGR_OID`, a diferencia de `ExtraccionCONTR.sql` de Bancomer); un contrato con varias partes internas o externas activas devuelve su `LAGR_OID` repetido (producto de ambas cantidades) y puede generarse más de un fragmento por contrato. Lo mismo ocurre en el `FROM` de la query de detalle. A comprobar con datos reales; si el jar deduplica, no tiene efecto.
+
+#### 6.4.B Query de detalle y otras versiones
+
+- `ExtraccionContingenciaCONTRBBVA.sql` de develop tiene 4.679 líneas (las mismas que la de §5.3): es la query de detalle. Termina en `from kytl_gc.ft_t_lagr LAGR, kytl_gc.ft_t_flar FLAR_INT, kytl_gc.ft_t_flar FLAR_EXT where ... and LAGR.ORG_ID IN ('0182') and lagr.end_tms is null and lagr.lagr_oid=?`, es decir, repite el filtro de la lista y añade el parámetro del contrato. Genera `nettingContractArray` con `modified`, `dayBefore` (sus elementos los quita después `Agreements_Nodes.xsl`), `RDR_ID` (`FT_T_LAID` con origen `Generic`), `contractType` calculado a partir de `AGRMNT_TYP` y de la versión del año (`ISDA92`+jurisdicción, `ISDA02`, `CMOF`, `GMRA`, `GMSLA`, `EMA..PV`/`REPO`, `NAFMII`, `DRV_PV`, `FBFPL`...), y el resto de bloques de §6.1.
+- `QueryAgreementBBVA.sql` (4.425 líneas) es una variante paginada (`:paginacionResultado`, `:paginacionFinal`, `:paginacionInicio`) de la misma extracción, con un `WITH LAGR AS (...)` y el universo `LAGR.ORG_ID='0182' AND LAGR.END_TMS IS NULL`; en sus anexos acepta como parte externa contratos de `ORG_ID` `0182` y `GRP`. Corresponde a la consulta que la plantilla trae como `QueryAgreements.sql`; no consta qué proceso la invoca (versión paginada para publicación o auxiliar). `QueryAgreementBANCOMER.sql`, `ExtraccionCONTR.sql` (universo `ORG_ID='1145'`) y `ExtraccionContingenciaCONTR.sql` son las equivalentes de la cadena Bancomer y no intervienen aquí.
 
 ## 7. Especificación de testing
 
@@ -811,3 +839,5 @@ distinta a la que constaba en la sesión anterior:
    técnica. **Confirmado explícitamente por el usuario (2026-09-28): se deja sin definir por
    ahora.** No bloquea el resto de la especificación; bloquea únicamente la ejecución real de los
    casos de prueba hasta que se tome esa decisión.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.4): P-CCB-01 queda resuelta (la query de lista filtra `ORG_ID='0182'` con partes `INTERNAL` y `EXTERNAL` activas, sin `DISTINCT`, con riesgo de duplicados); se confirma que la query de detalle de develop tiene las 4.679 líneas de la analizada y se identifica `QueryAgreementBBVA.sql` como su versión paginada. Siguen abiertos el validador, las filas de `FT_T_ATE1`/`FT_T_PAR1`, Control-M, IDX y pasarela.

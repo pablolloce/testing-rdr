@@ -31,6 +31,8 @@
 > **Este documento cubre únicamente el flujo SAIT** (extracción/transmisión de contratos), que el documento
 > original combinaba con el flujo GUIDO (ya cerrado por separado).
 >
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: texto íntegro de `BATCH_SAIT_DIARIO.sql` (P-SAIT-01) cotejado con `BATCH_SAIT.sql` y con `Sait_Diario.xsl`; §6.2.
+>
 > **Estado: 8 de 8 gaps resueltos (GAP-SAIT-001 a 008); quedan 5 preguntas abiertas no bloqueantes
 > (P-SAIT-01 a 05, §4).**
 
@@ -172,7 +174,7 @@ la query en bloques de 1.000 filas (`salidas_pendientes/comun_planificador_gener
 El Planificador ejecuta cada extracción como máximo una vez al día (compara solo la fecha), escribe el XML con
 20 hilos en paralelo y lo valida contra su XSD, pero **si la validación falla solo lo anota en su log y entrega el
 fichero igualmente**. La **fila 9** (`BATCH_SAIT_DIARIO.sql`, la que alimenta esta cadena) es otra query cuyo texto no
-se ha recibido: se asume, sin confirmar (P-SAIT-01), que genera la misma estructura `<Agreement>` con un
+se ha recibido: se asume, sin confirmar (P-SAIT-01), que genera la misma estructura `<Agreement>` con un **Actualizado en el cierre 4 (§6.2):** el texto de la fila 9 consta en develop.
 subconjunto de contratos. `Batch_Sait` no ejecuta ninguna de las dos (ver §1.1).
 
 **Etiquetas raíz** (las escribe el Planificador con parámetros de la tabla `FT_T_PAR1`, que sustituyen el
@@ -272,7 +274,7 @@ plantilla sin relación con Mentor.
 
 | Id | Pregunta | Por qué importa |
 |---|---|---|
-| P-SAIT-01 | **Resuelta en parte (cierre 3):** `Sait_Diario.xsl` obliga a que la query entregue por contrato `actual_date` y 16 campos `*_last_chg_tms` en el mismo formato de fecha (§6.1); sigue sin verse el texto de `BATCH_SAIT_DIARIO.sql` ni si ya filtra por fecha. ¿Qué selecciona exactamente `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?, ¿la misma estructura `<Agreement>` que `BATCH_SAIT.sql`?)? El texto de esa query no se ha recibido; solo el de `BATCH_SAIT.sql` (fila 20) | El diccionario de §1.2 es el de la carga total; saber qué contratos entran cada día define el contenido esperado del fichero y los datos de prueba |
+| P-SAIT-01 | **Resuelta en parte (cierre 3):** `Sait_Diario.xsl` obliga a que la query entregue por contrato `actual_date` y 16 campos `*_last_chg_tms` en el mismo formato de fecha (§6.1); sigue sin verse el texto de `BATCH_SAIT_DIARIO.sql` ni si ya filtra por fecha. ¿Qué selecciona exactamente `BATCH_SAIT_DIARIO.sql` (¿solo contratos nuevos/modificados?, ¿la misma estructura `<Agreement>` que `BATCH_SAIT.sql`?)? El texto de esa query no se ha recibido; solo el de `BATCH_SAIT.sql` (fila 20) **Resuelta en parte (cierre 4, 03/10/2026):** `BATCH_SAIT_DIARIO.sql` está en `scriptsSQL` de develop: misma extracción que `BATCH_SAIT.sql` más `actual_date` y 14 de las 16 marcas que lee el XSL (faltan `cnta_` y `cntc_`; §6.2). | El diccionario de §1.2 es el de la carga total; saber qué contratos entran cada día define el contenido esperado del fichero y los datos de prueba |
 | P-SAIT-02 | `MEKYTL0357` y `MEKYTL0949`/`MEKYTL0950` actúan sobre `.../SAIT/`: ¿`RAMERC0068.sh` *mueve* (`M`) o *copia* (`C`) en esas claves?, ¿qué contiene el `.idx` de `MEKYTL0357`? Además la ficha de `MEKYTL0357` dice que envía por Connect:Direct a `lpftp503:/unload/transmisiones/SAIT/`, pero `LISTA` lee de `LPFTP503:/fichtemcomp/pr/descargas/kytl/SAIT/`. Las líneas IDX y la configuración de la pasarela no se han recibido | Las dos ramas (historificación y transmisión) arrancan a la vez tras `MEKYTL0357`; si la historificación mueve el fichero antes de que `LISTA` lo envíe, el envío falla (RISK-SAIT-004) |
 | P-SAIT-03 | ¿Qué ocurre si el Planificador no ha dejado `Diario.xml` cuando arranca la cadena a las 06:00 (la cadena no tiene `ctmfw`), o un día en que no genera (el lunes: el Planificador solo genera de martes a sábado)? | `Batch_Sait` no aborta ni avisa (RISK-SAIT-003); se podría transmitir un fichero ausente, antiguo o vacío |
 | P-SAIT-04 | **Resuelta (cierre 3):** hoja leída entera y ejecutada con datos de prueba; filtra por fecha de modificación y copia 14 bloques (§6.1). ¿Qué hace `Sait_Diario.xsl` (filtros, renombrados)? | Define el contenido real del fichero que recibe SAIT |
@@ -284,6 +286,13 @@ plantilla sin relación con Mentor.
 |----|--------|-------------------------------|
 | H-SAIT-03 | Resuelta en parte | `RDR_Transformacion_SAIT.sh` de la plantilla (idéntico al analizado) permite saber qué etiquetas de `credentials.xml` lee: `javahome` y `logs` (usadas) y `gcuser`, `gcpassapp`, `port`, `alias` y `host` (leídas, no usadas); falta el contenido real (§6.1) |
 | H-SAIT-01, H-SAIT-02, H-SAIT-04, H-SAIT-05, H-SAIT-06 | Sin cambios | La plantilla no contiene `LPFTPEXCA*.sh`, módulos `.mod`, el XSD del Planificador ni el export de Control-M |
+
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-SAIT-01 | Resuelta en parte | `BATCH_SAIT_DIARIO.sql` leído (§6.2.A): no filtra por fecha, añade `actual_date` y 14 de las 16 marcas del XSL (faltan `cnta_` y `cntc_`). Falta el texto de la fila 9 de producción |
+| P-SAIT-02, P-SAIT-03, P-SAIT-05, H-SAIT-01..06 | Abierta | Líneas IDX, pasarela, Control-M, XSD del Planificador y credenciales: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -374,6 +383,22 @@ Borra /fichtemcomp/pr/descargas/kytl/SAIT/KYTL_RDR_EXTRACTION_contratos_Diario_2
 
 **Lo que la plantilla no contiene.** `BATCH_SAIT_DIARIO.sql` (P-SAIT-01), `RDR_Transformacion_SAIT.jar`, `RDRCommon.jar`, los XSD de validación del Planificador (H-SAIT-04), `credentials.xml`, `MEGENV0001.sh`, `RAMERC0068.sh`, `LPFTPEXCA0000/0002.sh`, los `.idx`/IDX, el export de Control-M (calendarios, `PLAN_1300`, nombre del evento cross-chain): P-SAIT-02, -03 y -05 y H-SAIT-01, -02, -04, -05 y -06 siguen igual.
 
+### 6.2 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL`). Es `develop`: puede diferir de lo instalado; no consta qué texto contiene la fila 9 del Planificador en producción.
+
+#### 6.2.A `BATCH_SAIT_DIARIO.sql` (P-SAIT-01): qué entrega la fila 9
+
+Es la misma consulta paginada que `BATCH_SAIT.sql` (915 líneas frente a 900): un `XMLELEMENT("Agreement", ...)` por contrato, con los 14 bloques de §1.2, el marcador de paginación `:paginacionResultado`/`:paginacionFinal`/`:paginacionInicio` y el mismo universo (`FT_T_LAGR` con `DATA_SRC_ID` distinto de `Sentry` y de `MENTOR`). **No filtra por fecha**: toda la selección de «solo lo modificado hoy» la hace después `Sait_Diario.xsl`. Lo que añade respecto de `BATCH_SAIT.sql`, al principio de cada `Agreement`:
+
+- `actual_date`: `TO_CHAR(SYSDATE,'YYYY-MM-DD')` (fecha de la extracción).
+- Catorce marcas de modificación por tabla, cada una como `<tabla>_last_chg_tms` con el valor de `LAST_CHG_TMS` del contrato (`lagr_`) o el máximo de las filas del contrato (`MAX(...)` correlacionado por `LEG_AGRMNT_ID` y `ORG_ID`) en: `laid_`, `flar_`, `lag1_`, `lat1_`, `laan_`, `lac1_`, `lars_`, `laap_`, `lacd_`, `lad1_`, `aclp_`, `acct_` y `lar1_`.
+- Un elemento final `Last_Chg_Tms` con el `GREATEST` de diecisiete tablas (las anteriores más `cnta`, `cntc` y `lap1`), con `0001-01-01` como valor por defecto de las nulas.
+
+**Cotejo con `Sait_Diario.xsl` (§6.1):** el XSL lee 16 marcas (`lagr_`, `laid_`, `flar_`, `lag1_`, `lat1_`, `laan_`, `lac1_`, `lars_`, `cnta_`, `laap_`, `lacd_`, `lad1_`, `cntc_`, `aclp_`, `acct_`, `lar1_`) y las compara con `actual_date` tras quitar los guiones. La consulta de develop produce 14 de ellas: **faltan `cnta_last_chg_tms` y `cntc_last_chg_tms`**, que para el XSL valen vacío y nunca coinciden con la fecha, de modo que un contrato cuyo único cambio del día esté en `FT_T_CNTA` o `FT_T_CNTC` no entraría en el fichero diario; el elemento agregado `Last_Chg_Tms` (que sí recoge esas tablas) no lo usa el XSL. Hay dos lecturas posibles, y el repositorio no permite decidir cuál es la cierta: la fila 9 de producción lleva una versión más completa que la de develop, o el filtro del diario ignora de hecho esos dos orígenes. Hay que comprobar el texto de la fila 9 de `FT_T_ATE1` en producción y, si es el de develop, valorar si es un defecto.
+
+**Formato de la fecha:** `actual_date` va como `YYYY-MM-DD`; las marcas se serializan con el formato por defecto de `XMLELEMENT` para su tipo de columna. Si alguna `LAST_CHG_TMS` fuera `TIMESTAMP`, saldría con hora (`2026-10-02T08:00:00`) y, tras quitar solo los guiones, no coincidiría con `20261002` (el caso (a) de §6.1). No se ha podido comprobar el tipo de columna con el material disponible.
+
 ## 7. Especificación de testing
 
 **Estrategia:** dada la cadena corta (2 jobs) y bien documentada con evidencia literal, los casos cubren el
@@ -456,3 +481,5 @@ EX-005-03, el contenido real de `RDR_Transformacion_SAIT.sh`, de `BATCH_SAIT.sql
 
 Con esta salida, ambos flujos del documento original ("Envío de ficheros GUIDO usuario-rol y extracción
 SAIT") quedan cubiertos por especificaciones propias.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.2): `BATCH_SAIT_DIARIO.sql` queda leído (P-SAIT-01, en parte): es `BATCH_SAIT.sql` más `actual_date` y 14 marcas por tabla, y no entrega las marcas `cnta_` y `cntc_` que `Sait_Diario.xsl` espera, lo que podría dejar fuera cambios que solo afecten a esas dos tablas. Siguen abiertos el texto de producción de la fila 9, los IDX, la pasarela y Control-M.

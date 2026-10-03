@@ -295,7 +295,7 @@
     <resultadoEsperado>Contenido real de toda la cadena de workflows documentado con evidencia completa, cerrando el gap de §9.2 al 100% salvo el consumidor externo del mensaje JMS (fuera de alcance por naturaleza).</resultadoEsperado>
     <tipoValidacion>Inspección directa de las 3 piezas de workflow reales + contraste con el análisis nodo a nodo ya hecho de Refinitiv_Request_Response.wkf en RDR_BATCH_EMISORES_REFINITIV.</tipoValidacion>
     <criterioAceptacion>Lógica nodo a nodo documentada para toda la cadena; confirmado al 100% que ambos jobs disparan una solicitud real, con 2 mecanismos de carga/alta distintos (motor genérico GoldenSource + JMS para job 5, jar Java para job 6).</criterioAceptacion>
-    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §6.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía el sub-workflow AltaRolEmisor). La rama issueRequest/job 5 deja deliberadamente una solicitud sin estado terminal explícito cuando IS_EXTF='Y' (ETF gestionada por fondo) — confirmado como diseño, no defecto (ver §6.3/§9.1/TC-017).</posibilidadFallo>
+    <posibilidadFallo>El job 4 deja de ser el único punto de la cadena que escribe en las 20 tablas Oracle de §6.2 (job 6 también escribe vía refinitivDerivativesLoader.jar; el job 5 también escribe FT_T_FINR vía el sub-workflow AltaRolEmisor). La rama issueRequest/job 5, cuando IS_EXTF='Y' (ETF gestionada por fondo), no crea el rol de emisor y marca la solicitud WARNING con el texto 'An ETF request has been made via ISIN and the issuer is fund manager' (Load_Refinitiv_Response v26, develop; antes se creía que quedaba sin estado terminal) — diseño, no defecto (ver §6.3/§6.9.C/§9.1/TC-017).</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-015" tipo="negativo">
@@ -309,7 +309,7 @@
       <dato campo="FT_T_FINR — SÍ SE ESCRIBE, confirmado 2026-10-01" valor="Refinitiv_Bloomberg_AltaRolEmisor.wkf: nodo 'Issuer Exist?' comprueba rol ISSUER activo en FT_T_FINR (join FT_T_FIID); si no existe, construye XML PtyDetlListUpd/RolDetl (rol CPARTY, ORG_ID+LEIID) y lo envía (llamada síncrona, sin mensaje JMS publicado) al sub-workflow 'AltaRolEmisor' — alta real del rol ISSUER, el INSERT SQL lo ejecuta el consumidor del mensaje (fuera de alcance)"/>
       <dato campo="FT_T_FIRL — de solo lectura, confirmado 2026-10-01" valor="usada en 2 saltos de join (Refinitiv_Bloomberg_AltaRolEmisor.wkf) para resolver la entidad operativa/no-subsidiaria cuando un LEI identifica a un grupo; nunca se escribe"/>
       <dato campo="FT_T_GUNT — de solo lectura, confirmado en 3 puntos" valor="ListedDerivativesService.checkMarketOid + DerivativesProcessor.processIssueGeoUnit/processTotv (StaticData.getMarketGuntMapMic()/...ExchangeCode()) — nunca se escribe"/>
-      <dato campo="FT_T_FRID / FT_T_REP1 — sin ninguna referencia" valor="ni lectura ni escritura en ningún código Java (5/5 componentes del jar) ni en ningún workflow inspeccionado de todo el proceso"/>
+      <dato campo="FT_T_FRID / FT_T_REP1 — FT_T_FRID SÍ se escribe (cierre 4)" valor="ningún código Java del jar (5/5 componentes) referencia estas tablas; pero el sub-workflow AltaRolEmisor v13 (develop) escribe FT_T_FRID (STARID, ALIASID, MUREXISSUER, ORG_ID, BBGCID) al dar de alta el rol ISSUER. FT_T_REP1 no tiene ninguna referencia en jar ni workflows"/>
     </datosEmpleados>
     <pasos>
       <paso numero="1">Revisar si alguna de las 5 tablas recibe filas durante una ejecución real de carga.</paso>

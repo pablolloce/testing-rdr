@@ -112,7 +112,7 @@
     <resultadoEsperado>La query de extracción falla o filtra el duplicado; no se genera un Calendarios.csv con la clave CURRENCY+CAL_DAY repetida.</resultadoEsperado>
     <tipoValidacion>Log/resultado de ejecución de la query de extracción + inspección del fichero generado (si lo hay).</tipoValidacion>
     <criterioAceptacion>El fichero final, si se genera, no contiene ninguna fila con clave CURRENCY+CAL_DAY repetida.</criterioAceptacion>
-    <posibilidadFallo>Fallo esperado y correcto: la query debe fallar o filtrar; si genera un fichero con el duplicado, el caso se considera no superado.</posibilidadFallo>
+    <posibilidadFallo>Fallo esperado y correcto: la query debe fallar o filtrar; si genera un fichero con el duplicado, el caso se considera no superado. Con el texto de la query que trae el repositorio de develop (UNION ALL de HOLIDAY y WEEKEND sin DISTINCT) un festivo en fin de semana sí genera la clave repetida, de modo que este caso puede no superarse hasta que se confirme el texto instalado.</posibilidadFallo>
   </casoDePrueba>
 
   <casoDePrueba id="TC-006" tipo="datos_sinteticos">

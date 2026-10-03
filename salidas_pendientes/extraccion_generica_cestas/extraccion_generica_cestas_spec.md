@@ -11,6 +11,8 @@
 > ABACO; este genera la extracción desde origen (Murex vía GoldenSource) y la distribuye a 10 destinos
 > distintos. No comparten ningún job.
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: texto íntegro de `ExtraccionBASKETS.sql`, `ExtraccionContingenciaBASKETS.sql` y `Baskets.sql` (H-CES-02, P-CES-01); §6.3.
+
 ## 1. Resumen ejecutivo
 
 `RDR_BASKETS_EXTRACCION_new` (folder `KYTL0000-RDR_BASKETS_EXTRACCION_new`, servidor `MERCADOS-4`, aplicación
@@ -395,7 +397,7 @@ discrepancias con la propia evidencia interna del documento y reglas ya establec
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-CES-01 | ¿`Baskets.sql` (fichero recuperado, paginado) es la query de lista `ExtraccionBASKETS.sql` de `FT_T_ATE1`, o el jar usa otro nombre de `ACTION_NME`? | Determina qué query define el universo y si la ficha describe correctamente "batch + contingencia" |
+| P-CES-01 | ¿`Baskets.sql` (fichero recuperado, paginado) es la query de lista `ExtraccionBASKETS.sql` de `FT_T_ATE1`, o el jar usa otro nombre de `ACTION_NME`? **Resuelta en parte (cierre 4, 03/10/2026):** `Baskets.sql` no es la query de lista: es una variante paginada de la de detalle; la de lista es `ExtraccionBASKETS.sql` (§6.3). Falta comprobar que la fila de `FT_T_ATE1` de producción coincide con estos ficheros. | Determina qué query define el universo y si la ficha describe correctamente "batch + contingencia" |
 | P-CES-02 | **Resuelta en parte (cierre 3):** el nombre `baskets.xml` y las etiquetas `<Securities>`/`</Securities>` se deducen de los consumidores de la plantilla (`RDR_Validacion_XSD.sh`, `Baskets_Schema.xsd`, `ValidationBaskets.properties`); la fila de `FT_T_PAR1`/`FT_T_ATE1` no se ha visto (§6.2). ¿Valores literales de `ROOT_TAG` de `BASKETS` en `FT_T_PAR1` (etiqueta de apertura/cierre) y nombre exacto de `URL_OUTPUT_FILE` (se asume `baskets.xml`)? | Sin ellos no se puede validar la forma exacta del XML ni la ruta final |
 | P-CES-03 | **Resuelta en parte (cierre 3):** la plantilla trae los 7 argumentos (nivel 2, 20 hilos, directorio `issues`, temporal `Baskets.xml.tmp`, tipo `BASKETS`, `cfg/entorno`) y el log4j (`logs/ExtraccionGenericaBASKETS.log`); falta comprobar el fichero instalado en el servidor (§6.2). ¿Valores de `ArgJava1..7` de `ExtraccionGenericaBASKETS.properties` (hilos, log, credenciales)? | Rendimiento y ubicación del log del jar, que es la única señal fiable de fallo |
 | P-CES-04 | **Resuelta (cierre 3):** `TransforBaskets.properties` de la plantilla (`Transformar_XML.jar`, `ppal.Transformar`, salida `baskets_TRS.csv`) y la hoja `transformacionCestasXslt.xsl` dan el mapeo completo: 13 columnas separadas por barra vertical (§6.2). El comportamiento del jar ante fallos pasa a H-CES-12. ¿Contenido de `TransforBaskets.properties` y columnas/separador de `baskets_TRS.csv`? | Contrato con DUCO; hoy no se puede verificar el contenido del envío |
@@ -412,10 +414,18 @@ discrepancias con la propia evidencia interna del documento y reglas ya establec
 | H-CES-12 (nuevo) | Abierta | Código de `Transformar_XML.jar` (`ppal.Transformar`): qué hace con una hoja que falla, con `baskets.xml` vacío o mal formado, qué procesador XSLT usa y con qué codificación escribe `baskets_TRS.csv`. Qué lo cierra: el jar |
 | H-CES-01, H-CES-02, H-CES-03, H-CES-06, H-CES-07, H-CES-09 | Sin cambios | La plantilla no contiene queries, jar de extracción, módulos, scripts de pasarela ni `.idx` |
 
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| H-CES-02 | Resuelta | Texto íntegro de `ExtraccionBASKETS.sql` (lista) y `ExtraccionContingenciaBASKETS.sql` (detalle) en §6.3.A-B |
+| P-CES-01 | Resuelta en parte | `Baskets.sql` es una variante paginada de la de detalle, no la de lista (§6.3.C); falta comprobar la fila de `FT_T_ATE1` de producción |
+| P-CES-02, P-CES-03, P-CES-05, H-CES-01, H-CES-03, H-CES-06..09, H-CES-12 | Abierta | Valores de `FT_T_PAR1`, argumentos del jar, `.idx`, pasarela, clases y `Transformar_XML.jar`: no están en el repositorio de objetos |
+
 ## 5. Especificación funcional
 
 **Entidad: `Security` (Basket)** — elemento raíz del XML de cada cesta extraída. Diccionario de campos
-(idéntico para `Baskets.sql` y `ExtraccionContingenciaBASKETS.sql`, confirmado en el documento fuente):
+(idéntico para `Baskets.sql` y `ExtraccionContingenciaBASKETS.sql`, confirmado en el documento fuente): **Corregido en el cierre 4 (§6.3):** los dos ficheros no son idénticos; el diccionario de campos sí es el mismo.
 
 | Campo | Descripción |
 |-------|-------------|
@@ -537,6 +547,29 @@ Reglas: una fila por componente de cada cesta; si un componente tiene **más de 
 
 **Resumen de ficheros de la plantilla que no intervienen en esta cadena.** `ValidationBaskets.properties` (jar `RDR_GenericValidatorXSD.jar`, clase `main.Validate`, argumentos carpeta, `Baskets_Schema.xsd` y `baskets.xml`) es la configuración equivalente para `GenericValidator.sh ValidationBaskets`; el job `VALIDACION_XSD` usa `RDR_Validacion_XSD.sh`, no esta ruta. `publish/baskets.xml` y `publish/dictionaryBaskets.xml` son peticiones SOAP (`RaiseRDR_EntityFullPublishingAsynchron`, lanzadas con `publish.sh`) de publicación masiva de cestas y de su diccionario hacia las colas `RDR.SECURITIES.INITIALLOAD` y `RDR.DICTIONARY.INITIALLOAD` (consultas `RDR_AllSecuritiesPaginatedBaskets` y `RDR_AllDictionaryPaginatedBaskets`, página de 100, 200 ms entre mensajes): carga inicial, no la extracción diaria. `RDR_Transformacion_XSLT.sh` reconoce el tipo `BASKET` pero está «reconocido pero no implementado aún» (solo `CPARTY`), así que no sustituye a `TransforBaskets`. No están en la plantilla `Transformar_XML.jar`, `ExtraccionGenericaOtherEntities.jar`, `MEGENV0001.sh`, `RAMERC0068.sh`, los `.idx`, los módulos `.mod`, `LPFTPEXCA0000/0002.sh` ni las queries `ExtraccionBASKETS.sql`/`ExtraccionContingenciaBASKETS.sql` (el directorio `sql` solo trae consultas de monitorización y limpieza): P-CES-01, P-CES-05, H-CES-02, H-CES-03, H-CES-06, H-CES-07 y H-CES-09 siguen igual.
 
+### 6.3 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL`). Es `develop`: puede diferir de lo instalado; no consta qué fila de `FT_T_ATE1` de producción contiene cada texto.
+
+#### 6.3.A Query de lista: `ExtraccionBASKETS.sql` (H-CES-02)
+
+Texto íntegro: `SELECT ISSU.INSTR_ID FROM FT_T_ISSU ISSU WHERE ISSU.DATA_STAT_TYP = 'ACTIVE' AND ISSU.END_TMS IS NULL AND ISSU.ISS_TYP = 'BASKETS' AND INSTR_ID IN (SELECT INSTR_ID FROM FT_T_ISID ISID WHERE ISID.ID_CTXT_TYP IN ('MUREXID'))`. Una sola columna (`INSTR_ID`), sin parámetros ni paginación y sin orden: universo = cestas vigentes con identificador `MUREXID` (activo o no: el filtro de `FT_T_ISID` no mira estado ni fecha fin). Confirma el «filtro de universo» de §5.
+
+#### 6.3.B Query de detalle: `ExtraccionContingenciaBASKETS.sql` (H-CES-02)
+
+Es la query parametrizada por `instr_id=?` (una cesta por ejecución) que produce el fragmento `<Security>` de cada cesta. Se calcula sobre la misma restricción de universo (`ISS_TYP='BASKETS'`, vigente, con `MUREXID`) y devuelve un `CLOB` XML con los campos del diccionario de §5:
+
+- **Cabecera:** `Src` (origen del identificador `RDR_ID`), `ID`, `Status`, `Group`, `Type` y `Category` (clasificaciones `BSKTGROUP`, `BSKTTYPE`, `BSKTCAT`), `FullName` (`PREF_ISS_NME`), `LstChngTm` (`yyyy-mm-dd HH24:MI:ss`).
+- **`IndexAssociated/IndexIdentifier`:** identificadores `MUREXID`, `ISIN` o `SECFICLAB` de los índices relacionados por `FT_T_RIDF` (`BASKET`) y `FT_T_RISS` (propósito `INDEX` o `ADR`), activos.
+- **`AID`:** todos los identificadores activos de la cesta, con su mercado (`Exch`, MIC).
+- **`ExchGrp`:** por cada mercado activo de la cesta (`FT_T_MKIS`/`FT_T_MKID` MIC): `Exch`, `Ccy` (divisa de precio), `TradingClauses`, `Quotation` (`QUOTAT`), `Settlement` (`SETTLMNT`), `LotSize`, `NominalAmount`, `MinimumPiece`, `MinimumIncrement`, `FirstSettlementDate`, `AmortizingType` (en minúsculas) y `settlementRoundingRules` (`ROUNDING`, en minúsculas). Los números van con formato `FM9999999999999999999999990.09999999999`. **Defecto observado por lectura:** las tres subconsultas de `Quotation`, `Settlement` y `settlementRoundingRules` vuelven a declarar `FT_T_MKIS` y `FT_T_MUST` con los mismos alias, de modo que no se correlacionan ni con la cesta ni con el mercado del bloque: devuelven la primera fila de toda la base (`rownum=1`) con esa estadística (`QUOTAT`, `SETTLMNT`, `ROUNDING`) y ese valor sale igual en todas las cestas y mercados (a confirmar contra un `baskets.xml` real).
+- **`GeneralInformation`:** `BasketNature` (`BSKTNATURE`), `InternalCode` (`INTERNALID_MX`), `Country`, `VolatilityType`, `AdjustmentCoefficientBySecurity` (`true` si `FT_T_RSCP.USE_DFLT_AJ_IND='Y'`), `Seniority` (dominio `SENIORITY_CLASS_NUM` de `FT_T_IDMV`), `IssueDate` (`dd-mm-yyyy`), `NumberIssued` y `NumberOutstanding` (`FT_T_ISMC` `ISSUED`/`OUTSTAND`), `fxRule` (`MULTICURR`), `BasketPriceFormula` (`SPOTFORMLA`: `SpotFormula` = nombre y `PriceFormula` = valor), `BasketPriceComponents` (`InitialIndex` = `INTINDX`, `InitialCapitalization` = `INITCAPT`, `AdjustmentFactor`), `RiskType` (`RISKTYPE`), `CalculationType` (`INDCALCTYP`) e `IndexDivisor` (`INDXDIV`).
+- **`BasketComponents/BasketComponent`:** un componente por fila activa de `FT_T_ISGP` del grupo (`Src='RDR_ID'`, `ID` canónico, `Status`, `AID` con `AltIDStatus`, `ExchGrp/Exch`, `Weight`, `ComponentType`, `InitialSpot` = `FT_T_ISGP.PRT_DESC`, y de `FT_T_BCP1` activa: `Shares`, `FreeFloat`, `CapFactor`, `WeightFactor`, `CloseUnadjustedLocal`, `CloseAdjustedLocal`, `ExchangeRate`, `MarketCapitalization`, `NumOfShares`). Los `AID` del componente son su `MUREXID`/`SECFICLAB` (el del `isid_oid` de la participación) más todos los demás activos salvo `SEDOL`, `NSCVCDE`, `INACTIVEISIN` y `RDR_ID`.
+
+#### 6.3.C `Baskets.sql` (P-CES-01): variante paginada, no es la query de lista
+
+`Baskets.sql` tiene el mismo cuerpo que la de detalle, pero se aplica al universo completo con los marcadores `:paginacionFinal` y `:paginacionInicio` en lugar de `instr_id=?`, y difiere en: `IndexAssociated` solo con `MUREXID` e `ISIN` (sin `SECFICLAB`); los `AID` y componentes sin los elementos `Status` ni `AltIDStatus`; y el filtro de identificadores de componente por lista blanca (`ISIN`, `RIC`, `BOSP`, `OIC`, `INST`, `BBGLOBAL`, `TICKER`, `MUREXID`, `SECURITY_CODE`, `DISPLAY_LABEL`, `LABEL_CONTRACT`) en lugar de la lista de exclusión. Por tanto la hipótesis de §4 (que `Baskets.sql` fuera la query de lista) queda descartada, y el diccionario de §5 vale para ambos solo en sus campos comunes. Falta saber cuál de las dos usa el jar (el repositorio no contiene filas de `FT_T_ATE1` ni el jar).
+
 ## 7. Especificación de testing
 
 **Estrategia:** un caso de extremo a extremo (TC-001) que cubre el tramo crítico común (extracción →
@@ -615,3 +648,5 @@ de 3 jobs, errata de atribución de `MEKYTL1153` al historial DUCO, y el alcance
 resolvieron con la propia evidencia interna del documento y con reglas ya establecidas en este intake. Se
 documentan como observaciones no bloqueantes el naming cruzado de eventos entre cadenas y el requisito de
 diseño del Force OK genérico de `VALIDACION_XSD`.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.3): H-CES-02 queda resuelta (texto íntegro de la query de lista y de la de detalle, con un defecto aparente en las subconsultas de `ExchGrp`); P-CES-01 queda resuelta en parte (`Baskets.sql` es una variante paginada de la de detalle, no la de lista) y se corrige que el diccionario de campos no es idéntico entre `Baskets.sql` y `ExtraccionContingenciaBASKETS.sql`. Siguen abiertos el jar, los valores de `FT_T_PAR1`/`FT_T_ATE1`, los `.idx` y la pasarela.

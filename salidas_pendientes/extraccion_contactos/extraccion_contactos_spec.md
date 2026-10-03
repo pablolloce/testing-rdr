@@ -34,6 +34,8 @@
 > `ValidationContacts.properties` (indicio sobre la raíz del XML, P-CONT-06). **Corrección importante:** `HistCONT` borra el fichero sin fecha
 > `ExtraccionContingenciaCONT.xml` de `CONT/` (§5.7).
 
+> Pasada de cierre 4 (03/10/2026): contraste con los scripts SQL del repositorio de objetos de GoldenSource, rama `develop`. No hay material para los huecos abiertos; se confirman las dos consultas (§6.13).
+
 ## 1. Resumen ejecutivo
 
 **Qué hace.** Cada día de ejecución de la cadena se genera un fichero XML con **todos** los
@@ -177,6 +179,13 @@ secciones 5, 6 y 9):
 | P-CONT-15 | ¿Cuántos contactos y qué duración tiene una ejecución normal? | Sin un volumen de referencia no se puede detectar un fichero anormalmente pequeño (el job no falla aunque se pierdan contactos, RG-22) |
 
 ---
+
+### 4.3 Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-CONT-02, P-CONT-03, P-CONT-04, P-CONT-05, P-CONT-14, H-CONT-01..04 | Abierta | Sin objetos en el repositorio: líneas IDX, Control-M, clases del jar, módulos `.mod` y `credentials.xml` |
+| P-CONT-06, P-CONT-07 | Resuelta en parte (sin cambio) | Sin los valores de `FT_T_PAR1`/`FT_T_ATE1` ni el `.properties` instalado en producción |
 
 ## 5. Especificación funcional
 
@@ -903,6 +912,16 @@ del Java.
 
 ---
 
+### 6.13 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los scripts `ExtraccionCONT.sql` y `ExtraccionContingenciaCONT.sql` del repositorio de objetos de GoldenSource, rama `develop`. Es `develop`: puede diferir de lo instalado.
+
+- **Consulta de lista (§6.4):** idéntica a la de la spec, incluido el literal `'A15 '` con espacio final.
+- **Consulta de detalle (§6.5):** coincide con la spec: una sola sentencia con `XMLELEMENT`/`XMLAGG`, alias `xmlResult` con `.getClobVal()`, un único parámetro `CONTCT_OID` y 20 tablas (las de la tabla de §6.5).
+- **Matiz sobre la vigencia:** la consulta de detalle filtra solo `FT_T_CNTC.DATA_STAT_TYP='ACTIVE'` y **no** `END_TMS IS NULL`, que sí exige la de lista. Un contacto con `END_TMS` informado pero aún `ACTIVE` quedaría fuera de la lista y no se consultaría; la diferencia solo importaría si se llamara al detalle por otra vía.
+- **`rownum=1` de `AgreementsAssociated` (RG-15):** confirmado en el script de develop (subconsulta sobre `FT_T_CNTA` con `CONTCT_ASSIGN_STAT_TYP='FUNCTION'`, `DATA_STAT_TYP='ACTIVE'` y `rownum=1`, sin `ORDER BY`).
+- **Material no encontrado:** el repositorio de objetos no contiene los `.properties` de producción, las líneas IDX, las clases del jar (`MyThreadCpty`, `ConDB`, `Constants`, `ConfigCredentials`), los módulos `SF_MEGENV0001_*`, `credentials.xml` ni las filas de `FT_T_PAR1`/`FT_T_ATE1`; por eso ningún hueco bloqueante cambia de estado.
+
 ## 7. Especificación de testing
 
 ### 7.1 Estrategia
@@ -1049,3 +1068,5 @@ decisión sobre el fichero sin contactos fallidos y el código de `MyThreadCpty`
 valores de `FT_T_PAR1`/`URL_OUTPUT_FILE` (P-CONT-06) y el `.properties` de producción
 (P-CONT-07). Las demás preguntas no bloquean, y la configuración de los envíos a SAIT (P-CONT-03)
 quedó aceptada como gap por decisión del usuario.
+
+**Pasada de cierre 4 (03/10/2026).** Contraste con los scripts SQL de la rama `develop` de GoldenSource (§6.13): las consultas de lista y de detalle coinciden con la spec y se confirma el `rownum=1` de `AgreementsAssociated`; se anota que el detalle no filtra `END_TMS`. No hay objetos para los huecos bloqueantes, que siguen abiertos.

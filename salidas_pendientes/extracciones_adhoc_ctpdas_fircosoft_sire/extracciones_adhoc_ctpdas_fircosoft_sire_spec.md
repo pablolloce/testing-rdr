@@ -18,6 +18,8 @@
 > Resueltas: P-ADH-01 (qué hace el script) y P-ADH-02 (los Third Parties no entran en Fircosoft), y la tensión entre `RDR_Transformacion_FS.sh` y
 > `TransformacionesExtraccionCTPDA.sh`; en parte: P-ADH-04, P-ADH-05 y P-ADH-06. Detalle en §1.1, §1.2.1, §1.3 y §9.
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: evento `EventSireEmisi`, workflows `QueryToFile`, `SubSaveOldFiles` y `SubGetQuerySireEmisi` con la consulta y las columnas de `emisi.csv` (P-ADH-04), y las consultas hermanas de `ctpda` y `proactive`; §6.4.
+
 ## 1. Resumen ejecutivo
 
 El documento describe **5 cadenas Control-M** agrupadas en 3 bloques:
@@ -603,12 +605,20 @@ propias de este intake, pero sí evidencia técnica ya aportada en el documento 
 | P-ADH-01 | **Resuelta.** `TransformacionesExtraccionCTPDA.sh` está analizado (§1.2.1): `@@FECHA@@` se sustituye por `AAAAMMDD` de hoy, el XML de origen se busca en `/fichtemcomp/<env>/descargas/kytl/extracciongenerica/` (hoy y hasta 3 días antes) y el prefijo `ei/` es el marcador `@@ENV@@/` ya sustituido en integración (en producción, `pr/`). Fuente: plantilla de despliegue | Define el nombre exacto del fichero de salida y si el `.properties` de producción apunta a la ruta correcta |
 | P-ADH-02 | **Resuelta.** En el XML unificado los Third Parties cuelgan de `/GLOBALS/OPERATIVES/OPERATIVE` (raíz `<OPERATIVES>` de `ThirdParties.xml`, añadida por `unionFicheros.sh`), y `Batch_FircoSoft.xsl` solo recorre `GLOBAL/LOCALS/LOCAL/OPERATIVES/OPERATIVE`: los Third Parties **no** entran en Fircosoft, tengan o no sucursal `MEX` (§1.2.1) | Determina si Fircosoft recibe o no a los Third Parties con sucursal México |
 | P-ADH-03 | Regla de selección de fichero de `MEKYTL1261`: si falta el fichero del día, ¿se envía el último disponible (de otro día) o falla? | Riesgo de enviar a Fircosoft datos antiguos sin aviso |
-| P-ADH-04 | **Resuelta en parte.** La plantilla trae `EventSireEmisi.properties` (`Service=sireEmisi`, `QueryHeader=noheader`, `PathRDR=…/sire_files`, `FileDescription=emisi`, §1.3) y los equivalentes `EventSireCtpda` y `EventProactive`. **Siguen abiertos** la definición del evento en GoldenSource (consulta y columnas de `emisi.csv`) y el `timeout` de `credentials.xml` | Sin ella no se puede verificar el contenido de `emisi.csv` ni cuánto espera `FICHERO_EMISI` |
+| P-ADH-04 | **Resuelta en parte.** La plantilla trae `EventSireEmisi.properties` (`Service=sireEmisi`, `QueryHeader=noheader`, `PathRDR=…/sire_files`, `FileDescription=emisi`, §1.3) y los equivalentes `EventSireCtpda` y `EventProactive`. **Siguen abiertos** la definición del evento en GoldenSource (consulta y columnas de `emisi.csv`) y el `timeout` de `credentials.xml` **Resuelta en parte (cierre 4, 03/10/2026):** el evento `EventSireEmisi` arranca el workflow `QueryToFile`, que ejecuta `SubGetQuerySireEmisi` con la consulta de 16 columnas de `emisi.csv` (§6.4.A-B). Falta el `timeout` de `credentials.xml`. | Sin ella no se puede verificar el contenido de `emisi.csv` ni cuánto espera `FICHERO_EMISI` |
 | P-ADH-05 | **Resuelta en parte.** Qué usa el `.properties` de producción: la plantilla lleva `@@ENV@@`, que el plan de despliegue sustituye por `pr` (no hay `$ENV` ni `pr` escrito a mano). El renombrado lo hace el propio jar al publicar (spec común §2.3). **Sigue abierto** el `URL_OUTPUT_FILE` de las filas de detalle en `FT_T_ATE1`: las filas históricas del Planificador llevan `ThirdParties.xml` y `ExtraccionContingencia.xml` (spec de contrapartidas, P-EGC-03) | Si el nombre final difiere en mayúsculas de lo que esperan los filewatchers, la extracción genérica no arranca |
 | P-ADH-06 | **Resuelta en parte.** Ningún script ni `.properties` de la plantilla escribe el texto `Código:`; `GSProcess.sh` no lo imprime, y `TransformacionesExtraccionCTPDA.sh` termina siempre con 0 (§1.2.1), de modo que un fallo de la transformación no se ve en Control-M con o sin regla. **Sigue abierto** qué línea de salida activa exactamente la regla de la ficha | Si siempre se activa, un fallo de la transformación nunca se ve y se enviaría un fichero vacío o antiguo |
 | P-ADH-07 | `MEKYTL1261_S` figura como predecesor de `RDR_TRANSFORMACION_FS` en `_FINSEM_S_new` y a la vez espera el OK de ese mismo job: ¿la dependencia es circular o se refiere a ciclos distintos? | Puede bloquear o desordenar el envío semanal |
 | P-ADH-08 | Líneas IDX de `MEKYTL1261`, `MEKYTL0072`, `MEKYTL0072_SND`/`_DEL` y `MEKYTL0933` en `MEGENV0001.sh`/`LPFTPEXCA0002.sh`/`RAMERC0068.sh` (solo se conocen los datos de las fichas EX-005-03) | Permitiría validar rutas, nodo Connect:Direct y si `MEKYTL0933` copia o mueve `emisi.csv` mientras `MEKYTL0072_SND` lo transmite |
 | P-ADH-09 | Nombre completo del evento de salida de la variante diaria de `MEKYTL1261` (truncado en pantalla) y significado del sufijo `_L-J` del job | No se puede esperar el fin de la cadena diaria por evento |
+
+### 4.2 Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-ADH-04 | Resuelta en parte | Evento y workflow, consulta y 16 columnas de `emisi.csv` (§6.4.A-B). Falta el `timeout` de `credentials.xml` |
+| P-ADH-03 | Abierta | Confirmado que sin filas no se genera `emisi.csv`; qué hace `MEKYTL1261` si falta el fichero depende del IDX, que no está en el repositorio |
+| P-ADH-05..09, H-ADHOC-01, H-ADHOC-03, H-ADHOC-05, H-ADHOC-06 | Abierta | IDX, Control-M, jars y `raiseEvent.sh`: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -701,6 +711,33 @@ Estado final esperado: `emisi.csv` en `sire_files/` y su copia `old/emisi_yyyymm
 pasarela borrado; `Batch_Fircosoft_<fecha>.txt` en `Fircosoft/`; fichas de job conservadas 3 días.
 
 
+### 6.4 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (eventos y workflows de `Reports/FileReports`). Es `develop`: puede diferir de lo instalado.
+
+#### 6.4.A Cómo se genera `emisi.csv`: evento `EventSireEmisi` y workflow `QueryToFile` (P-ADH-04)
+
+`executeBbvaEvent.sh fileloading EventSireEmisi` lanza el evento genérico `EventSireEmisi`, que en develop arranca el workflow **`QueryToFile`** (v5, `MSC_Sire_ProActive_ok`). El `.properties` del evento (`Service=sireEmisi`, `QueryHeader=noheader`, `PathRDR=.../sire_files`, `FileDescription=emisi`) llega como parámetros del workflow. Secuencia:
+
+1. `Get info from properties`: nombre del fichero = `FileDescription` + `.csv` (`.txt` solo para el servicio `PiezaContable`), es decir, `emisi.csv`.
+2. `SubSaveOldFiles` (v3), con tres órdenes de `CommandLine`, en este orden: `rm -f <PathRDR>/old/emisi.csv`; `mv -f <PathRDR>/emisi.csv <PathRDR>/old`; `rm -f <PathRDR>/dummyemisi.tmp`. Es decir, antes de generar el nuevo fichero, el del día anterior (si sigue ahí) se mueve a `old/emisi.csv` sustituyendo al anterior, y se borra el temporal de una ejecución caída. Es distinto de la historificación fechada de `MEKYTL0933` (`old/emisi_yyyymmdd.csv`), que no se ve afectada porque tiene otro nombre.
+3. `Switch` por `Service`: `sireEmisi` → `SubGetQuerySireEmisi`; `sireCtpda` → `SubGetQuerySireCtpda`; `proactive` → `SubGetQueryProactive`; `PiezaContable` → `Sub_GetQueryPiezaContable`; cualquier otro valor escribe `Service not found` en el log y termina sin error.
+
+Ninguna de las órdenes de `CommandLine` comprueba el código de salida.
+
+#### 6.4.B `SubGetQuerySireEmisi` (v4, `GS87_OK`): consulta y formato de `emisi.csv`
+
+- **Universo:** emisiones `FT_T_ISSU` con `ISS_TYP='BOND'`, `DATA_STAT_TYP='ACTIVE'` y `DATA_SRC_ID` nulo o distinto de `NSCV`. Sin `ORDER BY`: el orden de las filas no es determinista. Un comentario de la consulta indica que, según entren productos en Calypso, hay que añadir otros tipos de emisión.
+- **Columnas (16, en este orden):** 1 `ISS_TYP` («código de instrumento»); 2 `PREF_ISS_ID` (ISIN); 3 `DENOM_CURR_CDE` (divisa); 4 nombre del emisor (`FT_T_ISSR.ISSR_NME`, primera fila); 5 fecha de inicio (`ISS_TMS`, `dd/mm/yyyy`); 6 fecha de vencimiento (`MAT_EXP_TMS`, `dd/mm/yyyy`); 7 y 8 indicadores de Euroclear (siempre vacíos); 9 plazo del cupón (`FT_T_IEDF.PY_DTE_FQ_QTY` concatenado con `PY_DTE_FQ_SP_TYP`); 10 sector (siempre vacío); 11 serie (`SERIES_TYP`); 12 tipo de tasa (`FT_T_BDCH.CPN_TYP`); 13 tipo de valor (`FT_T_INCL.CL_VALUE` del conjunto de clasificación `CLSFSETRISK` asignado a la emisión); 14 valor nominal (`NOM_VAL_UNIT_CAMT`); 15 índice o referencia (`FT_T_IEDF.RTFX_BAS_TYP`); 16 clave de pizarra (`FT_T_ISID` de contexto `Clave Pizarra`). Las subconsultas toman la primera fila (`rownum < 2`), sin orden y, en varias, sin filtrar el estado.
+- **Formato:** sin cabecera. Cada fila se escribe como `valor;valor;...;valor;` (todos los valores seguidos de `;`, incluido el último) y se sustituye la cadena `null` por vacío en cada valor (también dentro de un texto que contenga «null»). Las líneas se añaden a `<PathRDR>/dummyemisi.tmp` (`append`, con salto de línea) y al terminar se ejecuta `mv -f dummyemisi.tmp <PathRDR>/emisi.csv`.
+- **Sin filas:** no se crea `dummyemisi.tmp` y el `mv` final falla sin efecto: no se genera `emisi.csv` y el evento acaba bien (el fallo solo se ve porque el fichero no existe; P-ADH-03).
+- **Sin control de errores:** una excepción de la consulta o de la escritura deja el temporal a medias; el `mv` posterior puede entregar un `emisi.csv` incompleto.
+
+#### 6.4.C Consultas hermanas (contexto)
+
+- **`SubGetQuerySireCtpda`** (v5, servicio `sireCtpda`): consulta de contrapartidas de México (`ctpda`): 16 columnas (`FINSID`, `STAR_ID` de `STAR_MEXICO`, contrato vacío, `FINSID` repetido, nombre corto, nombre largo, país de origen, plaza, registro federal `RFC`, país de residencia, tipo de cliente, tres campos vacíos de formulario y sector contable, LEI, y los códigos `ALID` de Altamira separados por `-`), para las organizaciones hijas de `1145` en `FT_T_EERL`. No es la extracción de 29 columnas que genera `RDR_TRANSFORMACION_SIRE` a partir de `ExtraccionContingencia.xml`, y la cadena que la lanzaba (`FICHERO_CPTDA`) está decomisada (§1.3).
+- **`SubGetQueryProactive`** (v3, servicio `proactive`): contrapartidas con categoría regulatoria `DFACAT` o `EMIRCAT` (`FT_T_FRA1`), con branch, rol, grupo y códigos. **Observación:** las etiquetas de la consulta están cruzadas: el comentario «Codigo Murex» recoge el `STARID` y «Codigo Star» el `MUREXID`.
+
 ## 7. Especificación de testing
 
 **Estrategia:** dado que las 5 cadenas ya cuentan con ficha técnica completa (no evidencia parcial), los casos
@@ -788,3 +825,5 @@ bloqueante para el testing funcional documentado en `extracciones_adhoc_ctpdas_f
 
 **Addendum (tercera pasada de cierre, plantilla de despliegue; no reabre el cierre).** `TransformacionesExtraccionCTPDA.sh` y sus `.properties` ya están analizados (§1.2.1), lo que cierra P-ADH-01 y P-ADH-02 y explica la tensión con `RDR_Transformacion_FS.sh` (lanzador heredado, §1.2).
 P-ADH-04, P-ADH-05 y P-ADH-06 quedan resueltas en parte (§4.1). Siguen abiertos P-ADH-03, P-ADH-07, P-ADH-08 y P-ADH-09 (IDX, capturas de Control-M y comportamiento real de `MEGENV0001.sh`), los módulos `SF_MEGENV0001_*.mod`, `LPFTPEXCA0002.sh`, `raiseEvent.sh`, el código de los jars de extracción y la definición del evento `EventSireEmisi`.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.4): P-ADH-04 queda resuelta en parte: `EventSireEmisi` arranca `QueryToFile`, que mueve el `emisi.csv` previo a `old/`, ejecuta `SubGetQuerySireEmisi` (emisiones `BOND` vigentes, 16 columnas, sin cabecera, filas terminadas en `;`) y renombra el temporal; sin filas no se genera fichero. Se documentan las consultas hermanas de `ctpda` y `proactive`. Siguen abiertos los IDX, `raiseEvent.sh`, Control-M y el `timeout` de `credentials.xml`.

@@ -4,14 +4,14 @@ Esta carpeta contiene las especificaciones que **todavía no están completas**:
 
 Criterio aplicado el 02/10/2026 con la regla "Dos carpetas" de `.github/copilot-instructions.md`. Los huecos **no bloqueantes** (siglas, contexto, confirmaciones de algo ya deducido, mejoras futuras) se listan aparte y no impiden volver a `salidas/`.
 
-**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 599 huecos bloqueantes y 471 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
+**Estado:** 63 especificaciones pendientes (12 de componente común y 51 de proceso), 598 huecos bloqueantes y 472 no bloqueantes. Completas (en `salidas/`): `comun_ctmfw`, `comun_delta`.
 
 Pasadas de cierre aplicadas sobre la clasificación inicial (747 bloqueantes):
 
 - **2ª pasada (02/10)** — material nuevo de las ramas personales y volcado de workflows de `fileloading`: 50 cerrados, 96 resueltos en parte, 17 nuevos.
 - **Reconciliación con `feature/Eduardo` (02-03/10)** — hecha desde otra sesión: 2 cerrados y varios avances (marcados como "reconciliación feature/Eduardo").
 - **3ª pasada (02/10)** — plantilla de despliegue de KYTL (repositorio `estaticos`, rama develop: `dat/properties`, `scrt`, xsl/xsd, fillingRules, select.properties): 77 cerrados, 142 resueltos en parte, 6 nuevos Los valores de las variantes `.pr` son "producción según la plantilla": lo que exige copia verificada de producción queda `parcial`.
-- **4ª pasada (03/10)** — repositorio de objetos de GoldenSource (`objetosgs`, rama develop: workflows `.gsp` con los scripts BeanShell y consultas en línea, `queries/`, `rep1/`, mappings `.mdx`, feeds, xslt, scriptsSQL): 43 cerrados, 69 resueltos en parte, 1 nuevos (recuento parcial mientras la pasada esté en curso).
+- **4ª pasada (03/10)** — repositorio de objetos de GoldenSource (`objetosgs`, rama develop: workflows `.gsp` con los scripts BeanShell y consultas en línea, `queries/`, `rep1/`, mappings `.mdx`, feeds, xslt, scriptsSQL): 44 cerrados, 78 resueltos en parte, 1 nuevos (recuento parcial mientras la pasada esté en curso).
 
 Estado `parcial` = la spec ya describe lo que el material permite y la columna *Qué lo cierra* dice exactamente lo que falta.
 
@@ -19,20 +19,20 @@ Estado `parcial` = la spec ya describe lo que el material permite y la columna *
 
 | Material | Huecos | Procesos afectados |
 |---|---|---|
-| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 106 | 40 |
-| Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 85 | 43 |
+| Código de jars, scripts, XSL, XSD y procedimientos almacenados | 103 | 39 |
+| Export XML de Control-M (reglas ON/DO, ctmfw, calendarios, numeración de días) | 83 | 42 |
 | IDX de producción (MEGENV0001.sh / RAMERC0068.sh) | 81 | 47 |
-| Otros | 77 | 37 |
+| Otros | 78 | 37 |
 | Módulos SF_MEGENV0001_*.mod y GENV.jar | 65 | 30 |
-| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 63 | 40 |
-| Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 32 | 23 |
-| .properties y configuración de producción (dat/properties, cfg/entorno) | 17 | 14 |
+| Verificación en servidor de lo instalado (versión de script/jar/.properties frente a la plantilla) | 63 | 41 |
+| Queries y filas de FT_T_ATE1 / FT_T_PAR1 / FT_T_QPF1 de producción | 36 | 23 |
+| .properties y configuración de producción (dat/properties, cfg/entorno) | 17 | 13 |
 | LPFTPEXCA0000.sh / LPFTPEXCA0002.sh y configuración de la pasarela | 17 | 7 |
 | raiseEvent.sh (lo invoca executeBbvaEvent.sh) | 16 | 15 |
 | Versión de RAMERC0068.sh instalada en producción | 15 | 15 |
 | Layout o muestra de ficheros | 12 | 11 |
 | Confirmación funcional del usuario | 10 | 7 |
-| Workflows y subworkflows de GoldenSource | 3 | 2 |
+| Workflows y subworkflows de GoldenSource | 2 | 1 |
 
 Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_HISTORIFICACIONES.IDX`, la carpeta `/pr/pl/envioweb/idx/bck/*.idx`, los módulos `/pr/pl/envioweb/scrt/*.mod`, `raiseEvent.sh`, `LPFTPEXCA0000/0002.sh`, los exports XML de las carpetas de Control-M, una consulta a `FT_T_ATE1`, `FT_T_QPF1` y `FT_T_PAR1`, y la verificación en los servidores de que lo instalado coincide con la plantilla `estaticos` (versión de `GSProcess.sh`, jars con o sin paquete, `.properties` efectivos). Del volcado `fileloading` faltan los scripts BeanShell (`statements`) de los nodos listados al final.
 
@@ -40,7 +40,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 
 - [`carga_sponsors_baskets`](#carga-sponsors-baskets) — 8 bloqueantes
 - [`cesion_cestas_abaco`](#cesion-cestas-abaco) — 4 bloqueantes
-- [`cesion_contratos_bbva`](#cesion-contratos-bbva) — 15 bloqueantes
+- [`cesion_contratos_bbva`](#cesion-contratos-bbva) — 14 bloqueantes
 - [`comun_controlcargadatos`](#comun-controlcargadatos) — 2 bloqueantes
 - [`comun_datax`](#comun-datax) — 1 bloqueantes
 - [`comun_executebbvaevent`](#comun-executebbvaevent) — 2 bloqueantes
@@ -171,14 +171,14 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/cesion_contratos_bbva/cesion_contratos_bbva_spec.md`  
 **Qué le falta:** Faltan query de lista, filas de FT_T_ATE1/PAR1, .properties de extracción y transformación de prod, XSD/XSL/GenericValidator, scripts LPFTPEXCA, líneas IDX, y resolver contradicciones de Control-M (MX3_1MART_M, MEKYTL1052, KO del predecesor).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se cierran los XSL de contratos y se analizan GenericValidator.sh, XSD, loadAgreements.sh y las properties de extraccion/transformacion, con aviso de que la plantilla (4 pasos) difiere de ei (8 pasos con Mentor). Siguen sin material la query de lista, FT_T_ATE1/PAR1, LPFTPEXCA, IDX y contradicciones Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se cierra P-CCB-01 con el texto de la query de lista (universo ORG_ID 0182, riesgo de duplicados). La query de detalle de develop coincide con la analizada; QueryAgreementBBVA.sql es su versión paginada.  
 
-### Huecos bloqueantes (15)
+### Huecos bloqueantes (14)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-CCB-01 | abierta | Texto y filtros de la query de lista ExtraccionCONTRBBVA.sql (columna LAGR_OID). | Texto de ExtraccionCONTRBBVA.sql |
 | P-CCB-02 | parcial | Valor de URL_OUTPUT_FILE y ROOT_TAG (nettingContractArray) en FT_T_ATE1/FT_T_PAR1 para CONTRBBVA. **Avance 3ª pasada (estaticos):** ExtraccionContingenciaCONTRBBVA.xml confirmado por CopiarFichero; la raiz es ROOT (no nettingContractArray) segun XSD y XSL | Filas FT_T_ATE1/FT_T_PAR1 de pr |
-| P-CCB-03 | parcial | Contenido de ExtraccionGenericaCONTRBBVA.properties (argumentos 1-7 del jar, hilos, Stop*, paso CopiarFichero). **Avance 3ª pasada (estaticos):** ExtraccionGenericaCONTRBBVA.properties completo (20 hilos, sin Stop*, CopiarFichero) | Comprobar el instalado en pr |
+| P-CCB-03 | parcial | Contenido de ExtraccionGenericaCONTRBBVA.properties (argumentos 1-7 del jar, hilos, Stop*, paso CopiarFichero). **Avance 3ª pasada (estaticos):** ExtraccionGenericaCONTRBBVA.properties completo (20 hilos, sin Stop*, CopiarFichero) **Avance 4ª pasada (objetosgs):** La query de detalle de develop (4.679 líneas) coincide con la analizada y repite el filtro con lagr_oid=?. | Filas de FT_T_ATE1/FT_T_PAR1 de producción. |
 | P-CCB-04 | parcial | Código de GenericValidator.sh, ruta del XSD ValidationBBVAContracts y dónde deja el resultado. **Avance 3ª pasada (estaticos):** GenericValidator.sh y Agreements_BBVA_Schema.xsd analizados (ruta XSD, logs, codigo de salida) | Jar RDR_GenericValidatorXSD.jar (H-CCB-10) |
 | P-CCB-06 | abierta | Calendario MX3_1MART_M no aparece en el export (MEKYTL1051 figura de martes a sábado): ¿envío del CSV mensual o diario? | Definición real del calendario de MEKYTL1051 en Control-M |
 | P-CCB-07 | abierta | Cómo se ejecuta MEKYTL1052 los sábados y días en que MEKYTL1051/MEKYTL1104 no corren (el export exige ambos eventos con AND). | Reglas reales de condiciones de MEKYTL1052 en Control-M |
@@ -192,10 +192,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-CCB-07 | parcial | TC-04 (fallo de extracción): resultado esperado 'a documentar según comportamiento observado'; hipótesis de que el fichero vacío pasa el XSD y el CSV solo lleva cabecera. **Avance 3ª pasada (estaticos):** ROOT vacio cumple el XSD y da CSV solo con cabecera; XML truncado hace fallar xsltproc en MEKYTL0895 | Observacion real y fila ROOT_TAG |
 | H-CCB-10 | abierta | Codigo de RDR_GenericValidatorXSD.jar (main.Validate): codigo de salida ante XML no conforme, mensajes y soporte de aserciones XSD 1.1 | El jar RDR_GenericValidatorXSD.jar |
 
-### No bloqueantes (6)
+### No bloqueantes (7)
 
 | Id | Estado | Hueco | Motivo |
 |---|---|---|---|
+| P-CCB-01 | resuelta | Texto y filtros de la query de lista ExtraccionCONTRBBVA.sql (columna LAGR_OID). | Cerrado en la 4ª pasada (objetos de GoldenSource objetosgs, 03/10): ExtraccionCONTRBBVA.sql leída: LAGR_OID de contratos ORG_ID 0182 sin end_tms con FLAR INTERNAL y EXTERNAL activas; sin DISTINCT (posibles duplicados); §6.A. |
 | P-CCB-05 | resuelta | Contenido de Agreements_Nodes.xsl (qué normaliza en el XML que se distribuye). | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): Agreements_Nodes.xsl analizado: quita modified, dayBefore y mentor, reformatea y protege ROOT vacio; 6.3 |
 | P-CCB-10 | abierta | Qué son y qué hacen XCTT, Ibor, EYMI, GMIP, THOR y PXVA. | Significado/contexto de sistemas destino; el envío y la ruta de entrega ya están definidos. |
 | H-CCB-02 | resuelta | BBVA_Contrats_CSV.xsl (genera el CSV) se describe sin haberse recibido su contenido. | Cerrado en la 3ª pasada (plantilla de despliegue estaticos, 02/10): BBVA_Contrats_CSV.xsl analizado y probado: una linea por cpty; 6.3 |
@@ -610,6 +611,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/envio_calendarios_modelity/envio_calendarios_modelity_spec.md`  
 **Qué le falta:** Faltan los idx/IDX de producción (5 envíos e historificación), la query de generación, la definición real de la ventana del filewatcher (23:00), la copia a DataX en producción y el mecanismo de checksum.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** La plantilla no contiene nada de la cadena (ni IDX, ni .idx de MEGENV0001.sh, ni RDR_Calendarios_Modelity.sql, ni MEKYTL1320). Se documenta que RDR_CalendarsRTCE.properties y publish/calendars.xml son otro flujo (fechas habiles y carga inicial por colas) para evitar confusion con Calendarios.csv.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se lee RDR_Calendarios_Modelity.sql de develop: no coincide con la muestra real (sin RNUM, solo futuro) y no impide claves duplicadas. P-CALM-04 y H-CALM-04 quedan en parte; se anota TC-005.  
 
 ### Huecos bloqueantes (10)
 
@@ -618,11 +620,11 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-CALM-01 | abierta | ¿Existe en producción un job MEKYTL1320 (o equivalente) que copie Calendarios.csv a /unload/kytl/datsal/datax/? Solo hay rastro en el IDX de integración. | clave IDX y job de producción de la copia a DataX |
 | P-CALM-02 | abierta | ¿Qué detiene a KYTL_CAL_MODELITY_FW a las 23:00? El export no tiene TIMETO ni regla 7→NOTOK, solo RERUN. | export/ficha de KYTL_CAL_MODELITY_FW (TIMETO, MAXRERUN) |
 | P-CALM-03 | abierta | Línea IDX de producción de MEKYTL0863 y .idx de MEGENV0001.sh de cada uno de los 5 envíos (protocolo, máscara, FALLA_NO_FICHERO). | IDX de MEKYTL0863 e idx de MEKYTL1113/1090/1184/1266/1311 |
-| P-CALM-04 | abierta | Texto de la query RDR_Calendarios_Modelity.sql y entorno/horas de ejecución reales (genera 251.874 filas desde las 22:00). | CLOB_VALUE de RDR_Calendarios_Modelity.sql y duración de generación |
+| P-CALM-04 | parcial | Texto de la query RDR_Calendarios_Modelity.sql y entorno/horas de ejecución reales (genera 251.874 filas desde las 22:00). **Avance 4ª pasada (objetosgs):** RDR_Calendarios_Modelity.sql de develop leído (CADF tipo D, CADP y DTDF, sin RNUM, solo futuro); no coincide con la muestra de producción. | Texto instalado en la fila 5 de FT_T_ATE1 (RNUM, recorte de 6 años, rango pasado). |
 | H-CALM-01 | abierta | Configuración de cada destino (LPNOV503/PXVA, bonotasfs, Nova Transfer CSCF, pr-mentor, bankholidays_rdr TFIT): protocolo y renombrado de Mentor 'sin documentar'. | idx de cada clave de envío y config de Nova Transfer |
 | H-CALM-02 | abierta | Códigos 7/11/68 de la documentación original (resolucion_preguntas_ronda1.md) no aparecen en MEGENV0001.sh: discrepancia sin resolver. | resolucion_preguntas_ronda1.md y reglas On-Do de los jobs de envío |
 | H-CALM-03 | abierta | R9: validación por checksum origen/destino de cada transferencia; ningún componente analizado (MEGENV0001) hace checksum. | script/módulo que calcula el checksum (¿SF_MEGENV0001_*.mod o Nova Transfer?) |
-| H-CALM-04 | abierta | Dato de la spec 'si detecta duplicado de clave la query falla' (delegado a la query/ETL) sin haber visto la query. | texto de RDR_Calendarios_Modelity.sql |
+| H-CALM-04 | parcial | Dato de la spec 'si detecta duplicado de clave la query falla' (delegado a la query/ETL) sin haber visto la query. **Avance 4ª pasada (objetosgs):** En develop la query no falla ni filtra duplicados: festivo en fin de semana repite CURRENCY+CAL_DAY. | Versión instalada de la query. |
 | H-CALM-05 | abierta | Generación de Calendarios.csv por el Planificador: dependen de isScheduled()/hasBeenExecuted() (P-PLA-02/03) aún sin resolver. | resolución de P-PLA-02/P-PLA-03 en comun_planificador_generico |
 | H-CALM-06 | abierta | SF_MEGENV0001_*.mod (módulos de MEGENV0001.sh, ejecutado por los 5 envíos) no analizados. | código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 
@@ -675,6 +677,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan HistCONT.properties, las líneas IDX y .idx de los pasos de copia/envío, el .properties y log4j de producción, ROOT_TAG/URL_OUTPUT_FILE, las clases del jar (MyThreadCpty, ConDB...) y el calendario real.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Sin material nuevo: ni el volcado de fileloading ni los ficheros nuevos de las ramas contienen artefactos de este proceso (consultas del Planificador, .properties, IDX, clases de jar, exports de Control-M).  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** HistCONT.properties de la plantilla cierra P-CONT-01 y corrige la spec: el fichero sin fecha se borra tras copiarlo con fecha, lo que afecta a las reejecuciones. El esquema Contacts_BBVA_Schema.xsd da un indicio sobre ROOT_TAG pero los valores reales de FT_T_PAR1/ATE1, las lineas IDX y las clases del jar siguen abiertos.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Las consultas de lista y detalle de develop coinciden con la spec; se confirma el rownum=1 de AgreementsAssociated y se anota que el detalle no filtra END_TMS. Ningun hueco bloqueante tiene objeto en el repositorio.  
 
 ### Huecos bloqueantes (11)
 
@@ -796,6 +799,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/extraccion_generica_contrapartidas/extraccion_generica_contrapartidas_spec.md`  
 **Qué le falta:** Faltan las líneas IDX/.idx de ~55 envíos, los scripts del pipeline (unionFicheros, XSLT/XSD, validación, transformaciones, dedup, monitor), el código del jar de contrapartidas y de LPFTPEXCA/MEGENV0001, la configuración de _FINSEM_S_new y el calendario real.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se analiza el pipeline completo de scripts (union, XSLT, XSD, TransformacionesExtraccionCTPDA con 14 properties y 15 hojas, dedup, fecha PAR1, delta emisores) y se corrigen la atribucion de los dos ficheros finales y los nombres de salida de 6.6. Quedan abiertos IDX, jars, filas de ATE1/PAR1 y monitor_BBDD.sh.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se leen las queries de lista y de detalle de contrapartidas y terceros (H-EGC-05 en parte): ExtraccionMnem.sql es la candidata de lista de contrapartidas. Las históricas usan :fecha_actual; hay una variante de contingencia con identificadores fijos.  
 
 ### Huecos bloqueantes (22)
 
@@ -816,7 +820,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-EGC-15 | abierta | ¿Qué comprueba monitor_BBDD.sh BKYTL003 y qué significan sus códigos 0 (rama 505) y 1 (rama 606)? | código de monitor_BBDD.sh (invocado por MONITOR_BKYTL001_505-606) |
 | H-EGC-01 | abierta | Numeración de días: la spec asume 0=domingo y deduce que las horas de madrugada caen en el día natural siguiente (inferencia no confirmada); comun_ctmfw P-CFW-02 la deja abierta. | Contrastar nombres de día en Control-M en vivo |
 | H-EGC-04 | parcial | RDR_DELTA_EMISORES (delta emisores / PRIIPS): job y script que lo ejecuta sin analizar. **Avance 3ª pasada (estaticos):** RDR_DeltaEmisores.sh analizado: lanza RDR_DeltaEmisores.jar (DeltaEmisores.DeltaEmisores) con mentor/old/ y PRIIPS/, sin credenciales de BD. | Codigo de RDR_DeltaEmisores.jar (que compara y como escribe EmisoresRDR_delta). |
-| H-EGC-05 | abierta | Textos de las queries de lista (ExtraccionTHIRDPARTIES.sql y la de CPARTY) y de ExtraccionContingenciaCpty.sql: solo se describen; el código de ExtraccionGenericaCPTY.jar no se recibió. | SQL de las queries y código de ExtraccionGenericaCPTY.jar (invocados por GSProcess.sh) |
+| H-EGC-05 | parcial | Textos de las queries de lista (ExtraccionTHIRDPARTIES.sql y la de CPARTY) y de ExtraccionContingenciaCpty.sql: solo se describen; el código de ExtraccionGenericaCPTY.jar no se recibió. **Avance 4ª pasada (objetosgs):** Texto de ExtraccionTHIRDPARTIES.sql (lista), ExtraccionContingenciaCpty.sql y ExtraccionContingenciaTHIRDPARTIES.sql (detalle), ExtraccionMnem.sql candidata de lista de contrapartidas; históricas con :fecha_actual; §6.A-C. | Código de ExtraccionGenericaCPTY.jar y fila de FT_T_ATE1 que enlaza consulta de lista de contrapartidas y jar. |
 | H-EGC-06 | parcial | Clases MyThreadCpty, Constants, ConDB y ConfigCredentials de ExtraccionGenericaOtherEntities.jar y .properties/log4j de producción de la extracción sin recibir. **Avance 3ª pasada (estaticos):** Plantilla: ExtraccionGenericaCPTY/THIRDPARTIES.properties y sus log4j (logs/ExtraccionGenericaCPTY.log y THIRDPARTIES.log). | Codigo de MyThreadCpty, Constants, ConDB y ConfigCredentials de OtherEntities; .properties instalados en pr. |
 | H-EGC-07 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh y scripts LPFTPEXCA0000.sh/0002.sh y config de pasarela (más de 55 envíos) no recibidos. | módulos SF_MEGENV0001_*.mod y LPFTPEXCA0000.sh/0002.sh (invocados por los jobs de envío) |
 | H-EGC-08 | abierta | Eventos de salida de _FINSEM_D_new casi todos truncados en pantalla y completados 'por referencia cruzada'. | Nombres completos de eventos en Control-M |
@@ -848,12 +852,13 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/extraccion_sait_contratos/extraccion_sait_contratos_spec.md`  
 **Qué le falta:** Faltan BATCH_SAIT_DIARIO.sql, Sait_Diario.xsl, el XSD, scripts/config de pasarela (LPFTPEXCA, MEGENV0001 modules, IDX/.idx), el comportamiento sin fichero y el calendario real.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se cierra el analisis de Sait_Diario.xsl y se completan scripts y properties SAIT (SAITLoading, SAIT_CORRECCION_CONTACTOS, sait.xsl). La plantilla no trae LPFTPEXCA, modulos .mod, XSD del Planificador ni export de Control-M.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se lee BATCH_SAIT_DIARIO.sql: añade actual_date y 14 marcas a BATCH_SAIT.sql, sin las marcas cnta_ y cntc_ que espera Sait_Diario.xsl. P-SAIT-01 queda en parte hasta ver la fila 9 de producción.  
 
 ### Huecos bloqueantes (10)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
-| P-SAIT-01 | parcial | ¿Qué selecciona BATCH_SAIT_DIARIO.sql (¿solo nuevos/modificados?, ¿misma estructura <Agreement>)? Solo se tiene BATCH_SAIT.sql (fila 20). **Avance 3ª pasada (estaticos):** Sait_Diario.xsl obliga a que la query entregue actual_date y 16 campos *_last_chg_tms en el mismo formato | Texto de BATCH_SAIT_DIARIO.sql y si ya filtra por fecha |
+| P-SAIT-01 | parcial | ¿Qué selecciona BATCH_SAIT_DIARIO.sql (¿solo nuevos/modificados?, ¿misma estructura <Agreement>)? Solo se tiene BATCH_SAIT.sql (fila 20). **Avance 3ª pasada (estaticos):** Sait_Diario.xsl obliga a que la query entregue actual_date y 16 campos *_last_chg_tms en el mismo formato **Avance 4ª pasada (objetosgs):** BATCH_SAIT_DIARIO.sql leído: misma consulta que BATCH_SAIT.sql más actual_date y 14 marcas *_last_chg_tms más Last_Chg_Tms; no filtra por fecha; faltan cnta_ y cntc_ que lee Sait_Diario.xsl. | Texto de la fila 9 de FT_T_ATE1 de producción y tipo de columna de LAST_CHG_TMS. |
 | P-SAIT-02 | abierta | ¿RAMERC0068 mueve (M) o copia (C) en MEKYTL0357/0949/0950?, ¿contenido de MEKYTL0357.idx?, discrepancia lpftp503/LPFTP503 en el destino; carrera entre ramas paralelas. | Líneas IDX de 0949/0950, MEKYTL0357.idx y config de pasarela |
 | P-SAIT-03 | abierta | ¿Qué ocurre si el Planificador no ha dejado Diario.xml a las 06:00 (sin ctmfw) o en un día sin generación (lunes)? | Comportamiento real ante fichero ausente y estado de Backup/ |
 | P-SAIT-05 | abierta | Calendario real de LISTA/BORRA: Control-M muestra 0,1,2,3,4 (¿D-J o L-V?) frente a fichas L M X J V. | Contrastar nombre del día en Control-M en vivo |
@@ -913,13 +918,14 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Spec:** `salidas_pendientes/extracciones_adhoc_ctpdas_fircosoft_sire/extracciones_adhoc_ctpdas_fircosoft_sire_spec.md`  
 **Qué le falta:** Faltan TransformacionesExtraccionCTPDA.sh, la definición de EventSireEmisi (emisi.csv), los .idx/IDX de envíos e historificación, los jars/log4j de extracción, la regla del evento de RDR_TRANSFORMACION_FS y el calendario real.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se lee entero TransformacionesExtraccionCTPDA.sh con el properties de Fircosoft, lo que responde cuatro huecos (script, Third Parties fuera de Fircosoft, tension con el lanzador heredado y log4j). Siguen abiertos IDX, jars, filas de ATE1 y la definicion del evento EventSireEmisi.  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se localiza la definición de EventSireEmisi: QueryToFile y SubGetQuerySireEmisi (bonos activos, 16 columnas, sin cabecera). P-ADH-04 queda en parte; se documentan las consultas hermanas de ctpda y proactive.  
 
 ### Huecos bloqueantes (11)
 
 | Id | Estado | Hueco | Qué lo cierra |
 |---|---|---|---|
 | P-ADH-03 | abierta | Si falta el fichero del día, ¿MEKYTL1261 envía el último disponible o falla? | IDX/.idx de MEKYTL1261 y comportamiento real de MEGENV0001 |
-| P-ADH-04 | parcial | Definición del evento EventSireEmisi, contenido de EventSireEmisi.properties y credentials.xml (timeout): qué columnas lleva emisi.csv. **Avance 3ª pasada (estaticos):** EventSireEmisi.properties: Service sireEmisi, QueryHeader noheader, PathRDR sire_files, FileDescription emisi; mas EventSireCtpda y EventProactive (1.3). | Definicion del evento EventSireEmisi en GoldenSource (consulta y columnas de emisi.csv) y timeout de credentials.xml. |
+| P-ADH-04 | parcial | Definición del evento EventSireEmisi, contenido de EventSireEmisi.properties y credentials.xml (timeout): qué columnas lleva emisi.csv. **Avance 3ª pasada (estaticos):** EventSireEmisi.properties: Service sireEmisi, QueryHeader noheader, PathRDR sire_files, FileDescription emisi; mas EventSireCtpda y EventProactive (1.3). **Avance 4ª pasada (objetosgs):** EventSireEmisi -> QueryToFile -> SubSaveOldFiles + SubGetQuerySireEmisi: consulta de bonos activos, 16 columnas sin cabecera, filas terminadas en ';', temporal dummyemisi.tmp renombrado; §6.A-B. | Timeout de credentials.xml (executeBbvaEvent.sh). |
 | P-ADH-05 | parcial | ¿Qué renombra los .xml.tmp al nombre final y cuál es (URL_OUTPUT_FILE)? ¿El .properties de producción usa 'pr' literal o $ENV? **Avance 3ª pasada (estaticos):** El properties usa @@ENV@@ sustituido por el plan (pr); el jar publica el .tmp con el nombre de URL_OUTPUT_FILE. | URL_OUTPUT_FILE de las filas de detalle en FT_T_ATE1 de produccion. |
 | P-ADH-06 | parcial | ¿Qué imprime GSProcess.sh para activar la regla '* Código: *' de RDR_TRANSFORMACION_FS y se activa también si el proceso falla? **Avance 3ª pasada (estaticos):** Ningun script de la plantilla imprime 'Codigo:'; TransformacionesExtraccionCTPDA.sh sale siempre con 0. | Definicion de la regla '* Codigo: *' de RDR_TRANSFORMACION_FS y salida real del job en Control-M. |
 | P-ADH-07 | abierta | MEKYTL1261_S figura como predecesor de RDR_TRANSFORMACION_FS en _FINSEM_S_new y espera el OK de ese mismo job: ¿dependencia circular? | Dependencias reales de RDR_TRANSFORMACION_FS en _FINSEM_S_new |
@@ -2234,6 +2240,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 **Qué le falta:** Faltan ExtraccionAltamiraReceive.properties, la configuración de MEGENV0001.sh para MEKYTL1091 y su comando de purga, la línea IDX de producción de MEKYTL1046, PCK_CON_ALT_COL.PR_MAIN, SHIVAToken, ConexionBD.jar y la configuración de alertas.  
 **2ª pasada (ramas personales y volcado fileloading, 02/10):** Se documenta la rama DEFAULT del correo, el envío con Mail y el comportamiento del Cocinado aplicado a Colombia, y un riesgo nuevo de informe sin reintento. Ningún hueco se cierra del todo: falta la fila de REP1 y DocumentGenerator.  
 **3ª pasada (plantilla de despliegue estaticos, 02/10):** Se completa la recepcion con ExtraccionAltamiraReceive, alertas de Cocinado y log4j de la plantilla, y se corrige el significado del argumento 5. Sin material: PL/SQL PCK_CON_ALT_COL, jars, modulos, RAMERC0068.sh y Control-M (H-RAC-06/07/08/11/12/15/16).  
+**4ª pasada (objetos de GoldenSource objetosgs, 03/10):** Se leen los scripts de AlertasEnvio (ficheros de cuerpo y adjunto por tipo, condiciones de envio) y se confirma que AlertasEnvioExcepciones v30 no tiene rama para Colombia. No hay objetos de la conciliacion, por lo que ningun hueco bloqueante se cierra.  
 
 ### Huecos bloqueantes (19)
 
@@ -2246,7 +2253,7 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | P-RAC-05 | parcial | Nombre exacto del fichero en receive/: CONCILIA_*.txt, CONCILIAAAAAMMDD.TXT u otro. **Avance 3ª pasada (estaticos):** El Java necesita CONCILIAYYYYMMDD.TXT con fecha de ayer en receive/ | Nombre con que llega el fichero de Colombia y renombrado de MEKYTL1091 |
 | P-RAC-06 | abierta | Cadena de martes a viernes y Java con fichero 'de ayer': ¿cuándo se procesa el del viernes? | Respuesta funcional y calendario real |
 | P-RAC-07 | abierta | Codificación con la que Colombia cifra el contenido (descifrado UTF-8 vs lectura ISO-8859-1). | Codificación del fichero origen |
-| P-RAC-08 | parcial | Código de PCK_CON_ALT_COL.PR_MAIN, de SHIVAToken y .properties de alertas (código de proceso, destinatarios, informe). **Avance 3ª pasada (estaticos):** Codigo de proceso del Cocinado AltamiraColombiaConciliacion; la cadena no incluye el Barrido | PCK_CON_ALT_COL.PR_MAIN, SHIVAToken, destinatarios e informe |
+| P-RAC-08 | parcial | Código de PCK_CON_ALT_COL.PR_MAIN, de SHIVAToken y .properties de alertas (código de proceso, destinatarios, informe). **Avance 3ª pasada (estaticos):** Codigo de proceso del Cocinado AltamiraColombiaConciliacion; la cadena no incluye el Barrido **Avance 4ª pasada (objetosgs):** AlertasCocinado (develop) confirma que el argumento 3 del Cocinado es el codigo de proceso; el codigo de proceso ya era conocido. | PCK_CON_ALT_COL.PR_MAIN, SHIVAToken, destinatarios e informe. |
 | P-RAC-10 | abierta | Qué hace ConDB (ConexionBD.jar) si no puede conectar; el Java no captura la excepción. | Código de ConexionBD.jar (invocado por ColombiaConciliacion) |
 | H-RAC-06 | abierta | Cuerpo de PCK_CON_ALT_COL.PR_MAIN (compilado en BD) declarado fuera de alcance. | Código de PCK_CON_ALT_COL.PR_MAIN (invocado por Querys) |
 | H-RAC-07 | abierta | Clase com.bbva.kytl.services.SHIVAToken (XMASToken-0.0.1.jar) declarada fuera de alcance en esta spec. | Código de SHIVAToken.loadSHIVAData (invocado por ColombiaConciliacion) |
@@ -2254,8 +2261,8 @@ Los ficheros de producción que cubren la mayor parte: `/pr/pl/dat/INFORMACION_H
 | H-RAC-09 | parcial | Fichero de datos de SHIVA (argumento 5) y credenciales/URL base de SHIVA no vistos. **Avance 3ª pasada (estaticos):** Argumento 5 del Java = identificador del entorno, no fichero de datos de SHIVA | URL base y credenciales de SHIVA |
 | H-RAC-11 | abierta | Módulos SF_MEGENV0001_*.mod de MEGENV0001.sh no recibidos (jobs 1 y 2). | Código de SF_MEGENV0001_*.mod (invocados por MEGENV0001.sh) |
 | H-RAC-12 | abierta | Versión instalada de RAMERC0068.sh (771 o 791 líneas, P-RAM-01) para MEKYTL1046. | Copia de RAMERC0068.sh instalada en producción |
-| H-RAC-13 | parcial | report.ReportesRDR (Cocinado) no recibida: nombre real del informe y comportamiento sin mensajes. **Avance 2ª pasada:** ReportesRDR/ReporteRDR recibidos: sin filas no se rechaza el informe y pasa a DocumentGenerator; escrito en §6.7. Nombre del informe y salida sin mensajes dependen de REP1 y DocumentGenerator. **Avance 3ª pasada (estaticos):** Codigo de proceso conocido | Fila de FT_T_REP1 y DocumentGenerator |
-| H-RAC-14 | parcial | AlertasEnvioExcepciones, ServerMailConfig.xml y GestionAlertas.properties de producción sin ver. **Avance 2ª pasada:** AlertasEnvioExcepciones v12 (DEFAULT) y Mail v6/ServerMailConfig.xml analizados; escrito en §6.7. Faltan GestionAlertas.properties y la plantilla de producción. **Avance 3ª pasada (estaticos):** GestionAlertas.properties, estructura de ServerMailConfig.xml (hosts y remitentes enmascarados) y paso de Cocinado | Fila de FT_T_REP1 y configuracion de destinatarios |
+| H-RAC-13 | parcial | report.ReportesRDR (Cocinado) no recibida: nombre real del informe y comportamiento sin mensajes. **Avance 2ª pasada:** ReportesRDR/ReporteRDR recibidos: sin filas no se rechaza el informe y pasa a DocumentGenerator; escrito en §6.7. Nombre del informe y salida sin mensajes dependen de REP1 y DocumentGenerator. **Avance 3ª pasada (estaticos):** Codigo de proceso conocido **Avance 4ª pasada (objetosgs):** AlertasEnvio: ficheros que espera (BODY_<SHORT>.txt y adjunto .dat/.xlsx/.txt/.docx); solo sale correo con el fichero de cuerpo. | Fila de FT_T_REP1 de AltamiraColombiaConciliacion y DocumentGenerator. |
+| H-RAC-14 | parcial | AlertasEnvioExcepciones, ServerMailConfig.xml y GestionAlertas.properties de producción sin ver. **Avance 2ª pasada:** AlertasEnvioExcepciones v12 (DEFAULT) y Mail v6/ServerMailConfig.xml analizados; escrito en §6.7. Faltan GestionAlertas.properties y la plantilla de producción. **Avance 3ª pasada (estaticos):** GestionAlertas.properties, estructura de ServerMailConfig.xml (hosts y remitentes enmascarados) y paso de Cocinado **Avance 4ª pasada (objetosgs):** Scripts de AlertasEnvio leidos; AlertasEnvioExcepciones v30 sin rama propia (DEFAULT). | Fila de FT_T_REP1, destinatarios y ServerMailConfig.xml de produccion. |
 | H-RAC-15 | abierta | Numeración de días del calendario (días 2-5 leídos como martes-viernes): fuentes contradictorias (P-CFW-02). | Numeración de días de Control-M en la instalación |
 | H-RAC-16 | abierta | Reglas de Control-M (Acciones) de los jobs 1-4 más allá de la marca OK del job 1: no se ha visto export. | Export de Control-M del folder |
 

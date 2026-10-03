@@ -7,6 +7,8 @@
 > 4 fichas EX-005-03, ficha funcional "Cesión de Cestas para Abaco" (origen Murex3), 9 capturas de la
 > Salida real de `MEKYTL0851` (GAP-BASK-011), y varias rondas de resolución de gaps con el usuario.
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: `BASKETS_TO_ABACO.sql` completa (P-ABACO-01) y el workflow `Create_File_Abaco`, que produce los ficheros ad-hoc (P-ABACO-04); §6.5.
+
 ## 1. Resumen ejecutivo
 
 El proceso `RDR_BASKETS_ABACO` recibe el catálogo de cestas financieras (*Baskets*) y sus componentes desde **Murex3**, y lo publica en la cola `ABACO.SECURITIES` del Mainframe (`vdrcdexp-anycast.igrupobbva`) para que el sistema ABACO pueda hacer *asset allocation* con los pesos porcentuales exactos de los activos subyacentes. El proceso combina dos cadenas Control-M complementarias: una **nocturna** que revisa el estado de las cestas para procesar bajas, y una **cíclica** (cada 10 min) que inserta o actualiza cestas ante altas/modificaciones, y que además es el mecanismo físico de envío usado por la propia cadena nocturna.
@@ -285,7 +287,7 @@ La pestaña **Estadísticas** de ese mismo job confirma ejecuciones sucesivas in
 
 * **Ámbito funcional:** distribución del catálogo de cestas (`BASKET`) y sus componentes (`COMPONENT`) desde Murex3 hacia ABACO (Mainframe), tanto en modo alta/modificación (on-line, cíclico) como en modo revisión de bajas (batch, nocturno).
 * **Ámbito técnico:** dos cadenas Control-M — `KYTL0000-RDR_BASKETS_ABACO_NOCTURNA_new` (3 jobs) y `KYTL0000-RDR_BASKETS_ABACO_new` (5 jobs) — ejecutadas en `pr-rdr.igrupobbva` (server MERCADOS-4, nodos `lprdr501`/`lprdr602`), con destino final `vdrcdexp-anycast.igrupobbva` vía Connect:Direct.
-* **Fuera de alcance:** la query `BASKETS_TO_ABACO.sql` que genera `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` (la ejecuta el Planificador Genérico, no esta cadena; texto no aportado, P-ABACO-01) y quién deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` del ciclo intradía (P-ABACO-04); el consumo/interpretación del fichero en ABACO/Murex3 una vez recibido.
+* **Fuera de alcance:** la query `BASKETS_TO_ABACO.sql` que genera `Baskets_to_ABACO_Extr_Generica_Nocturna.csv` (la ejecuta el Planificador Genérico, no esta cadena; texto no aportado, P-ABACO-01) y quién deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` del ciclo intradía (P-ABACO-04); el consumo/interpretación del fichero en ABACO/Murex3 una vez recibido. **Actualizado en el cierre 4 (§6.5):** la consulta y el origen de los ficheros ad-hoc ya constan.
 
 ## 3. Requisitos detectados
 
@@ -328,13 +330,21 @@ Resumen de las decisiones y evidencias que reemplazan supuestos iniciales (las r
 
 | Id | Pregunta | Por qué importa |
 |----|----------|-----------------|
-| P-ABACO-01 | Texto de la query `BASKETS_TO_ABACO.sql` (fila 15 del Planificador Genérico): qué tablas lee, qué filtra, cómo calcula `WEIGHT`, si añade columnas más allá de las 11 (el recorte `1-11` sugiere que el CSV crudo trae más). | Es lo que define el contenido del fichero que ve ABACO; sin ella no se puede probar de extremo a extremo. |
+| P-ABACO-01 | Texto de la query `BASKETS_TO_ABACO.sql` (fila 15 del Planificador Genérico): qué tablas lee, qué filtra, cómo calcula `WEIGHT`, si añade columnas más allá de las 11 (el recorte `1-11` sugiere que el CSV crudo trae más). **Resuelta (cierre 4, 03/10/2026):** `BASKETS_TO_ABACO.sql` está en `scriptsSQL` de develop y tiene exactamente 11 columnas (§6.5.A). | Es lo que define el contenido del fichero que ve ABACO; sin ella no se puede probar de extremo a extremo. |
 | P-ABACO-02 | ¿Qué hora real de creación tiene el fichero de cada noche? El Planificador corre cada 30-60 min y su comparación horaria con `00:00:00` no está confirmada (pregunta común P-PLA-03). ¿Se confirma que el lunes a las 00:10 se procesa el fichero del sábado? | Determina si llega dentro de la ventana 00:10-02:30. |
 | P-ABACO-03 | **Resuelta en parte (cierre 3):** con el `.properties` sin `Stop*`, si `NOC_FW` marca OK sin fichero, `Cortar` falla pero `MoverFichero` deja un `Baskets_to_ABACO_Extr_Generica_Nocturna.txt` de 0 bytes en la ruta del ciclo intradía (§6.4, deducción del código); sigue sin verse la definición real de las acciones On-Do en Control-M. Comportamiento real cuando `NOC_FW` termina con 7: ¿la regla «7 → OK» emite el evento `..._NOC_FW_OK_new` (como indica la spec) y por tanto `RDR_ABACO_GSPROCESS` se ejecuta y falla en `Cortar` por falta de fichero? Para `RDR_BASKETS_ABACO_FW` las capturas dicen que no se dispara la unificación; ¿por qué difiere? | Decide si cada noche sin fichero genera un KO con alerta o un OK silencioso. |
-| P-ABACO-04 | **Resuelta en parte (cierre 3):** el código de `UnificacionFicherosAbaco.sh` no purga la línea 1 y exige `;` final para purgar las cabeceras de los demás ficheros (§6.4); sigue sin saberse quién deposita los ad-hoc ni si llevan cabecera. ¿Quién y cuándo deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` durante el día (altas/modificaciones)? ¿Con cabecera `BASKET_CODE;…;FULL_NAME;`? | Es el disparador real de la cadena cíclica. |
+| P-ABACO-04 | **Resuelta en parte (cierre 3):** el código de `UnificacionFicherosAbaco.sh` no purga la línea 1 y exige `;` final para purgar las cabeceras de los demás ficheros (§6.4); sigue sin saberse quién deposita los ad-hoc ni si llevan cabecera. ¿Quién y cuándo deposita los ficheros ad-hoc `Baskets_to_ABACO_*.txt` durante el día (altas/modificaciones)? ¿Con cabecera `BASKET_CODE;…;FULL_NAME;`? **Resuelta (cierre 4, 03/10/2026):** los ficheros ad-hoc los genera GoldenSource con el workflow `Create_File_Abaco`, lanzado desde `Sub_PublishChanges` y `Load_Baskets_Mx3`; llevan cabecera con `;` final (§6.5.B). | Es el disparador real de la cadena cíclica. |
 | P-ABACO-05 | Línea del `INFORMACION_HISTORIFICACIONES.IDX` de producción para la clave `MEKYTL0855` (directorio, máscara, tipo de renombrado `FicheroUnificadoDDMMYYYY_hh:mm:ss.txt`, «falla si no hay fichero», operación). Hoy la operación `M` es una deducción. | Confirma qué ocurre si `FicheroUnificado.txt` no existe y si la historificación mueve o copia. |
 | P-ABACO-06 | **Resuelta (cierre 3):** la plantilla de despliegue lleva `@@ENV@@` en todas las rutas y lo sustituye el plan de despliegue `CIR_RDRDO_DE_EI_PP_PR_GLOBAL` (`pr` en producción); `GSProcess.sh` solo sustituye `$ENV` y no interviene (§6.4). `cortarFicheroCestasAbaco.properties` usa `@@ENV@@` en las rutas, pero `GSProcess.sh` solo sustituye `$ENV` (pregunta común P-GSP-01): ¿quién sustituye `@@ENV@@` al desplegar? | Si nadie lo hace, las rutas serían `/fichtemcomp/@@ENV@@/…` y `Cortar` fallaría siempre. |
 | P-ABACO-07 | Qué hace ABACO (Mainframe) con el dataset `TE.BDTRE100.DG0TC2.TEBDJCES` y el JCL `TEBDJCES`: carga en la cola `ABACO.SECURITIES`, validaciones, rechazos y a quién se avisa. | Es el destino final; sin ello no se puede definir «bien recibido». |
+
+### Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-ABACO-01 | Resuelta | `BASKETS_TO_ABACO.sql` leída entera: 11 columnas, ventana de 24 h y riesgos (§6.5.A) |
+| P-ABACO-04 | Resuelta | Los ad-hoc los escribe `Create_File_Abaco` (desde `Sub_PublishChanges` y `Load_Baskets_Mx3`) con cabecera con `;` final (§6.5.B) |
+| P-ABACO-02, P-ABACO-03, P-ABACO-05, P-ABACO-07 | Abierta | Hora real del nocturno, reglas de Control-M, línea IDX de `MEKYTL0855` y JCL `TEBDJCES`: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -450,6 +460,42 @@ El fichero resultante, `Baskets_to_ABACO_Extr_Generica_Nocturna.txt`, cumple el 
 
 **Resto de huecos del proceso.** `BASKETS_TO_ABACO.sql` (P-ABACO-01) no está en el directorio `sql` de la plantilla (solo `QueryAgreements.sql`, `RDR_Monit_*.sql` y utilidades de limpieza); tampoco las líneas del IDX (P-ABACO-05), la definición Control-M del nocturno (P-ABACO-03) ni el JCL `TEBDJCES` (P-ABACO-07). `RAMERC0068.sh` y `MEGENV0001.sh` no están en la plantilla (viven en `/pr/pl`). Los ficheros de la plantilla con nombre `*_RDR_ABACO.properties` (`Conci_Contacts_RDR_ABACO`, `Conci_Settlements_RDR_ABACO`, `Conci_Swift_RDR_ABACO`), `CCC_SSI_RDR_ABACO.properties`, `SwiftAbaco.properties` y `scrt/cargaconc.sh` **no pertenecen a este proceso**: son conciliaciones y cargas de contactos, instrucciones de liquidación y SWIFT con ABACO (entradas `TEBDPISS.txt`, `instrucciones.txt` y `TEBDPCSW.txt`) y la conciliación MGC-RDR; `CCC_SSI_RDR_ABACO.properties` lleva una nota de «fichero decomisado». No se analizan aquí.
 
+### 6.5 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL` y workflows). Es `develop`: puede diferir de lo instalado.
+
+#### 6.5.A `BASKETS_TO_ABACO.sql` (P-ABACO-01): consulta del fichero nocturno
+
+Es una `UNION` de dos `SELECT DISTINCT` con **exactamente 11 columnas**, en este orden, que son las de la cabecera `BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME`:
+
+| Columna | Origen |
+|---|---|
+| `BASKET_CODE` | `FT_T_ISID.ISS_ID` de la cesta con contexto `MUREXID` (recortado) |
+| `BASKET_STATUS` | `FT_T_ISSU.DATA_STAT_TYP` de la cesta |
+| `TYPE` | `FT_T_ISSU.ISS_TYP` de la cesta |
+| `MRKT_BASKET` | `FT_T_MKID.MKT_ID` con contexto `MUREX` del mercado activo de la cesta (`FT_T_MKIS` activo y sin fecha fin) |
+| `COUNTRY` | `FT_T_GUNT.GU_NME` (nombre del país, no el código) del país del mercado (`FT_T_MRKT.GU_ID`, `PRNT_GU_TYP='COUNTRY'`, activo) |
+| `COD_CODIGO20` | `FT_T_MKID.MKT_ID` con contexto `CORP_ID` del mismo mercado (activo, sin fecha fin, primera fila) |
+| `COMPONENT` | `FT_T_ISID.ISS_ID` `MUREXID` del componente |
+| `COMPONENT_STATUS` | `FT_T_ISGP.DATA_STAT_TYP` del componente en la cesta |
+| `WEIGHT` | `FT_T_ISGP.PART_CAMT` con formato `9999999999990.9999999999` (hasta 13 enteros y 10 decimales fijos, recortado) |
+| `COMPONENT_TYPE` | `FT_T_ISSU.ISS_TYP` del componente |
+| `FULL_NAME` | `FT_T_ISSU.PREF_ISS_NME` de la cesta |
+
+- **Primer `SELECT` (cestas con componentes):** cestas (`ISS_TYP='BASKETS'`) cuyo grupo `FT_T_ISGR` ha cambiado en las últimas 24 horas (`ISGR.LAST_CHG_TMS > SYSDATE - 1`), con sus componentes `COMPNENT` de `FT_T_ISGP` (activos e inactivos) que tengan identificador `MUREXID`.
+- **Segundo `SELECT` (cestas sin detalle de componentes):** emisiones con identificador `MUREXID` y mercado `MUREX` activo cuya fila `FT_T_ISSU` ha cambiado en las últimas 24 horas; devuelve las columnas de componente vacías.
+- **Respuesta a la duda del recorte:** la consulta no produce más de 11 columnas, de modo que el `cut -f 1-11` del nocturno solo tiene efecto si el Planificador Genérico añade un delimitador final (la columna 12 vacía), algo que depende de la fila de configuración y que el repositorio no contiene.
+- **Riesgos observados (por lectura):** (1) la ventana es de 24 horas sin recuperación: si el nocturno no se genera un día, los cambios de ese día no se vuelven a enviar; (2) el segundo `SELECT` **no filtra `ISS_TYP='BASKETS'`**, de modo que cualquier emisión con `MUREXID` y mercado `MUREX` modificada en el último día puede entrar en el fichero (con su tipo en la columna `TYPE`); (3) una cesta con varios mercados activos genera una fila por mercado; (4) los componentes sin identificador `MUREXID` no salen en el primer `SELECT`; (5) `COUNTRY` lleva el nombre del país.
+
+#### 6.5.B `Create_File_Abaco` v7 (`AOS_SECFICLAB`, P-ABACO-04): origen de los ficheros ad-hoc
+
+Los ficheros `Baskets_to_ABACO_*.txt` intradía **no vienen de Murex3 ni de un proceso externo: los escribe GoldenSource**.
+
+- **Quién lo lanza:** el sub-workflow `Sub_PublishChanges` (v117, «llamado cuando se cambia un dato desde la interfaz») llama a `Create_File_Abaco` en dos ramas, cuando la entidad modificada es `Basket` (cesta) o `Component` (componente de una cesta), con el `MUREXID` de la cesta (`FT_T_ISID` activo) y su `INSTR_ID`; y `Load_Baskets_Mx3` (v21, `ANS_CestasGrandes_vd3`) lo llama tras cargar una cesta de Murex3. Es decir, cada alta o modificación de cesta o de sus componentes genera su propio fichero.
+- **Nombre y ruta:** `Baskets_to_ABACO_<MUREXID de la cesta, con / & $ # @ y espacios sustituidos o eliminados>_<MMdd_kkmmss_SSSSS>.txt` en `/fichtemcomp/<env>/descargas/kytl/issues/Baskets` (el entorno se deduce de la primera carpeta escribible entre `de`, `ei`, `pp` y `pr`; gana la última que exista). Es la carpeta que vigila el file watcher del ciclo intradía.
+- **Contenido:** cabecera `BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME;` **con `;` final**, y una fila por componente en la que cada valor va seguido de `;` (también el último) y se sustituye la cadena `null` por vacío. La consulta es una variante de la del nocturno: solo cestas con componentes (no hay `SELECT` de cestas sin componentes), componentes con identificador `MUREXID` o `SECFICLAB` y `WEIGHT` con formato `000000000000.0000000000000` (12 enteros y 13 decimales con ceros a la izquierda), distinto del nocturno. No filtra el estado del componente.
+- **Consecuencias:** (a) la cabecera con `;` final es la que `UnificacionFicherosAbaco.sh` sabe purgar en los ficheros posteriores al primero (§6.4), de modo que los ad-hoc reales cumplen esa condición; (b) las filas de datos de los ad-hoc terminan en `;`, mientras que las del nocturno, tras el `cut`, no: `FicheroUnificado.txt` mezcla las dos formas; (c) si la cesta no tiene componentes el fichero contiene solo la cabecera; (d) con la etiqueta de la cesta vacía el workflow compone un mensaje de error (`Error Create a File. Dont exists Components for the Basket or dont getting id of Basket.`) y no escribe fichero; (e) un fichero por cambio puede producir decenas de ficheros por hora, todos recogidos por el ciclo.
+
 ## 7. Especificación de testing
 
 **Estrategia:** una prueba end-to-end (TC-014) que cubre el ciclo diario completo (tramo nocturno de baja + varios ciclos intradía de alta/modificación), más casos troceados que cubren individualmente cada condición de fallo, borde, duplicidad y riesgo de diseño que el E2E no ejerce en un único pase. Los casos completos están en `cesion_cestas_abaco_casos_prueba.xml`.
@@ -498,7 +544,7 @@ Referencia de casos por tipo (`tipo` en `cesion_cestas_abaco_casos_prueba.xml`):
 2. **DEF-BASK-001 — soft-failure real en `RDR_BASKETS_ABACO_NOC_FW` contradice el requisito funcional** (TC-003): la ficha pide "parar la cadena y reportar" si no llega el fichero nocturno; Control-M real hace soft-failure (código 7 → OK) y la cadena continúa hacia `RDR_ABACO_GSPROCESS`. Se documenta el comportamiento As-Is como el vigente; se registra para que ANS RDR evalúe eliminar la acción On-Do si la unificación no genera datos.
 3. **Discrepancia documental — ficha "Cesión de Cestas para Abaco".** La última fila de su tabla de formato repite `COMPONENT_TYPE` en vez de `FULL_NAME` (que sí es el campo real, confirmado por la cabecera que purga `UnificacionFicherosAbaco.sh`). Tratado como errata de la ficha, no como cambio de estructura.
 4. **Defecto menor no bloqueante en `MEGENV0001.sh`.** Error de sintaxis observado en ejecución real (`MEGENV0001.sh[879]: [: ']' missing`) que no impide que el job finalice OK. No requiere acción inmediata, pero debe corregirse en el script.
-5. **Query de origen sin documentar.** El fichero nocturno lo genera el Planificador Genérico con `BASKETS_TO_ABACO.sql` (fila 15, martes-sábado 00:00); el texto de la query no se ha aportado, y tampoco se sabe cómo llegan los ficheros ad-hoc intradía (P-ABACO-01, P-ABACO-04). Si el Planificador falla o se retrasa, esta cadena no se entera: solo verá que el fichero no está.
+5. **Query de origen sin documentar.** El fichero nocturno lo genera el Planificador Genérico con `BASKETS_TO_ABACO.sql` (fila 15, martes-sábado 00:00); el texto de la query no se ha aportado, y tampoco se sabe cómo llegan los ficheros ad-hoc intradía (P-ABACO-01, P-ABACO-04). Si el Planificador falla o se retrasa, esta cadena no se entera: solo verá que el fichero no está. **Actualizado en el cierre 4 (§6.5):** la consulta consta en develop; los ad-hoc los genera `Create_File_Abaco`.
 6. **Sin validación de `∑WEIGHT=100%` en ningún punto de la cadena** (confirmado como diseño esperado, no como gap — ver R8): una cesta desbalanceada se distribuye igual a ABACO; el rechazo, si existe, depende del sistema consumidor.
 7. **Sin protección de concurrencia explícita documentada** entre el ciclo intradía (cada 10 min) y un eventual relanzamiento manual de cualquiera de sus 5 jobs — no se ha confirmado la existencia de lock/PID/semáforo en `UnificacionFicherosAbaco.sh` más allá del propio mecanismo de relanzamiento de Control-M (`Máximo de relanzamientos: 0`).
 8. **Sin `Stop`/`StopScr` en `cortarFicheroCestasAbaco.properties`** (cierre 3: la plantilla lo confirma y §6.4 deduce que sin fichero nocturno queda un `.txt` vacío que entra en el ciclo intradía): un fallo en el paso `Cortar` no detiene la ejecución de los 2 pasos `MoverFichero` siguientes (ver sección 6.3); el job termina en KO real al final (`ESTADO-1-`), pero podría haber movido/renombrado ficheros parcialmente antes de fallar. No hay evidencia de que esto haya ocurrido en producción; se documenta como riesgo teórico de diseño del `.properties`, no como incidente confirmado.
@@ -506,3 +552,5 @@ Referencia de casos por tipo (`tipo` en `cesion_cestas_abaco_casos_prueba.xml`):
 ## 10. Conclusión y requisitos de cierre
 
 La especificación se cierra con evidencia real verificada — código fuente completo de `RAMERC0068.sh`, `MEGENV0001.sh` y `cortarFicheroCestasAbaco.properties`, 35+9 capturas reales de Control-M, fichas EX-005-03, ficha funcional del fichero — para la totalidad de la mecánica técnica de ambas cadenas (incluido el enlace entre ellas, GAP-BASK-003, resuelto con el `.properties` real) y las reglas de negocio de datos (clave, duplicidad, validación de `WEIGHT`, enum de `STATUS`). Quedan abiertas las preguntas P-ABACO-01 a P-ABACO-07 de la sección 4 (query de origen, hora real del fichero, efecto de la regla «7 → OK», origen de los ad-hoc, IDX de `MEKYTL0855`, sustitución de `@@ENV@@` y comportamiento de ABACO). Quedan registrados formalmente **RISK-BASK-001** y **DEF-BASK-001**, que no impiden ejecutar la matriz de pruebas pero sí deben revisarse antes de dar por completamente validado el comportamiento en producción.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.5): P-ABACO-01 queda resuelta (`BASKETS_TO_ABACO.sql` tiene 11 columnas y dos ramas, con un segundo `SELECT` sin filtro `ISS_TYP='BASKETS'`) y P-ABACO-04 queda resuelta (los ficheros ad-hoc los genera `Create_File_Abaco` desde `Sub_PublishChanges` y `Load_Baskets_Mx3`, con cabecera con `;` final y filas que también terminan en `;`). Siguen abiertos la hora del nocturno, las reglas de Control-M, la línea IDX de `MEKYTL0855` y el JCL `TEBDJCES`.

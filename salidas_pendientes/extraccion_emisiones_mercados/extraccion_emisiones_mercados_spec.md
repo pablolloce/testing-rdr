@@ -27,6 +27,8 @@
 > propio documento, incluyendo un defecto de comportamiento real (envío de correo con asunto/adjunto incorrectos)
 > y un riesgo de duplicidad de datos sin protección en código.
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: `DictionaryMarkets.sql` (H-EMI-03), las nueve consultas `emisiones_RE*.sql`, los eventos `SendMailReport` y `RDR_SelectivePublish` y la versión de `SelectivePublish`; §6.9.
+
 ## 1. Resumen ejecutivo
 
 Sistema de 7 cadenas Control-M (folder base `KYTL0000-RDR_*`, servidor `MERCADOS-4`, aplicación `KYTL`) que
@@ -459,9 +461,9 @@ lógica interna del Workflow `RDR_SelectivePublish` (Cadena 7) está descrita en
 | Id | Pregunta | Por qué importa |
 |---|---|---|
 | P-EMI-01 | Días reales de ejecución de las cadenas 3 y 6 en Control-M: se documenta "Avanzado (1,2,3,4,0)" para ambas, y para las cadenas 2 y 4 se da (1,2,3,4,5) con lecturas funcionales distintas (L-V frente a M-S). ¿Qué día de la semana es cada número? | El Planificador solo genera `dictionaryMarkets.csv` de martes a sábado; si la cadena 6 corre en un día sin extracción, espera 60 minutos en vano (y queda en verde) |
-| P-EMI-02 | ¿Qué extracción de emisiones (y a qué fichero) ejecuta `planifGenerico` en las cadenas 2 y 3 (09:25 y 14:25-18:40)? No hay ninguna de emisiones en el inventario de extracciones activas | Sin esto no se puede especificar el resultado de dos de las siete cadenas |
-| P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores **Resuelta en parte (cierre 3, 02/10/2026):** la plantilla trae `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` (argumentos del jar, fichero de salida, log; §6.8); sigue sin recibirse el jar, es decir, la consulta, la diferencia real entre `ALL` y `RESTO` y su comportamiento ante errores. | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
-| P-EMI-04 | Columnas y consumidores de `dictionaryMarkets.csv` (y línea `IDX` de `RAMERC0068.sh` para `MEKYTL0857`: ¿mueve o copia el fichero?) | Define el contenido a validar y quién se ve afectado si no se genera |
+| P-EMI-02 | ¿Qué extracción de emisiones (y a qué fichero) ejecuta `planifGenerico` en las cadenas 2 y 3 (09:25 y 14:25-18:40)? No hay ninguna de emisiones en el inventario de extracciones activas **Cierre 4 (03/10/2026):** en develop hay nueve consultas de extracción de emisiones (`emisiones_RE*.sql`, §6.9.B) que segmentan vigentes y vencidas, pero no consta qué fila de `FT_T_ATE1` las usa en las cadenas 2 y 3. | Sin esto no se puede especificar el resultado de dos de las siete cadenas |
+| P-EMI-03 | Código de `ExtraccionGenericaEMISI.jar` (productor de `emisiones.xml`/`emisiones.resto.xml`, clase `Ppal`) y qué hace ante errores **Resuelta en parte (cierre 3, 02/10/2026):** la plantilla trae `ExtraccionGenericaEMISI_ALL.properties` y `_RESTO.properties` (argumentos del jar, fichero de salida, log; §6.8); sigue sin recibirse el jar, es decir, la consulta, la diferencia real entre `ALL` y `RESTO` y su comportamiento ante errores. **Cierre 4 (03/10/2026):** `emisiones_RE.sql` (modo `ALL`) y `emisiones_RE_resto.sql` (modo `RESTO`) tienen la forma de la consulta que produce `emisiones.xml` y `emisiones.resto.xml` (§6.9.B); la asociación con el jar es una deducción, no consta en el repositorio. | Es la fuente de los ficheros contados por la cadena 1; sin código no se conoce su comportamiento ante fallos |
+| P-EMI-04 | Columnas y consumidores de `dictionaryMarkets.csv` (y línea `IDX` de `RAMERC0068.sh` para `MEKYTL0857`: ¿mueve o copia el fichero?) **Cierre 4 (03/10/2026):** `DictionaryMarkets.sql` está en develop: columnas `MIC`, `MUREX_ID`, `BBEXCH`, `CORP_ID` (§6.9.A). Sigue sin constar la línea IDX de `MEKYTL0857`. | Define el contenido a validar y quién se ve afectado si no se genera |
 | P-EMI-05 | Nombre real del backup de RE: `emisiones_ddmmyyyy.xml.tar.gz` (ficha de `MEKYTL0536`) frente a `emisiones_DDMMYYYY.xml.gz` (lo que busca `Cuenta_Emisiones.sh`) | Si difieren, el conteo RE del informe diario sale siempre a 0 sin error |
 | P-EMI-06 | Código y comportamiento de `ProcesoFusion.jar`, `RDR_Emisiones_PLSQL.jar`, `RDR_CrearIndices_Emisiones.jar` y `RDR_Borrado_Emisiones.jar`, y del workflow `RDR_SelectivePublish` **Cierre 3 (02/10/2026):** la plantilla aporta los `.properties` literales de los cuatro jars (argumentos, librerías, logs; §6.8); siguen sin recibirse los jars ni los procedimientos PL/SQL. | **Resuelta en parte (cierre 2, 02/10/2026).** El workflow `RDR_SelectivePublish` (evento -> `SelectivePublish` v13) está analizado en §6.7: qué lee, qué publica y dónde. **Siguen abiertos** los cuatro jars, de los que no hay código. Hoy los jars son cajas negras: no se sabe qué tablas tocan ni qué dejan al fallar |
 
@@ -477,10 +479,22 @@ Procedencia: según la plantilla de despliegue (repositorio `estaticos`, rama `d
 | H-EMI-11 | Resuelta en parte | `EnvioReporteEmisiones.properties.<env>` de la plantilla (§6.8.A). Falta verificar en producción el fichero instalado, los destinatarios reales (direcciones no incluidas) y qué workflow arranca el evento `SendMailReport` |
 | P-EMI-03 | Resuelta en parte | `.properties` de `ExtraccionGenericaEMISI` (§6.8.F); falta el jar |
 | P-EMI-06 | Resuelta en parte | `.properties` de los jars de las cadenas 4 y 5; faltan los jars |
-| P-EMI-04, H-EMI-03 | Abierta | La plantilla no trae `DictionaryMarkets.sql` (su carpeta `sql/` no la contiene) ni el layout de `dictionaryMarkets.csv`; solo un `publish/dictionaryMarkets.xml` que es otra cosa (§6.8.G) |
+| P-EMI-04, H-EMI-03 | Abierta **Cierre 4 (03/10/2026):** H-EMI-03 resuelta: `DictionaryMarkets.sql` leído (§6.9.A); P-EMI-04 sigue abierta solo en la línea IDX y los consumidores. | La plantilla no trae `DictionaryMarkets.sql` (su carpeta `sql/` no la contiene) ni el layout de `dictionaryMarkets.csv`; solo un `publish/dictionaryMarkets.xml` que es otra cosa (§6.8.G) |
 | H-EMI-04 | Abierta | Los procedimientos `HIST_INACTIVADOR_EMISIONES` e `INCR_HISTORIFICACION_EMISIONES` no están en la plantilla |
 | H-EMI-07 | Abierta | `raiseEvent.sh` no está en la plantilla (solo `BBGexecuteBbvaEvent.sh`, que lo invoca) |
 | P-EMI-01, P-EMI-02, P-EMI-05, H-EMI-01, H-EMI-02 | Abierta | Dependen de Control-M, de las filas `FT_T_ATE1`/`FT_T_QPF1` o del IDX de `RAMERC0068.sh`; la plantilla no aporta nada |
+
+### 4.4 Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| H-EMI-03 | Resuelta | `DictionaryMarkets.sql` leído entero (§6.9.A) |
+| P-EMI-04 | Resuelta en parte | Columnas del CSV deducidas de la consulta (`MIC`, `MUREX_ID`, `BBEXCH`, `CORP_ID`); falta la línea IDX de `MEKYTL0857` y los consumidores |
+| P-EMI-02 | Resuelta en parte | Nueve consultas de emisiones (§6.9.B); falta la fila de `FT_T_ATE1`/`FT_T_QPF1` que las asocia a las cadenas 2 y 3 |
+| P-EMI-03 | Resuelta en parte | Consultas `emisiones_RE.sql`/`emisiones_RE_resto.sql` como candidatas de los modos `ALL`/`RESTO`; falta el jar |
+| H-EMI-11 | Resuelta en parte | Confirmado en develop que `SendMailReport` arranca `Mail`; falta el `.properties` instalado y los destinatarios |
+| P-EMI-06 | Resuelta en parte | `SelectivePublish` v12 en develop (§6.9.C); siguen sin los cuatro jars y los procedimientos PL/SQL |
+| H-EMI-04, H-EMI-07, P-EMI-01, P-EMI-05, H-EMI-01, H-EMI-02 | Abierta | Procedimientos, `raiseEvent.sh`, nombres de día y datos de Control-M: no están en el repositorio de objetos |
 
 ## 5. Especificación funcional
 
@@ -740,6 +754,44 @@ El primer argumento (1 o 2) y el del directorio `Historificacion/` no tienen sig
 - `unionEmisiones.sh` (35 líneas, sin consumidor en la plantilla): recibe 8 rutas (la quinta es el destino), hace copia de seguridad en `Backup/` de las otras siete, les quita la declaración y las etiquetas `Securities`, las concatena en la primera y la mueve a la quinta ruta; es de la etapa de los cuatro ficheros de RE.
 - `Load_Issues_Warrants.sh` y `Load_Issues_Warrants_Java.sh`: cargan warrants desde `/fichtemcomp/<env>/descargas/kytl/issues/warrants/` (el segundo convierte antes los `.xlsx` de `received/` a `.csv` con `es.bbva.kytl.rdr_me_wa.convertir2` de `RDR_ME_Load_Warrants.jar` y llama al primero); por cada `.csv` ejecutan el evento `Load_Issues_Warrants`, lo copian a `backup/` si el evento termina con 0 y lo borran; máximo 21 iteraciones. `publish_issueRV.sh` lanza el evento `ME_CIB_IssuesRV` poniendo `Date=<mm/dd/aaaa>` (hoy, o el tercer argumento) en `ME_CIB_IssuesRV.properties` (`fileDirectory=/fichtemcomp/<env>/descargas/kytl/issues/`). `load_issuRV.sh` lanza dos eventos, cuyos nombres son sus dos primeros argumentos, tras sustituir `$ENV` en sus `.properties`. `StandardFileLoadIssuesRV.properties` carga `DESCARGA_RIMS.DAT` (feed `ME_CIB-IssuesRV`, tipo `issuesRV`, bloque 1, una rama) y `StandardFileLoadIssuesRVWarrants.properties` carga `WARRANTS.DAT` (tipo `issuesRVWarrants`). `RDR_IssuesRTCE.properties` define directorios `issues/` y `issues/backup` y una lista de columnas especiales de fecha. Ninguno de ellos escribe los ficheros `Issues_RV_*.xml` que cuenta la Cadena 1; la relación con la fuente RIMS no está demostrada.
 
+### 6.9 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos exportados del repositorio de objetos de GoldenSource, rama `develop` (`scriptsSQL`, eventos y workflows). Es `develop`: puede diferir de lo instalado.
+
+#### 6.9.A `DictionaryMarkets.sql` (H-EMI-03) y layout de `dictionaryMarkets.csv`
+
+La consulta que ejecuta el Planificador Genérico (fila `ACT1_OID` `02F1D8B76`) está en el repositorio. Es un `SELECT DISTINCT` sobre los identificadores de mercado activos de contexto `MIC` (`FT_T_MKID`, `DATA_STAT_TYP='ACTIVE'`, `END_TMS IS NULL`) con cuatro columnas, en este orden:
+
+| Columna | Origen |
+|---|---|
+| `MIC` | `FT_T_MKID.MKT_ID` del propio mercado (contexto `MIC`) |
+| `MUREX_ID` | `FT_T_MTGR.GRP_NME` del grupo padre del mercado: se toma el primer grupo activo del mercado en `FT_T_MTGP` (`rownum=1`), se sube a su grupo padre (`PRNT_MKT_GRP_OID`) y se lee el nombre en `FT_T_MTGR` solo si el grupo es de origen `MUREX`, activo y sin fecha fin; es nulo si el mercado no cuelga de un grupo `MUREX` |
+| `BBEXCH` | `FT_T_MKID.MKT_ID` del mismo mercado con contexto `BBEXCH` (sin filtro de estado ni de fecha fin) |
+| `CORP_ID` | `FT_T_MKID.MKT_ID` del mismo mercado con contexto `CORP_ID`, activo y sin fecha fin |
+
+La consulta no lleva parámetros ni paginación; el orden de filas es el del `DISTINCT` (no determinista). Dos efectos a tener en cuenta en las pruebas: si un mercado tiene más de un identificador `BBEXCH` o `CORP_ID` activo, la subconsulta devuelve más de una fila y la ejecución falla con error de Oracle (`ORA-01427`), y `BBEXCH` puede devolver un identificador inactivo porque no filtra el estado. El separador, la cabecera y el nombre de fichero los fija la fila de `FT_T_ATE1`, que no está en el repositorio (`/fichtemcomp/pr/descargas/kytl/markets/dictionaryMarkets.csv`, martes a sábado 02:00, según §1.5).
+
+#### 6.9.B Consultas de extracción de emisiones (`scriptsSQL/emisiones*.sql`)
+
+Hay nueve consultas que generan el XML `<Security>` de emisiones (elementos `ID`, `Typ`, `Name`, `LstChngTm`, `Instrmt` con `Src`, `ID`, `Sym`, `Status`, `Desc`, `StrkMult`, `Issued`, `Rgstry`, `IssCtry`, `ToTV`, `FrstTradDt`, `MtrtyDt`... y el identificador fiscal del emisor), todas de la misma forma (`XMLELEMENT ... .getClobVal() xmlResult`, con los marcadores `:paginacionResultado`, `:paginacionFinal` y `:paginacionInicio` para paginar) y que solo difieren en el filtro de `FT_T_ISSU` (`DATA_STAT_TYP='ACTIVE'` en todas):
+
+| Fichero | Filtro |
+|---|---|
+| `emisiones_RE.sql` | `ISS_TYP` en `COMMON`, `EQINDEX`, `ETF`, `FUND`, `FUTURES`, `OPTIONS`, `RECEIPTS`, `RIGHTS`, `WARRANTS`, `UNIT`, `REALESTA`; sin filtro de vencimiento |
+| `emisiones_RE_resto.sql` | los mismos tipos sin `FUTURES` ni `OPTIONS` y con `PFD` |
+| `emisiones_RE_no.venc.fut.sql` | `FUTURES` con `MAT_EXP_TMS` nulo o posterior a hoy |
+| `emisiones_RE_no_venc.opc.sql` | `OPTIONS` con `MAT_EXP_TMS` nulo o posterior a hoy |
+| `emisiones_RE_no_venc.opc1.sql` ... `opc4.sql` | `OPTIONS` por tramos de vencimiento: hasta 50 días, de 50 a 200, de 200 a 400, y más de 400 días o sin fecha |
+| `emisiones_RE_venc.futyopc.sql` | `FUTURES` y `OPTIONS` con `MAT_EXP_TMS` anterior a hoy |
+
+La forma coincide con los modos `ALL` y `RESTO` de `ExtraccionGenericaEMISI` (`emisiones.xml` y `emisiones.resto.xml`, §6.8.F) y con la separación vigentes/vencidas de las cadenas 2 y 3, pero el repositorio no contiene ninguna fila de `FT_T_ATE1`/`FT_T_QPF1` ni el jar que los una; es una deducción y no se da por cerrada (P-EMI-02, P-EMI-03). Otras dos consultas del directorio son de otra naturaleza: `emisiones.sql` (conteo de emisiones con identificador `RIC`, elementos `Emision/Issue/Issuer/Seniority/Date`) y `ExtraccionEMISI_opcfutresto.sql`/`ExtraccionEMISI_resto.sql` (solo `INSTR_ID` de emisiones activas con `ISS_ALPH_SRCH_TXT` informado, con y sin `FUTURES`/`OPTIONS`).
+
+#### 6.9.C Eventos y workflows de las cadenas 1 y 7 en develop
+
+- **`SendMailReport` (H-EMI-11):** el evento genérico `SendMailReport` arranca el workflow `Mail`, igual que en el volcado: confirma que el correo de la cadena 1 depende de los parámetros del `.properties` y no del workflow `SendMailReport`.
+- **`RDR_SelectivePublish` (cadena 7):** el evento arranca el workflow `SelectivePublish`, que en develop es la versión 12 (`RDR_PublicacionSelectivaEmisiones_v3`, 41 nodos; el volcado tenía la 13). Mantiene la lectura de las marcas `SELPUSH` de `FT_T_RLT1` (`RLT_DIF_ACC='SELPUSH'`), el filtro `IS_PUBLISH`, la consulta con nombre `RDR_ME_PushSecuritiesByIds` y el cierre de las marcas con `UPDATE FT_T_RLT1 SET LAST_CHG_USR_ID='SELPUSH', RLT_DIF_STAT='OK' WHERE GS_VALUE=? AND GS_FIELD=? AND DATA_SRC_APP=? AND RLT_DIF_ACC='SELPUSH' AND RLT_DIF_STAT='PENDING'`.
+- **`RDR_AllDictionaryPaginatedMarket`:** la consulta con nombre de la carga inicial masiva `DictionaryMarkets` (§6.8.G) existe en develop; no es la consulta del CSV de la cadena 6.
+
 ## 7. Especificación de testing
 
 **Estrategia:** un caso por cada escenario documentado en el propio documento fuente (sección "Datos de Entrada
@@ -818,3 +870,5 @@ especificación.
 **Pasada de cierre 2 (02/10/2026).** Con el volcado de la BD de workflows de GoldenSource: el workflow de la Cadena 7 queda descrito (§6.7) y el correo de la Cadena 1 pasa a ser un hueco abierto, porque el evento `SendMailReport` arranca el workflow `Mail` y no el que se había analizado (H-EMI-11). Siguen abiertos P-EMI-01 a P-EMI-05, los cuatro jars de P-EMI-06 y los puntos que dependen de Control-M, `.properties` y scripts de producción.
 
 **Pasada de cierre 3 (02/10/2026).** Con la plantilla de despliegue (repositorio `estaticos`, rama `develop`, base anterior a la migración a Java 17): se leen entero `Cuenta_Emisiones.sh` y `RDR_Procesar_Emisiones.sh`, los `.properties` de las cadenas 1, 2/3, 4, 5 y 7 (H-EMI-05, H-EMI-06 y H-EMI-08 cerrados), la extracción/transformación de emisiones y sus dos ficheros de esquema, y se corrige la detección de errores de la Cadena 5 (RISK-EMIS-002). DEF-EMIS-001 no se da según la plantilla (H-EMI-11, en parte). Siguen abiertos los jars, los procedimientos PL/SQL, `DictionaryMarkets.sql`, `raiseEvent.sh`, el IDX y todo lo que depende de Control-M.
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de GoldenSource de la rama `develop` (§6.9): H-EMI-03 queda resuelta (`DictionaryMarkets.sql` y las cuatro columnas de `dictionaryMarkets.csv`, con dos riesgos de la consulta); se documentan las nueve consultas de extracción de emisiones como candidatas de P-EMI-02 y P-EMI-03; y se confirma en develop que `SendMailReport` arranca `Mail` y que `SelectivePublish` es la versión 12. Siguen abiertos la línea IDX de `MEKYTL0857`, la fila de `FT_T_ATE1`, los jars, los procedimientos PL/SQL y Control-M.

@@ -316,7 +316,7 @@
       <precondicion>FicheroUnificado.txt inexistente al empezar.</precondicion>
     </precondiciones>
     <datosEmpleados>
-      <dato campo="Baskets_to_ABACO_a.txt" valor="línea 1: BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME; (con punto y coma final) y una fila de datos"/>
+      <dato campo="Baskets_to_ABACO_a.txt" valor="línea 1: BASKET_CODE;BASKET_STATUS;TYPE;MRKT_BASKET;COUNTRY;COD_CODIGO20;COMPONENT;COMPONENT_STATUS;WEIGHT;COMPONENT_TYPE;FULL_NAME; (con punto y coma final) y una fila de datos que también termina en punto y coma (así los genera el workflow Create_File_Abaco de GoldenSource, develop)"/>
       <dato campo="Baskets_to_ABACO_b.txt" valor="misma cabecera con punto y coma final y una fila de datos"/>
       <dato campo="Baskets_to_ABACO_Extr_Generica_Nocturna.txt" valor="mismo contenido tras un recorte de las columnas 1-11 con cut, es decir, sin punto y coma final en ninguna línea"/>
     </datosEmpleados>

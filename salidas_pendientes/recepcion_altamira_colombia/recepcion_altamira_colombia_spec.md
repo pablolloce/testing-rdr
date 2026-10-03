@@ -16,6 +16,8 @@
 >   `salidas_pendientes/comun_gestion_alertas/comun_gestion_alertas_spec.md` y
 >   `salidas_pendientes/comun_ramerc0068/comun_ramerc0068_spec.md`.
 
+> Pasada de cierre 4 (03/10/2026): repositorio de objetos de GoldenSource, rama `develop`: scripts de `AlertasEnvio` (ficheros de cuerpo y adjuntos, entorno, orden de validaciones), `AlertasEnvioExcepciones` v30 y el lanzador `AlertasCocinado`; §6.10. No hay objetos de la conciliación en sí.
+
 ## 1. Resumen ejecutivo
 
 `RDR_ALTAMIRA_COLOMBIA_RECEIVE` (folder `KYTL0000-RDR_ALTAMIRA_COLOMBIA_RECEIVE`, aplicación KYTL,
@@ -101,7 +103,7 @@ puerto 22, alias `svrtantiapr.co.igrupobbva`.
 | P-RAC-05 | **Resuelta en parte (cierre 3):** el nombre que necesita el Java en `receive/` es `CONCILIAYYYYMMDD.TXT` con la fecha de ayer (plantilla; §6.9); sigue sin saberse con qué nombre llega el fichero desde Colombia ni qué renombrado hace `MEKYTL1091`. ¿Con qué nombre exacto queda el fichero en `receive/`: `CONCILIA_*.txt` (ficha del job 1), `CONCILIAAAAAMMDD.TXT` (ficha del job 2) u otro? | El file watcher busca `CONCILIA*.TXT` (mayúsculas) y el histórico `CONCILIA_*.txt`; en Unix son distintos |
 | P-RAC-06 | La cadena corre de martes a viernes y el Java procesa el fichero "de ayer": ¿cuándo se procesa el fichero que corresponde al viernes? | Puede que ese fichero no se procese nunca |
 | P-RAC-07 | ¿En qué codificación cifra Colombia el contenido? | El descifrado lo interpreta como UTF-8 y la lectura posterior como ISO-8859-1: un carácter no ASCII (Ñ, tildes) desplaza los campos (§6.4) |
-| P-RAC-08 | **Resuelta en parte (cierre 3):** el código de proceso del Cocinado es `AltamiraColombiaConciliacion` y la cadena no incluye el Barrido (§6.9); siguen sin verse `PCK_CON_ALT_COL.PR_MAIN`, `SHIVAToken`, los destinatarios y el informe. ¿Se puede obtener `PCK_CON_ALT_COL.PR_MAIN`, la clase `SHIVAToken` y el `.properties` de alertas (código de proceso en `FT_T_REP1`/`FT_T_ALR1`, destinatarios, informe)? | Determinan el efecto real en base de datos, el comportamiento de SHIVA ante errores y quién recibe las alertas |
+| P-RAC-08 | **Resuelta en parte (cierre 3):** el código de proceso del Cocinado es `AltamiraColombiaConciliacion` y la cadena no incluye el Barrido (§6.9); siguen sin verse `PCK_CON_ALT_COL.PR_MAIN`, `SHIVAToken`, los destinatarios y el informe. ¿Se puede obtener `PCK_CON_ALT_COL.PR_MAIN`, la clase `SHIVAToken` y el `.properties` de alertas (código de proceso en `FT_T_REP1`/`FT_T_ALR1`, destinatarios, informe)? **Cierre 4 (03/10/2026):** el workflow `AlertasCocinado` de develop confirma que el argumento 3 del Cocinado es el código de proceso (§6.10.C). Siguen sin verse `PCK_CON_ALT_COL.PR_MAIN` y `SHIVAToken`. | Determinan el efecto real en base de datos, el comportamiento de SHIVA ante errores y quién recibe las alertas |
 | P-RAC-09 | ¿Es intencionado que el fichero descifrado `_DES.TXT` (en claro) se quede en `receive/` y pase al histórico? | Riesgo de seguridad: datos personales sin cifrar en disco |
 | P-RAC-10 | ¿Qué hace `ConDB` (`ConexionBD.jar`) si no puede conectar? | El Java no captura esa excepción: decide si el job acaba en error |
 
@@ -111,9 +113,18 @@ puerto 22, alias `svrtantiapr.co.igrupobbva`.
 |----|--------|-------------------------------|
 | H-RAC-09 | Resuelta en parte | El argumento 5 del Java es el identificador del entorno, no un fichero de datos de SHIVA (§6.9); siguen sin verse la URL base y las credenciales de SHIVA |
 | H-RAC-10 | Resuelta | `log4jAltamiraColombiaConciliacion.properties` de la plantilla (§6.9 y spec `envio_altamira_colombia` §6.7) |
-| H-RAC-13 | Resuelta en parte | Sin cambios respecto a la 2ª pasada; el código de proceso (`AltamiraColombiaConciliacion`) ya es conocido, falta la fila de `FT_T_REP1` y `DocumentGenerator` |
-| H-RAC-14 | Resuelta en parte | `GestionAlertas.properties`, la estructura de `ServerMailConfig.xml` (hosts y remitentes enmascarados) y el paso de Cocinado de este proceso están en la plantilla (§6.9); falta la fila de `FT_T_REP1` y la configuración de destinatarios |
+| H-RAC-13 | Resuelta en parte | Sin cambios respecto a la 2ª pasada; el código de proceso (`AltamiraColombiaConciliacion`) ya es conocido, falta la fila de `FT_T_REP1` y `DocumentGenerator` **Cierre 4:** de `AlertasEnvio` se conocen ya los nombres de fichero que espera según el tipo de envío (`BODY_<SHORT_PROCESS>.txt` y el adjunto; §6.10.A). Siguen faltando la fila de `FT_T_REP1` y `DocumentGenerator`. |
+| H-RAC-14 | Resuelta en parte | `GestionAlertas.properties`, la estructura de `ServerMailConfig.xml` (hosts y remitentes enmascarados) y el paso de Cocinado de este proceso están en la plantilla (§6.9); falta la fila de `FT_T_REP1` y la configuración de destinatarios **Cierre 4:** scripts de `AlertasEnvio` leídos (§6.10.A) y `AlertasEnvioExcepciones` v30 confirmada sin rama propia (§6.10.B). Siguen faltando la fila de `FT_T_REP1`, los destinatarios y `ServerMailConfig.xml` real. |
 | H-RAC-06, H-RAC-07, H-RAC-08, H-RAC-11, H-RAC-12, H-RAC-15, H-RAC-16 | Sin cambios | La plantilla no contiene PL/SQL, jars, módulos, `RAMERC0068.sh` ni el export de Control-M |
+
+### 4.3 Cierre 4 (03/10/2026): estado de los huecos con el repositorio de objetos de GoldenSource (rama develop)
+
+| Id | Estado | Qué aporta el repositorio develop / qué falta |
+|---|---|---|
+| P-RAC-08 | Resuelta en parte | Se confirma que el argumento 3 del Cocinado es el código de proceso (§6.10.C). Faltan `PCK_CON_ALT_COL.PR_MAIN`, `SHIVAToken` y los destinatarios |
+| H-RAC-13 | Resuelta en parte | Nombres de fichero de cuerpo y adjunto que espera `AlertasEnvio` (§6.10.A). Faltan la fila de `FT_T_REP1` y `DocumentGenerator` |
+| H-RAC-14 | Resuelta en parte | Scripts de `AlertasEnvio` y `AlertasEnvioExcepciones` v30 leídos (§6.10.A-B). Faltan la fila de `FT_T_REP1`, los destinatarios y `ServerMailConfig.xml` real |
+| P-RAC-01..07, P-RAC-10, H-RAC-06..09, H-RAC-11, H-RAC-12, H-RAC-15, H-RAC-16 | Sin cambios | El repositorio de objetos no contiene la conciliación (`ColombiaConciliacion`, PL/SQL, jars), IDX, módulos `.mod` ni Control-M |
 
 ## 5. Especificación funcional
 
@@ -451,6 +462,40 @@ fichero; 7 error al mover (disco lleno, permisos). Log `/pr/pl/log/MEKYTL1046_<H
 
 **Lo que la plantilla no contiene.** `PCK_CON_ALT_COL.PR_MAIN` (está en la base de datos), `XMASToken-0.0.1.jar` (`SHIVAToken`), `RDR_ConciliaColombia.jar`, `ConexionBD.jar`, `RDR_AlertasCocinado.jar` ni `DocumentGenerator`, los `.idx` de `MEKYTL1091`, la línea `MEKYTL1046` del IDX, `RAMERC0068.sh`, los módulos `.mod` ni el export de Control-M: P-RAC-02 a P-RAC-04, P-RAC-06, P-RAC-07, P-RAC-10, H-RAC-06 a H-RAC-08, H-RAC-11, H-RAC-12, H-RAC-15 y H-RAC-16 siguen igual.
 
+### 6.10 Cierre 4 (03/10/2026): objetos de GoldenSource (rama develop)
+
+**Procedencia.** Según los objetos `AlertasEnvio` (v7), `AlertasEnvioExcepciones` (v30), `Mail` (v6) y `AlertasCocinado` (v1) del repositorio de objetos de GoldenSource, rama `develop`. Es `develop`: puede diferir de lo instalado. Esta subsección completa la §6.7, cuyo volcado no mostraba los scripts de los nodos de tipo de envío.
+
+#### 6.10.A `AlertasEnvio`: lo que hace con los scripts a la vista
+
+1. **Entorno.** Si el evento `RDR_AlertasEnvio` no trae `Entorno`, el workflow lo deduce mirando qué directorio `/<env>/kytl/online/multipais/multicanal/cfg/entorno/` existe, por este orden: `pr`, `pp`, `ei`, `de`. Un entorno vacío invalida el informe (no se envía nada).
+2. **Informes pendientes:** `SELECT PROCESO FROM FT_T_REP1 WHERE DATA_STAT_TYP='ACTIVE' AND SEND_PEND='Y'`. Para cada uno, **antes de validar nada**, `UPDATE FT_T_REP1 SET SEND_PEND='N'`; después lee `RUTA` (no puede estar vacía) y `SHORT_PROCESS`. Si `SHORT_PROCESS` contiene `YYYYMMDD`, se sustituye por la fecha **de hoy** (`yyyyMMdd`) en el momento del envío; la `$ENV` de `RUTA` se sustituye por el entorno.
+3. **Destinatarios:** direcciones activas de `FT_T_ALM1` (con `MEDIO_ENVIO='EMAIL'` para los tipos de envío) enlazadas por `FT_T_ALR1` y `FT_T_ALU1` activos al proceso, agrupadas por dirección. Por cada dirección y tipo de envío se aplica la periodicidad: días desde `LAST_SEND_TMS` (nulo se trata como 01/01/1970) frente a 1, 7 o 30 días, o siempre para `ENVIOTOTAL`; una periodicidad no definida descarta el envío.
+4. **Fichero que se busca** (en `RUTA`, nombre exacto y sensible a mayúsculas, sin recursión; si el directorio no existe, no hay correo):
+
+| Tipo de envío | Cuerpo | Adjunto |
+|---|---|---|
+| `CUERPO` | `CUERPO_<SHORT_PROCESS>.txt`, leído línea a línea como cuerpo (con `\r\n`); no se adjunta | ninguno |
+| `DAT` | `BODY_<SHORT_PROCESS>.txt` | `<SHORT_PROCESS>.dat` |
+| `EXCEL` | `BODY_<SHORT_PROCESS>.txt` | `<SHORT_PROCESS>.xlsx` o `<SHORT_PROCESS>.xlsm` (si existen ambos, el que el listado devuelva el último) |
+| `TXT` | `BODY_<SHORT_PROCESS>.txt` | `<SHORT_PROCESS>.txt` |
+| `WORD` | `BODY_<SHORT_PROCESS>.txt` | `<SHORT_PROCESS>.docx` |
+
+5. **El correo solo sale si existe el fichero de cuerpo.** En los tipos `DAT`, `EXCEL`, `TXT` y `WORD` la marca de envío (`enviar='S'`) solo se activa cuando se lee `BODY_<SHORT_PROCESS>.txt`: un adjunto sin fichero de cuerpo no se envía; un cuerpo sin adjunto sí sale (el subworkflow `Mail` adjunta solo si el fichero existe, §6.7). Una excepción al leer el cuerpo deja `enviar='N'` sin otro aviso que el log.
+6. **Orden real de las etapas por destinatario y tipo:** periodicidad por fecha, búsqueda del fichero, composición del asunto (`[RDR Reportes] - <PROCESO>`), llamada a `AlertasEnvioExcepciones`, periodicidad `_PARCIAL` (cuerpo con `No existen datos a enviar`), `Validate MAIL`, envío con `Mail`, `UPDATE FT_T_ALR1 SET LAST_SEND_TMS=SYSDATE` y log `Correo enviado`. El script de `Validate MAIL` referencia en un log la variable `mailOK`, que no está definida ni mapeada en ese nodo; no se ha probado si BeanShell la tolera o lanza un error de evaluación en ese punto (misma duda que H-ALE-09 de la spec común de Gestión de alertas).
+7. **Asunto de este proceso.** `<PROCESO>` es el valor de `FT_T_REP1.PROCESO` de la fila. Como el Cocinado de este proceso selecciona sus informes con `AltamiraColombiaConciliacion` (§6.9), lo esperable es que el asunto sea `[RDR Reportes] - AltamiraColombiaConciliacion`; es una inferencia hasta ver la fila de `FT_T_REP1`.
+8. **Sin informe nuevo no hay aviso:** si el Cocinado no dejó `SEND_PEND='Y'` (por ejemplo, sin mensajes del tipo que genera ficheros), `AlertasEnvio` no recorre este proceso y no envía nada, sin ningún error visible en el job.
+
+#### 6.10.B `AlertasEnvioExcepciones` v30 (develop)
+
+La versión de develop (v30) conserva el conmutador con las tres ramas ya conocidas (`BATCH_REFINITIV_EMISORES`, `CARGA_BASKETS_SPONSORS` y `REGU_PDTE_LEI_EMISIONES`) y la rama `DEFAULT` sin acciones. Ninguna menciona Colombia ni la conciliación de Altamira: este proceso sigue cayendo en `DEFAULT` (asunto y cuerpo de `AlertasEnvio`, sin texto propio). Se confirma la afirmación de §6.7 con una versión posterior a la del volcado (v12).
+
+#### 6.10.C `AlertasCocinado` y consultas `rep1/`
+
+- El workflow `AlertasCocinado` (v1, grupo `Bash`) es el lanzador por workflow del jar `RDR_AlertasCocinado.jar`: clase `main.Ppal`, `ServicioJava` `GestionAlertas_cocinado`, `ConexionBD.jar` como paquete y librerías `ojdbc`, `log4j`, `commons-*` y `poi-*`; sus argumentos son: 1 = nivel de log (`2`), 2 = fichero `log4jAlertasCocinado.properties` y 3 = **código de proceso** (en el workflow, `ALERT_IP_SSI`). Esto confirma, con otra fuente, que el argumento 3 de la acción 2 de `ExtraccionAltamiraReceive.properties` (`AltamiraColombiaConciliacion`) es el código de proceso de `FT_T_REP1`. Este proceso **no usa ese workflow**: su Cocinado va como segunda acción de `GSProcess.sh ExtraccionAltamiraReceive` (§6.3 y §6.9).
+- Tras el Java, el workflow lanza el evento `RDR_AlertasEnvio` y no comprueba el resultado, igual que la cadena de este proceso.
+- Las diez consultas de `rep1/` de develop no incluyen la de `AltamiraColombiaConciliacion`; la de `CTMAA_COLOMBIA` es de la asignación automática de CTM y no está relacionada (§6.9). La fila de `FT_T_REP1` (consulta `QUERY`, `SHORT_PROCESS`, `RUTA`, plantilla Excel) de este proceso sigue sin verse.
+
 ## 7. Especificación de testing
 
 Matriz `recepcion_altamira_colombia_casos_prueba.xml` (16 casos):
@@ -520,3 +565,5 @@ reproceso por `backup/` lleno (el Java no reprocesa el fichero antiguo).
 Requisitos de cierre pendientes: P-RAC-01 a P-RAC-05 (configuración y nombres no recibidos), P-RAC-06
 (fichero del viernes), P-RAC-07 (codificación), P-RAC-08 a P-RAC-10 (código no recibido y decisión de
 seguridad).
+
+**Pasada de cierre 4 (03/10/2026).** Con los objetos de la rama `develop` de GoldenSource (§6.10): se leen los scripts de `AlertasEnvio` (tabla de ficheros de cuerpo y adjunto por tipo de envío; solo sale correo si existe `BODY_<SHORT_PROCESS>.txt`; `SEND_PEND` se apaga antes de validar), se confirma con v30 que `AlertasEnvioExcepciones` no tiene rama propia y se confirma que el argumento 3 del Cocinado es el código de proceso. Ningún hueco bloqueante se cierra: faltan la fila de `FT_T_REP1`, `DocumentGenerator`, el PL/SQL y los jars.
